@@ -1,0 +1,22 @@
+# Godot 4+ specific ignores
+.godot/
+.nomedia
+
+# Godot-specific ignores
+.import/
+.editorconfig
+export.cfg
+export_credentials.cfg
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+# Parallel-session worktrees belong in ../Claudeguise-team/worktrees/, not here.
+# This line exists so that following the older habit cannot commit a worktree
+# as a gitlink. See .claude/ENGINEER.md.
+.claude/worktrees/
