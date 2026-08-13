@@ -64,6 +64,18 @@ func test_preset_plan_actions_resolve() -> void:
 					assert_not_null(Registry.get_action(action_id), "%s plan %s uses unknown action %s" % [id, plan.id, action_id])
 
 
+## Every action a player can actually see (starting_actions of a real class)
+## has a real description -- pike's inspect screen shows "(no description
+## yet)" for anything empty, and an empty description is a defect per
+## ActionDef's own doc comment, not a default.
+func test_every_playable_classs_action_has_a_description() -> void:
+	for id in EXPECTED_CLASS_IDS:
+		var c := Registry.get_class_def(id)
+		for action_id in c.starting_actions:
+			var action := Registry.get_action(action_id)
+			assert_false(action.description.is_empty(), "%s (used by %s) has no description" % [action_id, id])
+
+
 ## Issue 14a: walks every real preset plan (from PresetPlans, not a hand-typed
 ## list) and proves PlanInterpreter never orders a shot it already knows will
 ## miss. Each plan runs in isolation (on a pawn carrying only that one plan)
