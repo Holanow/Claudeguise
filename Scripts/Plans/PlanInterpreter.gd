@@ -123,7 +123,6 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
 
-
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
 ## action the unit cannot actually pay for right now -- not enough resource,
 ## or still on cooldown -- must not commit CombatSim to refusing it and

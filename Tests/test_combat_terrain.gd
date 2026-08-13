@@ -202,3 +202,74 @@ func test_determinism_holds_with_terrain_in_play() -> void:
 		var eb: CombatEvent = b.events[i]
 		assert_eq(ea.kind, eb.kind)
 		assert_eq(ea.amount, eb.amount)
+
+# ---------------------------------------------------------------------------
+# issue 30: a unit creeping toward a target beyond a wall corner
+# ---------------------------------------------------------------------------
+
+## The bug, reproduced and measured before the fix: with one axis fully
+## blocked by the wall, the axis slide used to move by the diagonal step's
+## shrinking *component* on the open axis rather than a full step, so
+## progress decayed tick over tick without ever quite reaching zero -- an
+## asymptote a fixed tick budget cannot tell from frozen. Fixed by giving
+## each axis its own full move_speed step (capped to what remains on that
+## axis alone) rather than a fraction of the diagonal's.
+func test_a_unit_reaches_a_target_beyond_a_wall_corner() -> void:
+	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(0, -200), Vector2(20, 250)))
+	var state := CombatState.new(65)
+	state.terrain.append(wall)
+	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2(-100, -80), [])
+	unit.move_speed = 8.0
+	unit.radius = 22.0
+	state.units.append(unit)
+	state.units.append(_dummy_enemy(1))
+
+	var deps := _idle_deps()
+	var target := Vector2(100, 80) # beyond the wall's bottom corner at y=50
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.move_to(target)
+
+	var reached := false
+	for i in 100:
+		CombatSim.step(state, deps)
+		if unit.position.distance_to(target) < 5.0:
+			reached = true
+			break
+
+	assert_true(reached, "a unit told to reach a target beyond a wall corner must arrive, not creep forever; final position %s" % unit.position)
+
+## The other half of criterion 1: a target with genuinely no way around (both
+## axes blocked, not just one shrinking toward zero) must stop honestly
+## rather than creep. Distinguishes "fixed the decay" from "made everything
+## always arrive regardless of whether it should."
+func test_a_unit_with_no_route_stops_rather_than_creeps() -> void:
+	# Three walls forming a box open only away from the target, so neither
+	# axis nor the diagonal ever makes progress toward it.
+	var state := CombatState.new(66)
+	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -60), Vector2(20, 10)))) # top
+	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, 50), Vector2(20, 10)))) # bottom
+	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -50), Vector2(10, 100)))) # right-facing wall between unit and target
+	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2(-50, 0), [])
+	unit.move_speed = 8.0
+	unit.radius = 5.0
+	state.units.append(unit)
+	state.units.append(_dummy_enemy(1))
+
+	var deps := _idle_deps()
+	var target := Vector2(50, 0)
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.move_to(target)
+
+	for i in 100:
+		CombatSim.step(state, deps)
+
+	assert_true(unit.position.distance_to(target) > 5.0, "a genuinely boxed-in unit must not have reached an unreachable target")
+	# The honest-stop half: position settles rather than still moving by a
+	# shrinking, never-quite-zero amount every tick.
+	var before := unit.position
+	CombatSim.step(state, deps)
+	assert_eq(unit.position, before, "a fully boxed-in unit must stop, not keep creeping by a diminishing amount")
+
+## Criterion 3: the existing straight-on and lateral-slide behaviour (issue
+## 13a's own tests) is covered by test_a_unit_routes_around_a_wall_when_a_lateral_path_exists
+## and test_finding_a_unit_approaching_a_wall_head_on_can_get_stuck above --
+## both still pass unchanged, which is the assertion that this fix does not
+## trade one movement bug for another.

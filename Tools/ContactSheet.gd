@@ -83,7 +83,13 @@ func _ready() -> void:
 func _party(ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in ids:
-		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
+		# `cls.display_name`, the same source PartySelect uses, not `String(cid)`.
+		# Passing the class id put "siege_master" on screen beside "Ghoul" in a
+		# sheet meant to show what the game looks like -- a defect this tool
+		# introduced and then displayed as though the game had it.
+		out.append(PawnFactory.make_starter_pawn(
+			cid, StringName("%s_%d" % [cid, out.size()]), Registry.get_class_def(cid).display_name
+		))
 	return out
 
 func _process(_delta: float) -> void:

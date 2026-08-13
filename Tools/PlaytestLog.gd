@@ -38,7 +38,8 @@ func _init() -> void:
 	var party_ids := class_ids.slice(0, mini(4, class_ids.size()))
 	var party: Array[PawnData] = []
 	for cid in party_ids:
-		party.append(PawnFactory.make_starter_pawn(cid, StringName("%s" % cid), String(cid)))
+		# `cls.display_name`, matching PartySelect. See the note in ContactSheet.
+		party.append(PawnFactory.make_starter_pawn(cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
 
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)

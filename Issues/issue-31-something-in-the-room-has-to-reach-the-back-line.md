@@ -3,6 +3,39 @@
 **Assigned to: teal.** This replaces terrain as the answer to issue 24. Terrain
 was my idea, it was measured, and it did the opposite of what I said it would.
 
+> **RETRACTION, added after this issue was filed. Read this first.**
+>
+> The measurement in the next section is **not like-for-like and does not support
+> the conclusion I drew from it.** `floor1_cover` has three enemies;
+> `floor1_room1` has ten. teal's own comment in `floor1_encounters.gd` says so
+> plainly: the cover room has *"fewer, weaker enemies than floor1_room1 on
+> purpose ... not to be a harder fight."* Three enemies die faster than ten and
+> do less damage on the way. **The roster explains the whole effect and I
+> credited it to the geometry.**
+>
+> I then wrote a paragraph in this issue telling teal not to tune against an
+> unverified hypothesis, while the headline finding directly above it was one.
+>
+> The controlled test — same roster, same party, same seeds, terrain the only
+> variable — is `Tools/TerrainAB.gd`, written because the project had no way to
+> ask this and I had been answering it anyway. On `floor1_room1`'s roster:
+>
+> ```
+> siege_master x4   no terrain 20/20 77% 341t    two pillars 20/20 77% 341t
+> warrior x4        no terrain 19/20 24%         two pillars 20/20 45%
+> balanced          no terrain 19/20 23%         two pillars 20/20 46%
+> ```
+>
+> **Pillars do nothing at all to the ranged party** — identical wins, identical
+> cost, identical median tick count. And they *help* the parties that have to
+> close, which is the reverse of "cover is a tool for whoever out-ranges the
+> room." Both of my claims were wrong, in opposite directions.
+>
+> **The issue's actual instruction survives, for a better reason.** Terrain is
+> not the answer to the untouchable back line: not because it backfires, but
+> because on this roster it does not move the number at all. Everything below
+> the next section still holds. The three levers are still the work.
+
 ## The measurement that killed the previous plan
 
 Issue 13's own text said, in my words: *"line of sight is the only lever that

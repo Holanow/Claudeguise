@@ -33,27 +33,51 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
 ## What to try first
 
 1. **`siege_master`, `geysermancer`, `priest`, `warrior`.** The balanced party.
-   It wins about 17 times in 20 and finishes on roughly a quarter of its health.
-   It has never once, in twenty seeds, ended a fight with all four alive.
-2. **Four `siege_master`.** It wins every time and barely gets touched. **This is
-   a known flaw, not a discovery** — see below — and it is worth seeing precisely
-   because it is the one thing in the game that is still wrong.
-3. **Four `abomination`.** A coin flip. This morning it lost every single fight,
-   because a Rage pawn that could not afford its finisher stood still instead of
-   using its free attack, and so never landed the hits that generate Rage.
-4. **The same party twice on one seed**, then change one class and keep the seed.
+   It wins 19 times in 20 and finishes on 23% of its health. It has never once,
+   in twenty seeds, ended a fight with all four alive, and it loses somebody in
+   19 of them.
+2. **Four `siege_master`.** It wins every time and takes very little back: 77%
+   health, four alive in 17 of 20. **This is a known flaw, not a discovery** —
+   see below — and it is worth seeing precisely because it is the one thing in
+   the game that is still wrong.
+3. **Four `abomination`.** A genuine coin flip, 6 wins in 20, and the wins cost
+   it 91% of its health. It lost every single fight earlier tonight, because a
+   Rage pawn that could not afford its finisher stood still instead of using its
+   free attack, and so never landed the hits that generate Rage.
+4. **Four `priest` or four `geysermancer`**, if you want to see the floor. They
+   win 1 and 0 of 20. A party can be built badly and the room will say so.
+5. **The same party twice on one seed**, then change one class and keep the seed.
 
 ## What is honestly not right yet
 
-- **Four `siege_master` wins for free.** Every enemy in the room reaches 40, 45
-  or 200 units; `siege_shot` reaches 260. Six of ten enemies never get close
-  enough to swing. Total enemy damage in that fight: 17, against 114 hp per pawn.
-  A party that out-ranges the whole room is not fighting it. Issue 24.
+- **A party that out-ranges the room does not have to fight it.** Every enemy in
+  `floor1_room1` reaches 40, 45 or 200 units; `siege_shot` reaches 260. Six of
+  ten enemies never get close enough to swing at four `siege_master`. This is
+  much better than it was — the room did 17 damage to that party earlier tonight
+  and now takes it to 77% — but a fight nobody in the room can reach is still
+  the weakest thing in the slice. Issues 24 and 31.
+
+  **Terrain was my answer to this and it is not the answer**, which took two
+  wrong turns to establish and is the most useful thing measured all night. I
+  was sure a wall would deny the long shot. Then I compared the cover room
+  against the plain one and concluded the opposite, that cover *helps* whoever
+  out-ranges the room. Both readings were wrong: the two rooms have ten enemies
+  and three, so I was comparing different fights and blaming the walls.
+
+  Held properly still, same enemies and same party with only the terrain
+  changing, pillars do **nothing at all** to four `siege_master` — the same 20
+  wins, the same 77% health, the same 341-tick median — and they *help* the
+  parties that have to walk in. So the back line is untouchable with or without
+  cover, and issue 31 goes after the bestiary instead: something fast, something
+  that reaches, or something that starts already close.
+- **A room with a wall across it currently does not resolve.** Four ranged units
+  will stand still and fire into that wall until the clock runs out. Issue 34,
+  and it is the reason `floor1_chokepoint` is built but not in the game yet.
 - **The floor is not a difficulty curve.** Rooms carry damage forward correctly,
-  but every room draws the same encounter, so difficulty only changes how many
-  enemies rather than which fight. Issue 27, in progress.
-- **The combat log can hide units** fighting in the bottom third of the arena.
-  pike is on it right now.
+  but room type does not yet pick an encounter, so difficulty changes how many
+  enemies rather than which fight. Issue 27.
+- **The arena is smaller than it should be.** The combat log no longer hides
+  units, but it costs about a third of the screen to do it. Issue 29.
 - **Portrait phone layout is cramped.** Landscape is the target and is fine.
 - **No plan editor, no items, no loot, no shops, no floors beyond room one.**
   All deliberate, all listed in `Issues/NEXT-after-the-slice.md`, all gated shut

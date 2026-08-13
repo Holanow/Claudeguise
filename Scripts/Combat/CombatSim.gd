@@ -221,10 +221,23 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) 
 		return
 
 	# The direct step made no progress at all (blocked immediately, not just
-	# short of the full distance). Try sliding along one axis of the
-	# intended step instead of freezing.
-	var slide_x := _sweep(state, unit, Vector2(step.x, 0.0))
-	var slide_y := _sweep(state, unit, Vector2(0.0, step.y))
+	# short of the full distance). Try sliding along one axis instead of
+	# freezing.
+	#
+	# Issue 30: this used to slide with Vector2(step.x, 0.0) / Vector2(0.0,
+	# step.y) -- the x/y *component* of the diagonal step, not a full step on
+	# that axis. Near a corner where one axis is fully blocked, the unit's
+	# remaining distance is dominated by the blocked axis, so the angle to
+	# the target keeps flattening as the open axis closes in -- and the open
+	# axis's component of a fixed-length diagonal shrinks with that angle.
+	# The result was a real, measured, unit ever more slowly and never
+	# hitting zero within any fixed number of ticks: an asymptote a 3600-tick
+	# fight cap can't tell from frozen. Each axis now gets its own full
+	# move_speed (capped at how far it actually has left to go on that axis
+	# alone), so slide progress no longer depends on the angle of a step it
+	# isn't taking.
+	var slide_x := _sweep(state, unit, Vector2(_axis_step(to_dest.x, unit.move_speed), 0.0))
+	var slide_y := _sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, unit.move_speed)))
 	var moved_x := slide_x != unit.position
 	var moved_y := slide_y != unit.position
 
@@ -235,6 +248,12 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) 
 	elif moved_y:
 		unit.position = slide_y
 	# else: fully blocked in every direction this tick. Stay put.
+
+## A single axis's full step: move_speed toward `remaining`, capped so it
+## does not overshoot the destination on that axis alone. Zero if there is
+## nothing left to close on this axis.
+static func _axis_step(remaining: float, move_speed: float) -> float:
+	return clampf(remaining, -move_speed, move_speed)
 
 ## Walks `step` in small increments and returns the furthest point actually
 ## reached before hitting something solid -- `unit.position` unchanged if

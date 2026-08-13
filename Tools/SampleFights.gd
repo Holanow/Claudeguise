@@ -83,6 +83,7 @@ func _sample(party_ids: Array, encounter) -> void:
 	var survivors: Array[int] = []
 	var margins: Array[int] = []
 	var party_hp: Array[int] = []
+	var win_survivors: Array[int] = []
 
 	for s in SEEDS:
 		var party: Array[PawnData] = []
@@ -97,7 +98,11 @@ func _sample(party_ids: Array, encounter) -> void:
 		ticks.append(state.tick)
 		survivors.append(state.living(CG.Team.PLAYER).size())
 		margins.append(_losing_side_hp_percent(state, outcome))
-		party_hp.append(_team_hp_percent(state, CG.Team.PLAYER))
+		# Cost is recorded for won fights only. See the comment on the cost line
+		# below for why the all-fights version of this was actively misleading.
+		if outcome == CombatState.Outcome.PLAYER_WIN:
+			party_hp.append(_team_hp_percent(state, CG.Team.PLAYER))
+			win_survivors.append(state.living(CG.Team.PLAYER).size())
 
 	print("")
 	print("party: ", _short(party_ids))
@@ -135,9 +140,20 @@ func _sample(party_ids: Array, encounter) -> void:
 	# So a high win rate is not the failure. A high win rate that costs nothing
 	# is. Win count alone cannot tell those apart and it is what we had been
 	# steering by all evening.
-	print("  cost       party finished on median %d%% of its own hp%s" % [
-		_median(party_hp), _cost_note(wins, _median(party_hp), _median(survivors)),
-	])
+	#
+	# Measured over WON fights only, which the first version of this did not do.
+	# A median across all twenty is dominated by the losses, where the party
+	# finishes on 0% by definition — so `priest x4`, which won one fight in
+	# twenty, was printing "COSTLY WIN: this is the shape we want" beside a row
+	# that is simply a party losing. The label describes what winning costs, so
+	# it has to be computed from the fights that were won.
+	if wins == 0:
+		print("  cost       no wins to measure")
+	else:
+		print("  cost       party finished its %d win%s on median %d%% of its own hp%s" % [
+			wins, "" if wins == 1 else "s",
+			_median(party_hp), _cost_note(_median(party_hp), _median(win_survivors)),
+		])
 
 func _short(ids: Array) -> String:
 	var parts := PackedStringArray()
@@ -225,9 +241,7 @@ func _team_hp_percent(state, team: int) -> int:
 ## The verdict line. A fight is fine when winning costs the winner something,
 ## whatever the win rate is; it is a problem when a party wins without being
 ## touched, and a different problem when the party is simply losing.
-func _cost_note(wins: int, party_hp: int, survivors: int) -> String:
-	if wins == 0:
-		return ""
+func _cost_note(party_hp: int, survivors: int) -> String:
 	if party_hp >= 85 and survivors >= 4:
 		return "   <- UNTOUCHED: winning costs nothing"
 	if party_hp <= 40 or survivors <= 2:
