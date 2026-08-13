@@ -9,6 +9,7 @@ const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
+const Plan := preload("res://Scripts/Core/Plan.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
@@ -227,11 +228,20 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	var encounter := Registry.get_encounter(&"floor1_room1")
 	var state := CombatSim.build(party, encounter, 1)
 	# Both start together; let the fight run long enough for the Warrior's
-	# taunt to land (cast + travel time) and an enemy to commit to a target.
-	for i in 200:
+	# taunt to land (cast + travel time) and an enemy to commit to a target,
+	# but not so long that a two-pawn party alone against a full room's worth
+	# of enemies runs past the Warrior's own survival time -- issue 30's
+	# survivability pass (CON 9->14) measurably extended that, and past it
+	# the Warrior's death stops registering it as a living candidate for any
+	# enemy re-deciding afterward, which tests a different thing (what
+	# happens once the tank is gone) than what this test is checking (does
+	# taunt redirect while both are alive). 100 ticks was checked directly:
+	# Warrior alive at 163/246 hp, no false failure from this effect.
+	for i in 100:
 		CombatSim.step(state)
 	var warrior_unit := state.unit(0)
-	assert_true(warrior_unit.has_status(CG.Status.TAUNTING), "expected the Warrior to have cast its default taunt plan within 200 ticks")
+	assert_true(warrior_unit.alive, "expected the Warrior to still be alive at 100 ticks")
+	assert_true(warrior_unit.has_status(CG.Status.TAUNTING), "expected the Warrior to have cast its default taunt plan within 100 ticks")
 	var enemies_focused_on_warrior := 0
 	var enemies_focused_on_geysermancer := 0
 	for u in state.units:
@@ -249,3 +259,40 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	# The real claim is that taunt clearly wins the room, not that it wins
 	# every single enemy regardless of distance.
 	assert_true(enemies_focused_on_warrior > enemies_focused_on_geysermancer, "a taunting Warrior in range should pull most of the room off the Geysermancer, got %d on the Warrior vs %d still on the Geysermancer" % [enemies_focused_on_warrior, enemies_focused_on_geysermancer])
+
+
+## Issue 30, second pass: a taunting Warrior that dies inside its own taunt
+## window is a worse tank than one that never taunted (rook's framing).
+## `no_abomination`'s own boss fight measured the Warrior dying to The
+## Warden at tick 203 of a 240-tick taunt, both before and after several
+## CON values up to 35 -- proof CON alone does not fix that specific comp,
+## reported in the PR rather than a claim this test could cheaply stand in
+## for (a single pawn vs a real boss is a different, larger scenario). What
+## this test checks instead, cheaply and directly: warrior_guard's own
+## trigger. Raised 0.35->0.65 so a Warrior takes real proactive cover after
+## one meaningful hit rather than needing to already be almost dead --
+## checked against the exact number rather than trusting the comment above
+## the constant to stay true.
+func test_warrior_guards_proactively_not_only_when_nearly_dead() -> void:
+	var warrior := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
+	var plans := PresetPlans.for_class(&"warrior")
+	var guard_plan: Plan = null
+	for p in plans:
+		if p.id == &"warrior_guard_when_hurt":
+			guard_plan = p
+	assert_not_null(guard_plan, "expected warrior to still ship a guard-when-hurt plan")
+	assert_not_null(guard_plan.condition, "expected warrior_guard_when_hurt to carry a trigger condition")
+	assert_eq(guard_plan.condition.op, &"self_hp_below_fraction")
+	var fraction := float(guard_plan.condition.args.get("fraction", 0.0))
+	assert_true(fraction >= 0.5, "guard should trigger well before critical, got a %.0f%% threshold" % (fraction * 100.0))
+
+
+## Real numbers, not just a shape check: CON 9->14 measurably raised
+## warrior_strike's own damage_reduction, which is the other half of
+## issue 30's survivability pass alongside the guard threshold above.
+func test_warrior_con_gives_real_extra_damage_reduction() -> void:
+	var warrior := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
+	var unit := CombatUnit.new()
+	unit.pawn = warrior
+	var reduction := Balance.damage_reduction(unit)
+	assert_true(reduction >= 0.14, "expected at least 14%% natural reduction from CON 14, got %.0f%%" % (reduction * 100.0))
