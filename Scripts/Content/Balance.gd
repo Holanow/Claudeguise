@@ -3,6 +3,8 @@ extends RefCounted
 const CG := preload("res://Scripts/Core/CG.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Every tuning number in the game and every formula that turns attributes into
 ## the values the simulation uses.
@@ -135,18 +137,43 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 		return base
 	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
 
-## Fraction of incoming damage removed, from armor and statuses. The simulation
-## applies this; it does not decide it.
+## Issue 12: how much extra damage a MARKED unit takes. Subtracted from
+## reduction rather than added as a separate multiplier, so a heavily
+## armoured target reads as "the mark burned through some of that armour"
+## and a bare one reads as "already exposed, now more so" -- one number,
+## one mental model. Large enough on an enemy with 0.0 base reduction
+## (every enemy but The Warden) to be the whole point of bringing a
+## Spotter: measurably increases damage taken is issue 12's own criterion 4.
+const MARKED_VULNERABILITY_BONUS := 0.25
+
+## Fraction of incoming damage removed, from armor, natural toughness and
+## statuses. The simulation applies this; it does not decide it.
+##
+## Issue 12: previously returned 0.0 outright for any unit without a
+## `pawn` -- every enemy in the game -- because `SimDeps` read
+## `EnemyDef.damage_reduction` directly instead of calling this at all.
+## That meant MARKED, applied to an enemy, could never do anything: the
+## status lives on `CombatUnit`, which enemies have, but the number it
+## should adjust was never read through the function that checks statuses.
+## Enemies now flow through here too, so the one place a status changes
+## incoming damage is really the only place, for both sides of a fight --
+## same reasoning as `attribute()` centralising equipment for issue 39.
 static func damage_reduction(unit: CombatUnit) -> float:
-	if unit.pawn == null:
-		return 0.0
-	var reduction := clampf(attribute(unit.pawn, CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
-	if unit.pawn.armor != null:
-		reduction += unit.pawn.armor.damage_reduction
+	var reduction := 0.0
+	if unit.pawn != null:
+		reduction = clampf(attribute(unit.pawn, CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
+		if unit.pawn.armor != null:
+			reduction += unit.pawn.armor.damage_reduction
+	else:
+		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+		if enemy_def != null:
+			reduction = enemy_def.damage_reduction
 	if unit.has_status(CG.Status.SHIELD):
 		reduction += STATUS_SHIELD_REDUCTION
 	if unit.has_status(CG.Status.BLOCK):
 		reduction += STATUS_BLOCK_REDUCTION
+	if unit.has_status(CG.Status.MARKED):
+		reduction -= MARKED_VULNERABILITY_BONUS
 	return clampf(reduction, 0.0, MAX_DAMAGE_REDUCTION)
 
 ## How many blocks a pawn's plans may total, from WIS per README.md.

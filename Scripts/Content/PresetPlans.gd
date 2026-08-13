@@ -73,14 +73,21 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"self_resource_at_least", {"amount": 40}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
 			]
+		## Issue 12: rebuilt for spotter/engineer. Build first: Mana starts
+		## full (50 for this class's spread) and the action costs 40, so
+		## `self_resource_at_least: 45` fires it once near the start of a
+		## fight and then blocks a repeat until Mana has regenerated most of
+		## the way back -- the resource economy is the gate, same reasoning
+		## as the action's own comment. spotter_mark is the fallback for
+		## every tick that condition does not hold, at its own action range.
 		&"siege_master":
 			return [
-				_plan(&"siege_barrage_when_grouped", "Barrage",
-					_condition(&"enemy_in_range", {"range": 240.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"siege_barrage")]),
-				_plan(&"siege_shot_default", "Take the shot",
-					_condition(&"enemy_in_range", {"range": 260.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"siege_shot")]),
+				_plan(&"siege_master_build_when_ready", "Build the engine",
+					_condition(&"self_resource_at_least", {"amount": 25}),
+					[_targeting(&"target_self"), _action_block(&"build_siege_engine")]),
+				_plan(&"siege_master_mark_default", "Mark the target",
+					_condition(&"enemy_in_range", {"range": 220.0}),
+					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
 			]
 		&"abomination":
 			return [

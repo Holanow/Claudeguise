@@ -19,12 +19,18 @@ const Balance := preload("res://Scripts/Content/Balance.gd")
 ## between the floor model and the real simulation -- a fake encounter would
 ## not test that seam.
 
+## Issue 12: swapped Siege Master -> Abomination. This file tests the floor/
+## room seam, not any one class's balance, so the fixture does not need to be
+## siege_master specifically -- and on this branch it currently cannot win a
+## boss room reliably (build_siege_engine's summon does nothing until wren's
+## mid-fight unit spawning lands), which was failing tests below that have
+## nothing to do with the Siege Master's own rebuild.
 func _make_party() -> Array[PawnData]:
 	return [
 		PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior"),
 		PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest"),
 		PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "Geysermancer"),
-		PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master"),
+		PawnFactory.make_starter_pawn(&"abomination", &"abomination", "Abomination"),
 	]
 
 func _single_room_plan(seed: int, difficulty: int) -> FloorPlan:

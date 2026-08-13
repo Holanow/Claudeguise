@@ -6,6 +6,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Balance formulas, tested against hand-built PawnData so this file needs
 ## nothing from CombatSim or Registry to run.
@@ -79,6 +80,43 @@ func test_damage_reduction_adds_shield_and_block_statuses() -> void:
 	var with_both := Balance.damage_reduction(u)
 	assert_true(with_both > with_shield, "BLOCK must stack more reduction")
 	assert_true(with_both <= Balance.MAX_DAMAGE_REDUCTION)
+
+
+## Issue 12: MARKED is the Spotter's whole mechanical effect -- a marked
+## target must measurably take more damage (criterion 4), which for
+## damage_reduction means less of it, or the mark does nothing.
+func test_marked_status_lowers_damage_reduction() -> void:
+	var u := CombatUnit.new()
+	u.pawn = _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.CON: 20})
+	var base := Balance.damage_reduction(u)
+	u.statuses[CG.Status.MARKED] = 999
+	var marked := Balance.damage_reduction(u)
+	assert_true(marked < base, "MARKED must lower damage reduction, so a marked unit takes more damage")
+
+
+## Issue 12: previously `damage_reduction()` returned 0.0 outright for any
+## unit with no `pawn` -- every enemy -- because `SimDeps` read
+## `EnemyDef.damage_reduction` directly and never called this function for
+## one. MARKED lives on `CombatUnit` and applies to enemies far more often
+## than to a pawn, so an enemy must actually flow through here now.
+func test_enemy_units_read_their_own_damage_reduction_through_balance() -> void:
+	var u := CombatUnit.new()
+	u.enemy_id = &"the_warden"
+	var warden := Registry.get_enemy(&"the_warden")
+	assert_not_null(warden, "expected the_warden to be registered")
+	assert_almost_eq(Balance.damage_reduction(u), warden.damage_reduction)
+
+
+## The same enemy, marked, must take more damage than its own unmarked
+## baseline -- not just "less than some pawn's," which the two tests above
+## could each pass in isolation without this ever being true together.
+func test_a_marked_enemy_takes_more_damage_than_the_same_enemy_unmarked() -> void:
+	var u := CombatUnit.new()
+	u.enemy_id = &"the_warden"
+	var base := Balance.damage_reduction(u)
+	u.statuses[CG.Status.MARKED] = 999
+	var marked := Balance.damage_reduction(u)
+	assert_true(marked < base, "a marked the_warden must have lower damage reduction than an unmarked the_warden")
 
 
 func test_plan_block_budget_tracks_wis() -> void:
