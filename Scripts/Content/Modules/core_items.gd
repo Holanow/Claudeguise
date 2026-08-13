@@ -43,18 +43,24 @@ static func encounters() -> Array[Encounter]:
 static func items() -> Array[EquipmentDef]:
 	return [
 		# --- Weapons: Str/Int/Dex percent, per README's advanced tier -----
+		# Issue 40: allowed_methods set on every weapon -- this is the exact
+		# "caster in plate"-shaped mismatch the field exists for, a Warrior
+		# with an Orb or a Priest with a Sword. Armor and accessories are
+		# gated by role/damage-type per README, which this field does not
+		# reach (rook's own scope note), so they stay unrestricted.
+		#
 		# Melee + Martial. warrior.
-		_weapon(&"sword", "Sword", "A balanced blade. Hits harder the stronger its wielder already is.", {CG.Attribute.STR: 0.15}),
+		_weapon(&"sword", "Sword", "A balanced blade. Hits harder the stronger its wielder already is.", {CG.Attribute.STR: 0.15}, [CG.Method.MARTIAL]),
 		# Melee + Summoner. siege_master's own class is Ranged/Summoner in
 		# practice (siege_shot, siege_barrage are both ranged), but README
 		# gates Wrench on Melee+Summoner tags specifically; kept as the
 		# closest base type to the class's Martial+Summoner combination
 		# rather than inventing a sixth weapon type for one class.
-		_weapon(&"wrench", "Wrench", "Built for leverage, not speed. Favours raw reach over finesse.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}),
+		_weapon(&"wrench", "Wrench", "Built for leverage, not speed. Favours raw reach over finesse.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}, [CG.Method.MARTIAL]),
 		# Melee + Magical. abomination.
-		_weapon(&"sickle", "Sickle", "Curved to follow through. Channels a caster's own force rather than steel.", {CG.Attribute.INT: 0.15}),
+		_weapon(&"sickle", "Sickle", "Curved to follow through. Channels a caster's own force rather than steel.", {CG.Attribute.INT: 0.15}, [CG.Method.MAGICAL]),
 		# Ranged + Magical. priest, geysermancer.
-		_weapon(&"orb", "Orb", "A focus rather than a weapon. Amplifies whatever the caster already knows.", {CG.Attribute.INT: 0.18}),
+		_weapon(&"orb", "Orb", "A focus rather than a weapon. Amplifies whatever the caster already knows.", {CG.Attribute.INT: 0.18}, [CG.Method.MAGICAL]),
 
 		# --- Armor: flat, occasional CON percent, per README -------------
 		# Tank.
@@ -80,13 +86,14 @@ static func items() -> Array[EquipmentDef]:
 		_accessory(&"piece_of_nothing", "Piece of Nothing", "Weighs nothing, resists description. Amplifies whatever is already there.", {CG.Attribute.AGI: 0.08, CG.Attribute.ATN: 0.08, CG.Attribute.INT: 0.08}),
 	]
 
-static func _weapon(id: StringName, display_name: String, description: String, attribute_percent: Dictionary) -> EquipmentDef:
+static func _weapon(id: StringName, display_name: String, description: String, attribute_percent: Dictionary, allowed_methods: Array[CG.Method] = []) -> EquipmentDef:
 	var e := EquipmentDef.new()
 	e.id = id
 	e.display_name = display_name
 	e.description = description
 	e.slot = EquipmentDef.Slot.WEAPON
 	e.attribute_percent = attribute_percent
+	e.allowed_methods = allowed_methods
 	return e
 
 static func _armor(id: StringName, display_name: String, description: String, attribute_flat: Dictionary, attribute_percent: Dictionary, damage_reduction: float) -> EquipmentDef:
