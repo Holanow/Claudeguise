@@ -109,8 +109,37 @@ func test_availability_is_stated_on_screen() -> void:
 	assert_true(text.to_lower().contains("available"), text)
 	panel.free()
 
-## Plans show in priority order, by the plan's own real display_name (not
-## invented UI wording) until issue 21a's describe_op lands.
+## Issue 21a's describe_op is real now: a plan reads as a full sentence, not
+## just its own display_name, and a raw op id must never reach the screen.
+func test_plan_line_reads_as_a_full_sentence_via_describe_op() -> void:
+	var pawn := _make_pawn()
+	var plan := _make_plan("Guard when hurt")
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_hp_below_fraction"
+	condition.args = {"fraction": 0.35}
+	plan.condition = condition
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_self"
+	var action := PlanBlock.new()
+	action.kind = PlanBlock.Kind.ACTION
+	action.op = &"use_action"
+	action.args = {"action_id": &"test_swing"}
+	plan.blocks = [targeting, action]
+	pawn.plans = [plan]
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var text := _all_label_text(panel._detail_box)
+	assert_true(text.contains("Guard when hurt"), text)
+	assert_true(text.contains("self hp below 35%"), text)
+	assert_true(text.contains("self"), text)
+	assert_false(text.contains("self_hp_below_fraction"), "a raw op id must never reach the screen: " + text)
+	panel.free()
+
+## Plans show in priority order, by the plan's own real display_name.
 func test_plans_list_in_priority_order() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Guard when hurt"), _make_plan("Execute when raging")]
@@ -124,6 +153,7 @@ func test_plans_list_in_priority_order() -> void:
 	assert_true(guard_at < execute_at, "priority order not preserved: " + text)
 	panel.free()
 
+## use_action blocks with no matching plan block are what "unused" means here.
 func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	var pawn := _make_pawn()
 	pawn.pawn_class.starting_actions = [&"test_swing", &"test_unused"]
