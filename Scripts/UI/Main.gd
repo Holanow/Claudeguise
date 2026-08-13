@@ -12,6 +12,7 @@ const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 const SCENE_PARTY_SELECT := "res://Scenes/PartySelect.tscn"
 const SCENE_BATTLE := "res://Scenes/Battle.tscn"
 const SCENE_FLOOR_MAP := "res://Scenes/FloorMap.tscn"
+const SCENE_LEVEL_EDITOR := "res://Scenes/LevelEditor.tscn"
 
 var run_config: RunConfig = null
 var _current: Node = null
@@ -27,8 +28,18 @@ func show_party_select() -> void:
 	_swap_to(SCENE_PARTY_SELECT, func(screen):
 		screen.battle_requested.connect(start_battle)
 		screen.run_requested.connect(start_run)
+		screen.level_editor_requested.connect(show_level_editor)
 		if run_config != null:
 			screen.prefill_seed(run_config.seed_text())
+	)
+
+## Issue 19: the level editor is its own screen (not an overlay like
+## InspectPanel) because testing a room opens a real BattleView inside it —
+## an overlay-on-an-overlay was more state to keep straight than a screen
+## swap, and "Back" already means "return to party select" everywhere else.
+func show_level_editor() -> void:
+	_swap_to(SCENE_LEVEL_EDITOR, func(screen):
+		screen.back_requested.connect(show_party_select)
 	)
 
 func start_battle(config: RunConfig) -> void:

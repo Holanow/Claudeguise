@@ -423,8 +423,16 @@ static func compute_layout(size: Vector2) -> Dictionary:
 	}
 
 func begin(cfg: RunConfig) -> void:
+	begin_with_encounter(cfg, Registry.get_encounter(cfg.encounter_id))
+
+## Issue 19: the level editor needs to test-fight a room that has never been
+## registered — it exists only as an in-memory `Encounter` the player is still
+## placing enemies and terrain into, with nothing to hand `Registry` and no
+## `encounter_id` naming it yet. Split out of `begin()` so that path skips the
+## `Registry` lookup entirely rather than requiring one: `cfg.encounter_id` is
+## simply not read here. `begin()` is unchanged for every existing caller.
+func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	config = cfg
-	var encounter = Registry.get_encounter(cfg.encounter_id)
 	state = CombatSim.build(cfg.party, encounter, cfg.seed)
 	event_cursor = 0
 	_tick_accumulator = 0.0
