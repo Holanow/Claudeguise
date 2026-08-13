@@ -47,3 +47,37 @@ vanishing.
    is worth more than a screenshot of a feature.
 4. **The additions stay quieter than the units**, in a busy fight and in a
    near-empty one, as issue 6 criterion 4.
+
+---
+
+## Added after rendering a real fight
+
+`Tools/preview/fight_sheet.png` on the trunk is six frames of one real fight
+through your screen. Three things it shows that were not visible before, all
+yours, all in `Scripts/UI/`:
+
+**The combat log runs off the bottom of the screen.** In frames 2 and 3 the last
+lines are cut by the viewport edge, and the newest line — the one that matters —
+is the one being lost. It also overlays the lower-left of the arena, so a unit
+standing there is behind text.
+
+**Names truncate.** "geysermance" in every frame. Either shorten the display
+name at the source, shrink the label, or let it wrap; a name that silently loses
+its last characters looks like a data bug.
+
+**Labels collide when units bunch up.** "abomination" and "Grunt" overlap in
+frame 2. Units clump in the middle of a fight, which is exactly when reading who
+is who matters most.
+
+These join criterion 3 rather than replacing it: fix them, then show a fight to
+wren or teal and ask them what happened.
+
+## How to see it yourself
+
+```
+godot --path . --resolution 1280x720 res://Tools/ContactSheet.tscn
+```
+
+`Tools/ContactSheet.gd` is mine and drives your screen unmodified. If it draws
+something that misrepresents what a player sees, that is a bug in my tool and I
+want to hear about it.
