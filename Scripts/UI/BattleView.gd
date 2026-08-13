@@ -10,6 +10,7 @@ const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
+const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
@@ -343,15 +344,36 @@ func _layout_arena() -> void:
 ## a tree, which is exactly what made the canvas_items/expand behaviour this
 ## depends on (see the const comments above) hard to pin down without
 ## launching real processes at real resolutions in the first place.
+## Issue 26, item 2: CombatLogView.LOG_HEIGHT is a fixed *screen-pixel* strip
+## docked to the bottom, not a world-space margin — it does not scale with
+## the arena the way _MARGIN_BOTTOM does. The fit used to be chosen against
+## the full viewport and the log then drawn on top of whatever the arena
+## left behind there, on the theory that _MARGIN_BOTTOM (issue 8, sized for
+## a unit's own bars/label stack) also cleared it. It does not: at ordinary
+## scale factors 70 world units becomes far fewer than LOG_HEIGHT's 200
+## screen pixels. Confirmed on Tools/preview/fight_05.png — three of seven
+## units drawn behind the log's own text. Reserving LOG_HEIGHT before the
+## fit, rather than folding it into a world-space constant, means the arena
+## is sized and centred against the space actually left over once the log
+## has its strip.
 static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN_SIDE
 	var fit_top := CG.ARENA_HALF_HEIGHT + _MARGIN_TOP
 	var fit_bottom := CG.ARENA_HALF_HEIGHT + _MARGIN_BOTTOM
 	var fit_width := fit_half_width * 2.0
 	var fit_height := fit_top + fit_bottom
-	var scale_factor: float = min(size.x / fit_width, size.y / fit_height)
+
+	# Floor of 1.0, not fit_height: fit_height is a world-space quantity
+	# (the divisor used to compute scale_factor below) and usable_height is
+	# screen pixels — comparing them was a real bug caught by the very
+	# regression test this fix adds, at plain 1280x720: fit_height (760)
+	# is unrelated in scale to a screen-pixel viewport and clamping against
+	# it silently discarded the log reservation. The floor only exists so a
+	# viewport shorter than the log strip itself does not divide by zero.
+	var usable_height: float = max(size.y - CombatLogView.LOG_HEIGHT, 1.0)
+	var scale_factor: float = min(size.x / fit_width, usable_height / fit_height)
 	var box := Vector2(fit_width, fit_height) * scale_factor
-	var offset := (size - box) * 0.5
+	var offset := (Vector2(size.x, usable_height) - box) * 0.5
 	return {
 		"position": offset + Vector2(fit_half_width, fit_top) * scale_factor,
 		"scale": Vector2(scale_factor, scale_factor),
