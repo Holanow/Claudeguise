@@ -30,6 +30,20 @@ const CENTER_LINE_ALPHA := 0.3
 ## a fight exists (or against a fixture with no terrain) draws nothing extra.
 var terrain: Array = []
 
+## Set by BattleView from CombatState.projectiles every stepped tick.
+## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" — issue 18
+## gave every ranged action a real travelling shot with a per-tick position,
+## and nothing drew it; UnitView kept drawing an instant source-to-target
+## line for the whole action instead. UnitView now suppresses that line once
+## a shot is actually in flight (see its _has_active_projectile), and this is
+## the shot itself: a small marker at the projectile's live position, not
+## the full path, so a slow shot visibly lags behind a fast one instead of
+## both reading as the same instant line.
+var projectiles: Array = []
+
+const _PROJECTILE_RADIUS := 5.0
+const _PROJECTILE_TRAIL := 14.0
+
 func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH
 	var hh := CG.ARENA_HALF_HEIGHT
@@ -56,6 +70,23 @@ func _draw() -> void:
 		_draw_feature(feature)
 
 	draw_rect(Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)), Palette.ARENA_EDGE, false, BOUNDARY_WIDTH)
+
+	for p in projectiles:
+		_draw_projectile(p)
+
+## One in-flight shot: a dot at its live position with a short trail back
+## toward where it came from, so it reads as moving rather than as a static
+## point. Resolved shots are skipped -- BattleView hands over the live array
+## every tick and a resolved entry stays in place per Projectile.gd's own
+## append-only contract, so this is the filter that keeps a spent shot from
+## drawing forever at its landing point.
+func _draw_projectile(p) -> void:
+	if p.resolved:
+		return
+	var to_origin: Vector2 = (p.origin - p.position)
+	var trail := to_origin.limit_length(_PROJECTILE_TRAIL)
+	draw_line(p.position, p.position + trail, Palette.FOCUS_LINE, 2.5)
+	draw_circle(p.position, _PROJECTILE_RADIUS, Palette.FOCUS_LINE)
 
 ## Four kinds, two axes (blocks movement / blocks sight), and no new Palette
 ## colours: everything below reuses tokens that already exist, distinguished

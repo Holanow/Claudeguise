@@ -219,3 +219,122 @@ func test_should_show_label_is_false_for_an_enemy_with_stale_action_but_no_ticks
 	enemy.current_action = &"goblin_swing"
 	enemy.action_ticks_left = 0
 	assert_false(UnitView.should_show_label(enemy, [enemy]))
+
+# ---------------------------------------------------------------------------
+# label hold (PLAYTEST-NOTES 20: the Goblin Archer's name flickered)
+# ---------------------------------------------------------------------------
+
+## should_show_label's own trigger is a per-tick on/off condition (focused,
+## or mid wind-up); _label_visible is the rendering decision layered on top
+## that keeps a name up for a while after the trigger clears, so it does not
+## blink out the instant an attacker refocuses or finishes winding up.
+func test_label_stays_visible_for_a_hold_after_the_trigger_clears() -> void:
+	var state := CombatState.new(0)
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	enemy.current_action = &"goblin_swing"
+	enemy.action_ticks_left = 5
+	state.units.append(enemy)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_true(view._label_visible(enemy), "must be visible while the trigger holds")
+
+	enemy.current_action = &""
+	enemy.action_ticks_left = 0
+	assert_true(view._label_visible(enemy), "must not blink out the instant the trigger clears")
+	view.free()
+
+func test_label_hides_once_the_hold_expires() -> void:
+	var state := CombatState.new(0)
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	enemy.current_action = &"goblin_swing"
+	enemy.action_ticks_left = 5
+	state.units.append(enemy)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	view._label_visible(enemy)
+
+	enemy.current_action = &""
+	enemy.action_ticks_left = 0
+	state.tick = UnitView.LABEL_HOLD_TICKS + 1
+	assert_false(view._label_visible(enemy), "the hold must actually expire, not hold forever")
+	view.free()
+
+## PLAYTEST-NOTES 20's other half: "some enemies never get names" — a fodder
+## unit standing in melee range, hit by a plan-driven pawn's default
+## behaviour, is neither focusing anyone nor mid wind-up itself. Taking
+## damage (or losing resource) is read off the unit's own state each sync,
+## the same boundary should_show_label already respects (CombatUnit only,
+## no CombatEvent).
+func test_taking_damage_holds_the_label_even_with_no_other_trigger() -> void:
+	var state := CombatState.new(0)
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	enemy.hp = 10
+	state.units.append(enemy)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_false(UnitView.should_show_label(enemy, [enemy]), "sanity: this enemy has no other trigger")
+
+	enemy.hp = 6
+	view.sync(state)
+	assert_true(view._label_visible(enemy), "getting hit must surface the name even with nothing else triggering it")
+	view.free()
+
+# ---------------------------------------------------------------------------
+# targeting line vs. real projectiles (PLAYTEST-NOTES 2: "still seeing beams")
+# ---------------------------------------------------------------------------
+
+func test_has_active_projectile_is_false_with_none_in_flight() -> void:
+	var state := CombatState.new(0)
+	var u := _make_unit(0, Vector2.ZERO)
+	state.units.append(u)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_false(view._has_active_projectile(u))
+	view.free()
+
+func test_has_active_projectile_is_true_for_this_units_own_unresolved_shot() -> void:
+	const Projectile := preload("res://Scripts/Core/Projectile.gd")
+	var state := CombatState.new(0)
+	var u := _make_unit(0, Vector2.ZERO)
+	state.units.append(u)
+	var p := Projectile.new()
+	p.source_id = 0
+	p.resolved = false
+	state.projectiles.append(p)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_true(view._has_active_projectile(u))
+	view.free()
+
+func test_has_active_projectile_ignores_a_resolved_shot() -> void:
+	const Projectile := preload("res://Scripts/Core/Projectile.gd")
+	var state := CombatState.new(0)
+	var u := _make_unit(0, Vector2.ZERO)
+	state.units.append(u)
+	var p := Projectile.new()
+	p.source_id = 0
+	p.resolved = true
+	state.projectiles.append(p)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_false(view._has_active_projectile(u), "a landed shot no longer represents anything in flight")
+	view.free()
+
+func test_has_active_projectile_ignores_another_units_shot() -> void:
+	const Projectile := preload("res://Scripts/Core/Projectile.gd")
+	var state := CombatState.new(0)
+	var u := _make_unit(0, Vector2.ZERO)
+	var other := _make_unit(1, Vector2(50.0, 0.0))
+	state.units.append(u)
+	state.units.append(other)
+	var p := Projectile.new()
+	p.source_id = 1
+	p.resolved = false
+	state.projectiles.append(p)
+	var view := UnitView.new()
+	view.bind(state, 0)
+	assert_false(view._has_active_projectile(u))
+	view.free()

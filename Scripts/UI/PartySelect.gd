@@ -110,11 +110,27 @@ func _build_ui() -> void:
 	title.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(title)
 
+	# Issue 53 sweep: this whole column had no scroll container, so at a
+	# short viewport (844x390, the phone-landscape size the game is required
+	# to work at) the roster's own minimum height -- three rows of 170x200
+	# cards -- pushed everything below it, including the Start Fight button,
+	# past the bottom of the visible window. A Container does not clip or
+	# scroll on its own; the content was still there, just off-canvas, which
+	# is exactly "not visible or clickable". The roster is what makes this
+	# column tall, so it is what gets the ScrollContainer and the
+	# SIZE_EXPAND_FILL that lets it give up space to whatever the viewport
+	# actually has -- the seed row, status label and every button below it
+	# keep their natural size and stay pinned inside the fixed remainder.
+	var roster_scroll := ScrollContainer.new()
+	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(roster_scroll)
+
 	_roster_box = GridContainer.new()
 	_roster_box.columns = CARD_COLUMNS
 	_roster_box.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
 	_roster_box.add_theme_constant_override("v_separation", int(Palette.SPACE_M))
-	column.add_child(_roster_box)
+	_roster_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	roster_scroll.add_child(_roster_box)
 
 	if _available.is_empty():
 		var empty_label := Label.new()

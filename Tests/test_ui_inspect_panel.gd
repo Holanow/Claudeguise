@@ -45,6 +45,62 @@ func _make_plan(display_name: String) -> Plan:
 	p.display_name = display_name
 	return p
 
+## Issue 53 sweep: on a real launch, the "Targeting:" label and the picker's
+## own text overlapped into "TaSelfting:" (Screenshots/
+## sweep_inspect_plan_editor_*). _line()'s autowrap makes a Label report a
+## near-zero minimum width in the HBoxContainer beside the SIZE_EXPAND_FILL
+## picker, the same bug already found and worked around for the Attributes
+## chips. Asserted directly on the built row rather than only via a
+## screenshot: the prefix label must not autowrap.
+func test_targeting_label_does_not_autowrap() -> void:
+	var pawn := _make_pawn()
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_self"
+	var plan := _make_plan("Always act")
+	plan.blocks = [targeting]
+	pawn.plans = [plan]
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._targeting_picker(targeting)
+	var label: Label = row.get_child(0)
+	assert_eq(label.text, "Targeting:")
+	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF, "a short fixed prefix must not report a near-zero minimum width")
+	panel.free()
+
+func test_action_label_does_not_autowrap() -> void:
+	var pawn := _make_pawn()
+	var action := PlanBlock.new()
+	action.kind = PlanBlock.Kind.ACTION
+	action.op = &"use_action"
+	action.args = {"action_id": &"test_swing"}
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._action_picker(pawn, action)
+	var label: Label = row.get_child(0)
+	assert_eq(label.text, "Action:")
+	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
+	panel.free()
+
+func test_condition_label_does_not_autowrap() -> void:
+	var pawn := _make_pawn()
+	var plan := _make_plan("Always act")
+	pawn.plans = [plan]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._condition_editor(plan)
+	var label: Label = row.get_child(0)
+	assert_eq(label.text, "Condition:")
+	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
+	panel.free()
+
 ## Real bug, found on a real launch: the list/detail scroll containers had no
 ## vertical size flags, so they collapsed to their content's minimum size
 ## regardless of how much room the panel actually had, and the whole body

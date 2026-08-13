@@ -361,7 +361,7 @@ func _move_plan(pawn: PawnData, index: int, delta: int) -> void:
 func _targeting_picker(block) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
-	row.add_child(_line("Targeting:", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	row.add_child(_tag_label("Targeting:"))
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -390,7 +390,7 @@ func _set_targeting(block, op: StringName) -> void:
 func _action_picker(pawn: PawnData, block) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
-	row.add_child(_line("Action:", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	row.add_child(_tag_label("Action:"))
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -425,7 +425,7 @@ func _set_action(block, action_id: StringName) -> void:
 func _condition_editor(plan) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
-	row.add_child(_line("Condition:", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	row.add_child(_tag_label("Condition:"))
 
 	var current_op: StringName = plan.condition.op if plan.condition != null else &"always"
 	var picker := OptionButton.new()
@@ -508,6 +508,22 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	return label
+
+## Issue 53 sweep: a short fixed prefix ("Targeting:", "Action:",
+## "Condition:") sitting beside a SIZE_EXPAND_FILL picker in an
+## HBoxContainer. _line's autowrap makes a Label report a near-zero minimum
+## width -- the same bug already found and worked around for the Attributes
+## chips above -- so the container gave it ~0 width and the picker's own
+## text was drawn starting at the same x position: "Targeting:" and the
+## picker's "Self" overlapped into "TaSelfting:" on a real launch
+## (Screenshots/sweep_inspect_plan_editor_*). No autowrap on a string this
+## short; it never needs to wrap.
+func _tag_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	return label
 
 func _role_text(role: CG.Role) -> String:

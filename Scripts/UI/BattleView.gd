@@ -249,7 +249,15 @@ func _cost_summary() -> String:
 	var alive := 0
 	var total := 0
 	for u in state.units:
-		if u.team != CG.Team.PLAYER:
+		# PLAYTEST-NOTES 21: a siege engine (or any other mid-fight summon --
+		# _spawn_summon builds it via _build_enemy_unit, same as an enemy,
+		# only on the caster's team) is a player-team unit built from an
+		# EnemyDef, so it carries a real enemy_id. A party pawn never does
+		# (CombatSim.build sets .pawn instead and leaves enemy_id at its
+		# default &""). "3 of 4 survived" is a count of the party the player
+		# actually picked; a summon was never one of the four and should not
+		# move either number.
+		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
 			continue
 		total += 1
 		if u.hp > 0:
@@ -451,6 +459,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	# empty by default, so a fight built without one draws exactly as it
 	# did before this.
 	_arena.terrain = state.terrain
+	_arena.projectiles = []
 	_arena.queue_redraw()
 	if _combat_log != null:
 		_combat_log.clear_log()
@@ -508,6 +517,12 @@ func _process(delta: float) -> void:
 	consume_events()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
+	# Issue 18's real travelling shots (CombatState.projectiles) have per-tick
+	# positions; the arena needs the live array and a redraw every stepped
+	# tick, the same as terrain gets it once at begin() -- terrain never
+	# moves, this does. See ArenaFloor.gd's own doc comment.
+	_arena.projectiles = state.projectiles
+	_arena.queue_redraw()
 	_update_team_summary()
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_show_outcome()
