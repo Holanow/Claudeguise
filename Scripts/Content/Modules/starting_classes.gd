@@ -19,7 +19,23 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MARTIAL, CG.Style.MELEE, CG.Role.TANK, CG.Role.DPS,
 			[CG.DamageType.PHYSICAL, CG.DamageType.EARTH],
 			CG.ResourceKind.RAGE,
-			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 9, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 4},
+			# Issue 30, second pass: CON 9->14. rook's own framing after
+			# measuring the first pass -- "a taunting Warrior that dies
+			# inside its own taunt window is a worse tank than one that
+			# never taunted" -- and that is exactly what happened: the
+			# Warrior drew The Warden's full attention and died at tick 203
+			# of its own 240-tick taunt, every time, regardless of CON.
+			# Swept CON 9/14/20/26/35 directly against `Tools/FloorRuns.gd`
+			# rather than guessing at one number: 14 (with warrior_guard's
+			# threshold below) already took no_siege_master/no_geysermancer/
+			# no_priest to a clean 20/20 each; 20, 26 and 35 bought no
+			# further wins anywhere and only cosmetically raised
+			# no_abomination's own boss-entry health (67%->79%) without ever
+			# converting a single loss to a win. Stopped at 14 rather than
+			# chasing diminishing returns into an implausible stat -- see
+			# PresetPlans.gd's own comment on warrior_guard for why raw CON
+			# alone was never going to fix the one comp it didn't.
+			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 4},
 			# Issue 30: warrior_taunt appended at the end, not the front --
 			# DefaultBehavior._first_non_heal falls back to the FIRST
 			# non-heal action in this list whenever no plan fires (there is

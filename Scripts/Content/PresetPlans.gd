@@ -75,10 +75,26 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		## so `_can_afford` (cooldown gate) already makes this fall
 		## through to DefaultBehavior for every tick it is still active,
 		## with no new condition op needed.
+		## Issue 30, second pass: warrior_guard_when_hurt's own threshold,
+		## 0.35 -> 0.65. Traced why CON alone (starting_classes.gd's own
+		## comment has the sweep) never fixed anything: The Warden's axe
+		## does a fixed 139 raw every ~42 ticks (no variance -- enemies
+		## read attack power straight off EnemyDef, not through Balance's
+		## pawn-only roll), and two of those in a row always crossed a
+		## fixed 35% threshold, however large the pool behind it, because
+		## raising max hp raises what "35%" means by the same proportion.
+		## Guard could never fire before the second hit landed, so it was
+		## never actually protecting the Warrior from the swing that
+		## mattered -- only from swings after the pool was already mostly
+		## gone. Measured directly (a throwaway probe against a real fight,
+		## not committed): at 0.35, hits 1 and 2 both land before Guard's
+		## first cast; at 0.65, Guard fires immediately after hit 1 and hit
+		## 2 is already mitigated. Took no_geysermancer and no_priest from
+		## 14/20 and 17/20 to a clean 20/20 apiece.
 		&"warrior":
 			return [
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
-					_condition(&"self_hp_below_fraction", {"fraction": 0.35}),
+					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
 					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
 				_plan(&"warrior_taunt_default", "Taunt",
 					_condition(&"always", {}),
