@@ -103,3 +103,20 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## and nothing ever appends to it mid-fight. That is the real work here and it
 ## is the simulation's, not content's.
 @export var summons_unit_id: StringName = &""
+
+## How far this action drags its target toward the caster, in arena units. Zero
+## means it does not pull, which is every action that exists today.
+##
+## The Abomination is a TANK and an ANTI_SUPPORT that has never had a way to be
+## either: 12 CON with no way to make anything attack it, and no way to reach a
+## healer standing behind a line. A hook is what makes both tags true -- drag an
+## attacker off your casters, or drag their support out of position.
+##
+## **Nothing in the simulation moves another unit today.** Effects touch hp,
+## resource and status only, so this is genuinely new and it is the simulation's
+## work rather than content's.
+##
+## Two things it must not quietly become: a pull that puts a unit inside a wall
+## (Terrain.point_is_blocked already exists and must be respected, same as
+## ordinary movement), and a pull that fires after the target is dead.
+@export var pull_distance: float = 0.0

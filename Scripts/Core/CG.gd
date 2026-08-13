@@ -126,6 +126,19 @@ enum Status {
 	BLOCK,
 	MARKED,
 	POISON,
+	## Appended, never inserted. These values are written into CombatEvent.status
+	## and read by the log and the floaters, so shifting an existing one would
+	## silently relabel every status in a saved event stream.
+	##
+	## SLOWED scales a unit's movement, not its action timing. HASTE already
+	## covers action timing (wind-up and recovery through deps.haste_tick_scale)
+	## and deliberately does not touch movement; this is the other axis. Kept
+	## separate rather than making one status do both, because a grapple that
+	## also made a unit swing faster would be a strange grapple.
+	##
+	## Distinct from STUN, which is a full lockout -- a stunned unit neither
+	## decides nor acts. A slow leaves a unit fighting, just unable to leave.
+	SLOWED,
 }
 
 ## What a decision layer asks a unit to do on a tick. The plan interpreter and
