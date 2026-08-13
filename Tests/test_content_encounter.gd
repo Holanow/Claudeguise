@@ -164,13 +164,20 @@ func test_cover_changes_the_fight_for_a_pure_ranged_party() -> void:
 	assert_true(differs, "floor1_cover's pillars should change the fight on at least one of 5 seeds, or they are decoration")
 
 
-## Issue 13b criterion 1's chokepoint half is NOT met, and said so rather than
-## faked: `floor1_chokepoint` exists in floor1_encounters.gd but is
-## deliberately unregistered (see its own doc comment) because it stalls
-## every fight to a 3600-tick draw -- a Scripts/Combat/** movement defect
-## (a unit stuck creeping toward a target beyond a wall's corner instead of
-## sliding around it), reported on the board and not mine to fix. This test
-## exists only so the exclusion has a name a future reader can grep for
-## rather than discovering the missing room by its absence.
-func test_the_chokepoint_room_is_not_registered_pending_a_movement_fix() -> void:
-	assert_eq(Registry.get_encounter(&"floor1_chokepoint"), null, "floor1_chokepoint should stay unregistered until Scripts/Combat/CombatSim.gd's _resolve_move handles a target beyond a wall corner")
+## Issue 34: `floor1_chokepoint` resolves now instead of drawing. It was pulled
+## from the registry when it stalled every fight to the 3600-tick cap (issue
+## 13b), then restored once the decide-time line-of-sight check came back
+## (issue 34 -- a unit needs a reason to walk toward a target it can see is
+## blocked, not just a movement fix for the corner it walks around). Checked
+## directly rather than inferred from a win/loss count: most seeds should
+## finish well under the tick cap.
+func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
+	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
+	assert_not_null(chokepoint)
+	var draws := 0
+	for seed in 10:
+		var state := CombatSim.build(_party_of(&"siege_master", 4), chokepoint, seed)
+		CombatSim.run(state)
+		if state.outcome == CombatState.Outcome.UNRESOLVED:
+			draws += 1
+	assert_true(draws <= 2, "expected floor1_chokepoint to resolve most fights, got %d/10 draws" % draws)

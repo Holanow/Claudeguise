@@ -51,12 +51,8 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 	{"enemy_id": &"ghoul", "position": Vector2(190.0, -220.0)},
 ]
 
-## `_the_chokepoint()` is deliberately NOT in this list yet -- see its own doc
-## comment. It stalls every fight to a 3600-tick draw, a real simulation-level
-## finding rather than a room design problem: reported on the board, not mine
-## to fix (Scripts/Combat/** is wren's).
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room()]
+	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint()]
 
 ## The standard room: two goblins up front, a goblin archer and a cultist
 ## held back. Same shape the original three-mirrored-pawn roster had, now
@@ -91,29 +87,16 @@ static func _the_room() -> Encounter:
 ## target" case from the issue text, and its mirror: one defender cannot be
 ## swarmed by four either.
 ##
-## NOT REGISTERED (see encounters() above). Measured with a throwaway probe
-## script rather than guessed: a unit whose target sits beyond the wall's
-## corner gets stuck creeping toward it forever instead of routing through
-## the gap -- reproduced with a single siege_master against this exact room,
-## frozen at (-45.8, -164) for 300+ ticks straight, with the gap sitting at
-## y in [-100, 100] and pure-y movement at that x confirmed NOT blocked by
-## Terrain.point_is_blocked. Widening the gap 80 -> 200 units moved where it
-## freezes, not whether it freezes, which rules out "the gap is too narrow."
-##
-## Root cause, read from Scripts/Combat/CombatSim.gd's _resolve_move (not my
-## file): the direct diagonal sweep toward a target beyond a wall's corner
-## keeps making vanishingly small but nonzero progress along the diagonal
-## each tick, so `direct != unit.position` stays true forever and the
-## function never falls into its own axis-slide fallback -- which the
-## fallback's pure-y branch would have handled fine, confirmed above. Every
-## party in SampleFights against this room drew at the 3600-tick cap, 0/20
-## wins, 0/20 losses, every single seed.
-##
-## Filed on the board for wren rather than patched here: it is their file,
-## and issue 13a's own acceptance criterion 3 says exactly this shape of
-## finding ("units get stuck on corners") is a result to report, not a
-## pathfinder for me to go build. Kept here, off the registry, so it is
-## instant to re-enable once the fix lands rather than re-authored.
+## RE-REGISTERED (issue 34). Was pulled after wren's `_resolve_move` corner
+## bug (issue 30, fixed in `8c21094`) made every fight against it stall to a
+## 3600-tick draw. Fixed for real once `PlanInterpreter._target_in_los` and
+## `DefaultBehavior`'s matching approach branch came back (issue 34: the
+## corner-creep fix alone was not enough, a unit still needed a reason to
+## walk toward a target it could see was blocked instead of firing at it
+## forever). Verified with `Tools/TerrainAB.gd` and a direct probe:
+## `siege_master x4` now resolves in 19/20 seeds (1 draw) instead of 20/20,
+## and a full single-seed fight fires 58 shots at a 10% miss rate rather
+## than the 94% issue 34 measured before the fix.
 static func _the_chokepoint() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_chokepoint"
