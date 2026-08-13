@@ -335,7 +335,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		return
 
 	if action.heals:
-		var amount := maxi(0, int(round(deps.attack_power.call(unit, action))))
+		var amount := maxi(0, int(round(deps.attack_power.call(unit, action, state.rng))))
 		var before := target.hp
 		target.hp = mini(target.hp_max, target.hp + amount)
 		var applied := target.hp - before
@@ -345,7 +345,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 			e.damage_type = action.damage_type
 			state.emit(e)
 	else:
-		var raw: float = deps.attack_power.call(unit, action)
+		var raw: float = deps.attack_power.call(unit, action, state.rng)
 		var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 		var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
 		var before := target.hp

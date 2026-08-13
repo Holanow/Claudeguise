@@ -49,7 +49,9 @@ func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringN
 func _deps(actions_by_id: Dictionary, power: float) -> SimDeps:
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
-	deps.attack_power = func(_u: CombatUnit, a: ActionDef) -> float: return power * a.power_scale
+	# Third parameter is the fight's rng, ignored here: these tests want fixed
+	# numbers so a case reads clearly, which is the point of SimDeps.
+	deps.attack_power = func(_u: CombatUnit, a: ActionDef, _rng = null) -> float: return power * a.power_scale
 	deps.damage_reduction = func(_u: CombatUnit) -> float: return 0.0
 	deps.wind_up_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.wind_up_ticks
 	deps.recover_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.recover_ticks

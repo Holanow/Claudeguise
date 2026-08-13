@@ -19,7 +19,9 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 func _make_deps(action: ActionDef) -> SimDeps:
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName): return action if id == action.id else null
-	deps.attack_power = func(_u: CombatUnit, _a: ActionDef) -> float: return 999.0
+	# Third parameter is the fight's rng, ignored: this fixture wants a fixed
+	# lethal number so the timing under test is the only variable.
+	deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _rng = null) -> float: return 999.0
 	deps.damage_reduction = func(_u: CombatUnit) -> float: return 0.0
 	deps.wind_up_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.wind_up_ticks
 	deps.recover_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.recover_ticks
