@@ -14,6 +14,18 @@ const PawnData := preload("res://Scripts/Core/PawnData.gd")
 ## the history. What matters is the shape (some comp always loses, some comp
 ## is a genuine toss-up, the best comp costs the party something to win), not
 ## any specific class staying "the" reference forever.
+##
+## **DISCLOSED, NOT FIXED: every test below involving `siege_master` is red
+## on this branch (issue 12), and re-picking reference comps around it would
+## be premature rather than a real fix.** The class's whole new kit
+## (`spotter_mark`, `build_siege_engine`) is content-complete, but
+## `build_siege_engine`'s summon does nothing yet -- `CombatSim` builds its
+## unit list once and nothing appends to it mid-fight (issue 12's own text:
+## "the only genuinely new mechanism," wren's). Until that lands, every
+## `siege_master` in a party is a pawn contributing one weak ranged tick and
+## then nothing, which is not the class's real strength and should not be
+## re-measured as if it were. Acceptance criterion 6 says the same: "the
+## balance table is void until it is re-run."
 
 func _party_of(class_id: StringName, count: int) -> Array[PawnData]:
 	var party: Array[PawnData] = []

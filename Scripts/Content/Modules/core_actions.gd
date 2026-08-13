@@ -37,8 +37,30 @@ static func actions() -> Array[ActionDef]:
 		_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that can catch several enemies standing close together.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true),
 		_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target, cheaper and faster than a Geyser Blast.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true),
 
-		_action(&"siege_shot", "Siege Shot", "A long-range physical shot. The Siege Master's most reliable attack.", CG.DamageType.PHYSICAL, 260.0, 10, 10, 1.1, 10, 0, true),
-		_action_splash_cd(&"siege_barrage", "Barrage", "A heavy splash attack on a cooldown, meant for enemies standing in a cluster.", CG.DamageType.RAW, 240.0, 40.0, 14, 14, 0.9, 30, 30, true),
+		# Issue 12: siege_shot and siege_barrage retired along with the range
+		# that made the class mandatory (260, past every enemy's own reach --
+		# see issue 25/31). The Siege Master is a spotter/engineer now,
+		# per the player's own spec, and both of its new actions put
+		# something in the room's reach: a marked target is a target the
+		# room can still see, and an engine is a unit the room can attack.
+		#
+		# spotter_mark: a light ranged hit that leaves MARKED for 5s
+		# (150 ticks -- long enough to matter across several of the
+		# Siege Master's own attacks and an ally's, not so long it never
+		# falls off between engagements). 220 range matches the rest of
+		# the room's ranged cast (geyser_blast, priest_smite, cultist_bolt)
+		# rather than reaching past it.
+		_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target and lowers its defenses, letting the whole party's next hits land harder.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 0.5, 15, CG.Status.MARKED, 150, true),
+		# build_siege_engine: self-targeted (range 0, no line-of-sight
+		# needed), deals no damage of its own -- power_scale 0.0, the
+		# summon is the whole effect. wind_up 90 ticks (3s) is the "takes a
+		# bit" the player asked for, long enough to be a real commitment
+		# mid-fight and not just a free extra unit. Costs 40 of a 50ish-max
+		# Mana pool (resource kind switched below), so the plan that fires
+		# it can only do so again once Mana has meaningfully regenerated --
+		# the resource economy gates the repeat build without a new
+		# mechanism, the same way Warrior's Execute is gated by Rage.
+		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends time building a siege engine that then fights at range on its own. Takes a while, and worth doing early.", 90, 20, 40, &"siege_engine"),
 
 		_action_status(&"abomination_claw", "Claw", "A poisoned melee strike that keeps hurting the target after it lands.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
 		_action_splash(&"abomination_immolate", "Immolate", "A fiery melee burst that can catch nearby enemies, spending most of the Abomination's Rage.", CG.DamageType.FIRE, 45.0, 60.0, 10, 12, 1.2, 40),
@@ -62,6 +84,12 @@ static func actions() -> Array[ActionDef]:
 		_action(&"warden_axe", "Executioner's Axe", "A single devastating swing. Slow to wind up, and worth staying clear of.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
 		_action(&"warden_chain_toss", "Chain Toss", "A weighted chain, thrown further than anything else in the room reaches back.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true),
 
+		# Issue 12: the siege engine's own attack, once built. Ranged and
+		# reliable rather than powerful on its own -- the Siege Master's
+		# contribution is having two of these on the field, not one hitting
+		# hard. 200 range, same band as the room's other ranged casters.
+		_action(&"siege_engine_bolt", "Engine Bolt", "A heavy bolt fired by a siege engine.", CG.DamageType.PHYSICAL, 200.0, 12, 12, 1.0, 0, 0, true),
+
 		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
 		## the bestiary, but these two actions are still referenced by name in
 		## wren's Tests/test_combat_sim.gd (kiting regression checks). Kept
@@ -73,7 +101,19 @@ static func actions() -> Array[ActionDef]:
 	]
 
 static func enemies() -> Array[EnemyDef]:
-	return []
+	return [
+		# Issue 12: the Siege Master's engineer half. `EnemyDef` reused rather
+		# than a new summon shape -- it already describes exactly what this
+		# is, a non-pawn unit with hp, damage, an action and a move speed,
+		# and the only thing that made it read as "enemy" was which team
+		# spawned it. Stationary (move_speed 0.0): it is artillery the room
+		# has to come to, which is the entire point of putting something in
+		# the room's reach that the Siege Master itself no longer is.
+		# hp modest so "the room can attack it" (criterion 1) is real rather
+		# than nominal -- it should die to a couple of hits from anything
+		# that reaches it, same as the Siege Master itself is meant to.
+		_enemy(&"siege_engine", "Siege Engine", 80, 0, CG.ResourceKind.ENERGY, 0.0, 20.0, {CG.DamageType.PHYSICAL: 16}, 0.0, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
+	]
 
 static func encounters() -> Array[Encounter]:
 	return []
@@ -117,3 +157,27 @@ static func _action_status(id: StringName, display_name: String, description: St
 	a.applies_status = status
 	a.status_duration_ticks = duration_ticks
 	return a
+
+## Issue 12: self-targeted (range 0.0, no line-of-sight check), deals no
+## damage of its own (power_scale 0.0) -- summons_unit_id is the entire
+## effect. `_action` already covers everything else this needs.
+static func _action_summon(id: StringName, display_name: String, description: String, wind_up: int, recover: int, resource_cost: int, summons_unit_id: StringName) -> ActionDef:
+	var a := _action(id, display_name, description, CG.DamageType.PHYSICAL, 0.0, wind_up, recover, 0.0, resource_cost, 0)
+	a.summons_unit_id = summons_unit_id
+	return a
+
+static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
+	var e := EnemyDef.new()
+	e.id = id
+	e.display_name = display_name
+	e.hp_max = hp_max
+	e.resource_max = resource_max
+	e.resource_kind = resource_kind
+	e.move_speed = move_speed
+	e.radius = radius
+	e.attack_power = attack_power
+	e.damage_reduction = damage_reduction
+	e.actions = actions
+	e.display_tags = display_tags
+	e.focus_bias = focus_bias
+	return e
