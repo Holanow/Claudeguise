@@ -172,6 +172,26 @@ func test_same_seed_replays_bit_identical() -> void:
 ## picking a different fixture: 15/20 (75%) still leans toward a real
 ## composition mattering, not the "wins nearly every time" shape the other
 ## checks in this file already guard against separately.
+##
+## **Left red on purpose by issue 18's projectile-speed pass, not fixed.**
+## This fixture was already sitting on the band's own upper edge (15/20, the
+## widest value the assertion still accepts) before real shot travel time
+## existed. Every ranged action now travels at 65.0 units/tick (content's
+## own empirically-checked floor against becoming unhittable -- see
+## core_actions.gd's `_projectile` doc comment); swept 65/90/300 against
+## this same fixture and it holds at 17-18/20 the whole range, never back
+## inside the band, including at 300 (near-instant, the closest a nonzero
+## speed gets to the old 0.0 behaviour without literally being it). Two
+## correct rules in tension, neither mine alone to arbitrate: real travel
+## time is the point of issue 18 and verified working; this specific
+## isolated-fresh-fight band was tuned against instant hits and this room's
+## own roster has not been retuned since. The guard that actually matters
+## per the board -- no real class becoming mandatory, measured on the full
+## floor with `Tools/FloorRuns.gd` -- is unaffected: full-floor clear counts
+## for all five real parties are within one seed of this branch's own
+## baseline. Retuning `floor1_room1`'s roster is a balance decision outside
+## this issue's scope; flagged on the board for rook's call rather than
+## picked here.
 func test_some_composition_is_a_genuine_coin_flip() -> void:
 	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
 	print("floor1_room1: no_geysermancer win rate %d/20" % r["wins"])
@@ -220,6 +240,20 @@ func test_a_winning_party_pays_a_real_cost() -> void:
 ## issue's stated 4-6 band -- 1/20 measured -- and that gap is disclosed on the
 ## board rather than hidden behind a loosened assertion. This only checks the
 ## literal "not zero" floor; the tighter target is a follow-up.
+##
+## **Left red on purpose by issue 18's projectile-speed pass, same reasoning
+## as the coin-flip test above.** This comp was already at 1-2/20, one seed
+## off this literal floor, before shot travel time existed. At 65.0
+## units/tick it lands on 0/20; swept 90 and 300 (near-instant) and it never
+## climbed back past 3/20 at best, non-monotonically -- this project's own
+## repeated finding that these systems do not move as a slope holds again
+## here. Not chasing a fourth speed value: going lower than 65.0 crosses the
+## measured unhittable threshold (~40-55, see core_actions.gd), and going
+## higher defeats the feature's own point (real travel time for SHIELDING
+## and positioning to matter). The full-floor guard this project actually
+## measures mandatory-class risk against is unaffected -- see the sibling
+## disclosure above. Flagged on the board rather than retuning this room's
+## roster myself; out of scope for a projectile-speed issue.
 func test_no_real_party_is_an_outright_trap() -> void:
 	var r := _win_rate([&"abomination", &"geysermancer", &"priest", &"warrior"], 20)
 	print("floor1_room1: no_siege_master win rate %d/20" % r["wins"])
