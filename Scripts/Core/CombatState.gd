@@ -37,9 +37,17 @@ var rng: RandomNumberGenerator = null
 ## existed — which is what lets issue 13a land without invalidating a single
 ## tuning measurement teal has taken.
 ##
-## Applied verbatim as wren proposed it on the board. The intake path exists so
-## a frozen contract does not make me a bottleneck, and this took two minutes.
-var terrain: Array[Terrain.Feature] = []
+## Untyped `Array`, deliberately, matching `Terrain.gd`'s own public API exactly:
+## `point_is_blocked`, `line_is_blocked` and `hazards_at` all take and return
+## plain arrays, and `Tests/test_terrain.gd` never types one either. Typed arrays
+## of a RefCounted inner class with no `class_name` are an engine rough edge not
+## worth fighting for a container that three sessions pass around.
+##
+## This started as `Array[Terrain.Feature]`. wren proposed that, I applied it
+## verbatim, and wren then found it did not work and traced why. I own both
+## files and did not check the new line against the contract of the old one,
+## which is the part I should have caught.
+var terrain: Array = []
 
 ## Every event since the fight began, in tick order. The view reads from
 ## `events_since` rather than clearing this, so the log survives a scrub.
