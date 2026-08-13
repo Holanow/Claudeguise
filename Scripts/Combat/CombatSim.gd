@@ -145,6 +145,20 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
+	## EnemyDef.spawn_taunt_radius's own doc comment: a non-pawn unit's action
+	## list only ever runs one fixed action, so it cannot rotate between
+	## "taunt" and "attack" the way a plan-driven pawn can -- a summoned siege
+	## engine that needs to draw fire gets TAUNTING applied here, at spawn,
+	## rather than through an action it would then never be able to also
+	## attack with. CG.MAX_TICKS as the expiry is "outlives the fight" -- a
+	## fight cannot run longer than that tick, so this never has to be
+	## refreshed or read as having expired mid-fight. Shared by both call
+	## sites of _build_enemy_unit (an ordinary encounter spawn in build() and
+	## a mid-fight _spawn_summon), on purpose: content decides via the
+	## EnemyDef, not via which path built the unit.
+	if enemy_def.spawn_taunt_radius > 0.0:
+		u.statuses[CG.Status.TAUNTING] = CG.MAX_TICKS
+		u.taunt_radius = enemy_def.spawn_taunt_radius
 	return u
 
 # ---------------------------------------------------------------------------
