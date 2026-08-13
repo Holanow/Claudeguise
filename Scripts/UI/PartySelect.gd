@@ -25,6 +25,7 @@ const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 
 signal battle_requested(config: RunConfig)
 signal run_requested(config: RunConfig)
+signal level_editor_requested
 
 const MAX_PARTY_SIZE := 4
 
@@ -184,6 +185,17 @@ func _build_ui() -> void:
 	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	column.add_child(inspect_button)
+
+	# Issue 19: the room library the generator draws from was five
+	# hand-written GDScript rooms; this is where a player grows it. Reachable
+	# from here rather than only mid-run, since authoring has nothing to do
+	# with the party you are about to fight with.
+	var level_editor_button := Button.new()
+	level_editor_button.text = "Level editor"
+	level_editor_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	level_editor_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	level_editor_button.pressed.connect(func(): level_editor_requested.emit())
+	column.add_child(level_editor_button)
 
 	_inspect_panel = Control.new()
 	_inspect_panel.set_script(InspectPanelScript)
