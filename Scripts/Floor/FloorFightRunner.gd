@@ -10,6 +10,7 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const LootTables := preload("res://Scripts/Content/LootTables.gd")
+const Balance := preload("res://Scripts/Content/Balance.gd")
 
 ## Plays one fight-bearing room of a FloorRun for real, through CombatSim, and
 ## writes the result back. This is the connection issue 5 left for later: the
@@ -96,7 +97,41 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 		if item != null:
 			run.add_loot(item)
 
+		## Issue 45's call site: a party that wins carries into the next room
+		## at whatever it was recorded at above -- no recovery, no revival --
+		## same gap the issue's own finding named (record_result stores the
+		## raw fight result and nothing has ever adjusted it since). Applied
+		## only on a win, same as the loot roll above: a wiped party has no
+		## next room to recover into.
+		_apply_between_room_recovery(run, party)
+
 	return {"outcome": _map_outcome(state.outcome, room.id == run.plan.boss_id), "state": state}
+
+## Rewrites what record_result just stored, applying Balance.between_room_heal
+## to every living pawn and Balance.revive_hp to every dead one. Both are
+## pure functions of hp/hp_max/has_living_healer -- Balance does not know
+## about FloorRun or pawn ids, on purpose, so this is the seam that supplies
+## them. A pawn revived this way enters the next room alive but not fully
+## healed (REVIVE_HP_FRACTION), same "second chance, not a free win back"
+## reasoning Balance's own comment states.
+static func _apply_between_room_recovery(run: FloorRun, party: Array[PawnData]) -> void:
+	var has_living_healer := false
+	for p in party:
+		if run.is_alive(p.id) and p.pawn_class != null \
+				and (p.pawn_class.role_primary == CG.Role.HEALER or p.pawn_class.role_secondary == CG.Role.HEALER):
+			has_living_healer = true
+			break
+
+	for p in party:
+		var hp_max := Balance.max_hp(p)
+		if run.is_alive(p.id):
+			var healed := Balance.between_room_heal(run.hp_for(p.id, hp_max), hp_max, has_living_healer)
+			var resource_max := Balance.max_resource(p)
+			run.record_result(p.id, healed, run.resource_for(p.id, resource_max), true)
+		else:
+			var revived := Balance.revive_hp(hp_max, has_living_healer)
+			if revived > 0:
+				run.record_result(p.id, revived, 0, true)
 
 ## Pulled out of play_room so the win/loss/boss mapping is testable without
 ## needing a real fight to reach each branch.
