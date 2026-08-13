@@ -42,6 +42,13 @@ var move_speed: float = 0.0
 var alive: bool = true
 
 ## Set by the decision layer, consumed by the simulation on the same tick.
+##
+## The seam between the two halves of a tick, and it is deliberate. The
+## simulation only asks the decision layer for an intent when this is null, and
+## it clears the field once it has resolved it. So a test can put an intent here
+## by hand and drive the simulation with no plans, no default behaviour and no
+## content of any kind, which is what lets the simulation and the decision layer
+## be built at the same time by two sessions who cannot run each other's code.
 var intent: Intent = null
 
 ## Unit id this pawn is currently focused on, or -1. Targeting blocks write
