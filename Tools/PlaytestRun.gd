@@ -265,7 +265,7 @@ func _phase_party_comparison() -> void:
 	if encounter_ids.is_empty():
 		_log("no encounter registered; cannot compare parties")
 		return
-	var encounter := Registry.get_encounter(encounter_ids[0])
+	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
 	var seed := RunConfig.parse_seed(FIXED_SEED)
 
 	var parties := {

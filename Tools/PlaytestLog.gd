@@ -40,7 +40,7 @@ func _init() -> void:
 	for cid in party_ids:
 		party.append(PawnFactory.make_starter_pawn(cid, StringName("%s" % cid), String(cid)))
 
-	var state := CombatSim.build(party, Registry.get_encounter(encounter_ids[0]), SEED)
+	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)
 
 	print("=== fight, seed %08X, %d ticks (%.1fs) ===" % [

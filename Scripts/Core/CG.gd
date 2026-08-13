@@ -57,6 +57,19 @@ const MAX_TICKS := TICKS_PER_SECOND * 120
 ## Encounter authors keep every entry in `party_spawns` at or left of
 ## `party_deploy_max_x()`. Enemies are deliberately unconstrained: putting the
 ## dangerous ones deep is one of the levers issue 12 is about.
+## The encounter every tool means when it says "a fight" without qualifying it.
+##
+## Named rather than picked by index, because picking by index is a bug waiting
+## for a second encounter to exist. `Registry.all_encounter_ids()[0]` was correct
+## while there was exactly one and became silently wrong the moment there were
+## three — the list sorts alphabetically, so `floor1_ghoul_den` displaced
+## `floor1_room1` and every tool that reached for [0] quietly changed subject.
+##
+## teal found that in Tools/SampleFights.gd. I then fixed that one file and left
+## the same line in three other tools, which is the fix-the-instance mistake I
+## had told teal not to make about plan ranges an hour earlier.
+const DEFAULT_ENCOUNTER := &"floor1_room1"
+
 const PARTY_DEPLOY_FRACTION := 1.0 / 3.0
 
 ## Rightmost x a party member may start at. Derived rather than typed so it

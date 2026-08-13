@@ -58,7 +58,7 @@ func _ready() -> void:
 	# the frames can be spread across its actual arc. The screen then plays the
 	# same seed and reaches the same ticks, because that is the whole point of
 	# the determinism rule.
-	var probe := CombatSim.build(_party(party_ids), Registry.get_encounter(encounter_ids[0]), SEED)
+	var probe := CombatSim.build(_party(party_ids), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(probe)
 	var total: int = maxi(probe.tick, FRAMES)
 	print("ContactSheet: fight lasts %d ticks (%.1fs), outcome %d" % [
@@ -73,7 +73,7 @@ func _ready() -> void:
 
 	var cfg := RunConfig.new()
 	cfg.party = _party(party_ids)
-	cfg.encounter_id = encounter_ids[0]
+	cfg.encounter_id = CG.DEFAULT_ENCOUNTER
 	cfg.seed = SEED
 
 	_battle = BATTLE_SCENE.instantiate()
