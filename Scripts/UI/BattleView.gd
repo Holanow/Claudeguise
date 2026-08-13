@@ -469,6 +469,29 @@ func consume_events() -> void:
 		elif e.kind == CG.EventKind.MISS:
 			_spawn_miss_marker(e)
 
+## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
+## alongside one) used to spawn at the literal same point and read as one
+## garbled string — Tools/preview/fight_04.png had "Cultist dies", a
+## floating 2 and a unit label all occupying the same pixels. Floaters are
+## transient (0.9-1.8s) so a live count of nearby siblings at spawn time is
+## enough: each new one spreads a step further from whichever are already
+## there rather than landing on top of them. Deterministic by spawn order
+## within a frame, not by anything read off CombatState, so it changes
+## nothing about what a player can infer from position.
+const _FLOATER_STAGGER_RADIUS := 40.0
+const _FLOATER_STAGGER_STEP := 18.0
+
+func _floater_stagger_offset(base_position: Vector2) -> Vector2:
+	var count := 0
+	for child in _arena.get_children():
+		if child.get_script() == DamageFloaterScript and child.position.distance_to(base_position) < _FLOATER_STAGGER_RADIUS:
+			count += 1
+	if count == 0:
+		return Vector2.ZERO
+	var side := 1.0 if count % 2 == 1 else -1.0
+	var step := float((count + 1) / 2) * _FLOATER_STAGGER_STEP
+	return Vector2(side * step, 0.0)
+
 func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
@@ -476,7 +499,7 @@ func _spawn_floater(e: CombatEvent) -> void:
 	var floater := Node2D.new()
 	floater.set_script(DamageFloaterScript)
 	_arena.add_child(floater)
-	floater.position = target.position
+	floater.position = target.position + _floater_stagger_offset(target.position)
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color)
 
@@ -495,7 +518,7 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
-	marker.position = target.position + _DEATH_MARKER_OFFSET
+	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
 	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, Palette.FONT_SIZE_BODY)
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
@@ -511,7 +534,7 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
-	marker.position = target.position
+	marker.position = target.position + _floater_stagger_offset(target.position)
 	marker.show_text("Miss", Palette.TEXT_DIM)
 
 func _show_outcome() -> void:
