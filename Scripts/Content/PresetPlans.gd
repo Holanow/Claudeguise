@@ -23,6 +23,16 @@ const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 ## WIS; Tests/test_content_classes.gd checks this so a future class or plan
 ## addition cannot silently blow the budget.
 ##
+## Five plans here used to disagree with their own action's range, found by
+## rook's Tools/PlanRangeAudit.gd and by issue 14's playtest (a Geysermancer
+## firing six times and connecting once). Two were a plain number mismatch,
+## fixed here. The other three had no range check at all on the target their
+## targeting block actually picks — fixed structurally instead, in
+## PlanInterpreter._target_in_range (issue 14a): it checks the resolved
+## target's distance against the firing action's own range right before
+## building the intent, so no plan here needs its own range condition to stay
+## safe, and neither does any plan added after this one.
+##
 ## OWNER: teal.
 
 ## Total block count across a class's preset plans. Used by
@@ -57,7 +67,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"geysermancer":
 			return [
 				_plan(&"geyser_blast_cluster", "Blast a cluster",
-					_condition(&"enemy_in_range", {"range": 260.0}),
+					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
 					_condition(&"self_resource_at_least", {"amount": 40}),
@@ -75,7 +85,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"abomination":
 			return [
 				_plan(&"abomination_immolate_when_close", "Immolate",
-					_condition(&"enemy_in_range", {"range": 50.0}),
+					_condition(&"enemy_in_range", {"range": 45.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_immolate")]),
 				_plan(&"abomination_claw_default", "Claw",
 					_condition(&"enemy_in_range", {"range": 45.0}),
@@ -98,10 +108,11 @@ static func _condition(op: StringName, args: Dictionary) -> PlanBlock:
 	b.args = args
 	return b
 
-static func _targeting(op: StringName) -> PlanBlock:
+static func _targeting(op: StringName, args: Dictionary = {}) -> PlanBlock:
 	var b := PlanBlock.new()
 	b.kind = PlanBlock.Kind.TARGETING
 	b.op = op
+	b.args = args
 	return b
 
 static func _action_block(action_id: StringName) -> PlanBlock:
