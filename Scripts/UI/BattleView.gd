@@ -89,14 +89,26 @@ func _build_top_bar() -> void:
 	back_button.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_button)
 
+## Room reserved outside the arena's own bounds when fitting it to the
+## viewport. A unit at the literal edge of the arena still draws its name and
+## bars above its radius (see UnitView), and the top bar sits over the arena
+## too, so fitting the arena to the raw viewport rect clips both: rook caught
+## this from battle_corners_1280x720.png, where the two top corner units were
+## cut off by the HUD and the viewport edge.
+const _TOP_MARGIN := 72.0
+const _SIDE_MARGIN := 48.0
+
 func _layout_arena() -> void:
 	if _arena == null:
 		return
 	var size := get_viewport_rect().size
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	var scale_factor: float = min(size.x / (2.0 * CG.ARENA_HALF_WIDTH), size.y / (2.0 * CG.ARENA_HALF_HEIGHT))
-	_arena.position = size * 0.5
+	var usable := Vector2(size.x - _SIDE_MARGIN * 2.0, size.y - _TOP_MARGIN - _SIDE_MARGIN)
+	if usable.x <= 0.0 or usable.y <= 0.0:
+		return
+	var scale_factor: float = min(usable.x / (2.0 * CG.ARENA_HALF_WIDTH), usable.y / (2.0 * CG.ARENA_HALF_HEIGHT))
+	_arena.position = Vector2(size.x * 0.5, _TOP_MARGIN + usable.y * 0.5)
 	_arena.scale = Vector2(scale_factor, scale_factor)
 
 func begin(cfg: RunConfig) -> void:
