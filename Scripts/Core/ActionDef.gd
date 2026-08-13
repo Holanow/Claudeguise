@@ -44,6 +44,27 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## World units. 0.0 means the effect hits only the focused target.
 @export var splash_radius: float = 0.0
 
+## Whether this action needs an unobstructed line to its target. A wall or a
+## pillar between the two stops it; a pit does not, since a pit blocks feet
+## rather than sight.
+##
+## **Defaults to false, which means "behaves exactly as it does today", and that
+## default is a liability rather than a resting place.** As of the commit that
+## added this, `Terrain.line_is_blocked` was written, tested and called by
+## nothing at all: walls stopped movement and every ranged attack fired straight
+## through them. teal's own honesty check on issue 13b caught it —
+## `test_the_wall_changes_the_fight_from_the_open_room`, which they wrote to fail
+## if terrain turned out to be decoration, and which failed.
+##
+## That is why a party at 200+ units cannot be threatened by a wall today, and
+## therefore why the whole cost of every fight still falls on whoever closes to
+## melee. Setting this on the ranged actions is the point of the field.
+##
+## Two halves, filed as issue 28 the same minute this landed rather than left in
+## a comment: the simulation has to consult it when resolving targets (wren), and
+## the content has to declare which actions need it (teal).
+@export var requires_line_of_sight: bool = false
+
 @export var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
 ## Multiplier on the wielder's derived attack power for this damage type.

@@ -1,0 +1,81 @@
+extends "res://Tests/TestCase.gd"
+
+const CG := preload("res://Scripts/Core/CG.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
+const BattleScene := preload("res://Scenes/Battle.tscn")
+
+## Issue 26 item 3: in a scrum, several floating numbers used to spawn at the
+## literal same point and read as one garbled string
+## (Tools/preview/fight_04.png: "Cultist dies", a floating 2 and a unit label
+## all on the same pixels). Each new floater near an existing one now spreads
+## a step further rather than landing on top of it.
+
+func _make_view_with_target(pos: Vector2) -> Node2D:
+	var state := CombatState.new(1)
+	var target := CombatUnit.new()
+	target.id = 0
+	target.team = CG.Team.PLAYER
+	target.display_name = "Rat"
+	target.position = pos
+	state.units.append(target)
+
+	var view = BattleScene.instantiate()
+	view._ready()
+	view.state = state
+	view.event_cursor = 0
+	return view
+
+func test_no_stagger_with_nothing_nearby() -> void:
+	var view := _make_view_with_target(Vector2.ZERO)
+	assert_eq(view._floater_stagger_offset(Vector2.ZERO), Vector2.ZERO)
+	view.free()
+
+func test_each_additional_nearby_floater_spreads_further() -> void:
+	var view := _make_view_with_target(Vector2.ZERO)
+
+	var e1 := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e1.target_id = 0
+	e1.amount = 5
+	e1.amount_before_mitigation = 5
+	view.state.emit(e1)
+	view.consume_events()
+	var offset_after_one: Vector2 = view._floater_stagger_offset(Vector2.ZERO)
+	assert_ne(offset_after_one, Vector2.ZERO, "a second floater near the first must not land on it")
+
+	var e2 := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e2.target_id = 0
+	e2.amount = 3
+	e2.amount_before_mitigation = 3
+	view.state.emit(e2)
+	view.consume_events()
+	var offset_after_two: Vector2 = view._floater_stagger_offset(Vector2.ZERO)
+	assert_ne(offset_after_two, offset_after_one,
+		"a third floater must not land on either of the first two")
+	assert_ne(offset_after_two, Vector2.ZERO)
+	view.free()
+
+func test_a_death_marker_stays_within_the_stagger_budget() -> void:
+	# The death marker's own vertical offset stacks on top of the
+	# horizontal stagger, not instead of it: a killing blow's DAMAGE event
+	# and its DEATH event fire the same tick and must not overlap either.
+	var view := _make_view_with_target(Vector2(50.0, 50.0))
+	var damage := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	damage.target_id = 0
+	damage.amount = 7
+	damage.amount_before_mitigation = 7
+	view.state.emit(damage)
+	view.consume_events()
+
+	var arena := view.get_node("Arena")
+	var floater_x: float = arena.get_child(arena.get_child_count() - 1).position.x
+
+	var death := CombatEvent.make(CG.EventKind.DEATH, 1)
+	death.target_id = 0
+	view.state.emit(death)
+	view.consume_events()
+	var marker_x: float = arena.get_child(arena.get_child_count() - 1).position.x
+
+	assert_ne(floater_x, marker_x, "the death marker must not land on the same x as the damage floater it follows")
+	view.free()

@@ -459,16 +459,20 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
 
-## Range is measured here, at the moment the effect lands, against the target
-## the action committed to. A target that walked out of range during the
-## wind-up is a miss: ACTION_FIRE is still emitted (the log shows the attempt)
-## but nothing else follows for it.
+## Range and line of sight are both measured here, at the moment the effect
+## lands, against the target the action committed to -- same reasoning for
+## both: a target that walked out of range, or behind a wall, during the
+## wind-up is a miss (issue 28), and one that steps back into range or out
+## from behind cover is a hit. ACTION_FIRE is still emitted either way (the
+## log shows the attempt) but nothing else follows for a miss.
 static func _resolve_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
 	var out: Array[CombatUnit] = []
 	var primary := state.unit(unit.focus_id)
 	if primary == null or not primary.alive:
 		return out
 	if unit.position.distance_to(primary.position) > action.range_units:
+		return out
+	if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, primary.position):
 		return out
 
 	if action.splash_radius <= 0.0:
