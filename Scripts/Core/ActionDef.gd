@@ -12,6 +12,16 @@ const CG := preload("res://Scripts/Core/CG.gd")
 @export var id: StringName = &""
 @export var display_name: String = ""
 
+## One or two sentences a player reads on the inspect screen, in their language
+## rather than ours: what this does and when it is worth using. Not the numbers —
+## the screen can read those off the fields below and they change every time
+## anyone tunes.
+##
+## Empty is a defect rather than a default. An action with no description is one
+## the player is asked to plan around with no information, and the inspect screen
+## is the only place the game ever explains itself.
+@export var description: String = ""
+
 ## Ticks between the unit committing and the effect landing. The unit is
 ## interruptible here and its intent cannot change. This is what makes reading
 ## a fight possible, so an action with wind_up_ticks == 0 should be rare.
