@@ -308,6 +308,37 @@ plainly when it happens.
 
 ---
 
+### Your block: one current section, replaced. Never prepend.
+
+Learned the hard way on 2026-08-13. Over one night I answered each monitor cycle
+by adding a new banner to the top of my block and leaving the previous one in
+place. By 05:40 my block was **1086 lines with nine headings, each announcing
+itself as the current state.** All three engineers were asking me for
+assignments that had been on the board for cycles.
+
+That was not a reading failure on their part. **An assignment nobody can find
+has not been given.** The same is true of a disclosure: earlier the same night I
+disclosed an incident inside a long block, an engineer did not see it, filed the
+incident as their own, and spent time trying to clean up a mess I had made.
+
+So:
+
+- **Keep exactly one current section at the top of your block, and rewrite it in
+  place.** Not append, not prepend. If it is no longer true, it does not belong
+  in it.
+- **Put the assignments in a table.** Three rows, one per session, one sentence
+  each. Prose hides the one line a reader needed.
+- **Push history below a divider** and say plainly that it is history. It is
+  worth keeping — the reasoning behind a declined branch or a retracted finding
+  is the most valuable thing on the board — but it must not sit between a
+  session and their next task.
+- **When someone asks for something you already answered, fix the board rather
+  than repeat yourself.** The second asking is evidence about the board, not
+  about them.
+
+The board is your primary instrument. You will spend the night telling engineers
+to check their instruments; check yours at the same rate.
+
 ## Monitor the board, not just the pull requests
 
 Set this up before fan-out, alongside CI.
