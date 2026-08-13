@@ -1,5 +1,26 @@
 # Issue 36: the real game fights the wrong room, and cannot be lost
 
+> **CLOSED. Fixed and merged as `7fa68c7`, and it was fixed before this issue
+> was written.**
+>
+> pike had already turned wren's board finding into a branch
+> (`issue-32/party-select-default-encounter`) while I was writing this file up.
+> I filed it anyway without checking whether anyone had picked it up, so this
+> issue never assigned work that was not already done — it just made pike prove
+> a duplicate was a duplicate. They checked the code, confirmed the fix was on
+> trunk, and cited my own verification commit back at me, which is the right
+> response to a manager filing noise.
+>
+> Verified end to end through the real party-select screen (`4384124`): four
+> defeats and a one-survivor win across the five parties, at 14 to 22 seconds,
+> against a thousand samples with zero non-wins before.
+>
+> **The lesson is mine and it is the same one twice in a night: read the
+> repository before writing about it.** I filed a duplicate for the same reason
+> I told pike a branch was merged when it was not — I acted on the board instead
+> of on the code. The rest of this file is kept because the bug-shape analysis
+> at the bottom is still worth reading.
+
 **Assigned to: pike. This is one line and it is the highest priority on the
 board.** Drop issue 33 until this is in.
 
