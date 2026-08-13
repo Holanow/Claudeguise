@@ -31,12 +31,47 @@ var _tests_run := 0
 var _assertions := 0
 var _self_path := "res://Tests/run_tests.gd"
 
+## An optional substring filter, for iterating on one file without paying for the
+## whole suite:
+##
+##     godot --headless --path . --script res://Tests/run_tests.gd -- projectiles
+##
+## **Parse and discovery always run over everything, and that is deliberate.** A
+## missing symbol in Scripts/Core is a parse-time failure in Godot that takes
+## down every script transitively preloading it, so a filtered run that skipped
+## the parse check could report green while the real gate is broken. Only the
+## test-execution phase narrows.
+##
+## Added after swift was told to use a filter argument that did not exist. They
+## checked the command instead of trusting it, found `_init` always walked the
+## whole tree regardless, and said so rather than running something that looked
+## like it worked. The suggestion was mine and so was the gap.
+static func _filter_from_args() -> String:
+	for a in OS.get_cmdline_user_args():
+		var s := String(a).strip_edges()
+		if s != "":
+			return s
+	return ""
+
 func _init() -> void:
 	var scripts := _walk("res://")
 	scripts.sort()
 
 	_check_parse(scripts)
 	var collected := _check_discovery(scripts)
+
+	var filter := _filter_from_args()
+	if filter != "":
+		var kept: Array = []
+		for path in collected:
+			if String(path).findn(filter) != -1:
+				kept.append(path)
+		print("")
+		print("  FILTERED to \"%s\": %d of %d test files. This is NOT the gate." % [
+			filter, kept.size(), collected.size()
+		])
+		collected = kept
+
 	_run_tests(collected)
 
 	print("")
