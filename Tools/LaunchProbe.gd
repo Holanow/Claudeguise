@@ -76,24 +76,56 @@ func _report_buttons() -> void:
 ## which is what a finger does.
 func _press_class_buttons() -> void:
 	var pressed := 0
-	for b in _find_buttons(_main):
-		if b.disabled:
-			continue
-		var t := b.text.to_lower()
-		if t.begins_with("start") or t.begins_with("change") or t.begins_with("pause") or t.begins_with("restart"):
-			continue
-		if b.toggle_mode:
-			b.button_pressed = true
-		else:
-			b.emit_signal("pressed")
+
+	# Class selectors were CheckBoxes and are now PartyCards, which are plain
+	# Controls that emit `toggled` from _gui_input. This probe went blind the
+	# moment that landed and reported "no start button found at all", which is a
+	# tool failure that looks exactly like a broken game.
+	#
+	# Driving the signal rather than synthesising a click, for the same reason
+	# the whole probe exists: no mouse capture, nothing that touches the user's
+	# desktop.
+	for card in _find_party_cards(_main):
+		card.toggled.emit(true)
 		pressed += 1
 		if pressed >= 4:
 			break
+
+	if pressed == 0:
+		for b in _find_buttons(_main):
+			if b.disabled:
+				continue
+			var t := b.text.to_lower()
+			if t.begins_with("start") or t.begins_with("change") or t.begins_with("pause") or t.begins_with("restart"):
+				continue
+			if b.toggle_mode:
+				b.button_pressed = true
+			else:
+				b.emit_signal("pressed")
+			pressed += 1
+			if pressed >= 4:
+				break
+
 	print("LaunchProbe: selected %d classes" % pressed)
 
+## Anything carrying a `toggled` signal that is not a Button. Found by shape
+## rather than by class name, so this keeps working if the card is renamed.
+func _find_party_cards(node: Node) -> Array:
+	var out: Array = []
+	if node is Control and not (node is Button) and node.has_signal("toggled"):
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_find_party_cards(c))
+	return out
+
+## The start control's label changes with state — it reads "Pick at least one
+## class" when nothing is selected — so matching on the word "start" alone finds
+## nothing at the moment it is disabled. Matched on being the only enabled
+## non-navigation button instead.
 func _press_start() -> void:
 	for b in _find_buttons(_main):
-		if b.text.to_lower().begins_with("start"):
+		var t := b.text.to_lower()
+		if t.begins_with("start") or t.contains("fight"):
 			if b.disabled:
 				printerr("LaunchProbe: the start button is DISABLED. A player cannot begin a fight.")
 				return
