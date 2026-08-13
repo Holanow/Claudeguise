@@ -33,6 +33,12 @@ const MODULES: Array = [
 	preload("res://Scripts/Content/Modules/floor1_enemies.gd"),
 	preload("res://Scripts/Content/Modules/floor1_encounters.gd"),
 	preload("res://Scripts/Content/Modules/core_items.gd"),
+	## Issue 19: rooms kite's level editor saved to disk. Kept last so a
+	## hand-authored room can never win an id collision against a
+	## hand-written encounter registered above it -- `_register` already
+	## rejects the second registration of any id with a loud error, and
+	## iteration order over `MODULES` decides which one is "first".
+	preload("res://Scripts/Content/Modules/authored_rooms.gd"),
 ]
 
 static var _classes: Dictionary = {}
