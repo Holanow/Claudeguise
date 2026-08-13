@@ -63,8 +63,8 @@ func _median_distance_over_fight(attacker_id: StringName, ticks: int) -> float:
 
 func test_ranged_default_behaviour_keeps_more_distance_than_melee() -> void:
 	# Measured over 300 ticks (10 seconds) against a stationary target.
-	var ranged_median := _median_distance_over_fight(&"dungeon_archer", 300)
-	var melee_median := _median_distance_over_fight(&"dungeon_grunt", 300)
+	var ranged_median := _median_distance_over_fight(&"goblin_archer", 300)
+	var melee_median := _median_distance_over_fight(&"goblin", 300)
 	print("DefaultBehavior range check: ranged median=%.1f melee median=%.1f" % [ranged_median, melee_median])
 	assert_true(ranged_median > melee_median * 1.5, "ranged (%.1f) should sit well further back than melee (%.1f)" % [ranged_median, melee_median])
 

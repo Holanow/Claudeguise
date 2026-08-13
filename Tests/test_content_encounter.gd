@@ -48,8 +48,8 @@ func test_warriors_and_priests_fight_differently() -> void:
 	_assert_pair_differs(&"warrior", &"priest", 1)
 
 
-func test_siege_masters_and_priests_fight_differently() -> void:
-	_assert_pair_differs(&"siege_master", &"priest", 1)
+func test_abominations_and_priests_fight_differently() -> void:
+	_assert_pair_differs(&"abomination", &"priest", 1)
 
 
 func test_geysermancers_and_warriors_fight_differently() -> void:
@@ -83,10 +83,11 @@ func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 
 
 func test_seed_changes_the_fight() -> void:
-	# priest x4 has the widest measured spread of the sampled comps.
-	var r := _win_rate([&"priest", &"priest", &"priest", &"priest"], 20)
+	# abomination x4 has the widest measured spread of the sampled comps
+	# once issue 12's bestiary and issue 20's regeneration are both in.
+	var r := _win_rate([&"abomination", &"abomination", &"abomination", &"abomination"], 20)
 	var spread_fraction := float(r["max"] - r["min"]) / float(max(1, r["median"]))
-	print("seed sensitivity, priest x4: ticks min=%d median=%d max=%d (spread %.0f%% of median)" % [r["min"], r["median"], r["max"], spread_fraction * 100.0])
+	print("seed sensitivity, abomination x4: ticks min=%d median=%d max=%d (spread %.0f%% of median)" % [r["min"], r["median"], r["max"], spread_fraction * 100.0])
 	assert_true(spread_fraction >= 0.15, "tick spread should be at least 15%% of the median, was %.0f%%" % (spread_fraction * 100.0))
 
 
@@ -104,13 +105,45 @@ func test_same_seed_replays_bit_identical() -> void:
 
 
 func test_some_composition_is_a_genuine_coin_flip() -> void:
-	var r := _win_rate([&"priest", &"priest", &"priest", &"priest"], 20)
-	print("floor1_room1: priest x4 win rate %d/20" % r["wins"])
+	var r := _win_rate([&"siege_master", &"siege_master", &"siege_master", &"siege_master"], 20)
+	print("floor1_room1: siege_master x4 win rate %d/20" % r["wins"])
 	assert_true(r["wins"] >= 6 and r["wins"] <= 14, "expected a genuine coin flip (6-14 of 20), got %d/20" % r["wins"])
 
 
 func test_composition_still_matters() -> void:
-	var best := _win_rate([&"siege_master", &"geysermancer", &"priest", &"warrior"], 20)
+	var best := _win_rate([&"warrior", &"warrior", &"warrior", &"warrior"], 20)
 	var worst := _win_rate([&"abomination", &"abomination", &"abomination", &"abomination"], 20)
-	print("floor1_room1: best comp (siege_master/geysermancer/priest/warrior) win rate %d/20  vs  worst comp (abomination x4) win rate %d/20" % [best["wins"], worst["wins"]])
+	print("floor1_room1: best comp (warrior x4) win rate %d/20  vs  worst comp (abomination x4) win rate %d/20" % [best["wins"], worst["wins"]])
 	assert_true(best["wins"] - worst["wins"] >= 10, "best and worst comps should differ by a wide margin in win rate")
+
+
+## The user's rewritten issue 7 criterion 1: a mostly-winning party's win
+## should cost something. Median hp% the party finished a win on, dead pawns
+## counted as zero (matches Tools/SampleFights.gd's cost metric). Printed and
+## sanity-checked rather than hard-asserted at the target (<=40% or 2+ down):
+## current tuning gets real cost into winning fights (measured 57-71% across
+## the strongest comps, down from 85-95%+ before issue 12 and issue 20) but
+## does not yet reach it, and asserting the target here would either fail
+## honestly or get quietly loosened later. TEAM_LOG carries the real number
+## and the finding about why (concentration, not total damage).
+func test_a_winning_party_pays_a_real_cost() -> void:
+	var r := _win_rate([&"warrior", &"warrior", &"warrior", &"warrior"], 20)
+	var encounter := Registry.get_encounter(&"floor1_room1")
+	var costs: Array[float] = []
+	for seed in 20:
+		var party := _party_of(&"warrior", 4)
+		var state := CombatSim.build(party, encounter, seed)
+		var outcome := CombatSim.run(state)
+		if outcome != CombatState.Outcome.PLAYER_WIN:
+			continue
+		var total_hp := 0.0
+		var max_hp := 0.0
+		for u in state.units:
+			if u.team == CG.Team.PLAYER:
+				max_hp += float(u.hp_max)
+				total_hp += float(maxi(0, u.hp))
+		costs.append(total_hp / max_hp * 100.0)
+	costs.sort()
+	var median_cost := costs[costs.size() / 2] if not costs.is_empty() else 100.0
+	print("floor1_room1: warrior x4 median hp%% on a win = %.0f%% (target: <=40%% or 2+ pawns down, not yet met)" % median_cost)
+	assert_true(median_cost < 100.0, "a win should cost something measurable")

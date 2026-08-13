@@ -44,16 +44,11 @@ var default_decide: Callable = DefaultBehavior.decide
 
 ## Resource per tick, before the ceiling. Never consulted for a RAGE unit —
 ## CombatSim enforces that structurally rather than trusting every possible
-## rate function to return 0 for it. No Balance function for a rate exists
-## yet, so the default is 0: real numbers arrive the moment
-## `Balance.resource_regen_per_tick(pawn, kind) -> float` exists and this
-## default is updated to call it, the same one-line shape as every other
-## default here.
+## rate function to return 0 for it.
 var resource_regen_per_tick: Callable = _default_resource_regen_per_tick
 
 ## Resource gained the moment an attack actually lands (not on commit, not on
-## a miss). Only consulted for a RAGE unit. Same pending-Balance-function note
-## as above: `Balance.rage_gain_per_attack(pawn) -> float`.
+## a miss). Only consulted for a RAGE unit.
 var rage_gain_on_attack: Callable = _default_rage_gain_on_attack
 
 static func _default_max_hp(pawn: PawnData) -> int:
@@ -100,11 +95,8 @@ static func _default_recover_ticks(unit: CombatUnit, action: ActionDef) -> int:
 		return Balance.scale_action_ticks(action.recover_ticks, unit.pawn)
 	return action.recover_ticks
 
-## No Balance.resource_regen_per_tick exists yet. 0 keeps that honest instead
-## of inventing a rate in Scripts/Combat/.
-static func _default_resource_regen_per_tick(_unit: CombatUnit) -> float:
-	return 0.0
+static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
+	return Balance.resource_regen_per_tick(unit)
 
-## No Balance.rage_gain_per_attack exists yet. Same reasoning as above.
-static func _default_rage_gain_on_attack(_unit: CombatUnit) -> float:
-	return 0.0
+static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
+	return Balance.rage_gain_per_attack(unit)
