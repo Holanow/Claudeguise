@@ -41,6 +41,9 @@ var _seed_label: Label = null
 var _outcome_label: Label = null
 var _pause_button: Button = null
 
+var _party_summary_fill: ColorRect = null
+var _enemy_summary_fill: ColorRect = null
+
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
@@ -62,7 +65,7 @@ func _build_top_bar() -> void:
 	backdrop.color = Palette.BACKGROUND
 	backdrop.color.a = 0.72
 	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	backdrop.offset_bottom = Palette.SPACE_M * 2.0 + Palette.TOUCH_TARGET_MIN
+	backdrop.offset_bottom = _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_S
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(backdrop)
 
@@ -72,6 +75,18 @@ func _build_top_bar() -> void:
 	bar.offset_left = Palette.SPACE_M
 	bar.offset_top = Palette.SPACE_M
 	hud.add_child(bar)
+
+	# Issue 15: "you cannot tell who is winning" without parsing seven small
+	# bars. Two aggregate bars answer that at a glance, colour-coded the same
+	# way a single unit's own hp bar is.
+	var summary := HBoxContainer.new()
+	summary.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	summary.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	summary.offset_left = Palette.SPACE_M
+	summary.offset_top = _SUMMARY_ROW_TOP
+	hud.add_child(summary)
+	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER)
+	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY)
 
 	_party_label = Label.new()
 	_party_label.add_theme_color_override("font_color", Palette.TEXT)
@@ -101,6 +116,59 @@ func _build_top_bar() -> void:
 	back_button.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_button)
 
+const _SUMMARY_ROW_TOP := Palette.SPACE_M * 2.0 + Palette.TOUCH_TARGET_MIN
+const _SUMMARY_ROW_HEIGHT := 20.0
+const _SUMMARY_BAR_WIDTH := 120.0
+
+## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
+## Returns the fill rect so _update_team_summary can resize it later.
+func _build_summary_bar(parent: HBoxContainer, label_text: String, color: Color) -> ColorRect:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	parent.add_child(row)
+
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	row.add_child(label)
+
+	var back := ColorRect.new()
+	back.color = Palette.HP_BACK
+	back.custom_minimum_size = Vector2(_SUMMARY_BAR_WIDTH, _SUMMARY_ROW_HEIGHT)
+	row.add_child(back)
+
+	var fill := ColorRect.new()
+	fill.color = color
+	fill.position = Vector2.ZERO
+	fill.size = Vector2(_SUMMARY_BAR_WIDTH, _SUMMARY_ROW_HEIGHT)
+	back.add_child(fill)
+
+	return fill
+
+## "Are we winning" answerable without parsing seven small bars — issue 15's
+## first failure. Total hp_max is each side's starting capacity; total hp
+## (0 for a dead unit, not removed from the total) is what is left of it, so
+## the bar reads as "how much of this side's health is gone", the same
+## reading a single unit's own hp bar gives.
+func _update_team_summary() -> void:
+	if state == null or _party_summary_fill == null:
+		return
+	_party_summary_fill.size.x = _SUMMARY_BAR_WIDTH * _team_hp_fraction(CG.Team.PLAYER)
+	_enemy_summary_fill.size.x = _SUMMARY_BAR_WIDTH * _team_hp_fraction(CG.Team.ENEMY)
+
+func _team_hp_fraction(team: CG.Team) -> float:
+	var total := 0
+	var current := 0
+	for u in state.units:
+		if u.team != team:
+			continue
+		total += u.hp_max
+		current += maxi(u.hp, 0)
+	if total <= 0:
+		return 0.0
+	return float(current) / float(total)
+
 ## World-space room added around the arena's own bounds when fitting it to
 ## the viewport.
 ##
@@ -123,7 +191,7 @@ func _build_top_bar() -> void:
 ## roughly 45. Verified against units placed at the *literal* simulated
 ## corner (Screenshots/edges_1280x720.png) — the same trap issue 6 hit,
 ## caught again here before it merged this time.
-const _MARGIN_TOP := 110.0
+const _MARGIN_TOP := 150.0
 const _MARGIN_BOTTOM := 70.0
 const _MARGIN_SIDE := 45.0
 
@@ -157,6 +225,7 @@ func begin(cfg: RunConfig) -> void:
 	_party_label.text = "Party: " + ", ".join(cfg.party.map(func(p): return p.display_name))
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
+	_update_team_summary()
 	set_process(true)
 
 func set_paused(p: bool) -> void:
@@ -205,6 +274,7 @@ func _process(delta: float) -> void:
 	consume_events()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
+	_update_team_summary()
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_show_outcome()
 		set_process(false)

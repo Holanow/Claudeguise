@@ -103,3 +103,63 @@ func test_crowd_rank_ignores_dead_units() -> void:
 	var a := _make_unit(0, Vector2.ZERO, false)
 	var b := _make_unit(1, Vector2(5.0, 0.0))
 	assert_eq(UnitView.crowd_rank(b, [a, b]), 0, "a dead unit's old label is gone too, nothing to avoid")
+
+# ---------------------------------------------------------------------------
+# concentration_count (issue 15)
+# ---------------------------------------------------------------------------
+
+func test_concentration_count_is_zero_with_no_attackers() -> void:
+	var target := _make_unit(0, Vector2.ZERO)
+	var bystander := _make_unit(1, Vector2(50.0, 0.0))
+	assert_eq(UnitView.concentration_count(target, [target, bystander]), 0)
+
+func test_concentration_count_counts_focused_attackers_only() -> void:
+	var target := _make_unit(0, Vector2.ZERO)
+	var attacker_a := _make_unit(1, Vector2(50.0, 0.0))
+	attacker_a.focus_id = 0
+	var attacker_b := _make_unit(2, Vector2(-50.0, 0.0))
+	attacker_b.focus_id = 0
+	var elsewhere := _make_unit(3, Vector2(0.0, 50.0))
+	elsewhere.focus_id = 3
+	var units := [target, attacker_a, attacker_b, elsewhere]
+	assert_eq(UnitView.concentration_count(target, units), 2)
+
+func test_concentration_count_ignores_dead_attackers() -> void:
+	var target := _make_unit(0, Vector2.ZERO)
+	var dead_attacker := _make_unit(1, Vector2(50.0, 0.0), false)
+	dead_attacker.focus_id = 0
+	assert_eq(UnitView.concentration_count(target, [target, dead_attacker]), 0)
+
+# ---------------------------------------------------------------------------
+# visual_offset (issue 15: the melee scrum)
+# ---------------------------------------------------------------------------
+
+func test_visual_offset_is_zero_when_nothing_is_close() -> void:
+	var a := _make_unit(0, Vector2.ZERO)
+	var b := _make_unit(1, Vector2(500.0, 0.0))
+	assert_eq(UnitView.visual_offset(a, [a, b]), Vector2.ZERO)
+
+func test_visual_offset_pushes_overlapping_units_apart() -> void:
+	var a := _make_unit(0, Vector2(-5.0, 0.0))
+	var b := _make_unit(1, Vector2(5.0, 0.0))
+	var offset_a := UnitView.visual_offset(a, [a, b])
+	var offset_b := UnitView.visual_offset(b, [a, b])
+	assert_true(offset_a.x < 0.0, "a must be pushed further from b, i.e. further left")
+	assert_true(offset_b.x > 0.0, "b must be pushed further from a, i.e. further right")
+
+func test_visual_offset_never_exceeds_its_cap() -> void:
+	# Several units stacked on the exact same point: a naive sum of pushes
+	# could grow without bound. It must stay small enough that a unit never
+	# reads somewhere misleadingly far from where it actually is.
+	var units: Array = []
+	for i in 6:
+		units.append(_make_unit(i, Vector2.ZERO))
+	var offset: Vector2 = UnitView.visual_offset(units[3], units)
+	assert_true(offset.length() <= units[3].radius * 1.5 + 0.01)
+
+func test_visual_offset_is_deterministic_for_exactly_coincident_units() -> void:
+	var a := _make_unit(0, Vector2.ZERO)
+	var b := _make_unit(1, Vector2.ZERO)
+	var first := UnitView.visual_offset(b, [a, b])
+	var second := UnitView.visual_offset(b, [a, b])
+	assert_eq(first, second, "the same fight must nudge the same unit the same way every time")
