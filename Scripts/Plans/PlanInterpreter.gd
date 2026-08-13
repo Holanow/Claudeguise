@@ -164,6 +164,40 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return unit.id
 	return -1
 
+## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
+## screen. Display only — never called from decide()/condition_holds(), so a
+## bad string here cannot affect a fight. An unknown op still names itself
+## rather than going blank, since a player reading "??? " and a player reading
+## "unknown op 'x'" are getting different amounts of information from the same
+## bug.
+static func describe_op(op: StringName, args: Dictionary) -> String:
+	match op:
+		&"always":
+			return "always"
+		&"self_hp_below_fraction":
+			return "self hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
+		&"ally_below_hp_fraction":
+			return "an ally's hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
+		&"self_resource_at_least":
+			return "self resource at least %d" % int(args.get("amount", 0))
+		&"enemy_in_range":
+			return "an enemy within %d units" % int(args.get("range", 0.0))
+		&"target_nearest_enemy":
+			return "the nearest enemy"
+		&"target_lowest_hp_fraction_ally":
+			return "the ally with the lowest hp"
+		&"target_lowest_hp_fraction_enemy":
+			return "the enemy with the lowest hp"
+		&"target_self":
+			return "self"
+		&"use_action":
+			var action_id: StringName = args.get("action_id", &"")
+			var action := Registry.get_action(action_id)
+			return "use %s" % (action.display_name if action != null else String(action_id))
+		&"once":
+			return "once"
+	return "unknown op '%s'" % op
+
 static func _fail(plan: Plan, block: PlanBlock) -> void:
 	last_error = "unknown block op '%s' in plan '%s'" % [block.op, plan.id]
 	push_error("PlanInterpreter: %s" % last_error)
