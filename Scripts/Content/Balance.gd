@@ -69,7 +69,7 @@ const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 ## flavour text ("Fire: Enrage, Burn" reads more violent than a lingering
 ## "Water: Cleanse, Soak"-adjacent Profane poison).
 const BURN_DAMAGE_PERCENT_PER_TICK := 0.5
-const POISON_DAMAGE_PERCENT_PER_TICK := 0.35
+const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
 
 ## Issue 23: multiplier on wind-up/recovery ticks while HASTE is active.
 ## Below 1.0 speeds a unit up; wren's simulation floors the result at one

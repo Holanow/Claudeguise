@@ -33,8 +33,10 @@ static func enemies() -> Array[EnemyDef]:
 		# allies are doing, so a low focus_bias.
 		_enemy(&"ghoul", "Ghoul", 200, 0, CG.ResourceKind.ENERGY, 1.6, 16.0, {CG.DamageType.PHYSICAL: 20}, 0.1, [&"ghoul_maul"], ["Melee", "Undead", "Tough"], 0.1),
 		# Ranged caster, unchanged role. Moderate bias: happy to finish a
-		# weakened target but not a pure pile-on.
-		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 13}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
+		# weakened target but not a pure pile-on. Base damage 13->11 (issue 23
+		# re-tune): its bolt now also applies POISON, and the two together were
+		# pushing the balanced reference party below its win-rate floor.
+		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 11}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
 	]
 
 static func encounters() -> Array[Encounter]:
