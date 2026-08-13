@@ -288,6 +288,8 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
 	var targets := _resolve_targets(state, unit, action)
+	if targets.is_empty():
+		state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
 	for target in targets:
 		_apply_action_effect(state, unit, target, action, deps)
 
