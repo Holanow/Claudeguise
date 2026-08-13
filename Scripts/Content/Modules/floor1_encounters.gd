@@ -45,17 +45,28 @@ static func _the_room() -> Encounter:
 	## Four goblins (numerous), a pair of archers, a cultist, and a ghoul
 	## anchoring the back — the tough/slow piece regen alone cannot make
 	## trivial the way it did the pure-numbers version of this room.
+	##
+	## Issue 24: the back rank (archers, cultist, ghouls) used to sit at
+	## x=380/300/250, 130-230 units behind the goblin front line. A party with
+	## a long-range action (siege_shot, 260) could close to just outside the
+	## goblins' own reach and never come within the back rank's, so it won a
+	## clean sweep it never fought for. Pulled the whole back rank forward to
+	## x=190-230 -- still behind the goblins, but close enough that closing on
+	## the front line also brings the back rank's own range into play. Moves
+	## the "party wins for free" cost from 98% party hp to 77% (SampleFights),
+	## not a full fix -- terrain (issue 13b) is the next lever if that isn't
+	## enough on its own.
 	e.enemy_spawns = [
 		{"enemy_id": &"goblin", "position": Vector2(150.0, -150.0)},
 		{"enemy_id": &"goblin", "position": Vector2(150.0, -50.0)},
 		{"enemy_id": &"goblin", "position": Vector2(150.0, 50.0)},
 		{"enemy_id": &"goblin", "position": Vector2(150.0, 150.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(380.0, -60.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(380.0, 60.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(380.0, 200.0)},
-		{"enemy_id": &"cultist", "position": Vector2(300.0, -200.0)},
-		{"enemy_id": &"ghoul", "position": Vector2(250.0, 0.0)},
-		{"enemy_id": &"ghoul", "position": Vector2(250.0, -220.0)},
+		{"enemy_id": &"goblin_archer", "position": Vector2(230.0, -60.0)},
+		{"enemy_id": &"goblin_archer", "position": Vector2(230.0, 60.0)},
+		{"enemy_id": &"goblin_archer", "position": Vector2(230.0, 200.0)},
+		{"enemy_id": &"cultist", "position": Vector2(210.0, -200.0)},
+		{"enemy_id": &"ghoul", "position": Vector2(190.0, 0.0)},
+		{"enemy_id": &"ghoul", "position": Vector2(190.0, -220.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
 	return e

@@ -45,12 +45,17 @@ static func classes() -> Array[ClassDef]:
 			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
 			[&"siege_shot", &"siege_barrage"]
 		),
+		## CON 8->10 (issue 24): pulling floor1_room1's back rank forward hits
+		## every melee party harder, including this one, and it pushed
+		## abomination x4 out of its coin-flip band (5/20, needed 6-14). CON
+		## is the tank's own stat and the fix that does not touch the room or
+		## any other class -- SampleFights confirmed it back at 6/20.
 		_class(
 			&"abomination", "Abomination",
 			CG.Method.MAGICAL, CG.Style.MELEE, CG.Role.ANTI_SUPPORT, CG.Role.TANK,
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
-			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 2, CG.Attribute.CON: 8, CG.Attribute.INT: 7, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
+			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 2, CG.Attribute.CON: 10, CG.Attribute.INT: 7, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
 			[&"abomination_claw", &"abomination_immolate"]
 		),
 	]
