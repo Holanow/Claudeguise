@@ -2,6 +2,10 @@
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
+const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Real time, with a pause: the view accumulates wall-clock delta and spends it
@@ -9,24 +13,55 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## stops spending the accumulator rather than resetting it.
 ##
 ## These tests drive _process() directly with hand-picked deltas instead of
-## waiting on real frames, and check the accumulator rather than any effect of
-## CombatSim.step, because CombatSim is wren's stub today and does not advance
-## state.tick yet. Instantiating the real Battle.tscn (rather than
-## BattleView.new()) is required: _ready() looks up the Arena and Hud/CombatLog
-## children by name, which only exist once the scene is instantiated.
+## waiting on real frames, and check the accumulator. CombatSim is real now
+## (issue 1 merged), so a step can actually resolve the fight if both sides
+## are empty; the fixture below gives each side one idle unit (no registered
+## actions, so DefaultBehavior.decide's Intent.idle() is all that ever
+## happens) purely so the fight stays UNRESOLVED across every step these tests
+## drive, which is what the accumulator math assumes. Registry has no content
+## yet, so the encounter and party are hand-built rather than looked up.
 ##
-## _ready() is called directly rather than via add_child(), because the test
-## runner (Tests/run_tests.gd) is not reachable through Engine.get_main_loop()
-## from inside its own _init(). BattleView._ready() is written to tolerate
-## this: viewport-dependent layout is skipped when the node has no tree, which
-## is exactly the case here.
+## Instantiating the real Battle.tscn (rather than BattleView.new()) is
+## required: _ready() looks up the Arena and Hud/CombatLog children by name,
+## which only exist once the scene is instantiated. _ready() is called
+## directly rather than via add_child(), because the test runner
+## (Tests/run_tests.gd) is not reachable through Engine.get_main_loop() from
+## inside its own _init(). BattleView._ready() is written to tolerate this:
+## viewport-dependent layout is skipped when the node has no tree, which is
+## exactly the case here.
+
+func _make_party() -> Array[PawnData]:
+	var cls := ClassDef.new()
+	cls.id = &"test_class"
+	cls.display_name = "Test Class"
+	var pawn := PawnData.new()
+	pawn.id = &"test_pawn"
+	pawn.display_name = "Test Pawn"
+	pawn.pawn_class = cls
+	var out: Array[PawnData] = [pawn]
+	return out
+
+func _make_encounter() -> Encounter:
+	var e := Encounter.new()
+	e.enemy_spawns = [{"enemy_id": &"test_dummy", "position": Vector2(80.0, 0.0)}]
+	e.party_spawns = [Vector2(-80.0, 0.0)]
+	return e
 
 func _spawn_battle_view():
 	var view = BattleScene.instantiate()
 	view._ready()
 	var config := RunConfig.new()
 	config.seed = 1
-	view.begin(config)
+	config.party = _make_party()
+	view.config = config
+	view.state = CombatSim.build(config.party, _make_encounter(), config.seed)
+	view.event_cursor = 0
+	view._tick_accumulator = 0.0
+	view.set_paused(false)
+	view._rebuild_units()
+	view._party_label.text = "Party: Test Pawn"
+	view._seed_label.text = "Seed " + config.seed_text()
+	view._outcome_label.text = ""
 	return view
 
 func test_a_partial_tick_of_delta_accumulates_without_stepping() -> void:
