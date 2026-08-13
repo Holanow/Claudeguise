@@ -78,12 +78,26 @@ func _build_top_bar() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(backdrop)
 
+	# Issue 43: this used to be one HBoxContainer holding four labels and
+	# three buttons, all in a single row — it overflowed the viewport the
+	# moment a wide label (the room name, issue 36) or a narrow phone
+	# width made the row longer than the screen. Split into an info row
+	# (labels, which can wrap or clip without losing function) and a
+	# controls row (buttons, which must stay tappable and never clip).
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	bar.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	bar.offset_left = Palette.SPACE_M
+	bar.offset_right = -Palette.SPACE_M
 	bar.offset_top = Palette.SPACE_M
 	hud.add_child(bar)
+
+	var controls := HBoxContainer.new()
+	controls.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	controls.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	controls.offset_left = Palette.SPACE_M
+	controls.offset_top = Palette.SPACE_M + _INFO_ROW_HEIGHT + Palette.SPACE_S
+	hud.add_child(controls)
 
 	# Issue 15: "you cannot tell who is winning" without parsing seven small
 	# bars. Two aggregate bars answer that at a glance, colour-coded the same
@@ -132,19 +146,19 @@ func _build_top_bar() -> void:
 	_pause_button.text = "Pause"
 	_pause_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	_pause_button.pressed.connect(func(): set_paused(not paused))
-	bar.add_child(_pause_button)
+	controls.add_child(_pause_button)
 
 	var restart_button := Button.new()
 	restart_button.text = "Restart (same seed)"
 	restart_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	restart_button.pressed.connect(func(): restart_requested.emit())
-	bar.add_child(restart_button)
+	controls.add_child(restart_button)
 
 	var back_button := Button.new()
 	back_button.text = "Change party"
 	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	back_button.pressed.connect(func(): back_requested.emit())
-	bar.add_child(back_button)
+	controls.add_child(back_button)
 
 ## Issue 19: the outcome is the payoff of the whole fight and used to show as
 ## a small toolbar label — same weight as "Seed 0000002A". This is the
@@ -246,7 +260,14 @@ func _cost_summary() -> String:
 		return "None of your party survived."
 	return "%d of %d survived." % [alive, total]
 
-const _SUMMARY_ROW_TOP := Palette.SPACE_M * 2.0 + Palette.TOUCH_TARGET_MIN
+## Issue 43: height reserved for the info row (labels only, no touch
+## target requirement) now that it is split from the controls row below
+## it. Matches Palette.FONT_SIZE_BODY's natural line height closely enough
+## that the two rows don't visibly overlap; not exact since Label sizes
+## itself from font metrics, not this constant, but this only positions
+## the *next* row, so a few pixels of slack costs nothing.
+const _INFO_ROW_HEIGHT := 28.0
+const _SUMMARY_ROW_TOP := Palette.SPACE_M * 2.0 + _INFO_ROW_HEIGHT + Palette.SPACE_S + Palette.TOUCH_TARGET_MIN
 const _SUMMARY_ROW_HEIGHT := 20.0
 const _SUMMARY_BAR_WIDTH := 120.0
 

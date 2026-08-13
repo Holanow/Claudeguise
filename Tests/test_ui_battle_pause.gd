@@ -125,3 +125,15 @@ func test_hud_buttons_meet_the_minimum_touch_target() -> void:
 	var view = _spawn_battle_view()
 	assert_true(view._pause_button.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	view.free()
+
+## Issue 43: the toolbar used to hold four labels and three buttons in one
+## HBoxContainer, wide enough to run off the screen the moment a label got
+## long (the room name, issue 36) or the viewport got narrow. Split into an
+## info row and a controls row — this pins that the buttons live in their
+## own row, not sharing one with the labels, so a future change can't
+## silently merge them back.
+func test_controls_are_a_separate_row_from_the_info_labels() -> void:
+	var view = _spawn_battle_view()
+	assert_ne(view._pause_button.get_parent(), view._party_label.get_parent(),
+		"buttons and labels must not share a row, or a long label can push a button off-screen")
+	view.free()
