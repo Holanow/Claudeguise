@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# Refuses a commit in the MAIN CHECKOUT when the gate is not green.
+#
+# Install (once per clone; .git/config is shared by every worktree so this
+# covers all of them):
+#
+#     git config core.hooksPath .githooks
+#
+# ---------------------------------------------------------------------------
+# Why this exists
+#
+# The trunk went red twice in one day, both times the same way: a git command
+# failed inside a chained command line, the commit ran anyway, and the failure
+# was above the output that got read. Both times the response was to write a
+# rule on the board. A rule you announce is not a control, and the manager who
+# wrote that rule broke it the same day.
+#
+# So: a control. It is awkward to commit a red trunk now.
+#
+# ---------------------------------------------------------------------------
+# Why only the main checkout
+#
+# The trunk is what every session pulls, and it is the one place only the
+# manager commits. Engineers are told to commit small and push often, and a
+# five second gate on every commit is exactly the tax people start paying with
+# --no-verify, which is worse than no hook at all. So branches run at full
+# speed and the trunk does not.
+#
+# Detection is by comparing the git dir against the common git dir: they are
+# the same path in the main checkout and differ in every linked worktree. This
+# has been run from a worktree and confirmed to skip, and from the main
+# checkout and confirmed to both pass and fail. A hook only ever watched
+# passing is a hook that has not been tested.
+
+git_dir=$(git rev-parse --absolute-git-dir)
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir)
+
+if [ "$git_dir" != "$common_dir" ]; then
+	# A linked worktree. Someone's branch, not the trunk.
+	exit 0
+fi
+
+gate="$(git rev-parse --show-toplevel)/Tools/gate.ps1"
+
+if [ ! -f "$gate" ]; then
+	echo "pre-commit: cannot find Tools/gate.ps1 at $gate" >&2
+	echo "pre-commit: REFUSING the commit. A gate that cannot run is not a pass." >&2
+	exit 1
+fi
+
+echo "pre-commit: main checkout, running the gate..."
+
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File "$gate" > /dev/null 2>&1; then
+	echo "" >&2
+	echo "pre-commit: THE GATE FAILED. Commit refused." >&2
+	echo "" >&2
+	echo "  Run it yourself to see why:" >&2
+	echo "    powershell -ExecutionPolicy Bypass -File Tools\\gate.ps1" >&2
+	echo "" >&2
+	echo "  This is the main checkout, so this commit would put the trunk red" >&2
+	echo "  for everybody who pulls it." >&2
+	echo "" >&2
+	echo "  If you genuinely mean to commit a red trunk, --no-verify exists," >&2
+	echo "  and you should say so on the board in the same minute." >&2
+	exit 1
+fi
+
+echo "pre-commit: gate green."
+exit 0
