@@ -118,6 +118,15 @@ enum EventKind {
 	STATUS_APPLIED,
 	STATUS_EXPIRED,
 	RESOURCE_SPENT,
+	## An action landed and reached nothing: the target left range during the
+	## wind-up, or was never in range when the action was committed.
+	##
+	## Added after reading a whole fight and finding a Geysermancer that fired
+	## six times and connected once, with nothing anywhere saying why. On screen
+	## and in the log it read as "my caster keeps casting and nothing happens",
+	## which is indistinguishable from a broken game. A miss is a legitimate
+	## outcome and it has to be legible as one.
+	MISS,
 }
 
 static func attribute_name(a: Attribute) -> String:
