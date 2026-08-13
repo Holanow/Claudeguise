@@ -42,10 +42,9 @@ static func _the_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_room1"
 	e.display_name = "Floor 1, Room 1"
-	## Three goblins rather than two: individually weaker than the old
-	## dungeon_grunt this room used to field, so the count makes up the
-	## difference rather than inflating any one goblin's stats past what
-	## "weak and numerous" should mean.
+	## Four goblins (numerous), a pair of archers, a cultist, and a ghoul
+	## anchoring the back — the tough/slow piece regen alone cannot make
+	## trivial the way it did the pure-numbers version of this room.
 	e.enemy_spawns = [
 		{"enemy_id": &"goblin", "position": Vector2(150.0, -150.0)},
 		{"enemy_id": &"goblin", "position": Vector2(150.0, -50.0)},
@@ -54,6 +53,7 @@ static func _the_room() -> Encounter:
 		{"enemy_id": &"goblin_archer", "position": Vector2(380.0, -60.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(380.0, 60.0)},
 		{"enemy_id": &"cultist", "position": Vector2(300.0, -200.0)},
+		{"enemy_id": &"ghoul", "position": Vector2(250.0, 0.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
 	return e
