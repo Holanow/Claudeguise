@@ -86,18 +86,31 @@ static func _carry_party_condition_into(state: CombatState, run: FloorRun, party
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
 
 ## The only place this file touches content, and it is a lookup, not a
-## table: one registered encounter (there is only one authored today),
-## reused for every fight room, with its enemy_spawns *count* scaled by
-## room.difficulty. That is a count of already-authored spawns, not a new
-## stat or a new enemy -- the difficulty knob this file is allowed to turn.
-## If teal ships more encounters later, keyed content per room.type replaces
-## this without anything else here changing.
+## table. Issue 27 found that every room.type used to fall through to
+## `floor1_room1` regardless, so difficulty could only ever change *how
+## many* of that one melee-first spawn list showed up -- against a party
+## that outranges the front of that list, no difficulty number moved
+## anything. `_ENCOUNTER_FOR_TYPE` is the placeholder fix: which encounter
+## id a room.type maps to is a content decision and teal's to retune, not
+## wren's to guess well -- change the ids below, not this function, when
+## better ones exist. `enemy_spawns` *count* is still the only thing
+## difficulty is allowed to scale, clamped to whichever encounter's own
+## spawn list.
+const _ENCOUNTER_FOR_TYPE := {
+	FloorRoom.Type.ENEMY: &"floor1_room1",
+	FloorRoom.Type.BIG_ENEMY: &"floor1_horde",
+	FloorRoom.Type.MINIBOSS: &"floor1_ghoul_den",
+	FloorRoom.Type.BOSS: &"floor1_ghoul_den",
+}
+
 static func _encounter_for(room: FloorRoom) -> Encounter:
-	var base := Registry.get_encounter(&"floor1_room1")
+	var encounter_id: StringName = _ENCOUNTER_FOR_TYPE.get(room.type, &"floor1_room1")
+	var base := Registry.get_encounter(encounter_id)
 	var scaled := Encounter.new()
 	scaled.id = base.id
 	scaled.display_name = base.display_name
 	scaled.party_spawns = base.party_spawns
+	scaled.terrain = base.terrain
 	var count := clampi(room.difficulty, 1, base.enemy_spawns.size())
 	scaled.enemy_spawns = base.enemy_spawns.slice(0, count)
 	return scaled
