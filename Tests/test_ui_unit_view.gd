@@ -184,3 +184,38 @@ func test_visual_offset_is_deterministic_for_exactly_coincident_units() -> void:
 	var first := UnitView.visual_offset(b, [a, b])
 	var second := UnitView.visual_offset(b, [a, b])
 	assert_eq(first, second, "the same fight must nudge the same unit the same way every time")
+
+# ---------------------------------------------------------------------------
+# should_show_label (issue 41: dense rooms piled enemy names on top of each other)
+# ---------------------------------------------------------------------------
+
+func test_should_show_label_is_always_true_for_the_party() -> void:
+	var pawn := _make_unit(0, Vector2.ZERO)
+	pawn.team = CG.Team.PLAYER
+	assert_true(UnitView.should_show_label(pawn, [pawn]))
+
+func test_should_show_label_is_false_for_an_untargeted_idle_enemy() -> void:
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	assert_false(UnitView.should_show_label(enemy, [enemy]), "a standing, unengaged enemy doesn't need its name up permanently")
+
+func test_should_show_label_is_true_for_an_enemy_under_focus() -> void:
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	var attacker := _make_unit(1, Vector2(50.0, 0.0))
+	attacker.focus_id = 0
+	assert_true(UnitView.should_show_label(enemy, [enemy, attacker]))
+
+func test_should_show_label_is_true_for_an_enemy_mid_wind_up() -> void:
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	enemy.current_action = &"goblin_swing"
+	enemy.action_ticks_left = 5
+	assert_true(UnitView.should_show_label(enemy, [enemy]))
+
+func test_should_show_label_is_false_for_an_enemy_with_stale_action_but_no_ticks_left() -> void:
+	var enemy := _make_unit(0, Vector2.ZERO)
+	enemy.team = CG.Team.ENEMY
+	enemy.current_action = &"goblin_swing"
+	enemy.action_ticks_left = 0
+	assert_false(UnitView.should_show_label(enemy, [enemy]))
