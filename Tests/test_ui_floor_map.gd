@@ -5,6 +5,7 @@ const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
 const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
 const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
+const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
@@ -180,6 +181,105 @@ func test_equip_button_is_disabled_with_no_loot() -> void:
 	var party: Array[PawnData] = []
 	view.open(run, party)
 	assert_true(view._equip_button.disabled)
+	view.free()
+
+## Issue 42: the CELL room's own screen -- swift's FloorFightRunner API
+## (cell_candidates/resolve_cell) existed and nothing called it. These need
+## real Registry content (cell_candidates reads Registry.all_class_ids()),
+## so they no-op rather than false-pass when content isn't loaded, same
+## pattern as test_a_fight_room_resolves_one_way_or_another above.
+
+func _make_cell_plan() -> FloorPlan:
+	var plan := FloorPlan.new()
+	var entrance := FloorRoom.new()
+	entrance.id = 0
+	entrance.type = FloorRoom.Type.ENEMY
+	entrance.connections = [1]
+	var cell := FloorRoom.new()
+	cell.id = 1
+	cell.type = FloorRoom.Type.CELL
+	cell.connections = [0]
+	plan.rooms = [entrance, cell]
+	plan.entrance_id = 0
+	plan.miniboss_id = -1
+	plan.boss_id = -1
+	return plan
+
+func test_entering_a_cell_with_no_losses_offers_nothing_to_pick() -> void:
+	var class_ids := Registry.all_class_ids()
+	if class_ids.is_empty():
+		return
+	var view := _make_view()
+	var run := FloorRun.new(_make_cell_plan())
+	var living := PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))
+	var party: Array[PawnData] = [living]
+	view.open(run, party)
+
+	view._on_room_pressed(run.plan.room(1))
+
+	assert_false(view._cell_panel.visible, "nobody to replace, so there's nothing to offer a pick for")
+	assert_true(run.visited.has(1))
+	assert_eq(run.current_room_id, 1)
+	view.free()
+
+func test_entering_a_cell_with_a_loss_offers_real_candidates() -> void:
+	var class_ids := Registry.all_class_ids()
+	if class_ids.size() < 2:
+		return
+	var view := _make_view()
+	var run := FloorRun.new(_make_cell_plan())
+	var dead := PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))
+	run.record_result(dead.id, 0, 0, false)
+	var party: Array[PawnData] = [dead]
+	view.open(run, party)
+
+	view._on_room_pressed(run.plan.room(1))
+
+	assert_true(view._cell_panel.visible, "a real loss must actually be offered a replacement")
+	assert_eq(view._cell_room, run.plan.room(1))
+	view.free()
+
+func test_picking_a_cell_candidate_replaces_the_dead_pawn_and_enters_the_room() -> void:
+	var class_ids := Registry.all_class_ids()
+	if class_ids.size() < 2:
+		return
+	var view := _make_view()
+	var run := FloorRun.new(_make_cell_plan())
+	var dead := PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))
+	run.record_result(dead.id, 0, 0, false)
+	var party: Array[PawnData] = [dead]
+	view.open(run, party)
+	view._on_room_pressed(run.plan.room(1))
+
+	var candidates := FloorFightRunner.cell_candidates(run, run.plan.room(1), party)
+	assert_false(candidates.is_empty(), "a fresh party of one is missing every other class")
+	view._on_cell_pawn_picked(candidates[0])
+
+	assert_eq(party[0], candidates[0], "the dead pawn's slot must now hold the recruit")
+	assert_true(run.is_alive(candidates[0].id))
+	assert_true(run.visited.has(1))
+	assert_eq(run.current_room_id, 1)
+	assert_false(view._cell_panel.visible)
+	view.free()
+
+func test_skipping_a_cell_leaves_the_party_untouched_but_still_enters() -> void:
+	var class_ids := Registry.all_class_ids()
+	if class_ids.size() < 2:
+		return
+	var view := _make_view()
+	var run := FloorRun.new(_make_cell_plan())
+	var dead := PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))
+	run.record_result(dead.id, 0, 0, false)
+	var party: Array[PawnData] = [dead]
+	view.open(run, party)
+	view._on_room_pressed(run.plan.room(1))
+
+	view._on_cell_skipped()
+
+	assert_eq(party[0], dead, "declining the offer must not change the roster")
+	assert_true(run.visited.has(1))
+	assert_eq(run.current_room_id, 1)
+	assert_false(view._cell_panel.visible)
 	view.free()
 
 func test_a_pawn_that_cannot_use_an_item_is_offered_but_disabled() -> void:
