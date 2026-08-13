@@ -387,6 +387,11 @@ func begin(cfg: RunConfig) -> void:
 	_tick_accumulator = 0.0
 	set_paused(false)
 	_rebuild_units()
+	# Issue 26 item 1: the room's terrain, if any — CombatState.terrain is
+	# empty by default, so a fight built without one draws exactly as it
+	# did before this.
+	_arena.terrain = state.terrain
+	_arena.queue_redraw()
 	if _combat_log != null:
 		_combat_log.clear_log()
 	_party_label.text = "Party: " + ", ".join(cfg.party.map(func(p): return p.display_name))
