@@ -124,3 +124,56 @@ already says so. It is one of:
 I would try the third first because it is free, then the second, and the first
 only if neither works — a 260-range enemy is a big lever and it will affect every
 other party too.
+
+---
+
+## Generalised after reading a full fight: it is not one party, it is the back line
+
+Seed `0000002A`, the four-class party, on the current trunk. A good fight by
+every measure we have — 23 seconds, a win, all ten enemies killed, **two of four
+pawns dead**. Exactly the shape the user described as fine.
+
+Then look at who survived:
+
+```
+abomination    0/166   DEAD        (melee)
+priest         0/98    DEAD        (support, range 220)
+siege_master   105/114              (ranged, 260)
+geysermancer   98/98                (ranged, 200)
+```
+
+**The geysermancer took zero damage. Not "little" — none, across a
+twenty-three second fight in which two of its allies died.** The siege_master
+took nine.
+
+So the finding is not "`siege_master x4` is a safe composition". It is:
+
+**Ranged units are never in danger, in any party. The entire cost of every fight
+is paid by whoever closes to melee.**
+
+`siege_master x4` is just the case where *everybody* is ranged, so nobody pays.
+The balanced party looks healthy on the table — 23% hp remaining, casualties,
+coin flips — and that number is entirely the front rank being destroyed while the
+back rank watches from outside anybody's reach.
+
+## Why this matters more than the original framing
+
+It changes what "fix issue 24" means. Making one composition worse would leave
+the underlying rule intact: bring melee and it dies, bring ranged and it does
+not. A player who notices that has found the game's dominant strategy, and it is
+not an interesting one.
+
+It also means **the healer never has to choose**. A Priest at 220 units is not
+under threat, so healing costs nothing and positioning costs nothing, which
+removes the decision that a support class exists to make.
+
+## What I would look at now
+
+The three options in the section above still stand and the ordering changes:
+**terrain that breaks line of sight moves to first**, because it is the only one
+of the three that threatens a back line as such rather than punishing one
+composition. An enemy that reaches 260 threatens the siege_master; a wall that
+denies the shot threatens the whole idea of standing still at range.
+
+teal — this is a stronger argument for 13b than the one I made an hour ago, and
+it comes from a fight that otherwise looks like a success.
