@@ -386,3 +386,91 @@ func test_recovery_does_not_apply_after_a_defeat() -> void:
 
 	for p in party:
 		assert_false(run.is_alive(p.id), "a wipe must not trigger revival -- there is no next room to recover into")
+
+# ---------------------------------------------------------------------------
+# issue 5's second gap: CELL replaces a loss
+# ---------------------------------------------------------------------------
+
+func test_cell_candidates_excludes_classes_already_alive_in_the_party() -> void:
+	var party := _make_party() # warrior, priest, geysermancer, abomination, all alive
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.CELL, 1)
+	var run := FloorRun.new(plan)
+
+	var candidates := FloorFightRunner.cell_candidates(run, plan.room(0), party)
+
+	for c in candidates:
+		for p in party:
+			assert_ne(c.pawn_class.id, p.pawn_class.id, "must not offer a class already alive in the party")
+
+func test_cell_candidates_offers_a_dead_pawns_own_class_again() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.CELL, 1)
+	var run := FloorRun.new(plan)
+	run.record_result(party[0].id, 0, 0, false) # the warrior died
+
+	var candidates := FloorFightRunner.cell_candidates(run, plan.room(0), party)
+
+	var offers_warrior := false
+	for c in candidates:
+		if c.pawn_class.id == &"warrior":
+			offers_warrior = true
+	assert_true(offers_warrior, "a dead party member's class must be a fair candidate again -- replacing that slot is the point")
+
+func test_same_floor_seed_offers_the_same_cell_candidates() -> void:
+	var plan_a := _single_room_plan_of_type(88, FloorRoom.Type.CELL, 1)
+	var plan_b := _single_room_plan_of_type(88, FloorRoom.Type.CELL, 1)
+	var run_a := FloorRun.new(plan_a)
+	var run_b := FloorRun.new(plan_b)
+
+	var candidates_a := FloorFightRunner.cell_candidates(run_a, plan_a.room(0), _make_party())
+	var candidates_b := FloorFightRunner.cell_candidates(run_b, plan_b.room(0), _make_party())
+
+	assert_eq(candidates_a.size(), candidates_b.size(), "same floor seed must offer the same number of candidates")
+	for i in candidates_a.size():
+		assert_eq(candidates_a[i].pawn_class.id, candidates_b[i].pawn_class.id, "same floor seed must offer the same candidate %d" % i)
+
+func test_resolve_cell_replaces_the_first_dead_party_member() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.CELL, 1)
+	var run := FloorRun.new(plan)
+	run.record_result(party[1].id, 0, 0, false) # the priest died
+
+	var candidates := FloorFightRunner.cell_candidates(run, plan.room(0), party)
+	assert_true(candidates.size() > 0, "sanity: there must be a candidate to pick")
+	var chosen := candidates[0]
+
+	var replaced := FloorFightRunner.resolve_cell(run, plan.room(0), party, chosen)
+
+	assert_true(replaced, "resolve_cell must report a real replacement")
+	assert_eq(party[1].id, chosen.id, "the dead slot must now hold the chosen recruit")
+	assert_true(run.is_alive(party[1].id), "a fresh recruit, never having fought, must read as alive")
+	assert_true(run.visited.has(0), "resolving a CELL must mark it visited, same as any other room")
+
+func test_resolve_cell_does_nothing_to_the_roster_when_nobody_is_dead() -> void:
+	var party := _make_party()
+	var original_ids: Array[StringName] = []
+	for p in party:
+		original_ids.append(p.id)
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.CELL, 1)
+	var run := FloorRun.new(plan)
+
+	var candidates := FloorFightRunner.cell_candidates(run, plan.room(0), party)
+	var replaced := FloorFightRunner.resolve_cell(run, plan.room(0), party, candidates[0])
+
+	assert_false(replaced, "resolve_cell must report no replacement when nobody is dead")
+	for i in party.size():
+		assert_eq(party[i].id, original_ids[i], "the roster must be unchanged when there is no dead slot to fill")
+	assert_true(run.visited.has(0), "the room still resolves even when nothing changes")
+
+func test_a_recruited_pawn_enters_the_next_room_at_full_health() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.CELL, 1)
+	var run := FloorRun.new(plan)
+	run.record_result(party[2].id, 0, 0, false) # the geysermancer died
+
+	var candidates := FloorFightRunner.cell_candidates(run, plan.room(0), party)
+	FloorFightRunner.resolve_cell(run, plan.room(0), party, candidates[0])
+
+	var recruit := party[2]
+	var recruit_hp_max := Balance.max_hp(recruit)
+	assert_eq(run.hp_for(recruit.id, recruit_hp_max), recruit_hp_max, "a recruit's id must not collide with the dead pawn's carry entry")
