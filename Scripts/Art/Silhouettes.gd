@@ -233,6 +233,28 @@ const _PARTS := {
 	# carries the one silhouette detail no other unit has -- a chain, for the
 	# 270-range toss that stops a party declining the fight from out of reach.
 	# Bosses should be recognisable before the health bar is read.
+	# Siege engine: the Siege Master's summon. Built to read as a machine rather
+	# than a creature -- a wide low frame on legs with a long throwing arm held
+	# clear of the body, following sable's rule that a feature only counts if
+	# negative space separates it from the mass.
+	#
+	# It had no shape at all until the player said "siege master engines are
+	# currently invisible" while playing. It was drawing the unknown-shape
+	# fallback, and the test below never caught it because that test walks
+	# encounter spawn lists and a summoned unit appears in none.
+	&"siege_engine": [
+		# Throwing arm, detached along its length, raised back and to the right.
+		{"tint": Tint.ACCENT, "poly": [[0.16, -0.30], [0.62, -0.86], [0.78, -0.72], [0.32, -0.16]]},
+		{"tint": Tint.ACCENT, "poly": [[0.58, -0.98], [0.86, -0.84], [0.74, -0.60], [0.50, -0.74]]},
+		# Low wide frame.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.94, 0.72], [-0.72, 0.18], [0.72, 0.18], [0.94, 0.72], [0.0, 0.62]]},
+		{"tint": Tint.TEAM, "poly": [[-0.80, 0.24], [-0.66, -0.28], [0.30, -0.34], [0.56, 0.10], [0.62, 0.24]]},
+		# Legs, with real gaps between them and the frame.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.66, 0.74], [-0.52, 0.74], [-0.44, 1.0], [-0.60, 1.0]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.48, 0.74], [0.62, 0.74], [0.70, 1.0], [0.54, 1.0]]},
+		# Bolt already nocked, pointing left, clear of the frame.
+		{"tint": Tint.ACCENT, "poly": [[-0.98, -0.12], [-0.60, -0.20], [-0.58, -0.06], [-0.96, 0.02]]},
+	],
 	&"the_warden": [
 		# Chain, trailing to the unit's left, drawn first so the body sits on it.
 		{"tint": Tint.ACCENT, "poly": [[-1.0, 0.18], [-0.82, 0.06], [-0.72, 0.2], [-0.9, 0.32]]},

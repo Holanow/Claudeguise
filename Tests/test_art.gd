@@ -30,9 +30,21 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# be a second artifact by the same author as the first, and it would agree
 	# with itself forever.
 	# Enemies are reached through the encounters rather than through a registry
-	# listing, because Registry has no all_enemy_ids() and it is teal's file to
-	# add one to, not mine. This is the better question anyway: an enemy that
-	# never spawns does not need art yet, and one that spawns always does.
+	# listing. That was the better question right up until it was not.
+	#
+	# **It missed the siege engine, and the player found it by playing:** "siege
+	# master engines are currently invisible". A summoned unit spawns in no
+	# encounter, so walking encounter spawn lists could never see it, and it drew
+	# the unknown-shape fallback in every real fight.
+	#
+	# The comment that used to sit here said "an enemy that never spawns does not
+	# need art yet, and one that spawns always does". True when written, false the
+	# moment mid-fight summoning landed. **A test's assumption can rot without the
+	# test ever failing**, which is the same failure as an instrument that stops
+	# measuring what it claims -- and this project has now been bitten by that
+	# more times than by any bug.
+	#
+	# So both sources are checked: what encounters spawn, and what actions summon.
 	for id in Registry.all_class_ids():
 		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
 
@@ -46,6 +58,34 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 				"enemy '%s' spawns in encounter '%s' but has no silhouette" % [enemy_id, encounter_id]
 			)
 			checked += 1
+
+	# Summoned units, which no encounter lists. ActionDef.summons_unit_id is the
+	# only place they are named, and it is reached through the actions a class
+	# or an enemy actually has -- Registry has all_class_ids/all_enemy_ids but no
+	# all_action_ids, checked rather than assumed.
+	var action_ids: Array[StringName] = []
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		if cls != null:
+			for aid in cls.starting_actions:
+				if not action_ids.has(aid):
+					action_ids.append(aid)
+	for enemy_id in Registry.all_enemy_ids():
+		var enemy := Registry.get_enemy(enemy_id)
+		if enemy != null:
+			for aid in enemy.actions:
+				if not action_ids.has(aid):
+					action_ids.append(aid)
+
+	for action_id in action_ids:
+		var action := Registry.get_action(action_id)
+		if action == null or action.summons_unit_id == &"":
+			continue
+		assert_true(
+			Silhouettes.has_shape(action.summons_unit_id),
+			"action '%s' summons '%s' but it has no silhouette" % [action_id, action.summons_unit_id]
+		)
+		checked += 1
 	assert_true(checked > 0, "no enemy spawns were checked; this test would pass on an empty game")
 
 
