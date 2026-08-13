@@ -68,9 +68,15 @@ static func _default_move_speed(pawn: PawnData) -> float:
 ## Enemies carry attack power directly on EnemyDef; they skip the attribute
 ## system per EnemyDef's own doc comment, so there is nothing for Balance to
 ## derive for them.
-static func _default_attack_power(unit: CombatUnit, action: ActionDef) -> float:
+## `rng` is the fight's seeded generator, handed down so Balance can vary a
+## pawn's damage with it. Optional, so a test can call this with two
+## arguments and get the old deterministic behaviour.
+##
+## Enemies do not get it: their attack power is a flat number on EnemyDef,
+## and a spread on that would put balance in a second, invisible place.
+static func _default_attack_power(unit: CombatUnit, action: ActionDef, rng: RandomNumberGenerator = null) -> float:
 	if unit.pawn != null:
-		return Balance.attack_power(unit.pawn, action.damage_type) * action.power_scale
+		return Balance.attack_power(unit.pawn, action.damage_type, rng) * action.power_scale
 	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
 	if enemy_def == null:
 		return 0.0
