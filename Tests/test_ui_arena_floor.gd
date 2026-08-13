@@ -47,3 +47,25 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	battle.begin(config)
 	assert_eq(battle._arena.terrain, battle.state.terrain)
 	battle.free()
+
+## Issue 36's "while you are there": the room's name existed
+## (Encounter.display_name) and nothing showed it, which is exactly what let
+## PartySelect fight the wrong room invisibly. begin() must show the real
+## room the fight is actually running, not a stand-in.
+func test_begin_shows_the_real_encounters_display_name() -> void:
+	var encounter_ids := Registry.all_encounter_ids()
+	var class_ids := Registry.all_class_ids()
+	if encounter_ids.is_empty() or class_ids.is_empty():
+		return
+	var battle = BattleScene.instantiate()
+	battle._ready()
+	var config := RunConfig.new()
+	config.seed = 1
+	config.encounter_id = encounter_ids[0]
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))]
+	config.party = party
+	battle.begin(config)
+	var encounter := Registry.get_encounter(encounter_ids[0])
+	assert_eq(battle._encounter_label.text, encounter.display_name)
+	assert_false(battle._encounter_label.text.is_empty())
+	battle.free()
