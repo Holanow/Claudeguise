@@ -50,6 +50,88 @@ func _make_state() -> CombatState:
 	state.units.append(target)
 	return state
 
+## Issue 33: a poison/burn tick and a hazard tick both emit DAMAGE with
+## source_id = -1 on purpose (CombatSim.gd) — the source may be dead, and
+## attributing the damage to it would be a worse lie than having none.
+## "X hits Y" needs an X; neither case fits it and both used to render "?"
+## as a unit's name.
+func test_a_poison_tick_names_no_source_and_reads_as_suffering() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 3
+	e.amount_before_mitigation = 3
+	e.damage_type = CG.DamageType.PROFANE
+	e.status = CG.Status.POISON
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("?"), line)
+	assert_true(line.contains("Rat"), line)
+	assert_true(line.contains("suffers"), line)
+	view.free()
+
+func test_a_burn_tick_also_reads_as_suffering_not_a_hit() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 2
+	e.amount_before_mitigation = 2
+	e.damage_type = CG.DamageType.FIRE
+	e.status = CG.Status.BURN
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("?"), line)
+	assert_true(line.contains("suffers"), line)
+	view.free()
+
+## A hazard tick also carries source_id = -1, but never touches e.status
+## (CombatSim._tick_hazards), so it must read differently from a status
+## tick even though both currently reach the same code path check —
+## "you are standing somewhere bad and could move" is different
+## information from "you are afflicted and moving will not help".
+func test_a_hazard_tick_names_no_source_and_reads_differently_from_poison() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 5
+	e.amount_before_mitigation = 5
+	e.damage_type = CG.DamageType.FIRE
+	# status left at its default (SHIELD) — matches what _tick_hazards
+	# actually emits, never setting it.
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("?"), line)
+	assert_true(line.contains("Rat"), line)
+	assert_false(line.contains("suffers"), "a hazard tick must not read like a status tick: " + line)
+
+	var poison := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	poison.source_id = -1
+	poison.target_id = 1
+	poison.amount = 5
+	poison.amount_before_mitigation = 5
+	poison.damage_type = CG.DamageType.FIRE
+	poison.status = CG.Status.POISON
+	assert_ne(line, view.line_for_event(state, poison), "hazard and poison must not read identically")
+	view.free()
+
+## Checked rather than assumed, per the issue's own instruction: MISS is
+## always emitted with the acting unit as source (CombatSim.gd:461), never
+## -1, so it was never actually exposed to this bug. Pinning that here so a
+## future change to who emits MISS doesn't reopen it silently.
+func test_miss_always_names_a_real_source() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.MISS, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.action_id = &"swing"
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("?"), line)
+	view.free()
+
 func test_damage_line_names_actor_target_and_amount() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
