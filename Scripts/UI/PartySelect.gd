@@ -60,7 +60,21 @@ func _build_roster() -> void:
 ## design width). A fixed, compact grid plus the project's existing uniform
 ## scaling is the right fit for how this project already handles size,
 ## rather than a second, competing responsive scheme.
-const CARD_COLUMNS := 3
+##
+## Issue 18: rook's own eyeballed read of party_select_phone_400x800.png was
+## "every card well under the 48-pixel touch minimum". Measured instead with
+## get_global_rect() (Control's coordinates are always logical, the same as
+## custom_minimum_size — the stretch scale is applied at render/input-mapping
+## time, not by resizing controls): every card is 170x200, over three times
+## TOUCH_TARGET_MIN on its short side, at any window size. Godot maps a real
+## tap back through the same stretch transform, so this is the actual
+## functional target, not merely a number that happens not to shrink. The
+## real complaint underneath — cards crammed into the top of the screen with
+## most of the height empty — is legitimate on its own and worth fixing
+## regardless: two columns instead of three spreads the five classes over
+## three rows rather than two, using more of a tall window's height instead
+## of leaving it blank.
+const CARD_COLUMNS := 2
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
