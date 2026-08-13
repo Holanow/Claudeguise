@@ -60,6 +60,28 @@ var status_damage_per_tick: Callable = _default_status_damage_per_tick
 ## Multiplier on wind-up/recover ticks for a unit carrying HASTE.
 var haste_tick_scale: Callable = _default_haste_tick_scale
 
+## Multiplier on move_speed for a unit carrying SLOWED. Same seam as
+## haste_tick_scale, for the same reason: content owns the number, CombatSim
+## only owns applying it.
+##
+## Unlike every other default here, this one does NOT call Balance: nothing
+## has applied SLOWED yet (issue 14's content half -- the grapple magnitude
+## and duration -- has not landed), and Balance.gd is not this file's to
+## edit. `Balance.haste_tick_scale` already existing is exactly why
+## _default_haste_tick_scale can call it safely; a call to a Balance method
+## that does not exist is a **parse-time** error here, not a runtime one --
+## GDScript resolves a static call on a preloaded const at analysis time, so
+## it took down every script that (transitively) preloads this one, not just
+## a test that exercises SLOWED. Measured, not assumed: that is exactly what
+## happened on the first gate run of this file. _DEFAULT_SLOWED_SPEED_SCALE
+## below is a local placeholder for exactly that reason, until content wires
+## a real `Balance.slowed_speed_scale(unit) -> float` and this default is
+## pointed at it in one line.
+var slowed_speed_scale: Callable = _default_slowed_speed_scale
+
+## Half speed. A placeholder, not a balance decision -- see the comment above.
+const _DEFAULT_SLOWED_SPEED_SCALE := 0.5
+
 static func _default_max_hp(pawn: PawnData) -> int:
 	return Balance.max_hp(pawn)
 
@@ -115,3 +137,6 @@ static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status)
 
 static func _default_haste_tick_scale(unit: CombatUnit) -> float:
 	return Balance.haste_tick_scale(unit)
+
+static func _default_slowed_speed_scale(_unit: CombatUnit) -> float:
+	return _DEFAULT_SLOWED_SPEED_SCALE

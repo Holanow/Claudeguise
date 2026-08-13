@@ -195,7 +195,7 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 		unit.intent = null
 		match intent.kind:
 			CG.IntentKind.MOVE_TO:
-				_resolve_move(state, unit, intent)
+				_resolve_move(state, unit, intent, deps)
 			CG.IntentKind.USE_ACTION:
 				_resolve_use_action(state, unit, intent, deps)
 			_:
@@ -206,14 +206,15 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 ## Enough for a room built from a few rectangles, per issue 13a's own scope;
 ## a unit that genuinely cannot route around an obstacle is a finding to
 ## report, not a pathfinder to build.
-static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) -> void:
+static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, deps: SimDeps) -> void:
 	var to_dest := intent.destination - unit.position
 	var dist := to_dest.length()
+	var speed := _effective_move_speed(unit, deps)
 	var step: Vector2
-	if dist <= unit.move_speed or dist <= 0.0001:
+	if dist <= speed or dist <= 0.0001:
 		step = to_dest
 	else:
-		step = to_dest.normalized() * unit.move_speed
+		step = to_dest.normalized() * speed
 
 	var direct := _sweep(state, unit, step)
 	if direct != unit.position:
@@ -236,8 +237,8 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) 
 	# move_speed (capped at how far it actually has left to go on that axis
 	# alone), so slide progress no longer depends on the angle of a step it
 	# isn't taking.
-	var slide_x := _sweep(state, unit, Vector2(_axis_step(to_dest.x, unit.move_speed), 0.0))
-	var slide_y := _sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, unit.move_speed)))
+	var slide_x := _sweep(state, unit, Vector2(_axis_step(to_dest.x, speed), 0.0))
+	var slide_y := _sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, speed)))
 	var moved_x := slide_x != unit.position
 	var moved_y := slide_y != unit.position
 
@@ -254,6 +255,23 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) 
 ## nothing left to close on this axis.
 static func _axis_step(remaining: float, move_speed: float) -> float:
 	return clampf(remaining, -move_speed, move_speed)
+
+## Issue 14: SLOWED scales movement the same way HASTE already scales action
+## ticks -- deps.slowed_speed_scale is a SimDeps seam, not a hardcoded
+## multiplier, so content owns the number. Read fresh every time a move
+## resolves rather than cached on the unit, so applying or removing SLOWED
+## mid-fight changes the very next step rather than reaching back into one
+## already computed.
+##
+## Deliberately the only place `unit.move_speed` gets touched for movement.
+## `unit.move_speed` itself is set once in build() from deps.move_speed and
+## never mutated -- SLOWED is a per-tick read-time multiplier, not a write to
+## the unit, which is what lets it expire cleanly with nothing to restore.
+static func _effective_move_speed(unit: CombatUnit, deps: SimDeps) -> float:
+	if not unit.has_status(CG.Status.SLOWED):
+		return unit.move_speed
+	var scale: float = deps.slowed_speed_scale.call(unit)
+	return maxf(0.0, unit.move_speed * scale)
 
 ## Walks `step` in small increments and returns the furthest point actually
 ## reached before hitting something solid -- `unit.position` unchanged if
@@ -579,6 +597,31 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	if target.hp <= 0 and target.alive:
 		target.alive = false
 		state.emit(_event(CG.EventKind.DEATH, state.tick, unit.id, target.id, action.id))
+
+	if action.pull_distance > 0.0 and target.alive:
+		_apply_pull(state, unit, target, action.pull_distance)
+
+## Issue 14: drags `target` toward `caster` by up to `distance`, world units.
+## Guarded by the caller on `target.alive` -- checked *after* this same
+## effect's own damage/death resolution above, so a pull on a killing blow
+## never fires on a corpse.
+##
+## Reuses `_sweep`, the same increment-and-stop walk ordinary movement already
+## uses against `Terrain.point_is_blocked`, rather than a straight-line
+## teleport: a pull that can shove a unit through a wall is exactly the "lands
+## inside terrain" failure issue 14 names, and `_sweep` already refuses to
+## land past the first blocked increment. A pull that meets a wall stops at
+## the wall instead of failing outright -- dragged as far as the wall allows,
+## which reads better than a hook that does nothing because the last few units
+## of it were blocked.
+static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, distance: float) -> void:
+	var to_caster := caster.position - target.position
+	var dist := to_caster.length()
+	if dist <= 0.0001:
+		return # already on top of the caster; nothing to drag
+	var travel := minf(distance, dist)
+	var step := to_caster.normalized() * travel
+	target.position = _sweep(state, target, step)
 
 # ---------------------------------------------------------------------------
 # outcome
