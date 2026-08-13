@@ -57,22 +57,25 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
   and now takes it to 77% — but a fight nobody in the room can reach is still
   the weakest thing in the slice. Issues 24 and 31.
 
-  **Terrain was my answer to this and it is not the answer**, which took two
-  wrong turns to establish and is the most useful thing measured all night. I
-  was sure a wall would deny the long shot. Then I compared the cover room
-  against the plain one and concluded the opposite, that cover *helps* whoever
-  out-ranges the room. Both readings were wrong: the two rooms have ten enemies
-  and three, so I was comparing different fights and blaming the walls.
+  **We now know why, and it is not about range at all.** This took four wrong
+  guesses to establish and the answer is the most interesting thing in the
+  project. I was sure walls would deny the long shot. They do nothing. Then the
+  engineers tried an ambusher spawning inside the party's own deploy zone, an
+  enemy sniper matching the party's reach, and finally dialling the Siege
+  Master's own range from 260 down to 150, which is shorter than the goblins'
+  swing. Four Siege Masters still won every fight at 70 to 85% health.
 
-  Held properly still, same enemies and same party with only the terrain
-  changing, pillars do **nothing at all** to four `siege_master` — the same 20
-  wins, the same 77% health, the same 341-tick median — and they *help* the
-  parties that have to walk in. So the back line is untouchable with or without
-  cover, and issue 31 goes after the bestiary instead: something fast, something
-  that reaches, or something that starts already close.
-- **A room with a wall across it currently does not resolve.** Four ranged units
-  will stand still and fire into that wall until the clock runs out. Issue 34,
-  and it is the reason `floor1_chokepoint` is built but not in the game yet.
+  The trace explains it in one line: **the room hits exactly as hard against
+  both parties.** It does 7.8 damage per attack against the party that walks
+  away clean and 7.6 against the party that nearly dies. The only difference is
+  that it gets to attack 8 times instead of 61.
+
+  A party that has to walk fights whatever is standing in its way. A party that
+  does not walk picks whatever it likes, and what it likes is the archers, who
+  deal the most damage in the room and have the least health in the room.
+  **Killing the most dangerous thing first is free, so there is no decision to
+  make.** That is the actual bug, it is being fixed as issue 35, and none of the
+  range experiments could ever have touched it.
 - **The floor is not a difficulty curve.** Rooms carry damage forward correctly,
   but room type does not yet pick an encounter, so difficulty changes how many
   enemies rather than which fight. Issue 27.
