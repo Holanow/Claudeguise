@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CG := preload("res://Scripts/Core/CG.gd")
+const Projectile := preload("res://Scripts/Core/Projectile.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
@@ -48,6 +49,19 @@ var rng: RandomNumberGenerator = null
 ## files and did not check the new line against the contract of the old one,
 ## which is the part I should have caught.
 var terrain: Array = []
+
+## Shots in flight or already resolved, in launch order. Append-only like
+## units, for the same reason: nothing external references one by id today,
+## but the array must not reshuffle out from under mid-tick iteration.
+var projectiles: Array[Projectile] = []
+
+## Index of the first unresolved entry in `projectiles`, so the per-tick scan
+## does not walk thousands of already-resolved entries in a long fight.
+## Correctness does not depend on this: the scan always covers cursor..end in
+## full, so a projectile resolving out of launch order is still found. This
+## only buys speed, on the assumption that resolution is roughly in launch
+## order.
+var next_unresolved_projectile: int = 0
 
 ## Every event since the fight began, in tick order. The view reads from
 ## `events_since` rather than clearing this, so the log survives a scrub.

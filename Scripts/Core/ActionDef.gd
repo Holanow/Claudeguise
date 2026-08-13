@@ -129,3 +129,20 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## makes the tag true, and it is the counterplay to POISON, BURN, SLOWED and
 ## MARKED all arriving at once.
 @export var cleanses_harmful: bool = false
+
+## World units per tick a shot from this action travels before its effect
+## lands. 0.0 means instant -- every action that exists today, unchanged --
+## same inert-by-default pattern as pull_distance and summons_unit_id before
+## it. Same unit system as CombatUnit.move_speed.
+##
+## Issue 18, the player's decision: most shots should be real projectiles.
+## Distance currently costs a shooter nothing -- a 260-unit shot and a 40-unit
+## stab both land the instant the wind-up ends -- which is a large part of why
+## out-ranging the room was so dominant. Travel makes reach cost time, lets a
+## target move out of the way, and gives the Warrior's guard something real to
+## intercept.
+##
+## Which actions travel, and how fast, is content's decision rather than the
+## simulation's. The mechanism lands with every action still at 0.0 so the
+## balance re-measurement stays a separate, attributable step.
+@export var projectile_speed: float = 0.0
