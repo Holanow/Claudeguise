@@ -6,6 +6,8 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
+const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
+const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
@@ -384,3 +386,93 @@ func test_reapplying_taunting_refreshes_taunt_radius() -> void:
 	tank_b.intent = Intent.use_action(strong_taunt.id, target.id)
 	CombatSim.step(state, deps)
 	assert_eq(target.taunt_radius, 300.0, "a fresh application must overwrite the stored radius, same as it already overwrites the expiry tick")
+
+# ---------------------------------------------------------------------------
+# EnemyDef.spawn_taunt_radius: a non-pawn unit taunts from the moment it
+# exists, since its one fixed action can never also be "taunt, then attack"
+# the way a plan-driven pawn rotates between blocks.
+# ---------------------------------------------------------------------------
+
+func _engine_def(id: StringName, hp: int, taunt_radius: float) -> EnemyDef:
+	var e := EnemyDef.new()
+	e.id = id
+	e.display_name = "Siege Engine"
+	e.hp_max = hp
+	e.move_speed = 0.0
+	e.spawn_taunt_radius = taunt_radius
+	return e
+
+func test_an_ordinary_enemy_spawn_with_spawn_taunt_radius_is_taunting_from_build() -> void:
+	var engine_def := _engine_def(&"engine", 40, 200.0)
+	var encounter := Encounter.new()
+	encounter.party_spawns = [Vector2(-50, 0)]
+	encounter.enemy_spawns = [{"enemy_id": &"engine", "position": Vector2(50, 0)}]
+
+	var deps := SimDeps.new()
+	deps.max_hp = func(_p) -> int: return 25
+	deps.max_resource = func(_p) -> int: return 10
+	deps.move_speed = func(_p) -> float: return 4.0
+	deps.enemy_lookup = func(id: StringName): return engine_def if id == &"engine" else null
+
+	var pawn := preload("res://Scripts/Core/PawnData.gd").new()
+	pawn.id = &"p1"
+	pawn.display_name = "Test Pawn"
+
+	var state := CombatSim.build([pawn], encounter, 400, deps)
+
+	var engine := state.unit(1)
+	assert_true(engine.has_status(CG.Status.TAUNTING), "an EnemyDef with spawn_taunt_radius > 0 must taunt from the moment build() creates it")
+	assert_eq(engine.taunt_radius, 200.0)
+
+func test_a_zero_spawn_taunt_radius_leaves_an_ordinary_enemy_untaunting() -> void:
+	var engine_def := _engine_def(&"grub", 10, 0.0)
+	var encounter := Encounter.new()
+	encounter.party_spawns = [Vector2(-50, 0)]
+	encounter.enemy_spawns = [{"enemy_id": &"grub", "position": Vector2(50, 0)}]
+
+	var deps := SimDeps.new()
+	deps.max_hp = func(_p) -> int: return 25
+	deps.max_resource = func(_p) -> int: return 10
+	deps.move_speed = func(_p) -> float: return 4.0
+	deps.enemy_lookup = func(id: StringName): return engine_def if id == &"grub" else null
+
+	var pawn := preload("res://Scripts/Core/PawnData.gd").new()
+	pawn.id = &"p1"
+
+	var state := CombatSim.build([pawn], encounter, 401, deps)
+
+	assert_false(state.unit(1).has_status(CG.Status.TAUNTING), "spawn_taunt_radius 0.0 (every enemy that exists today) must not taunt")
+
+func test_a_summoned_unit_taunts_from_spawn_too() -> void:
+	var engine_def := _engine_def(&"engine", 40, 150.0)
+	var build_action := ActionDef.new()
+	build_action.id = &"build"
+	build_action.wind_up_ticks = 1
+	build_action.recover_ticks = 1
+	build_action.range_units = 0.0
+	build_action.summons_unit_id = &"engine"
+
+	var actions_by_id := {build_action.id: build_action}
+	var enemies_by_id := {&"engine": engine_def}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.enemy_lookup = func(id: StringName): return enemies_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r = null) -> float: return 0.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u) -> Intent: return Intent.idle()
+
+	var state := CombatState.new(402)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [build_action.id])
+	state.units.append(caster)
+	state.units.append(_dummy_enemy(1))
+
+	caster.intent = Intent.use_action(build_action.id, caster.id)
+	CombatSim.step(state, deps)
+
+	var summon := state.unit(2)
+	assert_not_null(summon)
+	assert_true(summon.has_status(CG.Status.TAUNTING), "a summoned unit must taunt from spawn the same way an ordinary enemy spawn does")
+	assert_eq(summon.taunt_radius, 150.0)
+	assert_eq(summon.team, CG.Team.PLAYER, "sanity: still the caster's team, unaffected by taunting")
