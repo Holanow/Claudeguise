@@ -223,6 +223,8 @@ func consume_events() -> void:
 			_spawn_floater(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
+		elif e.kind == CG.EventKind.MISS:
+			_spawn_miss_marker(e)
 
 func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
@@ -252,6 +254,22 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	_arena.add_child(marker)
 	marker.position = target.position + _DEATH_MARKER_OFFSET
 	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, Palette.FONT_SIZE_BODY)
+
+## "X's Y fires" with silence after it is what made a miss read as a broken
+## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
+## "Miss" at the target — the same place a hit's damage number would have
+## landed — says plainly that the action resolved and simply connected with
+## nothing, using Palette.TEXT_DIM rather than a damage colour so it reads as
+## "nothing happened" rather than as a fourth kind of hit.
+func _spawn_miss_marker(e: CombatEvent) -> void:
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	var marker := Node2D.new()
+	marker.set_script(DamageFloaterScript)
+	_arena.add_child(marker)
+	marker.position = target.position
+	marker.show_text("Miss", Palette.TEXT_DIM)
 
 func _show_outcome() -> void:
 	match state.outcome:
