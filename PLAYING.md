@@ -32,30 +32,56 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
 
 ## What to try first
 
-1. **`siege_master`, `geysermancer`, `priest`, `warrior`.** The balanced party.
-   It wins 19 times in 20 and finishes on 23% of its health. It has never once,
-   in twenty seeds, ended a fight with all four alive, and it loses somebody in
-   19 of them.
-2. **Four `siege_master`.** It wins every time and takes very little back: 77%
-   health, four alive in 17 of 20. **This is a known flaw, not a discovery** —
-   see below — and it is worth seeing precisely because it is the one thing in
-   the game that is still wrong.
-3. **Four `abomination`.** A genuine coin flip, 6 wins in 20, and the wins cost
-   it 91% of its health. It lost every single fight earlier tonight, because a
-   Rage pawn that could not afford its finisher stood still instead of using its
-   free attack, and so never landed the hits that generate Rage.
-4. **Four `priest` or four `geysermancer`**, if you want to see the floor. They
-   win 1 and 0 of 20. A party can be built badly and the room will say so.
-5. **The same party twice on one seed**, then change one class and keep the seed.
+**One caveat before any of this: there is a live one-line bug that makes the
+game load the wrong room, and in that room nothing can lose.** It is the first
+item under "what is honestly not right yet" below. The table here describes the
+room the game is meant to load, which is the room all the balance work was done
+against.
+
+There are five classes and you pick four, one card each, so **there are exactly
+five parties in the game.** Each is defined by who you leave out. Against
+`floor1_room1`, over twenty seeds each:
+
+| you leave out | wins | health left when it wins |
+|---|---|---|
+| Abomination | 19 of 20 | 23% |
+| Geysermancer | 10 of 20 | 14% |
+| Priest | 5 of 20 | 19% |
+| Warrior | 5 of 20 | 4% |
+| **Siege Master** | **0 of 20** | never wins |
+
+1. **Leave out the Geysermancer.** A real coin flip that costs you almost
+   everything when you win. This is the best fight in the game and the one to
+   judge it by.
+2. **Leave out the Abomination.** The strongest party, and it still loses
+   somebody in 19 fights out of 20. It has never once ended with all four alive.
+3. **Leave out the Siege Master**, to see what is broken. It loses every time,
+   on every seed anyone has tried. One class is currently mandatory, and that is
+   the biggest balance problem in the game.
+4. **The same party twice on one seed**, then change one class and keep the seed.
 
 ## What is honestly not right yet
 
-- **A party that out-ranges the room does not have to fight it.** Every enemy in
-  `floor1_room1` reaches 40, 45 or 200 units; `siege_shot` reaches 260. Six of
-  ten enemies never get close enough to swing at four `siege_master`. This is
-  much better than it was — the room did 17 damage to that party earlier tonight
-  and now takes it to 77% — but a fight nobody in the room can reach is still
-  the weakest thing in the slice. Issues 24 and 31.
+- **Read this first, because it changes what everything above is worth.** Until
+  the fix lands, the game does not load the room described above. One line in
+  the party select screen picks whichever room sorts first alphabetically
+  instead of the room the game intends, so every fight you start is a small
+  two-ghoul encounter that **no party can lose** — a thousand simulated fights,
+  five parties, not a single defeat. Every fight ends in about eight seconds
+  with everyone alive.
+
+  This was found by having somebody actually play it, which is the only place it
+  was visible, and it is the reason nobody should read the table above as
+  describing what you will see on screen tonight. Issue 36, and it is one line.
+
+  It also means the honest answer to "is this fun yet" is **not yet, and we do
+  not know.** The engineer who played it said they would not voluntarily run a
+  second fight as it stands, and also that they cannot tell whether that
+  survives the fix, because nobody has watched the real room fought. That is the
+  next thing that happens.
+- **One class is mandatory.** The party without a Siege Master loses every
+  single fight. That is the top balance problem now, and it has a diagnosis:
+  see below.
 
   **We now know why, and it is not about range at all.** This took four wrong
   guesses to establish and the answer is the most interesting thing in the
@@ -63,12 +89,12 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
   engineers tried an ambusher spawning inside the party's own deploy zone, an
   enemy sniper matching the party's reach, and finally dialling the Siege
   Master's own range from 260 down to 150, which is shorter than the goblins'
-  swing. Four Siege Masters still won every fight at 70 to 85% health.
+  swing. A ranged team still won every fight at 70 to 85% health.
 
   The trace explains it in one line: **the room hits exactly as hard against
-  both parties.** It does 7.8 damage per attack against the party that walks
-  away clean and 7.6 against the party that nearly dies. The only difference is
-  that it gets to attack 8 times instead of 61.
+  every party.** It does 7.8 damage per attack against a team that walks away
+  clean and 7.6 against one that nearly dies. The only difference is that it
+  gets to attack 8 times instead of 61.
 
   A party that has to walk fights whatever is standing in its way. A party that
   does not walk picks whatever it likes, and what it likes is the archers, who
