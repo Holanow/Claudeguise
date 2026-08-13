@@ -44,17 +44,32 @@ static func enemies() -> Array[EnemyDef]:
 		# real answer to both playstyles the earlier placeholder favoured
 		# unevenly: axe for whoever closes, chain for whoever does not.
 		#
-		# 1250 hp / 58 melee, tuned against all five real parties with a
-		# direct probe (SampleFights doesn't cover single-encounter checks
-		# yet). Landed here after two lower passes: 620/34 let every party win
-		# 20/20 at 63-76% health (too easy to be a boss at all); 950/46 still
-		# 20/20 everywhere at 38-59%. At 1250/58 the strongest real party
-		# (no_abomination) pays a real cost for the first time, 17/20 @23%,
-		# while the other four still win comfortably but not for free,
-		# 20/20 @33-40%. No comp trivialises it and none is uniquely
-		# punished -- the inversion the placeholder had (19/20 @86% for one
-		# comp, 1/20 for another) is gone.
-		_enemy(&"the_warden", "The Warden", 1250, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
+		# 58 melee, tuned against all five real parties with a direct probe
+		# (SampleFights doesn't cover single-encounter checks yet). hp
+		# landed at 1250 after two lower passes: 620/34 let every party win
+		# 20/20 at 63-76% health (too easy to be a boss at all); 950/46
+		# still 20/20 everywhere at 38-59%. At 1250/58 the strongest real
+		# party at the time (no_abomination -- it carried the old, since-
+		# retired 260-range siege_shot) paid a real cost for the first time,
+		# 17/20 @23%, while the other four still won comfortably but not for
+		# free, 20/20 @33-40%.
+		#
+		# hp 1250 -> 1000, issue 12: the Siege Master rebuild retired that
+		# 260-range exploit, which is what let four of the five real comps
+		# above carry a large, safe damage share. Losing it stretched every
+		# Warden fight from ~10-30s to 80-100+s (measured -- the axe's own
+		# power didn't change, it just had far more time to land), and
+		# `no_abomination` went from the strongest real comp to a 0/20
+		# guaranteed loss. Lowering hp restores roughly the original fight
+		# length for the new, lower realistic squad DPS ceiling rather than
+		# re-guessing the damage side: `no_siege_master`/`no_geysermancer`/
+		# `no_priest` are 19-20/20 again, `no_warrior` 18/20 (was a 7/20
+		# coin flip at 1250). `no_abomination` stays 0/20 at every hp value
+		# tried (1250, 1050, 1000) -- it has no tank at all once the Siege
+		# Master is not one, which is a roster gap no boss-hp number closes.
+		# Disclosed in `Tests/test_content_encounter.gd` rather than chased
+		# further; see that file's header for the finding reported to rook.
+		_enemy(&"the_warden", "The Warden", 1000, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:

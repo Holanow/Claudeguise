@@ -42,18 +42,30 @@ static func classes() -> Array[ClassDef]:
 		## `Style.SUMMONER` was on the class card while it played as pure
 		## artillery (siege_shot at 260 range, past every enemy's own reach
 		## -- issue 25/31's diagnosis for why this class was mandatory);
-		## `build_siege_engine` is what makes the tag true. CON 4->2, the
-		## lowest of any class (below even the Priest's 3): squishy is the
-		## point, criterion 3. Resource kind ENERGY->MANA -- the old fast
-		## regen (18%/s) suited firing every tick; MANA's slower 4%/s is
-		## what gates `build_siege_engine` from being re-cast every few
-		## seconds, the same way Rage gates Warrior's Execute.
+		## `build_siege_engine` is what makes the tag true. Resource kind
+		## ENERGY->MANA -- the old fast regen (18%/s) suited firing every
+		## tick; MANA's slower 4%/s is what gates `build_siege_engine` from
+		## being re-cast every few seconds, the same way Rage gates
+		## Warrior's Execute.
+		##
+		## CON first tried at 2, below even the Priest's 3 -- squishy was
+		## the spec, criterion 3. Measured with `Tools/FloorRuns.gd` and it
+		## overshot: every real party carrying this class lost every floor
+		## room it reached (0/20), because the pawn itself, not the engine,
+		## was the room's first and easiest kill and died before
+		## contributing much of anything. Restored to 4 (its own pre-rebuild
+		## value) -- a point above Priest/Geysermancer's 3, so no longer the
+		## single squishiest CON in the game, but still far below Warrior/
+		## Abomination's 9-12 and still the squishiest kit-wise: no
+		## self-heal, no shield, no reach advantage any more, just enough hp
+		## to not be the free first kill for whichever enemy happens to be
+		## nearest when it stops to cast.
 		_class(
 			&"siege_master", "Siege Master",
 			CG.Method.MARTIAL, CG.Style.SUMMONER, CG.Role.DPS, CG.Role.ANTI_SUPPORT,
 			[CG.DamageType.PHYSICAL, CG.DamageType.RAW],
 			CG.ResourceKind.MANA,
-			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 2, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
+			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
 			[&"spotter_mark", &"build_siege_engine"]
 		),
 		## CON 8->10 (issue 24, history only, superseded below). AGI 2->8,

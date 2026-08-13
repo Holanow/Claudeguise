@@ -49,18 +49,30 @@ static func actions() -> Array[ActionDef]:
 		# Siege Master's own attacks and an ally's, not so long it never
 		# falls off between engagements). 220 range matches the rest of
 		# the room's ranged cast (geyser_blast, priest_smite, cultist_bolt)
-		# rather than reaching past it.
-		_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target and lowers its defenses, letting the whole party's next hits land harder.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 0.5, 15, CG.Status.MARKED, 150, true),
+		# rather than reaching past it. power_scale first tried at 0.5,
+		# meant to read as a debuff that also chips damage rather than a
+		# real attack -- measured (Tools/FloorRuns.gd) as part of why the
+		# class contributed almost no net damage across a fight and every
+		# real party carrying it lost every floor room. Raised to 1.0, in
+		# line with a normal single-target hit: the debuff is still the
+		# point, but the hit landing it should not be a rounding error.
+		_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target and lowers its defenses, letting the whole party's next hits land harder.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true),
 		# build_siege_engine: self-targeted (range 0, no line-of-sight
 		# needed), deals no damage of its own -- power_scale 0.0, the
 		# summon is the whole effect. wind_up 90 ticks (3s) is the "takes a
 		# bit" the player asked for, long enough to be a real commitment
-		# mid-fight and not just a free extra unit. Costs 40 of a 50ish-max
-		# Mana pool (resource kind switched below), so the plan that fires
-		# it can only do so again once Mana has meaningfully regenerated --
-		# the resource economy gates the repeat build without a new
-		# mechanism, the same way Warrior's Execute is gated by Rage.
-		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends time building a siege engine that then fights at range on its own. Takes a while, and worth doing early.", 90, 20, 40, &"siege_engine"),
+		# mid-fight and not just a free extra unit.
+		#
+		# Cost first tried at 40 of a 50ish-max Mana pool, gated behind a
+		# self_resource_at_least: 45 plan condition (PresetPlans.gd) so it
+		# fired once near the start of a fight and only rarely again --
+		# matching Warrior's Execute/Rage, but this class has no other real
+		# damage source while waiting, unlike Warrior's basic swing. Lowered
+		# to 20/threshold 25 so a fight long enough to matter (most of them)
+		# gets a second or third engine out of the same Mana pool, which is
+		# what "having two of these on the field" (see siege_engine_bolt's
+		# own comment) actually requires instead of just describing.
+		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends time building a siege engine that then fights at range on its own. Takes a while, and worth doing early.", 90, 20, 20, &"siege_engine"),
 
 		_action_status(&"abomination_claw", "Claw", "A poisoned melee strike that keeps hurting the target after it lands.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
 		_action_splash(&"abomination_immolate", "Immolate", "A fiery melee burst that can catch nearby enemies, spending most of the Abomination's Rage.", CG.DamageType.FIRE, 45.0, 60.0, 10, 12, 1.2, 40),
@@ -109,10 +121,19 @@ static func enemies() -> Array[EnemyDef]:
 		# spawned it. Stationary (move_speed 0.0): it is artillery the room
 		# has to come to, which is the entire point of putting something in
 		# the room's reach that the Siege Master itself no longer is.
-		# hp modest so "the room can attack it" (criterion 1) is real rather
-		# than nominal -- it should die to a couple of hits from anything
-		# that reaches it, same as the Siege Master itself is meant to.
-		_enemy(&"siege_engine", "Siege Engine", 80, 0, CG.ResourceKind.ENERGY, 0.0, 20.0, {CG.DamageType.PHYSICAL: 16}, 0.0, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
+		# hp first tried at 80 so "the room can attack it" (criterion 1) was
+		# real rather than nominal -- died in a couple of hits from anything
+		# that reached it, same as the Siege Master itself. Measured
+		# (Tools/_probe, throwaway) against a real fight and found the
+		# opposite problem: enemies do not preferentially target a summon at
+		# all (`DefaultBehavior._choose_target` is nearest-only for player-
+		# side units, focus_bias has no equivalent here), so the engine sat
+		# unengaged for most of a fight and died the moment something
+		# finally reached it, contributing little either way. Raised to 140
+		# so a build that does draw fire survives long enough to matter, not
+		# to make it a tank -- it still dies fast to concentrated fire, it
+		# just isn't a coin flip against a single stray hit any more.
+		_enemy(&"siege_engine", "Siege Engine", 140, 0, CG.ResourceKind.ENERGY, 0.0, 20.0, {CG.DamageType.PHYSICAL: 16}, 0.0, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:

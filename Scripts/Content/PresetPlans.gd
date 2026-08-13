@@ -83,7 +83,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"siege_master":
 			return [
 				_plan(&"siege_master_build_when_ready", "Build the engine",
-					_condition(&"self_resource_at_least", {"amount": 45}),
+					_condition(&"self_resource_at_least", {"amount": 25}),
 					[_targeting(&"target_self"), _action_block(&"build_siege_engine")]),
 				_plan(&"siege_master_mark_default", "Mark the target",
 					_condition(&"enemy_in_range", {"range": 220.0}),
