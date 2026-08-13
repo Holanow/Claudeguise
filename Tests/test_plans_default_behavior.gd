@@ -69,6 +69,86 @@ func test_ranged_default_behaviour_keeps_more_distance_than_melee() -> void:
 	assert_true(ranged_median > melee_median * 1.5, "ranged (%.1f) should sit well further back than melee (%.1f)" % [ranged_median, melee_median])
 
 
+## TAUNTING, in DefaultBehavior._choose_target (via _nearest_taunter). Real
+## decide() calls throughout, not the private helper directly, matching how
+## every other test in this file exercises DefaultBehavior -- through its
+## one public entry point.
+##
+## goblin_archer's own kit (range 200, requires_line_of_sight) is used for
+## all four, positioned so the ranged commit window (dist in
+## [kite_min, commit_max] = [120, 170] for this action) is unambiguous:
+## a hit lands as USE_ACTION with a real target_id, not a MOVE_TO whose
+## destination has to be compared instead.
+
+func _taunter(id: int, pos: Vector2, radius: float) -> CombatUnit:
+	var u := _immobile_dummy(id, CG.Team.ENEMY, pos)
+	u.statuses[CG.Status.TAUNTING] = 999999
+	u.taunt_radius = radius
+	return u
+
+func test_taunt_overrides_the_nearest_enemy() -> void:
+	var state := CombatState.new(1)
+	var attacker := _unit(0, CG.Team.PLAYER, &"goblin_archer", Vector2.ZERO)
+	var nearest := _immobile_dummy(1, CG.Team.ENEMY, Vector2(50.0, 0.0))
+	var taunter := _taunter(2, Vector2(150.0, 0.0), 999.0)
+	state.units.append(attacker)
+	state.units.append(nearest)
+	state.units.append(taunter)
+
+	var intent := DefaultBehavior.decide(state, attacker)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION, "expected a committed attack, not a move")
+	assert_eq(intent.target_id, taunter.id, "a taunting enemy in range should be targeted over a nearer non-taunting one")
+
+
+func test_taunt_out_of_its_own_radius_does_not_override() -> void:
+	var state := CombatState.new(1)
+	var attacker := _unit(0, CG.Team.PLAYER, &"goblin_archer", Vector2.ZERO)
+	# Beyond the ranged commit window (170), so the baseline behaviour is
+	# closing distance on it -- unambiguous MOVE_TO(nearest.position).
+	var nearest := _immobile_dummy(1, CG.Team.ENEMY, Vector2(180.0, 0.0))
+	# Taunting, but taunt_radius does not reach the attacker's position.
+	var taunter := _taunter(2, Vector2(300.0, 0.0), 10.0)
+	state.units.append(attacker)
+	state.units.append(nearest)
+	state.units.append(taunter)
+
+	var intent := DefaultBehavior.decide(state, attacker)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO, "the nearest enemy is out of ranged commit range, so this should still be closing distance on it")
+	# MOVE_TO carries no target_id; destination is the nearest enemy's own position.
+	assert_eq(intent.destination, nearest.position)
+
+
+func test_an_untaunting_enemy_is_never_treated_as_a_taunter() -> void:
+	var state := CombatState.new(1)
+	var attacker := _unit(0, CG.Team.PLAYER, &"goblin_archer", Vector2.ZERO)
+	var nearest := _immobile_dummy(1, CG.Team.ENEMY, Vector2(150.0, 0.0))
+	state.units.append(attacker)
+	state.units.append(nearest)
+
+	var intent := DefaultBehavior.decide(state, attacker)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.target_id, nearest.id, "with nobody taunting, ordinary nearest-target selection should be untouched")
+
+
+func test_taunt_works_symmetrically_for_an_enemy_unit_too() -> void:
+	# The Warrior taunting real enemies is the primary case per the class
+	# fantasy -- TAUNTING and _nearest_taunter are generic over team, same
+	## as _choose_target already is, so this checks the enemy side directly
+	## rather than assuming symmetry.
+	var state := CombatState.new(1)
+	var attacker := _unit(0, CG.Team.ENEMY, &"goblin_archer", Vector2.ZERO)
+	var nearest := _immobile_dummy(1, CG.Team.PLAYER, Vector2(50.0, 0.0))
+	var taunter := _taunter(2, Vector2(150.0, 0.0), 999.0)
+	taunter.team = CG.Team.PLAYER
+	state.units.append(attacker)
+	state.units.append(nearest)
+	state.units.append(taunter)
+
+	var intent := DefaultBehavior.decide(state, attacker)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.target_id, taunter.id)
+
+
 func test_healer_heals_hurt_ally() -> void:
 	var priest_pawn := PawnFactory.make_starter_pawn(&"priest", &"p1", "Priest")
 	var priest := CombatUnit.new()
