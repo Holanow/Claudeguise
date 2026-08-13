@@ -33,6 +33,12 @@ const MOVE_PER_DEX_BONUS := 0.05
 
 const ATTACK_POWER_PER_POINT := 2.5
 
+## Issue 7: a hit rolls within [1 - spread, 1 + spread] of its base power.
+## Drawn from the fight's own `CombatState.rng`, never a fresh generator, so
+## the same seed still reproduces the same fight exactly. 0.0 disables
+## variance entirely, which is what every caller gets by not passing `rng`.
+const ATTACK_VARIANCE_SPREAD := 0.3
+
 const DAMAGE_REDUCTION_PER_CON := 0.01
 const NATURAL_DAMAGE_REDUCTION_CAP := 0.3
 const STATUS_SHIELD_REDUCTION := 0.25
@@ -64,7 +70,13 @@ static func move_speed(pawn: PawnData) -> float:
 ## Magical class scales off INT regardless of style. `d` is accepted for the
 ## call shape SimDeps expects; the driving attribute for this slice comes from
 ## the class's method and style, not from the damage type of the action fired.
-static func attack_power(pawn: PawnData, d: CG.DamageType) -> float:
+##
+## `rng` is optional and defaults to null, which returns the flat, no-variance
+## number every existing caller got before issue 7 — widening this signature
+## cannot break anything that does not opt in. Pass the fight's own
+## `CombatState.rng` to get a varied roll; passing a fresh generator instead
+## would break "same seed, same fight" and must never happen.
+static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGenerator = null) -> float:
 	var _unused := d
 	if pawn.pawn_class == null:
 		return 0.0
@@ -75,7 +87,10 @@ static func attack_power(pawn: PawnData, d: CG.DamageType) -> float:
 		attr = CG.Attribute.STR
 	else:
 		attr = CG.Attribute.DEX
-	return float(pawn.attribute(attr)) * ATTACK_POWER_PER_POINT
+	var base := float(pawn.attribute(attr)) * ATTACK_POWER_PER_POINT
+	if rng == null:
+		return base
+	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
 
 ## Fraction of incoming damage removed, from armor and statuses. The simulation
 ## applies this; it does not decide it.

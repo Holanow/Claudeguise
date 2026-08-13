@@ -6,6 +6,7 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Turns a pawn's plans into one Intent per tick.
 ##
@@ -97,7 +98,28 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 					return null
 	if action_id == &"" or unit.focus_id == -1:
 		return null
+	if not _target_in_range(state, unit, action_id):
+		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Issue 14a: a plan must not order a shot it already knows will miss. The
+## focused target's distance is checked against the action's own range here,
+## once, right before the intent is built — the one place both numbers are
+## available together, regardless of which targeting op or condition (if any)
+## picked the target. Out of range falls through (returns null from decide(),
+## via _run_blocks) rather than trying to move into range itself:
+## PlanInterpreter has never handled movement, that is DefaultBehavior's whole
+## job, and a unit with no plan that fires already falls through to it. So an
+## over-eager plan just steps aside for a tick instead of ordering a shot at
+## nothing, and DefaultBehavior closes the distance the same way it always has.
+static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null:
+		return true
+	var target := state.unit(unit.focus_id)
+	if target == null:
+		return false
+	return unit.position.distance_to(target.position) <= action.range_units
 
 static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> bool:
 	if not CONDITION_OPS.has(block.op):
