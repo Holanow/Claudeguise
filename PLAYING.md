@@ -26,18 +26,28 @@ start. The reasoning is at the top of `Scripts/Core/CG.gd`.
 
 ## What you can do
 
-**Pick your party.** Five class cards, each showing its silhouette, role and
-damage types. Up to four. There is a seed box — type the same seed twice and you
-get the same fight, which is how you compare one party against another.
+**Pick a party.** Five class cards, up to four, one of each. There is a seed box:
+same seed, same run, every time.
 
-**Inspect a pawn** before committing. Its attributes, its actions, and its plans
-written out as sentences: *"1. Immolate — when an enemy within 45 units: the
-nearest enemy, then use Immolate."* That screen exists because you asked to see
-what pawns will do, and it is also the reason we found two real bugs.
+**Play a floor.** You get a map of rooms. You can see what each one is before you
+walk into it, which rooms you can reach from where you stand, and what you have
+found so far. A boss is never a surprise.
 
-**Watch the fight.** Real time, with pause. Party and enemy health summarised at
-the top, floating damage numbers, wind-up rings showing an action about to land,
-targeting lines, and a combat log. Restart with the same seed, or change party.
+**Fight a room.** Real time, with pause. Party and enemy health at the top,
+floating damage numbers, wind-up rings showing an action about to land, targeting
+lines, and a combat log in plain language.
+
+**Carry your losses forward.** Damage does not reset between rooms and the dead
+stay dead. The floor is meant to wear you down.
+
+**Equip what you find.** Winning a room can drop equipment. Assign it to a pawn
+and it changes their numbers in the next fight.
+
+**Meet The Warden.** Floor 1's boss. It throws a chain further than anything your
+party can reach, so standing at the back is not a strategy.
+
+**Inspect a pawn** before committing: attributes, actions, and their plans
+written out as sentences.
 
 ## What to try first
 
