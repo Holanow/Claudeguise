@@ -111,6 +111,21 @@ static func all_encounter_ids() -> Array[StringName]:
 	ids.sort()
 	return ids
 
+## The missing fourth sibling of all_class_ids/all_encounter_ids/
+## all_equipment_ids -- every enemy this project knows about, not just
+## whichever ones a hand-written encounter happens to reference. Added for
+## the level editor's bestiary picker: deriving that list from encounters
+## already used was correct while every enemy that existed was used
+## somewhere, and wrong the moment someone registers one that isn't --
+## exactly what an editor exists to let a player do.
+static func all_enemy_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	for k in _enemies.keys():
+		ids.append(k)
+	ids.sort()
+	return ids
+
 static func all_equipment_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []
