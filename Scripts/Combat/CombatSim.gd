@@ -209,6 +209,7 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 ## a unit that genuinely cannot route around an obstacle is a finding to
 ## report, not a pathfinder to build.
 static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, deps: SimDeps) -> void:
+	var before := unit.position
 	var to_dest := intent.destination - unit.position
 	var dist := to_dest.length()
 	var speed := _effective_move_speed(unit, deps)
@@ -221,6 +222,7 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 	var direct := _sweep(state, unit, step)
 	if direct != unit.position:
 		unit.position = direct
+		_update_facing_from_movement(unit, before)
 		return
 
 	# The direct step made no progress at all (blocked immediately, not just
@@ -251,6 +253,29 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 	elif moved_y:
 		unit.position = slide_y
 	# else: fully blocked in every direction this tick. Stay put.
+	_update_facing_from_movement(unit, before)
+
+## `CombatUnit.facing` only changes when a unit actually displaces this tick --
+## a blocked or idle unit keeps whatever it last faced rather than snapping to
+## zero, so SHIELDING's front-arc check still has something meaningful to read
+## while a unit is stalled at a wall or fully boxed in.
+static func _update_facing_from_movement(unit: CombatUnit, before: Vector2) -> void:
+	if unit.position != before:
+		unit.facing = (unit.position - before).normalized()
+
+## Set at the moment a unit commits to USE_ACTION, alongside focus_id, so it
+## persists through the wind-up the same way focus_id already does -- a unit
+## keeps facing what it is fighting for the whole time it is committed to
+## hitting it, not just the instant it decided to. Left unchanged if the
+## target id does not resolve to a living unit (nothing to face) or the unit
+## is already standing exactly on top of it (no direction to derive).
+static func _update_facing_toward(state: CombatState, unit: CombatUnit, target_id: int) -> void:
+	var target := state.unit(target_id)
+	if target == null:
+		return
+	var dir := target.position - unit.position
+	if dir.length() > 0.0001:
+		unit.facing = dir.normalized()
 
 ## A single axis's full step: move_speed toward `remaining`, capped so it
 ## does not overshoot the destination on that axis alone. Zero if there is
@@ -343,6 +368,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	## overwrites it with where the action actually aims, which is the same
 	## value except when a targeting block aimed this one action elsewhere.
 	unit.focus_id = intent.target_id
+	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
 	unit.action_ticks_left = _apply_haste(unit, deps, int(deps.wind_up_ticks.call(unit, action)))
 
@@ -412,6 +438,12 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 	for status in expired:
 		if state.tick >= int(unit.statuses[status]):
 			unit.statuses.erase(status)
+			## TAUNTING is the first status with a stored magnitude
+			## (taunt_radius) rather than a pure read-while-present multiplier
+			## like SLOWED/HASTE -- reset it so nothing downstream can read a
+			## stale radius off a unit that no longer carries the status.
+			if status == CG.Status.TAUNTING:
+				unit.taunt_radius = 0.0
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
 			state.emit(e)
@@ -616,6 +648,12 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 
 	if action.applies_status_enabled:
 		target.statuses[action.applies_status] = state.tick + action.status_duration_ticks
+		## TAUNTING's reach is stored on the taunting unit itself rather than
+		## re-derived from its action list each tick -- ActionDef.taunt_radius's
+		## own doc comment. Reapplying (a refresh) overwrites it the same way
+		## reapplying any other status already overwrites its expiry tick.
+		if action.applies_status == CG.Status.TAUNTING:
+			target.taunt_radius = action.taunt_radius
 		var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, unit.id, target.id, action.id)
 		se.status = action.applies_status
 		state.emit(se)
@@ -737,20 +775,74 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 	var action: ActionDef = deps.action_lookup.call(p.action_id)
 	var target := state.unit(p.target_id)
 	var source := state.unit(p.source_id)
-	if action != null and target != null and target.alive and source != null:
-		var in_range := p.position.distance_to(target.position) <= target.radius
-		var blocked := action.requires_line_of_sight \
-			and Terrain.line_is_blocked(state.terrain, p.position, target.position)
-		if in_range and not blocked:
+	if action != null and target != null and source != null:
+		## SHIELDING checked before the intended target, every tick the shot
+		## is in flight -- a shielder standing between the shooter and the
+		## target intercepts it wherever the shot currently is, not only once
+		## it would have reached the original target. Checked even if `target`
+		## has already died: the guard reacts to a hostile shot crossing its
+		## front regardless of what the shot was originally aimed at.
+		var shielder := _find_shielder(state, target.team, source.team, p.position)
+		if shielder != null:
 			p.resolved = true
-			for t in _splash_targets(state, target, action):
+			for t in _splash_targets(state, shielder, action):
 				_apply_action_effect(state, source, t, action, deps)
 			_on_hit_landed(state, source, deps)
 			return
 
+		if target.alive:
+			var in_range := p.position.distance_to(target.position) <= target.radius
+			var blocked := action.requires_line_of_sight \
+				and Terrain.line_is_blocked(state.terrain, p.position, target.position)
+			if in_range and not blocked:
+				p.resolved = true
+				for t in _splash_targets(state, target, action):
+					_apply_action_effect(state, source, t, action, deps)
+				_on_hit_landed(state, source, deps)
+				return
+
 	if p.position == p.aim_point:
 		p.resolved = true
 		state.emit(_event(CG.EventKind.MISS, state.tick, p.source_id, p.target_id, p.action_id))
+
+## A shot crossing a SHIELDING unit's front is stopped by it, per
+## CG.Status.SHIELDING's own doc comment -- this is the projectile-based
+## design that comment named as the point of building #18 first, replacing
+## the geometric-line-check fallback it also named (never built, since
+## projectiles landed before this did).
+##
+## Front-arc test is a plain half-plane: `facing.dot(to_shot) > 0`. Zero
+## invented constants -- a dot-product sign test already means "generally in
+## front, not behind," same instinct as reusing `radius` for the ordinary hit
+## check rather than inventing a second number for "how close counts."
+##
+## `attacking_team == defending_team` returns null immediately, so a shield
+## never blocks a friendly heal or buff aimed at an ally standing behind it --
+## SHIELDING stops incoming fire, not outgoing support.
+##
+## First qualifying shielder in `state.living(defending_team)` order wins,
+## same "iterate units, never a Dictionary" determinism rule every other
+## tie-break in this file already follows.
+static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, position: Vector2) -> CombatUnit:
+	if attacking_team == defending_team:
+		return null
+	for candidate in state.living(defending_team):
+		if not candidate.has_status(CG.Status.SHIELDING):
+			continue
+		if candidate.facing == Vector2.ZERO:
+			continue # "no facing yet" per CombatUnit.facing's own doc comment: blocks nothing
+		if position.distance_to(candidate.position) > candidate.radius:
+			continue
+		## Vector2.normalized() on a zero-length vector returns ZERO rather
+		## than dividing by zero, so a shot landing exactly on the shielder's
+		## own position dots to 0 and correctly falls through to "not in
+		## front" rather than special-casing "can't be behind me if it's
+		## exactly on me" -- a shot dead-centre on a shielder facing away is
+		## still approaching from the shielder's back, not its front.
+		var to_shot := (position - candidate.position).normalized()
+		if candidate.facing.dot(to_shot) > 0.0:
+			return candidate
+	return null
 
 # ---------------------------------------------------------------------------
 # outcome

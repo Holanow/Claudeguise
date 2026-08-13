@@ -1,0 +1,386 @@
+extends "res://Tests/TestCase.gd"
+
+const CG := preload("res://Scripts/Core/CG.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
+const Intent := preload("res://Scripts/Core/Intent.gd")
+const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
+const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+
+## TAUNTING and SHIELDING: one mechanism serving the Warrior (guard/taunt) and
+## the Siege Master (draw fire onto a summoned engine). This file covers:
+##   - CombatUnit.facing, set by CombatSim from movement and from committing
+##     to an action -- nothing set it before this.
+##   - SHIELDING: a travelling shot crossing a shielder's front resolves
+##     against the shielder instead of its intended target.
+##   - TAUNTING's status machinery (apply/expire, writing taunt_radius) --
+##     inert on its own; nothing yet reads it to redirect a decision. That
+##     half is Scripts/Plans, routed to dace separately.
+
+func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = id
+	u.team = team
+	u.hp_max = hp
+	u.hp = hp
+	u.position = pos
+	u.move_speed = 8.0
+	u.actions = actions
+	return u
+
+func _dummy_enemy(id: int) -> CombatUnit:
+	return _unit(id, CG.Team.ENEMY, 10, Vector2(100000, 100000), [])
+
+func _idle_deps() -> SimDeps:
+	var deps := SimDeps.new()
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
+	return deps
+
+func _shot(id: StringName, speed: float, splash: float = 0.0) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	a.wind_up_ticks = 1
+	a.recover_ticks = 1
+	a.range_units = 999.0
+	a.projectile_speed = speed
+	a.splash_radius = splash
+	a.damage_type = CG.DamageType.PHYSICAL
+	return a
+
+func _deps_with_action(action: ActionDef, power: float) -> SimDeps:
+	var actions_by_id := {action.id: action}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _r = null) -> float: return power
+	deps.damage_reduction = func(_u: CombatUnit) -> float: return 0.0
+	deps.wind_up_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
+	return deps
+
+# ---------------------------------------------------------------------------
+# CombatUnit.facing
+# ---------------------------------------------------------------------------
+
+func test_facing_is_set_to_the_direction_of_actual_movement() -> void:
+	var deps := _idle_deps()
+	var state := CombatState.new(300)
+	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [])
+	state.units.append(unit)
+
+	unit.intent = Intent.move_to(Vector2(0, 100))
+	CombatSim.step(state, deps)
+
+	assert_almost_eq(unit.facing.x, 0.0, 0.001)
+	assert_almost_eq(unit.facing.y, 1.0, 0.001, "facing must point the direction actually travelled")
+
+func test_facing_is_unchanged_when_fully_blocked() -> void:
+	var deps := _idle_deps()
+	var state := CombatState.new(301)
+	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [])
+	unit.facing = Vector2(1, 0)
+	state.units.append(unit)
+	state.units.append(_dummy_enemy(1))
+
+	var wall := preload("res://Scripts/Core/Terrain.gd").make(
+		preload("res://Scripts/Core/Terrain.gd").Kind.WALL, Rect2(Vector2(-5, -200), Vector2(10, 400)))
+	state.terrain.append(wall)
+
+	unit.intent = Intent.move_to(Vector2(100, 0)) # straight into the wall, no lateral component
+	CombatSim.step(state, deps)
+
+	assert_eq(unit.position, Vector2.ZERO, "sanity: fully blocked, must not have moved")
+	assert_eq(unit.facing, Vector2(1, 0), "facing must not snap to zero on a blocked move")
+
+func test_facing_points_toward_the_target_on_commit_and_holds_through_windup() -> void:
+	var atk := _shot(&"atk", 0.0) # instant, wind_up 1
+	atk.wind_up_ticks = 5
+	var deps := _deps_with_action(atk, 5.0)
+
+	var state := CombatState.new(302)
+	var attacker := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 20, Vector2(0, -50), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps) # commits; facing set immediately, before the hit lands
+
+	assert_almost_eq(attacker.facing.x, 0.0, 0.001)
+	assert_almost_eq(attacker.facing.y, -1.0, 0.001, "must face the target it just committed to")
+
+	for i in 4:
+		CombatSim.step(state, deps)
+		assert_almost_eq(attacker.facing.y, -1.0, 0.001, "facing must hold through the whole wind-up (tick %d)" % (i + 2))
+
+# ---------------------------------------------------------------------------
+# SHIELDING: a shot crossing a shielder's front hits the shielder instead
+# ---------------------------------------------------------------------------
+
+func test_a_shielder_facing_the_shot_intercepts_it() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(303)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0) # facing back toward the shooter -- the shot is in front of it
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(squishy.hp, squishy.hp_max, "the intended target must be untouched -- the shot never reaches it")
+	assert_eq(shielder.hp, shielder.hp_max - 7, "the shielder must take the hit instead")
+
+func test_a_shielder_facing_away_does_not_intercept() -> void:
+	# Offset off the shot's straight-line path on purpose, rather than sitting
+	# on it: a shielder sitting exactly on the line is briefly "in front" of
+	# the shot during the approach and briefly "behind" it during departure,
+	# for *either* facing, since the half-plane test only reads the shot's
+	# current position, not which way it is travelling. Offset to (100, 15),
+	# the shot (moving in 20-unit ticks along y=0) grazes within the default
+	# radius (22) on exactly one tick, at x=100 -- a clean single sample of
+	# "am I in front of this shielder right now," not a pass-through.
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(304)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 15), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(0, 1) # facing further away from the line, not back toward it
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(shielder.hp, shielder.hp_max, "a shielder facing away from its one grazing tick must not intercept")
+	assert_eq(squishy.hp, squishy.hp_max - 7, "the shot must reach its intended target instead")
+
+func test_a_shielder_out_of_its_own_radius_does_not_intercept() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(305)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 500), []) # far off the shot's path
+	shielder.radius = 22.0
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(shielder.hp, shielder.hp_max, "a shielder far off the path must not intercept")
+	assert_eq(squishy.hp, squishy.hp_max - 7, "the shot must reach its intended target instead")
+
+func test_shielding_never_blocks_a_friendly_shot() -> void:
+	var heal_shot := _shot(&"heal_shot", 20.0)
+	heal_shot.heals = true
+	var deps := _deps_with_action(heal_shot, 6.0)
+
+	var state := CombatState.new(306)
+	var healer := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [heal_shot.id])
+	var ally := _unit(1, CG.Team.PLAYER, 10, Vector2(200, 0), [])
+	ally.hp = 5 # damaged, so the heal has something to do
+	var guard := _unit(2, CG.Team.PLAYER, 50, Vector2(100, 0), []) # same team as the healer
+	guard.statuses[CG.Status.SHIELDING] = 999
+	guard.facing = Vector2(-1, 0)
+	state.units.append(healer)
+	state.units.append(ally)
+	state.units.append(guard)
+	state.units.append(_dummy_enemy(3))
+
+	healer.intent = Intent.use_action(heal_shot.id, ally.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(guard.hp, guard.hp_max, "a same-team guard must never intercept a friendly shot")
+	assert_true(ally.hp > 5, "the heal must reach its intended ally")
+
+func test_splash_on_a_redirected_hit_gathers_around_the_shielder() -> void:
+	var shot := _shot(&"shot", 20.0, 30.0) # splash_radius 30
+	var deps := _deps_with_action(shot, 6.0)
+
+	var state := CombatState.new(307)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0)
+	var behind_shielder := _unit(3, CG.Team.ENEMY, 30, Vector2(110, 0), []) # within 30 of the shielder
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+	state.units.append(behind_shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(shielder.hp, shielder.hp_max - 6, "the shielder itself takes the hit")
+	assert_eq(behind_shielder.hp, behind_shielder.hp_max - 6, "splash must gather around the shielder, not the original target")
+	assert_eq(squishy.hp, squishy.hp_max, "the original target, out of splash range of the shielder, must be untouched")
+
+func test_determinism_holds_with_shielding_in_play() -> void:
+	var shot := _shot(&"shot", 20.0)
+
+	var make_deps := func() -> SimDeps:
+		return _deps_with_action(shot, 6.0)
+
+	var make_state := func(seed: int) -> CombatState:
+		var s := CombatState.new(seed)
+		var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+		var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+		var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+		shielder.statuses[CG.Status.SHIELDING] = 999
+		shielder.facing = Vector2(-1, 0)
+		s.units.append(shooter)
+		s.units.append(squishy)
+		s.units.append(shielder)
+		shooter.intent = Intent.use_action(shot.id, squishy.id)
+		return s
+
+	var state_a: CombatState = make_state.call(808)
+	var state_b: CombatState = make_state.call(808)
+	var deps_a: SimDeps = make_deps.call()
+	var deps_b: SimDeps = make_deps.call()
+
+	for i in 15:
+		CombatSim.step(state_a, deps_a)
+		CombatSim.step(state_b, deps_b)
+
+	assert_eq(state_a.units[2].hp, state_b.units[2].hp, "same seed, same interception, same shielder hp")
+	assert_eq(state_a.events.size(), state_b.events.size(), "same seed, same event count")
+	for i in state_a.events.size():
+		var ea: CombatEvent = state_a.events[i]
+		var eb: CombatEvent = state_b.events[i]
+		assert_eq(ea.kind, eb.kind, "event %d kind diverged" % i)
+		assert_eq(ea.target_id, eb.target_id, "event %d target diverged" % i)
+		assert_eq(ea.amount, eb.amount, "event %d amount diverged" % i)
+
+# ---------------------------------------------------------------------------
+# TAUNTING status machinery -- inert: nothing yet reads taunt_radius to
+# redirect a decision. That half is Scripts/Plans, and not this file's.
+# ---------------------------------------------------------------------------
+
+func test_applying_taunting_writes_taunt_radius_onto_the_unit() -> void:
+	var taunt := ActionDef.new()
+	taunt.id = &"taunt"
+	taunt.wind_up_ticks = 1
+	taunt.recover_ticks = 1
+	taunt.range_units = 999.0
+	taunt.power_scale = 0.0
+	taunt.applies_status_enabled = true
+	taunt.applies_status = CG.Status.TAUNTING
+	taunt.status_duration_ticks = 100
+	taunt.taunt_radius = 250.0
+	var deps := _deps_with_action(taunt, 0.0)
+
+	var state := CombatState.new(308)
+	var tank := _unit(0, CG.Team.PLAYER, 40, Vector2.ZERO, [taunt.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(50, 0), [])
+	state.units.append(tank)
+	state.units.append(target)
+
+	tank.intent = Intent.use_action(taunt.id, target.id)
+	CombatSim.step(state, deps)
+
+	assert_true(target.has_status(CG.Status.TAUNTING))
+	assert_eq(target.taunt_radius, 250.0, "taunt_radius must be copied from the action that applied it")
+
+func test_taunt_radius_resets_when_taunting_expires() -> void:
+	var taunt := ActionDef.new()
+	taunt.id = &"taunt"
+	taunt.wind_up_ticks = 1
+	taunt.recover_ticks = 1
+	taunt.range_units = 999.0
+	taunt.power_scale = 0.0
+	taunt.applies_status_enabled = true
+	taunt.applies_status = CG.Status.TAUNTING
+	taunt.status_duration_ticks = 2
+	taunt.taunt_radius = 150.0
+	var deps := _deps_with_action(taunt, 0.0)
+
+	var state := CombatState.new(309)
+	var tank := _unit(0, CG.Team.PLAYER, 40, Vector2.ZERO, [taunt.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(50, 0), [])
+	state.units.append(tank)
+	state.units.append(target)
+
+	tank.intent = Intent.use_action(taunt.id, target.id)
+	CombatSim.step(state, deps) # tick 1: applies, expiry set to tick 3
+
+	assert_eq(target.taunt_radius, 150.0)
+
+	CombatSim.step(state, deps) # tick 2: still taunted
+	assert_true(target.has_status(CG.Status.TAUNTING))
+
+	CombatSim.step(state, deps) # tick 3: expires
+	assert_false(target.has_status(CG.Status.TAUNTING), "TAUNTING must actually expire")
+	assert_eq(target.taunt_radius, 0.0, "taunt_radius must reset once the status is gone")
+
+func test_reapplying_taunting_refreshes_taunt_radius() -> void:
+	var weak_taunt := ActionDef.new()
+	weak_taunt.id = &"weak_taunt"
+	weak_taunt.wind_up_ticks = 1
+	weak_taunt.recover_ticks = 1
+	weak_taunt.range_units = 999.0
+	weak_taunt.power_scale = 0.0
+	weak_taunt.applies_status_enabled = true
+	weak_taunt.applies_status = CG.Status.TAUNTING
+	weak_taunt.status_duration_ticks = 100
+	weak_taunt.taunt_radius = 50.0
+
+	var strong_taunt := ActionDef.new()
+	strong_taunt.id = &"strong_taunt"
+	strong_taunt.wind_up_ticks = 1
+	strong_taunt.recover_ticks = 1
+	strong_taunt.range_units = 999.0
+	strong_taunt.power_scale = 0.0
+	strong_taunt.applies_status_enabled = true
+	strong_taunt.applies_status = CG.Status.TAUNTING
+	strong_taunt.status_duration_ticks = 100
+	strong_taunt.taunt_radius = 300.0
+
+	var actions_by_id := {weak_taunt.id: weak_taunt, strong_taunt.id: strong_taunt}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r = null) -> float: return 0.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u) -> Intent: return Intent.idle()
+
+	var state := CombatState.new(310)
+	var tank_a := _unit(0, CG.Team.PLAYER, 40, Vector2.ZERO, [weak_taunt.id])
+	var tank_b := _unit(1, CG.Team.PLAYER, 40, Vector2(10, 0), [strong_taunt.id])
+	var target := _unit(2, CG.Team.ENEMY, 30, Vector2(50, 0), [])
+	state.units.append(tank_a)
+	state.units.append(tank_b)
+	state.units.append(target)
+
+	tank_a.intent = Intent.use_action(weak_taunt.id, target.id)
+	CombatSim.step(state, deps)
+	assert_eq(target.taunt_radius, 50.0)
+
+	tank_b.intent = Intent.use_action(strong_taunt.id, target.id)
+	CombatSim.step(state, deps)
+	assert_eq(target.taunt_radius, 300.0, "a fresh application must overwrite the stored radius, same as it already overwrites the expiry tick")
