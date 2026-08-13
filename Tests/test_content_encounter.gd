@@ -113,9 +113,15 @@ func test_same_seed_replays_bit_identical() -> void:
 	assert_eq(state_a.events.size(), state_b.events.size(), "same seed must produce the same number of events")
 
 
+## Issue 37: mono-class parties are not something `PartySelect` can build --
+## one card per class, capped at four, so the only full parties that exist are
+## the five leave-one-out combinations. This used to check `abomination x4`,
+## which flagged a coin flip against a team no player will ever field. Checks
+## `no_geysermancer` (siege_master/abomination/priest/warrior) instead, the
+## real party issue 37 measured as the coin flip worth protecting.
 func test_some_composition_is_a_genuine_coin_flip() -> void:
-	var r := _win_rate([&"abomination", &"abomination", &"abomination", &"abomination"], 20)
-	print("floor1_room1: abomination x4 win rate %d/20" % r["wins"])
+	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
+	print("floor1_room1: no_geysermancer win rate %d/20" % r["wins"])
 	assert_true(r["wins"] >= 6 and r["wins"] <= 14, "expected a genuine coin flip (6-14 of 20), got %d/20" % r["wins"])
 
 
@@ -137,6 +143,18 @@ func test_a_winning_party_pays_a_real_cost() -> void:
 	print("floor1_room1: siege_master/geysermancer/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
 	assert_true(r["wins"] >= 17, "this comp should still win most of the time")
 	assert_true(r["median_cost"] >= 0.0 and r["median_cost"] <= 40.0, "median cost on a win should be <=40%%, was %.0f%%" % r["median_cost"])
+
+
+## Issue 37 criterion 1: no real party should be an outright trap. Abomination's
+## INT/CON/AGI raised (issue 37) specifically to pull `no_siege_master`
+## (Abomination/Geysermancer/Priest/Warrior) off 0/20. It is not yet in the
+## issue's stated 4-6 band -- 1/20 measured -- and that gap is disclosed on the
+## board rather than hidden behind a loosened assertion. This only checks the
+## literal "not zero" floor; the tighter target is a follow-up.
+func test_no_real_party_is_an_outright_trap() -> void:
+	var r := _win_rate([&"abomination", &"geysermancer", &"priest", &"warrior"], 20)
+	print("floor1_room1: no_siege_master win rate %d/20" % r["wins"])
+	assert_true(r["wins"] >= 1, "no real party should win 0 of 20, got %d/20" % r["wins"])
 
 
 ## Issue 13b's cover room: same lever the wall would have tested (terrain
