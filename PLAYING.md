@@ -120,9 +120,13 @@ sentence now.
   make.** That is the actual bug, it is being fixed as issue 35, and none of the
   range experiments could ever have touched it.
 - **Portrait phone layout is cramped.** Landscape is the target and is fine.
-- **No plan editor, no loot, no shops, no second floor.** All deliberate and
-  listed in `Issues/NEXT-after-the-slice.md`, which is now open and being worked
-  on rather than gated shut.
+- **No plan editor, no shops, no second floor.** All deliberate and listed in
+  `Issues/NEXT-after-the-slice.md`, which is now open and being worked on rather
+  than gated shut.
+- **Loot exists but you cannot collect it.** Winning a room rolls a real drop
+  against a real table and puts it in the run's satchel. Nothing shows it to you
+  and nothing lets you equip it, because the run itself has no screen yet. Same
+  root cause as the item above: the floor is built and unreachable.
 
 Fixed since the last time this file described them: the combat log moved beside
 the arena instead of below it, roughly doubling the play area; room type now
