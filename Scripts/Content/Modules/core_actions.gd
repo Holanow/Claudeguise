@@ -33,9 +33,19 @@ static func actions() -> Array[ActionDef]:
 		_action_status(&"abomination_claw", "Claw", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
 		_action_splash(&"abomination_immolate", "Immolate", CG.DamageType.FIRE, 45.0, 60.0, 10, 12, 1.2, 40),
 
+		_action(&"goblin_stab", "Stab", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
+		_action(&"goblin_arrow", "Arrow", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0),
+		_action(&"ghoul_maul", "Maul", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
+		_action(&"cultist_bolt", "Dark Bolt", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, 0),
+
+		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
+		## the bestiary, but these two actions are still referenced by name in
+		## wren's Tests/test_combat_sim.gd (kiting regression checks). Kept
+		## rather than deleted: additive is safe, and it is wren's test to
+		## repoint, not mine to break out from under them. No EnemyDef spawns
+		## with these ids any more.
 		_action(&"grunt_smash", "Smash", CG.DamageType.PHYSICAL, 40.0, 10, 10, 1.0, 0, 0),
 		_action(&"archer_shot", "Arrow", CG.DamageType.PHYSICAL, 220.0, 12, 10, 0.8, 0, 0),
-		_action(&"cultist_bolt", "Dark Bolt", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, 0),
 	]
 
 static func enemies() -> Array[EnemyDef]:
