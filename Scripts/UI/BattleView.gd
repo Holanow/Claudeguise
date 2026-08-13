@@ -9,6 +9,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
@@ -47,6 +48,7 @@ var _enemy_summary_fill: ColorRect = null
 var _end_banner: Control = null
 var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
+var _inspect_panel = null
 
 func _ready() -> void:
 	_arena = get_node("Arena")
@@ -190,6 +192,26 @@ func _build_end_banner() -> void:
 	back_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	back_button.pressed.connect(func(): back_requested.emit())
 	buttons.add_child(back_button)
+
+	# Issue 21b: reachable from the end of a fight, per the issue's own note
+	# that this is "probably the more useful" place — it is exactly when a
+	# player has just watched something confusing.
+	var inspect_button := Button.new()
+	inspect_button.text = "Inspect party"
+	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	inspect_button.pressed.connect(_on_inspect_pressed)
+	buttons.add_child(inspect_button)
+
+	_inspect_panel = Control.new()
+	_inspect_panel.set_script(InspectPanelScript)
+	hud.add_child(_inspect_panel)
+	if not _inspect_panel.is_inside_tree():
+		_inspect_panel._ready()
+
+func _on_inspect_pressed() -> void:
+	if _inspect_panel != null and config != null:
+		_inspect_panel.open(config.party)
 
 ## e.g. 197 ticks at 30 ticks/second reads as "6.6s" — a player has never
 ## seen a tick, and won't start now.
