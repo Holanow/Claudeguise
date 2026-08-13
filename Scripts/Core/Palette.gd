@@ -32,10 +32,23 @@ const SPACE_S := 8.0
 const SPACE_M := 16.0
 const SPACE_L := 32.0
 
-const FONT_SIZE_BODY := 14
-const FONT_SIZE_SMALL := 11
-const FONT_SIZE_HEADING := 22
-const FONT_SIZE_FLOATER := 18
+## Sized for a phone held at arm's length, not for a desktop window you can
+## lean into. The user's framing: "imagine that I'm playing this on a mobile
+## device". That is a forcing function rather than a port — if a fight is
+## readable at this size it is readable everywhere, and everything that only
+## works at 11px was never carrying its weight.
+##
+## Raised from 14 / 11 / 22 / 18 on 2026-08-12 after looking at a rendered
+## fight and finding the names truncating and the log unreadable.
+const FONT_SIZE_BODY := 20
+const FONT_SIZE_SMALL := 16
+const FONT_SIZE_HEADING := 30
+const FONT_SIZE_FLOATER := 34
+
+## Minimum side of anything a finger has to hit. Touch targets are the one
+## mobile constraint that has no desktop equivalent and cannot be discovered by
+## looking at a screenshot.
+const TOUCH_TARGET_MIN := 48.0
 
 static func damage_color(d: CG.DamageType) -> Color:
 	match d:
