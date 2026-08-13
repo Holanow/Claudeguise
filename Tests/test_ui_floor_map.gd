@@ -8,6 +8,9 @@ const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
+const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Issue 43: the floor exists (Scripts/Floor/**) and nothing in Scripts/UI
 ## ever referenced it. These check the screen's own logic — room layout,
@@ -131,4 +134,70 @@ func test_a_fight_room_resolves_one_way_or_another() -> void:
 	else:
 		# DEFEAT or VICTORY: the run ended, exactly once.
 		assert_eq(run_ended_calls.size(), 1)
+	view.free()
+
+## Issue 41's routing: "the equip screen, once something can be equipped."
+## These build EquipmentDef/PawnData fixtures directly rather than reaching
+## into Registry content, since the assignment logic under test does not
+## care what a weapon does — only which slot it goes in and who may hold it.
+
+func _make_pawn(id: String, method: CG.Method) -> PawnData:
+	var pawn_class := ClassDef.new()
+	pawn_class.method = method
+	var pawn := PawnData.new()
+	pawn.id = StringName(id)
+	pawn.display_name = id
+	pawn.pawn_class = pawn_class
+	return pawn
+
+func _make_weapon(martial_only: bool) -> EquipmentDef:
+	var item := EquipmentDef.new()
+	item.id = &"test_sword"
+	item.display_name = "Test Sword"
+	item.slot = EquipmentDef.Slot.WEAPON
+	if martial_only:
+		item.allowed_methods = [CG.Method.MARTIAL]
+	return item
+
+func test_picking_a_pawn_assigns_the_item_to_its_slot_and_clears_the_loot() -> void:
+	var view := _make_view()
+	var run := FloorRun.new(_make_linear_plan())
+	var pawn := _make_pawn("Warrior", CG.Method.MARTIAL)
+	var party: Array[PawnData] = [pawn]
+	var item := _make_weapon(false)
+	run.loot.append(item)
+	view.open(run, party)
+
+	view._on_pawn_picked(pawn, item)
+
+	assert_eq(pawn.weapon, item)
+	assert_false(run.loot.has(item))
+	view.free()
+
+func test_equip_button_is_disabled_with_no_loot() -> void:
+	var view := _make_view()
+	var run := FloorRun.new(_make_linear_plan())
+	var party: Array[PawnData] = []
+	view.open(run, party)
+	assert_true(view._equip_button.disabled)
+	view.free()
+
+func test_a_pawn_that_cannot_use_an_item_is_offered_but_disabled() -> void:
+	var view := _make_view()
+	var run := FloorRun.new(_make_linear_plan())
+	var caster := _make_pawn("Geysermancer", CG.Method.MAGICAL)
+	var party: Array[PawnData] = [caster]
+	var item := _make_weapon(true)
+	run.loot.append(item)
+	view.open(run, party)
+
+	view._on_equip_pressed()
+	view._on_loot_item_pressed(item)
+
+	var pawn_button: Button = null
+	for child in view._equip_list.get_children():
+		if child is Button and child.text.begins_with("Geysermancer"):
+			pawn_button = child
+	assert_true(pawn_button != null, "the pawn should still be listed, just not enterable")
+	assert_true(pawn_button.disabled)
 	view.free()

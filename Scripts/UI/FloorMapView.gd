@@ -3,6 +3,7 @@ extends Control
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
 const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
@@ -34,9 +35,20 @@ var _map_area: Control = null
 var _loot_label: Label = null
 var _status_label: Label = null
 
+var _equip_button: Button = null
+var _equip_panel: PanelContainer = null
+var _equip_list: VBoxContainer = null
+## Set while the player is choosing a pawn to receive this item; null means
+## the panel is showing the loot list instead.
+var _equip_selected_item: EquipmentDef = null
+
 const _ROOM_BUTTON_SIZE := Vector2(140.0, 60.0)
 const _COLUMN_SPACING := 170.0
 const _ROW_SPACING := 90.0
+const _EQUIP_PANEL_WIDTH := 260.0
+## Below the title row, status line and loot line so the panel never
+## overlaps them — found clipping the header on a real 844x390 launch.
+const _EQUIP_PANEL_TOP := 130.0
 
 func _ready() -> void:
 	var bg := ColorRect.new()
@@ -67,6 +79,12 @@ func _ready() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title)
 
+	_equip_button = Button.new()
+	_equip_button.text = "Equip"
+	_equip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	_equip_button.pressed.connect(_on_equip_pressed)
+	top_row.add_child(_equip_button)
+
 	var back_button := Button.new()
 	back_button.text = "Change party"
 	back_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
@@ -92,6 +110,33 @@ func _ready() -> void:
 	_map_area = Control.new()
 	_map_area.custom_minimum_size = Vector2(900.0, 400.0)
 	map_scroll.add_child(_map_area)
+
+	# Anchored within the screen rather than PRESET_CENTER's unbounded size —
+	# a real bug on a short viewport (844x390 landscape): a five-pawn list
+	# grew the panel past the bottom edge before this had a height limit.
+	_equip_panel = PanelContainer.new()
+	_equip_panel.visible = false
+	_equip_panel.anchor_left = 1.0
+	_equip_panel.anchor_right = 1.0
+	_equip_panel.anchor_top = 0.0
+	_equip_panel.anchor_bottom = 1.0
+	_equip_panel.offset_left = -(_EQUIP_PANEL_WIDTH + Palette.SPACE_L)
+	_equip_panel.offset_right = -Palette.SPACE_L
+	_equip_panel.offset_top = _EQUIP_PANEL_TOP
+	_equip_panel.offset_bottom = -Palette.SPACE_L
+	add_child(_equip_panel)
+
+	var equip_margin := MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		equip_margin.add_theme_constant_override("margin_%s" % side, int(Palette.SPACE_L))
+	_equip_panel.add_child(equip_margin)
+
+	var equip_scroll := ScrollContainer.new()
+	equip_margin.add_child(equip_scroll)
+
+	_equip_list = VBoxContainer.new()
+	_equip_list.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	equip_scroll.add_child(_equip_list)
 
 func open(new_run: FloorRun, new_party: Array[PawnData]) -> void:
 	run = new_run
@@ -132,6 +177,9 @@ func _refresh(message: String = "") -> void:
 			_party_status_text()
 		]
 	_loot_label.text = "Loot found: %s" % _loot_text()
+	_equip_button.disabled = run.loot.is_empty()
+	if _equip_panel.visible:
+		_show_equip_panel()
 
 func _party_status_text() -> String:
 	var parts: Array[String] = []
@@ -233,3 +281,101 @@ func _outcome_text(outcome: int, room: FloorRoom) -> String:
 			return "Victory! The %s falls." % FloorRoom.type_name(room.type)
 		_:
 			return "Cleared the %s. %s" % [FloorRoom.type_name(room.type), _party_status_text()]
+
+## Issue 41's routing: "the equip screen, once something can be equipped."
+## `run.loot` is the holding pen wren's fights already drop into; this is
+## the other half — assign a dropped item to a pawn's slot. No new Core API:
+## PawnData's weapon/armor/accessory are already public, and
+## EquipmentDef.allows() already says which pawn may wear a piece, so the
+## screen only has to ask the question and never has to enforce it twice.
+func _on_equip_pressed() -> void:
+	_equip_selected_item = null
+	_equip_panel.visible = true
+	_show_equip_panel()
+
+func _show_equip_panel() -> void:
+	for child in _equip_list.get_children():
+		child.queue_free()
+
+	if _equip_selected_item == null:
+		_populate_loot_list()
+	else:
+		_populate_pawn_list(_equip_selected_item)
+
+func _populate_loot_list() -> void:
+	var heading := Label.new()
+	heading.text = "Equip which item?"
+	heading.add_theme_color_override("font_color", Palette.TEXT)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
+	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
+	_equip_list.add_child(heading)
+
+	for item in run.loot:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+		button.text = "%s (%s)" % [item.display_name, _slot_name(item.slot)]
+		button.pressed.connect(_on_loot_item_pressed.bind(item))
+		_equip_list.add_child(button)
+
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	close_button.pressed.connect(func(): _equip_panel.visible = false)
+	_equip_list.add_child(close_button)
+
+func _populate_pawn_list(item: EquipmentDef) -> void:
+	var heading := Label.new()
+	heading.text = "Give %s to:" % item.display_name
+	heading.add_theme_color_override("font_color", Palette.TEXT)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
+	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
+	_equip_list.add_child(heading)
+
+	for pawn in party:
+		var method := CG.Method.MARTIAL
+		if pawn.pawn_class != null:
+			method = pawn.pawn_class.method
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+		if item.allows(method):
+			button.text = pawn.display_name
+			button.pressed.connect(_on_pawn_picked.bind(pawn, item))
+		else:
+			button.text = "%s (cannot use this)" % pawn.display_name
+			button.disabled = true
+		_equip_list.add_child(button)
+
+	var back_button := Button.new()
+	back_button.text = "Back"
+	back_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	back_button.pressed.connect(func():
+		_equip_selected_item = null
+		_show_equip_panel()
+	)
+	_equip_list.add_child(back_button)
+
+func _on_loot_item_pressed(item: EquipmentDef) -> void:
+	_equip_selected_item = item
+	_show_equip_panel()
+
+func _on_pawn_picked(pawn: PawnData, item: EquipmentDef) -> void:
+	match item.slot:
+		EquipmentDef.Slot.WEAPON:
+			pawn.weapon = item
+		EquipmentDef.Slot.ARMOR:
+			pawn.armor = item
+		EquipmentDef.Slot.ACCESSORY:
+			pawn.accessory = item
+	run.loot.erase(item)
+	_equip_selected_item = null
+	_equip_panel.visible = false
+	_refresh()
+
+func _slot_name(slot: EquipmentDef.Slot) -> String:
+	match slot:
+		EquipmentDef.Slot.WEAPON:
+			return "weapon"
+		EquipmentDef.Slot.ARMOR:
+			return "armor"
+		_:
+			return "accessory"
