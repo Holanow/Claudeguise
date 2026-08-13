@@ -150,3 +150,17 @@ func test_enemy_room_is_registered_and_populated() -> void:
 	for spawn in enc.enemy_spawns:
 		var enemy_id: StringName = spawn.get("enemy_id", &"")
 		assert_not_null(Registry.get_enemy(enemy_id), "encounter references unknown enemy %s" % enemy_id)
+
+
+## Skeleton addition: the party deploys in the left third of the arena so
+## traversal and range still matter on tick one. Walks the real registry
+## rather than a typed list of encounter ids, so a future encounter is
+## covered automatically.
+func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
+	var checked := 0
+	for encounter_id in Registry.all_encounter_ids():
+		var enc := Registry.get_encounter(encounter_id)
+		for spawn in enc.party_spawns:
+			checked += 1
+			assert_true((spawn as Vector2).x <= CG.party_deploy_max_x(), "%s has a party spawn at x=%.1f, past the deploy limit of %.1f" % [encounter_id, (spawn as Vector2).x, CG.party_deploy_max_x()])
+	assert_true(checked > 0, "expected at least one party spawn to check")

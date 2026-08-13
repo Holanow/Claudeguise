@@ -115,3 +115,111 @@ nothing to allow because `CombatSim.build` already takes a party of any size.
   at four today and shows "Party full". Tell them on the board rather than
   assuming; the cap staying as a maximum is fine, the screen just needs to stop
   implying four is required.
+
+## And placement is a balance lever, not decoration
+
+Also from the user:
+
+> "You can also adjust enemy placement and terrain to make certain monsters more
+> or less troublesome in context."
+
+This is the third lever and probably the cheapest of the three, because
+`Encounter.party_spawns` and `enemy_spawns` are already hand-authored `Vector2`s
+and you own them.
+
+The same monster is a different problem depending on where it stands. An archer
+at the back of a room behind three grunts has to be reached through them; the
+same archer standing next to your melee line dies first and contributes nothing.
+A caster tucked in a corner is protected by geometry; the same caster in the open
+is the obvious first target. **Nothing about the monster changed. The fight did.**
+
+This matters for the same reason numbers do: it threatens a strong party without
+touching any monster's stats, so it cannot crush the coin-flip compositions the
+way raising damage would.
+
+Three things worth trying, in rough order of effort:
+
+- **Depth.** Put the fragile, dangerous enemies behind the durable ones so the
+  party has to spend time getting to them. Right now everything spawns in a
+  loose line and the whole enemy side is reachable at once.
+- **Spread.** Enemies far apart force the party to split or to pick an order,
+  which is a decision. Everything in one clump is one decision.
+- **Terrain that favours somebody.** Issue 13b is yours and this is what it is
+  for: a pillar that a caster hides behind, a chokepoint that makes six weak
+  enemies a real problem instead of a free lunch, a hazard that punishes the
+  shortest path to the back line.
+
+Sample the table for each arrangement rather than reasoning about it. "The same
+roster in two placements produced these two tables" is the finding worth having,
+and it is criterion 1 of issue 13b already.
+
+## And the party starts in the left third
+
+Also from the user:
+
+> "I would also restrict the player team starting area to the first third of
+> their starting screen so they have to traverse to their targets."
+
+`CG.PARTY_DEPLOY_FRACTION` and `CG.party_deploy_max_x()` are on the trunk now.
+With the current arena that puts the rightmost legal party spawn at **x = -160**.
+
+**This is a design rule, not a layout preference.** Without it an encounter can
+be authored with the two sides already in contact, and then positioning,
+movement speed, kiting and the entire ranged-versus-melee distinction stop
+mattering on tick one. Traversal is what makes a Geysermancer a different thing
+from a Warrior.
+
+Your current spawns do not satisfy it — measured mid-fight, party members sit
+around x = -70 to -156, which is at or right of the line.
+
+Two things to do, and the second is the one that lasts:
+
+1. Move `party_spawns` in `floor1_encounters` into the left third — which also
+   fixes the overlap I flagged earlier, since you have more room to spread them
+   than you were using.
+2. **Add the test.** Walk every registered encounter and assert every
+   `party_spawns` entry is at or left of `CG.party_deploy_max_x()`. It belongs in
+   your `Tests/test_content_*.gd` because it checks content, and it should walk
+   the real registry rather than a list typed into the test.
+
+I deliberately did not add that test myself. It would have gone red on the
+trunk immediately, and a red trunk that is really a request addressed to one
+person is a bad way to ask for something. Enemies stay unconstrained on purpose.
+
+## Enemies are allowed to be flatly stronger, and a party is allowed to become strong
+
+Also from the user:
+
+> "Enemies can also have stat blocks that are in general higher than players
+> (and vice versa it should be possible for the player to build a strong team)."
+
+This removes an assumption neither of us wrote down but both of us were obeying:
+that a monster should be roughly a pawn's equal. It should not. `EnemyDef` skips
+the attribute system entirely and carries flat numbers precisely so a monster can
+be whatever the encounter needs, including simply tougher than anything the
+player can field.
+
+Read together with the party-size and placement levers, the room now has four
+independent dials and none of them require touching a pawn:
+
+- **how many** — eight weak or two strong
+- **where** — depth, spread, behind terrain
+- **how strong each one is** — and this can be above a pawn's line
+- **how many pawns the player brings** — their dial, not yours
+
+**The second half matters as much as the first.** A player who assembles a good
+composition should be able to feel it, and "every fight is a knife-edge" is its
+own kind of bad game. Your criterion 3 on issue 7 already protects this: the best
+composition should still beat the worst by a wide margin. Do not tune that away
+chasing closeness. **What we want is that a strong party wins and it costs them
+something — not that every party is level.**
+
+The shape to aim for, and it is worth writing down because it is easy to lose:
+
+- A weak or badly matched party loses.
+- A middling party is a coin flip.
+- **A strong party wins, and finishes with casualties or with somebody near
+  death.**
+
+That third line is criterion 1 of issue 7, the one still unmet, and these four
+dials are how it gets met without flattening the other two.

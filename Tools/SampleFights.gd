@@ -64,6 +64,7 @@ func _sample(party_ids: Array, encounter) -> void:
 	var ticks: Array[int] = []
 	var survivors: Array[int] = []
 	var margins: Array[int] = []
+	var party_hp: Array[int] = []
 
 	for s in SEEDS:
 		var party: Array[PawnData] = []
@@ -78,6 +79,7 @@ func _sample(party_ids: Array, encounter) -> void:
 		ticks.append(state.tick)
 		survivors.append(state.living(CG.Team.PLAYER).size())
 		margins.append(_losing_side_hp_percent(state, outcome))
+		party_hp.append(_team_hp_percent(state, CG.Team.PLAYER))
 
 	print("")
 	print("party: ", _short(party_ids))
@@ -106,6 +108,17 @@ func _sample(party_ids: Array, encounter) -> void:
 		close_note = "   (draws excluded: a stalemate is not a close fight)"
 	print("  closeness  losing side finished on median %d%% hp%s" % [
 		_median(margins), close_note,
+	])
+	# The number the user asked for, and it changes what "balanced" means.
+	#
+	#   "If a team wins 75% of the time but they do it with 2 members down and
+	#    the other 2 almost dead I would call that fine pretty much."
+	#
+	# So a high win rate is not the failure. A high win rate that costs nothing
+	# is. Win count alone cannot tell those apart and it is what we had been
+	# steering by all evening.
+	print("  cost       party finished on median %d%% of its own hp%s" % [
+		_median(party_hp), _cost_note(wins, _median(party_hp), _median(survivors)),
 	])
 
 func _short(ids: Array) -> String:
@@ -174,3 +187,31 @@ func _histogram(a: Array[int], upper: int) -> String:
 	for i in range(upper + 1):
 		parts.append("%d:%s" % [i, str(counts.get(i, 0)).rpad(3)])
 	return " ".join(parts)
+
+
+## What a side has left, as a percentage of that side's starting hp. Dead units
+## count as zero rather than being dropped, so a party of four with two dead and
+## two at half reads as 25% — which is the shape the user described as fine.
+func _team_hp_percent(state, team: int) -> int:
+	var hp := 0
+	var hp_max := 0
+	for u in state.units:
+		if u.team != team:
+			continue
+		hp += maxi(0, u.hp)
+		hp_max += u.hp_max
+	if hp_max <= 0:
+		return 0
+	return int(round(100.0 * float(hp) / float(hp_max)))
+
+## The verdict line. A fight is fine when winning costs the winner something,
+## whatever the win rate is; it is a problem when a party wins without being
+## touched, and a different problem when the party is simply losing.
+func _cost_note(wins: int, party_hp: int, survivors: int) -> String:
+	if wins == 0:
+		return ""
+	if party_hp >= 85 and survivors >= 4:
+		return "   <- UNTOUCHED: winning costs nothing"
+	if party_hp <= 40 or survivors <= 2:
+		return "   <- COSTLY WIN: this is the shape we want"
+	return "   <- some cost"
