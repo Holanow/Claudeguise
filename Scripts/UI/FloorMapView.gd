@@ -202,7 +202,11 @@ func _room_label(room: FloorRoom) -> String:
 
 func _on_room_pressed(room: FloorRoom) -> void:
 	if FloorFightRunner.is_fight_room(room.type):
-		var outcome := FloorFightRunner.play_room(run, room, party)
+		# play_room now returns {"outcome": Outcome, "state": CombatState}
+		# (wren, per pike's ask) — outcome is still the only thing this
+		# screen reads today; state is here for a future live replay.
+		var result := FloorFightRunner.play_room(run, room, party)
+		var outcome: FloorFightRunner.Outcome = result.outcome
 		if outcome == FloorFightRunner.Outcome.DEFEAT:
 			run_ended.emit(false)
 			return
