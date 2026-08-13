@@ -47,7 +47,28 @@ func _log(s: String) -> void:
 	print(s)
 	_report.append(s)
 
+## Refuses to run in the main checkout, because it writes into `Screenshots/`
+## and that directory is shared and committed.
+##
+## Added after I ran this tool in the main checkout to verify the encounter fix,
+## overwrote 19 of wren's committed playtest frames and left 21 new ones, and
+## then could not revert any of it -- discarding working-tree changes in the
+## shared checkout is refused, correctly, because that is a different accident
+## this project has already had. wren then reported it as their own incident and
+## spent time cleaning up something they had not done.
+##
+## A worktree's `.git` is a file; the main checkout's is a directory. That is
+## the whole check, and it turns "remember to use a worktree" into something the
+## tool enforces rather than something a person has to hold in their head at
+## four in the morning.
 func _ready() -> void:
+	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
+		printerr("Issue32Play: refusing to run in the main checkout -- this tool writes")
+		printerr("  into Screenshots/, which is shared and committed. Run it from a")
+		printerr("  detached worktree instead:")
+		printerr("    git worktree add --detach ../Claudeguise-team/worktrees/play main")
+		get_tree().quit(2)
+		return
 	await _run()
 	_write_report()
 	get_tree().quit(0)
