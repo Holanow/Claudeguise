@@ -201,3 +201,62 @@ static func status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float
 static func haste_tick_scale(unit: CombatUnit) -> float:
 	var _unused := unit
 	return HASTE_TICK_SCALE
+
+## Issue 45: how much health a run restores between rooms, and the answer is
+## "some, and more if the party brought a Healer" -- README's own text for
+## the role ("meant to restore health and revive allies") is the most
+## directly supported reading of the four candidates the issue named, and it
+## is the only one that does not need a new `FloorRoom.Type` (wren's shape)
+## to exist before it can do anything.
+##
+## Deliberately NOT full recovery. `FloorRun` carries damage forward on
+## purpose -- issue 41 and 37's whole finding was that a room should cost
+## something -- and healing every pawn back to 100% between every room
+## would undo that the same way starting weapons did. This restores a
+## fraction of what is *missing*, not a fraction of max: a party that
+## finished a room at 23% recovers meaningfully without being handed back
+## the fight-ending margin a full heal would give the next room for free.
+##
+## BASE_RECOVERY covers "the party rests" on its own -- bandages, water, a
+## few minutes off their feet, nothing that needs a class for. HEALER_BONUS
+## is additive on top when a HEALER-role class survived the room: the
+## Healer's whole distinguishing value per README should be visible between
+## fights, not only inside one.
+const BASE_RECOVERY_FRACTION := 0.20
+const HEALER_RECOVERY_BONUS := 0.30
+
+## `has_living_healer` is the caller's to determine (a run's own carried
+## party state, read by whoever wires this in) -- this function does not
+## know about FloorRun or which pawns are alive, on purpose, so it stays
+## testable without either.
+static func between_room_recovery_fraction(has_living_healer: bool) -> float:
+	var fraction := BASE_RECOVERY_FRACTION
+	if has_living_healer:
+		fraction += HEALER_RECOVERY_BONUS
+	return fraction
+
+## Applies the fraction above to one pawn's carried hp. Missing health is
+## `hp_max - hp`; this restores `recovery_fraction` of that gap, rounded, and
+## never returns above `hp_max` or below the hp passed in (a pawn already at
+## or above max is left alone rather than clamped down, since this is a
+## recovery function and never a damage one).
+static func between_room_heal(hp: int, hp_max: int, has_living_healer: bool) -> int:
+	if hp >= hp_max:
+		return hp
+	var missing := hp_max - hp
+	var recovered := int(round(float(missing) * between_room_recovery_fraction(has_living_healer)))
+	return mini(hp_max, hp + recovered)
+
+## README's other half of the Healer's stated purpose: "revive allies". A
+## dead pawn currently stays dead for the rest of a run per issue 45's own
+## finding -- against a floor that already grinds a party down, that reads
+## as a death sentence rather than a setback. Only fires with a living
+## Healer in the party; a dead pawn stays dead without one, which is the
+## stakes issue 45 says a run should have. Revived at a fraction of max hp
+## rather than full -- a revival is a second chance, not a free win back.
+const REVIVE_HP_FRACTION := 0.35
+
+static func revive_hp(hp_max: int, has_living_healer: bool) -> int:
+	if not has_living_healer:
+		return 0
+	return int(round(float(hp_max) * REVIVE_HP_FRACTION))
