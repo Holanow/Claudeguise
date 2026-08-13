@@ -33,6 +33,19 @@ func _ready() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(backdrop)
 
+	# Left open when issue 15 merged: the arena's own boundary (ArenaFloor)
+	# goes ambiguous under the backdrop's semi-transparent lower third — not
+	# invisible, just unclear whether it is still the arena there. A seam at
+	# the top of the log says the transition is deliberate rather than a
+	# fade nobody meant.
+	var seam := ColorRect.new()
+	seam.color = Palette.ARENA_EDGE
+	seam.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	seam.offset_top = LOG_BOTTOM_OFFSET - LOG_HEIGHT
+	seam.offset_bottom = LOG_BOTTOM_OFFSET - LOG_HEIGHT + 2.0
+	seam.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(seam)
+
 	_label = RichTextLabel.new()
 	_label.bbcode_enabled = true
 	_label.scroll_following = true

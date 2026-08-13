@@ -16,8 +16,16 @@ var _current: Node = null
 func _ready() -> void:
 	show_party_select()
 
+## The seed round-trips: coming back from a fight re-shows the seed that
+## fight actually ran on, rather than a fresh random one on every visit,
+## which would make "run the same fight again" a lie the moment a player
+## glances away from the screen and back.
 func show_party_select() -> void:
-	_swap_to(SCENE_PARTY_SELECT, func(screen): screen.battle_requested.connect(start_battle))
+	_swap_to(SCENE_PARTY_SELECT, func(screen):
+		screen.battle_requested.connect(start_battle)
+		if run_config != null:
+			screen.prefill_seed(run_config.seed_text())
+	)
 
 func start_battle(config: RunConfig) -> void:
 	run_config = config
