@@ -175,3 +175,45 @@ func test_attack_power_variance_is_reproducible_from_the_same_seed() -> void:
 			Balance.attack_power(pawn, CG.DamageType.PHYSICAL, rng_b),
 			0.0001, "roll %d diverged between two RNGs seeded identically" % i
 		)
+
+
+func test_status_damage_per_tick_only_applies_to_burn_and_poison() -> void:
+	var u := CombatUnit.new()
+	u.hp_max = 100
+	assert_true(Balance.status_damage_per_tick(u, CG.Status.BURN) > 0.0)
+	assert_true(Balance.status_damage_per_tick(u, CG.Status.POISON) > 0.0)
+	for other in [CG.Status.SHIELD, CG.Status.BLEED, CG.Status.STUN, CG.Status.HASTE, CG.Status.MARKED]:
+		assert_almost_eq(Balance.status_damage_per_tick(u, other), 0.0, 0.0001, "%s should deal no tick damage" % other)
+
+
+func test_status_damage_per_tick_scales_with_victim_max_hp() -> void:
+	var small := CombatUnit.new()
+	small.hp_max = 50
+	var large := CombatUnit.new()
+	large.hp_max = 500
+	# Proportional, not flat: a bigger unit takes a bigger raw number so the
+	# same status is equally scary as a fraction of hp for everyone.
+	assert_almost_eq(
+		Balance.status_damage_per_tick(large, CG.Status.BURN),
+		Balance.status_damage_per_tick(small, CG.Status.BURN) * 10.0,
+		0.01
+	)
+
+
+func test_a_long_enough_burn_would_kill() -> void:
+	# Not tied to any in-game status_duration_ticks: proves the rate itself is
+	# large enough to matter, independent of how long any one action's status
+	# lasts. 100 hp / (0.5% per tick) = 200 ticks to zero.
+	var u := CombatUnit.new()
+	u.hp_max = 100
+	var per_tick := Balance.status_damage_per_tick(u, CG.Status.BURN)
+	var ticks_to_kill := ceili(float(u.hp_max) / per_tick)
+	assert_true(ticks_to_kill <= CG.MAX_TICKS, "burn should be able to kill within a fight's tick budget")
+	assert_true(ticks_to_kill > CG.TICKS_PER_SECOND, "burn should not kill in under a second, or it dominates rather than pressures")
+
+
+func test_haste_tick_scale_speeds_up_and_never_reaches_zero() -> void:
+	var u := CombatUnit.new()
+	var scale := Balance.haste_tick_scale(u)
+	assert_true(scale < 1.0, "HASTE should speed a unit up")
+	assert_true(scale > 0.0, "a multiplier of 0 would make an action instant")
