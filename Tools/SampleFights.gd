@@ -57,20 +57,63 @@ func _init() -> void:
 		print("ENCOUNTER: ", encounter_id)
 		print("========================================================")
 		var encounter := Registry.get_encounter(encounter_id)
-		# Every party of four from the five classes, so "does composition matter"
-		# is answered across compositions rather than from one that happened to
-		# be tried. One party would only say whether that party wins.
+		# Real parties first, and they are the only ones any balance decision
+		# should be read from. See _parties for why that sentence had to be
+		# written down.
+		print("")
+		print("-- PARTIES A PLAYER CAN BUILD ---------------------------")
 		for party_ids in _parties(class_ids):
+			_sample(party_ids, encounter)
+		print("")
+		print("-- NOT BUILDABLE: one class four times, per-class diagnostic only")
+		print("-- PartySelect allows one card per class. Do not balance on these.")
+		for party_ids in _impossible_parties(class_ids):
 			_sample(party_ids, encounter)
 
 	quit(0)
 
+## Every party a player can actually assemble, and then the ones they cannot,
+## labelled as such.
+##
+## `PartySelect` gives one card per class and refuses a second copy of the same
+## one (`_selected.has(pawn)` at PartySelect.gd:213), with MAX_PARTY_SIZE 4. So
+## with five classes the only full parties in the game are the five
+## leave-one-out combinations. **`siege_master x4` is not a party. Nobody can
+## build it.**
+##
+## This tool generated four-of-a-kind parties from the first day and every
+## balance decision tonight was steered by them: issue 24, issue 31 and issue 35
+## are all about `siege_master x4` being untouchable, and issue 7's coin-flip
+## criterion was met by `abomination x4`. Real conclusions, drawn carefully,
+## from measurements of teams that cannot exist.
+##
+## wren found it by playing the game, which is the only place the constraint is
+## visible, and found it in the same hour they found `PartySelect` fighting the
+## wrong room off `all_encounter_ids()[0]`. Both bugs are the same shape as the
+## one the long comment above already describes: **a tool and the game disagreeing
+## about what the game is, with only the tool being read.**
+##
+## The mono-class rows stay, because they are a genuinely useful read on a single
+## class's strength, but they are printed under a heading that says what they
+## are so that nobody balances against them again.
 func _parties(class_ids: Array) -> Array:
 	var out := []
-	# The first four, the last four, and four of a kind for each class.
-	if class_ids.size() >= 4:
-		out.append(class_ids.slice(0, 4))
-		out.append(class_ids.slice(class_ids.size() - 4, class_ids.size()))
+	if class_ids.size() > 4:
+		# Leave-one-out: the real parties, in the order a player would see the
+		# cards, with the excluded class named in the output.
+		for skip in class_ids.size():
+			var party := []
+			for i in class_ids.size():
+				if i != skip:
+					party.append(class_ids[i])
+			out.append(party)
+	elif class_ids.size() >= 1:
+		out.append(class_ids.slice(0, mini(4, class_ids.size())))
+	return out
+
+## Not buildable in `PartySelect`. Kept as a per-class diagnostic only.
+func _impossible_parties(class_ids: Array) -> Array:
+	var out := []
 	for id in class_ids:
 		out.append([id, id, id, id])
 	return out
