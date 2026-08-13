@@ -53,7 +53,25 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 ]
 
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint()]
+	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_warden_room()]
+
+## Issue 44: floor 1's real boss room, replacing `floor1_chokepoint` as
+## `FloorFightRunner`'s BOSS placeholder. The wall was a wall built to test a
+## terrain mechanic, not a fight built to test a party -- it favoured
+## whichever comp could stand at range outside it (19/20 at 86% health) and
+## punished the balanced party for closing (1/20). One enemy, no terrain: the
+## Warden's own two actions (melee axe, matching-reach chain) are what asks
+## something of every composition instead of the room's geometry doing it
+## unevenly.
+static func _the_warden_room() -> Encounter:
+	var e := Encounter.new()
+	e.id = &"floor1_warden"
+	e.display_name = "Floor 1, The Warden's Chamber"
+	e.enemy_spawns = [
+		{"enemy_id": &"the_warden", "position": Vector2(200.0, 0.0)},
+	]
+	e.party_spawns = _PARTY_SPAWNS
+	return e
 
 static func items() -> Array[EquipmentDef]:
 	return []

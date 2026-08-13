@@ -38,6 +38,23 @@ static func enemies() -> Array[EnemyDef]:
 		# re-tune): its bolt now also applies POISON, and the two together were
 		# pushing the balanced reference party below its win-rate floor.
 		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 11}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
+		# Issue 44: floor 1's boss. High hp and a slow move_speed per README's
+		# own "big, slow, scary" -- this is one enemy a full party has to
+		# out-fight, not a swarm. warden_axe and warden_chain_toss give it a
+		# real answer to both playstyles the earlier placeholder favoured
+		# unevenly: axe for whoever closes, chain for whoever does not.
+		#
+		# 1250 hp / 58 melee, tuned against all five real parties with a
+		# direct probe (SampleFights doesn't cover single-encounter checks
+		# yet). Landed here after two lower passes: 620/34 let every party win
+		# 20/20 at 63-76% health (too easy to be a boss at all); 950/46 still
+		# 20/20 everywhere at 38-59%. At 1250/58 the strongest real party
+		# (no_abomination) pays a real cost for the first time, 17/20 @23%,
+		# while the other four still win comfortably but not for free,
+		# 20/20 @33-40%. No comp trivialises it and none is uniquely
+		# punished -- the inversion the placeholder had (19/20 @86% for one
+		# comp, 1/20 for another) is gone.
+		_enemy(&"the_warden", "The Warden", 1250, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:

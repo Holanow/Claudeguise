@@ -49,6 +49,19 @@ static func actions() -> Array[ActionDef]:
 		# Issue 23: the bestiary's status user. Profane -> POISON per README.md.
 		_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt of dark energy that leaves the target poisoned.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true),
 
+		# Issue 44: The Warden, floor 1's boss (README's own name and flavour
+		# -- "big, slow, scary, wields an executioner's axe that can do a ton
+		# of damage at close range"). Two actions rather than one, and the
+		# second is the fix for issue 37's diagnosed mechanism: every enemy
+		# in the room stopped at 200 units while siege_shot reached 260, so a
+		# ranged party could decline the fight entirely and pay nothing.
+		# warden_chain_toss reaches 270 -- past every player action in the
+		# game -- so standing at range is no longer free; it hits softer than
+		# the axe on purpose, since the point is denying safety, not
+		# out-damaging melee.
+		_action(&"warden_axe", "Executioner's Axe", "A single devastating swing. Slow to wind up, and worth staying clear of.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
+		_action(&"warden_chain_toss", "Chain Toss", "A weighted chain, thrown further than anything else in the room reaches back.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true),
+
 		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
 		## the bestiary, but these two actions are still referenced by name in
 		## wren's Tests/test_combat_sim.gd (kiting regression checks). Kept
