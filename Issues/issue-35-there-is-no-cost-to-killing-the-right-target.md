@@ -4,6 +4,38 @@
 guessing a fifth lever, and you were right that it needed a trace. It closes
 issue 24, supersedes issue 31, and it is not about range at all.
 
+> **REFRAMED after wren's playtest, and the mechanism below survives intact.
+> Only its justification has changed, and the new one is much stronger.**
+>
+> `PartySelect` gives one card per class and refuses a second copy, capped at
+> four. With five classes, **the only full parties in the game are the five
+> leave-one-out combinations. `siege_master x4` is not a party.** My own
+> `SampleFights` generated four-of-a-kind teams from day one, so issues 24, 31
+> and 35 were all written about a team no player can assemble.
+>
+> Measured across the parties that do exist, on `floor1_room1`:
+>
+> | party | wins | cost |
+> |---|---|---|
+> | no abomination | 19/20 | 23% |
+> | no geysermancer | 10/20 | 14% |
+> | no priest | 5/20 | 19% |
+> | no warrior | 5/20 | 4% |
+> | **no siege_master** | **0/20** | never wins |
+>
+> **The party without a siege_master loses every single fight.** That is the
+> real problem, and this issue is still its answer: the siege_master is
+> mandatory *because* free target selection is the most valuable thing in the
+> game, and free target selection is exactly what the table below shows costs
+> nothing. Make choosing cost something and you make the siege_master a choice
+> rather than a requirement.
+>
+> So: same fix, better reason, and a real acceptance criterion in place of the
+> imaginary one. **The row that has to move is `no_siege_master` off 0/20**, not
+> `siege_master x4` off 77%. The trace below still stands on its own — it used
+> mono-class parties as clean extremes, and the mechanism it isolates does not
+> depend on those parties being buildable.
+
 ## What you established, which made this findable
 
 You tried all three levers in issue 31 and then the escape hatch at the bottom
@@ -88,20 +120,32 @@ failed for the same reason, which was a reason I had not measured.
 
 ## Acceptance criteria
 
-1. **`siege_master x4`'s cost drops into the same band as the rest of the
-   table** on `floor1_room1`, and `Tools/WhyNoDamage.gd` shows the enemy getting
-   meaningfully more than 8 actions against it.
-2. **`abomination x4` stays a coin flip** (currently 6/20, winning on 9%) and
-   `warrior x4` does not become unwinnable. The melee parties are already paying
-   full price; this must not make them pay more.
-3. The balanced party stays around 17-19 wins at a real cost.
+**Read these against the five buildable parties, not the mono-class rows.**
+
+1. **`no_siege_master` (Abomination, Geysermancer, Priest, Warrior) stops losing
+   every fight.** It is 0/20 today. It does not need to be good; it needs to be
+   a party rather than a punishment. This is the criterion that matters and it
+   replaces the old one about a team nobody can build.
+2. **No class becomes mandatory in its place.** If fixing this makes
+   `no_priest` the new 0/20, the requirement has moved rather than gone.
+3. **`no_geysermancer` stays a genuine coin flip** — it is 10/20 at 14% cost
+   today, which is the best fight in the game and the thing most worth not
+   breaking.
 4. **If making the dangerous things durable simply slows every fight down
    without changing the choice**, say so and stop. That is the same honest
    result you brought back from issue 31 and it would be worth just as much.
 
 ## One thing to be careful of
 
-`warrior x4` currently wins 19 of 20 on 24% health, with three of four dead. That
-is a good fight. It is also the fight most likely to break when the ghouls get
-scarier, because the warriors are the party already fighting the ghouls. Measure
-that row every time.
+`no_geysermancer` wins 10 of 20 at 14% health. That is the best fight in the
+game and it is also the one most likely to break when the ghouls get scarier,
+because it is a melee-weighted party already paying full price to fight them.
+Measure that row every pass.
+
+## Do not start until issue 36 lands
+
+pike has a one-line fix that makes the game load `floor1_room1` instead of
+whatever sorts first. Until then the room you are tuning and the room a player
+fights are different rooms, which is the exact failure that produced this
+issue's original framing. Everything above is measured headless and is sound —
+but confirm it against the real game once the fix is in, before you tune to it.
