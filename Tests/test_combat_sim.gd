@@ -58,6 +58,17 @@ func _deps(actions_by_id: Dictionary, power: float) -> SimDeps:
 	deps.default_decide = func(_state: CombatState, _unit: CombatUnit) -> Intent: return Intent.idle()
 	return deps
 
+## Overrides for issue 4: default SimDeps regen/rage-gain are both 0 (no
+## Balance rate exists yet), so tests that exercise the mechanism supply
+## their own fixed rate the same way `_deps()` supplies a fixed power.
+func _with_regen(deps: SimDeps, rate: float) -> SimDeps:
+	deps.resource_regen_per_tick = func(_u: CombatUnit) -> float: return rate
+	return deps
+
+func _with_rage_gain(deps: SimDeps, gain: float) -> SimDeps:
+	deps.rage_gain_on_attack = func(_u: CombatUnit) -> float: return gain
+	return deps
+
 ## The only "AI" in this file: close to range, then attack the nearest living
 ## enemy with the unit's first action. Good enough to drive a whole fight
 ## through CombatSim.run without PlanInterpreter or DefaultBehavior existing.
@@ -219,10 +230,13 @@ func test_same_seed_gives_identical_event_list() -> void:
 
 func test_different_seeds_still_agree_because_rng_is_not_consulted() -> void:
 	# Criterion 3's own escape clause: "two different seeds produce different
-	# [fights], or the rng is not being consulted at all." This slice has no
-	# crit rolls or variance, so CombatSim never touches state.rng. The test
-	# that proves it: two different seeds, identical inputs otherwise, must
-	# still produce the identical fight.
+	# [fights], or the rng is not being consulted at all." True for this
+	# scenario specifically: no regen rate is configured (SimDeps defaults to
+	# 0, see issue 4), so CombatSim never touches state.rng here. Once a
+	# fractional regen rate is in play it does consult rng — see
+	# test_determinism_holds_with_regen_and_status_in_play below, which
+	# exercises the other branch of the same criterion: same seed, same
+	# rounding, same fight.
 	var atk := _melee(&"atk", 1, 1, 999.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := _deps(actions_by_id, 7.0)
@@ -375,3 +389,177 @@ func test_replaying_damage_events_reaches_the_same_hp() -> void:
 
 	for u in state.units:
 		assert_eq(replayed[u.id], u.hp, "unit %d hp diverges from its event replay" % u.id)
+
+# ---------------------------------------------------------------------------
+# issue 4, criterion 1: mana and energy refill; rage does not
+# ---------------------------------------------------------------------------
+
+func test_mana_refills_over_time_but_rage_does_not() -> void:
+	var deps := _deps({}, 0.0)
+	_with_regen(deps, 2.0)
+
+	var state := CombatState.new(30)
+	var mana := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [])
+	mana.resource_kind = CG.ResourceKind.MANA
+	mana.resource_max = 20
+	mana.resource = 0
+	var rage := _unit(1, CG.Team.PLAYER, 10, Vector2(50, 0), [])
+	rage.resource_kind = CG.ResourceKind.RAGE
+	rage.resource_max = 20
+	rage.resource = 0
+	state.units.append(mana)
+	state.units.append(rage)
+
+	for i in 5:
+		CombatSim.step(state, deps)
+
+	assert_true(mana.resource > 0, "mana must refill over time; got %d" % mana.resource)
+	assert_eq(rage.resource, 0, "rage must not climb from passive regen; got %d" % rage.resource)
+	# Energy takes the identical code path (anything that is not RAGE); the
+	# only difference between mana and energy is the rate teal supplies.
+
+# ---------------------------------------------------------------------------
+# issue 4, criterion 2: rage fills from attacking, not from swinging at nothing
+# ---------------------------------------------------------------------------
+
+func test_rage_fills_from_a_landed_attack_but_not_from_a_miss() -> void:
+	var atk := _melee(&"atk", 2, 1, 15.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := _deps(actions_by_id, 3.0)
+	_with_rage_gain(deps, 5.0)
+
+	# Case A: stays in range, lands, gains.
+	var state_a := CombatState.new(31)
+	var attacker_a := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	attacker_a.resource_kind = CG.ResourceKind.RAGE
+	attacker_a.resource_max = 20
+	var target_a := _unit(1, CG.Team.ENEMY, 30, Vector2(5, 0), [])
+	state_a.units.append(attacker_a)
+	state_a.units.append(target_a)
+	attacker_a.intent = Intent.use_action(atk.id, target_a.id)
+	for i in 2:
+		CombatSim.step(state_a, deps)
+	assert_true(attacker_a.resource > 0, "rage must gain from a landed hit")
+
+	# Case B: walks out of range before landing, misses, does not gain.
+	var state_b := CombatState.new(32)
+	var attacker_b := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	attacker_b.resource_kind = CG.ResourceKind.RAGE
+	attacker_b.resource_max = 20
+	var target_b := _unit(1, CG.Team.ENEMY, 30, Vector2(5, 0), [])
+	state_b.units.append(attacker_b)
+	state_b.units.append(target_b)
+	attacker_b.intent = Intent.use_action(atk.id, target_b.id)
+	CombatSim.step(state_b, deps) # commits, in range
+	target_b.position = Vector2(100000, 0) # walks out before the wind-up lands
+	CombatSim.step(state_b, deps) # fires, misses
+	assert_eq(attacker_b.resource, 0, "rage must not gain from a miss")
+
+# ---------------------------------------------------------------------------
+# issue 4, criterion 3: regeneration respects the ceiling and the floor
+# ---------------------------------------------------------------------------
+
+func test_regen_does_not_climb_past_resource_max() -> void:
+	var deps := _deps({}, 0.0)
+	_with_regen(deps, 50.0) # far more than the pool, to prove the clamp
+
+	var state := CombatState.new(33)
+	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [])
+	unit.resource_kind = CG.ResourceKind.MANA
+	unit.resource_max = 20
+	unit.resource = 18
+	state.units.append(unit)
+
+	CombatSim.step(state, deps)
+
+	assert_eq(unit.resource, 20, "regen must not climb past resource_max")
+
+func test_a_refused_action_never_pushes_resource_negative() -> void:
+	var atk := _melee(&"atk", 1, 1, 999.0)
+	atk.resource_cost = 5
+	var actions_by_id := {atk.id: atk}
+	var deps := _deps(actions_by_id, 1.0)
+
+	var state := CombatState.new(34)
+	var poor := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [atk.id])
+	poor.resource = 0
+	poor.resource_max = 20
+	var target := _unit(1, CG.Team.ENEMY, 10, Vector2(1, 0), [])
+	state.units.append(poor)
+	state.units.append(target)
+
+	poor.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+
+	assert_eq(poor.resource, 0, "a refused action must not push resource negative")
+	assert_eq(poor.current_action, &"", "the refused action must not have committed")
+
+# ---------------------------------------------------------------------------
+# issue 4, criterion 4: a stunned unit does not act
+# ---------------------------------------------------------------------------
+
+func test_stunned_unit_does_not_act_and_resumes_after_expiry() -> void:
+	var atk := _melee(&"atk", 1, 1, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := _deps(actions_by_id, 5.0)
+	deps.default_decide = _make_attack_nearest(actions_by_id)
+
+	var state := CombatState.new(35)
+	var stunned := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(stunned)
+	state.units.append(target)
+
+	stunned.statuses[CG.Status.STUN] = 3 # expires once state.tick >= 3
+
+	CombatSim.step(state, deps) # tick 1: stunned
+	assert_eq(stunned.current_action, &"")
+	CombatSim.step(state, deps) # tick 2: still stunned
+	assert_eq(stunned.current_action, &"")
+	CombatSim.step(state, deps) # tick 3: decide still sees the stun; expires during this tick's tick-phase
+	assert_eq(stunned.current_action, &"")
+
+	CombatSim.step(state, deps) # tick 4: stun is gone, acts normally
+	assert_ne(stunned.current_action, &"")
+
+	var expired_found := false
+	for e in state.events:
+		if e.kind == CG.EventKind.STATUS_EXPIRED and e.target_id == 0 and e.status == CG.Status.STUN:
+			expired_found = true
+	assert_true(expired_found, "STUN must actually expire and emit STATUS_EXPIRED, not just stop mattering")
+
+# ---------------------------------------------------------------------------
+# issue 4, criterion 5: determinism survives regen and statuses
+# ---------------------------------------------------------------------------
+
+func test_determinism_holds_with_regen_and_status_in_play() -> void:
+	var atk := _melee(&"atk", 1, 1, 999.0)
+	var actions_by_id := {atk.id: atk}
+
+	var make_deps := func() -> SimDeps:
+		var d := _deps(actions_by_id, 4.0)
+		d.default_decide = _make_attack_nearest(actions_by_id)
+		_with_regen(d, 1.3) # fractional: forces the stochastic rounding to consult rng
+		return d
+
+	var make_state := func(seed: int) -> CombatState:
+		var s := CombatState.new(seed)
+		var a := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id])
+		a.resource_kind = CG.ResourceKind.MANA
+		a.resource_max = 10
+		var b := _unit(1, CG.Team.ENEMY, 20, Vector2(1, 0), [atk.id])
+		b.resource_kind = CG.ResourceKind.MANA
+		b.resource_max = 10
+		b.statuses[CG.Status.STUN] = 3
+		s.units.append(a)
+		s.units.append(b)
+		return s
+
+	var state_a: CombatState = make_state.call(999)
+	var state_b: CombatState = make_state.call(999)
+	CombatSim.run(state_a, make_deps.call())
+	CombatSim.run(state_b, make_deps.call())
+
+	_assert_same_events(state_a, state_b, "same seed with regen and stun")
+	assert_eq(state_a.units[0].resource, state_b.units[0].resource)
+	assert_eq(state_a.units[1].resource, state_b.units[1].resource)
