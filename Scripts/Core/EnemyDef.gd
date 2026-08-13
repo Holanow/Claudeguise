@@ -17,7 +17,15 @@ const CG := preload("res://Scripts/Core/CG.gd")
 
 ## World units per tick.
 @export var move_speed: float = 1.0
-## Drawing only, same as CombatUnit.radius. Raised from 12.0 for legibility.
+## NOT drawing only, despite what this comment used to say and what
+## CombatUnit.radius still implies. `CombatSim._move_toward` uses it for real
+## movement collision, and since issue 18 a projectile's hit check uses the
+## target's radius too. Changing it changes fights.
+##
+## kite found this while scaling units for legibility: they distrusted the
+## comment, checked the simulation, and used a view-only DISPLAY_SCALE instead.
+## Had they believed the file, every fight would have quietly changed while
+## looking like a display tweak.
 @export var radius: float = 22.0
 
 ## Flat attack power per damage type, keyed by CG.DamageType. Enemies skip the
@@ -30,6 +38,22 @@ const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Tags shown to the player above the health bar.
 @export var display_tags: Array[String] = []
+
+## Taunt radius applied to this unit the moment it is spawned as a summon.
+## 0.0 means it does not taunt, which is every enemy today.
+##
+## Why this exists rather than the summon simply using a taunt action: **a
+## non-pawn unit's action list only ever runs one fixed action.** It cannot
+## rotate between "taunt" and "attack" the way a plan-driven pawn can, so a
+## siege engine can either taunt forever or fight, never both.
+##
+## dace found this from the balance side: an 80-hp engine never draws real fire,
+## which leaves a summoner as a slower and more fragile damage dealer. They
+## posted the exact shape rather than guessing at it, and rather than reaching
+## into Core or Combat to try.
+##
+## Read at spawn time in `CombatSim._build_enemy_unit` -- that half is swift's.
+@export var spawn_taunt_radius: float = 0.0
 
 ## How strongly this enemy prefers a target its allies are already attacking,
 ## from 0.0 (pick the nearest, ignore what everyone else is doing) to 1.0
