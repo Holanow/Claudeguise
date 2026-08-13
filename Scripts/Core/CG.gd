@@ -139,7 +139,37 @@ enum Status {
 	## Distinct from STUN, which is a full lockout -- a stunned unit neither
 	## decides nor acts. A slow leaves a unit fighting, just unable to leave.
 	SLOWED,
+	## Enemies within a radius are forced to focus the taunting unit. This is
+	## what makes TANK mean something: every class tagged TANK has high CON and
+	## no way to make anything attack it, so "tank" has meant "survives" rather
+	## than "protects". Nothing in this codebase redirects a target today.
+	TAUNTING,
+	## A ranged attack crossing this unit's front arc is stopped by it.
+	##
+	## How this resolves depends on a decision the player has since made: most
+	## shots should be real projectiles that travel. Once they do, this is simply
+	## a projectile hitting the Warrior instead of its target, which is both more
+	## obvious to a player and more honest than a geometric test.
+	##
+	## Until projectiles exist it can be resolved as a line check at fire time,
+	## the same way Terrain.line_is_blocked already stops a shot at a wall. That
+	## is the fallback, not the design.
+	SHIELDING,
 }
+
+## Whether a status is something a unit would want removed. Cleanse needs this
+## and nothing else does yet.
+##
+## Kept as a function rather than a second enum so there is one list rather than
+## two that can disagree. A status added without being classified here is
+## treated as harmless, which is the safe direction: a cleanse that misses
+## something is a weaker cleanse, where a cleanse that strips SHIELD or HASTE
+## would be actively hostile to the ally it targeted.
+static func is_harmful(s: Status) -> bool:
+	match s:
+		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED:
+			return true
+	return false
 
 ## What a decision layer asks a unit to do on a tick. The plan interpreter and
 ## the default behaviour both produce these; the simulation consumes them and is

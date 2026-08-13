@@ -120,3 +120,12 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## (Terrain.point_is_blocked already exists and must be respected, same as
 ## ordinary movement), and a pull that fires after the target is dead.
 @export var pull_distance: float = 0.0
+
+## Strips every harmful status from this action's targets, per `CG.is_harmful`.
+## False for every action that exists today.
+##
+## The Geysermancer is tagged SUPPORT and has two actions, both of which are
+## pure damage. It has never done anything for an ally. This is the field that
+## makes the tag true, and it is the counterplay to POISON, BURN, SLOWED and
+## MARKED all arriving at once.
+@export var cleanses_harmful: bool = false

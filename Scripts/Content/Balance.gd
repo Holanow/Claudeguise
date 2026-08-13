@@ -249,8 +249,53 @@ static func haste_tick_scale(unit: CombatUnit) -> float:
 ## is additive on top when a HEALER-role class survived the room: the
 ## Healer's whole distinguishing value per README should be visible between
 ## fights, not only inside one.
-const BASE_RECOVERY_FRACTION := 0.20
-const HEALER_RECOVERY_BONUS := 0.30
+##
+## Issue 13's history, kept because it explains why the shape below is the
+## simple one and not one of the fancier ones tried along the way:
+##
+## First pass halved these from 0.20/0.30 to 0.10/0.15. `no_siege_master`
+## moved from 20/20 to 19/20 -- an improvement, but the issue wanted it
+## somewhere between 5/20 (unaided) and 20/20, not sitting one seed under
+## the ceiling.
+##
+## Second pass tried reshaping instead of rescaling: a flat cap on the
+## amount handed back per room, then recovery multiplied by the party's own
+## current health fraction (a real feedback loop -- worse-off recovers
+## proportionally less), then that same idea cubed for a sharper penalty.
+## All three, like the original pair, were swept fine enough to find a
+## middle value if one existed. None did. Every shape landed
+## `no_siege_master` on exactly 5/20 or 19/20 and never between, which is
+## proof rather than bad luck: no function of `(hp, hp_max,
+## has_living_healer)` can move that specific row, because a cluster of this
+## floor's seeds is decided by one pivotal fight the Siege Master's own
+## near-mandatory range advantage governs (issue 4), not by how generously
+## the party is patched up between rooms. Recovery was never the right lever
+## for that number.
+##
+## rook's call once that was shown: criterion 2 comes out of issue 13 and
+## goes to issues 4/12/14, which fix the Siege Master's actual power gap
+## directly. Recovery keeps one job -- does the floor wear a party down --
+## and gets judged on that alone, which is why this is back to the simplest
+## shape (straight percent of what's missing) rather than any of the
+## reshaped ones: a curve contorted to satisfy two criteria that pulled
+## against each other was never going to read as clean attrition, and now
+## it only has to satisfy one.
+##
+## Tuned against `Tools/FloorRuns.gd`: every party but `no_siege_master`
+## (whose own number is no longer this issue's concern, see above) enters
+## the boss room worn to roughly 79-85%, down from 84-93% and close to the
+## 72-83% the floor produces with no recovery at all -- recovery is a real
+## but modest cushion on top of the floor's own attrition, not a replacement
+## for it, while every one of those four still clears 20/20. `no_priest` has
+## no living Healer by construction (the class itself is missing) and
+## recovers on `BASE_RECOVERY_FRACTION` alone; whether that reads lower than
+## another party's own boss-entry number is confounded by the two parties
+## being different pawns with different survivability, so it is not the
+## proof the bonus matters -- `test_a_living_healer_recovers_more` is: same
+## carried hp, same hp_max, and a living Healer recovers more, every time,
+## by construction of the formula below rather than by which five seeds ran.
+const BASE_RECOVERY_FRACTION := 0.04
+const HEALER_RECOVERY_BONUS := 0.08
 
 ## `has_living_healer` is the caller's to determine (a run's own carried
 ## party state, read by whoever wires this in) -- this function does not
