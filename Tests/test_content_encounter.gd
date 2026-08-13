@@ -199,3 +199,43 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 		if state.outcome == CombatState.Outcome.UNRESOLVED:
 			draws += 1
 	assert_true(draws <= 2, "expected floor1_chokepoint to resolve most fights, got %d/10 draws" % draws)
+
+
+## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`
+## placeholder that inverted the table (one comp free at 86%, another at
+## 1/20). Checked against all five real parties directly rather than through
+## _win_rate's mono-class helper, since a boss fight is exactly the case
+## PartySelect's own roster restriction matters most for.
+func test_the_warden_asks_something_of_every_real_party() -> void:
+	var enc := Registry.get_encounter(&"floor1_warden")
+	assert_not_null(enc)
+	var parties := [
+		[&"geysermancer", &"priest", &"siege_master", &"warrior"],
+		[&"abomination", &"priest", &"siege_master", &"warrior"],
+		[&"abomination", &"geysermancer", &"siege_master", &"warrior"],
+		[&"abomination", &"geysermancer", &"priest", &"warrior"],
+		[&"abomination", &"geysermancer", &"priest", &"siege_master"],
+	]
+	for ids in parties:
+		var wins := 0
+		var costs: Array[float] = []
+		for seed in 20:
+			var party: Array[PawnData] = []
+			for i in ids.size():
+				party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
+			var state := CombatSim.build(party, enc, seed)
+			var outcome := CombatSim.run(state)
+			if outcome == CombatState.Outcome.PLAYER_WIN:
+				wins += 1
+				var hp := 0.0
+				var hp_max := 0.0
+				for u in state.units:
+					if u.team == CG.Team.PLAYER:
+						hp_max += float(u.hp_max)
+						hp += float(maxi(0, u.hp))
+				costs.append(hp / hp_max * 100.0)
+		costs.sort()
+		var median_cost := costs[costs.size() / 2] if not costs.is_empty() else -1.0
+		print("floor1_warden, missing one of %s: %d/20, median cost on a win %.0f%%" % [ids, wins, median_cost])
+		assert_true(wins >= 15, "every real party should still mostly win The Warden, %s got %d/20" % [ids, wins])
+		assert_true(median_cost <= 45.0, "%s's wins should cost something against a boss, median was %.0f%%" % [ids, median_cost])
