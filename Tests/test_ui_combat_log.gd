@@ -75,3 +75,52 @@ func test_death_line_names_the_unit() -> void:
 	assert_true(line.contains("Rat"), line)
 	assert_true(line.contains("dies"), line)
 	view.free()
+
+func test_miss_line_names_actor_action_and_target() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.MISS, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.action_id = &"geyser_scald"
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Warrior"), line)
+	assert_true(line.contains("Rat"), line)
+	assert_true(line.contains("misses"), line)
+	view.free()
+
+## Issue 14's own finding: a miss, a landed hit, and a hit fully absorbed by
+## mitigation are three different events and a player must be able to tell
+## them apart. Three different sentence shapes, checked pairwise.
+func test_miss_reads_differently_from_a_landed_hit_and_a_fully_mitigated_one() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var miss := CombatEvent.make(CG.EventKind.MISS, 1)
+	miss.source_id = 0
+	miss.target_id = 1
+	miss.action_id = &"swing"
+
+	var landed := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	landed.source_id = 0
+	landed.target_id = 1
+	landed.amount = 7
+	landed.amount_before_mitigation = 7
+
+	var absorbed := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	absorbed.source_id = 0
+	absorbed.target_id = 1
+	absorbed.amount = 0
+	absorbed.amount_before_mitigation = 12
+
+	var miss_line := view.line_for_event(state, miss)
+	var landed_line := view.line_for_event(state, landed)
+	var absorbed_line := view.line_for_event(state, absorbed)
+
+	assert_ne(miss_line, landed_line)
+	assert_ne(miss_line, absorbed_line)
+	assert_ne(landed_line, absorbed_line)
+	assert_true(miss_line.contains("misses"))
+	assert_false(landed_line.contains("misses"))
+	assert_true(absorbed_line.contains("before mitigation"), "a fully absorbed hit must still show the raw roll, not read like a miss")
+	view.free()

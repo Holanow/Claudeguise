@@ -79,6 +79,10 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				source_name, target_name, color, e.amount,
 				CG.damage_type_name(e.damage_type), mitigation
 			]
+		CG.EventKind.MISS:
+			return "[color=%s]%s's %s misses %s[/color]" % [
+				Palette.TEXT_DIM.to_html(), source_name, String(e.action_id), target_name
+			]
 		CG.EventKind.HEAL:
 			return "%s heals %s for %d" % [source_name, target_name, e.amount]
 		CG.EventKind.DEATH:
