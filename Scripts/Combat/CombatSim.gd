@@ -153,10 +153,25 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		if not unit.alive or unit.intent != null or unit.is_busy():
 			continue
 		if unit.has_status(CG.Status.STUN):
-			# No intent this tick, same as being busy. Does not interrupt an
-			# action already committed before the stun landed — nothing in
-			# issue 4's acceptance criteria asks for that, and cancelling an
-			# in-flight wind-up is a separate design decision.
+			# No intent this tick -- a stunned unit neither decides nor acts.
+			#
+			# ISSUE 10'S INTERRUPT DECISION, FINAL: stun does NOT cancel an
+			# action already committed before it landed. A unit mid-wind-up
+			# when stunned still fires on schedule; is_busy() already keeps
+			# it out of this loop regardless of the status, so this branch
+			# only ever matters for a unit that was free to decide.
+			#
+			# Rejected: cancelling an in-flight wind-up on stun. That reading
+			# is equally defensible (it rewards cheap actions under pressure
+			# instead of rewarding a timed commitment) but costs more than it
+			# buys here: it needs a resource-refund policy for anything spent
+			# on commit, a decision about whether the target it was aimed at
+			# still matters, and a new way for teal's content to reason about
+			# "was this interrupted" -- none of which issue 10 asks for, and
+			# all of which would land squarely in the middle of teal's
+			# in-progress issue 7 tuning pass. A wind-up that is safe once
+			# committed is also the simpler thing to teach a player: land the
+			# stun before the swing starts, not during it.
 			continue
 		var intent: Intent = null
 		if unit.pawn != null:
@@ -260,6 +275,17 @@ static func _clamp_to_arena(p: Vector2) -> Vector2:
 		clampf(p.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT)
 	)
 
+## HASTE scales wind-up and recovery ticks by deps.haste_tick_scale, floored
+## at 1 tick so a hasted unit can never act instantaneously. Read at the
+## moment ticks are computed (commit for wind-up, landing for recovery), not
+## cached, so HASTE applied or removed mid-action changes the *next*
+## computation rather than reaching back into one already in flight.
+static func _apply_haste(unit: CombatUnit, deps: SimDeps, ticks: int) -> int:
+	if ticks <= 0 or not unit.has_status(CG.Status.HASTE):
+		return ticks
+	var scale: float = deps.haste_tick_scale.call(unit)
+	return maxi(1, int(round(float(ticks) * scale)))
+
 static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: Intent, deps: SimDeps) -> void:
 	var action: ActionDef = deps.action_lookup.call(intent.action_id)
 	if action == null:
@@ -278,7 +304,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	## value except when a targeting block aimed this one action elsewhere.
 	unit.focus_id = intent.target_id
 	unit.current_action = action.id
-	unit.action_ticks_left = int(deps.wind_up_ticks.call(unit, action))
+	unit.action_ticks_left = _apply_haste(unit, deps, int(deps.wind_up_ticks.call(unit, action)))
 
 	if action.resource_cost > 0:
 		unit.resource -= action.resource_cost
@@ -312,6 +338,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 			if unit.recover_ticks_left == 0:
 				unit.current_action = &""
 		_tick_regen(state, unit, deps)
+		_tick_dot_statuses(state, unit, deps)
 		_tick_statuses(state, unit)
 		_tick_hazards(state, unit)
 
@@ -348,6 +375,38 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
 			state.emit(e)
+
+## BURN and POISON deal their damage every tick they are active, with a
+## DAMAGE event per hit so the log and floaters see it -- the same
+## membership-driven shape as hazard damage, and for the same reason: no
+## event, no visible cause, and CombatEvent exists specifically to prevent
+## that. Fires before _tick_statuses checks expiry, so the tick a status
+## expires on still deals its damage; the tick after, it does not, matching
+## the hazard "stops the tick after it leaves" behaviour.
+const _DOT_STATUSES := {
+	CG.Status.BURN: CG.DamageType.FIRE,
+	CG.Status.POISON: CG.DamageType.PROFANE,
+}
+
+static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
+	for status in _DOT_STATUSES:
+		if not unit.has_status(status):
+			continue
+		var amount := _stochastic_round(state, deps.status_damage_per_tick.call(unit, status))
+		if amount <= 0:
+			continue
+		var before := unit.hp
+		unit.hp = maxi(0, unit.hp - amount)
+		var applied := before - unit.hp
+		var e := _event(CG.EventKind.DAMAGE, state.tick, -1, unit.id, &"")
+		e.amount = applied
+		e.damage_type = _DOT_STATUSES[status]
+		e.status = status
+		state.emit(e)
+		if unit.hp <= 0 and unit.alive:
+			unit.alive = false
+			state.emit(_event(CG.EventKind.DEATH, state.tick, -1, unit.id, &""))
+			return
 
 ## A unit standing in a HAZARD takes its damage every tick it is inside, with
 ## an event per hit so the log and floaters see it, and stops the tick after
@@ -393,7 +452,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
-	unit.recover_ticks_left = int(deps.recover_ticks.call(unit, action))
+	unit.recover_ticks_left = _apply_haste(unit, deps, int(deps.recover_ticks.call(unit, action)))
 	if action.cooldown_ticks > 0:
 		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks
 	if unit.recover_ticks_left <= 0:

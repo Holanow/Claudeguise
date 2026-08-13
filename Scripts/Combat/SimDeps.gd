@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CG := preload("res://Scripts/Core/CG.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const Balance := preload("res://Scripts/Content/Balance.gd")
 const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
@@ -51,6 +52,19 @@ var resource_regen_per_tick: Callable = _default_resource_regen_per_tick
 ## a miss). Only consulted for a RAGE unit.
 var rage_gain_on_attack: Callable = _default_rage_gain_on_attack
 
+## Damage-over-time per tick for a status a unit is carrying. `status` is
+## always BURN or POISON in practice -- the seam takes any CG.Status rather
+## than hardcoding those two, so a future DOT status needs no change here.
+## No Balance function for this exists yet; see the default below.
+var status_damage_per_tick: Callable = _default_status_damage_per_tick
+
+## Multiplier on wind-up/recover ticks for a unit carrying HASTE. 1.0 (the
+## pending-Balance default) means no change -- unlike a regen rate, where
+## the safe "not wired yet" value is 0, the safe value for a multiplier is
+## 1, or every haste-less unit would freeze mid-action the moment this
+## default ever changed.
+var haste_tick_scale: Callable = _default_haste_tick_scale
+
 static func _default_max_hp(pawn: PawnData) -> int:
 	return Balance.max_hp(pawn)
 
@@ -100,3 +114,14 @@ static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
 
 static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
 	return Balance.rage_gain_per_attack(unit)
+
+## No Balance.status_damage_per_tick exists yet. 0 keeps that honest instead
+## of inventing a rate in Scripts/Combat/, same reasoning as issue 4's
+## original regen defaults before issue 20 wired them for real.
+static func _default_status_damage_per_tick(_unit: CombatUnit, _status: CG.Status) -> float:
+	return 0.0
+
+## No Balance.haste_tick_scale exists yet. 1.0 is the identity multiplier --
+## the safe "not wired yet" value for a scale factor is 1, not 0.
+static func _default_haste_tick_scale(_unit: CombatUnit) -> float:
+	return 1.0
