@@ -39,6 +39,7 @@ var _combat_log = null
 var _unit_views: Dictionary = {}
 
 var _party_label: Label = null
+var _encounter_label: Label = null
 var _seed_label: Label = null
 var _outcome_label: Label = null
 var _pause_button: Button = null
@@ -99,6 +100,15 @@ func _build_top_bar() -> void:
 	_party_label = Label.new()
 	_party_label.add_theme_color_override("font_color", Palette.TEXT)
 	bar.add_child(_party_label)
+
+	# Issue 36's own "while you are there": the room's name existed
+	# (Encounter.display_name) and nothing showed it, which is exactly
+	# what let PartySelect fight the wrong room invisibly for as long as
+	# it did. A player who cannot tell one room from another cannot tell
+	# that class of bug is happening either.
+	_encounter_label = Label.new()
+	_encounter_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	bar.add_child(_encounter_label)
 
 	_seed_label = Label.new()
 	_seed_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
@@ -407,6 +417,7 @@ func begin(cfg: RunConfig) -> void:
 	if _combat_log != null:
 		_combat_log.clear_log()
 	_party_label.text = "Party: " + ", ".join(cfg.party.map(func(p): return p.display_name))
+	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
 	_end_banner.visible = false
