@@ -122,10 +122,10 @@ static func _collect_player_actions(pawn: PawnData) -> Array[StringName]:
 				out.append(a)
 	return out
 
-static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName, pos: Vector2) -> CombatUnit:
+static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName, pos: Vector2, team: CG.Team = CG.Team.ENEMY) -> CombatUnit:
 	var u := CombatUnit.new()
 	u.id = id
-	u.team = CG.Team.ENEMY
+	u.team = team
 	u.enemy_id = enemy_id
 	u.position = pos
 	if enemy_def == null:
@@ -456,6 +456,9 @@ static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
 static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
+	if action.summons_unit_id != &"":
+		_spawn_summon(state, unit, action, deps)
+
 	var targets := _resolve_targets(state, unit, action)
 	if targets.is_empty():
 		state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
@@ -477,6 +480,43 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
+
+## Issue 12: the one place `state.units` grows after `build()`. Appends only --
+## never inserts, never reorders -- so a new unit's id is `state.units.size()`
+## at the moment it is appended, which is exactly the index `state.unit(id)`
+## expects. Every existing id keeps pointing at the same unit forever, same as
+## before this existed.
+##
+## Runs unconditionally when the action fires, independent of whether
+## `_resolve_targets` finds anything: a build action is not an attack, and
+## content is free to give it no target at all (or a self-target) without the
+## summon becoming contingent on a hit.
+##
+## Deterministic by construction: no rng, no wall-clock, nothing but the
+## caster's own state and `deps.enemy_lookup`, which is a pure content lookup.
+## Same seed, same decisions, same casters resolve in the same tick in the
+## same order (CombatState's own ordering rule -- iterate `units`, never a
+## Dictionary), so two runs from the same seed spawn identically. Unknown
+## `EnemyDef` ids are handled by `_build_enemy_unit` itself, the same way an
+## unknown enemy spawn in `build()` already is.
+##
+## Spawned on the caster's team, at the caster's exact position ("at or near"
+## per issue 12) -- units do not collide with each other, only with terrain, so
+## sharing a point is not a stuck state.
+##
+## A unit appended here can be visited later in the same tick's `_resolve_phase`
+## or `_tick_phase` loop, because both iterate `state.units` directly and Array
+## iteration in GDScript re-reads size() each step. That is harmless rather
+## than avoided: a unit that did not exist during `_decide_phase` has
+## `intent == null` and `action_ticks_left == 0` / `recover_ticks_left == 0`, so
+## every branch that would touch it this tick is a no-op. It gets its first
+## real decision on the following tick, same as any unit built in `build()`
+## would if `_decide_phase` had not already run for tick 1.
+static func _spawn_summon(state: CombatState, caster: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	var enemy_def: EnemyDef = deps.enemy_lookup.call(action.summons_unit_id)
+	var new_id := state.units.size()
+	var summon := _build_enemy_unit(new_id, enemy_def, action.summons_unit_id, caster.position, caster.team)
+	state.units.append(summon)
 
 ## Range and line of sight are both measured here, at the moment the effect
 ## lands, against the target the action committed to -- same reasoning for
