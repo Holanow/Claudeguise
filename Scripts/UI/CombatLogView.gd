@@ -4,6 +4,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## The scrolling record of the fight, in words. One line per CombatEvent worth
 ## showing.
@@ -94,20 +95,35 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			]
 		CG.EventKind.MISS:
 			return "[color=%s]%s's %s misses %s[/color]" % [
-				Palette.TEXT_DIM.to_html(), source_name, String(e.action_id), target_name
+				Palette.TEXT_DIM.to_html(), source_name, _action_name(e.action_id), target_name
 			]
 		CG.EventKind.HEAL:
 			return "%s heals %s for %d" % [source_name, target_name, e.amount]
 		CG.EventKind.DEATH:
 			return "[color=%s]%s dies.[/color]" % [Palette.TEAM_ENEMY.to_html(), target_name]
 		CG.EventKind.ACTION_START:
-			return "%s begins %s" % [source_name, String(e.action_id)]
+			return "%s begins %s" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.ACTION_FIRE:
-			return "%s's %s fires" % [source_name, String(e.action_id)]
+			return "%s's %s fires" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.STATUS_APPLIED:
-			return "%s is afflicted with %s" % [target_name, CG.Status.keys()[e.status]]
+			return "%s is afflicted with %s" % [target_name, _status_name(e.status)]
 		CG.EventKind.STATUS_EXPIRED:
-			return "%s's %s fades" % [target_name, CG.Status.keys()[e.status]]
+			return "%s's %s fades" % [target_name, _status_name(e.status)]
 		CG.EventKind.RESOURCE_SPENT:
 			return ""
 	return ""
+
+## Issue 19: "warrior_strike fires" is the same developer-language problem
+## the win screen's tick count was, in a quieter place. Prefers the real
+## ActionDef's display_name; falls back to humanizing the raw id (String's
+## own capitalize() turns snake_case into Title Case) so a hand-built test
+## fixture using a synthetic action id — not a real registered one — still
+## reads as words rather than crashing or showing nothing.
+func _action_name(action_id: StringName) -> String:
+	var action := Registry.get_action(action_id)
+	if action != null and action.display_name != "":
+		return action.display_name
+	return String(action_id).capitalize()
+
+func _status_name(status: CG.Status) -> String:
+	return String(CG.Status.keys()[status]).capitalize()
