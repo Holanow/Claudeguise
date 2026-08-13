@@ -45,6 +45,25 @@ const ARENA_HALF_HEIGHT := 270.0
 ## between two passive parties from hanging the runner.
 const MAX_TICKS := TICKS_PER_SECOND * 120
 
+## The party deploys inside the left-hand fraction of the arena, so a fight
+## always begins with ground between the two sides and somebody has to cross it.
+##
+## The user's call, and it is a design rule rather than a layout preference:
+## without it an encounter can be authored with the two sides already in contact,
+## and then positioning, movement speed, kiting and the whole ranged-versus-melee
+## distinction stop mattering on tick one. Traversal is what makes a Geysermancer
+## different from a Warrior.
+##
+## Encounter authors keep every entry in `party_spawns` at or left of
+## `party_deploy_max_x()`. Enemies are deliberately unconstrained: putting the
+## dangerous ones deep is one of the levers issue 12 is about.
+const PARTY_DEPLOY_FRACTION := 1.0 / 3.0
+
+## Rightmost x a party member may start at. Derived rather than typed so it
+## cannot drift away from the arena bounds.
+static func party_deploy_max_x() -> float:
+	return -ARENA_HALF_WIDTH + (ARENA_HALF_WIDTH * 2.0 * PARTY_DEPLOY_FRACTION)
+
 enum Team {
 	PLAYER,
 	ENEMY,
