@@ -1,6 +1,7 @@
 extends RefCounted
 
 const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Tracks one traversal of a generated FloorPlan: where the party is, which
 ## rooms have been visited, and what carried over from the last room each
@@ -18,6 +19,17 @@ var visited: Array[int] = []
 ## every reader here treats that as full health / alive, matching a pawn
 ## that has not been touched yet.
 var carry: Dictionary = {}
+
+## What the party has picked up this run, in the order rooms dropped it.
+## Unassigned to any pawn -- there is no equip screen yet (issue 41's own
+## framing: item generation and the equip screen both come after this),
+## so this is a holding pen for the run, not an inventory system.
+var loot: Array[EquipmentDef] = []
+
+## Called when a room resolves and something drops. Records it; does not
+## touch any pawn, same as record_result does not touch CombatSim.
+func add_loot(item: EquipmentDef) -> void:
+	loot.append(item)
 
 func _init(floor_plan: FloorPlan) -> void:
 	plan = floor_plan

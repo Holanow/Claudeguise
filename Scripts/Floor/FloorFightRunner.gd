@@ -9,6 +9,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const LootTables := preload("res://Scripts/Content/LootTables.gd")
 
 ## Plays one fight-bearing room of a FloorRun for real, through CombatSim, and
 ## writes the result back. This is the connection issue 5 left for later: the
@@ -35,6 +36,25 @@ static func is_fight_room(t: FloorRoom.Type) -> bool:
 	return t == FloorRoom.Type.ENEMY or t == FloorRoom.Type.BIG_ENEMY \
 		or t == FloorRoom.Type.MINIBOSS or t == FloorRoom.Type.BOSS
 
+## TREASURE is the one non-fight room type `LootTables.DROP_CHANCE` knows
+## about (always drops) -- everything else in TRAP/LIBRARY/CELL is still
+## unbuilt and out of scope here. Not a fight, so no CombatSim involvement
+## and no Outcome: a treasure room cannot end a run either way.
+static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
+	if room.type != FloorRoom.Type.TREASURE:
+		push_error("FloorFightRunner.play_treasure_room: room %d is a %s, not TREASURE" % [room.id, FloorRoom.type_name(room.type)])
+		return
+
+	## Same determinism rule as a fight's own seed: derived from the floor
+	## seed and the room id, never a fresh generator, so a treasure room
+	## drops the same thing every time the same floor seed visits it.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([run.plan.seed, room.id])
+	var item := LootTables.roll_drop(room.type, room.difficulty, rng)
+	if item != null:
+		run.add_loot(item)
+	run.enter(room.id)
+
 ## Builds a fight from `room` and the party's current condition in `run`,
 ## runs it to completion, and writes hp/resource/alive back into `run`.
 static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], deps: SimDeps = null) -> Outcome:
@@ -58,6 +78,16 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 		var unit := state.unit(i)
 		run.record_result(party[i].id, unit.hp, unit.resource, unit.alive)
 	run.enter(room.id)
+
+	## Rolled after the fight resolves, using the fight's own seeded rng --
+	## same reasoning as issue 20's regen and issue 7's damage variance: a
+	## drop roll needs a real, seeded source or "same floor seed, same
+	## floor" stops being true. Only on a win: a wiped party does not loot
+	## the room that wiped it.
+	if state.outcome == CombatState.Outcome.PLAYER_WIN:
+		var item := LootTables.roll_drop(room.type, room.difficulty, state.rng)
+		if item != null:
+			run.add_loot(item)
 
 	return _map_outcome(state.outcome, room.id == run.plan.boss_id)
 

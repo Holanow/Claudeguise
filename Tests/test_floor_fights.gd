@@ -238,3 +238,78 @@ func test_miniboss_and_boss_rooms_are_different_encounters() -> void:
 		miniboss_encounter.id, boss_encounter.id,
 		"a miniboss room and a boss room must not be the same fight"
 	)
+
+# ---------------------------------------------------------------------------
+# issue 42's call site: rooms that win can drop loot
+# ---------------------------------------------------------------------------
+
+func _single_room_plan_of_type(seed: int, room_type: FloorRoom.Type, difficulty: int) -> FloorPlan:
+	var plan := FloorPlan.new()
+	plan.seed = seed
+	var r := FloorRoom.new()
+	r.id = 0
+	r.type = room_type
+	r.difficulty = difficulty
+	plan.rooms = [r]
+	plan.entrance_id = 0
+	plan.miniboss_id = -1
+	plan.boss_id = -1
+	return plan
+
+## BOSS always drops per LootTables.DROP_CHANCE -- a deterministic case to
+## assert against rather than depending on a lucky roll.
+func test_a_won_boss_room_can_drop_loot() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.BOSS, 10)
+	var run := FloorRun.new(plan)
+
+	FloorFightRunner.play_room(run, plan.room(0), party)
+
+	assert_eq(run.loot.size(), 1, "a boss room (100% drop chance) that resolves must drop exactly one item")
+
+## ENEMY has 0% drop chance in LootTables -- confirms the wiring does not
+## force a drop where the table says there should not be one.
+func test_a_won_ordinary_enemy_room_never_drops() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.ENEMY, 1)
+	var run := FloorRun.new(plan)
+
+	FloorFightRunner.play_room(run, plan.room(0), party)
+
+	assert_eq(run.loot.size(), 0, "an ordinary enemy room must never drop, per LootTables' own table")
+
+## A wiped party does not loot the room that wiped it.
+func test_a_lost_fight_never_drops_loot() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.BOSS, 10)
+	var run := FloorRun.new(plan)
+	for p in party:
+		run.record_result(p.id, 0, 0, false) # arrives already wiped
+
+	FloorFightRunner.play_room(run, plan.room(0), party)
+
+	assert_eq(run.loot.size(), 0, "a party that cannot win must not loot the room")
+
+func test_same_floor_seed_drops_the_same_loot() -> void:
+	var plan_a := _single_room_plan_of_type(42, FloorRoom.Type.BOSS, 10)
+	var plan_b := _single_room_plan_of_type(42, FloorRoom.Type.BOSS, 10)
+	var run_a := FloorRun.new(plan_a)
+	var run_b := FloorRun.new(plan_b)
+
+	FloorFightRunner.play_room(run_a, plan_a.room(0), _make_party())
+	FloorFightRunner.play_room(run_b, plan_b.room(0), _make_party())
+
+	assert_eq(run_a.loot.size(), run_b.loot.size(), "same floor seed must drop the same number of items")
+	if run_a.loot.size() > 0:
+		assert_eq(run_a.loot[0].id, run_b.loot[0].id, "same floor seed must drop the same item")
+
+## TREASURE is not a fight room -- play_treasure_room is its own entry
+## point, and it always drops (100% per LootTables).
+func test_a_treasure_room_always_drops() -> void:
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.TREASURE, 1)
+	var run := FloorRun.new(plan)
+
+	FloorFightRunner.play_treasure_room(run, plan.room(0))
+
+	assert_eq(run.loot.size(), 1, "a treasure room (100% drop chance) must always drop")
+	assert_true(run.visited.has(0), "visiting a treasure room must mark it visited, same as a fight room")
