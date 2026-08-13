@@ -44,7 +44,17 @@ func test_clicking_the_card_toggles_it() -> void:
 func test_role_text_names_the_primary_role() -> void:
 	var card := PartyCard.new()
 	card.class_def = _make_class("priest", "Priest", CG.Style.RANGED, CG.Method.MAGICAL, CG.Role.HEALER)
-	assert_eq(card._role_text(), "HEALER")
+	assert_eq(card._role_text(), "Healer")
+	card.free()
+
+## Issue 19: "ANTI_SUPPORT" was a raw enum name with an underscore on the
+## first screen of the game. Role text must never carry one through to what
+## a player reads, whichever role it is.
+func test_role_text_never_contains_a_raw_underscore() -> void:
+	var card := PartyCard.new()
+	card.class_def = _make_class("siege_master", "Siege Master", CG.Style.SUMMONER, CG.Method.MARTIAL, CG.Role.ANTI_SUPPORT)
+	assert_false(card._role_text().contains("_"), card._role_text())
+	assert_eq(card._role_text(), "Anti Support")
 	card.free()
 
 func test_style_text_distinguishes_ranged_from_melee() -> void:
@@ -53,8 +63,8 @@ func test_style_text_distinguishes_ranged_from_melee() -> void:
 	var melee := PartyCard.new()
 	melee.class_def = _make_class("warrior", "Warrior", CG.Style.MELEE, CG.Method.MARTIAL, CG.Role.TANK)
 
-	assert_true(ranged._style_text().contains("RANGED"))
-	assert_true(melee._style_text().contains("MELEE"))
+	assert_true(ranged._style_text().contains("Ranged"))
+	assert_true(melee._style_text().contains("Melee"))
 	assert_ne(ranged._style_text(), melee._style_text())
 	ranged.free()
 	melee.free()
@@ -65,12 +75,12 @@ func test_a_healer_and_a_ranged_class_read_differently() -> void:
 	# (a class can be ranged AND the healer), so this checks both together.
 	var priest := PartyCard.new()
 	priest.class_def = _make_class("priest", "Priest", CG.Style.RANGED, CG.Method.MAGICAL, CG.Role.HEALER)
-	assert_eq(priest._role_text(), "HEALER")
-	assert_true(priest._style_text().contains("RANGED"))
+	assert_eq(priest._role_text(), "Healer")
+	assert_true(priest._style_text().contains("Ranged"))
 
 	var warrior := PartyCard.new()
 	warrior.class_def = _make_class("warrior", "Warrior", CG.Style.MELEE, CG.Method.MARTIAL, CG.Role.TANK)
-	assert_ne(warrior._role_text(), "HEALER")
+	assert_ne(warrior._role_text(), "Healer")
 
 	priest.free()
 	warrior.free()
