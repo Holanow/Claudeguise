@@ -187,10 +187,26 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 static func _resolve_move(unit: CombatUnit, intent: Intent) -> void:
 	var to_dest := intent.destination - unit.position
 	var dist := to_dest.length()
+	var target: Vector2
 	if dist <= unit.move_speed or dist <= 0.0001:
-		unit.position = intent.destination
+		target = intent.destination
 	else:
-		unit.position += to_dest.normalized() * unit.move_speed
+		target = unit.position + to_dest.normalized() * unit.move_speed
+	unit.position = _clamp_to_arena(target)
+
+## Nothing previously compared a unit's position to the arena bounds, so a
+## unit told to walk past the edge just kept going -- issue 16 measured
+## survivors twenty arena widths off the map after a full fight. Clamped
+## here, in the simulation, not in the view: the view drawing a unit at the
+## edge while the simulation thinks it is elsewhere would be worse than the
+## bug it replaces. A destination outside the arena still moves the unit
+## partway (whatever move_speed allows) and lands it on the boundary rather
+## than refusing to move at all.
+static func _clamp_to_arena(p: Vector2) -> Vector2:
+	return Vector2(
+		clampf(p.x, -CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
+		clampf(p.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT)
+	)
 
 static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: Intent, deps: SimDeps) -> void:
 	var action: ActionDef = deps.action_lookup.call(intent.action_id)
