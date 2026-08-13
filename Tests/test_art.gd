@@ -9,8 +9,44 @@ const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 ## it *looks* is not testable and is not attempted: that is what
 ## Tools/ArtPreview.tscn and the committed screenshot are for.
 
+const Registry := preload("res://Scripts/Content/Registry.gd")
+
 const CLASS_SHAPES := [&"warrior", &"priest", &"geysermancer", &"siege_master", &"abomination"]
-const ENEMY_SHAPES := [&"rat", &"grub", &"brute"]
+
+## Shapes drawn for enemies that do not exist yet. Kept deliberately; they cost
+## nothing and later floors will want them.
+const UNUSED_SHAPES := [&"rat", &"grub", &"brute"]
+
+
+func test_every_registered_class_and_enemy_has_a_shape() -> void:
+	# The check that was missing, and the reason it was missing is instructive:
+	# I wrote silhouettes named rat, grub and brute before any content existed,
+	# teal named their enemies dungeon_grunt, dungeon_archer and dungeon_cultist,
+	# and every enemy in the game drew the unknown-shape fallback for hours.
+	# Both halves were individually correct. Nothing compared them, because they
+	# are owned by different sessions and neither one is wrong on its own.
+	#
+	# Asks the Registry rather than a list typed in this file. A list here would
+	# be a second artifact by the same author as the first, and it would agree
+	# with itself forever.
+	# Enemies are reached through the encounters rather than through a registry
+	# listing, because Registry has no all_enemy_ids() and it is teal's file to
+	# add one to, not mine. This is the better question anyway: an enemy that
+	# never spawns does not need art yet, and one that spawns always does.
+	for id in Registry.all_class_ids():
+		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
+
+	var checked := 0
+	for encounter_id in Registry.all_encounter_ids():
+		var encounter := Registry.get_encounter(encounter_id)
+		for spawn in encounter.enemy_spawns:
+			var enemy_id: StringName = spawn.get("enemy_id", &"")
+			assert_true(
+				Silhouettes.has_shape(enemy_id),
+				"enemy '%s' spawns in encounter '%s' but has no silhouette" % [enemy_id, encounter_id]
+			)
+			checked += 1
+	assert_true(checked > 0, "no enemy spawns were checked; this test would pass on an empty game")
 
 
 func test_every_class_in_the_readme_has_a_shape() -> void:
@@ -21,9 +57,9 @@ func test_every_class_in_the_readme_has_a_shape() -> void:
 		assert_true(Silhouettes.has_shape(id), "no silhouette for class '%s'" % id)
 
 
-func test_the_enemy_shapes_exist() -> void:
-	for id in ENEMY_SHAPES:
-		assert_true(Silhouettes.has_shape(id), "no silhouette for enemy '%s'" % id)
+func test_the_unused_shapes_are_still_there() -> void:
+	for id in UNUSED_SHAPES:
+		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
 
 
 func test_an_unknown_shape_is_reported_as_unknown() -> void:
@@ -35,7 +71,7 @@ func test_an_unknown_shape_is_reported_as_unknown() -> void:
 
 func test_shape_ids_are_sorted_and_complete() -> void:
 	var ids := Silhouettes.shape_ids()
-	assert_eq(ids.size(), CLASS_SHAPES.size() + ENEMY_SHAPES.size())
+	assert_true(ids.size() >= CLASS_SHAPES.size() + UNUSED_SHAPES.size())
 	var sorted := ids.duplicate()
 	sorted.sort()
 	assert_eq(ids, sorted, "shape_ids must be deterministic")
