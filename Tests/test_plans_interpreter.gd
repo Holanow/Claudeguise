@@ -146,3 +146,25 @@ func test_valid_ops_only_produce_no_error() -> void:
 	PlanInterpreter.last_error = ""
 	PlanInterpreter.decide(state, attacker)
 	assert_eq(PlanInterpreter.last_error, "")
+
+
+## Issue 21a: describe_op is display-only, called by pike's pawn-inspect
+## screen, never by decide()/condition_holds(). Covers every whitelisted op
+## plus the unknown-op fallback.
+func test_describe_op_covers_every_whitelisted_op() -> void:
+	assert_eq(PlanInterpreter.describe_op(&"always", {}), "always")
+	assert_eq(PlanInterpreter.describe_op(&"self_hp_below_fraction", {"fraction": 0.35}), "self hp below 35%")
+	assert_eq(PlanInterpreter.describe_op(&"ally_below_hp_fraction", {"fraction": 0.5}), "an ally's hp below 50%")
+	assert_eq(PlanInterpreter.describe_op(&"self_resource_at_least", {"amount": 60}), "self resource at least 60")
+	assert_eq(PlanInterpreter.describe_op(&"enemy_in_range", {"range": 220.0}), "an enemy within 220 units")
+	assert_eq(PlanInterpreter.describe_op(&"target_nearest_enemy", {}), "the nearest enemy")
+	assert_eq(PlanInterpreter.describe_op(&"target_lowest_hp_fraction_ally", {}), "the ally with the lowest hp")
+	assert_eq(PlanInterpreter.describe_op(&"target_lowest_hp_fraction_enemy", {}), "the enemy with the lowest hp")
+	assert_eq(PlanInterpreter.describe_op(&"target_self", {}), "self")
+	assert_eq(PlanInterpreter.describe_op(&"use_action", {"action_id": &"warrior_strike"}), "use Strike")
+	assert_eq(PlanInterpreter.describe_op(&"once", {}), "once")
+
+
+func test_describe_op_unknown_op_names_itself_rather_than_going_blank() -> void:
+	var described := PlanInterpreter.describe_op(&"do_a_barrel_roll", {})
+	assert_true(described.contains("do_a_barrel_roll"), "unknown op description should still name the op")
