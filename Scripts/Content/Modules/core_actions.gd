@@ -30,6 +30,21 @@ static func actions() -> Array[ActionDef]:
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing. The Warrior's bread and butter.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
 		_action_status(&"warrior_guard", "Guard", "Raises a block, cutting incoming damage for a while. Spends Rage to buy safety instead of dealing it.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
 		_action(&"warrior_execute", "Execute", "A heavy finishing blow that spends most of the Warrior's Rage in one swing. Hits far harder than a Strike.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 60, 40),
+		# Issue 30/TAUNTING: self-targeted (target_self, same pattern
+		# build_siege_engine uses), no damage of its own -- the status is
+		# the whole effect. 350 radius covers a real engagement (every
+		# enemy action in the bestiary ranges 200-270, so a Warrior that
+		# has closed to a normal fighting distance covers the room without
+		# this reaching arena-wide from any position -- diagonal is ~1100).
+		# duration_ticks 240 (8s) and cooldown_ticks the same: the Warrior
+		# can hold the room's attention essentially permanently once
+		# established, recasting the instant it lapses, but a fight that
+		# opens with the Warrior out of position or dead loses that cover
+		# entirely rather than it running on a timer regardless. Costs no
+		# Rage on purpose -- a shout should not compete with Execute for
+		# the same resource, and it needs to be castable turn one before
+		# any Rage has built at all.
+		_action_taunt(&"warrior_taunt", "Taunt", "A shout that draws every nearby enemy's attention, holding it while it lasts.", 6, 10, 350.0, 240),
 
 		_action_heal(&"priest_heal", "Heal", "Restores an ally's health from range. The Priest's whole job in one action.", CG.DamageType.DIVINE, 220.0, 8, 10, 1.4, 25),
 		_action(&"priest_smite", "Smite", "A ranged bolt of divine light. What the Priest does when nobody needs healing.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true),
@@ -177,6 +192,21 @@ static func _action_status(id: StringName, display_name: String, description: St
 	a.applies_status_enabled = true
 	a.applies_status = status
 	a.status_duration_ticks = duration_ticks
+	return a
+
+## Issue 30: self-targeted (range 0.0, no line-of-sight check, no damage --
+## same "the status is the whole effect" shape _action_summon already uses)
+## application of TAUNTING, with a real taunt_radius and a cooldown so it
+## cannot be refreshed before it has actually lapsed. `_action_status` does
+## not cover this: it has no `taunt_radius` or `cooldown_ticks` parameter,
+## and every existing caller of it is a damage-dealing status application
+## where those two would not mean anything.
+static func _action_taunt(id: StringName, display_name: String, description: String, wind_up: int, recover: int, taunt_radius: float, duration_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, CG.DamageType.PHYSICAL, 0.0, wind_up, recover, 0.0, 0, duration_ticks)
+	a.applies_status_enabled = true
+	a.applies_status = CG.Status.TAUNTING
+	a.status_duration_ticks = duration_ticks
+	a.taunt_radius = taunt_radius
 	return a
 
 ## Issue 12: self-targeted (range 0.0, no line-of-sight check), deals no
