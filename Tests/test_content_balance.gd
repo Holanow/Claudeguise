@@ -131,6 +131,38 @@ func test_attack_power_with_rng_varies_within_the_declared_spread() -> void:
 	assert_true(saw_below_flat and saw_above_flat, "50 rolls should land on both sides of the flat value")
 
 
+func test_mana_regenerates_slower_than_energy() -> void:
+	var mana_unit := CombatUnit.new()
+	mana_unit.resource_kind = CG.ResourceKind.MANA
+	mana_unit.resource_max = 100
+	var energy_unit := CombatUnit.new()
+	energy_unit.resource_kind = CG.ResourceKind.ENERGY
+	energy_unit.resource_max = 100
+	var mana_rate := Balance.resource_regen_per_tick(mana_unit)
+	var energy_rate := Balance.resource_regen_per_tick(energy_unit)
+	assert_true(mana_rate > 0.0)
+	assert_true(energy_rate > mana_rate, "Energy should recover faster than Mana per README.md")
+
+
+func test_rage_never_regenerates_on_a_timer() -> void:
+	var rage_unit := CombatUnit.new()
+	rage_unit.resource_kind = CG.ResourceKind.RAGE
+	rage_unit.resource_max = 100
+	assert_almost_eq(Balance.resource_regen_per_tick(rage_unit), 0.0)
+
+
+func test_rage_gain_per_attack_only_applies_to_rage() -> void:
+	var rage_unit := CombatUnit.new()
+	rage_unit.resource_kind = CG.ResourceKind.RAGE
+	rage_unit.resource_max = 100
+	assert_true(Balance.rage_gain_per_attack(rage_unit) > 0.0)
+
+	var mana_unit := CombatUnit.new()
+	mana_unit.resource_kind = CG.ResourceKind.MANA
+	mana_unit.resource_max = 100
+	assert_almost_eq(Balance.rage_gain_per_attack(mana_unit), 0.0)
+
+
 func test_attack_power_variance_is_reproducible_from_the_same_seed() -> void:
 	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 6})
 	var rng_a := RandomNumberGenerator.new()
