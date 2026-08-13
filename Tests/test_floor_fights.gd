@@ -210,3 +210,31 @@ func test_difficulty_makes_rooms_measurably_harder_and_room_one_is_winnable() ->
 	# beats the full room cleanly regardless -- more/harder content, or
 	# issue 7's tuning pass, is what would make this measurable, and
 	# neither is this issue's to build. Not asserting a fabricated gap here.
+
+# ---------------------------------------------------------------------------
+# first floor phase: MINIBOSS and BOSS are distinct rooms
+# ---------------------------------------------------------------------------
+
+## Before this: both room types resolved to the same encounter id, so a
+## "boss room" and a "miniboss room" were the identical fight with a
+## different label. This only checks the id, not any particular content --
+## which ids they are is a call for whoever authors real boss content
+## later, not fixed here.
+func test_miniboss_and_boss_rooms_are_different_encounters() -> void:
+	var miniboss_room := FloorRoom.new()
+	miniboss_room.id = 0
+	miniboss_room.type = FloorRoom.Type.MINIBOSS
+	miniboss_room.difficulty = 5
+
+	var boss_room := FloorRoom.new()
+	boss_room.id = 1
+	boss_room.type = FloorRoom.Type.BOSS
+	boss_room.difficulty = 10
+
+	var miniboss_encounter := FloorFightRunner._encounter_for(miniboss_room)
+	var boss_encounter := FloorFightRunner._encounter_for(boss_room)
+
+	assert_ne(
+		miniboss_encounter.id, boss_encounter.id,
+		"a miniboss room and a boss room must not be the same fight"
+	)

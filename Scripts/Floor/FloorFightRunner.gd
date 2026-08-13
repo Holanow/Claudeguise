@@ -96,11 +96,20 @@ static func _carry_party_condition_into(state: CombatState, run: FloorRun, party
 ## better ones exist. `enemy_spawns` *count* is still the only thing
 ## difficulty is allowed to scale, clamped to whichever encounter's own
 ## spawn list.
+##
+## First floor phase: MINIBOSS and BOSS no longer share an id. Real boss
+## content (The Warden, the Rat King) is item D, not this change -- until
+## it exists, BOSS points at the toughest thing already registered
+## (`floor1_chokepoint`: the full 10-enemy roster behind a wall, the
+## hardest fight in the game today) rather than reusing MINIBOSS's
+## `floor1_ghoul_den` verbatim. `floor1_cover` and `floor1_hazard` remain
+## unused by any room type; flagged on the board rather than folded in
+## here without asking, since it's not the smallest change.
 const _ENCOUNTER_FOR_TYPE := {
 	FloorRoom.Type.ENEMY: &"floor1_room1",
 	FloorRoom.Type.BIG_ENEMY: &"floor1_horde",
 	FloorRoom.Type.MINIBOSS: &"floor1_ghoul_den",
-	FloorRoom.Type.BOSS: &"floor1_ghoul_den",
+	FloorRoom.Type.BOSS: &"floor1_chokepoint",
 }
 
 static func _encounter_for(room: FloorRoom) -> Encounter:
