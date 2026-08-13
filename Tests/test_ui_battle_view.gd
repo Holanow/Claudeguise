@@ -57,3 +57,31 @@ func test_consume_events_does_not_reprocess_old_events() -> void:
 	view.consume_events()
 	assert_eq(view.event_cursor, 3)
 	view.free()
+
+## Issue 24: CombatLogView.line_for_event now drops a poison/burn tick's log
+## line, and the two paths (log, floater) both read straight from the event
+## in consume_events() -- neither calls the other. This is the check that the
+## affliction really is "still visible somewhere" once the log stops saying
+## it: the floater must fire from the event itself regardless of what the log
+## chose to print, which is what makes dropping the line safe rather than
+## just quieter.
+func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_drops_it() -> void:
+	var state := _make_state_with_units()
+	var view := BattleView.new()
+	view.state = state
+	view.event_cursor = 0
+	view._arena = Node2D.new()
+
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 1
+	e.amount_before_mitigation = 1
+	e.status = CG.Status.POISON
+	state.emit(e)
+	view.consume_events()
+
+	assert_eq(view._arena.get_child_count(), 1,
+		"a poison tick must still spawn a floating number even though the log line is dropped")
+	view._arena.free()
+	view.free()
