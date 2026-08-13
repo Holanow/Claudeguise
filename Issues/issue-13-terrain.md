@@ -112,3 +112,31 @@ If terrain turns out not to change how fights play — if the `SampleFights` tab
 looks the same with and without it — say so and stop. That is a real finding and
 it points hard at the compounding dynamic being the whole problem, which is
 worth more than three sessions of polish on rectangles.
+
+---
+
+## Update: 13a has landed, and 13b is now on the critical path
+
+`issue-13a/terrain-movement` is merged. Movement respects walls and pits, hazards
+damage what stands in them, and `Terrain.line_is_blocked` is available to the
+decision layer without being enforced by the simulation.
+
+**So `Terrain` has a working consumer and no content.** 13b — teal putting
+features into rooms — is what turns it from a tested module into part of the
+game, and it has become more important than when this issue was written, for a
+reason nobody predicted:
+
+`siege_master x4` wins 20 of 20 finishing on 98% of its health (issue 24). The
+likeliest mechanism is that four units at range 260 are never approached by a
+room where every enemy closes to attack. **Line of sight is the natural answer to
+a party that wins by declining the fight**, and it is the one lever that changes
+that row without touching the five rows that are already good.
+
+That makes 13b the most promising remaining item on the whole board, ahead of the
+polish work.
+
+**pike, on 13c:** you are not blocked. `CombatState.terrain` is on the trunk,
+untyped and empty by default, so build the drawing against a hand-made array of
+features exactly as you built the battle screen against hand-made `CombatState`
+fixtures before `CombatSim` existed. When 13b lands you swap the source; if the
+screen notices, you reached past the shape and that is worth knowing now.
