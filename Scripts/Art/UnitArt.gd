@@ -82,11 +82,22 @@ static func _load(path: String) -> Texture2D:
 		return null
 	return ImageTexture.create_from_image(image)
 
-## Draws the texture centred on the origin, scaled so its longest side spans the
+## Draws the texture centred on `center`, scaled so its longest side spans the
 ## unit's diameter. Aspect ratio is preserved: art that is taller than it is wide
 ## stays that way rather than being squashed into a square, because a squashed
 ## sprite reads as a bug and a slightly small one does not.
-static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left: bool) -> void:
+##
+## `center` is a plain additive offset on the drawn rect, the same way
+## `Silhouettes.build_parts` adds it to every polygon point -- deliberately NOT
+## a `draw_set_transform` call. A caller that has already established its own
+## transform before reaching here (`Tools/ArtPreview.gd` does, to lay out a
+## grid of shapes in one `_draw()`) would have that transform silently reset
+## to identity by a transform call keyed on `center`, which is Vector2.ZERO in
+## the overwhelmingly common case -- found exactly that way: every unit with
+## real art on disk rendered as a blank circle in ArtPreview's grid while the
+## still-polygon units next to them rendered fine, because the polygon path
+## never touches the transform and this one used to.
+static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left: bool, center: Vector2 = Vector2.ZERO) -> void:
 	var size := Vector2(tex.get_width(), tex.get_height())
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
@@ -101,7 +112,7 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	var drawn := size * scale
 	if facing_left:
 		drawn.x = -drawn.x
-	canvas.draw_texture_rect(tex, Rect2(-drawn * 0.5, drawn), false)
+	canvas.draw_texture_rect(tex, Rect2(center - drawn * 0.5, drawn), false)
 
 ## Every id the game will look for a file under. Used by the test that keeps
 ## Assets/Units/README.md honest, so the instructions can never drift from the

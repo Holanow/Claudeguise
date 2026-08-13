@@ -291,9 +291,9 @@ static func draw_unit(
 	# replaces the art, which is a nasty thing to discover.
 	var tex := UnitArt.texture_for(shape_id, team)
 	if tex != null:
-		canvas.draw_set_transform(center, 0.0, Vector2.ONE)
-		UnitArt.draw(canvas, tex, radius, facing_left)
-		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		# `center` is an additive offset here, not a transform reset -- see the
+		# comment on UnitArt.draw for why that distinction is load-bearing.
+		UnitArt.draw(canvas, tex, radius, facing_left, center)
 		return
 
 	for part in build_parts(shape_id, radius, team, accent, facing_left, center):
