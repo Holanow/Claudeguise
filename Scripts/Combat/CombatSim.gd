@@ -10,6 +10,7 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
+const Projectile := preload("res://Scripts/Core/Projectile.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## The simulation. Owns every mutation of a CombatUnit and every event emitted.
@@ -72,6 +73,7 @@ static func step(state: CombatState, deps: SimDeps = null) -> void:
 	_decide_phase(state, deps)
 	_resolve_phase(state, deps)
 	_tick_phase(state, deps)
+	_tick_projectiles(state, deps)
 	_check_outcome(state)
 
 ## Runs to completion. Used by tests and by the headless balance checks; the
@@ -480,16 +482,21 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	var targets := _resolve_targets(state, unit, action)
 	if targets.is_empty():
 		state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
-	for target in targets:
-		_apply_action_effect(state, unit, target, action, deps)
-
-	## Rage gains only from a landed hit, not from committing or from a miss:
-	## a Rage pawn swinging at nothing (out of range at landing) must not
-	## fill, per issue 4's own acceptance criterion for it.
-	if not targets.is_empty() and unit.resource_kind == CG.ResourceKind.RAGE:
-		var gained := _stochastic_round(state, deps.rage_gain_on_attack.call(unit))
-		if gained > 0:
-			unit.resource = clampi(unit.resource + gained, 0, unit.resource_max)
+	elif action.projectile_speed > 0.0:
+		## Issue 18: range and line-of-sight are still checked right here, at
+		## the moment the wind-up completes, exactly as an instant action --
+		## an out-of-range or blocked target still MISSes immediately above,
+		## nothing launches. The only change for a target that IS resolved:
+		## the effect does not land yet. `_spawn_projectile` aims at
+		## `targets[0]` (the primary) only; splash, if any, is regathered
+		## around the target's live position at impact, not fire time -- see
+		## `_splash_targets`'s own doc comment.
+		_spawn_projectile(state, unit, targets[0], action, deps)
+	else:
+		for target in targets:
+			_apply_action_effect(state, unit, target, action, deps)
+		if not targets.is_empty():
+			_on_hit_landed(state, unit, deps)
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
@@ -498,6 +505,19 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
+
+## Rage gains only from a landed hit, not from committing or from a miss: a
+## Rage pawn swinging at nothing (out of range at landing) must not fill, per
+## issue 4's own acceptance criterion for it. Issue 18 split this out of
+## `_fire_action` because "landed" now happens at two different moments: the
+## same tick as firing for an instant action, or a later tick at projectile
+## impact -- `_advance_projectile` calls this too, once it resolves a hit.
+static func _on_hit_landed(state: CombatState, source: CombatUnit, deps: SimDeps) -> void:
+	if source.resource_kind != CG.ResourceKind.RAGE:
+		return
+	var gained := _stochastic_round(state, deps.rage_gain_on_attack.call(source))
+	if gained > 0:
+		source.resource = clampi(source.resource + gained, 0, source.resource_max)
 
 ## Issue 12: the one place `state.units` grows after `build()`. Appends only --
 ## never inserts, never reorders -- so a new unit's id is `state.units.size()`
@@ -551,11 +571,17 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 		return out
 	if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, primary.position):
 		return out
+	return _splash_targets(state, primary, action)
 
+## Issue 18: pulled out of `_resolve_targets` so a projectile's impact can
+## gather splash around the target's *live* position at the tick it lands,
+## not around whatever the primary's position was at fire time. An explosion
+## should land where the shot lands.
+static func _splash_targets(state: CombatState, primary: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
+	var out: Array[CombatUnit] = []
 	if action.splash_radius <= 0.0:
 		out.append(primary)
 		return out
-
 	for other in state.living(primary.team):
 		if other.position.distance_to(primary.position) <= action.splash_radius:
 			out.append(other)
@@ -622,6 +648,109 @@ static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUn
 	var travel := minf(distance, dist)
 	var step := to_caster.normalized() * travel
 	target.position = _sweep(state, target, step)
+
+# ---------------------------------------------------------------------------
+# projectiles
+# ---------------------------------------------------------------------------
+
+## Issue 18: launched instead of resolving instantly when `action.projectile_speed
+## > 0.0`. `aim_point` is the target's position at this exact moment and is
+## never recomputed -- no homing, which is what lets a target walk out of the
+## way (it isn't there when the shot arrives) as well as walk into one early
+## (`_advance_projectile`'s own hit check, below). `recover_ticks` and any
+## RAGE-on-commit bookkeeping already happened in `_fire_action` before this
+## is called and do not wait for impact; only the projectile's own effect
+## (`_apply_action_effect`) and its RAGE-on-landed-hit gain (`_on_hit_landed`)
+## are deferred to `_advance_projectile`.
+static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	var p := Projectile.new()
+	p.id = state.projectiles.size()
+	p.source_id = caster.id
+	p.target_id = target.id
+	p.action_id = action.id
+	p.origin = caster.position
+	p.aim_point = target.position
+	p.position = caster.position
+	p.speed = action.projectile_speed
+	p.spawn_tick = state.tick
+	state.projectiles.append(p)
+
+## Advances every unresolved projectile by one tick and resolves the ones
+## that arrive. Runs after `_tick_phase` and before `_check_outcome`, so a hit
+## that would end the fight this tick still lands before the outcome is
+## decided -- the same ordering guarantee every other effect in a tick
+## already gets.
+##
+## Scans from `state.next_unresolved_projectile` rather than 0: resolved
+## entries stay in the array in place (same "dead units stay in place"
+## convention `state.units` already uses -- nothing iterating mid-tick should
+## see the array reshuffle), and a long, hasted fight can accumulate
+## thousands of them. Correctness never depends on the cursor: the scan below
+## still covers cursor..end in full every tick, so a fast projectile launched
+## after a slower one is still found and resolved even though it isn't at the
+## front. The cursor only buys speed, on the assumption that resolution is
+## *roughly* in launch order -- if that assumption turns out false in
+## practice, this degrades toward scanning the same already-resolved prefix
+## repeatedly, not toward missing anything.
+static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
+	var i := state.next_unresolved_projectile
+	while i < state.projectiles.size():
+		var p: Projectile = state.projectiles[i]
+		if not p.resolved:
+			_advance_projectile(state, p, deps)
+		i += 1
+	while state.next_unresolved_projectile < state.projectiles.size() \
+			and state.projectiles[state.next_unresolved_projectile].resolved:
+		state.next_unresolved_projectile += 1
+
+## Moves `p` up to `p.speed` toward its frozen `aim_point`, then resolves it
+## if either condition is met this tick:
+##
+## 1. Its target is still alive and `p`'s new position is within the
+##    target's own `radius` of the target's *current* position -- reusing
+##    the field the movement code already treats as a unit's physical size
+##    rather than inventing a second "how close counts as a hit" number.
+##    This is what lets a target walk into an incoming shot early.
+## 2. It has reached `aim_point` without (1) firing -- resolves as an
+##    ordinary MISS, the same event an out-of-range shot already gets today.
+##    This is what lets a target walk out of the way: nothing is at the aim
+##    point anymore.
+##
+## A target that died before impact simply never satisfies (1) again (`state.unit`
+## still resolves the id -- ids are stable forever -- but `.alive` is false),
+## so it falls through to (2), an ordinary miss, with no cancellation path to
+## build. A dead source needs nothing special at all: everything this needs
+## (`source_id`, `target_id`, `action_id`, `aim_point`) was captured at launch.
+##
+## `requires_line_of_sight` is re-checked every tick against the live
+## predicate (`Terrain.line_is_blocked`, projectile's current position to the
+## target's current position) rather than once at fire time, so a pillar
+## sliding into the path blocks that tick's hit-check with no special case.
+static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps) -> void:
+	var to_aim := p.aim_point - p.position
+	var remaining := to_aim.length()
+	if p.speed >= remaining or remaining <= 0.0001:
+		p.position = p.aim_point
+	else:
+		p.position = p.position + to_aim.normalized() * p.speed
+
+	var action: ActionDef = deps.action_lookup.call(p.action_id)
+	var target := state.unit(p.target_id)
+	var source := state.unit(p.source_id)
+	if action != null and target != null and target.alive and source != null:
+		var in_range := p.position.distance_to(target.position) <= target.radius
+		var blocked := action.requires_line_of_sight \
+			and Terrain.line_is_blocked(state.terrain, p.position, target.position)
+		if in_range and not blocked:
+			p.resolved = true
+			for t in _splash_targets(state, target, action):
+				_apply_action_effect(state, source, t, action, deps)
+			_on_hit_landed(state, source, deps)
+			return
+
+	if p.position == p.aim_point:
+		p.resolved = true
+		state.emit(_event(CG.EventKind.MISS, state.tick, p.source_id, p.target_id, p.action_id))
 
 # ---------------------------------------------------------------------------
 # outcome
