@@ -7,6 +7,7 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## What a unit does when no plan fires. Every unit has this, including enemies,
 ## which have no plans at all in this slice.
@@ -79,6 +80,15 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	var is_ranged := attack_action.range_units > MELEE_RANGE_THRESHOLD
 
 	if is_ranged:
+		# Issue 13b: a WALL or PILLAR between here and the target denies the
+		# shot even at zero distance -- range alone was never the whole
+		# story, "can see it" was just never false before terrain existed.
+		# Walking toward the target is the same fallback an out-of-range
+		# shot already gets; the no-pathfinding slide in CombatSim's own
+		# movement (issue 13a) carries a unit around the obstacle same as
+		# it does for melee, so this does not need its own routing.
+		if Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+			return Intent.move_to(target.position)
 		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
 		if dist < kite_min:

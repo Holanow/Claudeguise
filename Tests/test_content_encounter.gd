@@ -137,3 +137,40 @@ func test_a_winning_party_pays_a_real_cost() -> void:
 	print("floor1_room1: siege_master/geysermancer/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
 	assert_true(r["wins"] >= 17, "this comp should still win most of the time")
 	assert_true(r["median_cost"] >= 0.0 and r["median_cost"] <= 40.0, "median cost on a win should be <=40%%, was %.0f%%" % r["median_cost"])
+
+
+## Issue 13b's cover room: same lever the wall would have tested (terrain
+## denying a party that wins by standing at range), against a room that
+## doesn't hit the movement-corner defect below. If a pillar were decoration,
+## siege_master x4 -- issue 24's free-win composition -- would look the same
+## with and without it, since nothing else about the room changes its range
+## or hp.
+func test_cover_changes_the_fight_for_a_pure_ranged_party() -> void:
+	var open_room := Registry.get_encounter(&"floor1_room1")
+	var cover := Registry.get_encounter(&"floor1_cover")
+	assert_not_null(open_room)
+	assert_not_null(cover)
+	assert_true(cover.terrain.size() > 0, "floor1_cover should carry pillars")
+
+	var differs := false
+	for seed in 5:
+		var state_open := CombatSim.build(_party_of(&"siege_master", 4), open_room, seed)
+		CombatSim.run(state_open)
+		var state_cover := CombatSim.build(_party_of(&"siege_master", 4), cover, seed)
+		CombatSim.run(state_cover)
+		print("cover seed %d: open room ticks=%d  vs  cover room ticks=%d" % [seed, state_open.tick, state_cover.tick])
+		if _differs({"outcome": state_open.outcome, "ticks": state_open.tick}, {"outcome": state_cover.outcome, "ticks": state_cover.tick}):
+			differs = true
+	assert_true(differs, "floor1_cover's pillars should change the fight on at least one of 5 seeds, or they are decoration")
+
+
+## Issue 13b criterion 1's chokepoint half is NOT met, and said so rather than
+## faked: `floor1_chokepoint` exists in floor1_encounters.gd but is
+## deliberately unregistered (see its own doc comment) because it stalls
+## every fight to a 3600-tick draw -- a Scripts/Combat/** movement defect
+## (a unit stuck creeping toward a target beyond a wall's corner instead of
+## sliding around it), reported on the board and not mine to fix. This test
+## exists only so the exclusion has a name a future reader can grep for
+## rather than discovering the missing room by its absence.
+func test_the_chokepoint_room_is_not_registered_pending_a_movement_fix() -> void:
+	assert_eq(Registry.get_encounter(&"floor1_chokepoint"), null, "floor1_chokepoint should stay unregistered until Scripts/Combat/CombatSim.gd's _resolve_move handles a target beyond a wall corner")
