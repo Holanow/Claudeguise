@@ -12,10 +12,11 @@ const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
 
 ## Issue 21b: pawn inspection between fights. Issue 6 added editing: reorder a
-## pawn's plans and swap the targeting or action inside a block. These build
-## fixtures directly (same reasoning as test_ui_party_card.gd) so they do not
-## depend on Registry having content, except the one test that specifically
-## checks against real registered actions.
+## pawn's plans, swap the targeting or action inside a block, and swap or
+## retune the condition that gates a plan. These build fixtures directly (same
+## reasoning as test_ui_party_card.gd) so they do not depend on Registry
+## having content, except the one test that specifically checks against real
+## registered actions.
 
 func _make_action(id: String, name: String, description: String = "") -> ActionDef:
 	var a := ActionDef.new()
@@ -360,6 +361,123 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	assert_not_null(intent)
 	assert_eq(intent.action_id, &"test_alt", "action swap should reach the interpreter, not just the screen")
 	panel.free()
+
+## Issue 6 follow-up: conditions are now editable too. Swapping the op from
+## one that reads false to `always` reaches PlanInterpreter.condition_holds,
+## the same way the earlier targeting/action tests reach decide() -- the
+## assertion that matters is the real interpreter's answer changing, not the
+## screen's text.
+func test_condition_op_swap_changes_whether_it_holds_in_a_fight() -> void:
+	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_resource_at_least"
+	condition.args = {"amount": 999}
+	var plan := _make_plan("Guarded")
+	plan.condition = condition
+	pawn.plans = [plan]
+
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, enemy)
+	assert_false(PlanInterpreter.condition_holds(state, attacker, plan), "resource 0 should not clear amount 999")
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._set_condition_op(plan, &"always")
+
+	assert_eq(condition.op, &"always")
+	assert_eq(condition.args, {})
+	assert_true(PlanInterpreter.condition_holds(state, attacker, plan), "condition swap should reach the interpreter")
+	panel.free()
+
+## Retuning a condition's own value (not just swapping its op) must also
+## reach the real interpreter -- a fraction edit that turns a false read into
+## a true one.
+func test_condition_value_edit_changes_the_threshold_in_a_fight() -> void:
+	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_hp_below_fraction"
+	condition.args = {"fraction": 0.1}
+	var plan := _make_plan("Guarded")
+	plan.condition = condition
+	pawn.plans = [plan]
+
+	# 95%, not full hp: below a 99% threshold and not below a 10% one, so the
+	# same unit reads false before the edit and true after it with nothing
+	# else changing -- the edit is what moves the answer, not the fixture.
+	var mostly_healthy := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO, 0.95)
+	var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(mostly_healthy, enemy)
+	assert_false(PlanInterpreter.condition_holds(state, mostly_healthy, plan), "95% hp should not read below a 10% threshold")
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._set_condition_arg(condition, "fraction", 0.99)
+
+	assert_almost_eq(float(condition.args.get("fraction")), 0.99)
+	assert_true(PlanInterpreter.condition_holds(state, mostly_healthy, plan), "value edit should reach the interpreter")
+	panel.free()
+
+## A null condition means "always" to PlanInterpreter (`condition_holds`
+## returns true with nothing to evaluate); picking a real op from that state
+## must create the block rather than being a no-op or a crash.
+func test_editing_a_null_condition_creates_a_real_block() -> void:
+	var pawn := _make_pawn()
+	var plan := _make_plan("No condition yet")
+	plan.condition = null
+	pawn.plans = [plan]
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._set_condition_op(plan, &"enemy_in_range")
+
+	assert_not_null(plan.condition)
+	assert_eq(plan.condition.op, &"enemy_in_range")
+	assert_eq(plan.condition.args, {"range": 100.0})
+	panel.free()
+
+## The condition picker offers every op PlanInterpreter whitelists, no more
+## and no fewer -- same guarantee the targeting/action pickers already give.
+func test_condition_picker_offers_every_condition_op() -> void:
+	var pawn := _make_pawn()
+	var plan := _make_plan("Any condition")
+	plan.condition = null
+	pawn.plans = [plan]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var pickers := _find_option_buttons(panel._detail_box)
+	var condition_picker: OptionButton = null
+	for p in pickers:
+		if p.item_count == PlanInterpreter.CONDITION_OPS.size():
+			condition_picker = p
+	assert_not_null(condition_picker, "expected one picker offering all %d condition ops" % PlanInterpreter.CONDITION_OPS.size())
+	panel.free()
+
+func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = id
+	u.team = team
+	u.position = pos
+	u.hp_max = 100
+	u.hp = int(100.0 * hp_frac)
+	u.resource_max = 100
+	u.resource = 0
+	u.focus_id = -1
+	u.pawn = null
+	return u
+
+func _state_with(a: CombatUnit, b: CombatUnit) -> CombatState:
+	var state := CombatState.new(0)
+	state.units.append(a)
+	state.units.append(b)
+	return state
 
 func _find_buttons(node: Node) -> Array:
 	var out := []
