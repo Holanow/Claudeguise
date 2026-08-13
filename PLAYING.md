@@ -57,14 +57,22 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
   and now takes it to 77% — but a fight nobody in the room can reach is still
   the weakest thing in the slice. Issues 24 and 31.
 
-  **I was wrong about the fix and it is worth knowing why**, because it is the
-  most interesting thing measured all night. I was sure cover was the answer: a
-  wall denies the long shot. Measured, cover made the ranged party *stronger*
-  and three times faster (92% health, 3 seconds, against 77% and 10 in the open
-  room). Line of sight is symmetric, and the side with the longer reach chooses
-  which side of the pillar the fight happens on. **Cover is a tool for whoever
-  out-ranges the room.** Issue 31 goes after the bestiary instead: something
-  fast, something that reaches, or something that starts already close.
+  **Terrain was my answer to this and it is not the answer**, which took two
+  wrong turns to establish and is the most useful thing measured all night. I
+  was sure a wall would deny the long shot. Then I compared the cover room
+  against the plain one and concluded the opposite, that cover *helps* whoever
+  out-ranges the room. Both readings were wrong: the two rooms have ten enemies
+  and three, so I was comparing different fights and blaming the walls.
+
+  Held properly still, same enemies and same party with only the terrain
+  changing, pillars do **nothing at all** to four `siege_master` — the same 20
+  wins, the same 77% health, the same 341-tick median — and they *help* the
+  parties that have to walk in. So the back line is untouchable with or without
+  cover, and issue 31 goes after the bestiary instead: something fast, something
+  that reaches, or something that starts already close.
+- **A room with a wall across it currently does not resolve.** Four ranged units
+  will stand still and fire into that wall until the clock runs out. Issue 34,
+  and it is the reason `floor1_chokepoint` is built but not in the game yet.
 - **The floor is not a difficulty curve.** Rooms carry damage forward correctly,
   but room type does not yet pick an encounter, so difficulty changes how many
   enemies rather than which fight. Issue 27.
