@@ -6,6 +6,7 @@ const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+const Palette := preload("res://Scripts/Core/Palette.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Real time, with a pause: the view accumulates wall-clock delta and spends it
@@ -115,4 +116,12 @@ func test_space_bar_toggles_pause() -> void:
 	assert_true(view.paused)
 	view._unhandled_input(press)
 	assert_false(view.paused)
+	view.free()
+
+## Issue 18 criterion 3: every control at least TOUCH_TARGET_MIN on its
+## short side, asserted rather than eyeballed. Unset, a Button's default
+## minimum height comes in under 48 and looks fine in a screenshot anyway.
+func test_hud_buttons_meet_the_minimum_touch_target() -> void:
+	var view = _spawn_battle_view()
+	assert_true(view._pause_button.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	view.free()

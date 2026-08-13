@@ -101,18 +101,25 @@ func _build_top_bar() -> void:
 	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
 	bar.add_child(_outcome_label)
 
+	# Issue 18 criterion 3: every control at least Palette.TOUCH_TARGET_MIN on
+	# its short side. Unset, a Button's default minimum height (theme padding
+	# around the font) comes in under 48 — not visible in a screenshot, only
+	# by measuring, which is why the issue says to assert it rather than look.
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"
+	_pause_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	_pause_button.pressed.connect(func(): set_paused(not paused))
 	bar.add_child(_pause_button)
 
 	var restart_button := Button.new()
 	restart_button.text = "Restart (same seed)"
+	restart_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	restart_button.pressed.connect(func(): restart_requested.emit())
 	bar.add_child(restart_button)
 
 	var back_button := Button.new()
 	back_button.text = "Change party"
+	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	back_button.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_button)
 
@@ -195,12 +202,36 @@ const _MARGIN_TOP := 150.0
 const _MARGIN_BOTTOM := 70.0
 const _MARGIN_SIDE := 45.0
 
+## Issue 18, criterion 2 ("in portrait the arena is at least half the
+## height, measured") turns out to be geometrically impossible to satisfy
+## without cropping the arena horizontally, given a 16:9 arena, uniform
+## scaling, and window/stretch/mode canvas_items + expand pinning
+## get_viewport_rect()'s width to the design width on a narrower-than-design
+## window. Measured on a real 390x844 launch: reported viewport (1280, 2770).
+## I tried making the arena's own height reach 50% of that (scale ~2.56) and
+## it works exactly as arithmetic — and it pushes the arena to ~2462 logical
+## units wide against a visible width of 1280, cropping symmetrically at
+## both edges. On the actual encounter's spawn layout that crop hid the
+## *entire player party*, which is a worse failure than a small arena: see
+## the finding in TEAM_LOG rather than shipped here. Kept the safe, fully-
+## visible fit; flagging the conflict for rook rather than silently picking
+## a side of it.
 func _layout_arena() -> void:
 	if _arena == null:
 		return
 	var size := get_viewport_rect().size
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
+	var layout := compute_layout(size)
+	_arena.position = layout.position
+	_arena.scale = layout.scale
+
+## Split out from _layout_arena so the fit math can be checked without a
+## live viewport — Godot only gives get_viewport_rect() a real answer inside
+## a tree, which is exactly what made the canvas_items/expand behaviour this
+## depends on (see the const comments above) hard to pin down without
+## launching real processes at real resolutions in the first place.
+static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN_SIDE
 	var fit_top := CG.ARENA_HALF_HEIGHT + _MARGIN_TOP
 	var fit_bottom := CG.ARENA_HALF_HEIGHT + _MARGIN_BOTTOM
@@ -209,8 +240,10 @@ func _layout_arena() -> void:
 	var scale_factor: float = min(size.x / fit_width, size.y / fit_height)
 	var box := Vector2(fit_width, fit_height) * scale_factor
 	var offset := (size - box) * 0.5
-	_arena.position = offset + Vector2(fit_half_width, fit_top) * scale_factor
-	_arena.scale = Vector2(scale_factor, scale_factor)
+	return {
+		"position": offset + Vector2(fit_half_width, fit_top) * scale_factor,
+		"scale": Vector2(scale_factor, scale_factor),
+	}
 
 func begin(cfg: RunConfig) -> void:
 	config = cfg
