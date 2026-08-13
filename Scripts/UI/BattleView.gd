@@ -342,9 +342,18 @@ func _team_hp_fraction(team: CG.Team) -> float:
 ## roughly 45. Verified against units placed at the *literal* simulated
 ## corner (Screenshots/edges_1280x720.png) — the same trap issue 6 hit,
 ## caught again here before it merged this time.
-const _MARGIN_TOP := 150.0
-const _MARGIN_BOTTOM := 70.0
-const _MARGIN_SIDE := 45.0
+##
+## Issue 31: that whole stack now draws at UnitViewScript.DISPLAY_SCALE, so
+## the margin sized to its worst case has to grow with it or the claim above
+## stops being true — caught on a real launch: a party pawn near the top of
+## its deploy column had its name label land inside the HUD's own summary
+## row, which the margin exists specifically to prevent. World-space, so
+## this trades a little of DISPLAY_SCALE's own gain for headroom (a bigger
+## fit box means a slightly smaller scale_factor) rather than reopening the
+## clipping bug this margin was built to fix.
+const _MARGIN_TOP := 150.0 * UnitViewScript.DISPLAY_SCALE
+const _MARGIN_BOTTOM := 70.0 * UnitViewScript.DISPLAY_SCALE
+const _MARGIN_SIDE := 45.0 * UnitViewScript.DISPLAY_SCALE
 
 ## Issue 18, criterion 2 ("in portrait the arena is at least half the
 ## height, measured") turns out to be geometrically impossible to satisfy
@@ -530,8 +539,12 @@ func consume_events() -> void:
 ## there rather than landing on top of them. Deterministic by spawn order
 ## within a frame, not by anything read off CombatState, so it changes
 ## nothing about what a player can infer from position.
-const _FLOATER_STAGGER_RADIUS := 40.0
-const _FLOATER_STAGGER_STEP := 18.0
+## Issue 31: scaled by UnitViewScript.DISPLAY_SCALE alongside the units
+## themselves, so a floater's stagger step keeps the same visual relationship
+## to a body that just got bigger, rather than several numbers crowding a
+## gap sized for the old, smaller sprite.
+const _FLOATER_STAGGER_RADIUS := 40.0 * UnitViewScript.DISPLAY_SCALE
+const _FLOATER_STAGGER_STEP := 18.0 * UnitViewScript.DISPLAY_SCALE
 
 func _floater_stagger_offset(base_position: Vector2) -> Vector2:
 	var count := 0
@@ -553,7 +566,7 @@ func _spawn_floater(e: CombatEvent) -> void:
 	_arena.add_child(floater)
 	floater.position = target.position + _floater_stagger_offset(target.position)
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
-	floater.show_amount(e.amount, color)
+	floater.show_amount(e.amount, color, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
 
 ## A death lands as an event, not as a unit quietly disappearing: named text
 ## rising from where the unit fell, on screen noticeably longer than a damage
@@ -561,7 +574,7 @@ func _spawn_floater(e: CombatEvent) -> void:
 ## event fires the same tick and spawns a floater starting at that exact
 ## point, and the two must not spawn on top of each other and read as one
 ## garbled string.
-const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0)
+const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0) * UnitViewScript.DISPLAY_SCALE
 
 func _spawn_death_marker(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
@@ -571,7 +584,7 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, Palette.FONT_SIZE_BODY)
+	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, int(round(Palette.FONT_SIZE_BODY * UnitViewScript.DISPLAY_SCALE)))
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
@@ -587,7 +600,7 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _floater_stagger_offset(target.position)
-	marker.show_text("Miss", Palette.TEXT_DIM)
+	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
 
 func _show_outcome() -> void:
 	var verdict: String

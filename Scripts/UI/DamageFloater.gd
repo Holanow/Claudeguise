@@ -19,8 +19,8 @@ var _age: float = 0.0
 var _lifetime: float = LIFETIME_SECONDS
 var _font_size: int = Palette.FONT_SIZE_FLOATER
 
-func show_amount(amount: int, color: Color) -> void:
-	show_text(str(amount), color)
+func show_amount(amount: int, color: Color, font_size: int = Palette.FONT_SIZE_FLOATER) -> void:
+	show_text(str(amount), color, LIFETIME_SECONDS, font_size)
 
 ## A death marker uses this directly: longer on screen than a damage number
 ## and its own font size, so "someone just died" reads as a distinct kind of

@@ -49,6 +49,25 @@ func test_dead_unit_is_not_visible() -> void:
 	assert_false(view.visible, "a dead unit's view must not stay visible")
 	view.free()
 
+# ---------------------------------------------------------------------------
+# display_radius (issue 31: units read too small)
+# ---------------------------------------------------------------------------
+
+func test_display_radius_scales_the_raw_radius() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.radius = 22.0
+	assert_almost_eq(UnitView.display_radius(u), 22.0 * UnitView.DISPLAY_SCALE, 0.001)
+
+## The one regression that would matter most here: CombatSim reads
+## unit.radius for real movement collision (Terrain.point_is_blocked), so a
+## rendering fix that mutated it would be a balance change wearing a UI
+## issue's clothes. display_radius must only ever read it.
+func test_display_radius_does_not_mutate_the_units_own_radius() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.radius = 22.0
+	UnitView.display_radius(u)
+	assert_eq(u.radius, 22.0, "display scaling must never touch the simulation's own radius")
+
 func test_status_tags_are_empty_for_an_unaffected_unit() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	assert_true(UnitView.status_tags(u).is_empty())
@@ -155,7 +174,9 @@ func test_visual_offset_never_exceeds_its_cap() -> void:
 	for i in 6:
 		units.append(_make_unit(i, Vector2.ZERO))
 	var offset: Vector2 = UnitView.visual_offset(units[3], units)
-	assert_true(offset.length() <= units[3].radius * 1.5 + 0.01)
+	# Issue 31: the cap scales with DISPLAY_SCALE now, since visual_offset
+	# reasons about the drawn (display) radius, not the raw simulation one.
+	assert_true(offset.length() <= UnitView.display_radius(units[3]) * 1.5 + 0.01)
 
 func test_visual_offset_is_deterministic_for_exactly_coincident_units() -> void:
 	var a := _make_unit(0, Vector2.ZERO)
