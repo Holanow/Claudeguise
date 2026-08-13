@@ -37,28 +37,30 @@ marker and a stun, while naming what they could not tell — is the best evidenc
 we have that the legibility work landed.
 
 ### 3. The fights are worth watching
-- [ ] **Wins are not clean sweeps.** Survivor histograms are still 0 or 4 with
-      nothing between, and the losing side finishes on 0% hp everywhere
-- [x] **Some composition is a genuine coin flip.** priest x4 wins **7 of 20**
-- [x] **The seed changes the fight.** Tick spreads of 200%, 87%, 60% and 42%
-      against a target of 15%, where every party ran to the identical tick on
-      every seed this morning
-- [x] **Composition still matters.** A 20-win gap between the best and worst
-      sampled parties
+- [~] **Winning costs something.** On `floor1_room1`, the balanced party wins
+      18/20 and finishes on **53%** of its own hp, with survivors spread
+      `0:2 1:1 2:4 3:7 4:6`. The bar is 40% or two down; this is 53% and a median
+      of one down. **Close, right shape, not met.**
+- [x] **Some composition is a genuine coin flip.** `siege_master x4` at 8/20,
+      and its wins are costly
+- [x] **The seed changes the fight.** Spreads of 122%, 215%, 63% against a
+      target of 15%
+- [x] **Composition still matters.** From 0/20 to 18/20 across sampled parties
 
-**Three of four, and the missing one has a diagnosis rather than a shrug.** teal
-traced it: the strong compositions' margin is wide enough that damage variance
-moves how *long* a fight takes and never *who dies*. Making a winning party bleed
-by inflating enemy damage would reopen the coin flip, so the room has to threaten
-differently rather than harder — issue 12 (monsters instead of mirrors, so a room
-can field many weak or few tough) and issue 13b (terrain, so four attackers
-cannot all reach one target).
+**This is the section that changed tonight.** This morning every party won 20/20
+with four alive or lost 20/20 with none — two columns, nothing between. There is
+now a distribution across every survivor count, on a party that wins most of the
+time and finishes on half its health, in a room of eight enemies placed in depth.
 
-**And a finding that outranks the missing tick.** teal ran criterion 5's tripwire
-deliberately: give resource regeneration a plausible value and priest x4 flips
-from 7/20 back to 20/20, geysermancer x4 from 0/20 to 20/20. **The current tuning
-is tuned against a game that is missing a mechanic.** Issue 20 lands the
-mechanic; the real tuning pass happens once, after it.
+Three levers did it and none of them was "make the enemies hit harder": resource
+regeneration existing at all, a bestiary of weak-and-numerous plus slow-and-tanky
+instead of four mirrors of a pawn, and placement with the dangerous things set
+back so they have to be reached.
+
+What is left is concentration. `EnemyDef.focus_bias` is on the trunk and unused:
+enemies still each pick their own nearest pawn, so more of them means more total
+damage rather than damage arriving in one place. That is teal's next lever and it
+is the one most likely to close the last gap.
 
 ### 4. The player's one decision has a payoff
 - [ ] Picking four classes changes the outcome in a way a player can predict
