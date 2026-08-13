@@ -50,12 +50,21 @@ func _make_state() -> CombatState:
 	state.units.append(target)
 	return state
 
-## Issue 33: a poison/burn tick and a hazard tick both emit DAMAGE with
-## source_id = -1 on purpose (CombatSim.gd) — the source may be dead, and
-## attributing the damage to it would be a worse lie than having none.
-## "X hits Y" needs an X; neither case fits it and both used to render "?"
-## as a unit's name.
-func test_a_poison_tick_names_no_source_and_reads_as_suffering() -> void:
+## Issue 33 fixed the "?" (source_id = -1 on a poison/burn tick, same as a
+## hazard tick, per CombatSim.gd — the source may be dead, and attributing
+## the damage to it would be a worse lie than having none). Issue 24: that
+## made the line readable and did not make it usable — a real fight put
+## twelve of these one-per-tick lines in a ~20-line visible log, burying the
+## two events a player actually wants ("X dies", "Y hits Z for N"). Per
+## rook's own framing, this is presentation, not the event stream: dropped
+## from the log entirely rather than coalesced or summarised, because the
+## affliction is already visible without it — STATUS_APPLIED/STATUS_EXPIRED
+## still log once each ("Rat is afflicted with Poison" / "...fades"), and
+## every DAMAGE event still spawns a floating number on the unit regardless
+## of what the log shows (BattleView.consume_events spawns a floater from
+## the event itself, not from the log line). CombatSim's own stream is
+## unchanged; only what this file chooses to print from it moved.
+func test_a_poison_tick_is_dropped_from_the_log() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
@@ -65,13 +74,10 @@ func test_a_poison_tick_names_no_source_and_reads_as_suffering() -> void:
 	e.amount_before_mitigation = 3
 	e.damage_type = CG.DamageType.PROFANE
 	e.status = CG.Status.POISON
-	var line := view.line_for_event(state, e)
-	assert_false(line.contains("?"), line)
-	assert_true(line.contains("Rat"), line)
-	assert_true(line.contains("suffers"), line)
+	assert_eq(view.line_for_event(state, e), "", "a per-tick poison line is texture, not story")
 	view.free()
 
-func test_a_burn_tick_also_reads_as_suffering_not_a_hit() -> void:
+func test_a_burn_tick_is_dropped_from_the_log_too() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
@@ -81,9 +87,46 @@ func test_a_burn_tick_also_reads_as_suffering_not_a_hit() -> void:
 	e.amount_before_mitigation = 2
 	e.damage_type = CG.DamageType.FIRE
 	e.status = CG.Status.BURN
-	var line := view.line_for_event(state, e)
-	assert_false(line.contains("?"), line)
-	assert_true(line.contains("suffers"), line)
+	assert_eq(view.line_for_event(state, e), "")
+	view.free()
+
+## Acceptance criterion 2: an affliction must still be visible in the log
+## somewhere even with the per-tick line gone — the moment it starts and the
+## moment it ends, not the ticks in between.
+func test_status_applied_and_expired_still_log_for_poison_and_burn() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var applied := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	applied.target_id = 1
+	applied.status = CG.Status.POISON
+	var applied_line := view.line_for_event(state, applied)
+	assert_true(applied_line.contains("Rat"), applied_line)
+	assert_true(applied_line.to_lower().contains("poison"), applied_line)
+
+	var expired := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 1)
+	expired.target_id = 1
+	expired.status = CG.Status.BURN
+	var expired_line := view.line_for_event(state, expired)
+	assert_true(expired_line.contains("Rat"), expired_line)
+	assert_true(expired_line.to_lower().contains("burn"), expired_line)
+	view.free()
+
+## append_event must actually skip an empty formatted line rather than
+## appending a blank one — a dropped line should leave no trace at all, not
+## an empty row a reader has to scroll past.
+func test_append_event_does_not_append_a_dropped_line() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	view._ready()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 3
+	e.amount_before_mitigation = 3
+	e.status = CG.Status.POISON
+	view.append_event(state, e)
+	assert_eq(view._label.text, "")
 	view.free()
 
 ## A hazard tick also carries source_id = -1, but never touches e.status

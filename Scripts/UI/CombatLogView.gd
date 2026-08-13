@@ -154,10 +154,22 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# is what tells the two apart here, since the event itself
 			# carries nothing more explicit than that.
 			if e.source_id == -1:
+				# Issue 24: a poison/burn tick fires once per afflicted unit
+				# per tick — correct for the simulation, and twelve
+				# identical "X suffers 1 damage" lines in a ~20-line visible
+				## log buried the two events a player actually reads ("X
+				# dies", "Y hits Z for N"). Dropped rather than coalesced or
+				# summarised: the affliction is not lost, it logs once when
+				# applied and once when it fades (STATUS_APPLIED/EXPIRED
+				# below) and every tick still floats a number on the unit
+				# via BattleView.consume_events, which spawns from the event
+				# itself, not from what this function returns. A hazard
+				# tick (source_id == -1, status left at its unset default)
+				# is unaffected — standing somewhere bad is different
+				# information from being afflicted, and is not the thing
+				# twelve identical lines were measured on.
 				if e.status == CG.Status.BURN or e.status == CG.Status.POISON:
-					return "%s suffers [color=%s]%d[/color] %s damage" % [
-						target_name, color, e.amount, CG.damage_type_name(e.damage_type)
-					]
+					return ""
 				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
 					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
 				]
