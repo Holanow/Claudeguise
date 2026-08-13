@@ -115,3 +115,40 @@ nothing to allow because `CombatSim.build` already takes a party of any size.
   at four today and shows "Party full". Tell them on the board rather than
   assuming; the cap staying as a maximum is fine, the screen just needs to stop
   implying four is required.
+
+## And placement is a balance lever, not decoration
+
+Also from the user:
+
+> "You can also adjust enemy placement and terrain to make certain monsters more
+> or less troublesome in context."
+
+This is the third lever and probably the cheapest of the three, because
+`Encounter.party_spawns` and `enemy_spawns` are already hand-authored `Vector2`s
+and you own them.
+
+The same monster is a different problem depending on where it stands. An archer
+at the back of a room behind three grunts has to be reached through them; the
+same archer standing next to your melee line dies first and contributes nothing.
+A caster tucked in a corner is protected by geometry; the same caster in the open
+is the obvious first target. **Nothing about the monster changed. The fight did.**
+
+This matters for the same reason numbers do: it threatens a strong party without
+touching any monster's stats, so it cannot crush the coin-flip compositions the
+way raising damage would.
+
+Three things worth trying, in rough order of effort:
+
+- **Depth.** Put the fragile, dangerous enemies behind the durable ones so the
+  party has to spend time getting to them. Right now everything spawns in a
+  loose line and the whole enemy side is reachable at once.
+- **Spread.** Enemies far apart force the party to split or to pick an order,
+  which is a decision. Everything in one clump is one decision.
+- **Terrain that favours somebody.** Issue 13b is yours and this is what it is
+  for: a pillar that a caster hides behind, a chokepoint that makes six weak
+  enemies a real problem instead of a free lunch, a hazard that punishes the
+  shortest path to the back line.
+
+Sample the table for each arrangement rather than reasoning about it. "The same
+roster in two placements produced these two tables" is the finding worth having,
+and it is criterion 1 of issue 13b already.
