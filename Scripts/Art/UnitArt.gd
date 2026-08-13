@@ -90,6 +90,13 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	var size := Vector2(tex.get_width(), tex.get_height())
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
+	# Real art here is pixel art, drawn small and scaled up a lot -- the
+	# project's default filtering is linear (nothing sets otherwise), which
+	# blurs it into a smudge at the sizes a pawn is actually drawn. Nearest
+	# keeps every pixel a pixel. This only affects this canvas's own texture
+	# draws, so it is safe to set unconditionally: the polygon fallback below
+	# never draws a texture and is untouched by it.
+	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var scale := (radius * 2.0) / maxf(size.x, size.y)
 	var drawn := size * scale
 	if facing_left:
