@@ -217,3 +217,65 @@ func test_haste_tick_scale_speeds_up_and_never_reaches_zero() -> void:
 	var scale := Balance.haste_tick_scale(u)
 	assert_true(scale < 1.0, "HASTE should speed a unit up")
 	assert_true(scale > 0.0, "a multiplier of 0 would make an action instant")
+
+
+## Issue 39: Balance.attribute() is the single place equipment's
+## attribute_flat/attribute_percent apply. Bare pawn.attribute() (Core) must
+## stay equipment-blind so nothing can read a stat twice by going around this.
+
+func test_attribute_with_no_equipment_matches_the_bare_class_value() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 5})
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 5.0)
+
+
+func test_weapon_attribute_percent_multiplies_the_base_stat() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 10})
+	var weapon := EquipmentDef.new()
+	weapon.slot = EquipmentDef.Slot.WEAPON
+	weapon.attribute_percent = {CG.Attribute.STR: 0.20}
+	pawn.weapon = weapon
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 12.0, 0.001, "10 STR +20%% should be 12")
+
+
+func test_armor_attribute_flat_adds_before_percent() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.CON: 10})
+	var armor := EquipmentDef.new()
+	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.attribute_flat = {CG.Attribute.CON: 3}
+	armor.attribute_percent = {CG.Attribute.CON: 0.10}
+	pawn.armor = armor
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.CON), 14.3, 0.001, "(10+3) * 1.10 = 14.3")
+
+
+func test_equipped_weapon_raises_max_hp_through_str() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.CON: 5, CG.Attribute.STR: 10})
+	var bare_hp := Balance.max_hp(pawn)
+	var weapon := EquipmentDef.new()
+	weapon.slot = EquipmentDef.Slot.WEAPON
+	weapon.attribute_percent = {CG.Attribute.STR: 0.50}
+	pawn.weapon = weapon
+	assert_true(Balance.max_hp(pawn) > bare_hp, "a weapon buffing STR should raise max hp through HP_PER_STR_BONUS")
+
+
+func test_accessory_attribute_percent_raises_attack_power() -> void:
+	var pawn := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.INT: 10})
+	var bare := Balance.attack_power(pawn, CG.DamageType.FIRE)
+	var accessory := EquipmentDef.new()
+	accessory.slot = EquipmentDef.Slot.ACCESSORY
+	accessory.attribute_percent = {CG.Attribute.INT: 0.30}
+	pawn.accessory = accessory
+	assert_true(Balance.attack_power(pawn, CG.DamageType.FIRE) > bare, "an accessory buffing INT should raise a Magical class's attack power")
+
+
+func test_three_equipped_pieces_all_contribute() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 10})
+	var weapon := EquipmentDef.new()
+	weapon.attribute_flat = {CG.Attribute.STR: 1}
+	var armor := EquipmentDef.new()
+	armor.attribute_flat = {CG.Attribute.STR: 1}
+	var accessory := EquipmentDef.new()
+	accessory.attribute_flat = {CG.Attribute.STR: 1}
+	pawn.weapon = weapon
+	pawn.armor = armor
+	pawn.accessory = accessory
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 13.0, 0.001, "all three slots should stack their flat bonus")
