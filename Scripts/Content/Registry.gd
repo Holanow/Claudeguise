@@ -4,6 +4,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## The composition root, split. Every class, action, enemy and encounter lives
 ## in its own file under Scripts/Content/, and this file only composes them.
@@ -22,6 +23,7 @@ const Encounter := preload("res://Scripts/Core/Encounter.gd")
 ##   static func actions() -> Array[ActionDef]
 ##   static func enemies() -> Array[EnemyDef]
 ##   static func encounters() -> Array[Encounter]
+##   static func items() -> Array[EquipmentDef]
 ##
 ## Any of them may return an empty array.
 
@@ -30,12 +32,14 @@ const MODULES: Array = [
 	preload("res://Scripts/Content/Modules/starting_classes.gd"),
 	preload("res://Scripts/Content/Modules/floor1_enemies.gd"),
 	preload("res://Scripts/Content/Modules/floor1_encounters.gd"),
+	preload("res://Scripts/Content/Modules/core_items.gd"),
 ]
 
 static var _classes: Dictionary = {}
 static var _actions: Dictionary = {}
 static var _enemies: Dictionary = {}
 static var _encounters: Dictionary = {}
+static var _items: Dictionary = {}
 static var _loaded: bool = false
 
 static func _load() -> void:
@@ -51,6 +55,8 @@ static func _load() -> void:
 			_register(_enemies, e.id, e, "enemy")
 		for e in m.encounters():
 			_register(_encounters, e.id, e, "encounter")
+		for i in m.items():
+			_register(_items, i.id, i, "item")
 
 static func _register(into: Dictionary, id: StringName, value: Variant, what: String) -> void:
 	if id == &"":
@@ -77,6 +83,10 @@ static func get_encounter(id: StringName) -> Encounter:
 	_load()
 	return _encounters.get(id)
 
+static func get_equipment(id: StringName) -> EquipmentDef:
+	_load()
+	return _items.get(id)
+
 ## Ordered by id so that anything iterating content is deterministic. Dictionary
 ## order is not something the fight may depend on.
 static func all_class_ids() -> Array[StringName]:
@@ -91,6 +101,14 @@ static func all_encounter_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []
 	for k in _encounters.keys():
+		ids.append(k)
+	ids.sort()
+	return ids
+
+static func all_equipment_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	for k in _items.keys():
 		ids.append(k)
 	ids.sort()
 	return ids

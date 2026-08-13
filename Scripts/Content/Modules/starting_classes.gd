@@ -5,6 +5,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## The five README classes: Warrior, Priest, Geysermancer, Siege Master,
 ## Abomination. Attribute spreads are original tuning, not a transcription of
@@ -81,6 +82,9 @@ static func enemies() -> Array[EnemyDef]:
 	return []
 
 static func encounters() -> Array[Encounter]:
+	return []
+
+static func items() -> Array[EquipmentDef]:
 	return []
 
 static func _class(id: StringName, display_name: String, method: CG.Method, style: CG.Style, role_primary: CG.Role, role_secondary: CG.Role, damage_types: Array, resource_kind: CG.ResourceKind, base_attributes: Dictionary, starting_actions: Array[StringName]) -> ClassDef:

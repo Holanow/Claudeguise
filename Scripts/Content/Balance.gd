@@ -76,18 +76,35 @@ const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
 ## tick, so this cannot make an action instant by accident.
 const HASTE_TICK_SCALE := 0.7
 
+## Issue 39: an attribute including equipment's `attribute_flat` and
+## `attribute_percent` (weapons and accessories: percent per README.md; armor:
+## flat, plus occasional percent on CON). The single place a stat multiplier
+## is applied, per the item system's own design note -- every formula below
+## reads a stat through here rather than through `pawn.attribute()` directly,
+## so equipment cannot be double-counted by one caller and skipped by
+## another. `pawn.attribute()` itself (Core) stays base-class-plus-manual-
+## bonus only and equipment layers on top of it here.
+static func attribute(pawn: PawnData, a: CG.Attribute) -> float:
+	var value := float(pawn.attribute(a))
+	var flat := 0.0
+	var percent := 0.0
+	for e in pawn.equipment():
+		flat += float(e.attribute_flat.get(a, 0))
+		percent += float(e.attribute_percent.get(a, 0.0))
+	return (value + flat) * (1.0 + percent)
+
 static func max_hp(pawn: PawnData) -> int:
-	var str_bonus := pawn.attribute(CG.Attribute.STR)
-	return BASE_HP + pawn.attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS
+	var str_bonus := attribute(pawn, CG.Attribute.STR)
+	return int(round(BASE_HP + attribute(pawn, CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS))
 
 static func max_resource(pawn: PawnData) -> int:
-	var int_bonus := pawn.attribute(CG.Attribute.INT)
-	return BASE_RESOURCE + pawn.attribute(CG.Attribute.ATN) * RESOURCE_PER_ATN + int_bonus * RESOURCE_PER_INT_BONUS
+	var int_bonus := attribute(pawn, CG.Attribute.INT)
+	return int(round(BASE_RESOURCE + attribute(pawn, CG.Attribute.ATN) * RESOURCE_PER_ATN + int_bonus * RESOURCE_PER_INT_BONUS))
 
 ## World units per tick.
 static func move_speed(pawn: PawnData) -> float:
-	var dex_bonus := float(pawn.attribute(CG.Attribute.DEX))
-	return BASE_MOVE_SPEED + float(pawn.attribute(CG.Attribute.AGI)) * MOVE_PER_AGI + dex_bonus * MOVE_PER_DEX_BONUS
+	var dex_bonus := attribute(pawn, CG.Attribute.DEX)
+	return BASE_MOVE_SPEED + attribute(pawn, CG.Attribute.AGI) * MOVE_PER_AGI + dex_bonus * MOVE_PER_DEX_BONUS
 
 ## Attack power for one damage type, before the action's own power_scale.
 ##
@@ -113,7 +130,7 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 		attr = CG.Attribute.STR
 	else:
 		attr = CG.Attribute.DEX
-	var base := float(pawn.attribute(attr)) * ATTACK_POWER_PER_POINT
+	var base := attribute(pawn, attr) * ATTACK_POWER_PER_POINT
 	if rng == null:
 		return base
 	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
@@ -123,7 +140,7 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 static func damage_reduction(unit: CombatUnit) -> float:
 	if unit.pawn == null:
 		return 0.0
-	var reduction := clampf(float(unit.pawn.attribute(CG.Attribute.CON)) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
+	var reduction := clampf(attribute(unit.pawn, CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
 	if unit.pawn.armor != null:
 		reduction += unit.pawn.armor.damage_reduction
 	if unit.has_status(CG.Status.SHIELD):
@@ -142,7 +159,7 @@ static func plan_block_budget(pawn: PawnData) -> int:
 static func scale_action_ticks(base_ticks: int, pawn: PawnData) -> int:
 	if base_ticks <= 0:
 		return base_ticks
-	var scale := clampf(float(pawn.attribute(CG.Attribute.AGI)) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
+	var scale := clampf(attribute(pawn, CG.Attribute.AGI) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
 	return maxi(1, int(round(float(base_ticks) * (1.0 - scale))))
 
 ## Resource regenerated per tick, before rounding. Rage returns 0.0: it never

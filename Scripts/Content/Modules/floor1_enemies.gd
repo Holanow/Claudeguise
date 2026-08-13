@@ -5,6 +5,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Floor 1's bestiary: monsters, not mirrors of the five pawn classes.
 ## `EnemyDef` skips the attribute system on purpose, so nothing here is bound
@@ -40,6 +41,9 @@ static func enemies() -> Array[EnemyDef]:
 	]
 
 static func encounters() -> Array[Encounter]:
+	return []
+
+static func items() -> Array[EquipmentDef]:
 	return []
 
 static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
