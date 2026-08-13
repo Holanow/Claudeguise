@@ -35,10 +35,14 @@ static func _the_room() -> Encounter:
 		{"enemy_id": &"dungeon_archer", "position": Vector2(380.0, 0.0)},
 		{"enemy_id": &"dungeon_cultist", "position": Vector2(300.0, -150.0)},
 	]
+	## Vertical spacing here used to be 60 units, fine when a unit's draw
+	## radius was 12. pike raised the radius to 22 for phone legibility, which
+	## left barely 16 units of gap between two adjacent bodies and put every
+	## label on top of the pawn above it. Roughly doubled.
 	e.party_spawns = [
-		Vector2(-350.0, -90.0),
-		Vector2(-350.0, -30.0),
-		Vector2(-350.0, 30.0),
-		Vector2(-350.0, 90.0),
+		Vector2(-350.0, -195.0),
+		Vector2(-350.0, -65.0),
+		Vector2(-350.0, 65.0),
+		Vector2(-350.0, 195.0),
 	]
 	return e
