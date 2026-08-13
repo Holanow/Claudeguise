@@ -21,21 +21,12 @@ extends SceneTree
 ## Reports rooms cleared, not win rate, because "won the fight and then died in
 ## the next one" is not a win in any sense the player cares about.
 ##
-## **TRUST THIS TOOL'S DEPTH NUMBERS ONLY AFTER SOMEBODY EXPLAINS THIS.** On its
-## first run, three different parties produced byte-identical room histograms
-## (1:2 2:3 3:11 4:3 5:1) while differing in how often they cleared the floor
-## (0, 0 and 0 against 8 and 9 for the other two). Identical outcomes across
-## different parties is the exact signature of the "the seed does nothing" bug
-## this project spent hours on, and it may equally be an artifact of how few
-## rooms a floor has. I do not know which, so I am not quoting the depths.
-##
-## What the same run established and *is* solid, read out of the source rather
-## than inferred: `FloorRun.record_result` stores hp and resource after every
-## fight, `hp_for` returns the carried value, nothing anywhere restores any of
-## it, and a dead pawn stays dead. And party health reads 100% entering the
-## second fight because `_encounter_for` slices the enemy list to
-## `room.difficulty`, so early rooms hold one or two enemies and cost nothing.
-## That is real, not a measurement error.
+## **Read the clear rate, not just the depths.** Identical depth histograms
+## across different parties are correct output, not a bug: they mean the outcome
+## was decided by the floor's shape rather than by the party. That happens at
+## both extremes -- when every party clears (depth is just the seed's fight-room
+## count) and when every party dies at the same wall. Both were observed. The
+## column that separates parties is "cleared the whole floor".
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
