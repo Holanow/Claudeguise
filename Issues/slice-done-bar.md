@@ -38,23 +38,27 @@ we have that the legibility work landed.
 
 ### 3. The fights are worth watching
 - [ ] **Wins are not clean sweeps.** Survivor histograms are still 0 or 4 with
-      nothing between, and the losing side finishes on 0% hp almost everywhere
-- [ ] **Some composition is a genuine coin flip**, winning 6 to 14 of 20.
-      Closest so far: geysermancer x4 at 3 of 20, which was 0 of 20 this morning
-- [x] **The seed changes the fight.** Tick spreads are now 48%, 139% and 211%
-      against a target of 15%, where every party previously ran to the identical
-      tick on every seed
-- [ ] **Composition still matters** — cannot be judged until the rest is true
+      nothing between, and the losing side finishes on 0% hp everywhere
+- [x] **Some composition is a genuine coin flip.** priest x4 wins **7 of 20**
+- [x] **The seed changes the fight.** Tick spreads of 200%, 87%, 60% and 42%
+      against a target of 15%, where every party ran to the identical tick on
+      every seed this morning
+- [x] **Composition still matters.** A 20-win gap between the best and worst
+      sampled parties
 
-**Still the heart of it, and now moving.** The rng hook landed, so damage varies
-and the seed does something for the first time. Closeness has not started.
-Issue 7, and it is gated on issue 16.
+**Three of four, and the missing one has a diagnosis rather than a shrug.** teal
+traced it: the strong compositions' margin is wide enough that damage variance
+moves how *long* a fight takes and never *who dies*. Making a winning party bleed
+by inflating enemy damage would reopen the coin flip, so the room has to threaten
+differently rather than harder — issue 12 (monsters instead of mirrors, so a room
+can field many weak or few tough) and issue 13b (terrain, so four attackers
+cannot all reach one target).
 
-**And a blocker underneath it that we did not know about this morning:** units
-walk out of the arena entirely — measured at twenty-one arena widths off the
-map — so ranged enemies kite forever and nothing can be cornered. Tuning fights
-for closeness on a battlefield with no edges is largely wasted work. Issue 16,
-wren, in progress.
+**And a finding that outranks the missing tick.** teal ran criterion 5's tripwire
+deliberately: give resource regeneration a plausible value and priest x4 flips
+from 7/20 back to 20/20, geysermancer x4 from 0/20 to 20/20. **The current tuning
+is tuned against a game that is missing a mechanic.** Issue 20 lands the
+mechanic; the real tuning pass happens once, after it.
 
 ### 4. The player's one decision has a payoff
 - [ ] Picking four classes changes the outcome in a way a player can predict
