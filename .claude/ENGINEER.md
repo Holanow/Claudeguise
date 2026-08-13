@@ -433,9 +433,36 @@ Refactoring adjacent code you happen to dislike creates conflicts for whoever
 owns it, for no benefit the project asked for. If you spot something worth
 fixing, note it in the PR and let the manager file it.
 
-**Idle is a legitimate state. Say it and stay in it.** When your work has merged
-and the board holds nothing you can start, post that you are idle and watch the
-log. Do not go looking for something to do: the free work is free because it
-sits in files somebody else has open, and you will find that out after you have
-written the change. Waiting ten minutes for a blocker to land beats two sessions
-fixing the same thing two different ways.
+**Do not wait for review. Start your next issue on top of the one in review.**
+
+This replaces the older rule of one issue at a time. That rule was written for a
+team with a code host and several reviewers. Here there is one reviewer, and
+when three sessions finish at once the third waits for three reviews. Measured
+on this project: at one point every session's row on the board said "ready for
+review" and every "Whose" column said the manager. Nobody had done anything
+wrong and nobody was working.
+
+So the moment your branch is ready:
+
+1. Update your block, say the branch name, say you are starting the next issue.
+2. Cut the next branch **from your own in-review branch**, not from the trunk:
+
+   ```
+   git worktree add ../<repo>-team/worktrees/<you>-issue-<n+1> -b issue-<n+1>/<slug> issue-<n>/<slug>
+   ```
+
+   Your next issue is usually in the same files as your last one, so branching
+   from the trunk would mean conflicting with yourself. Stacking is safe here
+   because there is no code host to mark anything merged that is not, and
+   because the manager merges your branches in order.
+3. Keep merging the trunk into the bottom of the stack as usual.
+
+If review sends the earlier branch back, fix it there and merge it up. That
+costs a context switch. Idling costs the whole wait, every time.
+
+**Idle is still legitimate, and it is now rare.** If your next issue genuinely
+does not exist, post that you are idle and watch the board — do not go looking
+for something to do, because the free-looking work is free precisely because it
+sits in files somebody else has open. But say it as a question to the manager,
+not as a state you settle into: an empty queue is the manager's bug, not yours,
+and they would rather be told within a minute than find out in an hour.
