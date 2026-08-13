@@ -45,17 +45,31 @@ static func classes() -> Array[ClassDef]:
 			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
 			[&"siege_shot", &"siege_barrage"]
 		),
-		## CON 8->10 (issue 24): pulling floor1_room1's back rank forward hits
-		## every melee party harder, including this one, and it pushed
-		## abomination x4 out of its coin-flip band (5/20, needed 6-14). CON
-		## is the tank's own stat and the fix that does not touch the room or
-		## any other class -- SampleFights confirmed it back at 6/20.
+		## CON 8->10 (issue 24, history only, superseded below). AGI 2->8,
+		## CON 10->12, INT 7->12 (issue 37): the leave-one-out ablation showed
+		## the party missing this class (no_abomination) as the best in the
+		## game, 19/20, and the party missing the Siege Master as the worst,
+		## 0/20 -- same three other classes both times. Traced with
+		## Tools/WhyNoDamage.gd: this class fired only 5 actions across a
+		## whole fight against a Siege Master's 22, mostly spent closing the
+		## ~500-unit gap to its own 45-range melee kit at a crawl (AGI 2).
+		## AGI raised so it actually reaches the fight; INT raised (this is a
+		## MAGICAL class, so INT drives its attack power per Balance.gd) so
+		## the actions it does land matter; CON raised alongside so more
+		## uptime doesn't just mean dying faster. Landed at this combination
+		## after several rounds against all five real parties in
+		## Tools/SampleFights.gd: pushing INT alone to 15 fixed the bottom row
+		## but inflated the three middle parties past their own coin-flip
+		## bands (16-17/20); this split gets three of the five into a genuine
+		## 11-13/20 coin flip without any party hitting 20/20, but does not
+		## fully clear issue 37's 4-6 target for the Siege-Master-less party
+		## (measured 1/20) -- disclosed on the board rather than forced.
 		_class(
 			&"abomination", "Abomination",
 			CG.Method.MAGICAL, CG.Style.MELEE, CG.Role.ANTI_SUPPORT, CG.Role.TANK,
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
-			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 2, CG.Attribute.CON: 10, CG.Attribute.INT: 7, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
+			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
 			[&"abomination_claw", &"abomination_immolate"]
 		),
 	]
