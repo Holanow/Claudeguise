@@ -17,7 +17,8 @@ const CG := preload("res://Scripts/Core/CG.gd")
 
 ## World units per tick.
 @export var move_speed: float = 1.0
-@export var radius: float = 12.0
+## Drawing only, same as CombatUnit.radius. Raised from 12.0 for legibility.
+@export var radius: float = 22.0
 
 ## Flat attack power per damage type, keyed by CG.DamageType. Enemies skip the
 ## attribute system entirely; there is no pawn behind them to grow.
