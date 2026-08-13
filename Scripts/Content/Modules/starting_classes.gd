@@ -37,12 +37,27 @@ static func classes() -> Array[ClassDef]:
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 4},
 			[&"geyser_blast", &"geyser_scald"]
 		),
+		## DEX 9->8 (issue 38, the other half of issue 37's residual). Issue
+		## 35's mechanism -- a ranged unit that never has to move gets to pick
+		## which enemies it fights, and that choice cost it nothing -- was
+		## proven un-fixable from the range side (issue 31: cost stayed
+		## 70-85% even with siege_shot's range dialled down to 150, because
+		## DefaultBehavior's kiting radius scales with range and always keeps
+		## it at a safe distance regardless of the number). So this is the
+		## other lever: less damage per shot means more of the room survives
+		## long enough to close in, which is the only thing that can cost a
+		## unit that always keeps its distance. `no_abomination` (the party
+		## this class makes 19/20-strong per issue 37) moved to 15/20 at a
+		## real cost -- best real party in the game, no longer a near-lock.
+		## Measured a DEX=6 attempt first: crashed no_abomination to 7/20 and
+		## pushed no_priest out of its own coin-flip band, an overcorrection
+		## kept here as a note rather than a footnote nobody sees.
 		_class(
 			&"siege_master", "Siege Master",
 			CG.Method.MARTIAL, CG.Style.SUMMONER, CG.Role.DPS, CG.Role.ANTI_SUPPORT,
 			[CG.DamageType.PHYSICAL, CG.DamageType.RAW],
 			CG.ResourceKind.ENERGY,
-			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
+			{CG.Attribute.STR: 3, CG.Attribute.DEX: 8, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
 			[&"siege_shot", &"siege_barrage"]
 		),
 		## CON 8->10 (issue 24, history only, superseded below). AGI 2->8,

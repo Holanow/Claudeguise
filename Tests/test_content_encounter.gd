@@ -138,10 +138,16 @@ func test_composition_still_matters() -> void:
 ## 2+ pawns down. issue 22 (plan affordability) and EnemyDef.focus_bias
 ## (concentration) together are what finally closed this — see TEAM_LOG for
 ## the full trace of why numbers alone never did.
+##
+## Issue 38: this is `no_abomination`, the party issue 37 found winning 19/20
+## essentially for free because of the Siege Master's own free target
+## selection (issue 35). Siege Master DEX 9->8 brought it down to a strong
+## but no longer near-guaranteed 15/20 -- still clearly the best real party,
+## still paying a real cost, no longer the outlier issue 37 flagged.
 func test_a_winning_party_pays_a_real_cost() -> void:
 	var r := _win_rate([&"siege_master", &"geysermancer", &"priest", &"warrior"], 20)
 	print("floor1_room1: siege_master/geysermancer/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
-	assert_true(r["wins"] >= 17, "this comp should still win most of the time")
+	assert_true(r["wins"] >= 12, "this comp should still win most of the time")
 	assert_true(r["median_cost"] >= 0.0 and r["median_cost"] <= 40.0, "median cost on a win should be <=40%%, was %.0f%%" % r["median_cost"])
 
 
