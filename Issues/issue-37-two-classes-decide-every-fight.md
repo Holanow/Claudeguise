@@ -101,3 +101,43 @@ problem is structural rather than in two classes' numbers, and it would point at
 the room needing more than one axis of threat, which is a much bigger design
 question and one I would want to take rather than have you discover halfway
 through.
+
+---
+
+## Outcome: half fixed, half is structural, and I called it there
+
+**The Abomination half worked.** AGI 2 -> 8 with supporting CON and INT, after a
+trace showed it getting 5 actions a fight against the Siege Master's 22 while it
+crawled five hundred units to reach a 45-range kit. It was not losing exchanges,
+it was barely attending the fight. Merged as `ffffbc9`. The table went from
+19/10/5/5/0 to **19/12/11/11/1** — three genuine coin flips where there was one.
+
+**The Siege Master half did not, and that is the finding.** A second pass
+(`issue-38/siege-master-cost`, DEX 9 -> 8) brought the best party from 19 to 15
+but **moved `no_siege_master` not at all**, while narrowing four of the five
+parties into a 10-to-15 band. I declined it: it traded a number that met
+criterion 2 for one that did not, in pursuit of a row it never touched, and
+criterion 5's "choosing must matter" was the cost.
+
+So: **two honest passes, and the party without a Siege Master went from 0/20 to
+1/20.** That is this issue's own stopping condition, which said that if the
+requirement does not go away it points at something structural rather than at
+two classes' numbers.
+
+It does, and issue 35 already named it: **the Siege Master is the only class
+that acts from outside every enemy's reach.** Every enemy in the room stops at
+200 units; `siege_shot` reaches 260. That is a structural property of the
+bestiary's range table, not an attribute, and no stat edit can reach it.
+
+**Called it there deliberately.** Three of five parties are coin flips, the best
+party still loses somebody in nearly every win, and one party is a documented
+weak option rather than a hidden trap. The purpose of this whole exercise was to
+let the player decide whether the combat is fun, and chasing the last row was
+measurably flattening the four that are already good.
+
+**If someone picks this up later**, the lever is the enemy range table rather
+than any class: `floor1_room1` fields three archers and a cultist all at 200,
+so a party without a 260-unit answer eats all of it while closing. Changing what
+the room's ranged contingent looks like is the untried direction. It is not a
+tuning pass, it is an encounter redesign, and it should be decided rather than
+discovered.
