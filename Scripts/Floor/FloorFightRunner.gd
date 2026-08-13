@@ -57,10 +57,17 @@ static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
 
 ## Builds a fight from `room` and the party's current condition in `run`,
 ## runs it to completion, and writes hp/resource/alive back into `run`.
-static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], deps: SimDeps = null) -> Outcome:
+##
+## Returns `{"outcome": Outcome, "state": CombatState}` rather than the
+## `Outcome` alone -- pike's ask, issue 43: a live screen needs to show
+## what happened in the fight, not only whether it was won. `Outcome` is
+## pure branching over `state.outcome` and `room.id == run.plan.boss_id`,
+## which any caller can already derive, but it stays returned directly
+## so nothing that only wants win/loss has to reach into `state` for it.
+static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], deps: SimDeps = null) -> Dictionary:
 	if not is_fight_room(room.type):
 		push_error("FloorFightRunner.play_room: room %d is a %s, not a fight room" % [room.id, FloorRoom.type_name(room.type)])
-		return Outcome.DEFEAT
+		return {"outcome": Outcome.DEFEAT, "state": null}
 
 	var encounter := _encounter_for(room)
 	## Derived from the floor seed and the room id, never from a fresh
@@ -89,7 +96,7 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 		if item != null:
 			run.add_loot(item)
 
-	return _map_outcome(state.outcome, room.id == run.plan.boss_id)
+	return {"outcome": _map_outcome(state.outcome, room.id == run.plan.boss_id), "state": state}
 
 ## Pulled out of play_room so the win/loss/boss mapping is testable without
 ## needing a real fight to reach each branch.

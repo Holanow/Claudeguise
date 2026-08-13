@@ -89,9 +89,9 @@ func test_a_wipe_ends_the_run_in_defeat() -> void:
 	for p in party:
 		run.record_result(p.id, 0, 0, false) # the party arrives already wiped
 
-	var outcome := FloorFightRunner.play_room(run, plan.room(0), party)
+	var result := FloorFightRunner.play_room(run, plan.room(0), party)
 
-	assert_eq(outcome, FloorFightRunner.Outcome.DEFEAT)
+	assert_eq(result.outcome, FloorFightRunner.Outcome.DEFEAT)
 	for p in party:
 		assert_false(run.is_alive(p.id), "a wiped party must still be wiped after the room resolves")
 
@@ -127,7 +127,7 @@ func _play_all_fight_rooms(plan: FloorPlan) -> Array:
 	for r in plan.rooms:
 		if not FloorFightRunner.is_fight_room(r.type):
 			continue
-		var outcome: FloorFightRunner.Outcome = FloorFightRunner.play_room(run, r, _make_party())
+		var outcome: FloorFightRunner.Outcome = FloorFightRunner.play_room(run, r, _make_party()).outcome
 		trace.append({"room": r.id, "outcome": outcome})
 		if outcome != FloorFightRunner.Outcome.CONTINUES:
 			break
@@ -157,8 +157,8 @@ func test_different_seeds_currently_agree_pending_issue_7_damage_variance() -> v
 	var run_a := FloorRun.new(plan_a)
 	var run_b := FloorRun.new(plan_b)
 
-	var outcome_a := FloorFightRunner.play_room(run_a, plan_a.room(plan_a.miniboss_id), _make_party())
-	var outcome_b := FloorFightRunner.play_room(run_b, plan_b.room(plan_b.miniboss_id), _make_party())
+	var outcome_a: FloorFightRunner.Outcome = FloorFightRunner.play_room(run_a, plan_a.room(plan_a.miniboss_id), _make_party()).outcome
+	var outcome_b: FloorFightRunner.Outcome = FloorFightRunner.play_room(run_b, plan_b.room(plan_b.miniboss_id), _make_party()).outcome
 
 	assert_eq(
 		outcome_a, outcome_b,
