@@ -123,6 +123,19 @@ static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 			return a
 	return null
 
+## TAUNTING forces target *selection*, not what a unit does after choosing --
+## a taunted unit still uses its own approach/kite/commit logic against the
+## taunter, it just picks the taunter as its candidate up front, the same way
+## it would pick anyone else. Checked before the focus_bias logic below, and
+## unconditionally (both pawns and enemies can be taunted).
+##
+## This lives here rather than in CombatSim on purpose: CombatSim's
+## _decide_phase only calls DefaultBehavior.decide() once PlanInterpreter has
+## already had its turn and produced nothing, so a real Plan's explicit
+## targeting is never touched by this -- not because of a check, but because
+## this function simply never runs when a plan fired. Per rook's ruling: taunt
+## overrides the *default* fallback, never a stated plan.
+##
 ## Issue 7's concentration finding: numbers and a stat spread raise total
 ## damage but not concentrated damage, because every enemy independently
 ## picked its own nearest pawn. `EnemyDef.focus_bias` (0.0-1.0, pawns do not
@@ -131,6 +144,9 @@ static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 ## from state.rng, never a fresh generator, so a seed still reproduces a
 ## fight exactly.
 static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[CombatUnit]) -> CombatUnit:
+	var taunter := _nearest_taunter(unit, enemies)
+	if taunter != null:
+		return taunter
 	var nearest := _nearest(unit, enemies)
 	if unit.pawn != null:
 		return nearest
@@ -141,6 +157,25 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 	if focused == null:
 		return nearest
 	return focused if state.rng.randf() < enemy_def.focus_bias else nearest
+
+## The nearest living, opposing candidate carrying TAUNTING whose own
+## taunt_radius reaches `unit` -- null when nobody taunting is in range,
+## the natural "taunt does not apply" case. Deterministic: iterates the same
+## `enemies` array `_nearest` already does, first strictly-closer candidate
+## wins, no tie-break needed beyond iteration order.
+static func _nearest_taunter(unit: CombatUnit, enemies: Array[CombatUnit]) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := INF
+	for e in enemies:
+		if not e.has_status(CG.Status.TAUNTING):
+			continue
+		var d := unit.position.distance_to(e.position)
+		if d > e.taunt_radius:
+			continue
+		if d < best_dist:
+			best_dist = d
+			best = e
+	return best
 
 ## The living enemy candidate that the most of `unit`'s own living allies
 ## currently have as their focus_id -- "already being attacked", read from the
