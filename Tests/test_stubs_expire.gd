@@ -18,7 +18,6 @@ extends "res://Tests/TestCase.gd"
 const STUB_MARKER := "is not implemented yet"
 
 const STUBS := {
-	"res://Scripts/Combat/CombatSim.gd": "wren, issue 1",
 	"res://Scripts/Plans/PlanInterpreter.gd": "teal, issue 2",
 	"res://Scripts/Plans/DefaultBehavior.gd": "teal, issue 2",
 	"res://Scripts/Content/Balance.gd": "teal, issue 2",
