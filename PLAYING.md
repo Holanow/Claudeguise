@@ -65,32 +65,30 @@ five parties in the game.** Each is defined by who you leave out. Against
 
 ## What is honestly not right yet
 
-- **The log fills up with question marks.** At the climax of a fight, ten of the
-  twenty-two visible log lines can read `? hits Siege Master for 1 Profane
-  damage`. Anything poisoned or standing in fire has no attacker to name, and
-  the log has only one sentence shape, so it prints a question mark. The
-  commentary drowns exactly when you most want to read it. Two people found this
-  independently and both called it the worst thing in the game. It is being
-  fixed.
 - **The toolbar runs into the log** when an extra label appears, such as the
-  result at the end of a fight.
+  result at the end of a fight. Being fixed.
+- **The floor is not reachable from the game yet.** Rooms, a difficulty curve
+  and a boss all exist and are tested, but nothing on screen leads to them. One
+  fight is what you can play. That is being built now.
 
-  For most of last night the game did not load the room it was balanced for. One
-  line in the party select screen picked whichever room sorted first
-  alphabetically, so every fight was a small two-ghoul encounter that **no party
-  could lose**: a thousand simulated fights across all five parties, not a
-  single defeat, every one over in about eight seconds. It was found by having
-  somebody actually play the game, which is the only place it was visible.
+The two worst things in the game as of a few hours ago are both fixed, and both
+are worth knowing about because of how they were found.
 
-  It is fixed and verified through the real party select screen: five fights,
-  four defeats and one win with a single survivor, running 14 to 22 seconds. The
-  game has stakes now.
+**The game did not load the room it was balanced for.** One line in the party
+select screen picked whichever room sorted first alphabetically, so every fight
+was a small two-ghoul encounter that **no party could lose** — a thousand
+simulated fights across all five parties, not one defeat, every one over in about
+eight seconds. Four sessions spent a night balancing a room nobody was playing.
+It was found by having somebody actually play the game, which is the only place
+it was visible, and the fix was one line.
 
-  But the engineer who played the broken version said they would not voluntarily
-  run a second fight, and said they could not tell whether that verdict survives
-  the fix, because nobody had seen the real room fought. **They are replaying it
-  now.** Until that comes back, nobody should tell you this slice is good, and I
-  am not going to.
+**The log called everybody "?".** Anything poisoned or standing in fire has no
+attacker to name, and the log had only one sentence shape, so it printed a
+question mark. At the climax of a fight, ten of twenty-two visible lines could
+read `? hits Siege Master for 1 Profane damage`. Two people found it
+independently and both said the same thing: it drowned the log exactly at the
+deaths and defeats where you most want to read it. Sourceless damage has its own
+sentence now.
 - **One class is close to mandatory.** The party without a Siege Master wins
   once in twenty. That is much better than the zero it was earlier tonight, and
   it is still the top balance problem. It has a diagnosis, below.
@@ -121,15 +119,16 @@ five parties in the game.** Each is defined by who you leave out. Against
   **Killing the most dangerous thing first is free, so there is no decision to
   make.** That is the actual bug, it is being fixed as issue 35, and none of the
   range experiments could ever have touched it.
-- **The floor is not a difficulty curve.** Rooms carry damage forward correctly,
-  but room type does not yet pick an encounter, so difficulty changes how many
-  enemies rather than which fight. Issue 27.
-- **The arena is smaller than it should be.** The combat log no longer hides
-  units, but it costs about a third of the screen to do it. Issue 29.
 - **Portrait phone layout is cramped.** Landscape is the target and is fine.
-- **No plan editor, no items, no loot, no shops, no floors beyond room one.**
-  All deliberate, all listed in `Issues/NEXT-after-the-slice.md`, all gated shut
-  until the slice is good.
+- **No plan editor, no loot, no shops, no second floor.** All deliberate and
+  listed in `Issues/NEXT-after-the-slice.md`, which is now open and being worked
+  on rather than gated shut.
+
+Fixed since the last time this file described them: the combat log moved beside
+the arena instead of below it, roughly doubling the play area; room type now
+picks a real encounter, so the floor has a measured difficulty curve rather than
+just more enemies; and thirteen items exist with real numbers and descriptions,
+though nothing equips them yet.
 
 ## The art is a placeholder and swapping it is one step
 
@@ -137,6 +136,11 @@ Drop a PNG into `Assets/Units/` named after the unit — `warrior.png`,
 `goblin.png`. No code change, no import, no registration. Delete it and the
 polygon comes back. `Assets/Units/README.md` has the full list, and a test keeps
 that list honest against the real content.
+
+**Checked rather than assumed**, because it is a promise made to you: a plain
+magenta square was saved as `priest.png` and `ghoul.png` and a real fight
+rendered with it. The Priest and both Ghouls became magenta squares and every
+other unit kept its polygon. `Tools/preview/art_swap_proof.png` is that frame.
 
 ## If you want the numbers rather than the game
 
