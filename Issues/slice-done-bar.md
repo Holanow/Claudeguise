@@ -21,23 +21,40 @@ If some are not, I will say which and why rather than declaring victory.
 rather than a fixture.
 
 ### 2. A fight is legible to someone who has not read the code
-- [x] Units are distinguishable at a glance, at phone size
+- [x] Units are distinguishable at a glance
 - [x] Damage numbers, a combat log, wind-up telegraphs, targeting lines
 - [x] A miss looks like a miss, distinct from a hit and from a hit absorbed
-- [ ] **You can tell who is winning** — issue 15, open
-- [ ] **You can see one pawn being focused by three enemies** — issue 15, open
+- [x] **You can tell who is winning** — issue 15 merged, party/enemy summary bars
+- [x] **You can see a pawn under fire from several sources** — issue 15 merged
+- [ ] **It holds at phone size** — issue 18, open. The battle screen comes apart
+      at 390x844: HUD off the edge, arena squeezed to a strip
+- [ ] **No developer language on screen** — issue 19, open. The victory banner
+      says "Victory (197 ticks)" and the log prints raw action ids
 
-Not met. This is the one I would be most embarrassed to hand over, because the
-dynamic that decides every fight is invisible.
+**Mostly met on a desktop, not met on a phone.** wren's cold read of a single
+frame — correctly identifying a committed strike, a countdown, an out-of-resource
+marker and a stun, while naming what they could not tell — is the best evidence
+we have that the legibility work landed.
 
 ### 3. The fights are worth watching
-- [ ] **Wins are not clean sweeps.** Median survivors 2 or 3 of 4, not 4
-- [ ] **Some composition is a genuine coin flip**, winning 6 to 14 of 20
-- [ ] **The seed changes the fight.** Tick counts vary by 15% of the median
-- [ ] **Composition still matters.** Best party beats worst by a wide margin
+- [ ] **Wins are not clean sweeps.** Survivor histograms are still 0 or 4 with
+      nothing between, and the losing side finishes on 0% hp almost everywhere
+- [ ] **Some composition is a genuine coin flip**, winning 6 to 14 of 20.
+      Closest so far: geysermancer x4 at 3 of 20, which was 0 of 20 this morning
+- [x] **The seed changes the fight.** Tick spreads are now 48%, 139% and 211%
+      against a target of 15%, where every party previously ran to the identical
+      tick on every seed
+- [ ] **Composition still matters** — cannot be judged until the rest is true
 
-Not met, and this is the heart of it. Currently every party wins 20/20 with four
-survivors or loses 20/20 with none, and the seed does nothing. Issue 7.
+**Still the heart of it, and now moving.** The rng hook landed, so damage varies
+and the seed does something for the first time. Closeness has not started.
+Issue 7, and it is gated on issue 16.
+
+**And a blocker underneath it that we did not know about this morning:** units
+walk out of the arena entirely — measured at twenty-one arena widths off the
+map — so ranged enemies kite forever and nothing can be cornered. Tuning fights
+for closeness on a battlefield with no edges is largely wasted work. Issue 16,
+wren, in progress.
 
 ### 4. The player's one decision has a payoff
 - [ ] Picking four classes changes the outcome in a way a player can predict
@@ -64,6 +81,14 @@ I would keep if I had to throw the rest away.
 - [x] Terrain designed but not built, queued as issue 13
 
 **Met.**
+
+### 7. The first screen a player meets is not a debug list
+- [ ] **Party select shows what a class is** — issue 17, open. It is currently
+      five checkboxes in the corner of a black screen, and it holds the only
+      decision in the game
+
+Not met, and it went unnoticed for hours because every previous look at that
+screen was against an empty content registry.
 
 ## What I will not count as done
 
