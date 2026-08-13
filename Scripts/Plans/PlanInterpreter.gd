@@ -7,7 +7,6 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## Turns a pawn's plans into one Intent per tick.
 ##
@@ -101,8 +100,6 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _target_in_range(state, unit, action_id):
 		return null
-	if not _target_in_los(state, unit, action_id):
-		return null
 	if not _can_afford(state, unit, action_id):
 		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
@@ -125,20 +122,6 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 	if target == null:
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
-
-## Issue 13b: same shape as 14a's range check, same reasoning, for a WALL or
-## PILLAR standing between the unit and its focused target. A plan that has
-## picked a target it cannot see must not order the shot -- it falls through
-## the same way an out-of-range or unaffordable one does, and DefaultBehavior
-## picks up the approach from there (see its own line_is_blocked check).
-static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
-	var action = Registry.get_action(action_id)
-	if action == null:
-		return true
-	var target := state.unit(unit.focus_id)
-	if target == null:
-		return false
-	return not Terrain.line_is_blocked(state.terrain, unit.position, target.position)
 
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
 ## action the unit cannot actually pay for right now -- not enough resource,
