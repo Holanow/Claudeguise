@@ -103,3 +103,43 @@ func test_scale_action_ticks_speeds_up_with_agi_and_has_a_floor() -> void:
 func test_scale_action_ticks_never_reaches_zero() -> void:
 	var fast := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.AGI: 9999})
 	assert_true(Balance.scale_action_ticks(1, fast) >= 1)
+
+
+func test_attack_power_with_no_rng_is_the_flat_deterministic_number() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 6})
+	var expected := 6.0 * Balance.ATTACK_POWER_PER_POINT
+	assert_almost_eq(Balance.attack_power(pawn, CG.DamageType.PHYSICAL), expected)
+	assert_almost_eq(Balance.attack_power(pawn, CG.DamageType.PHYSICAL, null), expected)
+
+
+func test_attack_power_with_rng_varies_within_the_declared_spread() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 6})
+	var base := 6.0 * Balance.ATTACK_POWER_PER_POINT
+	var lo := base * (1.0 - Balance.ATTACK_VARIANCE_SPREAD)
+	var hi := base * (1.0 + Balance.ATTACK_VARIANCE_SPREAD)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+	var saw_below_flat := false
+	var saw_above_flat := false
+	for i in 50:
+		var rolled := Balance.attack_power(pawn, CG.DamageType.PHYSICAL, rng)
+		assert_true(rolled >= lo - 0.001 and rolled <= hi + 0.001, "roll %f outside [%f, %f]" % [rolled, lo, hi])
+		if rolled < base:
+			saw_below_flat = true
+		if rolled > base:
+			saw_above_flat = true
+	assert_true(saw_below_flat and saw_above_flat, "50 rolls should land on both sides of the flat value")
+
+
+func test_attack_power_variance_is_reproducible_from_the_same_seed() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 6})
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 999
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 999
+	for i in 10:
+		assert_almost_eq(
+			Balance.attack_power(pawn, CG.DamageType.PHYSICAL, rng_a),
+			Balance.attack_power(pawn, CG.DamageType.PHYSICAL, rng_b),
+			0.0001, "roll %d diverged between two RNGs seeded identically" % i
+		)
