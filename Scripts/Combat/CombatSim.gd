@@ -9,6 +9,7 @@ const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## The simulation. Owns every mutation of a CombatUnit and every event emitted.
@@ -178,21 +179,72 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 		unit.intent = null
 		match intent.kind:
 			CG.IntentKind.MOVE_TO:
-				_resolve_move(unit, intent)
+				_resolve_move(state, unit, intent)
 			CG.IntentKind.USE_ACTION:
 				_resolve_use_action(state, unit, intent, deps)
 			_:
 				pass
 
-static func _resolve_move(unit: CombatUnit, intent: Intent) -> void:
+## No pathfinding: a unit that cannot take its full step tries sliding along
+## one axis at a time, and stays put only if neither axis is clear either.
+## Enough for a room built from a few rectangles, per issue 13a's own scope;
+## a unit that genuinely cannot route around an obstacle is a finding to
+## report, not a pathfinder to build.
+static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent) -> void:
 	var to_dest := intent.destination - unit.position
 	var dist := to_dest.length()
-	var target: Vector2
+	var step: Vector2
 	if dist <= unit.move_speed or dist <= 0.0001:
-		target = intent.destination
+		step = to_dest
 	else:
-		target = unit.position + to_dest.normalized() * unit.move_speed
-	unit.position = _clamp_to_arena(target)
+		step = to_dest.normalized() * unit.move_speed
+
+	var direct := _sweep(state, unit, step)
+	if direct != unit.position:
+		unit.position = direct
+		return
+
+	# The direct step made no progress at all (blocked immediately, not just
+	# short of the full distance). Try sliding along one axis of the
+	# intended step instead of freezing.
+	var slide_x := _sweep(state, unit, Vector2(step.x, 0.0))
+	var slide_y := _sweep(state, unit, Vector2(0.0, step.y))
+	var moved_x := slide_x != unit.position
+	var moved_y := slide_y != unit.position
+
+	if moved_x and moved_y:
+		unit.position = slide_x if absf(step.x) >= absf(step.y) else slide_y
+	elif moved_x:
+		unit.position = slide_x
+	elif moved_y:
+		unit.position = slide_y
+	# else: fully blocked in every direction this tick. Stay put.
+
+## Walks `step` in small increments and returns the furthest point actually
+## reached before hitting something solid -- `unit.position` unchanged if
+## even the first increment is blocked. This is what stops a unit faster
+## than a wall is thick from tunneling straight through it:
+## `Terrain.point_is_blocked` alone only checks the landing point, and a
+## single large jump can clear a thin wall without either endpoint ever
+## registering as inside it. Doubles as "stop at the wall" for a head-on
+## approach with no clear slide axis, which is the "stop" half of "slide
+## along it or stop" -- no pathfinding, just don't pass through.
+const _MOVE_SWEEP_STEP := 4.0
+
+static func _sweep(state: CombatState, unit: CombatUnit, step: Vector2) -> Vector2:
+	var length := step.length()
+	if length <= 0.0001:
+		return unit.position
+	var direction := step / length
+	var travelled := 0.0
+	var last_good := unit.position
+	while travelled < length:
+		travelled = minf(travelled + _MOVE_SWEEP_STEP, length)
+		var candidate := _clamp_to_arena(unit.position + direction * travelled)
+		if Terrain.point_is_blocked(state.terrain, candidate, unit.radius):
+			break
+		last_good = candidate
+	return last_good
 
 ## Nothing previously compared a unit's position to the arena bounds, so a
 ## unit told to walk past the edge just kept going -- issue 16 measured
@@ -261,6 +313,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 				unit.current_action = &""
 		_tick_regen(state, unit, deps)
 		_tick_statuses(state, unit)
+		_tick_hazards(state, unit)
 
 ## Mana and Energy refill over time; Rage does not — CombatSim enforces that
 ## itself rather than trusting the rate function, so a rate that forgets to
@@ -295,6 +348,27 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
 			state.emit(e)
+
+## A unit standing in a HAZARD takes its damage every tick it is inside, with
+## an event per hit so the log and floaters see it, and stops the tick after
+## it leaves -- membership is just re-checked each tick, no decay to track.
+static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
+	if state.terrain.is_empty():
+		return
+	for hazard in Terrain.hazards_at(state.terrain, unit.position):
+		if hazard.damage_per_tick <= 0:
+			continue
+		var before := unit.hp
+		unit.hp = maxi(0, unit.hp - hazard.damage_per_tick)
+		var applied := before - unit.hp
+		var e := _event(CG.EventKind.DAMAGE, state.tick, -1, unit.id, &"")
+		e.amount = applied
+		e.damage_type = hazard.damage_type
+		state.emit(e)
+		if unit.hp <= 0 and unit.alive:
+			unit.alive = false
+			state.emit(_event(CG.EventKind.DEATH, state.tick, -1, unit.id, &""))
+			return
 
 # ---------------------------------------------------------------------------
 # firing an action, applying its effect
