@@ -5,6 +5,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Every ActionDef in the slice: the five classes' actions and the enemies'.
 ## Kept in one module rather than split per class because Registry only cares
@@ -62,6 +63,9 @@ static func enemies() -> Array[EnemyDef]:
 	return []
 
 static func encounters() -> Array[Encounter]:
+	return []
+
+static func items() -> Array[EquipmentDef]:
 	return []
 
 static func _action(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:

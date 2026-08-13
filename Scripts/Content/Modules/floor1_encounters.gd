@@ -4,6 +4,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const CG := preload("res://Scripts/Core/CG.gd")
 
@@ -53,6 +54,9 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 
 static func encounters() -> Array[Encounter]:
 	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint()]
+
+static func items() -> Array[EquipmentDef]:
+	return []
 
 ## The standard room: two goblins up front, a goblin archer and a cultist
 ## held back. Same shape the original three-mirrored-pawn roster had, now
