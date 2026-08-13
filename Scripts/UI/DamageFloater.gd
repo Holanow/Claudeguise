@@ -16,18 +16,28 @@ const RISE_SPEED := 40.0
 var _text: String = ""
 var _color: Color = Palette.TEXT
 var _age: float = 0.0
+var _lifetime: float = LIFETIME_SECONDS
+var _font_size: int = Palette.FONT_SIZE_FLOATER
 
 func show_amount(amount: int, color: Color) -> void:
-	_text = str(amount)
+	show_text(str(amount), color)
+
+## A death marker uses this directly: longer on screen than a damage number
+## and its own font size, so "someone just died" reads as a distinct kind of
+## event rather than another floating number.
+func show_text(text: String, color: Color, lifetime: float = LIFETIME_SECONDS, font_size: int = Palette.FONT_SIZE_FLOATER) -> void:
+	_text = text
 	_color = color
 	_age = 0.0
+	_lifetime = lifetime
+	_font_size = font_size
 	set_process(true)
 	queue_redraw()
 
 func _process(delta: float) -> void:
 	_age += delta
 	position.y -= RISE_SPEED * delta
-	if _age >= LIFETIME_SECONDS:
+	if _age >= _lifetime:
 		queue_free()
 		return
 	queue_redraw()
@@ -35,8 +45,9 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if _text == "":
 		return
-	var alpha := clampf(1.0 - _age / LIFETIME_SECONDS, 0.0, 1.0)
+	var alpha := clampf(1.0 - _age / _lifetime, 0.0, 1.0)
 	var c := _color
 	c.a = alpha
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(-10.0, 0.0), _text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_FLOATER, c)
+	var text_size := font.get_string_size(_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size)
+	draw_string(font, Vector2(-text_size.x * 0.5, 0.0), _text, HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, c)

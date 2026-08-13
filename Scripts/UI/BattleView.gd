@@ -54,6 +54,18 @@ func _ready() -> void:
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
 
+	# The arena now fills almost the whole viewport (see _layout_arena), so
+	# the HUD strip overlays it rather than sitting over empty margin. A
+	# backdrop keeps it legible against whatever the arena is drawing
+	# underneath, the same reasoning as CombatLogView's own backdrop.
+	var backdrop := ColorRect.new()
+	backdrop.color = Palette.BACKGROUND
+	backdrop.color.a = 0.72
+	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	backdrop.offset_bottom = Palette.SPACE_M * 2.0 + Palette.TOUCH_TARGET_MIN
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(backdrop)
+
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	bar.add_theme_constant_override("separation", int(Palette.SPACE_M))
@@ -89,14 +101,31 @@ func _build_top_bar() -> void:
 	back_button.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_button)
 
-## Room reserved outside the arena's own bounds when fitting it to the
-## viewport. A unit at the literal edge of the arena still draws its name and
-## bars above its radius (see UnitView), and the top bar sits over the arena
-## too, so fitting the arena to the raw viewport rect clips both: rook caught
-## this from battle_corners_1280x720.png, where the two top corner units were
-## cut off by the HUD and the viewport edge.
-const _TOP_MARGIN := 72.0
-const _SIDE_MARGIN := 48.0
+## World-space room added around the arena's own bounds when fitting it to
+## the viewport.
+##
+## This used to be a large fixed *screen-pixel* reservation sized to clear
+## the HUD strip and the whole log panel, which insets the *rect* rather than
+## the *fit*: at 1280x720 it shrank the arena to roughly 600x340, about 22%
+## of the screen, most of it empty. rook caught this from
+## Screenshots/readability_log_and_labels_1.png. The fix is to expand what
+## gets fit — the arena plus this margin — rather than shrink the space it's
+## fit into: the arena now fills essentially the whole viewport, and the HUD
+## and the combat log overlay it as thin/translucent strips instead of
+## displacing it. World-space, not screen-pixel, so the margin scales with
+## the arena instead of eating a fixed chunk regardless of zoom.
+##
+## Sized to the actual worst case a unit draws at its own position, per
+## UnitView's stack (BAR_GAP/BAR_HEIGHT/FONT_SIZE_SMALL, all Palette's
+## phone-scale values now): radius(22) + gap + resource bar + gap + hp bar +
+## gap + name text + its chip padding, roughly 90 above; radius + status-tag
+## text + its chip below, roughly 70; radius + half a bar width to the sides,
+## roughly 45. Verified against units placed at the *literal* simulated
+## corner (Screenshots/edges_1280x720.png) — the same trap issue 6 hit,
+## caught again here before it merged this time.
+const _MARGIN_TOP := 110.0
+const _MARGIN_BOTTOM := 70.0
+const _MARGIN_SIDE := 45.0
 
 func _layout_arena() -> void:
 	if _arena == null:
@@ -104,11 +133,15 @@ func _layout_arena() -> void:
 	var size := get_viewport_rect().size
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	var usable := Vector2(size.x - _SIDE_MARGIN * 2.0, size.y - _TOP_MARGIN - _SIDE_MARGIN)
-	if usable.x <= 0.0 or usable.y <= 0.0:
-		return
-	var scale_factor: float = min(usable.x / (2.0 * CG.ARENA_HALF_WIDTH), usable.y / (2.0 * CG.ARENA_HALF_HEIGHT))
-	_arena.position = Vector2(size.x * 0.5, _TOP_MARGIN + usable.y * 0.5)
+	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN_SIDE
+	var fit_top := CG.ARENA_HALF_HEIGHT + _MARGIN_TOP
+	var fit_bottom := CG.ARENA_HALF_HEIGHT + _MARGIN_BOTTOM
+	var fit_width := fit_half_width * 2.0
+	var fit_height := fit_top + fit_bottom
+	var scale_factor: float = min(size.x / fit_width, size.y / fit_height)
+	var box := Vector2(fit_width, fit_height) * scale_factor
+	var offset := (size - box) * 0.5
+	_arena.position = offset + Vector2(fit_half_width, fit_top) * scale_factor
 	_arena.scale = Vector2(scale_factor, scale_factor)
 
 func begin(cfg: RunConfig) -> void:
@@ -188,6 +221,8 @@ func consume_events() -> void:
 			_combat_log.append_event(state, e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
+		elif e.kind == CG.EventKind.DEATH:
+			_spawn_death_marker(e)
 
 func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
@@ -199,6 +234,24 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.position = target.position
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color)
+
+## A death lands as an event, not as a unit quietly disappearing: named text
+## rising from where the unit fell, on screen noticeably longer than a damage
+## number. Offset above the unit's own position: the killing blow's DAMAGE
+## event fires the same tick and spawns a floater starting at that exact
+## point, and the two must not spawn on top of each other and read as one
+## garbled string.
+const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0)
+
+func _spawn_death_marker(e: CombatEvent) -> void:
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	var marker := Node2D.new()
+	marker.set_script(DamageFloaterScript)
+	_arena.add_child(marker)
+	marker.position = target.position + _DEATH_MARKER_OFFSET
+	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, Palette.FONT_SIZE_BODY)
 
 func _show_outcome() -> void:
 	match state.outcome:
