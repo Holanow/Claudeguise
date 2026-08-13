@@ -128,3 +128,57 @@ func test_an_unknown_shape_still_produces_something_visible() -> void:
 	assert_eq(parts.size(), 1)
 	assert_true(parts[0]["points"].size() >= 3)
 	assert_false(parts[0]["filled"], "the unknown marker is hollow, so it cannot be mistaken for real art")
+
+
+# ---------------------------------------------------------------------------
+# The art is meant to be replaced. These check that the replacing works and
+# that the instructions for it stay true.
+# ---------------------------------------------------------------------------
+
+const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
+
+
+func test_with_no_art_files_every_shape_falls_back_to_polygons() -> void:
+	# The state the project ships in. If this ever fails it means something is
+	# being picked up from Assets/Units that should not be, which would be
+	# confusing in exactly the way a caching bug is.
+	for id in Silhouettes.shape_ids():
+		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
+			if UnitArt.has_art(id, team):
+				continue
+			var parts := Silhouettes.build_parts(id, 24.0, team, CG.DamageType.FIRE)
+			assert_true(parts.size() >= 3, "%s lost its placeholder" % id)
+
+
+func test_a_missing_art_file_is_not_an_error() -> void:
+	# Dropping in art is opt-in per unit, so the absence of a file has to be
+	# silent. If this ever pushed an error, the console would be unreadable and
+	# people would learn to ignore it.
+	assert_eq(UnitArt.texture_for(&"definitely_not_a_unit", CG.Team.PLAYER), null)
+	assert_false(UnitArt.has_art(&"definitely_not_a_unit", CG.Team.ENEMY))
+
+
+func test_the_replacement_instructions_match_the_real_content() -> void:
+	# Assets/Units/README.md tells whoever replaces the art which filenames to
+	# use. If somebody adds an enemy and does not update it, that person finds
+	# out here rather than the artist finding out by dropping in a PNG that
+	# never appears.
+	var readme := FileAccess.get_file_as_string("res://Assets/Units/README.md")
+	assert_ne(readme, "", "Assets/Units/README.md is missing")
+
+	for class_id in Registry.all_class_ids():
+		assert_true(
+			readme.contains("%s.png" % class_id),
+			"class '%s' is registered but Assets/Units/README.md does not list %s.png" % [class_id, class_id]
+		)
+
+	var checked := 0
+	for encounter_id in Registry.all_encounter_ids():
+		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
+			var enemy_id: StringName = spawn.get("enemy_id", &"")
+			assert_true(
+				readme.contains("%s.png" % enemy_id),
+				"enemy '%s' spawns but Assets/Units/README.md does not list %s.png" % [enemy_id, enemy_id]
+			)
+			checked += 1
+	assert_true(checked > 0, "no enemy spawns checked; this test would pass on an empty game")

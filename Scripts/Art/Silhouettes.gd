@@ -2,6 +2,7 @@ extends RefCounted
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
 
 ## Placeholder art, as polygons in code.
 ##
@@ -202,9 +203,27 @@ static func draw_unit(
 	radius: float,
 	team: CG.Team,
 	accent: CG.DamageType,
-	facing_left: bool = false
+	facing_left: bool = false,
+	center: Vector2 = Vector2.ZERO
 ) -> void:
-	for part in build_parts(shape_id, radius, team, accent, facing_left):
+	# Real art wins if somebody has dropped a file in for this shape. This is the
+	# single seam that makes the placeholders replaceable without touching any
+	# caller: put Assets/Units/<shape_id>.png on disk and it appears. See the
+	# header of UnitArt.gd for the whole procedure.
+	#
+	# `center` exists so a caller that needs the shape somewhere other than the
+	# origin — a card, a roster row, a tooltip — can still come through here and
+	# get the art. Anything that reaches for build_parts to move the shape
+	# instead will silently keep drawing placeholders forever after somebody
+	# replaces the art, which is a nasty thing to discover.
+	var tex := UnitArt.texture_for(shape_id, team)
+	if tex != null:
+		canvas.draw_set_transform(center, 0.0, Vector2.ONE)
+		UnitArt.draw(canvas, tex, radius, facing_left)
+		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+
+	for part in build_parts(shape_id, radius, team, accent, facing_left, center):
 		var points: PackedVector2Array = part["points"]
 		if part["filled"]:
 			canvas.draw_colored_polygon(points, part["fill"])
@@ -221,12 +240,17 @@ static func draw_unit(
 ## errors and asserts nothing — which is exactly what the first version of the
 ## test for this file did, and it "passed". Geometry and colour are the parts
 ## that can be wrong silently; the drawing itself is four engine calls.
+## NOTE: this returns polygons and therefore never returns replacement art. If
+## you are drawing a unit, call `draw_unit` — it takes a `center` for exactly
+## the case that makes people reach for this function instead, and it is the
+## only path that honours Assets/Units/.
 static func build_parts(
 	shape_id: StringName,
 	radius: float,
 	team: CG.Team,
 	accent: CG.DamageType,
-	facing_left: bool = false
+	facing_left: bool = false,
+	center: Vector2 = Vector2.ZERO
 ) -> Array[Dictionary]:
 	var team_color := Palette.team_color(team)
 	var colors := {
@@ -238,14 +262,14 @@ static func build_parts(
 
 	var parts: Array = _PARTS.get(shape_id, [])
 	if parts.is_empty():
-		return _unknown_parts(radius, team_color)
+		return _unknown_parts(radius, team_color, center)
 
 	var flip := -1.0 if facing_left else 1.0
 	var out: Array[Dictionary] = []
 	for part in parts:
 		var points := PackedVector2Array()
 		for p in part["poly"]:
-			points.append(Vector2(float(p[0]) * flip, float(p[1])) * radius)
+			points.append(Vector2(float(p[0]) * flip, float(p[1])) * radius + center)
 		out.append({
 			"points": points,
 			"fill": colors[part["tint"]],
@@ -257,11 +281,11 @@ static func build_parts(
 
 ## The fallback. Deliberately unlike every real shape: a hollow diamond reads
 ## instantly as "this one has no art yet" rather than as a new enemy type.
-static func _unknown_parts(radius: float, team_color: Color) -> Array[Dictionary]:
+static func _unknown_parts(radius: float, team_color: Color, center: Vector2 = Vector2.ZERO) -> Array[Dictionary]:
 	return [{
 		"points": PackedVector2Array([
-			Vector2(0.0, -radius), Vector2(radius, 0.0),
-			Vector2(0.0, radius), Vector2(-radius, 0.0),
+			Vector2(0.0, -radius) + center, Vector2(radius, 0.0) + center,
+			Vector2(0.0, radius) + center, Vector2(-radius, 0.0) + center,
 		]),
 		"fill": team_color,
 		"outline": team_color,
