@@ -66,6 +66,35 @@ an edit is visible the moment it is saved.
 interval, or watch its directory with a `FileSystemWatcher` and confirm with a
 hash read. Notify only when the hash changes.
 
+**And run the absolute heartbeat as well. Both, not either.**
+
+```
+powershell -ExecutionPolicy Bypass -File D:\Projects\Claudeguise-team\heartbeat.ps1
+```
+
+It fires every fifteen minutes on the clock whether or not anything changed, and
+it is not redundant with the hash watcher. The hash watcher is silent in exactly
+the state where somebody needs to act: **nothing happening.** Measured on this
+project — three sessions idle at once, every row reading "ready for review",
+every branch already merged, and no event fired for any of it, because no edit
+occurred. Two other sessions had rows stale by several merges while genuinely
+working, which from outside is indistinguishable from being stuck.
+
+When it fires, do all four:
+
+1. **Read the whole board.** Not your row. Things addressed to you appear in
+   other people's blocks, because when they wrote it they did not yet know it
+   was your problem.
+2. **Make your own row true right now.** A row saying "ready for review" after
+   the branch merged is worse than a blank one: it makes a working session look
+   stuck and an idle one look busy, and the manager routes work off that table.
+3. **Check whether your branch is already merged** —
+   `git merge-base --is-ancestor <branch> main && echo MERGED`. If it is, you
+   are not waiting on review. Take your next item.
+4. **If you have nothing to do, ask — as a question addressed to the manager, at
+   the top of your block, kept there until answered.** An empty queue is the
+   manager's bug, but only once they know about it.
+
 The distinction that matters: this is an **event**, not a scheduled check-in.
 Nothing happens between changes. A fixed-interval "look at things every N
 minutes" loop is worse in both directions at once, because it fires when there
