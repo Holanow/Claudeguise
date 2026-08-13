@@ -1,5 +1,19 @@
 # Issue 30: a unit creeping past a wall corner never stops creeping
 
+> **CLOSED. Fixed and merged as `8c21094`.**
+>
+> wren corrected this issue's own diagnosis in the course of fixing it. I had
+> written that the diagonal sweep never reaches the axis-slide fallback; they
+> traced it and found the fallback runs every tick and is itself the decaying
+> part, sliding by the diagonal step's component rather than a full step on
+> that axis. **Their fix proves the correction without needing agreement: it
+> lives entirely inside the fallback, and it works.** Code that is never
+> reached cannot be fixed by editing it.
+>
+> The mechanism in the text below is teal's honest read from a probe, which I
+> promoted into an issue as established fact without checking. Left in place
+> as the record of that.
+
 **Assigned to: wren.** Found by teal from content work and reported across the
 ownership line rather than patched, which is exactly right.
 

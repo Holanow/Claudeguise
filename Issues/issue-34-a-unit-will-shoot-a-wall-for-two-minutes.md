@@ -1,5 +1,17 @@
 # Issue 34: a unit will shoot a wall for two minutes
 
+> **CLOSED. Fixed and merged as `053eb2f`.**
+>
+> Reproduced independently before merging: the wall arm went from 20 draws in
+> 20 seeds to 19/20 resolving.
+>
+> teal restored the decide-time check I had approved deleting, and restored it
+> **better than it was** — both checks now consult the action's own
+> `requires_line_of_sight` flag, where the original gated every ranged action
+> unconditionally. The two checks answer different questions: decide-time asks
+> *should I aim at this*, resolve-time asks *did the shot I committed to
+> connect*. I treated them as duplicates and was wrong.
+
 **Assigned to: teal.** This restores work of yours that I approved the removal
 of. The judgement was mine and it was wrong.
 

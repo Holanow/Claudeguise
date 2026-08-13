@@ -1,5 +1,16 @@
 # Issue 35: there is no cost to killing the right target first
 
+> **SUPERSEDED by `Issues/issue-37`, which is where the work happened.**
+>
+> The mechanism identified here is sound and was confirmed by trace: a party
+> that does not walk picks its targets, and the most dangerous enemies are
+> also the cheapest to kill, so choosing correctly costs nothing.
+>
+> **But this issue was written about `siege_master x4`, a party `PartySelect`
+> cannot assemble.** Issue 37 re-framed it against the five parties that
+> exist, fixed the Abomination half, and established that the remainder is
+> structural. Read 37 rather than this.
+
 **Assigned to: teal.** This is the answer to the question you asked instead of
 guessing a fifth lever, and you were right that it needed a trace. It closes
 issue 24, supersedes issue 31, and it is not about range at all.

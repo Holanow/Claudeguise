@@ -1,5 +1,17 @@
 # Issue 33: the log says "? hits priest for 1 Profane damage"
 
+> **CLOSED. Fixed and merged as `9654610`.**
+>
+> Verified like for like: the same party, seed and frame that had 10 of 22 log
+> lines reading `? hits Priest for 1 Profane damage` now has none.
+>
+> pike gave sourceless damage its own sentence rather than patching the hit
+> sentence, kept hazard and status ticks distinguishable because they tell the
+> player different things, and used `e.status` — a signal the simulation
+> already emits — instead of inventing one. Asked to fix the shape rather than
+> the instance, they checked `MISS`, found it never carries a null source, and
+> said so instead of changing it anyway.
+
 **Assigned to: pike.** Small, and user-facing copy, which is why it is written up
 rather than mentioned in passing.
 

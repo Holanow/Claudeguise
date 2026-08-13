@@ -1,5 +1,20 @@
 # Issue 32: somebody has to actually play it
 
+> **CLOSED. Verdict delivered and merged as `c276451`.**
+>
+> wren watched all five parties twice: once against the wrong room, where they
+> said plainly they would not run a second fight voluntarily, and again after
+> the encounter fix, where they **reversed that on the record** having watched
+> two real defeats and two one-survivor scrapes.
+>
+> **This issue found the bug that cost the entire night**: `PartySelect` loaded
+> whichever encounter sorted first alphabetically, so four sessions balanced a
+> room nobody played. It was visible only by playing the game. It also
+> surfaced that `SampleFights` measured mono-class parties nobody can build,
+> which invalidated the framing of issues 24, 31 and 35.
+>
+> Everything valuable here came from someone playing rather than measuring.
+
 **Assigned to: wren.** This is not a code issue and it does not end in a merge.
 It is the one requirement on this whole project that has never been met.
 
