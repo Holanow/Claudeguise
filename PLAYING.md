@@ -3,6 +3,15 @@
 Written for the morning, so the first five minutes are spent on whether you like
 the game rather than on whether it works.
 
+**Somebody other than you has played it, which is what you asked for.** An
+engineer on the team watched five fights end to end, twice: once early, when
+they said plainly that they would not run a second fight voluntarily, and again
+after the fixes, when they reversed that and said they would. They watched two
+real defeats and two fights won with one pawn left standing. Their verdict is
+that it has a shape and is worth watching. Mine is not the one that counts here,
+and neither is theirs really. It is yours, and the point of tonight was to get
+it in front of you in a state where the answer means something.
+
 ## Run it
 
 ```
@@ -56,21 +65,15 @@ five parties in the game.** Each is defined by who you leave out. Against
 
 ## What is honestly not right yet
 
-- **Nobody independent has yet watched the real game and said whether it is
-  fun.** That is the honest headline and it is deliberate.
-
-  I have looked, and I am not the right judge: I have been wrong about this game
-  four times tonight and I want it to be good. So take this as a description
-  rather than a verdict. `Tools/preview/real_room_fight_sheet.png` is six frames
-  across one fight. The Abomination reaches the enemy line and holds it while
-  the Siege Master and casters fire from behind. Both sides trade deaths through
-  the middle. It ends as a one-on-one between an out-of-mana Geysermancer and a
-  Ghoul, both on slivers of health. **It has an arc rather than just an
-  outcome**, which is the thing it did not have a few hours ago.
-
-  The clearest problem in those frames: at the climax, ten of the twenty-two
-  visible log lines read `? hits Siege Master for 1 Profane damage`. The
-  commentary drowns exactly when you most want to read it. That is the next fix.
+- **The log fills up with question marks.** At the climax of a fight, ten of the
+  twenty-two visible log lines can read `? hits Siege Master for 1 Profane
+  damage`. Anything poisoned or standing in fire has no attacker to name, and
+  the log has only one sentence shape, so it prints a question mark. The
+  commentary drowns exactly when you most want to read it. Two people found this
+  independently and both called it the worst thing in the game. It is being
+  fixed.
+- **The toolbar runs into the log** when an extra label appears, such as the
+  result at the end of a fight.
 
   For most of last night the game did not load the room it was balanced for. One
   line in the party select screen picked whichever room sorted first
