@@ -37,9 +37,40 @@ func sync(state: CombatState) -> void:
 	var u := _unit()
 	if u == null:
 		return
-	position = u.position
+	position = u.position + visual_offset(u, state.units)
 	visible = u.alive
 	queue_redraw()
+
+## The melee scrum: several units standing close enough that bodies occlude
+## each other, called out in issue 15 as "the most important square inch of
+## the screen is the least legible one". A view-only nudge, never fed back
+## into CombatState — the simulation's positions are wren's and this changes
+## nothing about range, targeting or movement, only where a body is drawn.
+## Each overlapping pair pushes apart along the line between them; capped so
+## a crowded unit never reads somewhere misleadingly far from where it
+## actually is.
+const _SEPARATION_PADDING := 1.3
+const _SEPARATION_STRENGTH := 0.5
+
+static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
+	var push := Vector2.ZERO
+	for other in units:
+		if other.id == u.id or not other.alive:
+			continue
+		var delta: Vector2 = u.position - other.position
+		var dist: float = delta.length()
+		var min_dist: float = (u.radius + other.radius) * _SEPARATION_PADDING
+		if dist >= min_dist:
+			continue
+		if dist > 0.001:
+			push += delta.normalized() * (min_dist - dist) * _SEPARATION_STRENGTH
+		else:
+			# Exactly coincident: distance has no direction to push along.
+			# Deterministic by id so two views of the same fight agree,
+			# rather than depending on iteration order.
+			var angle := float(u.id) * 2.4
+			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
+	return push.limit_length(u.radius * 1.5)
 
 func _unit() -> CombatUnit:
 	if _state == null:
@@ -70,6 +101,8 @@ func _draw() -> void:
 	_draw_targeting_line(u)
 
 	Silhouettes.draw_unit(self, _shape_id(u), u.radius, u.team, _accent(u), u.team == CG.Team.ENEMY)
+
+	_draw_concentration_badge(u)
 
 	if u.action_ticks_left > 0 and u.current_action != &"":
 		draw_arc(Vector2.ZERO, u.radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 3.0, true)
@@ -132,13 +165,55 @@ static func crowd_rank(u: CombatUnit, units: Array) -> int:
 ## Who is this unit currently after. Answers "why is that side winning" by
 ## itself, before a single number changes: a target being focused by three
 ## units at once reads differently from one being ignored.
+##
+## Issue 15's finding: three units converging on one target looked identical
+## to three units standing near each other, and the line itself was too faint
+## to trace where several overlapped. A dark outline under the line gives it
+## contrast against any background; both colours are existing Palette tokens
+## at a different alpha, not new literals.
 func _draw_targeting_line(u: CombatUnit) -> void:
 	if u.focus_id < 0 or u.current_action == &"":
 		return
 	var target := _state.unit(u.focus_id)
 	if target == null or not target.alive:
 		return
-	draw_line(Vector2.ZERO, target.position - u.position, Palette.FOCUS_LINE, 2.0)
+	var to_target := target.position - u.position
+	draw_line(Vector2.ZERO, to_target, Color(Palette.BACKGROUND, 0.5), 4.5)
+	draw_line(Vector2.ZERO, to_target, Palette.FOCUS_LINE, 2.5)
+
+## How many other living units currently have this one as their focus —
+## "is this unit under fire from more than one thing at once", which issue 15
+## found was completely invisible: a scrum of three attackers on one pawn
+## looked identical to three attackers merely standing near it. Split out for
+## testing without a live canvas, same reasoning as status_tags.
+static func concentration_count(u: CombatUnit, units: Array) -> int:
+	var count := 0
+	for other in units:
+		if other.id == u.id or not other.alive:
+			continue
+		if other.focus_id == u.id:
+			count += 1
+	return count
+
+const CONCENTRATION_THRESHOLD := 2
+
+## Only drawn once concentration is actually worth flagging (2+): a badge on
+## every unit all the time would be noise, and the issue this answers is
+## specifically "three attackers on one pawn read as nothing at all", not
+## "who has a target".
+func _draw_concentration_badge(u: CombatUnit) -> void:
+	if _state == null:
+		return
+	var count := concentration_count(u, _state.units)
+	if count < CONCENTRATION_THRESHOLD:
+		return
+	var badge_center := Vector2(u.radius * 0.75, -u.radius * 0.75)
+	draw_circle(badge_center, 11.0, Palette.HP_LOW)
+	var font := ThemeDB.fallback_font
+	var text := str(count)
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL)
+	draw_string(font, badge_center - text_size * 0.5 + Vector2(0.0, text_size.y * 0.75),
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT)
 
 ## Stunned and out-of-resource both look identical to "idle" on the arena
 ## otherwise: the unit just doesn't do anything, and a viewer with no access
