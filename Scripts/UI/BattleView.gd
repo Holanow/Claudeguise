@@ -90,13 +90,26 @@ func _build_top_bar() -> void:
 	bar.add_child(back_button)
 
 ## Room reserved outside the arena's own bounds when fitting it to the
-## viewport. A unit at the literal edge of the arena still draws its name and
-## bars above its radius (see UnitView), and the top bar sits over the arena
-## too, so fitting the arena to the raw viewport rect clips both: rook caught
-## this from battle_corners_1280x720.png, where the two top corner units were
-## cut off by the HUD and the viewport edge.
-const _TOP_MARGIN := 72.0
-const _SIDE_MARGIN := 48.0
+## viewport, asymmetric on purpose.
+##
+## A unit's bars and label draw *above* its position (see UnitView), not
+## symmetrically around it, so the space a unit at the top edge needs is
+## taller than its radius alone: roughly one gap, two bars, another gap and a
+## line of text, plus that text's own ascent above its baseline. The first
+## version of this margin (issue 3) was verified against units *inset* from
+## the corner and passed; issue 6 then placed units at the literal simulated
+## edge, exactly as its own acceptance criterion required, and that removed
+## the inset that had been quietly covering an undersized margin. Fixed here
+## against units placed at the literal edge, both top and bottom.
+##
+## The bottom needs a different reservation for a different reason: nothing
+## a unit draws extends below it, but Hud/CombatLog is a fixed-height panel
+## anchored to the bottom of the screen (Control.PRESET_BOTTOM_WIDE, 200px
+## tall, offset 220px from the bottom edge — see CombatLogView._ready), and
+## it must not sit over the arena either.
+const _TOP_MARGIN := 150.0
+const _BOTTOM_MARGIN := 232.0
+const _SIDE_MARGIN := 40.0
 
 func _layout_arena() -> void:
 	if _arena == null:
@@ -104,7 +117,7 @@ func _layout_arena() -> void:
 	var size := get_viewport_rect().size
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	var usable := Vector2(size.x - _SIDE_MARGIN * 2.0, size.y - _TOP_MARGIN - _SIDE_MARGIN)
+	var usable := Vector2(size.x - _SIDE_MARGIN * 2.0, size.y - _TOP_MARGIN - _BOTTOM_MARGIN)
 	if usable.x <= 0.0 or usable.y <= 0.0:
 		return
 	var scale_factor: float = min(usable.x / (2.0 * CG.ARENA_HALF_WIDTH), usable.y / (2.0 * CG.ARENA_HALF_HEIGHT))
@@ -188,6 +201,8 @@ func consume_events() -> void:
 			_combat_log.append_event(state, e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
+		elif e.kind == CG.EventKind.DEATH:
+			_spawn_death_marker(e)
 
 func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
@@ -199,6 +214,24 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.position = target.position
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color)
+
+## A death lands as an event, not as a unit quietly disappearing: named text
+## rising from where the unit fell, on screen noticeably longer than a damage
+## number. Offset above the unit's own position: the killing blow's DAMAGE
+## event fires the same tick and spawns a floater starting at that exact
+## point, and the two must not spawn on top of each other and read as one
+## garbled string.
+const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0)
+
+func _spawn_death_marker(e: CombatEvent) -> void:
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	var marker := Node2D.new()
+	marker.set_script(DamageFloaterScript)
+	_arena.add_child(marker)
+	marker.position = target.position + _DEATH_MARKER_OFFSET
+	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, Palette.FONT_SIZE_BODY)
 
 func _show_outcome() -> void:
 	match state.outcome:

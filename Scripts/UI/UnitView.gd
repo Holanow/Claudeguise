@@ -65,10 +65,19 @@ func _draw() -> void:
 	if u == null:
 		return
 
+	_draw_targeting_line(u)
+
 	Silhouettes.draw_unit(self, _shape_id(u), u.radius, u.team, _accent(u), u.team == CG.Team.ENEMY)
 
 	if u.action_ticks_left > 0 and u.current_action != &"":
-		draw_arc(Vector2.ZERO, u.radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 2.0, true)
+		draw_arc(Vector2.ZERO, u.radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 3.0, true)
+		var font := ThemeDB.fallback_font
+		var ticks_text := str(u.action_ticks_left)
+		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL)
+		draw_string(font, Vector2(-text_size.x * 0.5, u.radius + 4.0 + text_size.y),
+			ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.WIND_UP)
+
+	_draw_status_tags(u)
 
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
@@ -91,3 +100,37 @@ func _draw() -> void:
 
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(-BAR_WIDTH * 0.5, y), u.display_name, HORIZONTAL_ALIGNMENT_LEFT, BAR_WIDTH * 2.0, Palette.FONT_SIZE_SMALL, Palette.TEXT)
+
+## Who is this unit currently after. Answers "why is that side winning" by
+## itself, before a single number changes: a target being focused by three
+## units at once reads differently from one being ignored.
+func _draw_targeting_line(u: CombatUnit) -> void:
+	if u.focus_id < 0 or u.current_action == &"":
+		return
+	var target := _state.unit(u.focus_id)
+	if target == null or not target.alive:
+		return
+	draw_line(Vector2.ZERO, target.position - u.position, Palette.FOCUS_LINE, 2.0)
+
+## Stunned and out-of-resource both look identical to "idle" on the arena
+## otherwise: the unit just doesn't do anything, and a viewer with no access
+## to CombatUnit.statuses cannot tell a stalled decision from a disabled one.
+func _draw_status_tags(u: CombatUnit) -> void:
+	var tags := status_tags(u)
+	if tags.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	draw_string(font, Vector2(-BAR_WIDTH * 0.5, u.radius + 14.0), " ".join(tags),
+		HORIZONTAL_ALIGNMENT_LEFT, BAR_WIDTH * 2.0, Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+
+## Split out from _draw_status_tags so it can be tested without a live
+## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a
+## drawing function directly logs errors and asserts nothing, which is
+## exactly the trap Silhouettes.build_parts's own doc comment names.
+static func status_tags(u: CombatUnit) -> Array[String]:
+	var tags: Array[String] = []
+	if u.has_status(CG.Status.STUN):
+		tags.append("STUN")
+	if u.resource_max > 0 and u.resource <= 0:
+		tags.append("OOM")
+	return tags

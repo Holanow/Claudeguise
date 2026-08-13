@@ -48,3 +48,32 @@ func test_dead_unit_is_not_visible() -> void:
 	view.sync(state)
 	assert_false(view.visible, "a dead unit's view must not stay visible")
 	view.free()
+
+func test_status_tags_are_empty_for_an_unaffected_unit() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	assert_true(UnitView.status_tags(u).is_empty())
+
+func test_status_tags_names_a_stun() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.statuses[CG.Status.STUN] = 100
+	assert_eq(UnitView.status_tags(u), ["STUN"])
+
+func test_status_tags_names_being_out_of_resource() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.resource_max = 10
+	u.resource = 0
+	assert_eq(UnitView.status_tags(u), ["OOM"])
+
+func test_status_tags_does_not_flag_a_unit_with_no_resource_pool() -> void:
+	# resource_max == 0 means "this unit has no resource", not "empty resource".
+	var u := _make_unit(0, Vector2.ZERO)
+	u.resource_max = 0
+	u.resource = 0
+	assert_true(UnitView.status_tags(u).is_empty())
+
+func test_status_tags_combines_stun_and_oom() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.statuses[CG.Status.STUN] = 100
+	u.resource_max = 10
+	u.resource = 0
+	assert_eq(UnitView.status_tags(u), ["STUN", "OOM"])
