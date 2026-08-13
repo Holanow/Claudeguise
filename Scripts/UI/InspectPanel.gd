@@ -15,15 +15,30 @@ const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 ##
 ## Issue 6: plans are now editable here, not just readable. A player can
 ## reorder a pawn's plans (priority order — the earliest plan whose condition
-## holds is the one that fires, per PlanInterpreter) and can swap the
-## targeting or the action inside a block, picked from choices the pawn
-## actually has: TARGETING from PlanInterpreter.TARGETING_OPS, ACTION from the
-## pawn's own `starting_actions`. Both are whitelisted consts PlanInterpreter
-## already exposed for this — no change to Scripts/Core or Scripts/Plans was
-## needed. Conditions are left read-only this pass: each CONDITION op wants a
-## differently-shaped argument (a fraction, an amount, a range), which is a
-## second editor's worth of work and not required to make an edit "survive
-## into a fight and visibly alter what the pawn does."
+## holds is the one that fires, per PlanInterpreter), swap the targeting or
+## the action inside a block, and swap or retune the plan's own condition —
+## all picked from choices the pawn actually has: TARGETING from
+## PlanInterpreter.TARGETING_OPS, ACTION from the pawn's own
+## `starting_actions`, CONDITION from PlanInterpreter.CONDITION_OPS. All three
+## are whitelisted consts PlanInterpreter already exposed for this — no change
+## to Scripts/Core or Scripts/Plans was needed.
+##
+## Each CONDITION op reads a differently-shaped argument: `always` reads
+## nothing, `self_hp_below_fraction`/`ally_below_hp_fraction` read a 0-1
+## `fraction`, `self_resource_at_least` reads an int `amount`,
+## `enemy_in_range` reads a float `range`. `_CONDITION_ARG_SHAPE` below is that
+## mapping as one small table read once, rather than a branch repeated at
+## every call site that needs it (the picker, the default-args-on-swap, the
+## value editor all read the same table). It duplicates a fact
+## `PlanInterpreter._eval_condition`'s own match statement already encodes —
+## accepted rather than pushed into PlanInterpreter itself because the two
+## other places that inform an editor's choices (`TARGETING_OPS`,
+## `starting_actions`) were already public with no shape attached (none of
+## the targeting ops read args at all), so this is the one new fact about
+## PlanInterpreter's contract this screen depends on. If `CONDITION_OPS` ever
+## grows, this table needs a matching entry — same maintenance shape as the
+## `_fail`-on-unknown-op check in PlanInterpreter itself, and small for the
+## same reason: five ops, one whitelist, both manager-owned and stable.
 ##
 ## Editing mutates the Plan/PlanBlock resources on the PawnData in place —
 ## the same instance PartySelect and BattleView already hold and hand to
@@ -41,6 +56,17 @@ const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 signal closed
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
+
+## op -> {arg_key, kind, min, max, step}. "none" carries no value editor.
+## "fraction" edits as a 0-100 percent and stores back as 0.0-1.0, matching
+## how describe_op already formats it ("self hp below 35%").
+const _CONDITION_ARG_SHAPE := {
+	&"always": {"kind": "none"},
+	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
+	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
+	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
+	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
+}
 
 var _pawns: Array[PawnData] = []
 var _selected_index: int = 0
@@ -211,7 +237,7 @@ func _build_detail(pawn: PawnData) -> void:
 	_detail_box.add_child(_section_header("Plans, in priority order"))
 	_detail_box.add_child(_line(
 		"Earliest plan whose condition holds is the one that fires. Reorder with the arrows; " +
-		"swap targeting or action from what this pawn actually has.",
+		"swap the condition, targeting or action from what this pawn actually has.",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	if pawn.plans.is_empty():
 		_detail_box.add_child(_line(
@@ -292,6 +318,8 @@ func _plan_row(priority: int, plan, pawn: PawnData, index: int) -> Control:
 	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(sentence)
 	box.add_child(header)
+
+	box.add_child(_condition_editor(plan))
 
 	for block in plan.blocks:
 		if block.kind == PlanBlockScript.Kind.TARGETING and PlanInterpreter.TARGETING_OPS.has(block.op):
@@ -387,6 +415,83 @@ func _action_picker(pawn: PawnData, block) -> Control:
 ## Deferred for the same reason as `_move_plan`.
 func _set_action(block, action_id: StringName) -> void:
 	block.args = {"action_id": action_id}
+	call_deferred("_build_detail", _pawns[_selected_index])
+
+## A plan's trigger: "when <condition>". `plan.condition == null` and a block
+## whose op is `&"always"` mean the same thing to PlanInterpreter (see
+## `condition_holds`), so a null condition is shown and edited exactly like an
+## `always` block rather than as a separate "no condition yet" state — picking
+## a real op from a null condition creates the block on the spot.
+func _condition_editor(plan) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	row.add_child(_line("Condition:", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+
+	var current_op: StringName = plan.condition.op if plan.condition != null else &"always"
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var current := 0
+	for i in PlanInterpreter.CONDITION_OPS.size():
+		var op: StringName = PlanInterpreter.CONDITION_OPS[i]
+		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, _default_condition_args(op))))
+		if op == current_op:
+			current = i
+	picker.selected = current
+	picker.item_selected.connect(func(idx): _set_condition_op(plan, PlanInterpreter.CONDITION_OPS[idx]))
+	row.add_child(picker)
+
+	var shape: Dictionary = _CONDITION_ARG_SHAPE.get(current_op, {"kind": "none"})
+	if shape.get("kind") != "none" and plan.condition != null:
+		row.add_child(_condition_value_editor(plan.condition, shape))
+	return row
+
+func _default_condition_args(op: StringName) -> Dictionary:
+	var shape: Dictionary = _CONDITION_ARG_SHAPE.get(op, {"kind": "none"})
+	if shape.get("kind") == "none":
+		return {}
+	return {shape["key"]: shape["default"]}
+
+## Deferred for the same reason as `_move_plan` — called from the picker's own
+## `item_selected` signal, and a rebuild frees that same picker. Creates the
+## PlanBlock on the spot when `plan.condition` was null; every other case just
+## overwrites the existing one, args reset to the new op's own default rather
+## than carried over from an op that meant something else by them.
+func _set_condition_op(plan, op: StringName) -> void:
+	if plan.condition == null:
+		var block := PlanBlockScript.new()
+		block.kind = PlanBlockScript.Kind.CONDITION
+		plan.condition = block
+	plan.condition.op = op
+	plan.condition.args = _default_condition_args(op)
+	call_deferred("_build_detail", _pawns[_selected_index])
+
+## One SpinBox, shaped by `_CONDITION_ARG_SHAPE`. "fraction" is the one case
+## that does not store what it shows: the control reads and writes whole
+## percent (0-100) because that is what `describe_op` prints, and it is
+## rescaled to the 0.0-1.0 `PlanInterpreter` actually reads on the way out.
+func _condition_value_editor(block, shape: Dictionary) -> Control:
+	var spin := SpinBox.new()
+	spin.custom_minimum_size = Vector2(0.0, _TOUCH)
+	var key: String = shape["key"]
+	if shape["kind"] == "fraction":
+		spin.min_value = 0
+		spin.max_value = 100
+		spin.step = 5
+		spin.suffix = "%"
+		spin.value = roundf(float(block.args.get(key, shape["default"])) * 100.0)
+		spin.value_changed.connect(func(v): _set_condition_arg(block, key, v / 100.0))
+	else:
+		spin.min_value = shape["min"]
+		spin.max_value = shape["max"]
+		spin.step = shape["step"]
+		spin.value = float(block.args.get(key, shape["default"]))
+		spin.value_changed.connect(func(v): _set_condition_arg(block, key, v if shape["kind"] == "range" else int(v)))
+	return spin
+
+## Deferred for the same reason as `_move_plan`.
+func _set_condition_arg(block, key: String, value) -> void:
+	block.args[key] = value
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 func _cap_first(s: String) -> String:
