@@ -7,6 +7,7 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## Turns a pawn's plans into one Intent per tick.
 ##
@@ -100,6 +101,8 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _target_in_range(state, unit, action_id):
 		return null
+	if not _target_in_los(state, unit, action_id):
+		return null
 	if not _can_afford(state, unit, action_id):
 		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
@@ -122,6 +125,24 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 	if target == null:
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
+
+## Issue 34: not a duplicate of `ActionDef.requires_line_of_sight`'s resolve-time
+## check -- the two answer different questions. This one asks "should I even aim
+## at this?" *before* committing, so a unit with a blocked but in-range target
+## has a reason to walk instead of freezing on a shot it can already see is
+## hopeless. The resolve-time check still runs later on whatever this lets
+## through, and still catches a target that steps behind cover mid-wind-up
+## (issue 28's own case) -- restoring this does not touch that. Only actions
+## that opted into `requires_line_of_sight` are gated; an unflagged action was
+## never blocked by a wall and still is not.
+static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null or not action.requires_line_of_sight:
+		return true
+	var target := state.unit(unit.focus_id)
+	if target == null:
+		return false
+	return not Terrain.line_is_blocked(state.terrain, unit.position, target.position)
 
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
 ## action the unit cannot actually pay for right now -- not enough resource,

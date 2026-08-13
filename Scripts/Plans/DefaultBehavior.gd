@@ -7,6 +7,7 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## What a unit does when no plan fires. Every unit has this, including enemies,
 ## which have no plans at all in this slice.
@@ -79,6 +80,14 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	var is_ranged := attack_action.range_units > MELEE_RANGE_THRESHOLD
 
 	if is_ranged:
+		# Issue 34: a flagged action whose line to the target is blocked has
+		# nothing to gain from firing -- the resolve-time check would just
+		# report the MISS this avoids committing to. Approaching is the same
+		# fallback an out-of-range shot already gets; only actions that opted
+		# into requires_line_of_sight are affected, so nothing unflagged
+		# changes.
+		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+			return Intent.move_to(target.position)
 		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
 		if dist < kite_min:
