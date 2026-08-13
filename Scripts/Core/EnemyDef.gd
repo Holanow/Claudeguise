@@ -30,3 +30,24 @@ const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Tags shown to the player above the health bar.
 @export var display_tags: Array[String] = []
+
+## How strongly this enemy prefers a target its allies are already attacking,
+## from 0.0 (pick the nearest, ignore what everyone else is doing) to 1.0
+## (join the pile whenever there is one).
+##
+## Added for teal's diagnosis on issue 7: more enemies currently means more
+## total damage rather than concentrated damage, because every enemy
+## independently picks its own nearest pawn. A party of four absorbs spread
+## damage very well and dies to concentrated damage, which is why wins cost
+## 20% of the party's hp and never a casualty.
+##
+## Deliberately per-enemy rather than a global rule, because it is a design
+## lever and not a difficulty knob: a goblin pack that swarms whoever is already
+## bleeding is a different threat from a ghoul that walks at the closest thing,
+## and both should be expressible. It is also the readable version — a player can
+## see a swarm converge and learn to spread out, which they cannot do about a
+## hidden damage multiplier.
+##
+## The decision layer reads this. The simulation does not: focus is a choice, not
+## a rule, and it belongs with the rest of the decision-making.
+@export var focus_bias: float = 0.0

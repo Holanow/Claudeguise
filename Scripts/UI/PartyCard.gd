@@ -72,11 +72,18 @@ func _accent() -> int:
 		return class_def.damage_types[0]
 	return CG.DamageType.PHYSICAL
 
+## Issue 19: "ANTI_SUPPORT" is a raw enum name with an underscore on the
+## first screen of the game — the same developer-language problem as the
+## win screen's tick count, found on this card the moment someone looked.
+## String's own capitalize() turns SCREAMING_SNAKE into Title Case.
 func _role_text() -> String:
-	return CG.Role.keys()[class_def.role_primary]
+	return String(CG.Role.keys()[class_def.role_primary]).capitalize()
 
 func _style_text() -> String:
-	return "%s · %s" % [CG.Style.keys()[class_def.style], CG.Method.keys()[class_def.method]]
+	return "%s · %s" % [
+		String(CG.Style.keys()[class_def.style]).capitalize(),
+		String(CG.Method.keys()[class_def.method]).capitalize(),
+	]
 
 func _centered_text(font: Font, text: String, y: float, font_size: int, color: Color) -> void:
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)

@@ -37,13 +37,31 @@ func _init() -> void:
 		quit(1)
 		return
 
-	var encounter := Registry.get_encounter(encounter_ids[0])
-
-	# Every party of four from the five classes, so "does composition matter"
-	# is answered across compositions rather than from one that happened to be
-	# tried. One party would only say whether that party wins.
-	for party_ids in _parties(class_ids):
-		_sample(party_ids, encounter)
+	# EVERY encounter, named in the output, rather than one picked by index.
+	#
+	# This used to sample `encounter_ids[0]`, which was correct while exactly one
+	# encounter existed and became silently wrong the moment a second appeared:
+	# the list is sorted alphabetically, so `floor1_ghoul_den` displaced
+	# `floor1_room1` and the tool went on printing confident numbers about a room
+	# nobody was tuning. teal caught it after two rounds of retuning produced
+	# byte-identical output and they went looking for why instead of assuming
+	# their edit had not mattered.
+	#
+	# The fix is not an argument for choosing the encounter. It is measuring all
+	# of them and putting the name above each table, so there is no index to be
+	# wrong about and no way to read a number without seeing what it is a number
+	# for.
+	for encounter_id in encounter_ids:
+		print("")
+		print("========================================================")
+		print("ENCOUNTER: ", encounter_id)
+		print("========================================================")
+		var encounter := Registry.get_encounter(encounter_id)
+		# Every party of four from the five classes, so "does composition matter"
+		# is answered across compositions rather than from one that happened to
+		# be tried. One party would only say whether that party wins.
+		for party_ids in _parties(class_ids):
+			_sample(party_ids, encounter)
 
 	quit(0)
 

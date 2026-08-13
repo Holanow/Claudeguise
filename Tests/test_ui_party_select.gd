@@ -4,6 +4,7 @@ const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Swapping the party between runs is an acceptance criterion for the slice, so
@@ -117,6 +118,22 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 	var screen := PartySelect.new()
 	screen._ready()
 	assert_true(screen._seed_edit.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
+	screen.free()
+
+## The real defect: hand-building PawnData in _build_roster left `plans`
+## empty, so every pawn a player has ever actually fielded ran on
+## DefaultBehavior only — no preset plan has fired outside a test or a
+## devtools script. Needs real Registry content (PresetPlans is keyed off
+## real class ids), so this is a no-op rather than a false pass while the
+## registry is empty.
+func test_every_roster_pawn_carries_its_preset_plans() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	var class_ids := Registry.all_class_ids()
+	if class_ids.is_empty():
+		return
+	for pawn in screen.available_pawns():
+		assert_false(pawn.plans.is_empty(), "%s has no plans" % pawn.display_name)
 	screen.free()
 
 func test_every_card_meets_the_minimum_touch_target() -> void:

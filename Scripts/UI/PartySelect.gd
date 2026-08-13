@@ -4,8 +4,10 @@ const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
+const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 
 ## Pick up to four pawns and a seed, then start the fight.
 ##
@@ -32,23 +34,27 @@ var _status_label: Label = null
 var _start_button: Button = null
 var _seed_edit: LineEdit = null
 var _roster_box = null
+var _inspect_panel = null
 
 func _ready() -> void:
 	_build_roster()
 	_build_ui()
 	_update_status()
 
+## Issue 21b found this the moment the inspect screen tried to show a pawn's
+## plans and had none to show: this roster built PawnData by hand and never
+## set `plans`, so every real playthrough (party select is the only place a
+## fightable pawn is ever built) has run on DefaultBehavior alone — no preset
+## plan has fired outside a test or a devtools script. PawnFactory is the one
+## place that already does this correctly; using it here instead of
+## hand-building fixes the roster and the fight itself, not just the screen.
 func _build_roster() -> void:
 	_available.clear()
 	for class_id in Registry.all_class_ids():
 		var cls: ClassDef = Registry.get_class_def(class_id)
 		if cls == null:
 			continue
-		var pawn := PawnData.new()
-		pawn.id = class_id
-		pawn.display_name = cls.display_name
-		pawn.pawn_class = cls
-		_available.append(pawn)
+		_available.append(PawnFactory.make_starter_pawn(class_id, class_id, cls.display_name))
 
 ## `window/stretch/mode` is `canvas_items` with aspect `expand` (project-wide,
 ## the phone-legibility pass): the whole UI is authored in one fixed logical
@@ -156,6 +162,26 @@ func _build_ui() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	column.add_child(_start_button)
 
+	# Issue 21b: reachable from party select, before anyone has committed to a
+	# fight — the obvious place to read what a class will actually do before
+	# picking it.
+	var inspect_button := Button.new()
+	inspect_button.text = "Inspect classes"
+	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	inspect_button.pressed.connect(_on_inspect_pressed)
+	column.add_child(inspect_button)
+
+	_inspect_panel = Control.new()
+	_inspect_panel.set_script(InspectPanelScript)
+	add_child(_inspect_panel)
+	# Same reasoning as PartyCard's own manual _ready() call above: this node
+	# may be built while PartySelect itself is not yet in a live tree (a test
+	# calling _ready() directly), and add_child alone only triggers _ready()
+	# automatically once the parent enters a real SceneTree.
+	if not _inspect_panel.is_inside_tree():
+		_inspect_panel._ready()
+
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like
 ## something you can edit".
@@ -215,6 +241,10 @@ func _update_status() -> void:
 
 func _on_start_pressed() -> void:
 	battle_requested.emit(current_config())
+
+func _on_inspect_pressed() -> void:
+	if _inspect_panel != null:
+		_inspect_panel.open(_available)
 
 func current_config() -> RunConfig:
 	var config := RunConfig.new()

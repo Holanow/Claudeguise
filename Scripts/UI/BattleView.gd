@@ -9,6 +9,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
@@ -44,10 +45,16 @@ var _pause_button: Button = null
 var _party_summary_fill: ColorRect = null
 var _enemy_summary_fill: ColorRect = null
 
+var _end_banner: Control = null
+var _end_outcome_label: Label = null
+var _end_cost_label: Label = null
+var _inspect_panel = null
+
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
 	_build_top_bar()
+	_build_end_banner()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
 	# added scene to reach the HUD nodes begin() needs, without a live viewport.
 	if is_inside_tree():
@@ -96,9 +103,14 @@ func _build_top_bar() -> void:
 	_seed_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	bar.add_child(_seed_label)
 
+	# Issue 19: this used to be the *only* place the outcome showed, at the
+	# same weight as everything else in the toolbar — "looks like a status
+	# field" for the payoff of the entire fight. Kept small here as a
+	# passive echo; _build_end_banner is the prominent version, shown only
+	# once the fight actually resolves.
 	_outcome_label = Label.new()
-	_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
-	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
+	_outcome_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	bar.add_child(_outcome_label)
 
 	# Issue 18 criterion 3: every control at least Palette.TOUCH_TARGET_MIN on
@@ -122,6 +134,106 @@ func _build_top_bar() -> void:
 	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	back_button.pressed.connect(func(): back_requested.emit())
 	bar.add_child(back_button)
+
+## Issue 19: the outcome is the payoff of the whole fight and used to show as
+## a small toolbar label — same weight as "Seed 0000002A". This is the
+## prominent version: a full-screen backdrop shown only once the fight
+## actually resolves (built hidden here, shown from _show_outcome, hidden
+## again in begin()), so it cannot compete with anything mid-fight.
+func _build_end_banner() -> void:
+	var hud := get_node("Hud")
+
+	_end_banner = Control.new()
+	_end_banner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end_banner.visible = false
+	hud.add_child(_end_banner)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Palette.BACKGROUND
+	backdrop.color.a = 0.88
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end_banner.add_child(backdrop)
+
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_CENTER)
+	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	column.grow_vertical = Control.GROW_DIRECTION_BOTH
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	_end_banner.add_child(column)
+
+	_end_outcome_label = Label.new()
+	_end_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
+	_end_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING * 2)
+	_end_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_end_outcome_label)
+
+	_end_cost_label = Label.new()
+	_end_cost_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_end_cost_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	_end_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_end_cost_label)
+
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	column.add_child(buttons)
+
+	var restart_button := Button.new()
+	restart_button.text = "Restart (same seed)"
+	restart_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	restart_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	restart_button.pressed.connect(func(): restart_requested.emit())
+	buttons.add_child(restart_button)
+
+	var back_button := Button.new()
+	back_button.text = "Change party"
+	back_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	back_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	back_button.pressed.connect(func(): back_requested.emit())
+	buttons.add_child(back_button)
+
+	# Issue 21b: reachable from the end of a fight, per the issue's own note
+	# that this is "probably the more useful" place — it is exactly when a
+	# player has just watched something confusing.
+	var inspect_button := Button.new()
+	inspect_button.text = "Inspect party"
+	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	inspect_button.pressed.connect(_on_inspect_pressed)
+	buttons.add_child(inspect_button)
+
+	_inspect_panel = Control.new()
+	_inspect_panel.set_script(InspectPanelScript)
+	hud.add_child(_inspect_panel)
+	if not _inspect_panel.is_inside_tree():
+		_inspect_panel._ready()
+
+func _on_inspect_pressed() -> void:
+	if _inspect_panel != null and config != null:
+		_inspect_panel.open(config.party)
+
+## e.g. 197 ticks at 30 ticks/second reads as "6.6s" — a player has never
+## seen a tick, and won't start now.
+static func _format_duration(ticks: int) -> String:
+	return "%.1fs" % (float(ticks) / float(CG.TICKS_PER_SECOND))
+
+## What the fight cost, without asking the player to count bars themselves:
+## how many of the player's own party made it out.
+func _cost_summary() -> String:
+	var alive := 0
+	var total := 0
+	for u in state.units:
+		if u.team != CG.Team.PLAYER:
+			continue
+		total += 1
+		if u.hp > 0:
+			alive += 1
+	if alive == total:
+		return "Your whole party survived."
+	elif alive == 0:
+		return "None of your party survived."
+	return "%d of %d survived." % [alive, total]
 
 const _SUMMARY_ROW_TOP := Palette.SPACE_M * 2.0 + Palette.TOUCH_TARGET_MIN
 const _SUMMARY_ROW_HEIGHT := 20.0
@@ -258,6 +370,7 @@ func begin(cfg: RunConfig) -> void:
 	_party_label.text = "Party: " + ", ".join(cfg.party.map(func(p): return p.display_name))
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
+	_end_banner.visible = false
 	_update_team_summary()
 	set_process(true)
 
@@ -375,10 +488,21 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	marker.show_text("Miss", Palette.TEXT_DIM)
 
 func _show_outcome() -> void:
+	var verdict: String
 	match state.outcome:
 		CombatState.Outcome.PLAYER_WIN:
-			_outcome_label.text = "Victory (%d ticks)" % state.tick
+			verdict = "Victory"
 		CombatState.Outcome.ENEMY_WIN:
-			_outcome_label.text = "Defeat (%d ticks)" % state.tick
-		CombatState.Outcome.DRAW:
-			_outcome_label.text = "Draw (%d ticks)" % state.tick
+			verdict = "Defeat"
+		_:
+			verdict = "Draw"
+	var duration := _format_duration(state.tick)
+	_outcome_label.text = "%s (%s)" % [verdict, duration]
+
+	_end_outcome_label.text = verdict
+	_end_outcome_label.add_theme_color_override("font_color",
+		Palette.TEAM_PLAYER if state.outcome == CombatState.Outcome.PLAYER_WIN
+		else Palette.TEAM_ENEMY if state.outcome == CombatState.Outcome.ENEMY_WIN
+		else Palette.TEXT)
+	_end_cost_label.text = "%s  ·  %s" % [_cost_summary(), duration]
+	_end_banner.visible = true
