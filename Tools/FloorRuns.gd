@@ -62,6 +62,7 @@ func _run_party(ids: Array, left_out: String) -> void:
 	var depths: Array[int] = []
 	var cleared_floor := 0
 	var entry_hp_by_depth := {}
+	var entry_res_by_depth := {}
 
 	for s in range(SEEDS):
 		var plan := FloorGenerator.generate(s)
@@ -91,6 +92,10 @@ func _run_party(ids: Array, left_out: String) -> void:
 			if not entry_hp_by_depth.has(depth):
 				entry_hp_by_depth[depth] = []
 			entry_hp_by_depth[depth].append(pct)
+			# Resource, because reporting only hp hid a real cause for hours.
+			if not entry_res_by_depth.has(depth):
+				entry_res_by_depth[depth] = []
+			entry_res_by_depth[depth].append(_entry_resource_percent(run, party))
 
 			var result := FloorFightRunner.play_room(run, room, party)
 			var outcome: FloorFightRunner.Outcome = result.outcome
@@ -105,12 +110,40 @@ func _run_party(ids: Array, left_out: String) -> void:
 	print("party without the %s" % left_out)
 	print("  rooms cleared  %s" % _histogram(depths))
 	print("  cleared the whole floor: %d of %d" % [cleared_floor, SEEDS])
+	var res_line := "  party resource entering room:"
+	for d in range(6):
+		if entry_res_by_depth.has(d) and not entry_res_by_depth[d].is_empty():
+			res_line += "  %d:%d%%" % [d + 1, _median(entry_res_by_depth[d])]
+
 	var line := "  party health entering room:"
 	for d in range(6):
 		if entry_hp_by_depth.has(d) and not entry_hp_by_depth[d].is_empty():
 			line += "  %d:%d%%" % [d + 1, _median(entry_hp_by_depth[d])]
 	print(line)
+	print(res_line)
 	print("")
+
+## Resource, not hp. `Balance.between_room_heal` restores health and **never
+## touches resource**, so a party can walk into a boss at 85% hp with its casters
+## on 2 of 102 mana -- which is exactly what was happening to one real party for
+## hours while this tool reported it as healthy.
+##
+## swift found it by writing a throwaway probe that printed resource per room,
+## because this tool printed only hp and was therefore hiding the cause. An
+## instrument that measures one of two things a run carries forward will
+## eventually attribute a failure to the one it can see.
+func _entry_resource_percent(run: FloorRun, party: Array[PawnData]) -> int:
+	var res := 0
+	var res_max := 0
+	for p in party:
+		var full := Balance.max_resource(p)
+		if full <= 0:
+			continue
+		res += maxi(0, run.resource_for(p.id, full) if run.is_alive(p.id) else 0)
+		res_max += full
+	if res_max <= 0:
+		return 100
+	return int(round(100.0 * float(res) / float(res_max)))
 
 func _entry_percent(run: FloorRun, party: Array[PawnData]) -> int:
 	var hp := 0
