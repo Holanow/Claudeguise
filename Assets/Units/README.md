@@ -35,6 +35,7 @@ The filename is the unit's id. These are the current ones:
 | `goblin_archer.png` | Goblin Archer |
 | `ghoul.png` | Ghoul |
 | `cultist.png` | Cultist |
+| `the_warden.png` | The Warden (floor 1 boss) |
 | `dungeon_grunt.png` | Grunt (being retired) |
 | `dungeon_archer.png` | Archer (being retired) |
 | `dungeon_cultist.png` | Cultist (being retired) |
