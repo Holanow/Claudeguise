@@ -67,11 +67,36 @@ change it.
 Two cases each, and most of them are distributions rather than single runs,
 because a single fight tells you nothing about closeness.
 
-1. **Wins are not clean sweeps.** Across 20 seeds with a party that wins most of
-   the time, the median survivor count is 2 or 3 out of 4, not 4. And a party
+1. **Winning costs something. REWRITTEN — read this, the target changed.**
+
+   The user's framing, which is better than my original one:
+
+   > "Measure balance by health ratios as well as wins vs losses. If a team wins
+   > 75% of the time but they do it with 2 members down and the other 2 almost
+   > dead I would call that fine pretty much."
+
+   **So a high win rate is not the failure. A win that costs nothing is.** My
+   original criterion demanded a median of 2 or 3 survivors out of 4, which
+   would have rejected the 75%-win-rate fight the user just called fine, and
+   accepted a 50% win rate where every win is untouched. It was measuring the
+   wrong thing.
+
+   `Tools/SampleFights.gd` now prints a `cost` line: what percentage of its own
+   starting hp the party finished on, with dead pawns counted as zero. Steer by
+   that.
+
+   Met when: a party that wins most of the time finishes the median fight on
+   **40% or less** of its own hp, **or** with two or more pawns down. And a party
    that loses most of the time still kills at least one enemy in the median
-   fight, rather than being wiped without landing anything. Paste both
-   distributions.
+   fight, rather than being wiped without landing anything. Paste both.
+
+   **Where this stands right now, and it is narrower than I had been saying:**
+   the winning party finishes on **80%** of its hp. Wins are not free — the party
+   takes real damage — but no pawn ever dies. Twenty percent spread across four
+   pawns kills nobody, and killing one needs roughly a quarter of the party's
+   whole pool landing on a single unit. **So the problem is concentration, not
+   total damage**, which is exactly what the action-economy reading in
+   `Issues/reading-enemy-balance.md` predicts more attackers will fix.
 2. **The seed changes the fight.** Across 20 seeds with one party, tick counts
    differ: max minus min is at least 15% of the median. And the same seed twice
    is still bit-identical, event for event — reuse issue 1's determinism test

@@ -95,10 +95,17 @@ When it fires, do all four:
    the top of your block, kept there until answered.** An empty queue is the
    manager's bug, but only once they know about it.
 
-The distinction that matters: this is an **event**, not a scheduled check-in.
-Nothing happens between changes. A fixed-interval "look at things every N
-minutes" loop is worse in both directions at once, because it fires when there
-is nothing to see and stays quiet when there is.
+The two do different jobs and you need both. The hash watcher is an **event**:
+it tells you the moment somebody says something, and it stays quiet in between,
+which is what you want while you are concentrating. The heartbeat is a
+**deadline**: it fires whether or not anything happened, because the state we
+keep failing in is one where nothing has.
+
+An earlier version of this file argued against fixed-interval checking outright,
+on the grounds that it fires when there is nothing to see. That is true and it is
+the smaller cost. The larger one is a change watcher going quiet for an hour
+while three sessions sit idle — which is a real measurement from this project,
+not a hypothetical. Pay the occasional pointless heartbeat.
 
 **Triage on the status board at the top.** One row per session, current state,
 next action and whose it is. Most changes are somebody else's status and deserve
