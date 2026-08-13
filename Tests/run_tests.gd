@@ -62,10 +62,14 @@ func _init() -> void:
 
 	var filter := _filter_from_args()
 	if filter != "":
-		var kept: Array = []
+		# Typed to match `collected`. An untyped Array assigned back into a
+		# typed one is a hard crash in GDScript, not a warning -- which is
+		# exactly what this did on its first real use, by swift, on the very
+		# run the standing policy tells everyone to use.
+		var kept: Array[String] = []
 		for path in collected:
 			if String(path).findn(filter) != -1:
-				kept.append(path)
+				kept.append(String(path))
 		print("")
 		print("  FILTERED to \"%s\": %d of %d test files. This is NOT the gate." % [
 			filter, kept.size(), collected.size()
