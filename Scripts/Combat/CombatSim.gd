@@ -40,6 +40,7 @@ static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int,
 	if deps == null:
 		deps = SimDeps.new()
 	var state := CombatState.new(fight_seed)
+	state.terrain = encounter.terrain
 	var next_id := 0
 
 	for i in party.size():
