@@ -39,19 +39,19 @@ five parties in the game.** Each is defined by who you leave out. Against
 | you leave out | wins | health left when it wins |
 |---|---|---|
 | Abomination | 19 of 20 | 23% |
-| Geysermancer | 10 of 20 | 14% |
-| Priest | 5 of 20 | 19% |
-| Warrior | 5 of 20 | 4% |
-| **Siege Master** | **0 of 20** | never wins |
+| Warrior | 12 of 20 | 23% |
+| Geysermancer | 11 of 20 | 23% |
+| Priest | 11 of 20 | 16% |
+| **Siege Master** | **1 of 20** | 32% |
 
-1. **Leave out the Geysermancer.** A real coin flip that costs you almost
-   everything when you win. This is the best fight in the game and the one to
-   judge it by.
+1. **Leave out the Warrior, the Geysermancer, or the Priest.** All three are
+   near coin flips that cost you most of the party when you win. These are the
+   best fights in the game and the ones to judge it by.
 2. **Leave out the Abomination.** The strongest party, and it still loses
    somebody in 19 fights out of 20. It has never once ended with all four alive.
-3. **Leave out the Siege Master**, to see what is broken. It loses every time,
-   on every seed anyone has tried. One class is currently mandatory, and that is
-   the biggest balance problem in the game.
+3. **Leave out the Siege Master**, to see what is still broken. It wins once in
+   twenty. One class is close to mandatory, and that is the biggest balance
+   problem left.
 4. **The same party twice on one seed**, then change one class and keep the seed.
 
 ## What is honestly not right yet
@@ -75,9 +75,16 @@ five parties in the game.** Each is defined by who you leave out. Against
   the fix, because nobody had seen the real room fought. **They are replaying it
   now.** Until that comes back, nobody should tell you this slice is good, and I
   am not going to.
-- **One class is mandatory.** The party without a Siege Master loses every
-  single fight. That is the top balance problem now, and it has a diagnosis:
-  see below.
+- **One class is close to mandatory.** The party without a Siege Master wins
+  once in twenty. That is much better than the zero it was earlier tonight, and
+  it is still the top balance problem. It has a diagnosis, below.
+
+  The Abomination half of it is fixed and the fix is worth reading, because it
+  was not a strength problem. Traced, that class was getting **5 actions in a
+  whole fight against the Siege Master's 22**, because it spent most of every
+  fight crawling five hundred units to reach a melee kit. It was not losing
+  fights, it was barely attending them. Giving it the speed to arrive turned
+  three of the five parties into coin flips.
 
   **We now know why, and it is not about range at all.** This took four wrong
   guesses to establish and the answer is the most interesting thing in the
