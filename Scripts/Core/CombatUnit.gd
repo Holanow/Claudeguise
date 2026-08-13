@@ -28,7 +28,10 @@ var pawn: PawnData = null
 var enemy_id: StringName = &""
 
 var position: Vector2 = Vector2.ZERO
-var radius: float = 12.0
+## Drawing only. Verified 2026-08-12: nothing in Scripts/Combat, Scripts/Plans
+## or Scripts/Floor reads this for range, movement or collision, so changing it
+## cannot disturb anyone's tuning. Raised from 12.0 for legibility at phone size.
+var radius: float = 22.0
 
 var hp: int = 0
 var hp_max: int = 0

@@ -274,15 +274,19 @@ func test_target_that_leaves_range_during_windup_is_missed() -> void:
 
 	var fired := false
 	var damaged := false
+	var miss_count := 0
 	for e in state.events:
 		if e.kind == CG.EventKind.ACTION_FIRE and e.source_id == 0:
 			fired = true
 		if e.kind == CG.EventKind.DAMAGE and e.source_id == 0:
 			damaged = true
+		if e.kind == CG.EventKind.MISS and e.source_id == 0:
+			miss_count += 1
 
 	assert_true(fired, "the attempt is still logged even on a miss")
 	assert_false(damaged, "a target that left range must not take damage")
 	assert_eq(target.hp, target.hp_max)
+	assert_eq(miss_count, 1, "a shot that lands on nothing must emit exactly one MISS")
 
 func test_target_that_stays_in_range_is_hit() -> void:
 	var atk := _melee(&"atk", 3, 1, 15.0)
@@ -300,6 +304,40 @@ func test_target_that_stays_in_range_is_hit() -> void:
 		CombatSim.step(state, deps)
 
 	assert_eq(target.hp, target.hp_max - 10)
+	for e in state.events:
+		assert_false(e.kind == CG.EventKind.MISS and e.source_id == 0, "a hit must not also emit a MISS")
+
+# ---------------------------------------------------------------------------
+# issue 14b: the simulation says when a shot missed
+# ---------------------------------------------------------------------------
+
+func test_replaying_events_still_reaches_the_same_hp_with_a_miss_in_play() -> void:
+	# Issue 1's replay invariant (criterion 6), re-checked with a MISS in the
+	# event stream: a MISS must move no hp, exactly like issue 14b's second
+	# acceptance criterion asks.
+	var atk := _melee(&"atk", 3, 1, 15.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := _deps(actions_by_id, 10.0)
+
+	var state := CombatState.new(9)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+	target.position = Vector2(100000, 0)
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps) # misses here
+
+	var replayed_hp := target.hp_max
+	for e in state.events:
+		if e.kind == CG.EventKind.DAMAGE:
+			replayed_hp -= e.amount
+		elif e.kind == CG.EventKind.HEAL:
+			replayed_hp += e.amount
+	assert_eq(replayed_hp, target.hp, "a MISS must move no hp")
 
 # ---------------------------------------------------------------------------
 # criterion 5: death stops everything
