@@ -48,6 +48,24 @@ const TARGETING_OPS := [
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
 
+## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
+## each CONDITION op reads. `_eval_condition` above is the source of truth for
+## which key an op reads out of `block.args` and what it does with it; this is
+## that same fact, exposed as data instead of match-statement logic, for a
+## screen (InspectPanel) that needs to build a value editor rather than
+## evaluate a condition. Moved here from InspectPanel.gd itself, which carried
+## its own copy pending this issue — see PR history for the "if the whitelist
+## grows past its current five entries, it moves" call that opened it. "none"
+## carries no value editor. "fraction" is edited as a 0-100 percent by the
+## caller and rescaled to the 0.0-1.0 this interpreter actually reads.
+const CONDITION_ARG_SHAPE := {
+	&"always": {"kind": "none"},
+	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
+	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
+	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
+	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
+}
+
 ## push_error is the loud, real failure. This is a testable side channel: the
 ## test suite has no way to assert a push_error happened, so an unknown op also
 ## records here, naming the op and the plan, and a test can read and clear it.
