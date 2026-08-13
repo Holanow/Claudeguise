@@ -59,6 +59,18 @@ var intent: Intent = null
 ## then attack" must not re-target between the two.
 var focus_id: int = -1
 
+## Which way this unit is looking, as a unit vector. Zero means "no facing yet",
+## which is every unit before anything sets it.
+##
+## The simulation has never needed this: `_resolve_targets` resolves a shot
+## instantly at fire time, so nothing has ever cared where a unit was pointed.
+## The UI derives a `facing_left` flag for drawing and that is all.
+##
+## It exists now because the Warrior is getting a guard that stops ranged
+## attacks crossing its front, and "its front" has to be a real quantity the
+## simulation agrees on rather than something the renderer guessed.
+var facing: Vector2 = Vector2.ZERO
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""
