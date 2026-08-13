@@ -78,3 +78,28 @@ const CG := preload("res://Scripts/Core/CG.gd")
 @export var applies_status: CG.Status = CG.Status.SHIELD
 @export var applies_status_enabled: bool = false
 @export var status_duration_ticks: int = 0
+
+## An `EnemyDef` id this action builds, on the caster's own team. Empty means
+## the action summons nothing, which is every action that exists today, so
+## adding this changes no behaviour and invalidates no measurement.
+##
+## The Siege Master is a SUMMONER and has never summoned anything -- the tag was
+## on the class card while the class played as artillery. This is the field that
+## makes the tag true.
+##
+## **`EnemyDef` rather than a new summon type, deliberately.** It already
+## describes exactly what a siege engine is: a unit that is not a pawn, with hp,
+## damage, actions, move speed and a shape. The only thing that made it "enemy"
+## was which team spawned it. A second near-identical shape beside it is how two
+## definitions of the same thing drift apart, and this project already has one
+## rule about that -- reuse the vocabulary the game has.
+##
+## **Build time is `wind_up_ticks`**, which already exists and already works.
+## An engine that takes a long time to raise is a long wind-up, not a new
+## mechanism. The player asked for building to take a while; that is a number,
+## not a feature.
+##
+## What does NOT exist yet: `CombatSim` builds its unit list once in `build()`
+## and nothing ever appends to it mid-fight. That is the real work here and it
+## is the simulation's, not content's.
+@export var summons_unit_id: StringName = &""
