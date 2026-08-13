@@ -192,12 +192,19 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 	return {"outcome": _map_outcome(state.outcome, room.id == run.plan.boss_id), "state": state}
 
 ## Rewrites what record_result just stored, applying Balance.between_room_heal
-## to every living pawn and Balance.revive_hp to every dead one. Both are
-## pure functions of hp/hp_max/has_living_healer -- Balance does not know
-## about FloorRun or pawn ids, on purpose, so this is the seam that supplies
-## them. A pawn revived this way enters the next room alive but not fully
-## healed (REVIVE_HP_FRACTION), same "second chance, not a free win back"
-## reasoning Balance's own comment states.
+## and Balance.between_room_resource_recover to every living pawn, and
+## Balance.revive_hp to every dead one. All three are pure functions of their
+## own before/max/has_living_healer -- Balance does not know about FloorRun or
+## pawn ids, on purpose, so this is the seam that supplies them. A pawn
+## revived this way enters the next room alive but not fully healed
+## (REVIVE_HP_FRACTION) and with no resource at all, same "second chance, not
+## a free win back" reasoning Balance's own comment states.
+##
+## Resource had no recovery at all until this line: hp partially came back
+## between rooms, resource carried over fully depleted with nothing to refill
+## it but a caster's own regen mid-fight. That gap was invisible in FloorRuns'
+## own output (hp only) and is what let `no_warrior` arrive at the boss on 2
+## of 102 mana while reading as "85% healthy."
 static func _apply_between_room_recovery(run: FloorRun, party: Array[PawnData]) -> void:
 	var has_living_healer := false
 	for p in party:
@@ -211,7 +218,8 @@ static func _apply_between_room_recovery(run: FloorRun, party: Array[PawnData]) 
 		if run.is_alive(p.id):
 			var healed := Balance.between_room_heal(run.hp_for(p.id, hp_max), hp_max, has_living_healer)
 			var resource_max := Balance.max_resource(p)
-			run.record_result(p.id, healed, run.resource_for(p.id, resource_max), true)
+			var recovered := Balance.between_room_resource_recover(run.resource_for(p.id, resource_max), resource_max)
+			run.record_result(p.id, healed, recovered, true)
 		else:
 			var revived := Balance.revive_hp(hp_max, has_living_healer)
 			if revived > 0:
