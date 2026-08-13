@@ -170,3 +170,40 @@ func test_room_counts_match_the_design_across_seeds() -> void:
 		if int(type_totals.get(t, 0)) > 0:
 			ordinary_types_seen += 1
 	assert_true(ordinary_types_seen >= 3, "distribution across 20 seeds should not collapse onto one or two room types: %s" % [distribution])
+
+# ---------------------------------------------------------------------------
+# issue 5's own finding: a floor needs a shape, not a uniform roll
+# ---------------------------------------------------------------------------
+
+## Reproduces the exact failure rook measured before this landed: seed 3 gave
+## `Library, Cell, Library, Treasure, Treasure, Cell` -- zero fights -- and
+## seed 1 gave three Cells and no plain Enemy room. Every seed must now
+## guarantee at least two ENEMY rooms and one BIG_ENEMY room among the six
+## ordinary rooms, so neither failure can recur regardless of seed.
+func test_every_seed_guarantees_a_minimum_of_ordinary_fights() -> void:
+	for seed in range(1, 41):
+		var plan := FloorGenerator.generate(seed)
+		var enemy_count := 0
+		var big_enemy_count := 0
+		for r in plan.rooms:
+			if r.type == FloorRoom.Type.ENEMY:
+				enemy_count += 1
+			elif r.type == FloorRoom.Type.BIG_ENEMY:
+				big_enemy_count += 1
+		assert_true(enemy_count >= 2, "seed %d: expected at least 2 ENEMY rooms, got %d" % [seed, enemy_count])
+		assert_true(big_enemy_count >= 1, "seed %d: expected at least 1 BIG_ENEMY room, got %d" % [seed, big_enemy_count])
+
+## The other half of "a shape, not a uniform roll": which room ids get which
+## type still varies seed to seed, so the floor does not collapse into a
+## fixed template either (fight rooms always at the same ids, say).
+func test_which_room_ids_are_fights_still_varies_by_seed() -> void:
+	var fight_id_sets := {}
+	for seed in range(1, 11):
+		var plan := FloorGenerator.generate(seed)
+		var fight_ids: Array[int] = []
+		for r in plan.rooms:
+			if r.type == FloorRoom.Type.ENEMY or r.type == FloorRoom.Type.BIG_ENEMY:
+				fight_ids.append(r.id)
+		fight_ids.sort()
+		fight_id_sets[str(fight_ids)] = true
+	assert_true(fight_id_sets.size() > 1, "which room ids are fights must vary across seeds, not land on the same ids every time: %s" % [fight_id_sets.keys()])

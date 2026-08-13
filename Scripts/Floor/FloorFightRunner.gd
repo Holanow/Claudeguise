@@ -11,6 +11,7 @@ const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const LootTables := preload("res://Scripts/Content/LootTables.gd")
 const Balance := preload("res://Scripts/Content/Balance.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## Plays one fight-bearing room of a FloorRun for real, through CombatSim, and
 ## writes the result back. This is the connection issue 5 left for later: the
@@ -55,6 +56,89 @@ static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
 	if item != null:
 		run.add_loot(item)
 	run.enter(room.id)
+
+## README's CELL: "a selection of new pawns (pick one)". This is the
+## attrition counterweight issue 7 needs -- dace's own recovery-curve finding
+## was that four different curves all land on the same two numbers, so a run
+## that grinds a party down needs something other than a bigger heal. CELL
+## replaces a loss; it does not undo one.
+##
+## Candidates are a real class the player has not already got a living pawn
+## of, same "one card per class" rule party select already enforces -- a
+## dead party member's own class is fair game again, since replacing that
+## slot is the whole point. Built entirely from Registry.all_class_ids() and
+## PawnFactory.make_starter_pawn, the same two calls PartySelect.gd already
+## uses to build its own roster -- no new content surface, nothing invented.
+const CELL_CANDIDATE_COUNT := 3
+
+static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnData]) -> Array[PawnData]:
+	if room.type != FloorRoom.Type.CELL:
+		push_error("FloorFightRunner.cell_candidates: room %d is a %s, not CELL" % [room.id, FloorRoom.type_name(room.type)])
+		return []
+
+	var alive_classes := {}
+	for p in party:
+		if run.is_alive(p.id) and p.pawn_class != null:
+			alive_classes[p.pawn_class.id] = true
+
+	var pool: Array[StringName] = []
+	for class_id in Registry.all_class_ids():
+		if not alive_classes.has(class_id):
+			pool.append(class_id)
+
+	## Same determinism rule as every other room roll here: derived from the
+	## floor seed and the room id, never a fresh generator.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([run.plan.seed, room.id, "cell"])
+	_shuffle(rng, pool)
+
+	var out: Array[PawnData] = []
+	for i in mini(CELL_CANDIDATE_COUNT, pool.size()):
+		var class_id: StringName = pool[i]
+		var cls := Registry.get_class_def(class_id)
+		## A distinct id, not the bare class id: two different CELL rooms (or
+		## a CELL offering the same class a dead party member already had)
+		## must not collide with an existing FloorRun.carry entry keyed by
+		## pawn id -- a fresh recruit must read as never having fought,
+		## which hp_for/resource_for/is_alive already give any id with no
+		## carry entry, so long as this one is actually new.
+		var pawn_id := StringName("%s_cell_%d" % [class_id, room.id])
+		out.append(PawnFactory.make_starter_pawn(class_id, pawn_id, cls.display_name))
+	return out
+
+## Fisher-Yates against a seeded rng, same as FloorGenerator's own -- kept
+## here too rather than shared, since the two files do not otherwise depend
+## on each other and this is four lines.
+static func _shuffle(rng: RandomNumberGenerator, arr: Array) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+
+## Applies `chosen` (one of cell_candidates' own output) to `party` in
+## place -- GDScript arrays are reference types, so this mutates whatever
+## array the caller passed, same as record_result already mutates `run` in
+## place. Replaces the party's first dead member. Returns whether anything
+## changed, so a caller can tell a no-op CELL from a real one.
+##
+## Scoped to replacing a loss on purpose, per README's own framing and
+## rook's steer: if nobody in `party` is currently dead, this does not grow
+## the roster past whatever size the player chose at party select --
+## MAX_PARTY_SIZE is PartySelect's own cap (Scripts/UI) and this file does
+## not duplicate it. The room still resolves either way.
+static func resolve_cell(run: FloorRun, room: FloorRoom, party: Array[PawnData], chosen: PawnData) -> bool:
+	if room.type != FloorRoom.Type.CELL:
+		push_error("FloorFightRunner.resolve_cell: room %d is a %s, not CELL" % [room.id, FloorRoom.type_name(room.type)])
+		return false
+	var replaced := false
+	for i in party.size():
+		if not run.is_alive(party[i].id):
+			party[i] = chosen
+			replaced = true
+			break
+	run.enter(room.id)
+	return replaced
 
 ## Builds a fight from `room` and the party's current condition in `run`,
 ## runs it to completion, and writes hp/resource/alive back into `run`.
