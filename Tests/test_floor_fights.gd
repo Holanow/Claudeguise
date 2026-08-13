@@ -346,6 +346,26 @@ func test_a_living_pawn_recovers_a_fraction_of_missing_hp_with_a_healer() -> voi
 	assert_eq(run.hp_for(warrior.id, hp_max), expected, "a living pawn must recover exactly Balance's own fraction with a healer present")
 	assert_true(run.hp_for(warrior.id, hp_max) > half, "recovery must be a real improvement, not a no-op")
 
+## The gap swift's floor investigation found: hp recovered between rooms and
+## resource never did, so a party could read as "85% healthy" while its
+## casters sat on single-digit mana. Balance.between_room_resource_recover
+## exists and is wired here the same way the hp path already was.
+func test_a_living_pawn_recovers_a_fraction_of_missing_resource_too() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.ENEMY, 1)
+	var run := FloorRun.new(plan)
+
+	var priest := party[1]
+	var resource_max := Balance.max_resource(priest)
+	var near_empty := 2
+	run.record_result(priest.id, Balance.max_hp(priest), near_empty, true)
+
+	FloorFightRunner._apply_between_room_recovery(run, party)
+
+	var expected := Balance.between_room_resource_recover(near_empty, resource_max)
+	assert_eq(run.resource_for(priest.id, resource_max), expected, "resource must recover exactly Balance's own fraction, mirroring the hp path")
+	assert_true(run.resource_for(priest.id, resource_max) > near_empty, "resource recovery must be a real improvement, not a no-op -- this was the whole gap")
+
 func test_a_dead_pawn_stays_dead_without_a_living_healer() -> void:
 	var party: Array[PawnData] = [
 		PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior"),
