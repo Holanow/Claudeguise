@@ -78,6 +78,16 @@ const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
 ## tick, so this cannot make an action instant by accident.
 const HASTE_TICK_SCALE := 0.7
 
+## Issue 52: multiplier on move_speed while SLOWED is active. `SimDeps` ran
+## on a local placeholder of the same value (0.5) until this landed --
+## `_default_slowed_speed_scale`'s own doc comment names this exact function
+## as the thing it is waiting on. Half speed: enough that a hooked target
+## cannot simply walk back out of `abomination_grapple`'s own melee range
+## before the Abomination's next action is ready, not so little that SLOWED
+## reads as a second STUN (STUN is the full lockout; this is a unit still
+## fighting, just unable to leave, per CG.Status.SLOWED's own doc comment).
+const SLOWED_SPEED_SCALE := 0.5
+
 ## Issue 39: an attribute including equipment's `attribute_flat` and
 ## `attribute_percent` (weapons and accessories: percent per README.md; armor:
 ## flat, plus occasional percent on CON). The single place a stat multiplier
@@ -228,6 +238,13 @@ static func status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float
 static func haste_tick_scale(unit: CombatUnit) -> float:
 	var _unused := unit
 	return HASTE_TICK_SCALE
+
+## Multiplier on move_speed for a unit carrying SLOWED. `unit` is accepted
+## for the call shape SimDeps expects (same reasoning as haste_tick_scale
+## above); the multiplier is flat across every unit for this slice.
+static func slowed_speed_scale(unit: CombatUnit) -> float:
+	var _unused := unit
+	return SLOWED_SPEED_SCALE
 
 ## Issue 45: how much health a run restores between rooms, and the answer is
 ## "some, and more if the party brought a Healer" -- README's own text for

@@ -99,6 +99,24 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"warrior_taunt_default", "Taunt",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
+				# Issue 52: third plan, after guard and taunt -- SHIELDING
+				# had nothing to intercept before shots travelled (issue 18)
+				# and no path from the game to a player even with the
+				# mechanism live, since the plan editor is deferred and a
+				# preset plan is therefore the only way this ability ever
+				# fires. `always`, same shape as taunt: taunt's own
+				# cooldown_ticks equals its duration_ticks, so its plan sits
+				# on cooldown (condition holds, action unaffordable) for
+				# nearly all of its own uptime once cast -- decide()'s own
+				# fallthrough (PlanInterpreter.gd: a plan whose action isn't
+				# affordable falls through to the next one, not to
+				# DefaultBehavior) is what lets this plan actually win a
+				# real decide() tick instead of sitting permanently behind
+				# taunt. starting_classes.gd's own WIS 4->6 note explains
+				# why a third plan needed a budget change too.
+				_plan(&"warrior_block_default", "Directional Block",
+					_condition(&"always", {}),
+					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 			]
 		&"priest":
 			return [
@@ -134,14 +152,26 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_in_range", {"range": 220.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
 			]
+		# Issue 52: rebuilt for the hook and grapple. Order matters here in a
+		# way it did not for the retired pair -- both old plans fired on the
+		# same 45-unit condition, so only list order broke the tie. These
+		# two conditions are deliberately different ranges (45, then 140)
+		# so the earlier, narrower one wins whenever it can: a target
+		# already at melee range gets grappled (SLOWED, so it cannot walk
+		# back out) rather than hooked again for no reason; only a target
+		# still outside grapple's own reach gets hooked, which drags it in
+		# for grapple to catch on the following action. A hooked target
+		# that later escapes back past 45 units re-triggers the hook plan
+		# instead of the grapple one, same fallthrough logic, so the loop
+		# self-corrects rather than needing a third condition.
 		&"abomination":
 			return [
-				_plan(&"abomination_immolate_when_close", "Immolate",
+				_plan(&"abomination_grapple_close", "Grapple",
 					_condition(&"enemy_in_range", {"range": 45.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_immolate")]),
-				_plan(&"abomination_claw_default", "Claw",
-					_condition(&"enemy_in_range", {"range": 45.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_claw")]),
+					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_grapple")]),
+				_plan(&"abomination_hook_far", "Hook",
+					_condition(&"enemy_in_range", {"range": 140.0}),
+					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_hook")]),
 			]
 	return []
 

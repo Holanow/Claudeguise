@@ -35,16 +35,27 @@ static func classes() -> Array[ClassDef]:
 			# chasing diminishing returns into an implausible stat -- see
 			# PresetPlans.gd's own comment on warrior_guard for why raw CON
 			# alone was never going to fix the one comp it didn't.
-			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 4},
+			# Issue 52: WIS 4->6. warrior_block needed a third preset plan to
+			# actually fire in real play -- SHIELDING existed in the
+			# simulation since PR #33 with nothing to intercept until shots
+			# travel, and there is no plan editor yet, so a preset plan is
+			# the only path from the game to the ability at all, the same
+			# failure mode issue 52 was filed over. Two plans at 2 blocks
+			# each already sat exactly at the old WIS-4 budget
+			# (Balance.plan_block_budget == WIS), so a third plan needed the
+			# budget raised, not just the plan added. WIS has no combat-stat
+			# side effect per README (it only governs plan length), so this
+			# is a pure capacity increase, not a power change.
+			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 6},
 			# Issue 30: warrior_taunt appended at the end, not the front --
 			# DefaultBehavior._first_non_heal falls back to the FIRST
 			# non-heal action in this list whenever no plan fires (there is
 			# no plan for warrior_strike itself; it has always relied on
-			# that fallback). warrior_taunt is self-targeted and would be a
-			# no-op as a fallback "attack an enemy" action, so warrior_strike
-			# must stay first regardless of where warrior_taunt's own plan
-			# sits in PresetPlans.
-			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt"]
+			# that fallback). warrior_taunt and warrior_block (issue 52) are
+			# both self-targeted and would be a no-op as a fallback "attack
+			# an enemy" action, so warrior_strike must stay first regardless
+			# of where either plan sits in PresetPlans.
+			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_block"]
 		),
 		_class(
 			&"priest", "Priest",
@@ -111,13 +122,21 @@ static func classes() -> Array[ClassDef]:
 		## 11-13/20 coin flip without any party hitting 20/20, but does not
 		## fully clear issue 37's 4-6 target for the Siege-Master-less party
 		## (measured 1/20) -- disclosed on the board rather than forced.
+		# Issue 52: abomination_claw and abomination_immolate retired,
+		# replaced by abomination_hook and abomination_grapple -- the class
+		# is being replaced, not extended, per the issue's own instruction.
+		# hook first: it is the class's own opening move ("far enough to
+		# open a fight, close enough to be a commitment," per the player),
+		# and DefaultBehavior._first_non_heal falls back to whichever
+		# action is first here whenever no plan fires -- same reasoning as
+		# warrior_strike staying first for the Warrior.
 		_class(
 			&"abomination", "Abomination",
 			CG.Method.MAGICAL, CG.Style.MELEE, CG.Role.ANTI_SUPPORT, CG.Role.TANK,
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
 			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
-			[&"abomination_claw", &"abomination_immolate"]
+			[&"abomination_hook", &"abomination_grapple"]
 		),
 	]
 

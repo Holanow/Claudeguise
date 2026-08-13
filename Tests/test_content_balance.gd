@@ -257,6 +257,15 @@ func test_haste_tick_scale_speeds_up_and_never_reaches_zero() -> void:
 	assert_true(scale > 0.0, "a multiplier of 0 would make an action instant")
 
 
+## Issue 52: the real slowed_speed_scale SimDeps was waiting on --
+## `_default_slowed_speed_scale`'s own doc comment names this exact function.
+func test_slowed_speed_scale_slows_and_never_reaches_zero() -> void:
+	var u := CombatUnit.new()
+	var scale := Balance.slowed_speed_scale(u)
+	assert_true(scale < 1.0, "SLOWED should slow a unit down")
+	assert_true(scale > 0.0, "a multiplier of 0 would make SLOWED indistinguishable from STUN")
+
+
 ## Issue 39: Balance.attribute() is the single place equipment's
 ## attribute_flat/attribute_percent apply. Bare pawn.attribute() (Core) must
 ## stay equipment-blind so nothing can read a stat twice by going around this.
