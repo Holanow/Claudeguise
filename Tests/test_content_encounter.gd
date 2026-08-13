@@ -6,6 +6,10 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
+const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
+const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
+const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
 
 ## The whole-fight acceptance checks from issues 2 and 7. Real CombatSim, real
 ## Registry content. Reference compositions here are re-picked whenever a
@@ -50,6 +54,24 @@ const PawnData := preload("res://Scripts/Core/PawnData.gd")
 ## damage from a safe distance -- and that answer affects every party, not
 ## just the ones missing a tank. Reported to rook rather
 ## than silently re-picked or loosened.
+##
+## **`no_abomination` losing outright is not a bug and there is no test
+## guarding against it.** rook's own original rule ("no real party should be
+## an outright trap") was overturned by the player directly:
+##
+##   "It's okay to punish poor party composition imo"
+##   "There will be more classes"
+##
+## Two independent methods (dace's recovery-curve sweep landing on 0/20 at
+## every value tried; swift's fresh-boss isolation plus a taunting-engine
+## probe, both in TEAM_LOG) proved this is a roster gap -- no tank-capable
+## body left once the Siege Master isn't one -- not a number anyone can tune
+## away. `test_no_real_party_is_an_outright_trap` used to assert the
+## overturned rule (against `no_siege_master`'s floor1_room1 fixture, which
+## issue 18's projectile speeds also tipped to 0/20); deleted rather than
+## re-banded, per rook's call on PR #50. If a sixth class ever gives
+## `no_abomination` a second tank-capable body, that is content picking up
+## the roster gap on purpose, not a test finally going green by accident.
 
 func _party_of(class_id: StringName, count: int) -> Array[PawnData]:
 	var party: Array[PawnData] = []
@@ -161,21 +183,67 @@ func test_same_seed_replays_bit_identical() -> void:
 
 ## Issue 37: mono-class parties are not something `PartySelect` can build --
 ## one card per class, capped at four, so the only full parties that exist are
-## the five leave-one-out combinations. This used to check `abomination x4`,
-## which flagged a coin flip against a team no player will ever field. Checks
-## `no_geysermancer` (siege_master/abomination/priest/warrior) instead, the
-## real party issue 37 measured as the coin flip worth protecting.
-## Issue 30's Warrior survivability pass (CON 9->14, warrior_guard's trigger
-## 0.35->0.65) nudged this specific comp from 6-14/20 to 15/20 -- this
-## fixture carries a Warrior, and a tankier one wins floor1_room1 a little
-## more often. Band widened by one to 6-15 with that disclosed rather than
-## picking a different fixture: 15/20 (75%) still leans toward a real
-## composition mattering, not the "wins nearly every time" shape the other
-## checks in this file already guard against separately.
+## the five leave-one-out combinations.
+##
+## **Rebased onto floor clears by issue 18's projectile-speed pass, per
+## rook's call on PR #50, not just re-banded.** The previous version of this
+## test measured `no_geysermancer`'s win rate on one isolated fresh fight
+## (`floor1_room1`, `_win_rate`) and issue 18's real shot-travel-time change
+## tipped it from 15/20 to 17-18/20 -- confirmed non-monotonic across
+## 65/90/300 units/tick, never back in band at any speed tried. Meanwhile the
+## thing the board actually treats as the signal, `Tools/FloorRuns.gd`'s
+## full-floor clear count, did not move for that party at all (`no_
+## geysermancer` 20/20 both before and after -- not a coin flip at the floor
+## level, a guaranteed clear). The single-fight number had drifted while the
+## run-level picture held, which is the "wrong altitude" rook named.
+##
+## `no_warrior` is the floor-level fixture that is actually a genuine coin
+## flip -- 11/20 before this branch, 12/20 after, both measured with
+## `Tools/FloorRuns.gd` against real `main` before touching anything. Unlike
+## a single fresh fight, a floor clear is what a player actually experiences
+## (this project's own issue 7 finding: a run is several fights with no
+## healing between them, and a single-fight table hid that for a whole
+## night). Band kept at the same width as before (6-15 of 20) around this
+## new fixture's own measured value rather than narrowed to just barely fit.
 func test_some_composition_is_a_genuine_coin_flip() -> void:
-	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
-	print("floor1_room1: no_geysermancer win rate %d/20" % r["wins"])
-	assert_true(r["wins"] >= 6 and r["wins"] <= 15, "expected a genuine coin flip (6-15 of 20), got %d/20" % r["wins"])
+	var r := _floor_clear_rate(&"warrior", 20)
+	print("floor: no_warrior clear rate %d/20" % r)
+	assert_true(r >= 6 and r <= 15, "expected a genuine coin flip (6-15 of 20), got %d/20" % r)
+
+
+## A full floor run for every class except `missing`, seeded 0..seeds-1,
+## same generation/recovery/resolution path `Tools/FloorRuns.gd` measures
+## the board's own mandatory-class guard with -- not a fresh single fight,
+## a whole run with nothing healed between rooms. Returns how many of
+## `seeds` the party clears the entire generated floor without a wipe.
+func _floor_clear_rate(missing: StringName, seeds: int) -> int:
+	var ids: Array[StringName] = []
+	for cid in Registry.all_class_ids():
+		if cid != missing:
+			ids.append(cid)
+	var cleared := 0
+	for s in range(seeds):
+		var plan := FloorGenerator.generate(s)
+		var run := FloorRun.new(plan)
+		var party: Array[PawnData] = []
+		for cid in ids:
+			party.append(PawnFactory.make_starter_pawn(cid, cid, Registry.get_class_def(cid).display_name))
+		var wiped := false
+		for room_id in plan.reachable_from_entrance():
+			var room := plan.room(room_id)
+			if not FloorFightRunner.is_fight_room(room.type):
+				if room.type == FloorRoom.Type.TREASURE:
+					FloorFightRunner.play_treasure_room(run, room)
+				else:
+					run.enter(room_id)
+				continue
+			var result := FloorFightRunner.play_room(run, room, party)
+			if result.outcome == FloorFightRunner.Outcome.DEFEAT:
+				wiped = true
+				break
+		if not wiped:
+			cleared += 1
+	return cleared
 
 
 func test_composition_still_matters() -> void:
@@ -212,18 +280,6 @@ func test_a_winning_party_pays_a_real_cost() -> void:
 	print("floor1_room1: abomination/siege_master/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
 	assert_true(r["wins"] >= 5, "this comp should win a genuine share of the time, got %d/20" % r["wins"])
 	assert_true(r["median_cost"] >= 0.0 and r["median_cost"] <= 40.0, "median cost on a win should be <=40%%, was %.0f%%" % r["median_cost"])
-
-
-## Issue 37 criterion 1: no real party should be an outright trap. Abomination's
-## INT/CON/AGI raised (issue 37) specifically to pull `no_siege_master`
-## (Abomination/Geysermancer/Priest/Warrior) off 0/20. It is not yet in the
-## issue's stated 4-6 band -- 1/20 measured -- and that gap is disclosed on the
-## board rather than hidden behind a loosened assertion. This only checks the
-## literal "not zero" floor; the tighter target is a follow-up.
-func test_no_real_party_is_an_outright_trap() -> void:
-	var r := _win_rate([&"abomination", &"geysermancer", &"priest", &"warrior"], 20)
-	print("floor1_room1: no_siege_master win rate %d/20" % r["wins"])
-	assert_true(r["wins"] >= 1, "no real party should win 0 of 20, got %d/20" % r["wins"])
 
 
 ## Issue 13b's cover room: same lever the wall would have tested (terrain
