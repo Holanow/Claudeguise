@@ -13,7 +13,7 @@ const LootTables := preload("res://Scripts/Content/LootTables.gd")
 ## Scripts/UI ever referenced it. This is the smallest thing that makes a
 ## run a run: see the rooms, enter one, come back with damage carried.
 ##
-## OWNER: pike.
+## OWNER: lark (was pike).
 ##
 ## Every room type resolves through FloorFightRunner.play_room or
 ## play_treasure_room, both already fully public and already correct
@@ -23,6 +23,14 @@ const LootTables := preload("res://Scripts/Content/LootTables.gd")
 ## carried damage visible afterward, on this same screen, which is the
 ## thing issue 43 actually asks for. A live animated replay of a floor
 ## fight is a real future improvement, not a requirement here.
+##
+## Issue 42: CELL resolved in Scripts/Floor (swift, issue 5) with a real
+## API -- FloorFightRunner.cell_candidates/resolve_cell -- but nothing
+## called either from the game, so README's "a selection of new pawns
+## (pick one)" never fired. That matters beyond a missing screen: the
+## floor is built to grind a party down with only partial between-room
+## recovery (issue 7/13), and the Cell replacing a lost pawn is the
+## design's stated counterweight to that attrition. Wired below.
 
 signal run_ended(victory: bool)
 signal back_requested
@@ -41,6 +49,13 @@ var _equip_list: VBoxContainer = null
 ## Set while the player is choosing a pawn to receive this item; null means
 ## the panel is showing the loot list instead.
 var _equip_selected_item: EquipmentDef = null
+
+var _cell_panel: PanelContainer = null
+var _cell_list: VBoxContainer = null
+## The CELL room currently being resolved, so a candidate button (built
+## fresh each time the panel opens) knows which room to pass back to
+## resolve_cell. Null whenever the panel is closed.
+var _cell_room: FloorRoom = null
 
 const _ROOM_BUTTON_SIZE := Vector2(140.0, 60.0)
 const _COLUMN_SPACING := 170.0
@@ -137,6 +152,34 @@ func _ready() -> void:
 	_equip_list = VBoxContainer.new()
 	_equip_list.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	equip_scroll.add_child(_equip_list)
+
+	# Mirrored on the left, same height limit and same reasoning as the
+	# equip panel's own anchoring comment above -- opens on its own (a room
+	# entry, not a button), so it must never land under the equip panel
+	# even if a player opens both across two visits.
+	_cell_panel = PanelContainer.new()
+	_cell_panel.visible = false
+	_cell_panel.anchor_left = 0.0
+	_cell_panel.anchor_right = 0.0
+	_cell_panel.anchor_top = 0.0
+	_cell_panel.anchor_bottom = 1.0
+	_cell_panel.offset_left = Palette.SPACE_L
+	_cell_panel.offset_right = _EQUIP_PANEL_WIDTH + Palette.SPACE_L
+	_cell_panel.offset_top = _EQUIP_PANEL_TOP
+	_cell_panel.offset_bottom = -Palette.SPACE_L
+	add_child(_cell_panel)
+
+	var cell_margin := MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		cell_margin.add_theme_constant_override("margin_%s" % side, int(Palette.SPACE_L))
+	_cell_panel.add_child(cell_margin)
+
+	var cell_scroll := ScrollContainer.new()
+	cell_margin.add_child(cell_scroll)
+
+	_cell_list = VBoxContainer.new()
+	_cell_list.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	cell_scroll.add_child(_cell_list)
 
 func open(new_run: FloorRun, new_party: Array[PawnData]) -> void:
 	run = new_run
@@ -265,8 +308,11 @@ func _on_room_pressed(room: FloorRoom) -> void:
 		return
 	if room.type == FloorRoom.Type.TREASURE:
 		FloorFightRunner.play_treasure_room(run, room)
+	elif room.type == FloorRoom.Type.CELL:
+		_on_cell_room_entered(room)
+		return
 	else:
-		# TRAP/LIBRARY/CELL: no mechanics built yet (issue 43's own scope).
+		# TRAP/LIBRARY: no mechanics built yet (issue 43's own scope).
 		# Entering is the smallest correct thing — the room becomes
 		# visited and the run continues — rather than inventing a trap or
 		# library effect nobody asked for.
@@ -369,6 +415,78 @@ func _on_pawn_picked(pawn: PawnData, item: EquipmentDef) -> void:
 	run.loot.erase(item)
 	_equip_selected_item = null
 	_equip_panel.visible = false
+	_refresh()
+
+## README's CELL: "a selection of new pawns (pick one)". FloorFightRunner
+## already builds the offer and applies a pick (swift, issue 5) -- this is
+## the other half, asking the question and showing the result.
+##
+## cell_candidates() always returns real offers regardless of whether
+## anyone is dead (it only excludes classes the party already has living),
+## but resolve_cell() only ever replaces a dead member and README frames
+## CELL as replacing a loss, not growing the roster past what party select
+## chose. Offering a pick that can provably do nothing would read as a
+## broken button, so this checks for a loss first and skips the panel
+## entirely when there is none to fill.
+func _on_cell_room_entered(room: FloorRoom) -> void:
+	var has_loss := false
+	for pawn in party:
+		if not run.is_alive(pawn.id):
+			has_loss = true
+			break
+	if not has_loss:
+		run.enter(room.id)
+		_refresh("The cell is empty-handed: your party has nobody to replace.")
+		return
+
+	var candidates := FloorFightRunner.cell_candidates(run, room, party)
+	if candidates.is_empty():
+		run.enter(room.id)
+		_refresh("The cell has nobody left to offer.")
+		return
+
+	_cell_room = room
+	_cell_panel.visible = true
+	_show_cell_panel(candidates)
+
+func _show_cell_panel(candidates: Array[PawnData]) -> void:
+	for child in _cell_list.get_children():
+		child.queue_free()
+
+	var heading := Label.new()
+	heading.text = "The cell offers a replacement:"
+	heading.add_theme_color_override("font_color", Palette.TEXT)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
+	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
+	_cell_list.add_child(heading)
+
+	for candidate in candidates:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+		var class_name_text := candidate.pawn_class.display_name if candidate.pawn_class != null else "?"
+		button.text = "%s (%s)" % [candidate.display_name, class_name_text]
+		button.pressed.connect(_on_cell_pawn_picked.bind(candidate))
+		_cell_list.add_child(button)
+
+	var skip_button := Button.new()
+	skip_button.text = "Leave empty-handed"
+	skip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	skip_button.pressed.connect(_on_cell_skipped)
+	_cell_list.add_child(skip_button)
+
+func _on_cell_pawn_picked(chosen: PawnData) -> void:
+	var room := _cell_room
+	FloorFightRunner.resolve_cell(run, room, party, chosen)
+	run.enter(room.id)
+	_cell_room = null
+	_cell_panel.visible = false
+	_refresh("The cell grants you %s." % chosen.display_name)
+
+func _on_cell_skipped() -> void:
+	var room := _cell_room
+	run.enter(room.id)
+	_cell_room = null
+	_cell_panel.visible = false
 	_refresh()
 
 func _slot_name(slot: EquipmentDef.Slot) -> String:
