@@ -11,6 +11,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+const Balance := preload("res://Scripts/Content/Balance.gd")
 
 ## Covers all four acceptance criteria in Issues/issue-9-rooms-run-fights.md.
 ## Uses real content (PawnFactory, Registry's one authored encounter) rather
@@ -313,3 +314,69 @@ func test_a_treasure_room_always_drops() -> void:
 
 	assert_eq(run.loot.size(), 1, "a treasure room (100% drop chance) must always drop")
 	assert_true(run.visited.has(0), "visiting a treasure room must mark it visited, same as a fight room")
+
+# ---------------------------------------------------------------------------
+# issue 45's call site: recovery and revival between rooms
+# ---------------------------------------------------------------------------
+
+## _apply_between_room_recovery tested directly, same pattern as
+## _map_outcome and _encounter_for above -- the fight itself is
+## non-deterministic in exactly which hp a party ends on, so hand-setting
+## the carried state before recovery is the only way to assert an exact
+## fraction rather than a real fight's incidental numbers.
+func test_a_living_pawn_recovers_a_fraction_of_missing_hp_with_a_healer() -> void:
+	var party := _make_party() # includes a Priest -- a living healer
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.ENEMY, 1)
+	var run := FloorRun.new(plan)
+
+	var warrior := party[0]
+	var hp_max := Balance.max_hp(warrior)
+	var half := hp_max / 2
+	run.record_result(warrior.id, half, 0, true)
+
+	FloorFightRunner._apply_between_room_recovery(run, party)
+
+	var expected := Balance.between_room_heal(half, hp_max, true)
+	assert_eq(run.hp_for(warrior.id, hp_max), expected, "a living pawn must recover exactly Balance's own fraction with a healer present")
+	assert_true(run.hp_for(warrior.id, hp_max) > half, "recovery must be a real improvement, not a no-op")
+
+func test_a_dead_pawn_stays_dead_without_a_living_healer() -> void:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior"),
+		PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "Geysermancer"),
+		PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master"),
+		PawnFactory.make_starter_pawn(&"abomination", &"abomination", "Abomination"),
+	] # no healer role anywhere in this party
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.ENEMY, 1)
+	var run := FloorRun.new(plan)
+	run.record_result(party[0].id, 0, 0, false) # the warrior died in the fight
+
+	FloorFightRunner._apply_between_room_recovery(run, party)
+
+	assert_false(run.is_alive(party[0].id), "a dead pawn must stay dead when nothing in the party can revive it")
+
+func test_a_dead_pawn_revives_at_a_partial_fraction_with_a_living_healer() -> void:
+	var party := _make_party() # includes a living Priest
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.ENEMY, 1)
+	var run := FloorRun.new(plan)
+	var warrior := party[0]
+	run.record_result(warrior.id, 0, 0, false) # died in the fight
+
+	FloorFightRunner._apply_between_room_recovery(run, party)
+
+	assert_true(run.is_alive(warrior.id), "a dead pawn must revive with a living healer in the party")
+	var hp_max := Balance.max_hp(warrior)
+	assert_eq(run.hp_for(warrior.id, hp_max), Balance.revive_hp(hp_max, true), "must revive at exactly Balance's own fraction, not full health")
+	assert_true(run.hp_for(warrior.id, hp_max) < hp_max, "a revival is a second chance, not a free win back")
+
+func test_recovery_does_not_apply_after_a_defeat() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan_of_type(1, FloorRoom.Type.BOSS, 10)
+	var run := FloorRun.new(plan)
+	for p in party:
+		run.record_result(p.id, 0, 0, false) # arrives already wiped
+
+	FloorFightRunner.play_room(run, plan.room(0), party)
+
+	for p in party:
+		assert_false(run.is_alive(p.id), "a wipe must not trigger revival -- there is no next room to recover into")
