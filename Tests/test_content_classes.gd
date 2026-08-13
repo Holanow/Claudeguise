@@ -9,6 +9,7 @@ const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 const EXPECTED_CLASS_IDS := [
 	&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior",
@@ -176,3 +177,23 @@ func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
 			checked += 1
 			assert_true((spawn as Vector2).x <= CG.party_deploy_max_x(), "%s has a party spawn at x=%.1f, past the deploy limit of %.1f" % [encounter_id, (spawn as Vector2).x, CG.party_deploy_max_x()])
 	assert_true(checked > 0, "expected at least one party spawn to check")
+
+
+## Issue 13b criterion 2: no room may spawn a unit inside a WALL or PIT.
+## `Terrain.point_is_blocked` is the same check the simulation itself uses for
+## movement, at radius 0 -- a spawn point exactly inside a wall's rect fails
+## this the same way it would fail to walk there.
+func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
+	var checked := 0
+	for encounter_id in Registry.all_encounter_ids():
+		var enc := Registry.get_encounter(encounter_id)
+		if enc.terrain.is_empty():
+			continue
+		for spawn in enc.party_spawns:
+			checked += 1
+			assert_false(Terrain.point_is_blocked(enc.terrain, spawn, 0.0), "%s has a party spawn inside a wall/pit at %s" % [encounter_id, spawn])
+		for enemy_spawn in enc.enemy_spawns:
+			var pos: Vector2 = enemy_spawn.get("position", Vector2.ZERO)
+			checked += 1
+			assert_false(Terrain.point_is_blocked(enc.terrain, pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
+	assert_true(checked > 0, "expected at least one encounter with terrain to check")

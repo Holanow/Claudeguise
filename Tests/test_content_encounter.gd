@@ -137,3 +137,38 @@ func test_a_winning_party_pays_a_real_cost() -> void:
 	print("floor1_room1: siege_master/geysermancer/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
 	assert_true(r["wins"] >= 17, "this comp should still win most of the time")
 	assert_true(r["median_cost"] >= 0.0 and r["median_cost"] <= 40.0, "median cost on a win should be <=40%%, was %.0f%%" % r["median_cost"])
+
+
+## Issue 13b criterion 1: `floor1_chokepoint` is `floor1_room1`'s exact enemy
+## roster with only a wall added. If terrain is decoration, a party's fight
+## against the two should read the same; if it is not, the wall should change
+## how the fight goes. `siege_master x4` is the composition issue 24 found
+## winning for free specifically by never being approached — the wall in
+## `floor1_chokepoint` forces everything through one gap, which is the one
+## thing a long-range action alone cannot route around.
+##
+## NOT YET MEASURABLE: `CombatSim.build` does not copy `Encounter.terrain`
+## onto `CombatState` yet (that one line is wren's, asked for in TEAM_LOG).
+## Until it lands, `floor1_chokepoint`'s wall does nothing and this fails --
+## expected and disclosed on the board, same shape as issue 23's numbers
+## sitting inert until SimDeps was wired.
+func test_the_wall_changes_the_fight_from_the_open_room() -> void:
+	var open_room := Registry.get_encounter(&"floor1_room1")
+	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
+	assert_not_null(open_room)
+	assert_not_null(chokepoint)
+	assert_true(chokepoint.terrain.size() > 0, "floor1_chokepoint should carry a wall")
+
+	var differs := false
+	for seed in 5:
+		var state_open := CombatSim.build(_party_of(&"siege_master", 4), open_room, seed)
+		CombatSim.run(state_open)
+		var state_choke := CombatSim.build(_party_of(&"siege_master", 4), chokepoint, seed)
+		CombatSim.run(state_choke)
+		print("chokepoint seed %d: open outcome=%s ticks=%d  vs  wall outcome=%s ticks=%d" % [
+			seed, CombatState.Outcome.keys()[state_open.outcome], state_open.tick,
+			CombatState.Outcome.keys()[state_choke.outcome], state_choke.tick,
+		])
+		if _differs({"outcome": state_open.outcome, "ticks": state_open.tick}, {"outcome": state_choke.outcome, "ticks": state_choke.tick}):
+			differs = true
+	assert_true(differs, "floor1_chokepoint's wall should change the fight on at least one of 5 seeds, or it is decoration")
