@@ -101,7 +101,8 @@ func _run_party(ids: Array, left_out: String) -> void:
 				entry_hp_by_depth[depth] = []
 			entry_hp_by_depth[depth].append(pct)
 
-			var outcome := FloorFightRunner.play_room(run, room, party)
+			var result := FloorFightRunner.play_room(run, room, party)
+			var outcome: FloorFightRunner.Outcome = result.outcome
 			if outcome == FloorFightRunner.Outcome.DEFEAT:
 				wiped = true
 				break
