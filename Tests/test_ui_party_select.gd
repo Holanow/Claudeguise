@@ -3,6 +3,7 @@ extends "res://Tests/TestCase.gd"
 const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
+const Palette := preload("res://Scripts/Core/Palette.gd")
 const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Swapping the party between runs is an acceptance criterion for the slice, so
@@ -65,4 +66,64 @@ func test_two_different_selections_produce_different_configs() -> void:
 	var config_b := screen.current_config()
 
 	assert_ne(config_a.party[0].display_name, config_b.party[0].display_name)
+	screen.free()
+
+func test_prefill_seed_sets_the_seed_field() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	screen.prefill_seed("0000002A")
+	var config := screen.current_config()
+	assert_eq(config.seed_text(), "0000002A")
+	screen.free()
+
+func test_start_button_explains_why_it_is_disabled_with_no_party() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_true(screen._start_button.disabled)
+	assert_ne(screen._start_button.text, "Start Fight", "must say why, not just be greyed out")
+	screen.free()
+
+func test_start_button_enables_and_reads_start_once_a_pawn_is_picked() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	var pawn := _make_pawn("warrior", "Warrior")
+	screen.toggle_pawn(pawn, true)
+	assert_false(screen._start_button.disabled)
+	assert_eq(screen._start_button.text, "Start Fight")
+	screen.free()
+
+func test_a_fifth_selection_is_visibly_refused_not_silently_ignored() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	for i in 4:
+		screen.toggle_pawn(_make_pawn("class_%d" % i, "Class %d" % i), true)
+	var status_before := screen._status_label.text
+	screen._on_card_toggled(true, _make_pawn("class_4", "Class 4"))
+	assert_ne(screen._status_label.text, status_before,
+		"the fifth attempt must change something visible, not do nothing at all")
+	assert_eq(screen.selected_pawns().size(), 4)
+	screen.free()
+
+## Issue 17: "a checkbox glyph is nowhere near TOUCH_TARGET_MIN". Asserted
+## rather than eyeballed — a 47px control looks fine in a screenshot and
+## fails a thumb.
+func test_the_start_button_meets_the_minimum_touch_target() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_true(screen._start_button.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
+	screen.free()
+
+func test_the_seed_field_meets_the_minimum_touch_target() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_true(screen._seed_edit.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
+	screen.free()
+
+func test_every_card_meets_the_minimum_touch_target() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	for id in screen._cards:
+		var card = screen._cards[id]
+		assert_true(card.custom_minimum_size.x >= Palette.TOUCH_TARGET_MIN)
+		assert_true(card.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	screen.free()
