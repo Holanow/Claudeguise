@@ -146,3 +146,18 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## simulation's. The mechanism lands with every action still at 0.0 so the
 ## balance re-measurement stays a separate, attributable step.
 @export var projectile_speed: float = 0.0
+
+## How far this action's TAUNTING status reaches, in world units. 0.0 means the
+## action does not taunt, which is every action today.
+##
+## Read onto `CombatUnit.taunt_radius` at the moment the status is applied,
+## rather than re-derived from the unit's action list each tick -- same as every
+## other derived-at-apply-time number here.
+##
+## This is what finally makes TANK mean something. The Warrior has 9 CON and has
+## never had any way to make a thing attack it, so "tank" has meant "survives"
+## rather than "protects" for the whole project. dace found the same hole from
+## the other side on issue 12: an 80-hp siege engine never draws fire because
+## nothing prefers a summon over the nearest pawn, which makes a summoner just a
+## fragile damage dealer. One mechanism, two classes.
+@export var taunt_radius: float = 0.0

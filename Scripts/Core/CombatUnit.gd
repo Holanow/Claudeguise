@@ -71,6 +71,13 @@ var focus_id: int = -1
 ## simulation agrees on rather than something the renderer guessed.
 var facing: Vector2 = Vector2.ZERO
 
+## How far this unit's TAUNTING reaches while the status holds, copied from the
+## action that applied it. 0.0 when not taunting.
+##
+## Stored here rather than looked up through the action each tick, matching the
+## rest of the derived-at-apply-time state on this shape.
+var taunt_radius: float = 0.0
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""
