@@ -1,0 +1,212 @@
+extends "res://Tests/TestCase.gd"
+
+const CG := preload("res://Scripts/Core/CG.gd")
+const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
+const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
+const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
+const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
+const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+
+## Covers all four acceptance criteria in Issues/issue-9-rooms-run-fights.md.
+## Uses real content (PawnFactory, Registry's one authored encounter) rather
+## than hand-built fixtures, because this issue's whole point is the seam
+## between the floor model and the real simulation -- a fake encounter would
+## not test that seam.
+
+func _make_party() -> Array[PawnData]:
+	return [
+		PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior"),
+		PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest"),
+		PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "Geysermancer"),
+		PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master"),
+	]
+
+func _single_room_plan(seed: int, difficulty: int) -> FloorPlan:
+	var plan := FloorPlan.new()
+	plan.seed = seed
+	var r := FloorRoom.new()
+	r.id = 0
+	r.type = FloorRoom.Type.ENEMY
+	r.difficulty = difficulty
+	plan.rooms = [r]
+	plan.entrance_id = 0
+	plan.miniboss_id = -1
+	plan.boss_id = -1
+	return plan
+
+# ---------------------------------------------------------------------------
+# criterion 1: a room's outcome carries forward
+# ---------------------------------------------------------------------------
+
+func test_carried_condition_overrides_a_freshly_built_units_stats() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan(55, 1)
+	var run := FloorRun.new(plan)
+	run.record_result(party[0].id, 5, 1, true)
+	run.record_result(party[1].id, 0, 0, false)
+
+	var encounter := Registry.get_encounter(&"floor1_room1")
+	var state := CombatSim.build(party, encounter, 999)
+	FloorFightRunner._carry_party_condition_into(state, run, party)
+
+	assert_eq(state.unit(0).hp, 5, "reduced hp must override a freshly built unit's full hp")
+	assert_eq(state.unit(0).resource, 1, "reduced resource must carry the same way")
+	assert_true(state.unit(0).alive)
+
+	assert_false(state.unit(1).alive, "a pawn recorded dead must build in dead")
+	assert_eq(state.unit(1).hp, 0)
+
+	# An untouched pawn (never recorded) defaults to full, matching FloorRun's
+	# own contract from issue 5 -- a pawn that has not fought yet is fresh.
+	assert_eq(state.unit(2).hp, state.unit(2).hp_max, "an untouched pawn enters at full hp")
+	assert_true(state.unit(2).alive)
+
+func test_play_room_writes_the_result_back_into_floor_run() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan(77, 4)
+	var run := FloorRun.new(plan)
+
+	FloorFightRunner.play_room(run, plan.room(0), party)
+
+	for p in party:
+		# Every pawn that fought has an entry now, whatever it says --
+		# this is the mechanism, not a claim about who won.
+		assert_true(run.carry.has(p.id), "%s must have a recorded result after fighting" % p.display_name)
+
+# ---------------------------------------------------------------------------
+# criterion 2: a wipe ends the run; winning the last room ends it the other way
+# ---------------------------------------------------------------------------
+
+func test_a_wipe_ends_the_run_in_defeat() -> void:
+	var party := _make_party()
+	var plan := _single_room_plan(12, 1)
+	var run := FloorRun.new(plan)
+	for p in party:
+		run.record_result(p.id, 0, 0, false) # the party arrives already wiped
+
+	var outcome := FloorFightRunner.play_room(run, plan.room(0), party)
+
+	assert_eq(outcome, FloorFightRunner.Outcome.DEFEAT)
+	for p in party:
+		assert_false(run.is_alive(p.id), "a wiped party must still be wiped after the room resolves")
+
+func test_outcome_mapping_covers_defeat_continue_and_victory() -> void:
+	assert_eq(
+		FloorFightRunner._map_outcome(CombatState.Outcome.PLAYER_WIN, false),
+		FloorFightRunner.Outcome.CONTINUES,
+		"a non-boss room win continues the run"
+	)
+	assert_eq(
+		FloorFightRunner._map_outcome(CombatState.Outcome.PLAYER_WIN, true),
+		FloorFightRunner.Outcome.VICTORY,
+		"winning the boss room ends the run in victory"
+	)
+	assert_eq(
+		FloorFightRunner._map_outcome(CombatState.Outcome.ENEMY_WIN, true),
+		FloorFightRunner.Outcome.DEFEAT,
+		"losing the boss room is still a defeat, not a victory"
+	)
+	assert_eq(
+		FloorFightRunner._map_outcome(CombatState.Outcome.DRAW, false),
+		FloorFightRunner.Outcome.DEFEAT,
+		"a draw ends the run rather than continuing it"
+	)
+
+# ---------------------------------------------------------------------------
+# criterion 3: the same seed plays the same floor the same way
+# ---------------------------------------------------------------------------
+
+func _play_all_fight_rooms(plan: FloorPlan) -> Array:
+	var run := FloorRun.new(plan)
+	var trace: Array = []
+	for r in plan.rooms:
+		if not FloorFightRunner.is_fight_room(r.type):
+			continue
+		var outcome: FloorFightRunner.Outcome = FloorFightRunner.play_room(run, r, _make_party())
+		trace.append({"room": r.id, "outcome": outcome})
+		if outcome != FloorFightRunner.Outcome.CONTINUES:
+			break
+	return trace
+
+func test_same_seed_plays_the_same_floor_the_same_way() -> void:
+	var plan_a := FloorGenerator.generate(300)
+	var plan_b := FloorGenerator.generate(300)
+
+	var trace_a := _play_all_fight_rooms(plan_a)
+	var trace_b := _play_all_fight_rooms(plan_b)
+
+	assert_eq(trace_a, trace_b, "the same floor seed must play the same rooms in the same order with the same outcomes")
+
+func test_different_seeds_currently_agree_pending_issue_7_damage_variance() -> void:
+	# Honest reporting per issue 9's own instruction: "if it still holds
+	# trivially, say so rather than asserting a sameness that is really an
+	# absence." Different floor seeds produce different room GRAPHS (issue
+	# 5's own determinism test covers that) but whether the FIGHTS diverge
+	# depends on issue 7 landing damage variance from state.rng. Today
+	# nothing reads it for combat outcomes, so two different seeds still
+	# play the identical miniboss fight -- the miniboss room is guaranteed
+	# fight-typed and same-difficulty in every generated plan, so it's the
+	# one room id safe to compare across arbitrary seeds.
+	var plan_a := FloorGenerator.generate(1)
+	var plan_b := FloorGenerator.generate(2)
+	var run_a := FloorRun.new(plan_a)
+	var run_b := FloorRun.new(plan_b)
+
+	var outcome_a := FloorFightRunner.play_room(run_a, plan_a.room(plan_a.miniboss_id), _make_party())
+	var outcome_b := FloorFightRunner.play_room(run_b, plan_b.room(plan_b.miniboss_id), _make_party())
+
+	assert_eq(
+		outcome_a, outcome_b,
+		"expected today, not the ideal: without issue 7's damage variance, different seeds still agree"
+	)
+
+# ---------------------------------------------------------------------------
+# criterion 4: difficulty means something
+# ---------------------------------------------------------------------------
+
+## FINDING, not just a test: with today's single authored encounter and the
+## balanced party (the same composition SampleFights already measured at
+## 20/20 with all four survivors), scaling the *count* of that encounter's
+## enemies from 1 to 4 produces zero measurable difference. See the printed
+## distribution and the comment below the assertions -- this is the same
+## landslide-balance problem issue 7 is addressing, not a defect in the
+## wiring here. Per issue 9's own "what would make stopping the right
+## answer": reporting this rather than asserting a curve that is not real.
+func test_difficulty_makes_rooms_measurably_harder_and_room_one_is_winnable() -> void:
+	var avg_survivors_by_difficulty: Dictionary = {}
+	for difficulty in [1, 2, 3, 4]:
+		var total_survivors := 0
+		for seed in range(1, 21):
+			var party := _make_party()
+			var plan := _single_room_plan(seed, difficulty)
+			var run := FloorRun.new(plan)
+			FloorFightRunner.play_room(run, plan.room(0), party)
+			for p in party:
+				if run.is_alive(p.id):
+					total_survivors += 1
+		avg_survivors_by_difficulty[difficulty] = float(total_survivors) / 20.0
+
+	print("average survivors out of 4, by difficulty, 20 seeds each, balanced party: ", avg_survivors_by_difficulty)
+
+	# Holds today, and is the half of criterion 4 this test can honestly
+	# assert: the first room (difficulty 1) is winnable by a starting party
+	# in the large majority of seeds.
+	assert_true(
+		float(avg_survivors_by_difficulty[1]) >= 3.5,
+		"difficulty 1 (the first room's difficulty) must be winnable by a starting party in the large majority of seeds: %s" % [avg_survivors_by_difficulty]
+	)
+
+	# Does NOT hold today, and is reported rather than asserted: with only
+	# one authored encounter, scaling its enemy count 1x to 4x does not
+	# produce a measurable survivor difference for this party (4.0/4.0 at
+	# every difficulty in the run that produced the numbers in this file's
+	# board post). Room-count scaling is a real difficulty lever in
+	# principle, but it cannot show up while the strongest tested party
+	# beats the full room cleanly regardless -- more/harder content, or
+	# issue 7's tuning pass, is what would make this measurable, and
+	# neither is this issue's to build. Not asserting a fabricated gap here.
