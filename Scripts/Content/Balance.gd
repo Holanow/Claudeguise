@@ -62,6 +62,20 @@ const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
 ## this on a hit that actually lands, never on commit and never on a miss.
 const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 
+## Issue 23: percent of the victim's own max hp lost per BURN/POISON tick.
+## Proportional rather than flat so a Ghoul and a Goblin Archer find the same
+## burn equally scary instead of it being trivial for one and lethal in three
+## ticks for the other. Burn a touch hotter than poison, per README's own
+## flavour text ("Fire: Enrage, Burn" reads more violent than a lingering
+## "Water: Cleanse, Soak"-adjacent Profane poison).
+const BURN_DAMAGE_PERCENT_PER_TICK := 0.5
+const POISON_DAMAGE_PERCENT_PER_TICK := 0.35
+
+## Issue 23: multiplier on wind-up/recovery ticks while HASTE is active.
+## Below 1.0 speeds a unit up; wren's simulation floors the result at one
+## tick, so this cannot make an action instant by accident.
+const HASTE_TICK_SCALE := 0.7
+
 static func max_hp(pawn: PawnData) -> int:
 	var str_bonus := pawn.attribute(CG.Attribute.STR)
 	return BASE_HP + pawn.attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS
@@ -150,3 +164,23 @@ static func rage_gain_per_attack(unit: CombatUnit) -> float:
 	if unit.resource_kind != CG.ResourceKind.RAGE:
 		return 0.0
 	return float(unit.resource_max) * (RAGE_GAIN_PERCENT_PER_HIT / 100.0)
+
+## Damage dealt by one BURN or POISON tick. 0.0 for any other status -- wren's
+## simulation only calls this for those two, but a wrong status reaching here
+## should read as "does nothing" rather than an error over something display-
+## only would never notice.
+static func status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
+	match status:
+		CG.Status.BURN:
+			return float(unit.hp_max) * (BURN_DAMAGE_PERCENT_PER_TICK / 100.0)
+		CG.Status.POISON:
+			return float(unit.hp_max) * (POISON_DAMAGE_PERCENT_PER_TICK / 100.0)
+	return 0.0
+
+## Multiplier on wind-up/recovery ticks for a unit carrying HASTE. `unit` is
+## accepted for the call shape SimDeps expects; the multiplier itself is flat
+## across every unit for this slice, same as attack variance was before it
+## needed a per-class knob.
+static func haste_tick_scale(unit: CombatUnit) -> float:
+	var _unused := unit
+	return HASTE_TICK_SCALE

@@ -36,7 +36,8 @@ static func actions() -> Array[ActionDef]:
 		_action(&"goblin_stab", "Stab", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
 		_action(&"goblin_arrow", "Arrow", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0),
 		_action(&"ghoul_maul", "Maul", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
-		_action(&"cultist_bolt", "Dark Bolt", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, 0),
+		# Issue 23: the bestiary's status user. Profane -> POISON per README.md.
+		_action_status(&"cultist_bolt", "Dark Bolt", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90),
 
 		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
 		## the bestiary, but these two actions are still referenced by name in
