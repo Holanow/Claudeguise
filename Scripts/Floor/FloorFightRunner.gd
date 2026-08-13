@@ -127,19 +127,19 @@ static func _carry_party_condition_into(state: CombatState, run: FloorRun, party
 ## difficulty is allowed to scale, clamped to whichever encounter's own
 ## spawn list.
 ##
-## First floor phase: MINIBOSS and BOSS no longer share an id. Real boss
-## content (The Warden, the Rat King) is item D, not this change -- until
-## it exists, BOSS points at the toughest thing already registered
-## (`floor1_chokepoint`: the full 10-enemy roster behind a wall, the
-## hardest fight in the game today) rather than reusing MINIBOSS's
-## `floor1_ghoul_den` verbatim. `floor1_cover` and `floor1_hazard` remain
-## unused by any room type; flagged on the board rather than folded in
-## here without asking, since it's not the smallest change.
+## First floor phase: MINIBOSS and BOSS no longer share an id. Issue 44:
+## BOSS now points at `floor1_warden`, a real boss encounter (README's
+## The Warden), replacing the `floor1_chokepoint` placeholder -- that
+## placeholder specifically rewarded the strongest real party (19/20 @
+## 86%) while punishing another (1/20), the exact shape a boss should
+## not have. The Warden was tuned against all five real parties instead.
+## `floor1_cover` and `floor1_hazard` remain unused by any room type;
+## flagged on the board rather than folded in here without asking.
 const _ENCOUNTER_FOR_TYPE := {
 	FloorRoom.Type.ENEMY: &"floor1_room1",
 	FloorRoom.Type.BIG_ENEMY: &"floor1_horde",
 	FloorRoom.Type.MINIBOSS: &"floor1_ghoul_den",
-	FloorRoom.Type.BOSS: &"floor1_chokepoint",
+	FloorRoom.Type.BOSS: &"floor1_warden",
 }
 
 static func _encounter_for(room: FloorRoom) -> Encounter:
