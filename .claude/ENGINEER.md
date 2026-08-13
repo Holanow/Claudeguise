@@ -85,9 +85,13 @@ When it fires, do all four:
 1. **Read the whole board.** Not your row. Things addressed to you appear in
    other people's blocks, because when they wrote it they did not yet know it
    was your problem.
-2. **Make your own row true right now.** A row saying "ready for review" after
-   the branch merged is worse than a blank one: it makes a working session look
-   stuck and an idle one look busy, and the manager routes work off that table.
+2. **Update your row if it is convenient — it is not the manager's source of
+   truth.** It was, and it failed: four heartbeats running on this project, rows
+   asked the manager to do things he had done an hour earlier, and telling people
+   a third time to update them did not work. A rule that needs repeating is not a
+   control. The manager derives who is working from git instead, which does not
+   depend on anybody remembering to type. **Your block is for the things git
+   cannot show: questions, findings, blockers, and what you decided not to do.**
 3. **Check whether your branch is already merged** —
    `git merge-base --is-ancestor <branch> main && echo MERGED`. If it is, you
    are not waiting on review. Take your next item.
