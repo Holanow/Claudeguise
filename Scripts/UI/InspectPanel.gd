@@ -15,16 +15,11 @@ const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 ##
 ## OWNER: pike.
 ##
-## Depends on teal's issue 21a for two things neither of which exists yet:
-## `ActionDef.description` (the field is on the trunk, empty on every
-## action — shows as empty here, which is correct and expected, not a bug)
-## and `PlanInterpreter.describe_op(op, args)` (the function itself does not
-## exist yet, proposed shape posted on the board for teal to confirm). Rather
-## than call a function that is not there and go red for everyone the way
-## issue 20's wiring did, a plan's own `display_name` (teal's real, already-
-## authored text, e.g. "Guard when hurt") stands in for the block-by-block
-## sentence until describe_op lands — one function swapped in once it does,
-## nothing else about this file changes shape.
+## `ActionDef.description` is on the trunk, empty on every action so far —
+## shows as "(no description yet)" below, correct and expected, not a bug.
+## `PlanInterpreter.describe_op(op, args)` (teal's, issue 21a) landed after
+## this screen first shipped with the plan's own `display_name` standing in
+## for the block-by-block sentence; now wired to the real thing.
 
 signal closed
 
@@ -234,11 +229,17 @@ func _action_display_name(action_id: StringName) -> String:
 	var action := Registry.get_action(action_id)
 	return action.display_name if action != null else String(action_id).capitalize()
 
-## Full block-by-block sentences depend on PlanInterpreter.describe_op
-## (issue 21a, not landed — proposed shape posted on the board). The plan's
-## own display_name is real, teal-authored text and stands in until then.
+## "1. Guard when hurt — when self hp below 35%: target self, then use
+## Warrior Guard." The plan's own display_name names it; describe_op reads
+## the condition and each block back in a player's language.
 func _plan_line(priority: int, plan) -> Control:
-	return _line("%d. %s" % [priority, plan.display_name],
+	var condition_text := "always" if plan.condition == null \
+		else PlanInterpreter.describe_op(plan.condition.op, plan.condition.args)
+	var block_texts: Array[String] = []
+	for block in plan.blocks:
+		block_texts.append(PlanInterpreter.describe_op(block.op, block.args))
+	var body := ", then ".join(block_texts) if not block_texts.is_empty() else "(no blocks)"
+	return _line("%d. %s — when %s: %s." % [priority, plan.display_name, condition_text, body],
 		Palette.FONT_SIZE_BODY, Palette.TEXT)
 
 func _section_header(text: String) -> Control:
