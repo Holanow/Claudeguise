@@ -25,6 +25,39 @@ const BAR_WIDTH := 60.0
 const BAR_HEIGHT := 7.0
 const BAR_GAP := 3.0
 
+## Issue 31: units read too small, worse now that sable's real art carries
+## detail invisible at the old size (a real rendered fight: ten units in
+## roughly the middle fifth of a 1280x720 arena, sprites about twenty
+## pixels across). A view-only scale, deliberately not a change to
+## `CombatUnit.radius`/`EnemyDef.radius` themselves: those read as "drawing
+## only" in their own doc comments, and that comment is wrong — checked
+## rather than trusted, `CombatSim._move_toward` calls
+## `Terrain.point_is_blocked(state.terrain, candidate, unit.radius)` for real
+## movement collision. Changing the stored radius would be a balance change
+## in a UI issue's clothes. Flagged to rook rather than corrected here since
+## `CombatUnit.gd` is Core.
+##
+## Applied uniformly to everything drawn around a unit — the body, its bars,
+## its labels, its badges — so a bigger silhouette does not leave suddenly-
+## tiny text stranded next to it. `BattleView.gd` imports this same constant
+## for the floating numbers and death markers that spawn at a unit's
+## position, so the whole visual footprint of a unit grows together.
+## 2.0 was tried first and measured against a real ten-enemy room
+## (floor1_room1): bodies read well, but row spacing there is tuned for the
+## old footprint (rows 100-140 world units apart) and doubling every bar and
+## the name font on top of a doubled body pushed adjacent rows' chrome into
+## each other — worse than the problem this issue exists to fix. 1.5 still
+## roughly doubles the on-screen diameter after the arena's own ~0.5-0.95
+## viewport scale (bigger than the raw multiplier suggests, since a bigger
+## body also means a wider silhouette bounding box), while leaving enough
+## headroom that CROWD_RADIUS (scaled below) can actually keep labels apart
+## in a room this dense. Re-measure against a real launch before raising it
+## again, not by eye against a single sprite.
+const DISPLAY_SCALE := 1.5
+
+static func display_radius(u: CombatUnit) -> float:
+	return u.radius * DISPLAY_SCALE
+
 var unit_id: int = -1
 var _state: CombatState = null
 
@@ -52,14 +85,19 @@ func sync(state: CombatState) -> void:
 const _SEPARATION_PADDING := 1.3
 const _SEPARATION_STRENGTH := 0.5
 
+## Uses display_radius, not u.radius: the whole point of this nudge is to
+## keep now-larger bodies from occluding each other, so it has to reason
+## about the size actually drawn, not the smaller collision footprint the
+## simulation moves around.
 static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 	var push := Vector2.ZERO
+	var u_radius := display_radius(u)
 	for other in units:
 		if other.id == u.id or not other.alive:
 			continue
 		var delta: Vector2 = u.position - other.position
 		var dist: float = delta.length()
-		var min_dist: float = (u.radius + other.radius) * _SEPARATION_PADDING
+		var min_dist: float = (u_radius + display_radius(other)) * _SEPARATION_PADDING
 		if dist >= min_dist:
 			continue
 		if dist > 0.001:
@@ -70,7 +108,7 @@ static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 			# rather than depending on iteration order.
 			var angle := float(u.id) * 2.4
 			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
-	return push.limit_length(u.radius * 1.5)
+	return push.limit_length(u_radius * 1.5)
 
 func _unit() -> CombatUnit:
 	if _state == null:
@@ -98,45 +136,64 @@ func _draw() -> void:
 	if u == null:
 		return
 
+	var radius := display_radius(u)
+
 	_draw_targeting_line(u)
 
-	Silhouettes.draw_unit(self, _shape_id(u), u.radius, u.team, _accent(u), u.team == CG.Team.ENEMY)
+	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), u.team == CG.Team.ENEMY)
 
-	_draw_concentration_badge(u)
+	_draw_concentration_badge(u, radius)
 
 	if u.action_ticks_left > 0 and u.current_action != &"":
-		draw_arc(Vector2.ZERO, u.radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 3.0, true)
+		draw_arc(Vector2.ZERO, radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 3.0, true)
 		var font := ThemeDB.fallback_font
 		var ticks_text := str(u.action_ticks_left)
-		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL)
-		draw_string(font, Vector2(-text_size.x * 0.5, u.radius + 4.0 + text_size.y),
-			ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.WIND_UP)
+		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size())
+		draw_string(font, Vector2(-text_size.x * 0.5, radius + 4.0 + text_size.y),
+			ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.WIND_UP)
 
-	_draw_status_tags(u)
+	_draw_status_tags(u, radius)
 
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
 	# label sits an extra font-height above where the last bar was drawn.
-	var y := -u.radius - BAR_GAP
+	var bar_width := BAR_WIDTH * DISPLAY_SCALE
+	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
+	var bar_gap := BAR_GAP * DISPLAY_SCALE
+	var y := -radius - bar_gap
 
 	if u.resource_max > 0:
-		y -= BAR_HEIGHT
-		var res_pos := Vector2(-BAR_WIDTH * 0.5, y)
+		y -= bar_height
+		var res_pos := Vector2(-bar_width * 0.5, y)
 		var res_fraction := float(u.resource) / float(u.resource_max)
-		draw_rect(Rect2(res_pos, Vector2(BAR_WIDTH, BAR_HEIGHT)), Palette.HP_BACK)
-		draw_rect(Rect2(res_pos, Vector2(BAR_WIDTH * res_fraction, BAR_HEIGHT)), Palette.resource_color(u.resource_kind))
-		y -= BAR_GAP
+		draw_rect(Rect2(res_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
+		draw_rect(Rect2(res_pos, Vector2(bar_width * res_fraction, bar_height)), Palette.resource_color(u.resource_kind))
+		y -= bar_gap
 
-	y -= BAR_HEIGHT
-	var hp_pos := Vector2(-BAR_WIDTH * 0.5, y)
-	draw_rect(Rect2(hp_pos, Vector2(BAR_WIDTH, BAR_HEIGHT)), Palette.HP_BACK)
-	draw_rect(Rect2(hp_pos, Vector2(BAR_WIDTH * u.hp_fraction(), BAR_HEIGHT)), Palette.hp_color(u.hp_fraction()))
-	y -= BAR_GAP + Palette.FONT_SIZE_SMALL + _crowding_stagger(u)
+	y -= bar_height
+	var hp_pos := Vector2(-bar_width * 0.5, y)
+	draw_rect(Rect2(hp_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
+	draw_rect(Rect2(hp_pos, Vector2(bar_width * u.hp_fraction(), bar_height)), Palette.hp_color(u.hp_fraction()))
+	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	_draw_label_chip(u.display_name, y, Palette.TEXT, Palette.FONT_SIZE_SMALL)
+	_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
 
-const CROWD_RADIUS := 70.0
-const CROWD_STEP := 20.0
+## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
+## with the arena (InspectPanel's attribute chips, PartySelect), so it is
+## not something this file can change — scaled locally instead, the same
+## reasoning DISPLAY_SCALE itself exists for.
+static func _label_font_size() -> int:
+	return int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
+
+## Both world-space-ish quantities that grew a real bigger footprint needs to
+## respect: a bigger body and taller bar/label stack means two units that
+## used to read as merely "nearby" now have their chrome actually touch at
+## the same world distance. Found by comparing a real before/after screenshot
+## of floor1_room1, not by reasoning about it — the first version of issue 31
+## left these fixed and rows of enemies spaced for the old, smaller footprint
+## overlapped their neighbours' labels.
+const CROWD_RADIUS := 70.0 * DISPLAY_SCALE
+const CROWD_STEP := 20.0 * DISPLAY_SCALE
 
 ## Extra headroom for this unit's name label when another unit is standing
 ## close enough for the two labels to land on the same spot — found in
@@ -149,6 +206,7 @@ const CROWD_STEP := 20.0
 func _crowding_stagger(u: CombatUnit) -> float:
 	if _state == null:
 		return 0.0
+	# CROWD_STEP already carries DISPLAY_SCALE — do not multiply twice.
 	return float(crowd_rank(u, _state.units)) * CROWD_STEP
 
 ## Split out for testing, same reasoning as status_tags: how many other
@@ -201,28 +259,28 @@ const CONCENTRATION_THRESHOLD := 2
 ## every unit all the time would be noise, and the issue this answers is
 ## specifically "three attackers on one pawn read as nothing at all", not
 ## "who has a target".
-func _draw_concentration_badge(u: CombatUnit) -> void:
+func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	if _state == null:
 		return
 	var count := concentration_count(u, _state.units)
 	if count < CONCENTRATION_THRESHOLD:
 		return
-	var badge_center := Vector2(u.radius * 0.75, -u.radius * 0.75)
-	draw_circle(badge_center, 11.0, Palette.HP_LOW)
+	var badge_center := Vector2(radius * 0.75, -radius * 0.75)
+	draw_circle(badge_center, 11.0 * DISPLAY_SCALE, Palette.HP_LOW)
 	var font := ThemeDB.fallback_font
 	var text := str(count)
-	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL)
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size())
 	draw_string(font, badge_center - text_size * 0.5 + Vector2(0.0, text_size.y * 0.75),
-		text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT)
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.TEXT)
 
 ## Stunned and out-of-resource both look identical to "idle" on the arena
 ## otherwise: the unit just doesn't do anything, and a viewer with no access
 ## to CombatUnit.statuses cannot tell a stalled decision from a disabled one.
-func _draw_status_tags(u: CombatUnit) -> void:
+func _draw_status_tags(u: CombatUnit, radius: float) -> void:
 	var tags := status_tags(u)
 	if tags.is_empty():
 		return
-	_draw_label_chip(" ".join(tags), u.radius + 14.0, Palette.HP_LOW, Palette.FONT_SIZE_SMALL)
+	_draw_label_chip(" ".join(tags), radius + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
 
 ## Renders text centred on its own width with a small backdrop chip behind
 ## it, rather than a fixed draw width that truncates. Found by rendering a
@@ -237,7 +295,7 @@ func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: 
 	var font := ThemeDB.fallback_font
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var pos := Vector2(-text_size.x * 0.5, baseline_y)
-	var pad := Vector2(3.0, 2.0)
+	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
 	var chip := Rect2(pos - Vector2(pad.x, text_size.y), text_size + pad * 2.0)
 	draw_rect(chip, Color(Palette.BACKGROUND, 0.65))
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
