@@ -75,3 +75,52 @@ If closing this requires making the game worse for the other five rows, stop and
 say so with both tables. **Five good rows and one dominant strategy is a better
 game than six mediocre ones**, and I would rather ship the honest version with
 the outlier documented than tune everything to the middle to hide it.
+
+---
+
+## Answered: wren's trace, and the mechanism is precise now
+
+`Issues/issue-25` is done. My guess was right and the trace makes it exact, which
+is more useful than being right.
+
+**Every enemy range in `floor1_room1` is 40 (goblin), 45 (ghoul) or 200
+(goblin_archer, cultist). `siege_shot` is 260 — sixty units longer than anything
+in the room.**
+
+1. The four goblins and two ghouls — **six of ten enemies** — never closed past
+   127-136 units, against their own reach of 40-45. They died entirely inside a
+   band they could never fight back from.
+2. Only the archers and the cultist connected at all: **one hit each, 8 and 9
+   damage**. Total enemy damage across the whole fight: **17**, against a party
+   with 114 hp per unit. That is the 98% finish, and it is not a rounding
+   artefact of a close fight — it is three hits in a room of ten enemies.
+3. All four siege_masters fired continuously for 333 ticks. **There is no kiting
+   here.** `siege_shot`'s 260 covers the room from the party's starting position,
+   so they never had to move at all. I had assumed some retreat behaviour was
+   involved; there is none, and that matters because it means no change to
+   `DefaultBehavior` would fix this.
+4. The contrast, same seed, with a warrior in the party: the warrior closes to
+   distance 15 and ends the fight at 0/186 hp, and the ghoul and cultist land 119
+   and 134 damage. **The room is dangerous. It is only dangerous to a party that
+   comes within reach of it.**
+
+## The general rule, which is worth more than this fix
+
+**A party that out-ranges every enemy in a room is not fighting it.** No amount
+of hp, damage, count or focus bias changes that, because none of those apply to a
+unit that is never in range. That is a property of the *matchup*, not of the
+numbers on either side.
+
+So the answer is not to make the enemies stronger, and criterion 2 of this issue
+already says so. It is one of:
+
+- **Something in the room that reaches 260 or further**, so a pure long-range
+  party has to answer it. One enemy, not all of them.
+- **Terrain that breaks line of sight** (13b), so distance stops being a safe
+  place to stand. `Terrain.line_is_blocked` is written and tested and unused.
+- **Enemies that start inside their own range**, via placement, so the melee half
+  is not crossing a killing field before it can act.
+
+I would try the third first because it is free, then the second, and the first
+only if neither works — a 260-range enemy is a big lever and it will affect every
+other party too.
