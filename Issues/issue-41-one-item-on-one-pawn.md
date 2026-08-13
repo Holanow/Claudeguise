@@ -60,3 +60,57 @@ cannot be starting gear at all — that they have to be loot, earned mid-run —
 in the game, and it is worth more than a working `PawnFactory` change. It would
 also route the next piece of work to wren rather than to you, which is exactly
 the kind of thing to discover before three sessions build on the assumption.
+
+
+---
+
+## Outcome: the chain works, and the stopping condition fired. Items are loot.
+
+**The chain is proven.** teal put starter weapons on the pawns and the table
+moved, which is exactly what this issue asked for: registry -> item -> slot ->
+`Balance.attribute` -> attack power -> outcome, running end to end for the first
+time. Every part of that had passing tests before tonight and had never once
+executed together.
+
+**And it flattens the game.** All five real parties go to 18-20 wins in 20. The
+two balance guarantees teal wrote earlier both went red on their own:
+
+```
+FAIL test_some_composition_is_a_genuine_coin_flip   expected 6-14 of 20, got 20/20
+FAIL test_a_winning_party_pays_a_real_cost          expected <=40% cost, was 49%
+```
+
+Verified in a review worktree rather than taken from the report. **The gate
+caught this by itself**, which is what it is for and the first time it has
+stopped a design mistake rather than a code one.
+
+teal reported it and did not tune it away, which is what the issue asked and is
+the reason we get to make this decision on evidence.
+
+### The decision: items are loot, not starting gear. This is mine.
+
+Three reasons, in order of weight:
+
+1. **Measured.** Starting gear destroys the three coin flips that took the whole
+   night to create, and drops the cost of winning below the bar the player set
+   ("2 members down and the other 2 almost dead"). Everything good about the
+   current balance is gone in one change.
+2. **It is where the genre puts them, and where this game already has a shape to
+   hang them on.** wren's floor curve degrades party entry health 98.7% ->
+   93.7% -> 73.8% across the rooms. Items earned as you descend are the thing
+   that answers that curve. Items held from the start just make room one
+   trivial, which is precisely the 18-20/20 we measured.
+3. **It preserves the fight balance as tuned.** The room stays calibrated for an
+   unequipped party. Power arrives during the run instead of before it.
+
+### What this routes, and it is what the stopping condition predicted
+
+- **wren:** the floor awards an item after a room. `Scripts/Floor/**` already
+  carries damage forward between rooms, so it already has run state to hang this
+  on. This is the reachability mechanism and it is now the critical piece.
+- **teal:** drop the starter-weapon change, keep everything else. What drops,
+  and how often, is content and yours.
+- **pike:** the equip screen, once something can be equipped.
+
+**Do not merge `issue-41/reachable-items`.** It is red, and correctly so. Its
+value was the knowledge, and the knowledge is now written down here.
