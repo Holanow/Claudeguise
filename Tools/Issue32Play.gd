@@ -26,18 +26,18 @@ const OUT_DIR := "res://Screenshots"
 ## through the actual screen. Playing all five: real variety, not a rigged
 ## sample, and it directly answers something SampleFights never could
 ## ("what does a player who tries every card actually see").
+##
+## Re-run for the follow-up verdict, now that PartySelect fights the real
+## floor1_room1 instead of floor1_ghoul_den. Seeds re-picked from a fresh
+## headless search against CG.DEFAULT_ENCOUNTER (removed after) so this
+## set is natural variety against the room the game actually loads today,
+## not the old ghoul-den-tuned set: four wins and one genuine loss.
 const FIGHTS := [
-	{"label": "no_warrior", "seed": "AAAA0001", "classes": ["Priest", "Geysermancer", "Siege Master", "Abomination"]},
-	{"label": "no_priest", "seed": "AAAA0002", "classes": ["Warrior", "Geysermancer", "Siege Master", "Abomination"]},
-	{"label": "no_geysermancer", "seed": "AAAA0003", "classes": ["Warrior", "Priest", "Siege Master", "Abomination"]},
-	# Headless search before this fight, across 64 widely varied seeds
-	# (1-59 plus 100/500/1000/12345/999999): this exact party loses every
-	# single one. Not a coin flip -- this is the one four-card party a real
-	# player can pick that appears to always lose. Kept its own seed
-	# (the round-number "7") rather than the AAAA-hash pattern so it is
-	# easy to re-run and check.
-	{"label": "no_siege_master", "seed": "7", "classes": ["Warrior", "Priest", "Geysermancer", "Abomination"]},
-	{"label": "no_abomination", "seed": "AAAA0005", "classes": ["Warrior", "Priest", "Geysermancer", "Siege Master"]},
+	{"label": "no_warrior", "seed": "2", "classes": ["Priest", "Geysermancer", "Siege Master", "Abomination"]},
+	{"label": "no_priest", "seed": "1", "classes": ["Warrior", "Geysermancer", "Siege Master", "Abomination"]},
+	{"label": "no_geysermancer", "seed": "2", "classes": ["Warrior", "Priest", "Siege Master", "Abomination"]},
+	{"label": "no_siege_master", "seed": "2", "classes": ["Warrior", "Priest", "Geysermancer", "Abomination"]},
+	{"label": "no_abomination", "seed": "1", "classes": ["Warrior", "Priest", "Geysermancer", "Siege Master"]},
 ]
 
 var _main: Node
@@ -186,13 +186,13 @@ func _play_one_fight(fight: Dictionary) -> void:
 	await _shot("playtest_wren_%s_01_start" % label)
 
 	var shots_taken := 0
-	var max_wait_frames := 60 * 60
+	var max_wait_frames := 60 * 150 # real fights against floor1_room1 run longer than the ghoul den
 	var next_shot_at_tick := 30
 	var frames := 0
 	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < max_wait_frames:
 		await get_tree().process_frame
 		frames += 1
-		if battle.state.tick >= next_shot_at_tick and shots_taken < 6:
+		if battle.state.tick >= next_shot_at_tick and shots_taken < 8:
 			shots_taken += 1
 			await _shot("playtest_wren_%s_%02d_tick%d" % [label, shots_taken + 1, battle.state.tick])
 			next_shot_at_tick += 90 # roughly 1.5s of sim time between shots
