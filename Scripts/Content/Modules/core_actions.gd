@@ -27,9 +27,9 @@ static func classes() -> Array[ClassDef]:
 ## stands between the two.
 static func actions() -> Array[ActionDef]:
 	return [
-		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing. The Warrior's bread and butter.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
-		_action_status(&"warrior_guard", "Guard", "Raises a block, cutting incoming damage for a while. Spends Rage to buy safety instead of dealing it.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
-		_action(&"warrior_execute", "Execute", "A heavy finishing blow that spends most of the Warrior's Rage in one swing. Hits far harder than a Strike.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 60, 40),
+		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
+		_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 3 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
+		_action(&"warrior_execute", "Execute", "A heavy melee blow that deals twice the damage of a Strike. Costs 60 Rage.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 60, 40),
 		# Issue 30/TAUNTING: self-targeted (target_self, same pattern
 		# build_siege_engine uses), no damage of its own -- the status is
 		# the whole effect. 350 radius covers a real engagement (every
@@ -44,13 +44,32 @@ static func actions() -> Array[ActionDef]:
 		# Rage on purpose -- a shout should not compete with Execute for
 		# the same resource, and it needs to be castable turn one before
 		# any Rage has built at all.
-		_action_taunt(&"warrior_taunt", "Taunt", "A shout that draws every nearby enemy's attention, holding it while it lasts.", 6, 10, 350.0, 240),
+		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 8 seconds.", 6, 10, 350.0, 240),
+		# Issue 52: the directional block the player asked for and found
+		# missing -- SHIELDING existed in the simulation (PR #33) since
+		# before shots could travel, and had nothing to intercept until
+		# issue 18 landed. Self-targeted, no damage, same shape as
+		# warrior_taunt: duration_ticks 150 (5s) and cooldown_ticks the
+		# same, so it recasts the instant it lapses rather than running on
+		# a fixed timer independent of whether it is still up.
+		#
+		# Built with `_action_self_buff`, not `_action_status` -- found by
+		# tracing a real fight (a throwaway probe, not committed) after this
+		# action first shipped through `_action_status`, which hardcodes
+		# cooldown_ticks to 0. A self-targeted, zero-cost, zero-cooldown,
+		# `always`-conditioned action is *always* affordable, so it won
+		# every decide() tick forever: the Warrior cast this once every ~15
+		# ticks for the whole fight and never cast warrior_taunt again or
+		# fell through to warrior_strike at all, in every real party the
+		# gate measured. Costs no Rage, same reasoning as taunt: it should
+		# not compete with Execute for the same pool.
+		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 5 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
-		_action_heal(&"priest_heal", "Heal", "Restores an ally's health from range. The Priest's whole job in one action.", CG.DamageType.DIVINE, 220.0, 8, 10, 1.4, 25),
-		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light. What the Priest does when nobody needs healing.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), 65.0),
+		_action_heal(&"priest_heal", "Heal", "Restores health to an ally within 220 units.", CG.DamageType.DIVINE, 220.0, 8, 10, 1.4, 25),
+		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), 65.0),
 
-		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that can catch several enemies standing close together.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
-		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target, cheaper and faster than a Geyser Blast.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
+		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
+		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
 
 		# Issue 12: siege_shot and siege_barrage retired along with the range
 		# that made the class mandatory (260, past every enemy's own reach --
@@ -71,7 +90,7 @@ static func actions() -> Array[ActionDef]:
 		# real party carrying it lost every floor room. Raised to 1.0, in
 		# line with a normal single-target hit: the debuff is still the
 		# point, but the hit landing it should not be a rounding error.
-		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target and lowers its defenses, letting the whole party's next hits land harder.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), 65.0),
+		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 5 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), 65.0),
 		# build_siege_engine: self-targeted (range 0, no line-of-sight
 		# needed), deals no damage of its own -- power_scale 0.0, the
 		# summon is the whole effect. wind_up 90 ticks (3s) is the "takes a
@@ -87,16 +106,45 @@ static func actions() -> Array[ActionDef]:
 		# gets a second or third engine out of the same Mana pool, which is
 		# what "having two of these on the field" (see siege_engine_bolt's
 		# own comment) actually requires instead of just describing.
-		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends time building a siege engine that then fights at range on its own. Takes a while, and worth doing early.", 90, 20, 20, &"siege_engine"),
+		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 3 seconds building a Siege Engine with 140 health that then fights at range on its own. Costs 20 Mana.", 90, 20, 20, &"siege_engine"),
 
-		_action_status(&"abomination_claw", "Claw", "A poisoned melee strike that keeps hurting the target after it lands.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
-		_action_splash(&"abomination_immolate", "Immolate", "A fiery melee burst that can catch nearby enemies, spending most of the Abomination's Rage.", CG.DamageType.FIRE, 45.0, 60.0, 10, 12, 1.2, 40),
+		# Issue 52: the Abomination's hook and grapple, per the player's own
+		# spec -- "a mid-range hook that drags enemies in" plus a follow-up
+		# so a hooked target cannot just walk back out. Replaces
+		# abomination_claw and abomination_immolate entirely rather than
+		# adding onto them: the class is being replaced, not extended, per
+		# the issue's own instruction. Neither retired action referenced by
+		# name anywhere else in the codebase (checked before deleting, same
+		# as issue 12's own dungeon_grunt precedent).
+		#
+		# abomination_hook: 140 range sits deliberately between this
+		# bestiary's melee band (40-45) and its ranged band (200-270) --
+		# "far enough to open a fight, close enough to be a commitment," per
+		# the player's own words. pull_distance 100 drags a target from the
+		# hook's own maximum range to just outside abomination_grapple's 45-
+		# unit melee reach, so a hook lands its target close enough that one
+		# more step (or a second hook) closes the gap rather than needing to
+		# close 140 units on foot. requires_line_of_sight and
+		# projectile_speed 65.0, same as every other real ranged action in
+		# the game (issue 18) -- a hook is a thrown line, not an instant
+		# grab, and giving it a real travel time is what makes SHIELDING
+		# able to intercept it too, same as any other travelling shot.
+		_projectile(_pull(_action(&"abomination_hook", "Hook", "A profane tendril that deals damage and pulls the target 100 units toward the caster. Reaches 140 units. Costs 15 Rage.", CG.DamageType.PROFANE, 140.0, 10, 12, 1.4, 15, 0, true), 100.0), 65.0),
+		# abomination_grapple: melee range (45, matching this bestiary's
+		# other melee actions), applies SLOWED so a target the hook just
+		# dragged in cannot simply walk back out before the Abomination's
+		# next action is ready -- Balance.slowed_speed_scale, issue 52's own
+		# content half of issue 14's simulation seam. Duration 150 ticks
+		# (5s), the same length as spotter_mark's MARKED -- long enough to
+		# matter across several of the Abomination's own attacks, not so
+		# long it never falls off between engagements.
+		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 5 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, 8, 10, 2.8, 20, CG.Status.SLOWED, 150),
 
-		_action(&"goblin_stab", "Stab", "A weak melee jab. Barely a threat alone; dangerous in a pack.", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
-		_projectile(_action(&"goblin_arrow", "Arrow", "A weak ranged shot. Like the Stab, meant to add up in numbers rather than hit hard alone.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), 65.0),
-		_action(&"ghoul_maul", "Maul", "A slow, heavy melee blow that lands far harder than its speed suggests.", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
+		_action(&"goblin_stab", "Stab", "A melee jab dealing damage at up to 40 units.", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
+		_projectile(_action(&"goblin_arrow", "Arrow", "A ranged shot dealing damage at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), 65.0),
+		_action(&"ghoul_maul", "Maul", "A melee blow at up to 45 units, with a 0.5-second wind-up.", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
 		# Issue 23: the bestiary's status user. Profane -> POISON per README.md.
-		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt of dark energy that leaves the target poisoned.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), 65.0),
+		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt at up to 200 units that poisons the target for 9% of its max health per second, for 3 seconds.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), 65.0),
 
 		# Issue 44: The Warden, floor 1's boss (README's own name and flavour
 		# -- "big, slow, scary, wields an executioner's axe that can do a ton
@@ -108,14 +156,14 @@ static func actions() -> Array[ActionDef]:
 		# game -- so standing at range is no longer free; it hits softer than
 		# the axe on purpose, since the point is denying safety, not
 		# out-damaging melee.
-		_action(&"warden_axe", "Executioner's Axe", "A single devastating swing. Slow to wind up, and worth staying clear of.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
-		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A weighted chain, thrown further than anything else in the room reaches back.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), 65.0),
+		_action(&"warden_axe", "Executioner's Axe", "A melee swing at up to 55 units, with a 0.7-second wind-up.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
+		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A ranged attack at up to 270 units.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), 65.0),
 
 		# Issue 12: the siege engine's own attack, once built. Ranged and
 		# reliable rather than powerful on its own -- the Siege Master's
 		# contribution is having two of these on the field, not one hitting
 		# hard. 200 range, same band as the room's other ranged casters.
-		_projectile(_action(&"siege_engine_bolt", "Engine Bolt", "A heavy bolt fired by a siege engine.", CG.DamageType.PHYSICAL, 200.0, 12, 12, 1.0, 0, 0, true), 65.0),
+		_projectile(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 12, 12, 1.0, 0, 0, true), 65.0),
 
 		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
 		## the bestiary, but these two actions are still referenced by name in
@@ -221,6 +269,32 @@ static func _action_status(id: StringName, display_name: String, description: St
 ## a shielder to intercept.
 static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
+	return a
+
+## Issue 52/14: wraps an ActionDef with a real pull, same "the mechanism was
+## always inert-by-default, content decides who uses it" pattern _projectile
+## established for issue 18. `distance` is how far the target is dragged
+## toward the caster, in world units -- see ActionDef.pull_distance's own
+## doc comment for why the simulation (not content) does the dragging.
+static func _pull(a: ActionDef, distance: float) -> ActionDef:
+	a.pull_distance = distance
+	return a
+
+## Issue 52: a self-targeted status application whose cooldown genuinely
+## matches its own duration, the same shape `_action_taunt` already uses --
+## pulled out as its own helper rather than copied a second time. Deliberately
+## NOT `_action_status`: that helper hardcodes cooldown_ticks to 0, which is
+## correct for every existing caller (each one is gated by something else --
+## a resource cost, a plan's own range condition, or simply being a damage-
+## dealing hit rather than a repeatable self-buff) and wrong for an
+## `always`-conditioned, zero-cost, self-targeted buff, which would win every
+## decide() tick forever with no cooldown of its own. See warrior_block's own
+## comment for the real fight this was found in.
+static func _action_self_buff(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, recover: int, status: CG.Status, duration_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, recover, 0.0, 0, duration_ticks)
+	a.applies_status_enabled = true
+	a.applies_status = status
+	a.status_duration_ticks = duration_ticks
 	return a
 
 static func _action_taunt(id: StringName, display_name: String, description: String, wind_up: int, recover: int, taunt_radius: float, duration_ticks: int) -> ActionDef:

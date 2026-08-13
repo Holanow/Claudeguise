@@ -49,10 +49,22 @@ func test_every_starting_action_resolves() -> void:
 			assert_not_null(Registry.get_action(action_id), "%s references unknown action %s" % [id, action_id])
 
 
+## Issue 52: Warrior ships three, not two. SHIELDING has no path from the
+## game to a player without a preset plan (the plan editor is deferred), so
+## warrior_block needed a third slot rather than replacing warrior_guard's
+## or warrior_taunt's already-tuned ones -- both stay, disclosed in
+## starting_classes.gd's own WIS 4->6 note (the budget the third plan needed
+## a raise for) and PresetPlans.gd's own comment on warrior_block_default.
+## Every other class keeps the original two-plan invariant.
+const _EXPECTED_PLAN_COUNT := {
+	&"warrior": 3,
+}
+
 func test_every_class_ships_two_preset_plans_within_its_wis_budget() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		var plans := PresetPlans.for_class(id)
-		assert_eq(plans.size(), 2, "%s should ship exactly two preset plans" % id)
+		var expected: int = _EXPECTED_PLAN_COUNT.get(id, 2)
+		assert_eq(plans.size(), expected, "%s should ship exactly %d preset plans" % [id, expected])
 		var pawn := PawnFactory.make_starter_pawn(id, id, String(id))
 		var budget := Balance.plan_block_budget(pawn)
 		var used := PresetPlans.total_blocks(id)
