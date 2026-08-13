@@ -1,6 +1,31 @@
-# What happens after the slice — GATED, do not start
+# What happens after the slice — THE GATE IS OPEN
 
-**Nobody starts anything in this file until I say the gate is open on the board.**
+**Opened 2026-08-13, 04:15, against the criteria below rather than against
+appetite.** Each one, measured:
+
+- **Winning costs something.** Wins now finish on 17-23% of the party's health,
+  and the best party loses somebody in nearly every win it takes. It has never
+  once ended a fight with all four alive. **Met.**
+- **No developer language on screen.** The end screen reads "None of your party
+  survived", in seconds, not ticks. The log reads "Siege Master hits Ghoul for 26
+  Physical damage (29 before mitigation)". **Met, with one exception: issue 33's
+  question marks, which pike is fixing now and which must land before this phase
+  is called clean.**
+- **Regeneration wired end to end and the table re-measured after it.** Done, and
+  the re-measurement is what produced the current balance. **Met.**
+
+And the thing the criteria could not measure: **an independent session played it
+and said it is fun**, reversing their own earlier "I would not run a second
+fight" on the record, having watched two real losses and two one-survivor
+scrapes. That verdict was the gate that mattered most and it was deliberately not
+mine to give.
+
+**What is knowingly still wrong, carried forward rather than hidden:** the party
+without a Siege Master wins 1 in 20, and issue 37 records why that is structural
+rather than a tuning problem. Issue 33 is live. The toolbar overflows at
+end-of-fight. None of these get worse as the systems below get built, which is
+the test I applied.
+
 
 The user's instruction, verbatim on the condition:
 
