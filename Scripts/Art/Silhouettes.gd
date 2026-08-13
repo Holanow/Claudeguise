@@ -228,6 +228,27 @@ const _PARTS := {
 		{"tint": Tint.ACCENT, "poly": [[-0.16, -0.8], [-0.06, -0.86], [-0.02, -0.74]]},
 		{"tint": Tint.ACCENT, "poly": [[0.02, -0.82], [0.12, -0.86], [0.14, -0.72]]},
 	],
+	# Floor 1's boss. Built to read as a boss at a glance and at phone size:
+	# it fills more of its radius than anything else here, stands squarer, and
+	# carries the one silhouette detail no other unit has -- a chain, for the
+	# 270-range toss that stops a party declining the fight from out of reach.
+	# Bosses should be recognisable before the health bar is read.
+	&"the_warden": [
+		# Chain, trailing to the unit's left, drawn first so the body sits on it.
+		{"tint": Tint.ACCENT, "poly": [[-1.0, 0.18], [-0.82, 0.06], [-0.72, 0.2], [-0.9, 0.32]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.72, 0.02], [-0.54, -0.1], [-0.44, 0.04], [-0.62, 0.16]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.44, -0.14], [-0.26, -0.26], [-0.16, -0.12], [-0.34, 0.0]]},
+		# Heavy square stance.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.86, 1.0], [-0.7, 0.42], [0.7, 0.42], [0.86, 1.0], [0.0, 0.9]]},
+		# Bulk: wider and taller than any other silhouette in this file.
+		{"tint": Tint.TEAM, "poly": [[-0.82, 0.46], [-0.9, -0.44], [-0.5, -0.86], [0.5, -0.86], [0.9, -0.44], [0.82, 0.46]]},
+		# Helm, closed, with a single visor slit rather than eyes.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.44, -0.86], [-0.36, -1.0], [0.36, -1.0], [0.44, -0.86]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.94], [0.3, -0.94], [0.3, -0.86], [-0.3, -0.86]]},
+		# Pauldrons, to break the outline at the shoulders so it is not a slab.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.98, -0.5], [-0.72, -0.72], [-0.5, -0.5], [-0.76, -0.34]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.98, -0.5], [0.72, -0.72], [0.5, -0.5], [0.76, -0.34]]},
+	],
 }
 
 ## Every shape id this file knows, sorted. Sorted because anything iterating
