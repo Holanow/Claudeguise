@@ -176,7 +176,8 @@ func _draw() -> void:
 	draw_rect(Rect2(hp_pos, Vector2(bar_width * u.hp_fraction(), bar_height)), Palette.hp_color(u.hp_fraction()))
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
+	if should_show_label(u, _state.units):
+		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
 
 ## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
 ## with the arena (InspectPanel's attribute chips, PartySelect), so it is
@@ -208,6 +209,29 @@ func _crowding_stagger(u: CombatUnit) -> float:
 		return 0.0
 	# CROWD_STEP already carries DISPLAY_SCALE — do not multiply twice.
 	return float(crowd_rank(u, _state.units)) * CROWD_STEP
+
+## Issue 41: a dense room (floor1_room1, 10 enemies) piled every enemy's name
+## into the top-middle of the screen at once, and no amount of vertical
+## stagger reads as separate names once four labels share the same few rows
+## -- see Screenshots/label_crowd_before_1280x720.png. Raising DISPLAY_SCALE
+## further (2.0x, tried in issue 31) made it worse, not better: this is a
+## count problem, not a spacing constant to retune again.
+##
+## Design call, not a bug fix: the party is at most four pawns and the player
+## has to track all of them for the whole fight, so they keep a permanent
+## label. An enemy's identity only matters at the moment it is actually
+## relevant -- something the party is currently focusing (concentration_count
+## already answers "is anyone fighting this"), or something about to land a
+## hit of its own (the wind-up ring is already drawn for exactly this). A
+## goblin standing untouched at the back of a ten-unit room does not need its
+## name floating the whole time; it gets one the instant it becomes either of
+## those two things.
+static func should_show_label(u: CombatUnit, units: Array) -> bool:
+	if u.team == CG.Team.PLAYER:
+		return true
+	if concentration_count(u, units) > 0:
+		return true
+	return u.action_ticks_left > 0 and u.current_action != &""
 
 ## Split out for testing, same reasoning as status_tags: how many other
 ## living units with a lower id are within CROWD_RADIUS of this one.
