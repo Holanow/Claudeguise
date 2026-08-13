@@ -162,3 +162,20 @@ func test_every_card_meets_the_minimum_touch_target() -> void:
 		assert_true(card.custom_minimum_size.x >= Palette.TOUCH_TARGET_MIN)
 		assert_true(card.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	screen.free()
+
+## Issue 53 sweep: at 844x390 (the phone-landscape size the game is
+## required to work at), the roster's own minimum height -- three rows of
+## 170x200 cards -- pushed Start Fight past the bottom of the viewport. A
+## Container does not clip or scroll on its own, so that content was still
+## there and simply off-canvas: not visible, not clickable. The roster is
+## what makes this column tall, so it is what has to give up its natural
+## size to the viewport; everything below it (seed, status, every button)
+## keeps its own minimum size and stays reachable regardless of how many
+## classes the roster grows to. Asserted on the tree shape rather than only
+## via a screenshot -- a real launch's rect check backs this in the PR.
+func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_true(screen._roster_box.get_parent() is ScrollContainer, "the roster grid must be able to give up space to a short viewport")
+	assert_eq(screen._roster_box.get_parent().size_flags_vertical, Control.SIZE_EXPAND_FILL)
+	screen.free()

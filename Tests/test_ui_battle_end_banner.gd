@@ -64,6 +64,33 @@ func test_end_banner_is_hidden_until_the_fight_resolves() -> void:
 	assert_false(view._end_banner.visible)
 	view.free()
 
+## PLAYTEST-NOTES 21: a siege engine is a player-team unit (_spawn_summon
+## puts it on the caster's team) built via _build_enemy_unit, same as any
+## enemy -- it carries a real enemy_id and no pawn. "3 of 4 survived" must
+## stay a count of the party the player actually picked at party select, not
+## grow because something got summoned mid-fight.
+func test_cost_summary_does_not_count_a_summoned_unit_as_a_party_member() -> void:
+	var view = _spawn()
+	var state := CombatState.new(0)
+	state.units.append(_make_unit(0, CG.Team.PLAYER, 10, 10))
+	var summon := _make_unit(1, CG.Team.PLAYER, 10, 10)
+	summon.enemy_id = &"siege_engine"
+	state.units.append(summon)
+	view.state = state
+	assert_eq(view._cost_summary(), "Your whole party survived.", "one real pawn, full health -- the summon must not appear as a second party member")
+	view.free()
+
+func test_cost_summary_does_not_let_a_dead_summon_read_as_a_party_loss() -> void:
+	var view = _spawn()
+	var state := CombatState.new(0)
+	state.units.append(_make_unit(0, CG.Team.PLAYER, 10, 10))
+	var summon := _make_unit(1, CG.Team.PLAYER, 0, 10, false)
+	summon.enemy_id = &"siege_engine"
+	state.units.append(summon)
+	view.state = state
+	assert_eq(view._cost_summary(), "Your whole party survived.", "the summon dying must not read as the player losing a pawn")
+	view.free()
+
 func test_end_banner_shows_and_names_the_outcome_on_resolution() -> void:
 	var view = _spawn()
 	var state := CombatState.new(0)

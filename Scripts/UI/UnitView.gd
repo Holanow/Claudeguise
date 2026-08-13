@@ -61,6 +61,28 @@ static func display_radius(u: CombatUnit) -> float:
 var unit_id: int = -1
 var _state: CombatState = null
 
+## Issue 53 sweep / PLAYTEST-NOTES 20: the Goblin Archer's name flickered and
+## some enemies never got one at all, both a direct consequence of
+## should_show_label's trigger (focused, or mid wind-up) being a per-tick
+## on/off condition with nothing to smooth it. An attacker refocuses or
+## finishes winding up several times a second, so the label blinked in and
+## out at the same rate. Kept as a per-instance tick, not folded into the
+## static predicate: should_show_label stays a pure function other code
+## (and tests) can call without a live fight, and the hysteresis is a
+## rendering decision layered on top of it, the same split _draw_status_tags
+## and _draw_targeting_line already use for read-only state.
+const LABEL_HOLD_TICKS := int(CG.TICKS_PER_SECOND * 1.5)
+var _label_last_active_tick: int = -1000000000
+## Also holds the name up when a unit's own hp or resource just changed --
+## "some enemies never get names" was every unit that neither focuses nor
+## winds up while a plan-driven pawn's default behaviour attacks it (a
+## fodder unit standing in melee range gets hit without ever being the one
+## "mid wind-up" itself). UnitView deliberately reads CombatUnit only, never
+## CombatEvent (see file header), so this is read off the unit's own state
+## rather than consuming the event stream BattleView already owns.
+var _last_seen_hp: int = -1
+var _last_seen_resource: int = -1
+
 func bind(state: CombatState, id: int) -> void:
 	unit_id = id
 	sync(state)
@@ -70,9 +92,22 @@ func sync(state: CombatState) -> void:
 	var u := _unit()
 	if u == null:
 		return
+	if _last_seen_hp != -1 and (u.hp != _last_seen_hp or u.resource != _last_seen_resource):
+		_label_last_active_tick = state.tick
+	_last_seen_hp = u.hp
+	_last_seen_resource = u.resource
 	position = u.position + visual_offset(u, state.units)
 	visible = u.alive
 	queue_redraw()
+
+## should_show_label's immediate trigger, plus a hold: once true, stays true
+## for LABEL_HOLD_TICKS more so the name does not blink out the instant the
+## trigger condition itself flickers.
+func _label_visible(u: CombatUnit) -> bool:
+	if should_show_label(u, _state.units):
+		_label_last_active_tick = _state.tick
+		return true
+	return _state.tick - _label_last_active_tick <= LABEL_HOLD_TICKS
 
 ## The melee scrum: several units standing close enough that bodies occlude
 ## each other, called out in issue 15 as "the most important square inch of
@@ -176,7 +211,7 @@ func _draw() -> void:
 	draw_rect(Rect2(hp_pos, Vector2(bar_width * u.hp_fraction(), bar_height)), Palette.hp_color(u.hp_fraction()))
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	if should_show_label(u, _state.units):
+	if _label_visible(u):
 		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
 
 ## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
@@ -256,12 +291,30 @@ static func crowd_rank(u: CombatUnit, units: Array) -> int:
 func _draw_targeting_line(u: CombatUnit) -> void:
 	if u.focus_id < 0 or u.current_action == &"":
 		return
+	# Issue 18 gave ranged actions a real travelling shot
+	# (CombatState.projectiles, drawn by ArenaFloor); PLAYTEST-NOTES 2: this
+	# line used to be drawn for the whole action regardless, so a real shot
+	# still read as an instant beam covering the same ground the projectile
+	# was travelling. Once this unit has launched one, the shot itself is
+	# the targeting read and the beam would just double it; keep drawing the
+	## line during wind-up, before anything has launched, and for melee
+	# actions (no projectile ever spawns for those).
+	if _has_active_projectile(u):
+		return
 	var target := _state.unit(u.focus_id)
 	if target == null or not target.alive:
 		return
 	var to_target := target.position - u.position
 	draw_line(Vector2.ZERO, to_target, Color(Palette.BACKGROUND, 0.5), 4.5)
 	draw_line(Vector2.ZERO, to_target, Palette.FOCUS_LINE, 2.5)
+
+func _has_active_projectile(u: CombatUnit) -> bool:
+	if _state == null:
+		return false
+	for p in _state.projectiles:
+		if p.source_id == u.id and not p.resolved:
+			return true
+	return false
 
 ## How many other living units currently have this one as their focus —
 ## "is this unit under fire from more than one thing at once", which issue 15
