@@ -96,10 +96,36 @@ func _draw() -> void:
 	var hp_pos := Vector2(-BAR_WIDTH * 0.5, y)
 	draw_rect(Rect2(hp_pos, Vector2(BAR_WIDTH, BAR_HEIGHT)), Palette.HP_BACK)
 	draw_rect(Rect2(hp_pos, Vector2(BAR_WIDTH * u.hp_fraction(), BAR_HEIGHT)), Palette.hp_color(u.hp_fraction()))
-	y -= BAR_GAP + Palette.FONT_SIZE_SMALL
+	y -= BAR_GAP + Palette.FONT_SIZE_SMALL + _crowding_stagger(u)
 
-	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(-BAR_WIDTH * 0.5, y), u.display_name, HORIZONTAL_ALIGNMENT_LEFT, BAR_WIDTH * 2.0, Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	_draw_label_chip(u.display_name, y, Palette.TEXT, Palette.FONT_SIZE_SMALL)
+
+const CROWD_RADIUS := 40.0
+const CROWD_STEP := 13.0
+
+## Extra headroom for this unit's name label when another unit is standing
+## close enough for the two labels to land on the same spot — found in
+## Tools/preview/fight_sheet.png, where "abomination" and "Grunt" overlapped
+## illegibly the moment two units clashed in melee, which is exactly the
+## moment reading who is who matters most. Deterministic by id (lower id
+## never moves, each higher id crowded into the same spot stacks one step
+## higher) rather than by draw order, so two views of the same fight agree
+## on where a label lands.
+func _crowding_stagger(u: CombatUnit) -> float:
+	if _state == null:
+		return 0.0
+	return float(crowd_rank(u, _state.units)) * CROWD_STEP
+
+## Split out for testing, same reasoning as status_tags: how many other
+## living units with a lower id are within CROWD_RADIUS of this one.
+static func crowd_rank(u: CombatUnit, units: Array) -> int:
+	var rank := 0
+	for other in units:
+		if other.id == u.id or not other.alive:
+			continue
+		if other.id < u.id and u.position.distance_to(other.position) < CROWD_RADIUS:
+			rank += 1
+	return rank
 
 ## Who is this unit currently after. Answers "why is that side winning" by
 ## itself, before a single number changes: a target being focused by three
@@ -119,9 +145,25 @@ func _draw_status_tags(u: CombatUnit) -> void:
 	var tags := status_tags(u)
 	if tags.is_empty():
 		return
+	_draw_label_chip(" ".join(tags), u.radius + 14.0, Palette.HP_LOW, Palette.FONT_SIZE_SMALL)
+
+## Renders text centred on its own width with a small backdrop chip behind
+## it, rather than a fixed draw width that truncates. Found by rendering a
+## real fight through six frames (Tools/ContactSheet.gd): "geysermancer"
+## silently lost its last letter at the old fixed width, which reads like a
+## data bug rather than a rendering limit, and neighbouring labels overlapped
+## illegibly whenever units bunched together mid-fight. Full names never
+## truncate now; the chip is what keeps an overlapping label readable rather
+## than fixing the overlap itself, which needs real layout space this view
+## does not have.
+func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: int) -> void:
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(-BAR_WIDTH * 0.5, u.radius + 14.0), " ".join(tags),
-		HORIZONTAL_ALIGNMENT_LEFT, BAR_WIDTH * 2.0, Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var pos := Vector2(-text_size.x * 0.5, baseline_y)
+	var pad := Vector2(3.0, 2.0)
+	var chip := Rect2(pos - Vector2(pad.x, text_size.y), text_size + pad * 2.0)
+	draw_rect(chip, Color(Palette.BACKGROUND, 0.65))
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 ## Split out from _draw_status_tags so it can be tested without a live
 ## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a

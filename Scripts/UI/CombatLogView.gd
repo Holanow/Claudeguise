@@ -15,15 +15,37 @@ const Palette := preload("res://Scripts/Core/Palette.gd")
 ## number and the mitigation when there was any. A line reading "Warrior hits
 ## Rat for 7" is not enough to tell a tuning problem from a targeting problem.
 
+## Fixed height of the log panel, in pixels. BattleView._layout_arena's
+## bottom margin is sized to clear exactly this (see its own comment), so a
+## change here has to be matched there.
+const LOG_HEIGHT := 200.0
+const LOG_BOTTOM_OFFSET := -20.0
+
 var _label: RichTextLabel = null
 
 func _ready() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.color = Palette.BACKGROUND
+	backdrop.color.a = 0.72
+	backdrop.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	backdrop.offset_top = LOG_BOTTOM_OFFSET - LOG_HEIGHT
+	backdrop.offset_bottom = LOG_BOTTOM_OFFSET
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(backdrop)
+
 	_label = RichTextLabel.new()
 	_label.bbcode_enabled = true
 	_label.scroll_following = true
+	# RichTextLabel does not clip to its own rect by default: without this,
+	# every line ever appended keeps drawing past the bottom of the panel
+	# instead of scrolling out of view. Found by rendering a real fight
+	# through six frames (Tools/ContactSheet.gd) — the log ran off the
+	# bottom of the screen and the newest line, the one that matters, was
+	# the one lost off the edge.
+	_label.clip_contents = true
 	_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_label.offset_top = -220.0
-	_label.custom_minimum_size = Vector2(0.0, 200.0)
+	_label.offset_top = LOG_BOTTOM_OFFSET - LOG_HEIGHT
+	_label.offset_bottom = LOG_BOTTOM_OFFSET
 	_label.add_theme_color_override("default_color", Palette.TEXT)
 	add_child(_label)
 
