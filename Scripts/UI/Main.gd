@@ -11,20 +11,39 @@ const SCENE_PARTY_SELECT := "res://Scenes/PartySelect.tscn"
 const SCENE_BATTLE := "res://Scenes/Battle.tscn"
 
 var run_config: RunConfig = null
+var _current: Node = null
 
 func _ready() -> void:
 	show_party_select()
 
 func show_party_select() -> void:
-	push_error("Main.show_party_select is not implemented yet (issue 3, owner pike)")
+	_swap_to(SCENE_PARTY_SELECT, func(screen): screen.battle_requested.connect(start_battle))
 
 func start_battle(config: RunConfig) -> void:
 	run_config = config
-	push_error("Main.start_battle is not implemented yet (issue 3, owner pike)")
+	_swap_to(SCENE_BATTLE, func(screen):
+		screen.restart_requested.connect(rerun)
+		screen.back_requested.connect(show_party_select)
+		screen.begin(config)
+	)
 
 ## Same party, same encounter, same seed. The comparison control: it is the
 ## reason the simulation is deterministic and it is the first thing to check
 ## works, because if it does not, nothing measured on this screen is worth
 ## anything.
 func rerun() -> void:
-	push_error("Main.rerun is not implemented yet (issue 3, owner pike)")
+	if run_config == null:
+		push_error("Main.rerun called with no run_config set")
+		return
+	start_battle(run_config)
+
+func _swap_to(scene_path: String, wire: Callable) -> void:
+	if _current != null:
+		remove_child(_current)
+		_current.queue_free()
+		_current = null
+	var packed: PackedScene = load(scene_path)
+	var screen := packed.instantiate()
+	add_child(screen)
+	_current = screen
+	wire.call(screen)
