@@ -143,10 +143,27 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.FIGHT_END:
 			return "[b]The fight ends.[/b]"
 		CG.EventKind.DAMAGE:
+			var color := Palette.damage_color(e.damage_type).to_html()
+			# Issue 33: a poison/burn tick and a hazard tick both carry no
+			# source — the cultist that applied the poison may be dead, and
+			# attributing the damage to them would be a worse lie than
+			# omitting a source. Neither fits "X hits Y", which needs an X.
+			# _DOT_STATUSES (CombatSim.gd) only ever sets `status` to BURN
+			# or POISON on a DAMAGE event; a hazard tick never touches it,
+			# leaving the field at its unrelated default (SHIELD) — that
+			# is what tells the two apart here, since the event itself
+			# carries nothing more explicit than that.
+			if e.source_id == -1:
+				if e.status == CG.Status.BURN or e.status == CG.Status.POISON:
+					return "%s suffers [color=%s]%d[/color] %s damage" % [
+						target_name, color, e.amount, CG.damage_type_name(e.damage_type)
+					]
+				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
+					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
+				]
 			var mitigation := ""
 			if e.amount_before_mitigation > e.amount:
 				mitigation = " (%d before mitigation)" % e.amount_before_mitigation
-			var color := Palette.damage_color(e.damage_type).to_html()
 			return "%s hits %s for [color=%s]%d[/color] %s damage%s" % [
 				source_name, target_name, color, e.amount,
 				CG.damage_type_name(e.damage_type), mitigation
