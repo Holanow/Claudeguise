@@ -18,8 +18,8 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 ## The simulation calls these. It must never hardcode a number that belongs
 ## here, and a reviewer should reject one that does.
 
-const BASE_HP := 40
-const HP_PER_CON := 9
+const BASE_HP := 60
+const HP_PER_CON := 12
 const HP_PER_STR_BONUS := 2
 
 const BASE_RESOURCE := 30
@@ -31,13 +31,13 @@ const BASE_MOVE_SPEED := 3.0
 const MOVE_PER_AGI := 0.4
 const MOVE_PER_DEX_BONUS := 0.05
 
-const ATTACK_POWER_PER_POINT := 2.5
+const ATTACK_POWER_PER_POINT := 1.9
 
 ## Issue 7: a hit rolls within [1 - spread, 1 + spread] of its base power.
 ## Drawn from the fight's own `CombatState.rng`, never a fresh generator, so
 ## the same seed still reproduces the same fight exactly. 0.0 disables
 ## variance entirely, which is what every caller gets by not passing `rng`.
-const ATTACK_VARIANCE_SPREAD := 0.3
+const ATTACK_VARIANCE_SPREAD := 0.55
 
 const DAMAGE_REDUCTION_PER_CON := 0.01
 const NATURAL_DAMAGE_REDUCTION_CAP := 0.3

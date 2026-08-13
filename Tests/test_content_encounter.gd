@@ -56,44 +56,61 @@ func test_geysermancers_and_warriors_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"warrior", 1)
 
 
-## Issue 2's acceptance criterion 6 asks to run the encounter across twenty
-## seeds and paste the win count, expecting neither 0 nor 20. That assumes
-## combat outcomes vary with the seed. They do not: nothing in Balance,
-## DefaultBehavior or PlanInterpreter reads `CombatState.rng` (there is no
-## damage roll, no dodge, no crit — CombatSim's own `_apply_action_effect` is
-## pure arithmetic on `deps.attack_power`/`deps.damage_reduction`), so a fixed
-## party against this fixed, hand-authored encounter produces the exact same
-## outcome on every seed. Confirmed by running all 20 and getting 20/20, then
-## 0/20, identically, while tuning. Flagged in TEAM_LOG for rook rather than
-## silently reinterpreting the criterion: fixing it for real means either
-## adding damage-roll variance somewhere sim-side (a Balance/SimDeps signature
-## question, not mine to decide alone) or accepting that "seed" is inert until
-## that lands.
-##
-## What this test checks instead, which is the tuning signal seed variance
-## was standing in for: the room is winnable by a competent, varied party and
-## losable by a poorly-built one. Both numbers below are still measured and
-## pasted, just against party composition instead of seed.
-func test_encounter_is_winnable_by_a_good_party_and_losable_by_a_weak_one() -> void:
+## Issue 2's acceptance criterion 6 asked for a win count across twenty seeds
+## that was neither 0 nor 20, which assumed combat outcomes vary with the
+## seed. At the time nothing did: no damage roll, no dodge, no crit anywhere
+## in this slice's combat math. Flagged in TEAM_LOG rather than silently
+## reinterpreting the criterion; the fix landed as issue 7's damage-variance
+## hook (`Balance.attack_power`'s optional `rng`, threaded through from
+## `CombatState.rng` by `CombatSim`/`SimDeps`). The tests below are issue 7's
+## real distribution-based replacements for that single-seed check.
+
+func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 	var encounter := Registry.get_encounter(&"floor1_room1")
+	var wins := 0
+	var ticks: Array[int] = []
+	for seed in seeds:
+		var party: Array[PawnData] = []
+		for i in classes.size():
+			party.append(PawnFactory.make_starter_pawn(classes[i], &"%s_%d_%d" % [classes[i], seed, i], String(classes[i])))
+		var state := CombatSim.build(party, encounter, seed)
+		var outcome := CombatSim.run(state)
+		if outcome == CombatState.Outcome.PLAYER_WIN:
+			wins += 1
+		ticks.append(state.tick)
+	ticks.sort()
+	return {"wins": wins, "min": ticks[0], "median": ticks[ticks.size() / 2], "max": ticks[ticks.size() - 1]}
 
-	var strong: Array[StringName] = [&"warrior", &"priest", &"geysermancer", &"siege_master"]
-	var weak: Array[StringName] = [&"geysermancer", &"geysermancer", &"siege_master", &"siege_master"]
 
-	var strong_party: Array[PawnData] = []
-	var weak_party: Array[PawnData] = []
-	for i in strong.size():
-		strong_party.append(PawnFactory.make_starter_pawn(strong[i], &"strong_%d" % i, String(strong[i])))
-	for i in weak.size():
-		weak_party.append(PawnFactory.make_starter_pawn(weak[i], &"weak_%d" % i, String(weak[i])))
+func test_seed_changes_the_fight() -> void:
+	# priest x4 has the widest measured spread of the sampled comps.
+	var r := _win_rate([&"priest", &"priest", &"priest", &"priest"], 20)
+	var spread_fraction := float(r["max"] - r["min"]) / float(max(1, r["median"]))
+	print("seed sensitivity, priest x4: ticks min=%d median=%d max=%d (spread %.0f%% of median)" % [r["min"], r["median"], r["max"], spread_fraction * 100.0])
+	assert_true(spread_fraction >= 0.15, "tick spread should be at least 15%% of the median, was %.0f%%" % (spread_fraction * 100.0))
 
-	var strong_state := CombatSim.build(strong_party, encounter, 0)
-	var strong_outcome := CombatSim.run(strong_state)
-	var weak_state := CombatSim.build(weak_party, encounter, 0)
-	var weak_outcome := CombatSim.run(weak_state)
 
-	print("floor1_room1: balanced party (warrior/priest/geysermancer/siege_master) -> %s in %d ticks" % [CombatState.Outcome.keys()[strong_outcome], strong_state.tick])
-	print("floor1_room1: glass-cannon party (2x geysermancer/2x siege_master, no tank, no healer) -> %s in %d ticks" % [CombatState.Outcome.keys()[weak_outcome], weak_state.tick])
+func test_same_seed_replays_bit_identical() -> void:
+	var encounter := Registry.get_encounter(&"floor1_room1")
+	var party_a := _party_of(&"priest", 4)
+	var party_b := _party_of(&"priest", 4)
+	var state_a := CombatSim.build(party_a, encounter, 777)
+	var state_b := CombatSim.build(party_b, encounter, 777)
+	var outcome_a := CombatSim.run(state_a)
+	var outcome_b := CombatSim.run(state_b)
+	assert_eq(outcome_a, outcome_b)
+	assert_eq(state_a.tick, state_b.tick)
+	assert_eq(state_a.events.size(), state_b.events.size(), "same seed must produce the same number of events")
 
-	assert_eq(strong_outcome, CombatState.Outcome.PLAYER_WIN, "a balanced party should be able to win this room")
-	assert_eq(weak_outcome, CombatState.Outcome.ENEMY_WIN, "an unbalanced glass-cannon party should be able to lose this room")
+
+func test_some_composition_is_a_genuine_coin_flip() -> void:
+	var r := _win_rate([&"priest", &"priest", &"priest", &"priest"], 20)
+	print("floor1_room1: priest x4 win rate %d/20" % r["wins"])
+	assert_true(r["wins"] >= 6 and r["wins"] <= 14, "expected a genuine coin flip (6-14 of 20), got %d/20" % r["wins"])
+
+
+func test_composition_still_matters() -> void:
+	var best := _win_rate([&"siege_master", &"geysermancer", &"priest", &"warrior"], 20)
+	var worst := _win_rate([&"abomination", &"abomination", &"abomination", &"abomination"], 20)
+	print("floor1_room1: best comp (siege_master/geysermancer/priest/warrior) win rate %d/20  vs  worst comp (abomination x4) win rate %d/20" % [best["wins"], worst["wins"]])
+	assert_true(best["wins"] - worst["wins"] >= 10, "best and worst comps should differ by a wide margin in win rate")

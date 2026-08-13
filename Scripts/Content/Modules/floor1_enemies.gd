@@ -17,9 +17,9 @@ static func actions() -> Array[ActionDef]:
 
 static func enemies() -> Array[EnemyDef]:
 	return [
-		_enemy(&"dungeon_grunt", "Grunt", 90, 0, CG.ResourceKind.ENERGY, 3.5, 14.0, {CG.DamageType.PHYSICAL: 14}, 0.05, [&"grunt_smash"], ["Melee", "Brute"]),
-		_enemy(&"dungeon_archer", "Archer", 55, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PHYSICAL: 10}, 0.0, [&"archer_shot"], ["Ranged"]),
-		_enemy(&"dungeon_cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 11}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"]),
+		_enemy(&"dungeon_grunt", "Grunt", 90, 0, CG.ResourceKind.ENERGY, 3.5, 14.0, {CG.DamageType.PHYSICAL: 17}, 0.05, [&"grunt_smash"], ["Melee", "Brute"]),
+		_enemy(&"dungeon_archer", "Archer", 55, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PHYSICAL: 12}, 0.0, [&"archer_shot"], ["Ranged"]),
+		_enemy(&"dungeon_cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 13}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"]),
 	]
 
 static func encounters() -> Array[Encounter]:
