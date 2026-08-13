@@ -32,12 +32,6 @@ targeting lines, and a combat log. Restart with the same seed, or change party.
 
 ## What to try first
 
-**One caveat before any of this: there is a live one-line bug that makes the
-game load the wrong room, and in that room nothing can lose.** It is the first
-item under "what is honestly not right yet" below. The table here describes the
-room the game is meant to load, which is the room all the balance work was done
-against.
-
 There are five classes and you pick four, one card each, so **there are exactly
 five parties in the game.** Each is defined by who you leave out. Against
 `floor1_room1`, over twenty seeds each:
@@ -62,23 +56,25 @@ five parties in the game.** Each is defined by who you leave out. Against
 
 ## What is honestly not right yet
 
-- **Read this first, because it changes what everything above is worth.** Until
-  the fix lands, the game does not load the room described above. One line in
-  the party select screen picks whichever room sorts first alphabetically
-  instead of the room the game intends, so every fight you start is a small
-  two-ghoul encounter that **no party can lose** — a thousand simulated fights,
-  five parties, not a single defeat. Every fight ends in about eight seconds
-  with everyone alive.
+- **Nobody has yet watched the real game and said whether it is fun.** That is
+  the honest headline and it is deliberate.
 
-  This was found by having somebody actually play it, which is the only place it
-  was visible, and it is the reason nobody should read the table above as
-  describing what you will see on screen tonight. Issue 36, and it is one line.
+  For most of last night the game did not load the room it was balanced for. One
+  line in the party select screen picked whichever room sorted first
+  alphabetically, so every fight was a small two-ghoul encounter that **no party
+  could lose**: a thousand simulated fights across all five parties, not a
+  single defeat, every one over in about eight seconds. It was found by having
+  somebody actually play the game, which is the only place it was visible.
 
-  It also means the honest answer to "is this fun yet" is **not yet, and we do
-  not know.** The engineer who played it said they would not voluntarily run a
-  second fight as it stands, and also that they cannot tell whether that
-  survives the fix, because nobody has watched the real room fought. That is the
-  next thing that happens.
+  It is fixed and verified through the real party select screen: five fights,
+  four defeats and one win with a single survivor, running 14 to 22 seconds. The
+  game has stakes now.
+
+  But the engineer who played the broken version said they would not voluntarily
+  run a second fight, and said they could not tell whether that verdict survives
+  the fix, because nobody had seen the real room fought. **They are replaying it
+  now.** Until that comes back, nobody should tell you this slice is good, and I
+  am not going to.
 - **One class is mandatory.** The party without a Siege Master loses every
   single fight. That is the top balance problem now, and it has a diagnosis:
   see below.
