@@ -1,5 +1,6 @@
 extends Control
 
+const CG := preload("res://Scripts/Core/CG.gd")
 const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
@@ -246,10 +247,20 @@ func _on_inspect_pressed() -> void:
 	if _inspect_panel != null:
 		_inspect_panel.open(_available)
 
+## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
+## first, not the encounter the game actually means. CG.DEFAULT_ENCOUNTER
+## exists exactly to name that without picking by index; every devtool was
+## fixed to use it and this screen, the one an actual player reaches, was
+## missed. floor1_ghoul_den sorts before floor1_room1, so every real
+## playthrough since encounters plural existed has fought the wrong room —
+## wren measured 0 losses in 1000 samples on it.
 func current_config() -> RunConfig:
 	var config := RunConfig.new()
 	config.party = _selected.duplicate()
 	var encounters := Registry.all_encounter_ids()
-	config.encounter_id = encounters[0] if not encounters.is_empty() else &""
+	if encounters.has(CG.DEFAULT_ENCOUNTER):
+		config.encounter_id = CG.DEFAULT_ENCOUNTER
+	else:
+		config.encounter_id = encounters[0] if not encounters.is_empty() else &""
 	config.seed = RunConfig.parse_seed(_seed_edit.text) if _seed_edit != null else 0
 	return config
