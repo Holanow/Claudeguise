@@ -12,6 +12,16 @@ enum Slot { WEAPON, ARMOR, ACCESSORY }
 @export var display_name: String = ""
 @export var slot: Slot = Slot.WEAPON
 
+## One or two sentences a player reads on the item, in their language rather
+## than ours. Same field and same reason as `ActionDef.description`: the player
+## asked to be able to look at a thing and understand what it does before
+## committing to it, and an item that silently edits an attribute is exactly the
+## kind of change that is invisible in a fight.
+##
+## Write what it does to the pawn, not what it does to the numbers. "Heavy, and
+## slows you down" rather than "AGI -0.15".
+@export var description: String = ""
+
 ## Percentage multipliers keyed by CG.Attribute. 0.10 is +10%.
 @export var attribute_percent: Dictionary = {}
 
