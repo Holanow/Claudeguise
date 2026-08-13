@@ -151,6 +151,12 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 	for unit in state.units:
 		if not unit.alive or unit.intent != null or unit.is_busy():
 			continue
+		if unit.has_status(CG.Status.STUN):
+			# No intent this tick, same as being busy. Does not interrupt an
+			# action already committed before the stun landed — nothing in
+			# issue 4's acceptance criteria asks for that, and cancelling an
+			# in-flight wind-up is a separate design decision.
+			continue
 		var intent: Intent = null
 		if unit.pawn != null:
 			intent = deps.plan_decide.call(state, unit)
@@ -237,7 +243,30 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 			unit.recover_ticks_left -= 1
 			if unit.recover_ticks_left == 0:
 				unit.current_action = &""
+		_tick_regen(state, unit, deps)
 		_tick_statuses(state, unit)
+
+## Mana and Energy refill over time; Rage does not — CombatSim enforces that
+## itself rather than trusting the rate function, so a rate that forgets to
+## special-case Rage still cannot make it climb. Fractional rates are rounded
+## stochastically against state.rng rather than dropped, so "0.3 per tick"
+## still averages out over a fight instead of always rounding to 0 (and stays
+## reproducible for the same seed).
+static func _tick_regen(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
+	if unit.resource_kind == CG.ResourceKind.RAGE:
+		return
+	var gained := _stochastic_round(state, deps.resource_regen_per_tick.call(unit))
+	if gained > 0:
+		unit.resource = clampi(unit.resource + gained, 0, unit.resource_max)
+
+static func _stochastic_round(state: CombatState, value: float) -> int:
+	if value <= 0.0:
+		return 0
+	var whole := int(floor(value))
+	var frac := value - float(whole)
+	if frac > 0.0 and state.rng.randf() < frac:
+		whole += 1
+	return whole
 
 static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 	if unit.statuses.is_empty():
@@ -258,8 +287,17 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
-	for target in _resolve_targets(state, unit, action):
+	var targets := _resolve_targets(state, unit, action)
+	for target in targets:
 		_apply_action_effect(state, unit, target, action, deps)
+
+	## Rage gains only from a landed hit, not from committing or from a miss:
+	## a Rage pawn swinging at nothing (out of range at landing) must not
+	## fill, per issue 4's own acceptance criterion for it.
+	if not targets.is_empty() and unit.resource_kind == CG.ResourceKind.RAGE:
+		var gained := _stochastic_round(state, deps.rage_gain_on_attack.call(unit))
+		if gained > 0:
+			unit.resource = clampi(unit.resource + gained, 0, unit.resource_max)
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
