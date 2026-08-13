@@ -23,19 +23,24 @@ static func actions() -> Array[ActionDef]:
 
 static func enemies() -> Array[EnemyDef]:
 	return [
-		# Weak, fast, numerous. Meant to show up in groups; one alone is not a threat.
-		_enemy(&"goblin", "Goblin", 35, 0, CG.ResourceKind.ENERGY, 4.0, 11.0, {CG.DamageType.PHYSICAL: 9}, 0.0, [&"goblin_stab"], ["Melee", "Weak"]),
-		_enemy(&"goblin_archer", "Goblin Archer", 28, 0, CG.ResourceKind.ENERGY, 3.2, 11.0, {CG.DamageType.PHYSICAL: 8}, 0.0, [&"goblin_arrow"], ["Ranged", "Weak"]),
-		# Slow and hard to kill, hits hard when it connects. A wall, not a swarm.
-		_enemy(&"ghoul", "Ghoul", 200, 0, CG.ResourceKind.ENERGY, 1.6, 16.0, {CG.DamageType.PHYSICAL: 20}, 0.1, [&"ghoul_maul"], ["Melee", "Undead", "Tough"]),
-		# Ranged caster, unchanged from the original roster's role.
-		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 13}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"]),
+		# Weak, fast, numerous. Meant to show up in groups; one alone is not a
+		# threat. A pack that swarms whoever is already bleeding is the whole
+		# point of "weak and numerous" being a threat at all -- high focus_bias.
+		_enemy(&"goblin", "Goblin", 35, 0, CG.ResourceKind.ENERGY, 4.0, 11.0, {CG.DamageType.PHYSICAL: 9}, 0.0, [&"goblin_stab"], ["Melee", "Weak"], 0.7),
+		_enemy(&"goblin_archer", "Goblin Archer", 28, 0, CG.ResourceKind.ENERGY, 3.2, 11.0, {CG.DamageType.PHYSICAL: 8}, 0.0, [&"goblin_arrow"], ["Ranged", "Weak"], 0.6),
+		# Slow and hard to kill, hits hard when it connects. A wall, not a
+		# swarm -- it walks at whatever is closest and does not care what its
+		# allies are doing, so a low focus_bias.
+		_enemy(&"ghoul", "Ghoul", 200, 0, CG.ResourceKind.ENERGY, 1.6, 16.0, {CG.DamageType.PHYSICAL: 20}, 0.1, [&"ghoul_maul"], ["Melee", "Undead", "Tough"], 0.1),
+		# Ranged caster, unchanged role. Moderate bias: happy to finish a
+		# weakened target but not a pure pile-on.
+		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 13}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
 	]
 
 static func encounters() -> Array[Encounter]:
 	return []
 
-static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String]) -> EnemyDef:
+static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
 	var e := EnemyDef.new()
 	e.id = id
 	e.display_name = display_name
@@ -48,4 +53,5 @@ static func _enemy(id: StringName, display_name: String, hp_max: int, resource_m
 	e.damage_reduction = damage_reduction
 	e.actions = actions
 	e.display_tags = display_tags
+	e.focus_bias = focus_bias
 	return e

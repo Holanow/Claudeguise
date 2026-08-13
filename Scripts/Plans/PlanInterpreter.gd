@@ -100,6 +100,8 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _target_in_range(state, unit, action_id):
 		return null
+	if not _can_afford(state, unit, action_id):
+		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
@@ -120,6 +122,22 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 	if target == null:
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
+
+## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
+## action the unit cannot actually pay for right now -- not enough resource,
+## or still on cooldown -- must not commit CombatSim to refusing it and
+## burning the tick. Falls through to the next plan (or DefaultBehavior)
+## exactly like an out-of-range shot does, rather than special-casing Rage or
+## rewriting the plan's own condition to route around the gap.
+static func _can_afford(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null:
+		return true
+	if unit.resource < action.resource_cost:
+		return false
+	if unit.cooldowns.has(action.id) and state.tick < int(unit.cooldowns[action.id]):
+		return false
+	return true
 
 static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> bool:
 	if not CONDITION_OPS.has(block.op):

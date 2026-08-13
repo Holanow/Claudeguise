@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
+const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## What a unit does when no plan fires. Every unit has this, including enemies,
@@ -70,7 +71,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if attack_action == null:
 		return Intent.idle()
 
-	var target := _nearest(unit, enemies)
+	var target := _choose_target(state, unit, enemies)
 	if target == null:
 		return Intent.idle()
 
@@ -112,6 +113,44 @@ static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 		if not a.heals:
 			return a
 	return null
+
+## Issue 7's concentration finding: numbers and a stat spread raise total
+## damage but not concentrated damage, because every enemy independently
+## picked its own nearest pawn. `EnemyDef.focus_bias` (0.0-1.0, pawns do not
+## have one) is this unit's chance of joining whichever living enemy its own
+## allies are already committed to, rather than defaulting to nearest. Rolled
+## from state.rng, never a fresh generator, so a seed still reproduces a
+## fight exactly.
+static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[CombatUnit]) -> CombatUnit:
+	var nearest := _nearest(unit, enemies)
+	if unit.pawn != null:
+		return nearest
+	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	if enemy_def == null or enemy_def.focus_bias <= 0.0:
+		return nearest
+	var focused := _most_focused(state, unit, enemies)
+	if focused == null:
+		return nearest
+	return focused if state.rng.randf() < enemy_def.focus_bias else nearest
+
+## The living enemy candidate that the most of `unit`'s own living allies
+## currently have as their focus_id -- "already being attacked", read from the
+## same field CombatSim sets whenever an ally's action resolves. Null when
+## nobody has focused on any candidate yet, which is the natural "no pile
+## exists to join" case.
+static func _most_focused(state: CombatState, unit: CombatUnit, candidates: Array[CombatUnit]) -> CombatUnit:
+	var counts := {}
+	for ally in state.living(unit.team):
+		if ally.focus_id != -1:
+			counts[ally.focus_id] = int(counts.get(ally.focus_id, 0)) + 1
+	var best: CombatUnit = null
+	var best_count := 0
+	for c in candidates:
+		var n := int(counts.get(c.id, 0))
+		if n > best_count:
+			best_count = n
+			best = c
+	return best
 
 static func _nearest(unit: CombatUnit, others: Array[CombatUnit]) -> CombatUnit:
 	var best: CombatUnit = null

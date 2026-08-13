@@ -168,3 +168,78 @@ func test_describe_op_covers_every_whitelisted_op() -> void:
 func test_describe_op_unknown_op_names_itself_rather_than_going_blank() -> void:
 	var described := PlanInterpreter.describe_op(&"do_a_barrel_roll", {})
 	assert_true(described.contains("do_a_barrel_roll"), "unknown op description should still name the op")
+
+
+## Issue 22: a pawn that cannot afford its first plan's action must fall
+## through to its second rather than standing still. Two plans, identical
+## condition (always), first costs 60, second costs 0 -- the exact shape
+## PlanRangeAudit's cousin found on the Abomination.
+func _two_plan_pawn() -> PawnData:
+	var pawn := PawnData.new()
+	pawn.pawn_class = ClassDef.new()
+	pawn.plans = [
+		_plan(&"expensive_first", null, [
+			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
+			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_execute"}),
+		]),
+		_plan(&"free_second", null, [
+			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
+			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+		]),
+	]
+	return pawn
+
+
+func test_cannot_afford_first_plan_falls_through_to_second() -> void:
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, target)
+	attacker.pawn = _two_plan_pawn()
+	attacker.resource = 0  # warrior_execute costs 60
+
+	var intent := PlanInterpreter.decide(state, attacker)
+	assert_not_null(intent)
+	assert_eq(intent.action_id, &"warrior_strike", "should fall through to the free plan when it cannot afford the first")
+	assert_eq(intent.source_plan, &"free_second")
+
+
+func test_can_afford_first_plan_uses_it_not_the_second() -> void:
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, target)
+	attacker.pawn = _two_plan_pawn()
+	attacker.resource = 60
+
+	var intent := PlanInterpreter.decide(state, attacker)
+	assert_not_null(intent)
+	assert_eq(intent.action_id, &"warrior_execute", "should use the first plan when it can afford it, priority order intact")
+	assert_eq(intent.source_plan, &"expensive_first")
+
+
+func test_action_on_cooldown_falls_through_same_as_unaffordable() -> void:
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, target)
+	state.tick = 5
+	attacker.pawn = _two_plan_pawn()
+	attacker.resource = 60  # can afford it...
+	attacker.cooldowns[&"warrior_execute"] = 10  # ...but it is still on cooldown until tick 10
+
+	var intent := PlanInterpreter.decide(state, attacker)
+	assert_not_null(intent)
+	assert_eq(intent.action_id, &"warrior_strike", "should fall through when the action is on cooldown")
+	assert_eq(intent.source_plan, &"free_second")
+
+
+func test_action_off_cooldown_fires_normally() -> void:
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, target)
+	state.tick = 10
+	attacker.pawn = _two_plan_pawn()
+	attacker.resource = 60
+	attacker.cooldowns[&"warrior_execute"] = 10  # ends exactly at tick 10
+
+	var intent := PlanInterpreter.decide(state, attacker)
+	assert_not_null(intent)
+	assert_eq(intent.action_id, &"warrior_execute")
