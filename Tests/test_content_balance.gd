@@ -279,3 +279,37 @@ func test_three_equipped_pieces_all_contribute() -> void:
 	pawn.armor = armor
 	pawn.accessory = accessory
 	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 13.0, 0.001, "all three slots should stack their flat bonus")
+
+
+## Issue 45: between-room recovery. README's Healer text ("meant to restore
+## health and revive allies") is the reasoning; these prove the numbers.
+
+func test_between_room_heal_restores_a_fraction_of_what_is_missing() -> void:
+	var healed := Balance.between_room_heal(20, 100, false)
+	assert_true(healed > 20, "a party at 20/100 should recover something")
+	assert_true(healed < 100, "recovery should not be a full heal -- a room still has to cost something")
+
+
+func test_a_living_healer_recovers_more() -> void:
+	var without_healer := Balance.between_room_heal(20, 100, false)
+	var with_healer := Balance.between_room_heal(20, 100, true)
+	assert_true(with_healer > without_healer, "a Healer in the party should recover more between rooms")
+
+
+func test_between_room_heal_never_exceeds_max_hp() -> void:
+	var healed := Balance.between_room_heal(95, 100, true)
+	assert_true(healed <= 100, "recovery should never push a pawn above its own max hp")
+
+
+func test_between_room_heal_leaves_a_full_health_pawn_alone() -> void:
+	assert_eq(Balance.between_room_heal(100, 100, true), 100)
+
+
+func test_revive_only_happens_with_a_living_healer() -> void:
+	assert_eq(Balance.revive_hp(100, false), 0, "no Healer, no revival -- a dead pawn should stay dead")
+	assert_true(Balance.revive_hp(100, true) > 0, "a living Healer should be able to revive a dead pawn")
+
+
+func test_revive_hp_is_a_fraction_of_max_not_a_free_full_heal() -> void:
+	var revived := Balance.revive_hp(200, true)
+	assert_true(revived > 0 and revived < 200, "a revival should be a real fraction of max hp, not full and not zero")
