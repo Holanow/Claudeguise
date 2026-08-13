@@ -20,7 +20,15 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.PHYSICAL, CG.DamageType.EARTH],
 			CG.ResourceKind.RAGE,
 			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 9, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 4},
-			[&"warrior_strike", &"warrior_guard", &"warrior_execute"]
+			# Issue 30: warrior_taunt appended at the end, not the front --
+			# DefaultBehavior._first_non_heal falls back to the FIRST
+			# non-heal action in this list whenever no plan fires (there is
+			# no plan for warrior_strike itself; it has always relied on
+			# that fallback). warrior_taunt is self-targeted and would be a
+			# no-op as a fallback "attack an enemy" action, so warrior_strike
+			# must stay first regardless of where warrior_taunt's own plan
+			# sits in PresetPlans.
+			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt"]
 		),
 		_class(
 			&"priest", "Priest",
