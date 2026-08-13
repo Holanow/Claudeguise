@@ -24,6 +24,7 @@ const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 ## the touch target.
 
 signal battle_requested(config: RunConfig)
+signal run_requested(config: RunConfig)
 
 const MAX_PARTY_SIZE := 4
 
@@ -33,6 +34,7 @@ var _cards: Dictionary = {}
 
 var _status_label: Label = null
 var _start_button: Button = null
+var _start_run_button: Button = null
 var _seed_edit: LineEdit = null
 var _roster_box = null
 var _inspect_panel = null
@@ -163,6 +165,16 @@ func _build_ui() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	column.add_child(_start_button)
 
+	# Issue 43: a run is several rooms in sequence with damage carried
+	# between them, the whole reason Scripts/Floor exists. Kept beside the
+	# single-fight button rather than replacing it — the single fight is
+	# how the balance actually gets measured (issue 43's own criterion 5).
+	_start_run_button = Button.new()
+	_start_run_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	_start_run_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	_start_run_button.pressed.connect(_on_start_run_pressed)
+	column.add_child(_start_run_button)
+
 	# Issue 21b: reachable from party select, before anyone has committed to a
 	# fight — the obvious place to read what a class will actually do before
 	# picking it.
@@ -239,9 +251,15 @@ func _update_status() -> void:
 	if _start_button != null:
 		_start_button.disabled = _selected.is_empty()
 		_start_button.text = "Pick at least one class" if _selected.is_empty() else "Start Fight"
+	if _start_run_button != null:
+		_start_run_button.disabled = _selected.is_empty()
+		_start_run_button.text = "Pick at least one class" if _selected.is_empty() else "Start Run"
 
 func _on_start_pressed() -> void:
 	battle_requested.emit(current_config())
+
+func _on_start_run_pressed() -> void:
+	run_requested.emit(current_config())
 
 func _on_inspect_pressed() -> void:
 	if _inspect_panel != null:
