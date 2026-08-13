@@ -165,6 +165,19 @@ func test_describe_op_covers_every_whitelisted_op() -> void:
 	assert_eq(PlanInterpreter.describe_op(&"once", {}), "once")
 
 
+## Issue 22: CONDITION_ARG_SHAPE used to be InspectPanel.gd's own copy of this
+## fact, duplicating what _eval_condition's match statement already encodes.
+## Moved here as data; this test is the guard against the two drifting again —
+## every CONDITION_OPS entry must have a shape, and every shape entry must be
+## a real condition op, so adding one without the other fails loudly instead
+## of silently.
+func test_condition_arg_shape_covers_exactly_the_condition_ops() -> void:
+	for op in PlanInterpreter.CONDITION_OPS:
+		assert_true(PlanInterpreter.CONDITION_ARG_SHAPE.has(op), "CONDITION_ARG_SHAPE missing an entry for %s" % op)
+	for op in PlanInterpreter.CONDITION_ARG_SHAPE.keys():
+		assert_true(PlanInterpreter.CONDITION_OPS.has(op), "CONDITION_ARG_SHAPE has an entry for %s, not a real condition op" % op)
+
+
 func test_describe_op_unknown_op_names_itself_rather_than_going_blank() -> void:
 	var described := PlanInterpreter.describe_op(&"do_a_barrel_roll", {})
 	assert_true(described.contains("do_a_barrel_roll"), "unknown op description should still name the op")
