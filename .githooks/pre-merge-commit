@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Same gate as pre-commit, for merge commits.
+#
+# This file exists because `pre-commit` is NOT run for a merge. Git invokes
+# `pre-merge-commit` instead, and a hook installed only as pre-commit protects
+# every ordinary commit while leaving merges — the manager's main activity, and
+# the exact operation that put the trunk red today — completely unguarded.
+#
+# Delegating rather than duplicating, so the two can never drift apart.
+
+exec "$(dirname "$0")/pre-commit" "$@"
