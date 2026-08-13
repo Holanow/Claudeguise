@@ -23,10 +23,17 @@ blocking movement and not sight, the other the reverse.
 
 ## 2. The combat log still overlays the arena
 
-Open since the issue 15 merge, where I let it through and said so. The log draws
-over the arena's lower third, which makes the boundary ambiguous and means a unit
-standing there is behind text. Units mostly fight in the middle, which is why it
-has survived this long.
+Open since the issue 15 merge, where I let it through and said so. **Promoting it:
+this is no longer cosmetic, and item 2 should probably be item 1.**
+
+`Tools/preview/fight_05.png` on the current trunk: the geysermancer, the priest
+and a Ghoul are all fighting in the arena's bottom third, drawn *behind* the
+combat log's text. You cannot see three of the seven units in that frame. The
+"units mostly fight in the middle" argument I used to justify letting it through
+stopped being true the moment teal spread the spawns out and gave enemies real
+placement — the fight now uses the whole arena, which is what we wanted.
+
+So the log is now hiding gameplay rather than crowding an edge.
 
 ## 3. Labels collide in a crowded fight
 
