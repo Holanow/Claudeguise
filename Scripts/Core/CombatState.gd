@@ -3,6 +3,7 @@ extends RefCounted
 const CG := preload("res://Scripts/Core/CG.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## The whole fight. Given the same seed and the same starting units this must
 ## step to the same state every time, because "change one thing and re-run the
@@ -30,6 +31,15 @@ var outcome: Outcome = Outcome.UNRESOLVED
 var units: Array[CombatUnit] = []
 
 var rng: RandomNumberGenerator = null
+
+## Room features: walls, pillars, hazards, pits. Empty by default, so a fight
+## built without an encounter's terrain behaves exactly as it did before this
+## existed — which is what lets issue 13a land without invalidating a single
+## tuning measurement teal has taken.
+##
+## Applied verbatim as wren proposed it on the board. The intake path exists so
+## a frozen contract does not make me a bottleneck, and this took two minutes.
+var terrain: Array[Terrain.Feature] = []
 
 ## Every event since the fight began, in tick order. The view reads from
 ## `events_since` rather than clearing this, so the log survives a scrub.

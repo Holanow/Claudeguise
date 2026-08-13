@@ -144,6 +144,58 @@ const _PARTS := {
 		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.06], [-0.6, 0.08], [-0.52, 0.32], [-0.26, 0.2]]},
 	],
 
+	# --- floor 1 bestiary, ids from teal's issue 12 --------------------------
+	#
+	# Drawn to the roster's own logic rather than to look like small pawns: these
+	# are meant to be read as "many weak", "ranged", "slow and tanky" and "caster"
+	# from the outline alone, at the size a crowd of them will actually be.
+	#
+	# Goblin: the smallest silhouette in the game and the only one that reads as
+	# hunched. Deliberately does not fill its radius — a goblin should look like
+	# a thing you can kill, because eight of them are the threat, not one.
+	&"goblin": [
+		{"tint": Tint.ACCENT, "poly": [[0.34, 0.1], [0.5, -0.36], [0.62, -0.3], [0.48, 0.16]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.5, 1.0], [-0.34, 0.5], [0.42, 0.5], [0.58, 1.0], [0.04, 0.9]]},
+		{"tint": Tint.TEAM, "poly": [[-0.44, 0.56], [-0.3, 0.0], [0.0, -0.2], [0.34, 0.02], [0.44, 0.56]]},
+		{"tint": Tint.TEAM, "poly": [[-0.12, -0.18], [-0.06, -0.5], [0.22, -0.5], [0.26, -0.16]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.06, -0.44], [-0.42, -0.62], [-0.1, -0.28]]},
+		{"tint": Tint.ACCENT, "poly": [[0.22, -0.44], [0.56, -0.64], [0.26, -0.28]]},
+	],
+	# Goblin archer: the same small hunch with a bow arc standing clear of it, so
+	# a player can pick the ranged ones out of a crowd of goblins at a glance.
+	&"goblin_archer": [
+		{"tint": Tint.ACCENT, "poly": [[-0.36, -0.7], [-0.56, -0.34], [-0.56, 0.28], [-0.36, 0.62], [-0.44, 0.3], [-0.44, -0.36]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.4, -0.68], [0.2, -0.04], [0.16, 0.02], [-0.42, 0.6]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.44, 1.0], [-0.28, 0.52], [0.44, 0.52], [0.6, 1.0], [0.08, 0.9]]},
+		{"tint": Tint.TEAM, "poly": [[-0.26, 0.58], [-0.16, 0.02], [0.1, -0.18], [0.4, 0.04], [0.46, 0.58]]},
+		{"tint": Tint.TEAM, "poly": [[0.0, -0.16], [0.06, -0.48], [0.32, -0.48], [0.36, -0.14]]},
+		{"tint": Tint.ACCENT, "poly": [[0.32, -0.42], [0.62, -0.6], [0.36, -0.26]]},
+	],
+	# Ghoul: tall, gaunt, arms past the knees, no weapon. The only outline here
+	# that is narrow at the shoulders and wide at the hands, which is what should
+	# read as "this one walks at you and does not stop".
+	&"ghoul": [
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.56, 1.0], [-0.3, 0.36], [0.3, 0.36], [0.56, 1.0], [0.0, 0.9]]},
+		{"tint": Tint.TEAM, "poly": [[-0.28, 0.42], [-0.22, -0.34], [0.0, -0.54], [0.22, -0.34], [0.28, 0.42]]},
+		{"tint": Tint.TEAM, "poly": [[-0.34, -0.28], [-0.6, 0.2], [-0.7, 0.66], [-0.5, 0.7], [-0.42, 0.24], [-0.2, -0.14]]},
+		{"tint": Tint.TEAM, "poly": [[0.34, -0.28], [0.6, 0.2], [0.7, 0.66], [0.5, 0.7], [0.42, 0.24], [0.2, -0.14]]},
+		{"tint": Tint.TEAM, "poly": [[0.0, -0.56], [0.2, -0.74], [0.12, -0.98], [-0.12, -0.98], [-0.2, -0.74]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.7, 0.62], [-0.86, 0.86], [-0.64, 0.82]]},
+		{"tint": Tint.ACCENT, "poly": [[0.7, 0.62], [0.86, 0.86], [0.64, 0.82]]},
+	],
+	# Cultist: teal is renaming dungeon_cultist to cultist. Same silhouette,
+	# because it was already right — a hood and a robe and no legs, reading as a
+	# caster from the outline and as nothing like the Priest, whose halo sits
+	# clear above the head while this one has a beak of a hood.
+	&"cultist": [
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.76, 1.0], [-0.44, 0.3], [0.44, 0.3], [0.76, 1.0], [0.0, 0.92]]},
+		{"tint": Tint.TEAM, "poly": [[0.0, -0.92], [0.34, -0.42], [0.5, 0.5], [-0.5, 0.5], [-0.34, -0.42]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.0, -0.9], [0.26, -0.4], [0.0, -0.24], [-0.26, -0.4]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.06, -0.66], [0.1, -0.58], [-0.06, -0.5]]},
+		{"tint": Tint.ACCENT, "poly": [[0.32, -0.12], [0.62, 0.02], [0.54, 0.26], [0.28, 0.14]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.06], [-0.6, 0.08], [-0.52, 0.32], [-0.26, 0.2]]},
+	],
+
 	# --- unused so far: kept for later floors -------------------------------
 	# Rat: a low horizontal profile, nose down at the front, tail curling off
 	# the back. Nothing else here is this long and this flat.

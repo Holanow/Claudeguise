@@ -48,9 +48,17 @@ const _ACCENT := {
 	&"rat": CG.DamageType.PHYSICAL,
 	&"grub": CG.DamageType.PROFANE,
 	&"brute": CG.DamageType.EARTH,
+	&"goblin": CG.DamageType.PHYSICAL,
+	&"goblin_archer": CG.DamageType.PHYSICAL,
+	&"ghoul": CG.DamageType.PROFANE,
+	&"cultist": CG.DamageType.PROFANE,
 }
 
-const _ENEMY_SHAPES := [&"rat", &"grub", &"brute"]
+const _ENEMY_SHAPES := [
+	&"rat", &"grub", &"brute",
+	&"goblin", &"goblin_archer", &"ghoul", &"cultist",
+	&"dungeon_grunt", &"dungeon_archer", &"dungeon_cultist",
+]
 
 func _ready() -> void:
 	await RenderingServer.frame_post_draw

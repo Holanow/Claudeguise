@@ -31,9 +31,13 @@ The filename is the unit's id. These are the current ones:
 | `geysermancer.png` | Geysermancer |
 | `siege_master.png` | Siege Master |
 | `abomination.png` | Abomination |
-| `dungeon_grunt.png` | Grunt |
-| `dungeon_archer.png` | Archer |
-| `dungeon_cultist.png` | Cultist |
+| `goblin.png` | Goblin |
+| `goblin_archer.png` | Goblin Archer |
+| `ghoul.png` | Ghoul |
+| `cultist.png` | Cultist |
+| `dungeon_grunt.png` | Grunt (being retired) |
+| `dungeon_archer.png` | Archer (being retired) |
+| `dungeon_cultist.png` | Cultist (being retired) |
 
 `rat.png`, `grub.png` and `brute.png` also exist as shapes but nothing spawns
 them yet.
