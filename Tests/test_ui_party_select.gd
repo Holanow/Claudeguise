@@ -1,5 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
+const CG := preload("res://Scripts/Core/CG.gd")
 const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
@@ -67,6 +68,23 @@ func test_two_different_selections_produce_different_configs() -> void:
 	var config_b := screen.current_config()
 
 	assert_ne(config_a.party[0].display_name, config_b.party[0].display_name)
+	screen.free()
+
+## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
+## first, not the encounter the game means — so every real playthrough
+## fought whichever room happened to sort first once a second one existed.
+## Needs real Registry content (CG.DEFAULT_ENCOUNTER has to actually be
+## registered to prove anything), so this is a no-op rather than a false
+## pass while the registry is empty.
+func test_current_config_picks_the_default_encounter_not_the_alphabetically_first_one() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	var encounters := Registry.all_encounter_ids()
+	if not encounters.has(CG.DEFAULT_ENCOUNTER):
+		return
+	screen.toggle_pawn(_make_pawn("warrior", "Warrior"), true)
+	var config := screen.current_config()
+	assert_eq(config.encounter_id, CG.DEFAULT_ENCOUNTER)
 	screen.free()
 
 func test_prefill_seed_sets_the_seed_field() -> void:
