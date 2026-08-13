@@ -19,9 +19,11 @@ const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 ## death being announced, a number floating) comes from a CombatEvent instead,
 ## handled by BattleView and DamageFloater.
 
-const BAR_WIDTH := 36.0
-const BAR_HEIGHT := 5.0
-const BAR_GAP := 2.0
+## Scaled for CombatUnit.radius's phone-legibility pass (12.0 -> 22.0) and
+## Palette.FONT_SIZE_SMALL going 11 -> 16 alongside it.
+const BAR_WIDTH := 60.0
+const BAR_HEIGHT := 7.0
+const BAR_GAP := 3.0
 
 var unit_id: int = -1
 var _state: CombatState = null
@@ -100,8 +102,8 @@ func _draw() -> void:
 
 	_draw_label_chip(u.display_name, y, Palette.TEXT, Palette.FONT_SIZE_SMALL)
 
-const CROWD_RADIUS := 40.0
-const CROWD_STEP := 13.0
+const CROWD_RADIUS := 70.0
+const CROWD_STEP := 20.0
 
 ## Extra headroom for this unit's name label when another unit is standing
 ## close enough for the two labels to land on the same spot — found in
