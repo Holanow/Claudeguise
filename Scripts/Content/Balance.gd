@@ -332,3 +332,56 @@ static func revive_hp(hp_max: int, has_living_healer: bool) -> int:
 	if not has_living_healer:
 		return 0
 	return int(round(float(hp_max) * REVIVE_HP_FRACTION))
+
+## Found mid-#30, while measuring `no_warrior`'s own 0/20: `FloorRun` carries
+## resource forward exactly, same as it did for hp before issue 45 --
+## `Tools/FloorRuns.gd` (once it reported resource at all; it did not until
+## rook added the column) shows every real party's resource crashing from
+## 100% to 7-23% by the boss room, while hp only drifts to 71-84%. Health
+## was never what wore a party down. Resource was, and nothing recovered it
+## between rooms because nothing was asked to.
+##
+## Confirmed causally, not by correlation (swift): `no_warrior` (no Warrior
+## at all, so its casters carry the floor) wins the Warden 18/20 fresh and
+## loses 20/20 arriving worn -- same hp, different resource. That isolates
+## the variable.
+##
+## Same shape as `between_room_heal` on purpose: a fraction of what is
+## *missing*, not a full restore, for the same reason a full heal would
+## have undone health's own attrition. No Healer-role bonus here --
+## nothing in this class's kit right now restores an ally's resource, only
+## its own hp (`priest_heal`), so a bonus keyed to "a Healer is alive"
+## would reward a class for something it does not do. Tuned separately
+## from `BASE_RECOVERY_FRACTION` above: resource and hp are different
+## economies (resource already regenerates every tick in-fight, at
+## MANA_REGEN_PERCENT_PER_SECOND / ENERGY_REGEN_PERCENT_PER_SECOND, on top
+## of whatever this restores between rooms) and there is no reason to
+## assume the same number solves both.
+##
+## Tuned against a probe replicating `Tools/FloorRuns.gd`'s own loop (the
+## real wire into `FloorFightRunner.gd` isn't mine -- see the ask on the
+## board) with this function's effect patched on top of what `play_room`
+## already does for hp. Swept 0.20/0.35/0.45/0.50/0.65: `no_warrior` moved
+## 0/20 -> 1/20 -> 5/20 -> 11/20 -> 11/20, non-monotonic between 0.45 and
+## 0.50 the same way health's own recovery swept in steps rather than a
+## smooth curve. Landed on 0.50, the value where it stopped being an
+## outright trap without diminishing returns past it (0.65 bought nothing
+## further). Every other real party stays 20/20 throughout the whole sweep;
+## `no_abomination` stays 0/20 at every value -- expected, per swift's own
+## finding that it loses the boss even fresh, a second, separate problem
+## from attrition.
+const BASE_RESOURCE_RECOVERY_FRACTION := 0.50
+
+## Applies the fraction above to one pawn's carried resource. Missing
+## resource is `resource_max - resource`; this restores
+## `BASE_RESOURCE_RECOVERY_FRACTION` of that gap, rounded, and never returns
+## above `resource_max` or below the resource passed in -- same clamping
+## reasoning as `between_room_heal`: a pawn already full is left alone
+## rather than clamped down, since this is a recovery function and never a
+## drain one.
+static func between_room_resource_recover(resource: int, resource_max: int) -> int:
+	if resource >= resource_max:
+		return resource
+	var missing := resource_max - resource
+	var recovered := int(round(float(missing) * BASE_RESOURCE_RECOVERY_FRACTION))
+	return mini(resource_max, resource + recovered)

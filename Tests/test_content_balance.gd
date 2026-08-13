@@ -351,3 +351,31 @@ func test_revive_only_happens_with_a_living_healer() -> void:
 func test_revive_hp_is_a_fraction_of_max_not_a_free_full_heal() -> void:
 	var revived := Balance.revive_hp(200, true)
 	assert_true(revived > 0 and revived < 200, "a revival should be a real fraction of max hp, not full and not zero")
+
+
+## Found mid-#30: resource was never recovered between rooms the way hp was,
+## and it was the thing actually wearing a party down (hp only drifted to
+## 71-84% by the boss, resource crashed to 7-23%). These mirror
+## between_room_heal's own tests -- same shape, different economy.
+
+func test_between_room_resource_recover_restores_a_fraction_of_what_is_missing() -> void:
+	var recovered := Balance.between_room_resource_recover(10, 100)
+	assert_true(recovered > 10, "a pawn at 10/100 resource should recover something")
+	assert_true(recovered < 100, "recovery should not be a full restore -- a room still has to cost something")
+
+
+func test_between_room_resource_recover_never_exceeds_max() -> void:
+	var recovered := Balance.between_room_resource_recover(95, 100)
+	assert_true(recovered <= 100, "recovery should never push a pawn above its own max resource")
+
+
+func test_between_room_resource_recover_leaves_a_full_pawn_alone() -> void:
+	assert_eq(Balance.between_room_resource_recover(100, 100), 100)
+
+
+func test_between_room_resource_recover_never_lowers_resource() -> void:
+	# hp <= 0 is a real case for between_room_heal (a pawn between death and
+	# revival); resource has no equivalent floor below 0 in this game, but
+	# the same "never returns below what was passed in" guarantee should
+	# hold regardless of how small the input is.
+	assert_eq(Balance.between_room_resource_recover(0, 100), int(round(100.0 * Balance.BASE_RESOURCE_RECOVERY_FRACTION)))
