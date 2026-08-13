@@ -50,6 +50,18 @@ const MAX_DAMAGE_REDUCTION := 0.85
 const AGI_TICK_SCALE_PER_POINT := 0.015
 const MAX_AGI_TICK_SCALE := 0.5
 
+## Issue 20: percent of max resource per second. Mana large and slow, Energy
+## small and fast, per README.md. Rage is never read here on a timer — wren's
+## simulation already refuses to call this for a RAGE unit, and this function
+## returns 0.0 for one anyway as a second guard.
+const MANA_REGEN_PERCENT_PER_SECOND := 4.0
+const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
+
+## Issue 20: percent of max Rage gained per landed attack. README.md: Rage
+## "fills as the pawn attacks" and nothing else — wren's simulation only calls
+## this on a hit that actually lands, never on commit and never on a miss.
+const RAGE_GAIN_PERCENT_PER_HIT := 18.0
+
 static func max_hp(pawn: PawnData) -> int:
 	var str_bonus := pawn.attribute(CG.Attribute.STR)
 	return BASE_HP + pawn.attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS
@@ -118,3 +130,23 @@ static func scale_action_ticks(base_ticks: int, pawn: PawnData) -> int:
 		return base_ticks
 	var scale := clampf(float(pawn.attribute(CG.Attribute.AGI)) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
 	return maxi(1, int(round(float(base_ticks) * (1.0 - scale))))
+
+## Resource regenerated per tick, before rounding. Rage returns 0.0: it never
+## rises on a timer, only from rage_gain_per_attack.
+static func resource_regen_per_tick(unit: CombatUnit) -> float:
+	var percent_per_second := 0.0
+	match unit.resource_kind:
+		CG.ResourceKind.MANA:
+			percent_per_second = MANA_REGEN_PERCENT_PER_SECOND
+		CG.ResourceKind.ENERGY:
+			percent_per_second = ENERGY_REGEN_PERCENT_PER_SECOND
+		CG.ResourceKind.RAGE:
+			return 0.0
+	return float(unit.resource_max) * (percent_per_second / 100.0) / float(CG.TICKS_PER_SECOND)
+
+## Rage gained the moment an attack lands. 0.0 for any other resource kind:
+## Mana and Energy regenerate on a timer instead, never from landing a hit.
+static func rage_gain_per_attack(unit: CombatUnit) -> float:
+	if unit.resource_kind != CG.ResourceKind.RAGE:
+		return 0.0
+	return float(unit.resource_max) * (RAGE_GAIN_PERCENT_PER_HIT / 100.0)
