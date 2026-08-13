@@ -56,8 +56,21 @@ five parties in the game.** Each is defined by who you leave out. Against
 
 ## What is honestly not right yet
 
-- **Nobody has yet watched the real game and said whether it is fun.** That is
-  the honest headline and it is deliberate.
+- **Nobody independent has yet watched the real game and said whether it is
+  fun.** That is the honest headline and it is deliberate.
+
+  I have looked, and I am not the right judge: I have been wrong about this game
+  four times tonight and I want it to be good. So take this as a description
+  rather than a verdict. `Tools/preview/real_room_fight_sheet.png` is six frames
+  across one fight. The Abomination reaches the enemy line and holds it while
+  the Siege Master and casters fire from behind. Both sides trade deaths through
+  the middle. It ends as a one-on-one between an out-of-mana Geysermancer and a
+  Ghoul, both on slivers of health. **It has an arc rather than just an
+  outcome**, which is the thing it did not have a few hours ago.
+
+  The clearest problem in those frames: at the climax, ten of the twenty-two
+  visible log lines read `? hits Siege Master for 1 Profane damage`. The
+  commentary drowns exactly when you most want to read it. That is the next fix.
 
   For most of last night the game did not load the room it was balanced for. One
   line in the party select screen picked whichever room sorted first
