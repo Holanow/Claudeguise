@@ -119,6 +119,16 @@ func test_same_seed_replays_bit_identical() -> void:
 ## which flagged a coin flip against a team no player will ever field. Checks
 ## `no_geysermancer` (siege_master/abomination/priest/warrior) instead, the
 ## real party issue 37 measured as the coin flip worth protecting.
+##
+## RED ON PURPOSE as of issue 41, and left red rather than forced green.
+## Starter weapons (issue 41) push this to 18/20. That is the stopping
+## condition issue 41 named in advance: items make every party stronger, and
+## the instruction was to report the flattening rather than tune it away.
+## Loosening this assertion to fit the new number would be exactly that --
+## quietly repealing the coin-flip guarantee the whole night's balance work
+## earned. Left red, named on the board, decision is rook's: keep starting
+## weapons and re-tune the room around them, or move items to loot so
+## PartySelect's own parties stay the ones this table describes.
 func test_some_composition_is_a_genuine_coin_flip() -> void:
 	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
 	print("floor1_room1: no_geysermancer win rate %d/20" % r["wins"])
@@ -138,6 +148,11 @@ func test_composition_still_matters() -> void:
 ## 2+ pawns down. issue 22 (plan affordability) and EnemyDef.focus_bias
 ## (concentration) together are what finally closed this — see TEAM_LOG for
 ## the full trace of why numbers alone never did.
+##
+## RED ON PURPOSE as of issue 41, same reasoning as the coin-flip test above:
+## starter weapons push this party's median cost to 49% (was 23%), over the
+## 40% cap. Left red and named rather than loosened, per issue 41's own
+## stopping condition -- report the flattening, do not tune it away.
 func test_a_winning_party_pays_a_real_cost() -> void:
 	var r := _win_rate([&"siege_master", &"geysermancer", &"priest", &"warrior"], 20)
 	print("floor1_room1: siege_master/geysermancer/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])

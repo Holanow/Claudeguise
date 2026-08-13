@@ -197,3 +197,25 @@ func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 			checked += 1
 			assert_false(Terrain.point_is_blocked(enc.terrain, pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
 	assert_true(checked > 0, "expected at least one encounter with terrain to check")
+
+
+## Issue 41: the assertion none of the earlier item tests make. Slot-populated
+## is not proof -- EquipmentDef sat fully wired all night with the slot
+## reachable and nothing in it ever mattered to a fight, because nothing
+## created an item. This builds a real starter pawn through the real
+## PawnFactory chain (registry -> item -> pawn slot -> Balance.attribute ->
+## attack power) and checks the number at the far end, not the field in the
+## middle.
+func test_starter_pawn_equipment_changes_its_attack_power() -> void:
+	var checked := 0
+	for class_id in EXPECTED_CLASS_IDS:
+		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
+		if pawn.weapon == null:
+			continue
+		checked += 1
+		var with_weapon := Balance.attack_power(pawn, pawn.pawn_class.damage_types[0])
+		var bare := pawn.duplicate()
+		bare.weapon = null
+		var without_weapon := Balance.attack_power(bare, bare.pawn_class.damage_types[0])
+		assert_true(with_weapon > without_weapon, "%s's starting weapon should raise its attack power, got %f vs %f" % [class_id, with_weapon, without_weapon])
+	assert_true(checked > 0, "expected at least one starter pawn with a weapon to check")
