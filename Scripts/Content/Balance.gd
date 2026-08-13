@@ -222,8 +222,25 @@ static func haste_tick_scale(unit: CombatUnit) -> float:
 ## is additive on top when a HEALER-role class survived the room: the
 ## Healer's whole distinguishing value per README should be visible between
 ## fights, not only inside one.
-const BASE_RECOVERY_FRACTION := 0.20
-const HEALER_RECOVERY_BONUS := 0.30
+##
+## Issue 13: halved from 0.20/0.30. The original pair, measured with
+## `Tools/FloorRuns.gd` once the call site existed (#11), cleared every
+## leave-one-out party 20/20 including `no_siege_master`, which cleared
+## 5/20 unaided -- the floor had stopped grinding anyone down at all.
+##
+## The response to these two constants is a step function, not a slope:
+## `no_siege_master`'s 20-seed clear count sits at 5/20 for any pair below
+## roughly 0.069/0.119 and jumps straight to 19/20 for nearly everything
+## above it, all the way up past this pair to the original 0.15/0.20 --
+## one seed's outcome never moved across that whole range. There is no
+## smooth value that lands it at, say, 12/20; the seeds share enough
+## structure that most of them cross their own win/loss line at once. This
+## pair sits inside that 19/20 plateau rather than on either edge, which
+## is the most stable answer available from this lever alone: entering the
+## last room measured 78-87% across every party (was 84-93%), and only
+## `no_siege_master` fails to clear -- once, not always.
+const BASE_RECOVERY_FRACTION := 0.10
+const HEALER_RECOVERY_BONUS := 0.15
 
 ## `has_living_healer` is the caller's to determine (a run's own carried
 ## party state, read by whoever wires this in) -- this function does not
