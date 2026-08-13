@@ -101,7 +101,49 @@ const _PARTS := {
 		{"tint": Tint.TEAM, "poly": [[-0.34, -0.7], [-0.42, -0.94], [-0.06, -0.98], [0.04, -0.8]]},
 	],
 
-	# --- enemies -----------------------------------------------------------
+	# --- floor 1 enemies, matching the ids in Content/Modules/floor1_enemies --
+	#
+	# These three were added after looking at a rendered fight in which every
+	# enemy drew the unknown-shape diamond, because I invented rat/grub/brute
+	# before any content existed and teal named their enemies something else.
+	# The fallback did its job — they were visible and obviously unfinished —
+	# but the lesson is that art ids and content ids are one contract and
+	# nothing checks it. Tests/test_art.gd now does.
+	#
+	# Grunt: squat, wide, shield forward. The shape a melee line-holder should
+	# have: hard to see past and clearly not fast.
+	&"dungeon_grunt": [
+		{"tint": Tint.ACCENT, "poly": [[-0.62, -0.5], [-0.94, -0.26], [-0.9, 0.36], [-0.6, 0.6], [-0.48, 0.2], [-0.5, -0.32]]},
+		{"tint": Tint.ACCENT, "poly": [[0.5, 0.3], [0.62, -0.4], [0.8, -0.36], [0.7, 0.34]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.86, 1.0], [-0.6, 0.44], [0.6, 0.44], [0.86, 1.0], [0.0, 0.9]]},
+		{"tint": Tint.TEAM, "poly": [[-0.72, 0.5], [-0.62, -0.22], [-0.3, -0.56], [0.3, -0.56], [0.62, -0.22], [0.72, 0.5]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.22, -0.56], [-0.26, -0.84], [0.26, -0.84], [0.22, -0.56]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.14, -0.78], [-0.04, -0.82], [-0.02, -0.7]]},
+		{"tint": Tint.ACCENT, "poly": [[0.04, -0.8], [0.14, -0.82], [0.14, -0.7]]},
+	],
+	# Archer: the leanest enemy outline, with a bow arc standing clear of the
+	# body so the silhouette says "range" before the health bar does.
+	&"dungeon_archer": [
+		{"tint": Tint.ACCENT, "poly": [[-0.5, -0.86], [-0.72, -0.4], [-0.72, 0.3], [-0.5, 0.74], [-0.58, 0.36], [-0.58, -0.42]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.54, -0.84], [0.24, -0.06], [0.2, 0.02], [-0.56, 0.72]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.62, 1.0], [-0.32, 0.4], [0.44, 0.4], [0.72, 1.0], [0.05, 0.88]]},
+		{"tint": Tint.TEAM, "poly": [[-0.3, 0.46], [-0.22, -0.3], [0.06, -0.62], [0.34, -0.3], [0.42, 0.46]]},
+		{"tint": Tint.TEAM, "poly": [[0.0, -0.62], [0.12, -0.9], [0.32, -0.78], [0.28, -0.56]]},
+		{"tint": Tint.ACCENT, "poly": [[0.3, -0.92], [0.5, -1.0], [0.42, -0.78]]},
+	],
+	# Cultist: a hood and a robe and no legs at all. Reads as a caster from the
+	# outline alone, and reads as nothing like the Priest, whose halo sits
+	# clear above the head while this one has a beak of a hood.
+	&"dungeon_cultist": [
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.76, 1.0], [-0.44, 0.3], [0.44, 0.3], [0.76, 1.0], [0.0, 0.92]]},
+		{"tint": Tint.TEAM, "poly": [[0.0, -0.92], [0.34, -0.42], [0.5, 0.5], [-0.5, 0.5], [-0.34, -0.42]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.0, -0.9], [0.26, -0.4], [0.0, -0.24], [-0.26, -0.4]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.06, -0.66], [0.1, -0.58], [-0.06, -0.5]]},
+		{"tint": Tint.ACCENT, "poly": [[0.32, -0.12], [0.62, 0.02], [0.54, 0.26], [0.28, 0.14]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.06], [-0.6, 0.08], [-0.52, 0.32], [-0.26, 0.2]]},
+	],
+
+	# --- unused so far: kept for later floors -------------------------------
 	# Rat: a low horizontal profile, nose down at the front, tail curling off
 	# the back. Nothing else here is this long and this flat.
 	&"rat": [
