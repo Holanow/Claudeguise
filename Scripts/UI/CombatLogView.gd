@@ -16,9 +16,10 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 ## number and the mitigation when there was any. A line reading "Warrior hits
 ## Rat for 7" is not enough to tell a tuning problem from a targeting problem.
 
-## Fixed height of the log panel, in pixels. BattleView._layout_arena's
-## bottom margin is sized to clear exactly this (see its own comment), so a
-## change here has to be matched there.
+## Fixed height of the log panel, in pixels — screen space, not world space,
+## so it does not scale with the arena. BattleView.compute_layout reserves
+## exactly this many screen pixels before fitting the arena into what's left
+## (issue 26), so a change here has to be matched there.
 const LOG_HEIGHT := 200.0
 const LOG_BOTTOM_OFFSET := -20.0
 
