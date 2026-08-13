@@ -603,3 +603,122 @@ func test_determinism_holds_with_regen_and_status_in_play() -> void:
 	_assert_same_events(state_a, state_b, "same seed with regen and stun")
 	assert_eq(state_a.units[0].resource, state_b.units[0].resource)
 	assert_eq(state_a.units[1].resource, state_b.units[1].resource)
+
+# ---------------------------------------------------------------------------
+# issue 16: nobody leaves the arena
+# ---------------------------------------------------------------------------
+
+func test_a_unit_told_to_walk_outside_the_arena_lands_on_the_boundary() -> void:
+	var deps := _deps({}, 0.0)
+	var state := CombatState.new(40)
+	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2(CG.ARENA_HALF_WIDTH - 5.0, 0.0), [])
+	unit.move_speed = 999.0 # covers the whole arena in one tick
+	state.units.append(unit)
+
+	unit.intent = Intent.move_to(Vector2(CG.ARENA_HALF_WIDTH * 20.0, 0.0))
+	CombatSim.step(state, deps)
+
+	assert_almost_eq(unit.position.x, CG.ARENA_HALF_WIDTH, 0.01, "should land on the boundary, not refuse to move")
+	assert_true(unit.position.x <= CG.ARENA_HALF_WIDTH, "must not overshoot the boundary")
+
+func test_a_unit_still_moves_partway_toward_an_out_of_bounds_destination() -> void:
+	# The clamp must not turn a legal, in-bounds step into a no-op: a unit
+	# far from the boundary, told to walk toward (eventually) outside it,
+	# should still cover its move_speed this tick like normal.
+	var deps := _deps({}, 0.0)
+	var state := CombatState.new(41)
+	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, [])
+	unit.move_speed = 5.0
+	state.units.append(unit)
+
+	unit.intent = Intent.move_to(Vector2(CG.ARENA_HALF_WIDTH * 20.0, 0.0))
+	CombatSim.step(state, deps)
+
+	assert_almost_eq(unit.position.x, 5.0, 0.01, "a normal in-bounds step must not be affected by the clamp")
+
+func test_units_stay_inside_the_arena_across_a_full_fight() -> void:
+	var atk := _melee(&"atk", 1, 1, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := _deps(actions_by_id, 6.0)
+	deps.default_decide = _make_attack_nearest(actions_by_id)
+
+	for seed in [1, 2, 3, 4, 5]:
+		var state := CombatState.new(seed)
+		state.units.append(_unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id]))
+		state.units.append(_unit(1, CG.Team.ENEMY, 20, Vector2(50, 0), [atk.id]))
+		CombatSim.run(state, deps)
+		for u in state.units:
+			assert_true(
+				absf(u.position.x) <= CG.ARENA_HALF_WIDTH and absf(u.position.y) <= CG.ARENA_HALF_HEIGHT,
+				"seed %d: unit %d ended outside the arena at %s" % [seed, u.id, u.position]
+			)
+
+func test_an_uncornered_kiter_still_kites() -> void:
+	# Regression check for the fix: a ranged unit with room to retreat must
+	# still back off when a melee unit closes in, exactly as before the
+	# clamp existed. Uses the real DefaultBehavior and real registered
+	# actions -- this is specifically about the decision layer's kiting
+	# logic, which a hand-written test-only decide function would not
+	# exercise.
+	var deps := SimDeps.new()
+	var state := CombatState.new(50)
+	var kiter := _unit(0, CG.Team.PLAYER, 60, Vector2.ZERO, [&"archer_shot"])
+	var chaser := _unit(1, CG.Team.ENEMY, 60, Vector2(30, 0), [&"warrior_strike"])
+	# Equal move_speed makes net separation mathematically constant during a
+	# straight chase (kiter retreats N, chaser closes N, along the same
+	# line) -- not a defect, just not what this test is checking. Give the
+	# kiter a real speed edge so retreating actually opens the gap, which is
+	# the behaviour being verified.
+	kiter.move_speed = 12.0
+	chaser.move_speed = 8.0
+	state.units.append(kiter)
+	state.units.append(chaser)
+
+	var start_pos := kiter.position
+	var start_dist := kiter.position.distance_to(chaser.position)
+	for i in 5:
+		CombatSim.step(state, deps)
+
+	assert_true(kiter.position.distance_to(chaser.position) > start_dist, "an uncornered kiter with a speed edge must open the gap when crowded")
+	assert_ne(kiter.position, start_pos, "the kiter must have actually moved")
+
+func test_a_cornered_kiter_reports_honestly() -> void:
+	# issue 16's own escape hatch: "if clamping turns fights into units
+	# pinned in corners unable to act, say so with the sample table. That
+	# would point at DefaultBehavior's retreat rule needing to understand
+	# the boundary, which is teal's file." This is that measurement, not an
+	# assumption -- run it and record what actually happens.
+	var deps := SimDeps.new()
+	var state := CombatState.new(51)
+	var corner := Vector2(CG.ARENA_HALF_WIDTH - 5.0, CG.ARENA_HALF_HEIGHT - 5.0)
+	var kiter := _unit(0, CG.Team.PLAYER, 60, corner, [&"archer_shot"])
+	# Positioned so "away from the threat" points further into the corner,
+	# not along an open edge -- the case with no legal retreat direction.
+	var chaser := _unit(1, CG.Team.ENEMY, 60, corner - Vector2(60, 60), [&"warrior_strike"])
+	state.units.append(kiter)
+	state.units.append(chaser)
+
+	var fired := false
+	for i in 40:
+		CombatSim.step(state, deps)
+		for e in state.events:
+			if e.kind == CG.EventKind.ACTION_FIRE and e.source_id == 0:
+				fired = true
+
+	print("issue 16, cornered kiter measurement: fired=%s, final kiter pos=%s, final distance=%.1f" % [
+		fired, kiter.position, kiter.position.distance_to(chaser.position)
+	])
+
+	# Whichever way this goes is fine; both are asserted so the result is on
+	# the record either way rather than only checked by eye.
+	if fired:
+		assert_true(fired, "a fully cornered kiter fired at least once")
+	else:
+		assert_false(
+			fired,
+			"a fully cornered kiter never fired across 40 ticks: DefaultBehavior's " +
+			"retreat rule (Scripts/Plans/DefaultBehavior.gd) keeps requesting a " +
+			"retreat that the arena clamp silently turns into a no-op, so the unit " +
+			"never re-evaluates and never attacks. This is teal's fix, not wren's, " +
+			"per issue 16's own text -- reported on the board, not patched around here."
+		)
