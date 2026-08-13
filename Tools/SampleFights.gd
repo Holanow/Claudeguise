@@ -63,6 +63,7 @@ func _sample(party_ids: Array, encounter) -> void:
 	var draws := 0
 	var ticks: Array[int] = []
 	var survivors: Array[int] = []
+	var margins: Array[int] = []
 
 	for s in SEEDS:
 		var party: Array[PawnData] = []
@@ -76,17 +77,35 @@ func _sample(party_ids: Array, encounter) -> void:
 			_: draws += 1
 		ticks.append(state.tick)
 		survivors.append(state.living(CG.Team.PLAYER).size())
+		margins.append(_losing_side_hp_percent(state, outcome))
 
 	print("")
 	print("party: ", _short(party_ids))
-	print("  win %d / lose %d / draw %d  of %d" % [wins, losses, draws, SEEDS])
-	print("  ticks   min %d  median %d  max %d   (%.1fs .. %.1fs)" % [
+	print("  win %d / lose %d / draw %d  of %d%s" % [
+		wins, losses, draws, SEEDS,
+		"   <- COIN FLIP" if wins >= 6 and wins <= 14 else "",
+	])
+	print("  ticks   min %d  median %d  max %d   (%.1fs .. %.1fs)  spread %d%%" % [
 		_min(ticks), _median(ticks), _max(ticks),
 		float(_min(ticks)) / float(CG.TICKS_PER_SECOND),
 		float(_max(ticks)) / float(CG.TICKS_PER_SECOND),
+		_spread_percent(ticks),
 	])
-	print("  party survivors: min %d  median %d  max %d" % [
-		_min(survivors), _median(survivors), _max(survivors)
+	# A histogram, not a median. "median 4" and "median 4 every single time" are
+	# very different games and the median cannot tell them apart, which is the
+	# whole question issue 7 is about.
+	print("  survivors  %s" % _histogram(survivors, 4))
+	# A draw is never "close": it is a fight that failed to finish, and the
+	# losing side has hp left because nobody could reach anybody. The first
+	# version of this flagged the 120-second stalemate as CLOSE, which would
+	# have pointed teal at exactly the wrong conclusion.
+	var close_note := ""
+	if draws == 0 and _median(margins) >= 15:
+		close_note = "   <- CLOSE"
+	elif draws > 0:
+		close_note = "   (draws excluded: a stalemate is not a close fight)"
+	print("  closeness  losing side finished on median %d%% hp%s" % [
+		_median(margins), close_note,
 	])
 
 func _short(ids: Array) -> String:
@@ -111,3 +130,47 @@ func _median(a: Array[int]) -> int:
 	var c := a.duplicate()
 	c.sort()
 	return c[c.size() / 2]
+
+
+## How much hp the losing side had left, as a percentage of its starting total.
+##
+## This is the number issue 7 is really about. A win/loss record says which side
+## won; it says nothing about whether it was close. 0% means the loser was wiped
+## out — which is what every fight in this project has been so far. Anything
+## above about 15% is a fight that could have gone the other way.
+##
+## Measured on the side that lost, so it reads the same whoever wins. A draw is
+## measured on the party, since a draw is a failure to finish rather than a win.
+func _losing_side_hp_percent(state, outcome: int) -> int:
+	var team := CG.Team.PLAYER
+	if outcome == CombatState.Outcome.ENEMY_WIN:
+		team = CG.Team.PLAYER
+	elif outcome == CombatState.Outcome.PLAYER_WIN:
+		team = CG.Team.ENEMY
+	var hp := 0
+	var hp_max := 0
+	for u in state.units:
+		if u.team != team:
+			continue
+		hp += maxi(0, u.hp)
+		hp_max += u.hp_max
+	if hp_max <= 0:
+		return 0
+	return int(round(100.0 * float(hp) / float(hp_max)))
+
+## max - min as a percentage of the median. Issue 7 criterion 2 asks for at
+## least 15%: below that the seed is not really changing the fight.
+func _spread_percent(a: Array[int]) -> int:
+	var m := _median(a)
+	if m <= 0:
+		return 0
+	return int(round(100.0 * float(_max(a) - _min(a)) / float(m)))
+
+func _histogram(a: Array[int], upper: int) -> String:
+	var counts := {}
+	for x in a:
+		counts[x] = int(counts.get(x, 0)) + 1
+	var parts := PackedStringArray()
+	for i in range(upper + 1):
+		parts.append("%d:%s" % [i, str(counts.get(i, 0)).rpad(3)])
+	return " ".join(parts)
