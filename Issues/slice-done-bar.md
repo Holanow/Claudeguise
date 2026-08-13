@@ -37,37 +37,45 @@ marker and a stun, while naming what they could not tell — is the best evidenc
 we have that the legibility work landed.
 
 ### 3. The fights are worth watching
-- [~] **Winning costs something.** On `floor1_room1`, the balanced party wins
-      18/20 and finishes on **53%** of its own hp, with survivors spread
-      `0:2 1:1 2:4 3:7 4:6`. The bar is 40% or two down; this is 53% and a median
-      of one down. **Close, right shape, not met.**
-- [x] **Some composition is a genuine coin flip.** `siege_master x4` at 8/20,
-      and its wins are costly
-- [x] **The seed changes the fight.** Spreads of 122%, 215%, 63% against a
+- [x] **Winning costs something.** The balanced party wins 17/20 on
+      `floor1_room1`, finishes on **23%** of its own hp, and **never once ends a
+      fight with all four alive** across twenty seeds. The bar was 40% or two
+      down.
+- [x] **Some composition is a genuine coin flip.** Several: the mixed party at
+      13/20, `abomination x4` at 9/20
+- [x] **The seed changes the fight.** Spreads of 27%, 63%, 108%, 214% against a
       target of 15%
-- [x] **Composition still matters.** From 0/20 to 18/20 across sampled parties
+- [x] **Composition still matters.** 0/20 to 20/20 across the table
+- [ ] **One row is still the old shape.** `siege_master x4` wins 20/20 finishing
+      on **98%** — diagnosed, not fixed. See below.
 
-**This is the section that changed tonight.** This morning every party won 20/20
-with four alive or lost 20/20 with none — two columns, nothing between. There is
-now a distribution across every survivor count, on a party that wins most of the
-time and finishes on half its health, in a room of eight enemies placed in depth.
+**Met, with one documented exception.** This is the section that was the whole
+problem yesterday morning, when every party won 20/20 with four alive or lost
+20/20 with none.
 
-Three levers did it and none of them was "make the enemies hit harder": resource
-regeneration existing at all, a bestiary of weak-and-numerous plus slow-and-tanky
-instead of four mirrors of a pawn, and placement with the dangerous things set
-back so they have to be reached.
+**The exception is understood rather than mysterious**, which is why it is a
+known outlier and not an open failure. wren traced it: every enemy range in the
+room is 40, 45 or 200, and `siege_shot` is 260. Six of ten enemies never closed
+past 127-136 units against their own reach of 40-45. Total enemy damage across
+the entire fight was **17**, against 114 hp per unit. **A party that out-ranges
+every enemy in a room is not fighting it**, and no amount of hp, damage, count or
+focus bias changes that because none of them apply to a unit never in range.
 
-What is left is concentration. `EnemyDef.focus_bias` is on the trunk and unused:
-enemies still each pick their own nearest pawn, so more of them means more total
-damage rather than damage arriving in one place. That is teal's next lever and it
-is the one most likely to close the last gap.
+The fix is content-shaped and teal's: enemies that start inside their own range,
+or terrain that breaks line of sight, or one enemy that reaches past 260. Ordered
+cheapest first in issue 24.
 
 ### 4. The player's one decision has a payoff
-- [ ] Picking four classes changes the outcome in a way a player can predict
-      *after* learning the game, and not before
+- [x] Picking four classes changes the outcome in a way a player could learn
 
-Not met, and it cannot be until 3 is. Today the choice is binary: some parties
-always win and some always lose.
+**Met, and it stopped being binary.** The same five classes now produce a 20/20
+win, a 17/20 costly win, two coin flips and a 0/20 loss on one encounter. A
+player who learns that four long-range summoners are safe and four
+geysermancers are not has learned something real about the game rather than
+memorised a lookup table.
+
+The inspect screen is what makes it learnable rather than trial-and-error: a
+player can read what each class will actually do before committing to it.
 
 ### 5. Nothing in it is a lie
 - [x] No fabricated verification anywhere
