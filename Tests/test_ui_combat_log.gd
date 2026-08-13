@@ -11,6 +11,30 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## that proves "a hit landed small because it was mitigated" is readable, not
 ## just "a number changed".
 
+## Issue 29: the log is a side column in landscape and a bottom strip in
+## portrait, matching whichever orientation BattleView.compute_layout fit
+## the arena against — the same rule (size.x >= size.y), so the reservation
+## and what's actually drawn never disagree.
+func test_landscape_docks_the_log_to_the_right_edge() -> void:
+	var view := CombatLogView.new()
+	view._ready()
+	view.set_landscape(true)
+	assert_eq(view._backdrop.anchor_left, 1.0)
+	assert_eq(view._backdrop.anchor_right, 1.0)
+	assert_eq(view._backdrop.anchor_top, 0.0)
+	assert_eq(view._backdrop.anchor_bottom, 1.0)
+	view.free()
+
+func test_portrait_docks_the_log_to_the_bottom_edge() -> void:
+	var view := CombatLogView.new()
+	view._ready()
+	view.set_landscape(false)
+	assert_eq(view._backdrop.anchor_top, 1.0)
+	assert_eq(view._backdrop.anchor_bottom, 1.0)
+	assert_eq(view._backdrop.anchor_left, 0.0)
+	assert_eq(view._backdrop.anchor_right, 1.0)
+	view.free()
+
 func _make_state() -> CombatState:
 	var state := CombatState.new(1)
 	var attacker := CombatUnit.new()

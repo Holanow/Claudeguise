@@ -39,18 +39,29 @@ func test_arena_never_exceeds_the_visible_area_at_portrait_phone_size() -> void:
 		"must stay fully visible — the alternative (crop to hit 50% height) hid the entire party, a worse failure")
 	assert_true(_arena_height(layout) <= 2770.0)
 
-## Issue 26, item 2: the arena's bottom edge must clear the log strip, not
-## just the viewport. Tools/preview/fight_05.png had three of seven units
-## drawn behind the log's own text before this — the world-space
-## _MARGIN_BOTTOM cleared a unit's own bars/label but not the fixed
-## screen-pixel log panel on top of it.
-func test_arena_bottom_edge_clears_the_combat_log_strip() -> void:
+## Issue 26 item 2 found this as a bottom-edge overlap (three of seven units
+## drawn behind the log's own text). Issue 29 moved the log from a
+## bottom-docked strip to a right-docked column, so the check moves with
+## it: the arena's *right* edge must clear the log strip now, not the
+## bottom.
+func test_arena_right_edge_clears_the_combat_log_strip() -> void:
 	var size := Vector2(1280.0, 720.0)
 	var layout := BattleView.compute_layout(size)
-	var arena_bottom: float = layout.position.y + CG.ARENA_HALF_HEIGHT * layout.scale.y
-	assert_true(arena_bottom <= size.y - CombatLogView.LOG_HEIGHT,
-		"arena bottom edge (%f) overlaps the log strip starting at %f" % [
-			arena_bottom, size.y - CombatLogView.LOG_HEIGHT])
+	var arena_right: float = layout.position.x + CG.ARENA_HALF_WIDTH * layout.scale.x
+	assert_true(arena_right <= size.x - CombatLogView.LOG_WIDTH,
+		"arena right edge (%f) overlaps the log strip starting at %f" % [
+			arena_right, size.x - CombatLogView.LOG_WIDTH])
+
+## Issue 29's own criterion 1: the arena must be measurably larger at
+## 1280x720 than the bottom-docked version was. Pinned against the actual
+## regression this replaced rather than an arbitrary number: the old
+## bottom-log layout left the arena at roughly a quarter of the screen
+## (rook's own measurement in the issue).
+func test_arena_is_measurably_larger_than_the_bottom_docked_log_left_it() -> void:
+	var size := Vector2(1280.0, 720.0)
+	var layout := BattleView.compute_layout(size)
+	var fraction := _arena_height(layout) / size.y
+	assert_true(fraction > 0.4, "arena should be well above the old ~quarter-screen fraction, got %f" % fraction)
 
 func test_portrait_height_fraction_is_a_known_geometric_limit_not_a_regression() -> void:
 	# Documents the actual number rather than letting a future change to the

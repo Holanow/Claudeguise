@@ -338,24 +338,32 @@ func _layout_arena() -> void:
 	var layout := compute_layout(size)
 	_arena.position = layout.position
 	_arena.scale = layout.scale
+	if _combat_log != null:
+		_combat_log.set_landscape(size.x >= size.y)
 
 ## Split out from _layout_arena so the fit math can be checked without a
 ## live viewport — Godot only gives get_viewport_rect() a real answer inside
 ## a tree, which is exactly what made the canvas_items/expand behaviour this
 ## depends on (see the const comments above) hard to pin down without
 ## launching real processes at real resolutions in the first place.
-## Issue 26, item 2: CombatLogView.LOG_HEIGHT is a fixed *screen-pixel* strip
-## docked to the bottom, not a world-space margin — it does not scale with
-## the arena the way _MARGIN_BOTTOM does. The fit used to be chosen against
-## the full viewport and the log then drawn on top of whatever the arena
-## left behind there, on the theory that _MARGIN_BOTTOM (issue 8, sized for
-## a unit's own bars/label stack) also cleared it. It does not: at ordinary
-## scale factors 70 world units becomes far fewer than LOG_HEIGHT's 200
-## screen pixels. Confirmed on Tools/preview/fight_05.png — three of seven
-## units drawn behind the log's own text. Reserving LOG_HEIGHT before the
-## fit, rather than folding it into a world-space constant, means the arena
-## is sized and centred against the space actually left over once the log
-## has its strip.
+## Issue 26, item 2 first put the log's reservation into this fit: it is a
+## fixed *screen-pixel* strip, not a world-space margin, and did not scale
+## with the arena the way _MARGIN_BOTTOM does, so a bottom-docked log at
+## ordinary scale factors used to draw over units _MARGIN_BOTTOM (issue 8)
+## never actually cleared. Issue 29 moves the strip from the bottom to the
+## side in landscape: rook's own measurement was that fixing the overlap by
+## eating vertical space cost the arena down to about a quarter of the
+## screen, and a 16:9 arena in a wider-than-16:9 window already leaves side
+## margins it can never use — reserving CombatLogView.LOG_WIDTH from the
+## width instead costs nothing the arena could have used anyway.
+##
+## Portrait keeps the original bottom reservation, on purpose: width is
+## portrait's scarce dimension, not height, so a side column costs far more
+## there than a thin bottom strip does. Applying the side reservation
+## unconditionally was tried and measured first — it dropped the pinned
+## portrait height fraction under its own regression floor, confirming the
+## two orientations need two different answers. CombatLogView.set_landscape
+## keeps what's actually drawn in sync with this same rule.
 static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN_SIDE
 	var fit_top := CG.ARENA_HALF_HEIGHT + _MARGIN_TOP
@@ -363,17 +371,21 @@ static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_width := fit_half_width * 2.0
 	var fit_height := fit_top + fit_bottom
 
-	# Floor of 1.0, not fit_height: fit_height is a world-space quantity
-	# (the divisor used to compute scale_factor below) and usable_height is
-	# screen pixels — comparing them was a real bug caught by the very
-	# regression test this fix adds, at plain 1280x720: fit_height (760)
-	# is unrelated in scale to a screen-pixel viewport and clamping against
-	# it silently discarded the log reservation. The floor only exists so a
-	# viewport shorter than the log strip itself does not divide by zero.
-	var usable_height: float = max(size.y - CombatLogView.LOG_HEIGHT, 1.0)
-	var scale_factor: float = min(size.x / fit_width, usable_height / fit_height)
+	# Floors of 1.0, not fit_width/fit_height: those are world-space
+	# quantities (the divisors used to compute scale_factor below) and
+	# usable_width/usable_height are screen pixels — comparing them was a
+	# real bug caught by this file's own regression test the first time
+	# this reservation was added, at plain 1280x720. The floor only exists
+	# so a viewport narrower/shorter than the log strip itself does not
+	# divide by zero.
+	var usable_size: Vector2
+	if size.x >= size.y:
+		usable_size = Vector2(max(size.x - CombatLogView.LOG_WIDTH, 1.0), size.y)
+	else:
+		usable_size = Vector2(size.x, max(size.y - CombatLogView.LOG_HEIGHT, 1.0))
+	var scale_factor: float = min(usable_size.x / fit_width, usable_size.y / fit_height)
 	var box := Vector2(fit_width, fit_height) * scale_factor
-	var offset := (Vector2(size.x, usable_height) - box) * 0.5
+	var offset := (usable_size - box) * 0.5
 	return {
 		"position": offset + Vector2(fit_half_width, fit_top) * scale_factor,
 		"scale": Vector2(scale_factor, scale_factor),
