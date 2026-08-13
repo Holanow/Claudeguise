@@ -50,10 +50,32 @@ from the event stream via `events_since`, using your own cursor. Watching
 felt bad" then cannot be traced to anything. Positions and bars may read
 `CombatUnit` directly; anything that *happened* comes from an event.
 
+**Real time, with a pause.** To the player the fight runs continuously at one
+speed, and they can stop it. There is no speed multiplier, no fast forward, no
+step button and no scrubbing. Those were considered and cut: a player reaching
+for 0.25x to understand what happened is telling you the fight is unreadable,
+and speeding it up hides the same problem. Pause is there for the moment
+something interesting happens, not as a reading aid.
+
+If you find yourself wanting a slow motion control to see whether your own
+screen is correct, use a test, not a feature.
+
 **Step whole ticks.** The view owns the clock and calls `CombatSim.step` an
-integer number of times per frame. Never scale a tick by `delta`, never
-interpolate anything back into the simulation. Interpolating a sprite's drawn
-position between two ticks is fine and encouraged; it must not feed back.
+integer number of times per frame. Accumulate elapsed wall-clock time and spend
+it in whole ticks; never scale a tick by `delta`, never interpolate anything back
+into the simulation. Interpolating a sprite's drawn position between two ticks is
+fine and encouraged; it must not feed back.
+
+Pause is simply not stepping. It must not touch `Engine.time_scale` or pause the
+scene tree, because the floating numbers and any tweening are wall-clock things
+that should keep finishing while the simulation is held.
+
+**The tick rate is not yours, but it is negotiable.** `CG.TICKS_PER_SECOND` is 30
+today and lives in a file I own. If the fights read badly at that rate, say so
+with what you observed and I will change it the same day — the user has already
+agreed a coarser tick is acceptable, down to something like ten ticks a second.
+Do not work around it by drawing at a different rate from the one you simulate
+at.
 
 **Show the wind-up.** `ActionDef.wind_up_ticks` exists so a fight can be read
 rather than merely watched. A screen that does not show an action coming makes
@@ -93,6 +115,17 @@ Two cases each, on purpose.
 6. **It launches.** `godot --path . ` from a clean checkout reaches party select
    with no error in the output, and reaches battle with no error. Both, because
    a screen that boots and then breaks on transition passes the first half.
+7. **Pause holds the fight and only the fight.** Paused, the tick count stops
+   advancing and no new events arrive; unpaused, it resumes from the same tick
+   rather than jumping forward by however long it was held. That second half is
+   the one that catches an accumulator that kept filling while paused, which
+   looks fine on a two second pause and skips half a fight on a long one.
+8. **The fight runs at real time.** Measure it: from `FIGHT_START` to
+   `FIGHT_END`, wall-clock seconds elapsed matches ticks divided by
+   `CG.TICKS_PER_SECOND`, within a small tolerance, on an unpaused run. Then
+   confirm it still holds on a machine-loaded run where frames are dropped — a
+   view that steps one tick per frame passes the first case on a fast machine
+   and silently runs the fight in slow motion on a slow one.
 
 ## Screenshots
 
