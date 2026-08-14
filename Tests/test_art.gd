@@ -222,3 +222,99 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 			)
 			checked += 1
 	assert_true(checked > 0, "no enemy spawns checked; this test would pass on an empty game")
+
+
+# ---------------------------------------------------------------------------
+# AttackFX: per-damage-type attack visuals (PLAYTEST-NOTES 4, "every class
+# needs an attack asset or animation"). Geometry-only, same reasoning as the
+# silhouette tests above -- draw_* calls need a live canvas and are not
+# where a shape or a number could be silently wrong.
+# ---------------------------------------------------------------------------
+
+const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
+
+const _ALL_DAMAGE_TYPES := [
+	CG.DamageType.PHYSICAL, CG.DamageType.FIRE, CG.DamageType.WATER,
+	CG.DamageType.AIR, CG.DamageType.EARTH, CG.DamageType.DIVINE,
+	CG.DamageType.PROFANE, CG.DamageType.RAW,
+]
+
+
+func test_every_damage_type_has_a_projectile_shape() -> void:
+	for dt in _ALL_DAMAGE_TYPES:
+		var points := AttackFX.projectile_points(dt, 1.0, Vector2.RIGHT)
+		assert_true(points.size() >= 3, "damage type %d has only %d points" % [dt, points.size()])
+
+
+func test_projectile_shapes_are_distinct_per_damage_type() -> void:
+	# Colour already carries most of the read at this size; shape is the
+	# secondary cue and has to actually differ, or it is not one.
+	var seen: Array = []
+	for dt in _ALL_DAMAGE_TYPES:
+		var points := AttackFX.projectile_points(dt, 1.0, Vector2.RIGHT)
+		for other in seen:
+			assert_ne(points, other, "damage type %d shares its shape with another type" % dt)
+		seen.append(points)
+
+
+func test_projectile_shapes_stay_inside_their_own_size() -> void:
+	var size := 24.0
+	for dt in _ALL_DAMAGE_TYPES:
+		for p in AttackFX.projectile_points(dt, size, Vector2.RIGHT):
+			assert_true(
+				absf(p.x) <= size + 0.01 and absf(p.y) <= size + 0.01,
+				"damage type %d has a point at %s, outside its own size of %f" % [dt, p, size]
+			)
+
+
+func test_projectile_shape_rotates_with_travel_direction() -> void:
+	# A shot travelling straight up must not look like one travelling right --
+	# the whole point of orienting by `forward` rather than always drawing the
+	# authored (+X) pose.
+	var right := AttackFX.projectile_points(CG.DamageType.PHYSICAL, 1.0, Vector2.RIGHT)
+	var up := AttackFX.projectile_points(CG.DamageType.PHYSICAL, 1.0, Vector2.UP)
+	assert_ne(right, up)
+	# The forward tip (authored at local [1,0]) should now point up (-Y in
+	# Godot's screen space), not sideways.
+	assert_true(up[0].y < -0.9, "forward tip did not rotate to face up: %s" % up[0])
+
+
+func test_projectile_shape_falls_back_for_an_unknown_damage_type() -> void:
+	# _PROJECTILE_SHAPES is a Dictionary keyed by every CG.DamageType value
+	# today; this asserts the .get() fallback actually fires rather than
+	# crashing if a ninth type is ever added and forgotten here.
+	var points := AttackFX.projectile_points(99, 1.0, Vector2.RIGHT)
+	assert_true(points.size() >= 3)
+
+
+func test_wind_up_sweep_angle_tracks_progress() -> void:
+	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 10), 0.0, 0.001)
+	assert_almost_eq(AttackFX.wind_up_sweep_angle(5, 10), PI, 0.001)
+	assert_almost_eq(AttackFX.wind_up_sweep_angle(10, 10), TAU, 0.001)
+
+
+func test_wind_up_sweep_angle_clamps_past_completion() -> void:
+	# A caller one tick late (the action landed on the tick it read) must not
+	# produce an angle past a full circle.
+	assert_almost_eq(AttackFX.wind_up_sweep_angle(15, 10), TAU, 0.001)
+
+
+func test_wind_up_sweep_angle_handles_zero_duration() -> void:
+	# wind_up_ticks == 0 is legal (ActionDef's own doc comment: rare, but not
+	# forbidden). A divide-by-zero here would be a crash on the first
+	# instant action anyone plays, not a cosmetic miss.
+	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 0), TAU, 0.001)
+
+
+func test_impact_flash_grows_and_fades_with_progress() -> void:
+	var base := 20.0
+	assert_true(AttackFX.impact_flash_radius(base, 1.0) > AttackFX.impact_flash_radius(base, 0.0))
+	assert_true(AttackFX.impact_flash_alpha(1.0) < AttackFX.impact_flash_alpha(0.0))
+	assert_almost_eq(AttackFX.impact_flash_alpha(1.0), 0.0, 0.001)
+
+
+func test_impact_flash_progress_is_clamped() -> void:
+	# A caller that keeps a flash alive one frame past its own lifetime must
+	# not get a negative alpha or a shrinking-past-zero radius.
+	assert_almost_eq(AttackFX.impact_flash_alpha(1.5), AttackFX.impact_flash_alpha(1.0), 0.001)
+	assert_almost_eq(AttackFX.impact_flash_radius(20.0, -0.5), AttackFX.impact_flash_radius(20.0, 0.0), 0.001)
