@@ -79,9 +79,20 @@ func test_every_class_has_an_action_it_can_always_afford() -> void:
 # A mechanism nothing invokes is dead code wearing a feature's clothes.
 # ---------------------------------------------------------------------------
 
-## Each of these fields gates a whole mechanism that somebody built, tested
-## and merged. The test is not that the field exists -- the parser proves
-## that. It is that some action a real fight can reach actually sets it.
+## Each of these fields gates a whole mechanism. The test is not that the
+## field exists -- the parser proves that. It is that some action a real
+## fight can reach actually sets it.
+##
+## The failure message says "nothing can reach it" rather than "built and
+## unreachable", because the first version assumed the mechanism existed and
+## one of them did not. `cleanses_harmful` was declared on ActionDef, given a
+## doc comment, set by no action *and read by nothing in CombatSim* -- a
+## field and a description with no mechanism under either. finch found that
+## by looking when the fix would have been to add an action, which would have
+## turned this assertion green while shipping an ability that does nothing.
+## That is precisely the failure this file exists to catch, so the assertion
+## should not have been phrased in a way that told the reader what they would
+## find.
 func test_every_action_mechanism_is_reachable_from_some_class_or_enemy() -> void:
 	var reachable := _reachable_action_ids()
 
@@ -99,7 +110,7 @@ func test_every_action_mechanism_is_reachable_from_some_class_or_enemy() -> void
 			if gated[field].call(Registry.get_action(action_id)):
 				users.append(action_id)
 		assert_true(users.size() > 0,
-			"ActionDef.%s is set by no action any class or enemy can use. The mechanism is built and unreachable." % field)
+			"ActionDef.%s is set by no action any class or enemy can use, so nothing in a real fight can reach it." % field)
 
 # ---------------------------------------------------------------------------
 # The screen is part of the real path. A thing that fights invisibly is not
