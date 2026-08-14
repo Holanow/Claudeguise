@@ -287,23 +287,11 @@ func test_projectile_shape_falls_back_for_an_unknown_damage_type() -> void:
 	assert_true(points.size() >= 3)
 
 
-func test_wind_up_sweep_angle_tracks_progress() -> void:
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 10), 0.0, 0.001)
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(5, 10), PI, 0.001)
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(10, 10), TAU, 0.001)
-
-
-func test_wind_up_sweep_angle_clamps_past_completion() -> void:
-	# A caller one tick late (the action landed on the tick it read) must not
-	# produce an angle past a full circle.
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(15, 10), TAU, 0.001)
-
-
-func test_wind_up_sweep_angle_handles_zero_duration() -> void:
-	# wind_up_ticks == 0 is legal (ActionDef's own doc comment: rare, but not
-	# forbidden). A divide-by-zero here would be a crash on the first
-	# instant action anyone plays, not a cosmetic miss.
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 0), TAU, 0.001)
+# The three `wind_up_sweep_angle` tests that stood here were deleted with the
+# ring itself in issue #85, deliberately not ported to the progress bar that
+# replaced it: the bar is `Scripts/UI`'s and already carries its own test that
+# it reads elapsed/total ratios rather than absolute ticks, which is the
+# property those three were really protecting.
 
 
 func test_impact_flash_grows_and_fades_with_progress() -> void:
@@ -460,6 +448,50 @@ func test_unknown_action_draws_a_placeholder_rather_than_nothing() -> void:
 	# icon. Never reached today and asserted anyway.
 	assert_false(ActionIcons.has_glyph(&"no_such_action"))
 	assert_true((ActionIcons.glyph_for(&"no_such_action") as Array).size() > 0)
+
+
+## The pairs of actions that are allowed to draw the same glyph, and why. Any
+## other pair is a collision and fails the test below.
+const _DELIBERATE_SHARED_GLYPHS := {
+	# `archer_shot` is retired from the bestiary -- `core_actions.gd` says so in
+	# its own description, and no enemy or class lists it. It survives only so an
+	# older fixture resolves, so it can never be drawn beside `goblin_arrow`, or
+	# at all.
+	"archer_shot|goblin_arrow": true,
+	# Spout and Blast are the same jet of water from the same unit, one free and
+	# one not. Same verb, same element, and telling them apart buys the player
+	# nothing they cannot get from the bar's length. Left shared on purpose.
+	"geyser_blast|geyser_spout": true,
+}
+
+
+func test_no_two_ability_icons_share_a_glyph_by_accident() -> void:
+	# The test the icon sheet was doing by eye. `siege_master_shot` and
+	# `siege_engine_bolt` both drew `_BOLT_HEAVY`, and a Siege Master builds the
+	# engine and then fights beside it -- so the same icon sat over two units at
+	# once, on two bars, which is the exact case rule 4 exists to prevent. It
+	# survived a correct-looking table and two rendered sheets. An accidental
+	# share is now a red test rather than something somebody has to spot.
+	var seen: Dictionary = {}
+	for id in ActionIcons.GLYPHS.keys():
+		var glyph: Array = ActionIcons.glyph_for(id)
+		for other in seen.keys():
+			if seen[other] != glyph:
+				continue
+			var pair := "%s|%s" % ([String(id), String(other)] if String(id) < String(other) else [String(other), String(id)])
+			assert_true(
+				_DELIBERATE_SHARED_GLYPHS.has(pair),
+				"%s and %s draw the same glyph. If that is deliberate, add '%s' to _DELIBERATE_SHARED_GLYPHS with the reason; otherwise give one of them its own shape." % [id, other, pair]
+			)
+		seen[id] = glyph
+	# The negative half: if the allowlist ever names a pair that no longer shares
+	# a glyph, the entry is stale and its reasoning is describing nothing.
+	for pair in _DELIBERATE_SHARED_GLYPHS.keys():
+		var ids: PackedStringArray = String(pair).split("|")
+		assert_eq(
+			ActionIcons.glyph_for(StringName(ids[0])), ActionIcons.glyph_for(StringName(ids[1])),
+			"_DELIBERATE_SHARED_GLYPHS still excuses '%s', but those two no longer share a glyph" % pair
+		)
 
 
 func test_glyph_geometry_stays_inside_its_own_rect() -> void:
