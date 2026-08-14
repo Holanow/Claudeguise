@@ -66,6 +66,15 @@ static func actions() -> Array[ActionDef]:
 		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 5 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
 		_action_heal(&"priest_heal", "Heal", "Restores health to an ally within 220 units.", CG.DamageType.DIVINE, 220.0, 8, 10, 1.4, 25),
+		# Issue 62: the Priest's no-cost basic attack. Same range and travel
+		# time as priest_smite so it needs no separate approach logic, weaker
+		# (power_scale 0.5 vs 0.9) so Smite still has a reason to be cast once
+		# Mana allows it. Without this the Priest had nothing to do the moment
+		# Mana ran low: priest_heal and priest_smite both cost resource, and
+		# DefaultBehavior's fallback (the first non-heal action in the class's
+		# own list, see starting_classes.gd) would keep ordering an unaffordable
+		# Smite forever rather than actually landing a hit.
+		_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), 65.0),
 		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), 65.0),
 
 		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
@@ -78,6 +87,15 @@ static func actions() -> Array[ActionDef]:
 		# something in the room's reach: a marked target is a target the
 		# room can still see, and an engine is a unit the room can attack.
 		#
+		# Issue 62: the Siege Master's no-cost basic attack. Both existing
+		# actions cost Mana (spotter_mark 15, build_siege_engine 20), so a
+		# Siege Master that entered a room low on Mana had nothing affordable
+		# to do -- the exact trap the issue names, measured at zero damage
+		# dealt across a whole fight for three of four Siege Masters before
+		# this. 200 range matches the room's own ranged band (geyser_blast,
+		# priest_smite, cultist_bolt) rather than reaching past it, same
+		# reasoning as spotter_mark's own range choice below.
+		_projectile(_action(&"siege_master_shot", "Shot", "A ranged shot dealing damage at up to 200 units. Costs nothing.", CG.DamageType.PHYSICAL, 200.0, 8, 10, 1.0, 0, 0, true), 65.0),
 		# spotter_mark: a light ranged hit that leaves MARKED for 5s
 		# (150 ticks -- long enough to matter across several of the
 		# Siege Master's own attacks and an ally's, not so long it never
@@ -108,14 +126,22 @@ static func actions() -> Array[ActionDef]:
 		# own comment) actually requires instead of just describing.
 		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 3 seconds building a Siege Engine with 140 health that then fights at range on its own. Costs 20 Mana.", 90, 20, 20, &"siege_engine"),
 
+		# Issue 62: abomination_claw, restored. The player's own direction --
+		# "Restore abomination_claw" -- reversing issue 52's retirement of it.
+		# Costs no Rage, same shape (and same numbers) as before issue 52
+		# removed it: a melee hit that also applies POISON, so a Rage-starved
+		# Abomination (hook and grapple both cost Rage, and Rage only fills
+		# from a landed hit) still has something to do and a way back into
+		# its own resource economy, the exact trap the issue names. Placed
+		# first in starting_classes.gd's own action list so DefaultBehavior's
+		# fallback picks this rather than an unaffordable hook, mirroring
+		# warrior_strike's own position for the same reason.
+		_action_status(&"abomination_claw", "Claw", "A melee strike that poisons the target for 9% of its max health per second, for 3 seconds. Costs nothing.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
 		# Issue 52: the Abomination's hook and grapple, per the player's own
 		# spec -- "a mid-range hook that drags enemies in" plus a follow-up
-		# so a hooked target cannot just walk back out. Replaces
-		# abomination_claw and abomination_immolate entirely rather than
-		# adding onto them: the class is being replaced, not extended, per
-		# the issue's own instruction. Neither retired action referenced by
-		# name anywhere else in the codebase (checked before deleting, same
-		# as issue 12's own dungeon_grunt precedent).
+		# so a hooked target cannot just walk back out. Both already deal
+		# damage on top of their control role (pull / slow), per the
+		# player's own issue-62 direction that they keep it.
 		#
 		# abomination_hook: 140 range sits deliberately between this
 		# bestiary's melee band (40-45) and its ranged band (200-270) --
