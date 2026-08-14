@@ -9,6 +9,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 
@@ -540,6 +541,7 @@ func consume_events() -> void:
 			_combat_log.append_event(state, e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
+			_spawn_impact_flash(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
 		elif e.kind == CG.EventKind.MISS:
@@ -582,6 +584,21 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.position = target.position + _floater_stagger_offset(target.position)
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
+
+## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
+## needs an attack asset ... so I know what's up" — melee had nothing but a
+## number appearing where DamageFloater already stood in for a hit landing.
+## Same event, same target position, same e.damage_type the floater above
+## already reads two lines up — no new lookup.
+func _spawn_impact_flash(e: CombatEvent) -> void:
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	var flash := Node2D.new()
+	flash.set_script(ImpactFlashScript)
+	_arena.add_child(flash)
+	flash.position = target.position
+	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
 
 ## A death lands as an event, not as a unit quietly disappearing: named text
 ## rising from where the unit fell, on screen noticeably longer than a damage
