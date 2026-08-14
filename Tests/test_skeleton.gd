@@ -19,7 +19,12 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 
 
 func test_tick_constants_agree() -> void:
-	assert_eq(CG.TICKS_PER_SECOND, 30)
+	# 30 -> 15: the player asked for fights to read at roughly half speed
+	# (PLAYTEST-NOTES-2.md note 1). One constant, not a hundred tick-count
+	# edits, per rook's own standing note in TEAM_LOG ("CG.TICKS_PER_SECOND
+	# is negotiable now, in one direction... down to roughly 0.1s per tick").
+	# 15 gives 0.0667s/tick, comfortably above that floor.
+	assert_eq(CG.TICKS_PER_SECOND, 15)
 	assert_almost_eq(CG.TICK_SECONDS * CG.TICKS_PER_SECOND, 1.0)
 	assert_true(CG.MAX_TICKS > CG.TICKS_PER_SECOND, "a fight must be able to last past one second")
 

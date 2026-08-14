@@ -28,7 +28,14 @@ func _spawn() -> Node2D:
 	return view
 
 func test_duration_reads_in_seconds_not_ticks() -> void:
-	assert_eq(BattleScene.instantiate()._format_duration(60), "2.0s")
+	# Derived from CG.TICKS_PER_SECOND rather than hardcoded. This test read
+	# "2.0s" for 60 ticks until the fight-speed change halved the tick rate,
+	# at which point 60 ticks genuinely became 4.0s and the test was simply
+	# wrong about the world. What it actually cares about is that the banner
+	# says seconds instead of ticks, which is a claim about the unit, not
+	# about any particular rate.
+	var two_seconds := CG.TICKS_PER_SECOND * 2
+	assert_eq(BattleScene.instantiate()._format_duration(two_seconds), "2.0s")
 
 func test_a_full_survival_reads_as_a_whole_party() -> void:
 	var view = _spawn()

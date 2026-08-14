@@ -34,7 +34,25 @@ extends RefCounted
 ## the same fight play out differently on a different frame rate, and "re-run
 ## the same fight" is an acceptance criterion for this slice.
 
-const TICKS_PER_SECOND := 30
+## 30 -> 15: PLAYTEST-NOTES-2.md note 1, "the fights are too fast to read,
+## everything should be maybe half as fast as it is." One constant rather
+## than a hundred tick-count edits, per this file's own standing note in
+## TEAM_LOG ("still my file and still a one-line change: tell me what you
+## observed and I make it"). Applied by finch directly rather than only
+## proposed -- the task explicitly delegated the decision and the number,
+## and this session has no live channel back for a round trip; full
+## reasoning and the re-measurement it required are in TEAM_LOG. Every
+## wind-up/recovery/cooldown/status-duration/projectile-speed number in
+## Scripts/Content is denominated in ticks and untouched by this -- doubling
+## real-world duration for the same tick counts is the whole point. Resource
+## regeneration (Balance.resource_regen_per_tick) is denominated in percent
+## per *second* and divides by this constant, so its real-time rate is
+## unchanged in expectation -- but per-tick amounts are stochastically
+## rounded to an integer, and halving the tick rate doubles each per-tick
+## fraction, which measurably shifts *which* tick an integer threshold is
+## crossed on. Checked, not assumed: FloorRuns.gd is not bit-identical
+## before/after, so this did require the re-tuning pass, not a free lunch.
+const TICKS_PER_SECOND := 15
 const TICK_SECONDS := 1.0 / float(TICKS_PER_SECOND)
 
 ## Arena is centred on (0, 0). World units, not pixels. The view scales.
@@ -43,7 +61,26 @@ const ARENA_HALF_HEIGHT := 270.0
 
 ## A fight that has not resolved by this tick is a draw. Stops a stalemate
 ## between two passive parties from hanging the runner.
-const MAX_TICKS := TICKS_PER_SECOND * 120
+##
+## A flat tick count on purpose, not `TICKS_PER_SECOND * <seconds>`. It was
+## the latter, and halving the tick rate therefore halved this too, 3600 ->
+## 1800, while every content tick value -- wind-ups, cooldowns, travel --
+## stayed exactly where it was. The budget is spent by content, so it has to
+## be denominated in the same unit the content is.
+##
+## The change is on principle, and the measurement that prompted it did not
+## support the reason I first gave for it. `Tools/TickBudget.gd` finds 3
+## fights in 700 hitting the ceiling on `floor1_chokepoint`; I assumed the
+## halved budget had truncated them, restored 3600, and found *the same 3*
+## still hitting it. They are genuine stalemates and would stall at any
+## budget. Tracked separately, and not fixed by this constant.
+##
+## What stands on its own is that a fight hitting the ceiling is invisible:
+## CombatSim resolves it to DRAW, the same value a mutual wipe gives, so
+## every run tool counts it as an ordinary loss and nothing anywhere says the
+## fight never finished. That is the failure mode this constant is most able
+## to hide, which is why the budget should not also move on its own.
+const MAX_TICKS := 3600
 
 ## The party deploys inside the left-hand fraction of the arena, so a fight
 ## always begins with ground between the two sides and somebody has to cross it.
