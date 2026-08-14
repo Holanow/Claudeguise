@@ -70,6 +70,9 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		## warrior_strike itself has never had a preset plan either,
 		## relying entirely on the DefaultBehavior fallback the same way
 		## it always has; losing Execute's preset does not touch that.
+		## (Issue 129: Strike is no longer in that list at all -- the
+		## Sword grants it -- and it still has no preset plan, which is
+		## why moving it costs this class no plan blocks.)
 		## `always` as the condition, not a self-missing-status check --
 		## warrior_taunt's own cooldown_ticks equals its duration_ticks,
 		## so `_can_afford` (cooldown gate) already makes this fall
@@ -131,8 +134,11 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				# turned out to be false in practice. The plan editor is still
 				# deferred, and `DefaultBehavior` never picks Execute anyway:
 				# with no ranged action anywhere in the Warrior's kit,
-				# `_choose_attack_action` falls to `_first_non_heal`, which
-				# returns warrior_strike every time. So Execute fired exactly
+				# `_choose_attack_action` returns the cheapest attack it has,
+				# which is warrior_strike (free) every time -- in issue 79 that
+				# was because Strike sat first in the class's own list, and
+				# since issue 129 it is because the Sword grants it and it
+				# still costs nothing. So Execute fired exactly
 				# zero times in 210 real fights (rook's
 				# Tests/test_integration_reach.gd, issue 79) and no test
 				# noticed for the whole of its existence.

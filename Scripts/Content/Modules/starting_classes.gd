@@ -11,6 +11,33 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 ## Abomination. Attribute spreads are original tuning, not a transcription of
 ## README.md: the table there ships with the attribute columns blank on
 ## purpose. See Registry.gd for the module contract. OWNER: teal.
+##
+## **Issue 129: no class carries a basic attack any more.** The player's own
+## instruction -- "a unit's basic attack should be determined by its main hand
+## weapon rather than its class". `warrior_strike`, `priest_bolt`,
+## `geyser_spout`, `siege_master_shot` and `abomination_claw` were each added
+## to give a class something free to fall back on (issues 62 and 79); each is
+## now granted by the weapon that class starts with, in `core_items.gd`. The
+## actions themselves are unchanged and still live in `core_actions.gd`.
+##
+## Two consequences worth knowing before editing this file.
+##
+## 1. **The old "put the free action first" rule is gone, and it had to go.**
+##    Every comment below used to explain that `DefaultBehavior` falls back to
+##    the *first* non-heal entry in this list, so a class's free attack had to
+##    sit at position zero. With the attack arriving from an item that rule
+##    could not survive: `Registry.actions_for_pawn` appends equipment grants
+##    after class actions, so first-in-list would have made a Warrior "attack"
+##    with Guard -- a zero-power self-buff -- and stand still once out of Rage.
+##    `DefaultBehavior` now picks the **cheapest action that can actually
+##    damage**, which is the weapon's free attack for every armed pawn and does
+##    not depend on where anything sits in a list. Order here is now
+##    presentation only.
+##
+## 2. **Nothing here needs a plan or a WIS raise.** A basic attack has never had
+##    a preset plan -- it has always arrived through the default behaviour -- so
+##    moving it onto a weapon costs no plan blocks and issue 122's budget
+##    problem is untouched by this change.
 
 static func classes() -> Array[ClassDef]:
 	return [
@@ -64,27 +91,19 @@ static func classes() -> Array[ClassDef]:
 			# means at once; the cost came down instead. See
 			# warrior_execute's own comment in core_actions.gd.
 			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 8},
-			# Issue 30: warrior_taunt appended at the end, not the front --
-			# DefaultBehavior._first_non_heal falls back to the FIRST
-			# non-heal action in this list whenever no plan fires (there is
-			# no plan for warrior_strike itself; it has always relied on
-			# that fallback). warrior_taunt and warrior_block (issue 52) are
-			# both self-targeted and would be a no-op as a fallback "attack
-			# an enemy" action, so warrior_strike must stay first regardless
-			# of where either plan sits in PresetPlans.
+			# Issue 99: warrior_block left this list for `plate_mail`, where
+			# README's own armor table always had it, and warrior_second_wind
+			# took its place.
 			#
-			# Issue 99: warrior_block leaves this list and warrior_second_wind
-			# takes its place. Block is not gone from the game -- it moves onto
-			# `plate_mail` as a granted action (issue 100), which is where
-			# README's own armor table always had it. The same first-entry rule
-			# still applies and for a stronger reason: second wind sets `heals`,
-			# so `_first_non_heal` skips it outright and `_first_heal` reaches it
-			# only for the caster itself.
+			# Issue 129: warrior_strike leaves too, onto the Sword. What is left
+			# is what the Warrior knows rather than what it is holding: a guard,
+			# a finisher, a shout and a second wind. Every one of them costs
+			# Rage or does no damage, so an *unarmed* Warrior has no free attack
+			# at all -- see PawnFactory, which is why a Warrior is never
+			# unarmed, and the file header for why that is the shipped answer.
 			#
-			# WIS stays at 8. The block plan is replaced rather than added to,
-			# so this class still runs four plans at two blocks each, exactly
-			# the WIS-8 budget the issue-79 note above bought.
-			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_second_wind"]
+			# WIS stays at 8: four plans at two blocks each, unchanged.
+			[&"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_second_wind"]
 		),
 		_class(
 			&"priest", "Priest",
@@ -99,20 +118,17 @@ static func classes() -> Array[ClassDef]:
 			# Warrior's own WIS 4->6 for a third plan (issue 52): WIS has no
 			# combat-stat side effect per README, it only governs plan length.
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 8},
-			# Issue 62: priest_bolt (no cost) placed before priest_smite --
-			# DefaultBehavior._first_non_heal falls back to the first
-			# non-heal action in this list whenever no plan fires, and
-			# priest_smite_nearest's own plan already falls through to
-			# here the moment Mana can't cover Smite. Same reasoning as
-			# warrior_strike staying first for the Warrior.
+			# Issue 129: priest_bolt leaves this list for the Staff. Smite is
+			# the Priest's own ranged spell and stays; the free bolt was only
+			# ever here because something had to be affordable when Mana ran
+			# out, and that job now belongs to whatever is in the pawn's hand.
 			#
-			# priest_haste and priest_ward, appended: both are ally-targeted
-			# buffs, never picked by DefaultBehavior's own fallback (Priest
-			# has zero melee actions, so `_choose_attack_action` always
-			# defers straight to `_first_non_heal`, which stops at
-			# `priest_bolt` regardless of where these two sit) -- they only
-			# ever fire through their own preset plans in PresetPlans.gd.
-			[&"priest_heal", &"priest_bolt", &"priest_smite", &"priest_haste", &"priest_ward"]
+			# priest_haste and priest_ward are ally-targeted buffs with no
+			# damage of their own, so `DefaultBehavior` cannot pick either as
+			# an attack -- structurally, not by ordering: an attack candidate
+			# must have `power_scale > 0.0`. They fire only through their own
+			# preset plans in PresetPlans.gd.
+			[&"priest_heal", &"priest_smite", &"priest_haste", &"priest_ward"]
 		),
 		_class(
 			&"geysermancer", "Geysermancer",
@@ -125,18 +141,13 @@ static func classes() -> Array[ClassDef]:
 			# reachable at all). Same pure-capacity reasoning as the
 			# Warrior's 6->8 above and the Priest's 5->8 before it.
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 6},
-			# Issue 79: geyser_spout (no cost) placed first --
-			# `DefaultBehavior._first_non_heal` falls back to the first
-			# non-heal action in this list whenever no plan fires, and every
-			# plan below falls through to here the moment Mana cannot cover
-			# it. Before this the fallback was geyser_blast, which costs 20
-			# Mana: a Geysermancer out of Mana had nothing affordable to
-			# fall back to at all. Same reasoning, and the same fix, as
-			# priest_bolt and siege_master_shot in issue 62.
+			# Issue 129: geyser_spout leaves this list for the Orb. It was
+			# added in issue 79 so a Geysermancer out of Mana had something
+			# affordable to fall back to; the Orb is what supplies that now.
 				# Issue 87: geyser_cleanse appended last. It is ally-targeted and
 				# `DefaultBehavior` must never reach for it -- and cannot,
 				# structurally rather than by ordering: `heals` is set, so
-				# `_first_non_heal`/`_choose_attack_action` skip it, and
+				# `_attack_candidates`/`_choose_attack_action` skip it, and
 				# `_first_heal` now requires `power_scale > 0.0`, which this
 				# action does not have. Its only path into a fight is
 				# `geyser_scour_afflicted` in PresetPlans.gd. Appended anyway
@@ -144,7 +155,7 @@ static func classes() -> Array[ClassDef]:
 				# what the class card shows a player and what
 				# `Tests/test_integration_reach.gd` walks; an action a class owns
 				# and does not list is invisible to both.
-				[&"geyser_spout", &"geyser_blast", &"geyser_scald", &"geyser_cleanse"]
+				[&"geyser_blast", &"geyser_scald", &"geyser_cleanse"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
 		## `Style.SUMMONER` was on the class card while it played as pure
@@ -174,15 +185,12 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.PHYSICAL, CG.DamageType.RAW],
 			CG.ResourceKind.MANA,
 			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
-			# Issue 62: siege_master_shot (no cost) placed first --
-			# DefaultBehavior._first_non_heal falls back to the first action
-			# in this list whenever no plan fires, and both spotter_mark_
-			# default and siege_master_build_when_ready already fall through
-			# to here the moment Mana can't cover them. Before this, the
-			# fallback was spotter_mark itself, which also costs Mana -- a
-			# Siege Master out of Mana had nothing affordable to fall back
-			# to at all.
-			[&"siege_master_shot", &"spotter_mark", &"build_siege_engine"]
+			# Issue 129: siege_master_shot leaves this list for the Bow. Note
+			# what is left: `spotter_mark` does deal damage (power_scale 1.0),
+			# so an unarmed Siege Master is not inert -- it marks, at 15 Mana a
+			# time, and its engines still fire. It is simply much worse, which
+			# is the point of holding a weapon.
+			[&"spotter_mark", &"build_siege_engine"]
 		),
 		## CON 8->10 (issue 24, history only, superseded below). AGI 2->8,
 		## CON 10->12, INT 7->12 (issue 37): the leave-one-out ablation showed
@@ -213,14 +221,12 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
 			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
-			# Issue 62: abomination_claw restored and placed first -- both
-			# hook and grapple cost Rage, and Rage only fills from a landed
-			# hit, so a Rage-starved Abomination needs a no-cost fallback the
-			# same way Warrior's strike is one. DefaultBehavior._first_non_
-			# heal falls back to whichever action sits first here whenever no
-			# plan fires; both preset plans below already fall through to
-			# here the moment Rage can't cover hook or grapple.
-			[&"abomination_claw", &"abomination_hook", &"abomination_grapple"]
+			# Issue 129: abomination_claw leaves this list for the Sickle. Rage
+			# only fills from a landed hit and both actions left here cost
+			# Rage, so this is the class the weapon matters most to: an unarmed
+			# Abomination lands nothing, therefore generates nothing, therefore
+			# lands nothing. It starts with a Sickle for exactly that reason.
+			[&"abomination_hook", &"abomination_grapple"]
 		),
 	]
 

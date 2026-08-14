@@ -62,11 +62,36 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## failure. `test_the_ally_cleanse_fixture_still_has_headroom` below asserts the
 ## margin itself, so the slide is what goes red, with instructions, rather than
 ## the cliff.
-const SEEDS := 12
-const ENCOUNTER := &"floor1_room1"
+##
+## **The detector did its job, and this is the second move. Issue 129 (the basic
+## attack comes from the weapon, and every starter pawn is armed) took
+## `floor1_room1` from 9 ally cleanses to 3** -- still above zero, so the
+## assertion it guards was still green and would have told nobody. The headroom
+## test is what went red, which is the whole reason it exists.
+##
+## Re-measured with `Tools/CleanseFixture.gd` on the issue-129 branch, `on_ally`:
+##
+##                        6 seeds  12 seeds  24 seeds
+##     floor1_chokepoint      0        2         4
+##     floor1_cover           4        6        10
+##     floor1_room1           2        3         7
+##     (the other four rooms field no poison source at all: 0 everywhere)
+##
+## **The geometry finding above still holds and the ranking has swapped anyway.**
+## Room1 still cleanses allies at the best *rate*, but an armed party kills the
+## cultist far sooner, so there is much less poison to strip: 65 poisonings over
+## 12 seeds where `floor1_cover` has 211. Supply, not reach, is now the binding
+## constraint in the room that used to be the roomy one.
+##
+## So `ENCOUNTER` is `floor1_cover` and `SEEDS` is 24, measuring **10** -- the
+## margin this fixture had when the detector was written, restored rather than
+## approximated. It costs twice the fights this file used to run, and that is the
+## price of a fixture that is not about to rot again.
+const SEEDS := 24
+const ENCOUNTER := &"floor1_cover"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
-## below the measured 9 so ordinary content tuning does not trip it, and well
+## below the measured 10 so ordinary content tuning does not trip it, and well
 ## above 0 so the slide is caught long before the assertion it protects.
 const MIN_ALLY_CLEANSES := 4
 

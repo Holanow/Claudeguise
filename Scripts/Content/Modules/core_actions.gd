@@ -229,10 +229,14 @@ static func actions() -> Array[ActionDef]:
 		# moment Mana allows it -- the same relationship priest_bolt (0.5)
 		# has to priest_smite (0.9). WATER rather than FIRE: that is this
 		# class's primary damage type per its own ClassDef, and Scald is
-		# already the fire one. Placed first in starting_classes.gd's own
-		# action list, since `DefaultBehavior._first_non_heal` falls back to
-		# whichever action sits first whenever no plan fires -- existence is
-		# not enough, order is what makes it the fallback.
+		# already the fire one.
+		#
+		# Issue 129: this action is granted by the Orb rather than owned by
+		# the class, and the paragraph that used to sit here explaining that
+		# it had to be *placed first* in `starting_actions` is gone with the
+		# rule it described. `DefaultBehavior` now falls back to the cheapest
+		# action that can damage, so what makes this the fallback is that it
+		# is free, not where it sits in a list.
 		_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED),
 		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED),
 		# Issue 79: numbers unchanged. This action also fired zero times in 210
