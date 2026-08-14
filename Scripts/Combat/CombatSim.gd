@@ -681,6 +681,55 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	if action.pull_distance > 0.0 and target.alive:
 		_apply_pull(state, unit, target, action.pull_distance)
 
+	if action.cleanses_harmful and target.alive:
+		_cleanse_harmful(state, unit, target, action)
+
+## Issue 87: strips every harmful status from `target`, one STATUS_EXPIRED per
+## status removed.
+##
+## `CG.is_harmful` is the only thing consulted for which statuses those are.
+## Not a second list here: the status badges (Scripts/Art/StatusIcons.gd) and
+## the combat log (Scripts/UI/CombatLogView.gd) already call the same function,
+## so what a cleanse strips and what the player sees disappear cannot disagree.
+## A status added to CG.Status without being classified there is treated as
+## harmless and survives a cleanse, which is the safe direction that function's
+## own doc comment argues for.
+##
+## Placed beside `_apply_pull` at the end of `_apply_action_effect`, and
+## guarded the same way, for the same two reasons: it runs after this action's
+## own damage and death resolution, so a cleanse never fires on a corpse, and
+## an action that sets neither field behaves exactly as it did before.
+##
+## Removal is straight erasure with no state to restore. Every harmful status
+## is a read-while-present flag -- SLOWED is a multiplier read in
+## `_effective_move_speed`, STUN a check in `_decide_phase`, MARKED a read in
+## Balance, BURN/POISON membership tests in `_tick_dot_statuses`. The one
+## status carrying a stored magnitude on the unit (TAUNTING, via taunt_radius)
+## is not harmful and so is never touched here.
+##
+## Keys are sorted before iterating, exactly as `_tick_statuses` does: a
+## Dictionary's key order is insertion order, so two fights from one seed
+## would otherwise emit the same removals in an order that depends on which
+## enemy afflicted the unit first. Nothing random is consulted at all.
+##
+## The event carries the caster and the action, where an expiry from
+## `_tick_statuses` carries source_id -1 and no action id. That is the only
+## signal separating "the Geysermancer scrubbed the poison off" from "the
+## poison ran out", and it is there for the log to use; CombatLogView does not
+## read it yet and rendering it is wren's call, not mine.
+static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
+	if target.statuses.is_empty():
+		return
+	var present: Array = target.statuses.keys()
+	present.sort()
+	for status in present:
+		if not CG.is_harmful(status):
+			continue
+		target.statuses.erase(status)
+		var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, caster.id, target.id, action.id)
+		e.status = status
+		state.emit(e)
+
 ## Issue 14: drags `target` toward `caster` by up to `distance`, world units.
 ## Guarded by the caller on `target.alive` -- checked *after* this same
 ## effect's own damage/death resolution above, so a pull on a killing blow
