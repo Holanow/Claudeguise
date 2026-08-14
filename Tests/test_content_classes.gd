@@ -62,13 +62,21 @@ func test_every_starting_action_resolves() -> void:
 ## shape as the Warrior's own third plan -- see starting_classes.gd's WIS
 ## 5->8 note.
 ##
+## Issue 79: Warrior ships four. warrior_execute had no preset plan at all
+## after issue 30 deleted `warrior_execute_when_raging`, and DefaultBehavior
+## never picks it (no ranged action in the kit, so `_choose_attack_action`
+## always falls back to warrior_strike) -- so the action fired zero times in
+## 210 real fights. A preset plan is once again the only path from the game to
+## it. Same WIS-budget-raise shape as the two entries above; see
+## starting_classes.gd's own WIS 6->8 note.
+##
 ## Every other class keeps the original two-plan invariant.
 const _EXPECTED_PLAN_COUNT := {
-	&"warrior": 3,
+	&"warrior": 4,
 	&"priest": 4,
 }
 
-func test_every_class_ships_two_preset_plans_within_its_wis_budget() -> void:
+func test_every_class_ships_its_expected_preset_plans_within_its_wis_budget() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		var plans := PresetPlans.for_class(id)
 		var expected: int = _EXPECTED_PLAN_COUNT.get(id, 2)
