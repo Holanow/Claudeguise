@@ -52,6 +52,31 @@ var resource_regen_per_tick: Callable = _default_resource_regen_per_tick
 ## a miss). Only consulted for a RAGE unit.
 var rage_gain_on_attack: Callable = _default_rage_gain_on_attack
 
+## Issue 132. How many times the ordinary regeneration rate a unit recovers on
+## a tick it spends idle -- neither moving nor acting. 1.0 means "no faster
+## than any other tick", which is exactly the behaviour every fight measured
+## before this existed.
+##
+## A multiplier on `resource_regen_per_tick` rather than a second rate, so a
+## class that regenerates quickly also waits productively, and content has one
+## number to reason about instead of two that can disagree about which pawn is
+## patient.
+##
+## Like `slowed_speed_scale` before it, this does NOT call Balance:
+## `Balance.idle_resource_regen_scale` does not exist, and a call to a Balance
+## method that is not there is a **parse-time** failure in every script that
+## transitively preloads this one, not a runtime failure where the feature is
+## used. That was measured on this file once already. The content half is one
+## line here the moment finch adds the function.
+##
+## The default is 1.0 rather than a placeholder number on purpose. This one is
+## not merely "unwired": at any value above 1.0 it consumes a random number per
+## idle tick through `_stochastic_round` and therefore moves every fight in the
+## game. 1.0 returns before that happens, so the mechanism lands provably
+## changing nothing, and the number that turns it on is a single deliberate
+## content decision rather than a side effect of merging this.
+var idle_resource_regen_scale: Callable = _default_idle_resource_regen_scale
+
 ## Damage-over-time per tick for a status a unit is carrying. `status` is
 ## always BURN or POISON in practice -- the seam takes any CG.Status rather
 ## than hardcoding those two, so a future DOT status needs no change here.
@@ -140,3 +165,10 @@ static func _default_haste_tick_scale(unit: CombatUnit) -> float:
 
 static func _default_slowed_speed_scale(_unit: CombatUnit) -> float:
 	return _DEFAULT_SLOWED_SPEED_SCALE
+
+## 1.0 is "idling recovers no faster than any other tick", which is what every
+## fight in this project has always done. See the field's own comment above for
+## why this default is not a placeholder in the way _DEFAULT_SLOWED_SPEED_SCALE
+## is one.
+static func _default_idle_resource_regen_scale(_unit: CombatUnit) -> float:
+	return 1.0

@@ -224,7 +224,60 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 			CG.IntentKind.USE_ACTION:
 				_resolve_use_action(state, unit, intent, deps)
 			_:
-				pass
+				_resolve_idle(state, unit, deps)
+
+## Issue 132: THE FIRST THING IN THIS SIMULATION THAT TRADES TIME FOR RESOURCE.
+##
+## A unit that spends its tick doing nothing recovers resource faster than one
+## that spends it moving or fighting. Everything else in this game gives
+## resource back on a clock (`_tick_regen`) or for landing a hit
+## (`_on_hit_landed`); nothing has ever made *standing still* a choice worth
+## making, so "wait for mana" has not been a thing a plan could express.
+##
+## Applied here, in the IDLE branch of `_resolve_phase`, rather than in
+## `_tick_phase` beside `_tick_regen`. That is deliberate and it is the reason
+## no `CombatUnit` field was needed: by the time `_tick_phase` runs, the intent
+## has already been consumed and cleared, so "did this unit idle" is a fact that
+## only exists at this exact point. Recording it on the unit to read one phase
+## later would be a second copy of something the intent already says.
+##
+## It stacks with `_tick_regen` rather than replacing it: an idling unit gets
+## the ordinary tick of regeneration in `_tick_phase` and this on top. So the
+## seam is a *multiplier on the ordinary rate*, and the number it means is
+## "how many times faster does waiting refill you".
+##
+## INERT BY DEFAULT AND PROVABLY SO. `SimDeps.idle_resource_regen_scale`
+## defaults to 1.0, which makes `extra` exactly 0.0, which returns before
+## `_stochastic_round` is reached and therefore **before `state.rng` is
+## touched**. That last part is what keeps every existing measurement valid:
+## consuming one more random number per idle tick would reshuffle the rng stream
+## and change every fight in the game, which is a far bigger change than the
+## feature. Checked by test, not reasoned about.
+##
+## RAGE is skipped, structurally, the same way `_tick_regen` skips it and for
+## the same reason: Rage is earned by landing hits. A berserker filling up by
+## standing still would undo the whole point of the resource, and enforcing that
+## here rather than trusting the rate function means a content mistake cannot
+## reintroduce it.
+##
+## NO EVENT IS EMITTED, deliberately. This fires on most ticks of most fights
+## for any waiting unit, which is exactly the volume argument that puts
+## RESOURCE_SPENT on the log's silent list. The resource bar already shows the
+## number moving. If it turns out a player cannot tell "my pawn is waiting on
+## purpose" from "my pawn is stuck", the fix is one event kind and I would
+## rather add it against a measured complaint than flood the log in advance.
+static func _resolve_idle(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
+	if unit.resource_kind == CG.ResourceKind.RAGE:
+		return
+	if unit.resource >= unit.resource_max:
+		return
+	var scale: float = deps.idle_resource_regen_scale.call(unit)
+	if scale <= 1.0:
+		return
+	var base: float = deps.resource_regen_per_tick.call(unit)
+	var gained := _stochastic_round(state, base * (scale - 1.0))
+	if gained > 0:
+		unit.resource = clampi(unit.resource + gained, 0, unit.resource_max)
 
 ## No pathfinding: a unit that cannot take its full step tries sliding along
 ## one axis at a time, and stays put only if neither axis is clear either.
