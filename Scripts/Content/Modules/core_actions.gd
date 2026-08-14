@@ -76,6 +76,28 @@ static func actions() -> Array[ActionDef]:
 		# Smite forever rather than actually landing a hit.
 		_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), 65.0),
 		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), 65.0),
+		# The Priest's two buff spells, per the player's own direction ("one
+		# for speed, one for resistance") -- both target an ally within 220
+		# units, the same range as Heal and Smite, so they need no separate
+		# approach logic. Built with `_action_ally_buff`, not `_action_status`
+		# -- `_action_status` hardcodes cooldown_ticks to 0, which is the
+		# exact bug `warrior_block` shipped with (see its own comment): an
+		# `always`-conditioned, affordable, zero-cooldown action wins every
+		# decide() tick forever, so a Priest with Mana to spare would recast
+		# a buff on cooldown-0 endlessly and never reach Smite or fall
+		# through to Bolt. cooldown_ticks matches duration_ticks instead,
+		# same shape `_action_self_buff` already uses for a self-targeted
+		# buff -- this is that same fix, generalised to an ally-targeted one.
+		#
+		# priest_haste: HASTE, Balance.HASTE_TICK_SCALE (0.7) already scales
+		# wind-up and recovery through the SimDeps seam -- this is the first
+		# thing in the game to grant it. 5s duration/cooldown, matching every
+		# other timed status in the bestiary (MARKED, SLOWED).
+		_action_ally_buff(&"priest_haste", "Haste", "Speeds up an ally's actions by 30% for 5 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.HASTE, 150),
+		# priest_ward: SHIELD, Balance.damage_reduction already reads it
+		# (STATUS_SHIELD_REDUCTION, 25%) -- content-inert until now, the same
+		# state SHIELDING was in before issue 52 gave it a real grantor.
+		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 5 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
 
 		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
 		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
@@ -318,6 +340,21 @@ static func _pull(a: ActionDef, distance: float) -> ActionDef:
 ## comment for the real fight this was found in.
 static func _action_self_buff(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, recover: int, status: CG.Status, duration_ticks: int) -> ActionDef:
 	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, recover, 0.0, 0, duration_ticks)
+	a.applies_status_enabled = true
+	a.applies_status = status
+	a.status_duration_ticks = duration_ticks
+	return a
+
+## Same reasoning as `_action_self_buff` (cooldown matches duration, not
+## `_action_status`'s hardcoded 0), for an ally-targeted buff instead of a
+## self-targeted one: range_units and resource_cost are real here, since an
+## ally buff has to reach its target and, unlike a shout or a taunt, is worth
+## gating behind Mana so it competes with the class's other spells for the
+## same pool. `requires_los` deliberately left at its default (false), same
+## exception `priest_heal` already carries: support reaching an ally, not a
+## shot at an enemy.
+static func _action_ally_buff(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, resource_cost: int, status: CG.Status, duration_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, range_units, wind_up, recover, 0.0, resource_cost, duration_ticks)
 	a.applies_status_enabled = true
 	a.applies_status = status
 	a.status_duration_ticks = duration_ticks

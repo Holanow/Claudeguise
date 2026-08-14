@@ -55,9 +55,17 @@ func test_every_starting_action_resolves() -> void:
 ## or warrior_taunt's already-tuned ones -- both stay, disclosed in
 ## starting_classes.gd's own WIS 4->6 note (the budget the third plan needed
 ## a raise for) and PresetPlans.gd's own comment on warrior_block_default.
+##
+## Priest ships four: the player's own "one for speed, one for resistance"
+## direction (priest_haste, priest_ward) added two plans on top of the
+## original heal/smite pair, same reasoning and the same WIS-budget-raise
+## shape as the Warrior's own third plan -- see starting_classes.gd's WIS
+## 5->8 note.
+##
 ## Every other class keeps the original two-plan invariant.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 3,
+	&"priest": 4,
 }
 
 func test_every_class_ships_two_preset_plans_within_its_wis_budget() -> void:
