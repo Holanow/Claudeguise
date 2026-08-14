@@ -9,6 +9,7 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
+const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")
 const GlossaryButtonScript := preload("res://Scripts/UI/GlossaryButton.gd")
 
 ## Pick up to four pawns and a seed, then start the fight.
@@ -40,6 +41,7 @@ var _start_run_button: Button = null
 var _seed_edit: LineEdit = null
 var _roster_box = null
 var _inspect_panel = null
+var _equip_panel = null
 
 func _ready() -> void:
 	_build_roster()
@@ -211,6 +213,17 @@ func _build_ui() -> void:
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	column.add_child(inspect_button)
 
+	# Issue 100: equipment before the fight, beside the plan editor rather than
+	# inside it. The two screens answer different questions about the same pawn
+	# -- what it can do, and what it will do -- and a granted skill is the seam:
+	# equip Plate Mail here and Directional Block is a block to plan with there.
+	var equip_button := Button.new()
+	equip_button.text = "Equip pawns"
+	equip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	equip_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	equip_button.pressed.connect(_on_equip_pressed)
+	column.add_child(equip_button)
+
 	# Issue 19: the room library the generator draws from was five
 	# hand-written GDScript rooms; this is where a player grows it. Reachable
 	# from here rather than only mid-run, since authoring has nothing to do
@@ -231,6 +244,14 @@ func _build_ui() -> void:
 	# automatically once the parent enters a real SceneTree.
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
+
+	# Added after the inspect panel so it draws above it if both are ever open.
+	# Same manual _ready() reasoning as every other panel built here.
+	_equip_panel = Control.new()
+	_equip_panel.set_script(EquipPanelScript)
+	add_child(_equip_panel)
+	if not _equip_panel.is_inside_tree():
+		_equip_panel._ready()
 
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like
@@ -306,6 +327,14 @@ func _on_start_run_pressed() -> void:
 func _on_inspect_pressed() -> void:
 	if _inspect_panel != null:
 		_inspect_panel.open(_available)
+
+## `_available`, the same instances `current_config()` puts into
+## `RunConfig.party` -- so equipping a pawn here equips the pawn that fights,
+## with no apply step. The plan editor is opened the same way and for the same
+## reason.
+func _on_equip_pressed() -> void:
+	if _equip_panel != null:
+		_equip_panel.open(_available)
 
 ## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
 ## first, not the encounter the game actually means. CG.DEFAULT_ENCOUNTER

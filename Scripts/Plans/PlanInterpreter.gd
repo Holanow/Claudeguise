@@ -50,6 +50,39 @@ const TARGETING_OPS := [
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
 
+## Issue 97. One op, not three.
+##
+## `keep_distance{range: float}` covers every case the issue lists, because all
+## of them are a distance the pawn wants to hold relative to its focus:
+##
+##   "keep 120 units away"  ->  keep_distance{range: 120}   (kite)
+##   "close to melee"       ->  keep_distance{range: 0}     (charge)
+##
+## The player's other suggestion -- *"move 25 units left and 25 units up"* --
+## is deliberately not built. An absolute vector does not know where the enemy
+## is, so the same block reads as a retreat or as a charge depending on which
+## side the enemy happens to be standing, and the arena has no fixed facing to
+## reason from. A distance from the target works from every side.
+##
+## "Hold position" is genuinely not a distance and is genuinely not here.
+## Nothing needs it yet; it is a second op when something does.
+const MOVEMENT_OPS := [&"keep_distance"]
+
+## How close to the requested distance counts as arrived, in world units.
+##
+## **This is hysteresis and it is load-bearing, not a tolerance.** Without a
+## band, a pawn that overshoots by a single tick's movement is now on the wrong
+## side of the threshold and turns around, forever -- which is not a
+## hypothetical. Measured on issue 94: a pawn resting where two rules disagreed
+## alternated between them on a **two-tick cycle** for 2400 ticks and never
+## fired a shot, positions exactly period-2 at ticks 2000/2001/2002.
+##
+## 15 units, against a fastest pawn move of 6.25 units per tick (the
+## Abomination; the other four are 4.70 to 5.45, from `Balance.move_speed` on
+## real starter pawns). So the band is wider than two ticks of travel for every
+## pawn in the game, and a unit that steps into it stays in it.
+const KEEP_DISTANCE_BAND := 15.0
+
 ## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
 ## each CONDITION op reads. `_eval_condition` above is the source of truth for
 ## which key an op reads out of `block.args` and what it does with it; this is
@@ -99,6 +132,7 @@ static func condition_holds(state: CombatState, unit: CombatUnit, plan: Plan) ->
 
 static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
 	var action_id: StringName = &""
+	var movement: PlanBlock = null
 	for block in plan.blocks:
 		match block.kind:
 			PlanBlock.Kind.TARGETING:
@@ -118,6 +152,13 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 				if not CONDITION_OPS.has(block.op):
 					_fail(plan, block)
 					return null
+			PlanBlock.Kind.MOVEMENT:
+				if not MOVEMENT_OPS.has(block.op):
+					_fail(plan, block)
+					return null
+				movement = block
+	if movement != null:
+		return _run_movement(state, unit, plan, movement, action_id)
 	if action_id == &"" or unit.focus_id == -1:
 		return null
 	if not _unit_has_action(unit, action_id):
@@ -133,6 +174,69 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 	if not _target_is_marked(state, unit, action_id):
 		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Issue 97: **the first time the plan layer decides where a pawn stands.**
+##
+## Everything above this function either fires an action or returns null, and
+## null means `DefaultBehavior` decides — including all movement. This file's
+## own comment on `_target_in_range` said so plainly: *"PlanInterpreter has
+## never handled movement, that is DefaultBehavior's whole job."* So where a
+## pawn stood was never visible in a plan, which is issue 98's principle, and
+## kiting was its loudest symptom: a pawn backing out of a fight the player told
+## it to join, with nowhere to go and change it.
+##
+## **A plan carrying a MOVEMENT block never falls through to
+## `DefaultBehavior`.** That is the whole point rather than a detail. A block
+## whose effect can be silently overruled by hidden code is not control, and
+## building it any other way would recreate issue 98 inside the fix for it.
+##
+## The one exception, and it is not a fall-through in spirit: **no focus at
+## all.** "Keep 120 units away" is relative to something, and with no target
+## there is nothing to be 120 units from. That happens only when the plan's
+## targeting found no enemy, which means the fight is over, so this returns null
+## and lets the ordinary path handle it rather than freezing the pawn at a
+## distance from nobody.
+static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock, action_id: StringName) -> Intent:
+	var target := state.unit(unit.focus_id)
+	if target == null or not target.alive:
+		return null
+
+	var wanted := float(block.args.get("range", 0.0))
+	var dist := unit.position.distance_to(target.position)
+	var away := unit.position - target.position
+	if away.length() < 0.0001:
+		# Standing exactly on the target. Any direction is "away"; pick one
+		# deterministically rather than reaching for the rng, because a fight
+		# must replay bit for bit from its seed.
+		away = Vector2(1.0, 0.0)
+
+	if dist < wanted - KEEP_DISTANCE_BAND:
+		return Intent.move_to(unit.position + away.normalized() * (wanted - dist), plan.id)
+	if dist > wanted + KEEP_DISTANCE_BAND:
+		return Intent.move_to(target.position + away.normalized() * wanted, plan.id)
+
+	# Standing where the player asked. Fire if there is an action and it can
+	# fire; otherwise hold, which is the instruction being obeyed rather than a
+	# pawn doing nothing for no reason. `plan.id` rides on the idle so the
+	# combat log names the plan that decided it -- issue 98 is about the player
+	# being able to see why, and an unattributed idle is the thing it objects
+	# to.
+	if action_id == &"" or not _action_can_fire(state, unit, action_id):
+		return Intent.idle(plan.id)
+	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Every gate `_run_blocks` applies to an action, asked as one question.
+##
+## Extracted rather than duplicated: a movement block has to know whether the
+## action would fire in order to decide between firing and holding, and two
+## copies of a seven-clause list is how the two paths drift apart.
+static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	return _unit_has_action(unit, action_id) \
+		and _target_in_range(state, unit, action_id) \
+		and _target_in_los(state, unit, action_id) \
+		and _can_afford(state, unit, action_id) \
+		and _summon_slot_free(state, unit, action_id) \
+		and _target_is_marked(state, unit, action_id)
 
 ## Issue 100: a plan may only fire an action the unit actually has.
 ##
