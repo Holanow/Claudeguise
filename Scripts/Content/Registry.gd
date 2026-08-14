@@ -126,6 +126,19 @@ static func all_enemy_ids() -> Array[StringName]:
 	ids.sort()
 	return ids
 
+## Issue 93: the fifth sibling. Added because two of that issues assertions are
+## about what every action in the game does NOT do -- no other action carries a
+## summon cap, no other action is marked-only -- and a negative like that cannot
+## be checked by naming actions by hand, which is how it would go stale the day
+## someone adds one.
+static func all_action_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	for k in _actions.keys():
+		ids.append(k)
+	ids.sort()
+	return ids
+
 static func all_equipment_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []

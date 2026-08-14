@@ -59,6 +59,29 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if candidates.is_empty():
 		return Intent.idle()
 
+	# Issue 93: an action that may only be aimed at a MARKED enemy narrows the
+	# candidate list before anything else looks at it, and a unit whose only
+	# attacks are marked-only holds fire when nothing is marked.
+	#
+	# This, not the range change, is what the Siege Engine rebuild rests on. An
+	# engine is a summon, so it has no plan at all and every decision it makes
+	# arrives here. Filtering the candidates rather than vetoing after
+	# `_choose_target` matters: the nearest enemy is usually not the marked one,
+	# so a veto would make an engine idle beside a target it is allowed to shoot.
+	#
+	# Deliberately generic. It reads `ActionDef.requires_marked_target` and
+	# nothing class-specific, the same way this file already infers "ranged" from
+	# an action's own range rather than from a ClassDef -- a second unit with a
+	# spotter is picked up for free. Every unit whose actions all leave the flag
+	# false sees no change at all, which is every unit but one.
+	if _all_attacks_require_a_mark(candidates):
+		enemies = _only_marked(enemies)
+		if enemies.is_empty():
+			# Hold fire. Not `move_to`: the engine cannot move (move_speed 0.0)
+			# and, more to the point, an artillery piece with no designated
+			# target should sit silent rather than wander toward one.
+			return Intent.idle()
+
 	var heal_action := _first_heal(candidates)
 	if heal_action != null:
 		var neediest := _lowest_hp_fraction(state.living(unit.team))
@@ -89,6 +112,35 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		return Intent.idle()
 
 	var dist := unit.position.distance_to(target.position)
+
+	# Issue 93: a unit that cannot move does not kite and does not approach. It
+	# fires if the target is in range and waits if it is not.
+	#
+	# **This is not a tidy-up, it is the bug that would have made the whole
+	# artillery rebuild do nothing, and it was found by reasoning about the two
+	# numbers together rather than by running it.** Both movement branches below
+	# are fractions of the action's own range: a ranged unit retreats inside
+	# `KITE_RANGE_FRACTION` (0.6) and approaches beyond `RANGED_COMMIT_FRACTION`
+	# (0.85). Giving the Siege Engine ARENA_SPAN range makes those 720 and 1020
+	# units, and the arena's own diagonal is 1101 -- so essentially every target
+	# in the game sits inside the kite band, and an engine would have answered
+	# every one of them with `move_to(_retreat_point(...))`. It has move_speed
+	# 0.0, so that resolves to standing still, forever, without ever firing.
+	# Unlimited range would have turned "never fires because it is out of range"
+	# into "never fires because it thinks it is too close".
+	#
+	# Written against `move_speed` rather than against the Siege Engine, because
+	# the defect is general: kiting and approaching are both statements about
+	# where a unit intends to stand, and neither means anything to a unit that
+	# cannot stand anywhere else. Nothing else in the game has move_speed 0.0,
+	# so no existing behaviour changes.
+	if unit.move_speed <= 0.0:
+		if dist > attack_action.range_units:
+			return Intent.idle()
+		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+			return Intent.idle()
+		return Intent.use_action(attack_action.id, target.id)
+
 	var is_ranged := attack_action.range_units > MELEE_RANGE_THRESHOLD
 
 	if is_ranged:
@@ -131,6 +183,32 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	return Intent.use_action(attack_action.id, target.id)
 
 # ---------------------------------------------------------------------------
+
+## Issue 93: true only when the unit has at least one attack and *every* one of
+## them requires a marked target. "Every", not "any", on purpose -- a unit that
+## also carries an ordinary weapon should use that weapon on unmarked enemies
+## rather than standing idle, and only a unit whose whole arsenal is
+## marked-only has a reason to hold fire. The Siege Engine is the one unit in
+## the game with a single action, and that action is marked-only.
+##
+## Heals are excluded because `_first_heal` handles them on its own path above
+## and an ally is never a marked-target candidate.
+static func _all_attacks_require_a_mark(actions: Array[ActionDef]) -> bool:
+	var found := false
+	for a in actions:
+		if a.heals:
+			continue
+		if not a.requires_marked_target:
+			return false
+		found = true
+	return found
+
+static func _only_marked(enemies: Array[CombatUnit]) -> Array[CombatUnit]:
+	var out: Array[CombatUnit] = []
+	for e in enemies:
+		if e.has_status(CG.Status.MARKED):
+			out.append(e)
+	return out
 
 static func _usable_actions(unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
