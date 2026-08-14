@@ -3,7 +3,7 @@ extends RefCounted
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
-## Two preset plans per class, shipped on the pawn per issue 2. No editor, no
+## Preset plans, shipped on the pawn per issue 2. No editor, no
 ## UI: issue 3 displays these read-only. Each is deliberately a specialty
 ## override rather than an always-fire attack, so DefaultBehavior is what most
 ## of a fight actually looks like, per README.md's "a player should not have
@@ -117,6 +117,38 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"warrior_block_default", "Directional Block",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
+				# Issue 79: fourth plan, and the restoration of the one issue
+				# 30 deleted. Its own note above says Execute "is not gone from
+				# the class" because it stays in starting_actions and a player
+				# could wire it through the plan editor -- both halves of that
+				# turned out to be false in practice. The plan editor is still
+				# deferred, and `DefaultBehavior` never picks Execute anyway:
+				# with no ranged action anywhere in the Warrior's kit,
+				# `_choose_attack_action` falls to `_first_non_heal`, which
+				# returns warrior_strike every time. So Execute fired exactly
+				# zero times in 210 real fights (rook's
+				# Tests/test_integration_reach.gd, issue 79) and no test
+				# noticed for the whole of its existence.
+				#
+				# `self_resource_at_least: 40` is the whole Rage pool
+				# (`Balance.max_resource` gives this class exactly 40), so
+				# Execute fires only from a full bar and leaves exactly 20
+				# behind -- one warrior_guard, which is what this class most
+				# needs its Rage for. That is a tidier economy and, measured,
+				# not a fix for the Warden regression this plan causes -- see
+				# warrior_execute's own comment in core_actions.gd for the
+				# probe that killed that hypothesis.
+				#
+				# Last rather than first, so it never starves guard, taunt or
+				# block, all three of which are free or cheap.
+				# `target_nearest_enemy` and not the lowest-hp enemy: this is a
+				# melee action at 40 range, and the weakest enemy in the room is
+				# usually not the one the Warrior is standing next to, so
+				# targeting it would fail `_target_in_range` and fall through
+				# every time.
+				_plan(&"warrior_execute_finisher", "Execute",
+					_condition(&"self_resource_at_least", {"amount": 40}),
+					[_targeting(&"target_nearest_enemy"), _action_block(&"warrior_execute")]),
 			]
 		# The player's own "one for speed, one for resistance" direction.
 		# Both use `target_lowest_hp_fraction_ally` -- the same targeting op
@@ -151,13 +183,45 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_in_range", {"range": 220.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),
 			]
+		# Issue 79: geyser_scald fired zero times in 210 real fights, and the
+		# action was never the problem -- its plan was strictly dominated by
+		# the one above it, in a way no amount of tuning could have reached.
+		#
+		# The old pair: Blast first on `enemy_in_range: 200`, costing 20 Mana;
+		# Scald second on `self_resource_at_least: 40`, costing 15. Every Mana
+		# level at which Scald was affordable was one at which Blast was
+		# affordable too, and Blast's condition is checked first, so the only
+		# case that could ever reach Scald was "no enemy within 200" -- and both
+		# actions have the same 200 range, so
+		# `PlanInterpreter._target_in_range` declined it there as well. The
+		# window was not small, it was empty: a throwaway probe (not committed)
+		# stepping three real encounters tick by tick counted 0 ticks out of
+		# 1043 in which Scald could fire at all.
+		#
+		# Rebuilt as a descending Mana ladder rather than by nudging the
+		# threshold, so each of this class's three actions owns a window
+		# nothing above it can take:
+		#
+		#   >= 60      Geyser Blast, the splash, 20 Mana
+		#   15 .. 59   Scald, the focused burst, 15 Mana
+		#   < 15       Spout, the free basic attack, via DefaultBehavior
+		#
+		# That also matches what the two spells are for: the expensive splash is
+		# what a full pool buys, and as it drains the class falls back to
+		# hitting one target properly, then to something free rather than to
+		# standing still. Blast's own `enemy_in_range` condition is gone rather
+		# than moved -- `_target_in_range` already checks the resolved target
+		# against the action's own 200 range (this file's own header), so that
+		# clause was doing nothing the structural check was not already doing,
+		# and keeping it would only have hidden the resource gate behind a
+		# second condition.
 		&"geysermancer":
 			return [
 				_plan(&"geyser_blast_cluster", "Blast a cluster",
-					_condition(&"enemy_in_range", {"range": 200.0}),
+					_condition(&"self_resource_at_least", {"amount": 60}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
-					_condition(&"self_resource_at_least", {"amount": 40}),
+					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
 			]
 		## Issue 12: rebuilt for spotter/engineer. Build first: Mana starts

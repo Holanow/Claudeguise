@@ -4,6 +4,9 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const UnitView := preload("res://Scripts/UI/UnitView.gd")
+const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
+const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
 ## this; only "things that happened" must come from events). These tests check
@@ -72,10 +75,14 @@ func test_status_tags_are_empty_for_an_unaffected_unit() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	assert_true(UnitView.status_tags(u).is_empty())
 
-func test_status_tags_names_a_stun() -> void:
+## Was test_status_tags_names_a_stun. STUN is a CG.Status and now draws as a
+## badge, so the assertion moved rather than being deleted: the fact still has
+## to hold, it is just carried by a different channel.
+func test_a_stun_shows_as_a_badge_and_not_as_text_as_well() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	u.statuses[CG.Status.STUN] = 100
-	assert_eq(UnitView.status_tags(u), ["STUN"])
+	assert_eq(UnitView.status_badges(u), [CG.Status.STUN])
+	assert_true(UnitView.status_tags(u).is_empty(), "a status must not be drawn twice")
 
 func test_status_tags_names_being_out_of_resource() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
@@ -90,12 +97,161 @@ func test_status_tags_does_not_flag_a_unit_with_no_resource_pool() -> void:
 	u.resource = 0
 	assert_true(UnitView.status_tags(u).is_empty())
 
-func test_status_tags_combines_stun_and_oom() -> void:
+func test_a_stunned_and_out_of_resource_unit_shows_both_in_their_own_channel() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	u.statuses[CG.Status.STUN] = 100
 	u.resource_max = 10
 	u.resource = 0
-	assert_eq(UnitView.status_tags(u), ["STUN", "OOM"])
+	assert_eq(UnitView.status_badges(u), [CG.Status.STUN])
+	assert_eq(UnitView.status_tags(u), ["OOM"])
+
+# ---------------------------------------------------------------------------
+# Status badges (PLAYTEST-NOTES-2 item 2, drawn with sable's StatusIcons)
+# ---------------------------------------------------------------------------
+
+func test_an_unaffected_unit_gets_no_badges() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	assert_true(UnitView.status_badges(u).is_empty())
+
+## The negative half: a unit with a resource problem but no status must not
+## grow a badge row. A badge that appears when nothing is wrong teaches a
+## player to stop looking at badges.
+func test_being_out_of_resource_is_not_a_badge() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.resource_max = 10
+	u.resource = 0
+	assert_true(UnitView.status_badges(u).is_empty())
+
+## Harmful first, and each group in CG.Status declaration order -- never the
+## Dictionary's own insertion order, which is the order they happened to land
+## during a fight. Applied here by giving a unit a beneficial status *first*:
+## insertion order would put SHIELD in front, declaration order would too
+## (SHIELD is value 0), and only the harmful-first rule puts POISON there.
+func test_harmful_badges_come_before_beneficial_ones_whatever_order_they_landed() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.statuses[CG.Status.SHIELD] = 100
+	u.statuses[CG.Status.POISON] = 100
+	assert_eq(UnitView.status_badges(u), [CG.Status.POISON, CG.Status.SHIELD])
+
+func test_badge_order_does_not_depend_on_which_status_landed_first() -> void:
+	var a := _make_unit(0, Vector2.ZERO)
+	a.statuses[CG.Status.BURN] = 100
+	a.statuses[CG.Status.BLEED] = 100
+	var b := _make_unit(1, Vector2.ZERO)
+	b.statuses[CG.Status.BLEED] = 100
+	b.statuses[CG.Status.BURN] = 100
+	assert_eq(UnitView.status_badges(a), UnitView.status_badges(b))
+
+func test_a_badge_row_is_capped_so_it_never_grows_wider_than_the_unit() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	for s in CG.Status.values():
+		u.statuses[s] = 100
+	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES)
+	for s in UnitView.status_badges(u):
+		assert_true(CG.is_harmful(s), "the capped row must keep what is being done to the unit")
+
+## Every badge this view can ask for has to have a glyph on the other side of
+## the boundary. A status added to CG.Status with no entry in StatusIcons
+## would otherwise crash at the exact moment it first lands in a fight, which
+## is the least reproducible place for it to fail.
+func test_every_status_this_view_can_draw_has_a_glyph() -> void:
+	for s in CG.Status.values():
+		assert_true(StatusIcons.GLYPHS.has(s), "no glyph for %s" % CG.Status.keys()[s])
+
+## The badge row is drawn below the body. Above is where the resource bar, hp
+## bar, name label and crowding stagger all live, and issue #82 is about that
+## band already being over-full.
+func test_the_badge_row_sits_below_the_body() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.radius = 22.0
+	var radius := UnitView.display_radius(u)
+	var rects := StatusIcons.layout_row(
+		Vector2(0.0, radius + UnitView.STATUS_BADGE_TOP_GAP), 1, UnitView.STATUS_BADGE_SIZE)
+	assert_true(rects[0].position.y > radius, "badges must clear the body downward")
+
+## The badge row's own clearance has to be bigger than the gap between two
+## badges, or a unit's row stops reading as one row belonging to that unit.
+func test_the_badge_row_is_held_off_whatever_is_above_it() -> void:
+	assert_true(UnitView.STATUS_BADGE_TOP_GAP > UnitView.STATUS_BADGE_GAP,
+		"the row must separate from the thing above it more than its badges separate from each other")
+
+# ---------------------------------------------------------------------------
+# The wind-up progress bar and its ability icon (PLAYTEST-NOTES-2 item 3)
+# ---------------------------------------------------------------------------
+
+func _winding_up(elapsed: int, total: int) -> CombatUnit:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"warrior_strike"
+	u.action_ticks_total = total
+	u.action_ticks_left = total - elapsed
+	return u
+
+func test_a_wind_up_bar_is_empty_at_the_start_and_full_at_the_end() -> void:
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(0, 30)), 0.0, 0.001)
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(15, 30)), 0.5, 0.001)
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(30, 30)), 1.0, 0.001)
+
+## The reason the half-speed change (CG.TICKS_PER_SECOND 30 -> 15) moved
+## nothing here: the bar is a ratio of elapsed to this action's own total, not
+## a count of ticks against any constant. A wind-up half as long in ticks
+## reads identically at the same point through itself.
+func test_a_wind_up_bar_is_a_ratio_not_a_tick_count() -> void:
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(45, 90)),
+		UnitView.wind_up_fraction(_winding_up(22, 44)), 0.02,
+		"the same fraction through two differently-scaled wind-ups must read the same")
+
+## The case the ring was built for and the one a derivation from the action's
+## own base wind_up_ticks would have got wrong: HASTE shortens the wind-up, and
+## action_ticks_total captures the post-haste length.
+func test_a_hasted_wind_up_still_reads_zero_to_full_across_its_own_length() -> void:
+	var hasted := _winding_up(0, 20)
+	assert_almost_eq(UnitView.wind_up_fraction(hasted), 0.0, 0.001)
+	hasted.action_ticks_left = 0
+	assert_almost_eq(UnitView.wind_up_fraction(hasted), 1.0, 0.001)
+
+## An instant action has nothing to wait for, so the bar is full rather than
+## dividing by zero or reading as a countdown that never moves.
+func test_an_action_with_no_wind_up_reads_as_full() -> void:
+	var u := _winding_up(0, 0)
+	u.action_ticks_left = 1
+	assert_almost_eq(UnitView.wind_up_fraction(u), 1.0, 0.001)
+
+## Bar plus icon plus their gap is exactly the hp bar's width. A unit's chrome
+## must not get wider at the moment the arena is most crowded -- that is issue
+## #82's own failure mode.
+func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
+	assert_almost_eq(
+		UnitView.wind_up_bar_width() + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
+		UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE, 0.001)
+	assert_true(UnitView.wind_up_bar_width() > 0.0, "the bar must survive the icon taking its share")
+
+## The telegraph is coloured by the ACTION's damage type, not by the class
+## accent. A Priest's class accent is Divine and priest_bolt is not, so a
+## telegraph keyed on the accent would disagree with the projectile and the
+## floating number that follow it -- which is the one thing the icon exists to
+## make agree. Tests/test_art.gd already asserts ActionIcons covers the
+## registry; this asserts this view asks for it by the id a unit actually
+## carries in current_action.
+func test_the_telegraph_is_coloured_by_the_action_not_the_class_accent() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"priest_smite"
+	var view := UnitView.new()
+	var smite := Registry.get_action(&"priest_smite")
+	assert_not_null(smite, "sanity: the registry defines the action this test names")
+	assert_eq(view._wind_up_damage_type(u), smite.damage_type)
+	assert_true(ActionIcons.has_glyph(u.current_action), "no ability icon for %s" % u.current_action)
+	view.free()
+
+## The negative half: an action the registry does not know still draws
+## something rather than crashing mid-fight. ActionIcons has its own unknown
+## placeholder; this is the colour half of the same fallback.
+func test_an_unknown_action_falls_back_to_the_class_accent() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"no_such_action"
+	var view := UnitView.new()
+	assert_eq(view._wind_up_damage_type(u), CG.DamageType.PHYSICAL)
+	view.free()
+
 
 func test_crowd_rank_is_zero_when_units_are_far_apart() -> void:
 	var a := _make_unit(0, Vector2.ZERO)

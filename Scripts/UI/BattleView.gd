@@ -509,9 +509,32 @@ func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
+	_ensure_unit_views()
+
+## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
+## builds one view per unit in `state.units` *at that instant*. A unit appended
+## mid-fight -- CombatSim's summon path is generic (`ActionDef.summons_unit_id`,
+## either team), so this is every summon and not one class's bug -- never got a
+## view node at all. It fought, dealt and took damage, and died entirely
+## invisibly. That is the real cause of "siege engines are still invisible";
+## the silhouette rook added was necessary and nowhere near sufficient.
+##
+## Called every stepped tick, and it only ever *adds*. Rebuilding the whole set
+## per tick would be the obvious wrong fix: every UnitView carries per-instance
+## state that only means anything across ticks (`_label_last_active_tick`,
+## `_last_seen_hp`/`_last_seen_resource`), so a fresh node each tick would
+## reset the label hysteresis every frame and bring back exactly the name
+## flicker PLAYTEST-NOTES 20 was about.
+##
+## Nothing here removes a view for a dead unit: `CombatState.units` never
+## shrinks (death sets `alive` false and `sync` hides the node), so a removal
+## branch would be code for a case that cannot happen.
+func _ensure_unit_views() -> void:
 	if state == null:
 		return
 	for u in state.units:
+		if _unit_views.has(u.id):
+			continue
 		var view := Node2D.new()
 		view.set_script(UnitViewScript)
 		_arena.add_child(view)
@@ -538,6 +561,10 @@ func _process(delta: float) -> void:
 		return
 
 	consume_events()
+	# Issue 75: before syncing, not after -- a unit summoned this tick has to
+	# get its node in the same frame it starts existing, or the first thing a
+	# player sees of a summon is a health bar that was already there.
+	_ensure_unit_views()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
 	# Issue 18's real travelling shots (CombatState.projectiles) have per-tick

@@ -5,7 +5,9 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
+const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
+const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## One combatant on screen: body, health bar, resource bar, name, tags, and the
 ## wind-up indicator that says an action is coming.
@@ -180,26 +182,18 @@ func _draw() -> void:
 
 	_draw_concentration_badge(u, radius)
 
-	if u.action_ticks_left > 0 and u.current_action != &"":
-		# PR #69 (sable, Scripts/Art/AttackFX.gd), wiring's third and final
-		# piece: a flat Palette.WIND_UP circle told a player "something is
-		# charging" but not what kind or how soon. AttackFX.draw_wind_up
-		# recolours the ring per damage type (_accent(u), the same class
-		# accent Silhouettes.draw_unit already reads a few lines up -- one
-		# colour per unit, body and telegraph agree) and sweeps it as a real
-		# countdown. action_ticks_total (issue, PR #72) captures the
-		# *post-haste* length, so this reads correctly for a hasted unit
-		# too -- elapsed/total would have silently desynced against the
-		# action's own base wind_up_ticks otherwise, for exactly the pawns
-		# (Priest grants HASTE) where it would have mattered.
-		AttackFX.draw_wind_up(self, Vector2.ZERO, radius + 4.0, _accent(u), wind_up_elapsed_ticks(u), u.action_ticks_total)
-		var font := ThemeDB.fallback_font
-		var ticks_text := str(u.action_ticks_left)
-		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size())
-		draw_string(font, Vector2(-text_size.x * 0.5, radius + 4.0 + text_size.y),
-			ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.WIND_UP)
-
-	_draw_status_tags(u, radius)
+	# Everything below the body is stacked here, in order, because these used to
+	# be written independently and two of them landed on the same pixels: the
+	# old wind-up countdown number sat at radius + 4 + a text height, which is
+	# exactly where a badge row goes. Caught on a real 3x capture of a real
+	# fight, not by reading the code -- both draws were correct on their own.
+	#
+	# The wind-up is closest to the body because it is the only one of the
+	# three that is about to happen; the badges describe a state and the OOM
+	# chip describes a condition.
+	var below := _draw_wind_up(u, radius)
+	below += _draw_status_badges(u, radius, below)
+	_draw_status_tags(u, radius, below)
 
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
@@ -362,14 +356,150 @@ func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	draw_string(font, badge_center - text_size * 0.5 + Vector2(0.0, text_size.y * 0.75),
 		text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.TEXT)
 
-## Stunned and out-of-resource both look identical to "idle" on the arena
-## otherwise: the unit just doesn't do anything, and a viewer with no access
-## to CombatUnit.statuses cannot tell a stalled decision from a disabled one.
-func _draw_status_tags(u: CombatUnit, radius: float) -> void:
+## PLAYTEST-NOTES-2 item 3: "countdowns should be progress bars, with an icon
+## at the end showing what is coming", and the note's own reading of it --
+## "the icon is the better half: a ring says something is coming, an icon says
+## what."
+##
+## This replaces the wind-up ring and the raw tick number that used to sit
+## under it. The ring said "charging" and the number said "17", which is a
+## quantity in a unit the player has never seen. Neither said what was coming.
+##
+## The substrate is untouched: `wind_up_elapsed_ticks` still reads
+## `action_ticks_total` (PR #72), captured post-haste at the moment the wind-up
+## starts, so a hasted unit reads 0 at its own start and full at its own end.
+## This is a ratio, never an absolute tick count, which is why halving
+## `CG.TICKS_PER_SECOND` to 15 moved nothing here -- checked rather than
+## assumed, and `test_a_wind_up_bar_is_a_ratio_not_a_tick_count` holds it.
+##
+## The whole block is exactly as wide as the hp bar above it, icon included,
+## so a unit's chrome stays one column instead of growing a wider row at the
+## exact moment the arena is most crowded.
+const WIND_UP_ICON_SIZE := 16.0 * DISPLAY_SCALE
+const WIND_UP_TOP_GAP := 4.0 * DISPLAY_SCALE
+const WIND_UP_ICON_GAP := 3.0 * DISPLAY_SCALE
+
+static func wind_up_bar_width() -> float:
+	return BAR_WIDTH * DISPLAY_SCALE - WIND_UP_ICON_SIZE - WIND_UP_ICON_GAP
+
+## How full the bar is, 0..1. Its own function so it can be checked without a
+## canvas, same split as wind_up_elapsed_ticks. A total of 0 means the action
+## has no wind-up at all and fires the tick it commits: full, not empty, since
+## nothing is being waited for.
+static func wind_up_fraction(u: CombatUnit) -> float:
+	if u.action_ticks_total <= 0:
+		return 1.0
+	return clampf(float(wind_up_elapsed_ticks(u)) / float(u.action_ticks_total), 0.0, 1.0)
+
+## The damage type the icon is coloured by. The *action's* own type, not
+## `_accent(u)`'s class-level one, even though sable's own signature note
+## offers `_accent` as the cheap answer. The point of the icon is that the
+## player sees the thing coming and then sees the same thing land, and what
+## lands is coloured by the action: `ArenaFloor._draw_projectile` (PR #71) and
+## the floating number both already read `ActionDef.damage_type`. A Priest
+## whose class accent is Divine also casts Physical actions, and the telegraph
+## disagreeing with its own projectile is worse than one Registry lookup.
+func _wind_up_damage_type(u: CombatUnit) -> int:
+	var action = Registry.get_action(u.current_action)
+	return action.damage_type if action != null else _accent(u)
+
+## Returns how much vertical room it took, so whatever stacks under it can
+## clear it. Zero when nothing is winding up.
+func _draw_wind_up(u: CombatUnit, radius: float) -> float:
+	if u.action_ticks_left <= 0 or u.current_action == &"":
+		return 0.0
+
+	var bar_width := wind_up_bar_width()
+	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
+	var block_left := -(BAR_WIDTH * DISPLAY_SCALE) * 0.5
+	var top := radius + WIND_UP_TOP_GAP
+	var damage_type := _wind_up_damage_type(u)
+
+	# Vertically centred on the icon, not on the bar: the icon is the taller of
+	# the two and the pair has to read as one object.
+	var bar_top := top + (WIND_UP_ICON_SIZE - bar_height) * 0.5
+	var bar_pos := Vector2(block_left, bar_top)
+	draw_rect(Rect2(bar_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
+	draw_rect(Rect2(bar_pos, Vector2(bar_width * wind_up_fraction(u), bar_height)),
+		Palette.damage_color(damage_type))
+
+	ActionIcons.draw_action(self, u.current_action, damage_type,
+		Rect2(Vector2(block_left + bar_width + WIND_UP_ICON_GAP, top),
+			Vector2(WIND_UP_ICON_SIZE, WIND_UP_ICON_SIZE)))
+	return WIND_UP_TOP_GAP + WIND_UP_ICON_SIZE
+
+## PLAYTEST-NOTES-2 item 2: "no clear visual for who is afflicted with what."
+## Statuses were legible only from the log, which scrolls, in a fight the same
+## notes call too fast to read.
+##
+## Below the unit, not above it. The whole existing stack -- resource bar, hp
+## bar, name label, and the crowding stagger that pushes names further up when
+## units bunch -- grows *upward* from the body, so the band above a unit is the
+## contested one and the band below it is empty. Issue #82 (five names in one
+## label's worth of space, death floaters crossing the arena) is about that
+## upward band specifically, so putting badges there would have added a
+## thirteenth thing to the pile. Death floaters spawn at the unit's own
+## position and rise, so they clear this band too.
+const STATUS_BADGE_SIZE := 14.0 * DISPLAY_SCALE
+const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
+
+## Clearance from whatever is above the row -- the body, or the wind-up bar
+## when the unit is mid-action. Deliberately larger than the gap between
+## badges: two badges of the same unit belong together and should read as one
+## row, and the row belongs to the unit rather than to the thing above it.
+const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
+
+## A unit can in principle carry every status at once. Four is what fits in a
+## row roughly as wide as the unit's own hp bar, which is the widest thing it
+## already draws -- past that the row is wider than the unit and starts
+## colliding with its neighbours' rows instead of its own chrome. Harmful
+## first (see status_badges), so the four shown are the four a player most
+## needs: what is being done *to* this unit.
+const MAX_STATUS_BADGES := 4
+
+## Which badges this unit gets, in draw order. Split out from the drawing for
+## the same reason status_tags is: Godot refuses draw_* outside _draw(), so a
+## test that can only call the drawing wrapper logs errors and asserts nothing.
+##
+## Harmful before beneficial, each group in CG.Status declaration order.
+## CombatUnit.statuses is a Dictionary, so its own key order is insertion
+## order -- the order statuses happened to land during a fight, which would
+## make the same unit's badges reshuffle mid-fight for no reason a player
+## could read. CG.is_harmful() is the only thing consulted for the split,
+## the same single source of truth StatusIcons uses for the plate direction.
+static func status_badges(u: CombatUnit) -> Array:
+	var harmful: Array = []
+	var beneficial: Array = []
+	for s in CG.Status.values():
+		if not u.has_status(s):
+			continue
+		if CG.is_harmful(s):
+			harmful.append(s)
+		else:
+			beneficial.append(s)
+	var all := harmful + beneficial
+	return all.slice(0, MAX_STATUS_BADGES)
+
+func _draw_status_badges(u: CombatUnit, radius: float, below: float) -> float:
+	var badges := status_badges(u)
+	if badges.is_empty():
+		return 0.0
+	var top := radius + below + STATUS_BADGE_TOP_GAP
+	var width := StatusIcons.row_width(badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	var rects := StatusIcons.layout_row(Vector2(-width * 0.5, top), badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	for i in badges.size():
+		StatusIcons.draw_status(self, badges[i], rects[i])
+	return STATUS_BADGE_TOP_GAP + STATUS_BADGE_SIZE
+
+## Out-of-resource looks identical to "idle" on the arena otherwise: the unit
+## just doesn't do anything, and a viewer with no access to CombatUnit cannot
+## tell a stalled decision from a disabled one. It is not a CG.Status, so it
+## has no badge and stays text, drawn under whatever is already below the body.
+func _draw_status_tags(u: CombatUnit, radius: float, below: float) -> void:
 	var tags := status_tags(u)
 	if tags.is_empty():
 		return
-	_draw_label_chip(" ".join(tags), radius + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
+	_draw_label_chip(" ".join(tags), radius + below + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
 
 ## Renders text centred on its own width with a small backdrop chip behind
 ## it, rather than a fixed draw width that truncates. Found by rendering a
@@ -403,10 +533,14 @@ static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 ## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a
 ## drawing function directly logs errors and asserts nothing, which is
 ## exactly the trap Silhouettes.build_parts's own doc comment names.
+##
+## STUN used to be listed here as text as well. It is a CG.Status, so it now
+## draws as a badge like every other status, and leaving the word next to its
+## own badge would have been the same fact twice in the most crowded part of
+## the screen. Its own test in Tests/test_ui_unit_view.gd moved to
+## status_badges rather than being deleted -- disclosed in the PR.
 static func status_tags(u: CombatUnit) -> Array[String]:
 	var tags: Array[String] = []
-	if u.has_status(CG.Status.STUN):
-		tags.append("STUN")
 	if u.resource_max > 0 and u.resource <= 0:
 		tags.append("OOM")
 	return tags

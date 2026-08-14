@@ -46,7 +46,24 @@ static func classes() -> Array[ClassDef]:
 			# budget raised, not just the plan added. WIS has no combat-stat
 			# side effect per README (it only governs plan length), so this
 			# is a pure capacity increase, not a power change.
-			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 6},
+			# Issue 79: WIS 6->8. warrior_execute has had no preset plan since
+			# issue 30 deleted `warrior_execute_when_raging`, and there is
+			# still no plan editor, so a preset plan is the only path from
+			# the game to this ability at all -- the exact reasoning issue
+			# 52's own WIS 4->6 note records for warrior_block. Three plans
+			# at 2 blocks each already sat exactly at the WIS-6 budget
+			# (`Balance.plan_block_budget` == WIS), so a fourth needed the
+			# budget raised, not just the plan added. WIS has no combat-stat
+			# side effect per README (it only governs plan length), so this
+			# is a pure capacity increase, not a power change -- same shape
+			# as the Priest's own 5->8 for a fourth plan.
+			#
+			# ATN and INT deliberately left at 1. Raising either would also
+			# have made Execute affordable (the Rage pool is
+			# `30 + ATN*8 + INT*2`), but by inflating what every Rage cost
+			# means at once; the cost came down instead. See
+			# warrior_execute's own comment in core_actions.gd.
+			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 8},
 			# Issue 30: warrior_taunt appended at the end, not the front --
 			# DefaultBehavior._first_non_heal falls back to the FIRST
 			# non-heal action in this list whenever no plan fires (there is
@@ -90,8 +107,21 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MAGICAL, CG.Style.RANGED, CG.Role.DPS, CG.Role.SUPPORT,
 			[CG.DamageType.WATER, CG.DamageType.FIRE],
 			CG.ResourceKind.MANA,
-			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 4},
-			[&"geyser_blast", &"geyser_scald"]
+			# Issue 79: WIS 4->6. Two plans at 2 blocks each sat exactly at
+			# the WIS-4 budget, and this class needs a third (see
+			# PresetPlans.gd: the Blast/Scald ladder is what makes Scald
+			# reachable at all). Same pure-capacity reasoning as the
+			# Warrior's 6->8 above and the Priest's 5->8 before it.
+			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 6},
+			# Issue 79: geyser_spout (no cost) placed first --
+			# `DefaultBehavior._first_non_heal` falls back to the first
+			# non-heal action in this list whenever no plan fires, and every
+			# plan below falls through to here the moment Mana cannot cover
+			# it. Before this the fallback was geyser_blast, which costs 20
+			# Mana: a Geysermancer out of Mana had nothing affordable to
+			# fall back to at all. Same reasoning, and the same fix, as
+			# priest_bolt and siege_master_shot in issue 62.
+			[&"geyser_spout", &"geyser_blast", &"geyser_scald"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
 		## `Style.SUMMONER` was on the class card while it played as pure
