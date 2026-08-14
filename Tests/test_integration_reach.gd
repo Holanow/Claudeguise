@@ -185,6 +185,75 @@ func test_the_summon_path_is_live_in_a_real_fight() -> void:
 	assert_true(any,
 		"no summoning action fired in %d real fights, so nothing above actually checks a summoned unit." % _fight_count())
 
+## Art nothing calls is art the player never sees.
+##
+## Added after the **eleventh** built-and-unreachable feature on this project:
+## `Scripts/Art/EquipmentIcons.gd` shipped an icon for each of seventeen
+## equipment items, and `EquipPanel` referenced it zero times. The equip screen
+## drew none of them. Nobody did anything wrong -- the screen landed before the
+## art -- and **nothing in this file could see it**, because every other check
+## here asks about the simulation.
+##
+## sable found it by reading another session's diff. That is not a check, it is
+## luck, and it is the same luck that failed the other ten times.
+##
+## Deliberately crude: it asks whether the module's name appears anywhere under
+## `Scripts/UI`, not whether it is called correctly. A wrong call site still
+## passes. That is fine -- **zero call sites is the failure that keeps
+## happening**, and a cheap check that catches it beats an exact one nobody
+## writes.
+func test_every_art_module_has_a_caller_in_the_interface() -> void:
+	var art_dir := DirAccess.open("res://Scripts/Art")
+	assert_true(art_dir != null, "cannot open Scripts/Art")
+	if art_dir == null:
+		return
+
+	# Scripts/Art as well as Scripts/UI, because reaching the screen through
+	# another art module is a real path: UnitArt has no interface caller and is
+	# perfectly reachable via Silhouettes, which does. The first version of
+	# this test failed it and was wrong -- a crude check is fine, a crude check
+	# that cries wolf is not, because the next person deletes it.
+	var callers := ""
+	var art_files := _gd_files("res://Scripts/Art")
+	for path in _gd_files("res://Scripts/UI"):
+		callers += FileAccess.get_file_as_string(path)
+	assert_true(callers.length() > 0, "read no interface source at all")
+
+	for name in art_dir.get_files():
+		if not name.ends_with(".gd"):
+			continue
+		# The `preload` path, not the bare name. The first version looked for
+		# the name and passed `EquipmentIcons` on the strength of **one word
+		# in a comment** in `UIArt` describing a bug they had both hit. A
+		# checker fooled by prose about the thing is worse than no checker,
+		# because it reports a clean bill on the exact case it was written for.
+		var needle := 'res://Scripts/Art/%s' % name
+		var seen := callers.contains(needle)
+		if not seen:
+			# Reaching the screen through another art module is a real path:
+			# UnitArt has no interface caller and is perfectly reachable via
+			# Silhouettes, which does. The first version failed it and was
+			# wrong -- a crude check is fine, a crude check that cries wolf is
+			# not, because the next person deletes it.
+			for path in art_files:
+				if path.get_file() == name:
+					continue
+				if FileAccess.get_file_as_string(path).contains(needle):
+					seen = true
+					break
+		assert_true(seen,
+			"Scripts/Art/%s is referenced by no interface or art file, so nothing draws it." % name)
+
+func _gd_files(dir_path: String) -> Array[String]:
+	var out: Array[String] = []
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.ends_with(".gd"):
+			out.append(dir_path.path_join(f))
+	return out
+
 # ---------------------------------------------------------------------------
 # helpers -- these drive the real path, they do not stand in for it
 # ---------------------------------------------------------------------------
@@ -216,6 +285,16 @@ func _reachable_action_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for cid in Registry.all_class_ids():
 		for a in Registry.get_class_def(cid).starting_actions:
+			if not out.has(a):
+				out.append(a)
+	# Equipment grants are a real reachability path as of issue 100, and this
+	# test did not know it. SHIELDING started failing the status check the
+	# moment Directional Block moved off the Warrior class onto plate_mail --
+	# reachable through the equip screen the whole time, and reported as
+	# impossible. A checker that does not know every route reports working
+	# features as broken, which is the cheapest way to get itself deleted.
+	for qid in Registry.all_equipment_ids():
+		for a in Registry.get_equipment(qid).granted_actions:
 			if not out.has(a):
 				out.append(a)
 	for eid in Registry.all_enemy_ids():
