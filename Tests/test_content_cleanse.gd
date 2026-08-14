@@ -28,8 +28,47 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## across six seeds rather than on one fight, so it does not depend on any
 ## single fight going a particular way.
 
-const SEEDS := 6
-const ENCOUNTER := &"floor1_cover"
+## **Fixture headroom, and why both constants below moved (heron found this,
+## finch measured and fixed it).** `test_..._stripping_poison_from_an_ally`'s
+## `on_ally` count drifted **6 -> 2 -> 3 -> 1** across four builds with nobody
+## touching this file, and on merged trunk it sat at **1** against an assertion
+## needing more than zero. One more content change in any direction and it goes
+## red for somebody who has no idea why.
+##
+## **The rare event is not poison.** That was the obvious reading and it is
+## wrong: `floor1_cover` poisons player pawns **113 times** across six fights.
+## The rare event is *the Geysermancer cleansing somebody other than itself*.
+## Measured per encounter with `Tools/CleanseFixture.gd`, `on_ally` as a
+## fraction of all strips:
+##
+##     floor1_chokepoint   0 of 28   (0%)   -- 249 poisonings, never once an ally
+##     floor1_cover        4 of 38   (11%)
+##     floor1_room1       16 of 44   (36%)
+##
+## It is geometry. The cleanse reaches 200 units, and in the walled rooms the
+## party is spread far enough that the afflicted ally is usually out of reach, so
+## the Geysermancer scours itself instead. `floor1_chokepoint` is the proof: the
+## most poison of any room and not one ally cleanse at any seed count.
+##
+## So `ENCOUNTER` is `floor1_room1` (best rate, and the room heron's four-room
+## work did not touch) and `SEEDS` is 12, which measures **9** ally cleanses
+## rather than 1. **Deliberately not fixed by bending the `floor1_cover` roster
+## to feed this fixture** -- heron argued against that and rook agreed: that
+## roster came from four measured variants, and pointing content at a test's
+## needs stops the room being the thing that was measured.
+##
+## **The real defect was that nothing watched the margin.** `> 0` gives no
+## warning as it slides 6 -> 2 -> 3 -> 1; it is silent until the day it is a
+## failure. `test_the_ally_cleanse_fixture_still_has_headroom` below asserts the
+## margin itself, so the slide is what goes red, with instructions, rather than
+## the cliff.
+const SEEDS := 12
+const ENCOUNTER := &"floor1_room1"
+
+## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
+## below the measured 9 so ordinary content tuning does not trip it, and well
+## above 0 so the slide is caught long before the assertion it protects.
+const MIN_ALLY_CLEANSES := 4
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
@@ -78,6 +117,39 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 	assert_true(on_an_ally > 0, "the cleanse only ever scrubbed its own caster; the ability is for the party")
 
 
+## **The margin, not the cliff.** This is the test that should have existed
+## before `on_ally` slid 6 -> 2 -> 3 -> 1 with nobody noticing.
+##
+## `assert_true(on_an_ally > 0)` above is the property the ability is *for*, and
+## it is worth asserting, but it is silent for the entire journey toward failing:
+## it reads identically at 6 and at 1, and only speaks on the build that reaches
+## 0 -- by which point the person it fails for is whoever touched content next
+## and has no idea this fixture depends on room geometry.
+##
+## So this asserts the headroom itself. When it fires, the fixture is still
+## green and the fix is cheap; the message says what to do rather than leaving
+## the next person to rediscover the geometry finding.
+##
+## **It is deliberately not a tighter version of the same assertion.** It fails
+## *earlier*, on a number that is still passing, which is the only kind of guard
+## that turns a slow drift into a loud event.
+func test_the_ally_cleanse_fixture_still_has_headroom() -> void:
+	var on_an_ally := 0
+	for s in SEEDS:
+		var state := _run(s)
+		for e in _cleanse_events(state):
+			if e.target_id != e.source_id:
+				on_an_ally += 1
+	assert_true(on_an_ally >= MIN_ALLY_CLEANSES,
+		("ally cleanses have fallen to %d over %d seeds of %s (floor %d). The fixture is "
+		+ "about to stop measuring anything. This count is driven by GEOMETRY, not by poison "
+		+ "supply -- the cleanse reaches 200 units and a spread-out party puts the afflicted "
+		+ "ally out of reach, which is why floor1_chokepoint scores 0 of 28 despite 249 "
+		+ "poisonings. Raise SEEDS, or repoint ENCOUNTER at a tighter room and re-measure "
+		+ "with Tools/CleanseFixture.gd. Do NOT edit a room's roster to feed this test.")
+		% [on_an_ally, SEEDS, ENCOUNTER, MIN_ALLY_CLEANSES])
+
+
 ## The negative half, and the one the whole design turns on: **does the
 ## condition actually gate the cast, or does it fire blind?**
 ##
@@ -86,10 +158,10 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 ## the failing version directly: `always` as the condition, 4055 casts for 8
 ## strips, and Blast fell 593->101 and Scald 676->32 in the same fights. That is
 ## what a blind cleanse looks like, and a test asserting "the Geysermancer still
-## mostly attacks" would not have caught it in every room -- `floor1_cover`
-## resolves in ~236 ticks and a Geysermancer only gets a couple of dozen casts
-## there in total, so a *ratio* against attacks is dominated by how long the
-## room lasts rather than by whether the ability is well built.
+## mostly attacks" would not have caught it in every room -- these rooms resolve
+## in a few hundred ticks and a Geysermancer only gets a couple of dozen casts
+## in one, so a *ratio* against attacks is dominated by how long the room lasts
+## rather than by whether the ability is well built.
 ##
 ## Casts-per-strip is not: it is a property of the condition alone. Measured
 ## across swift's full 210-fight sample this ships at 55 casts for 51 strips.
