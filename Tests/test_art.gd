@@ -723,6 +723,108 @@ func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 	assert_eq(UIArt.texture_for(art_name), null, "the override survived its own deletion")
 
 
+# ---------------------------------------------------------------------------
+# BLEED stack count (#130). The player: "Bleed should differentiate itself from
+# poison in that it does damage less often but stacks infinitely", and the issue
+# is explicit that a badge identical at one stack and at nine fails their own
+# definition of done.
+#
+# Geometry only. Whether a five-pixel digit is legible is not testable and was
+# not guessed at: Tools/StackBadgeSheet.tscn renders it at the real 17.4px and
+# at 4x, and the screenshots are committed.
+# ---------------------------------------------------------------------------
+
+const _BADGE := Rect2(Vector2(10.0, 20.0), Vector2(17.4, 17.4))
+
+
+func test_one_stack_draws_no_count_at_all() -> void:
+	# The property that made it safe to add an argument to `draw_status` rather
+	# than to write a second function: every existing call site keeps its old
+	# behaviour without being edited. Eleven statuses cannot stack and a badge
+	# that always carried "1" would be noise on all of them.
+	assert_false(StatusIcons.shows_stack_count(1))
+	assert_false(StatusIcons.shows_stack_count(0))
+	assert_false(StatusIcons.shows_stack_count(-3))
+	assert_true(StatusIcons.shows_stack_count(2))
+	assert_true(StatusIcons.shows_stack_count(140))
+
+
+func test_the_count_is_capped_at_two_digits_and_says_so() -> void:
+	# The tab is about ten pixels wide on screen. A third digit is not a number,
+	# it is a smudge. The cap loses real information -- BLEED stacks infinitely --
+	# so it shows "99+" rather than a wrong number.
+	assert_eq(StatusIcons.stack_text(2), "2")
+	assert_eq(StatusIcons.stack_text(9), "9")
+	assert_eq(StatusIcons.stack_text(10), "10")
+	assert_eq(StatusIcons.stack_text(99), "99")
+	assert_eq(StatusIcons.stack_text(100), "99+")
+	assert_eq(StatusIcons.stack_text(140), "99+")
+
+
+func test_the_count_never_reaches_into_the_next_badge() -> void:
+	# Found by rendering a row of four: a tab overhanging to the right landed on
+	# top of the neighbouring status's badge. `layout_row` uses a three pixel
+	# gap, so the only safe rule is that the tab never exceeds the badge's own
+	# width -- it grows upward or downward, never outward.
+	for stacks in [2, 9, 10, 99, 140]:
+		for size in [12.0, 17.4, 40.0, 78.0]:
+			var rect := Rect2(Vector2(5.0, 5.0), Vector2(size, size))
+			var tab := StatusIcons.stack_count_rect(CG.Status.BLEED, rect, stacks)
+			assert_true(tab.size.x <= rect.size.x + 0.01,
+				"at %d stacks and size %.1f the tab is %.1f wide against a %.1f badge" % [
+					stacks, size, tab.size.x, rect.size.x])
+			assert_true(tab.end.x <= rect.end.x + 0.01,
+				"the tab's right edge is outside the badge at %d stacks" % stacks)
+
+
+func test_the_count_never_covers_the_plate_point() -> void:
+	# THE ONE THAT MATTERS, and the first version failed it.
+	#
+	# These plates point DOWN when harmful and UP when helpful, and
+	# Assets/UI/README.md promises the player that the direction carries the same
+	# information as the colour, "so it still works for a player who cannot
+	# separate red from green". A tab in the bottom-right corner sits exactly on
+	# a harmful plate's point and rubs it out. That is a picture replacing
+	# information, it is this project's house rule, and no test or screenshot
+	# review would have caught it -- I caught it by looking at the render.
+	#
+	# So: the tab must stay in the half of the badge AWAY from the point.
+	for stacks in [2, 27, 140]:
+		var harmful := StatusIcons.stack_count_rect(CG.Status.BLEED, _BADGE, stacks)
+		assert_true(harmful.end.y <= _BADGE.position.y + _BADGE.size.y * 0.5,
+			"a harmful badge points down and its %d-stack tab reaches y=%.1f, into the point" % [
+				stacks, harmful.end.y])
+		var helpful := StatusIcons.stack_count_rect(CG.Status.SHIELD, _BADGE, stacks)
+		assert_true(helpful.position.y >= _BADGE.position.y + _BADGE.size.y * 0.5,
+			"a helpful badge points up and its %d-stack tab reaches y=%.1f, into the point" % [
+				stacks, helpful.position.y])
+
+
+func test_the_count_sits_on_opposite_edges_for_harmful_and_helpful() -> void:
+	# The negative half of the test above. Without it, a `stack_count_rect` that
+	# always returned a tab in the middle would satisfy both assertions there for
+	# neither of the right reasons.
+	var harmful := StatusIcons.stack_count_rect(CG.Status.BLEED, _BADGE, 5)
+	var helpful := StatusIcons.stack_count_rect(CG.Status.SHIELD, _BADGE, 5)
+	assert_true(harmful.position.y < helpful.position.y,
+		"harmful and helpful tabs sit at the same height; the plate direction is not being read")
+	# And each overhangs its own flat edge rather than sitting wholly inside,
+	# which is what keeps the glyph full size on a stacking badge.
+	assert_true(harmful.position.y < _BADGE.position.y,
+		"the harmful tab does not overhang the top edge, so it is eating the glyph")
+	assert_true(helpful.end.y > _BADGE.end.y,
+		"the helpful tab does not overhang the bottom edge, so it is eating the glyph")
+
+
+func test_the_count_grows_with_the_badge() -> void:
+	# A hover panel draws these much larger than a unit does. A tab sized in
+	# absolute pixels would be invisible there and enormous here.
+	var small := StatusIcons.stack_count_rect(CG.Status.BLEED, Rect2(Vector2.ZERO, Vector2(16.0, 16.0)), 7)
+	var large := StatusIcons.stack_count_rect(CG.Status.BLEED, Rect2(Vector2.ZERO, Vector2(80.0, 80.0)), 7)
+	assert_true(large.size.y > small.size.y * 4.0,
+		"the tab does not scale with the badge: %.1f at 16px and %.1f at 80px" % [small.size.y, large.size.y])
+
+
 func test_status_row_layout_is_evenly_spaced_and_measurable() -> void:
 	var rects := StatusIcons.layout_row(Vector2(10.0, 5.0), 3, 14.0, 4.0)
 	assert_eq(rects.size(), 3)

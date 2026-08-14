@@ -188,24 +188,124 @@ static func art_name(status: CG.Status) -> StringName:
 	return StringName("status/%s" % String(CG.Status.keys()[status]).to_lower())
 
 ## One badge filling `rect`. Sized for 12-16px squares; larger works and is what
-## a pause-hover panel would want.
+## a pause-hover panel would want. On screen today it is 17.4px: `UnitView`'s
+## `STATUS_BADGE_SIZE` of 14 through `DISPLAY_SCALE` and the arena's own scale.
 ##
 ## Draws a dropped-in PNG if one exists and the generated badge otherwise. The
 ## caller never asks which.
-static func draw_status(canvas: CanvasItem, status: CG.Status, rect: Rect2) -> void:
+##
+## `stacks` is how many of the status the unit is carrying. **1 draws exactly
+## what this drew before the argument existed**, which is the property that made
+## it safe to add here rather than in a second function: every existing call site
+## is unchanged without being touched.
+static func draw_status(canvas: CanvasItem, status: CG.Status, rect: Rect2, stacks: int = 1) -> void:
 	var tex := UIArt.texture_for(art_name(status))
 	if tex != null:
 		UIArt.draw_fit(canvas, tex, rect)
-		return
-	# Plate fill first, then rim, then glyph. The fill is a flat dark plate
-	# rather than the team colour: a badge has to read the same on a Warrior and
-	# on a Ghoul, or the player learns the colour and not the status.
-	var plate := UIArt.glyph_points({"poly": plate_points(status)}, rect)
-	var half := minf(rect.size.x, rect.size.y) * 0.5
-	UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, rim_color(status), maxf(1.0, half * 0.16))
-	# The glyph sits in the middle 70% so it never crowds the rim or the point.
-	var inner := Rect2(rect.position + rect.size * 0.15, rect.size * 0.7)
-	UIArt.draw_glyph(canvas, GLYPHS[status], inner, Palette.TEXT)
+	else:
+		# Plate fill first, then rim, then glyph. The fill is a flat dark plate
+		# rather than the team colour: a badge has to read the same on a Warrior
+		# and on a Ghoul, or the player learns the colour and not the status.
+		var plate := UIArt.glyph_points({"poly": plate_points(status)}, rect)
+		var half := minf(rect.size.x, rect.size.y) * 0.5
+		UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, rim_color(status), maxf(1.0, half * 0.16))
+		# The glyph sits in the middle 70% so it never crowds the rim or the point.
+		var inner := Rect2(rect.position + rect.size * 0.15, rect.size * 0.7)
+		UIArt.draw_glyph(canvas, GLYPHS[status], inner, Palette.TEXT)
+
+	# OUTSIDE BOTH BRANCHES, AND THAT IS THE WHOLE POINT.
+	#
+	# The count is information; the badge behind it is decoration. If this sat in
+	# the generated branch, dropping in `Assets/UI/status/bleed.png` would delete
+	# the stack count and the screenshot would look fine -- which is this
+	# project's own house rule, learned twice already: a dropped-in border
+	# silently deleted the party-card selection ring, and a dropped-in PNG
+	# silently deleted the granted-action badge. Both were invisible to the
+	# instrument we check art with. A picture may replace decoration and it may
+	# not replace information.
+	if shows_stack_count(stacks):
+		draw_stack_count(canvas, status, rect, stacks)
+
+## Whether a count is drawn at all. One is the ordinary case and gets no
+## decoration -- a badge that always carries "1" is noise on eleven statuses that
+## cannot stack.
+static func shows_stack_count(stacks: int) -> bool:
+	return stacks >= 2
+
+## What the tab reads. Capped at two digits because the tab is about ten pixels
+## wide on screen and a third digit would not be a number, it would be a smudge.
+##
+## BLEED "stacks infinitely", so the cap is a real loss and it is the right one:
+## the difference between 9 and 20 stacks matters and is kept, the difference
+## between 99 and 140 does not fit in ten pixels and is shown as "99+" rather
+## than as a wrong number.
+static func stack_text(stacks: int) -> String:
+	return "99+" if stacks > 99 else str(stacks)
+
+## Where the count tab sits: **on the plate's FLAT edge, never on its point, and
+## never wider than the badge.**
+##
+## Both halves of that were found by rendering it and neither by reading it.
+##
+## **The point carries information and the first version deleted it.** These
+## plates point DOWN when harmful and UP when helpful, and `Assets/UI/README.md`
+## tells the player that in as many words: *"Both cues carry the same information
+## on purpose: the colour is faster to read, and the direction still works for a
+## player who cannot separate red from green."* A tab in the bottom-right corner
+## sits exactly on a harmful plate's point and rubs it out, so a bleeding unit
+## loses the colourblind-safe half of its read at the moment it has most to say.
+## That is this project's house rule -- a picture may replace decoration and it
+## may not replace information -- broken by me, in the file the rule is about,
+## for the third time. So the tab goes on whichever edge is flat.
+##
+## **And it must not reach sideways into the next badge.** A row of four is drawn
+## with a three pixel gap, and a tab overhanging to the right landed on top of
+## the neighbouring status. The tab is now right-ALIGNED rather than
+## right-overhanging: it grows upward or downward, never outward, so a row can
+## never collide however many digits appear.
+##
+## Overhanging outward rather than inset, still. Inset would shrink the glyph, so
+## a bleeding unit's badge would be harder to identify than everybody else's
+## exactly when it matters most.
+static func stack_count_rect(status: CG.Status, rect: Rect2, stacks: int) -> Rect2:
+	var unit := minf(rect.size.x, rect.size.y)
+	var height := unit * 0.58
+	# Width from the text that will actually be drawn, not from a per-digit
+	# multiplier. The multiplier was written for two characters and "99+" is
+	# three, so the plus sign hung outside its own pill.
+	var width := minf(rect.size.x, height * (0.62 + 0.46 * float(stack_text(stacks).length())))
+	# Harmful plates point down, so their flat edge is the top; helpful plates
+	# are the other way up. Straddling the flat edge puts half the tab outside
+	# the badge and leaves the point untouched.
+	var y := rect.position.y - height * 0.5
+	if not CG.is_harmful(status):
+		y = rect.position.y + rect.size.y - height * 0.5
+	return Rect2(Vector2(rect.position.x + rect.size.x - width, y), Vector2(width, height))
+
+## The tab itself. Split from `draw_status` so the geometry above can be tested
+## without a live canvas, which is the same split `build_parts` makes and for the
+## same reason: `draw_*` outside `_draw()` logs a wall of errors and asserts
+## nothing.
+static func draw_stack_count(canvas: CanvasItem, status: CG.Status, rect: Rect2, stacks: int) -> void:
+	var tab := stack_count_rect(status, rect, stacks)
+	var text := stack_text(stacks)
+	# Filled with the rim colour rather than the plate colour: the rim is already
+	# the good/bad channel, so the tab inherits the read instead of inventing a
+	# third colour, and a red tab on a red-rimmed badge cannot be mistaken for a
+	# helpful status.
+	var radius := tab.size.y * 0.5
+	canvas.draw_rect(Rect2(tab.position + Vector2(radius, 0.0), Vector2(maxf(tab.size.x - radius * 2.0, 0.0), tab.size.y)), rim_color(status))
+	canvas.draw_circle(tab.position + Vector2(radius, radius), radius, rim_color(status))
+	canvas.draw_circle(tab.position + Vector2(tab.size.x - radius, radius), radius, rim_color(status))
+	# Dark text on the bright tab. The plate behind is HP_BACK, so this is the
+	# same two colours the badge already uses, swapped.
+	var font := ThemeDB.fallback_font
+	var size := maxi(7, int(tab.size.y * 0.92))
+	var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var baseline := tab.position + Vector2(
+		(tab.size.x - text_width) * 0.5,
+		(tab.size.y + float(font.get_ascent(size)) - float(font.get_descent(size))) * 0.5)
+	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Palette.HP_BACK)
 
 ## Where a row of badges goes, left to right from `top_left`. Returned rather
 ## than drawn so the caller decides how many fit and what to do when they do
