@@ -160,6 +160,40 @@ static func actions() -> Array[ActionDef]:
 		# `geyser_blast_cluster` and `geyser_scald_finisher` in
 		# PresetPlans.gd, which is where the whole fix lives.
 		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
+		# Issue 87: the player's own "Geysermancer can do debuff removal", and
+		# the thing that makes this class's SUPPORT tag true -- until this it
+		# had three actions and all three were pure damage.
+		#
+		# Deliberately narrow on purpose, and the numbers come from swift's
+		# measurement rather than from what the ability sounds like it should
+		# cost. A Geysermancer alive and within its own 200 units of an
+		# afflicted ally covers **3.1% of ticks** of real play, and the only
+		# harmful status anything in this game applies to a player unit today is
+		# POISON (issue 90). So every number here is chosen to make the ability
+		# cheap to own rather than strong: it must not take turns away from
+		# Blast, Scald and Spout on the other 96.9%.
+		#
+		# `heals = true` with `power_scale 0.0`: the strip is the whole effect,
+		# and `CombatSim._apply_action_effect` emits no HEAL event when the
+		# applied amount is 0, so this adds no line to the log except the
+		# STATUS_EXPIRED it exists to produce. `heals = false` would take the
+		# damage branch instead and emit a DAMAGE event for 0 at an *ally*.
+		# 200 range and instant, not `_projectile`: every support action in the
+		# game (priest_heal, priest_haste, priest_ward) is instant, and a
+		# travelling cleanse could MISS an ally who stepped away during a flight
+		# that exists only to look like something.
+		# 10 Mana sits below Scald's 15, so the class's own descending ladder in
+		# PresetPlans.gd keeps working: this is affordable in a window where the
+		# damage spells are not, and cheap enough not to compete with them.
+		# cooldown 60 ticks (4s) is the real bound on the cost, and it is not
+		# decoration: an ability with no cooldown re-fires the moment an enemy
+		# re-applies POISON, and the wind-up plus recovery it spends is time the
+		# Geysermancer is not dealing damage whether it strips anything or not.
+		# swift measured that shape directly -- an `always`-conditioned probe
+		# cleanse cast 4055 times to strip 8 statuses and cut Blast 593->101 and
+		# Scald 676->32. The condition (PresetPlans.gd) is the first defence
+		# against that and this is the second.
+		_action_cleanse(&"geyser_cleanse", "Scour", "Boils every harmful effect off an ally within 200 units. Costs 10 Mana.", 200.0, 8, 10, 10, 60),
 
 		# Issue 12: siege_shot and siege_barrage retired along with the range
 		# that made the class mandatory (260, past every enemy's own reach --
@@ -417,6 +451,28 @@ static func _action_ally_buff(id: StringName, display_name: String, description:
 	a.applies_status_enabled = true
 	a.applies_status = status
 	a.status_duration_ticks = duration_ticks
+	return a
+
+## Issue 87: an ally-targeted action whose entire effect is
+## `cleanses_harmful` -- no damage, no heal, no status of its own. Same
+## "the mechanism is the whole effect" shape `_action_summon` already uses for
+## `summons_unit_id`.
+##
+## `heals` is true so `_apply_action_effect` takes the heal branch and not the
+## damage one; at `power_scale 0.0` that branch applies 0 and emits nothing,
+## which is exactly what is wanted. It is NOT set to make `DefaultBehavior` aim
+## this at an ally: the fallback path must never reach for this action at all,
+## and does not -- see starting_classes.gd's own note on where this sits in the
+## Geysermancer's action list.
+##
+## Unlike `_action_status`, the cooldown is a real parameter rather than a
+## hardcoded 0, for the reason `_action_self_buff` already records: an action
+## that costs little and is worth casting on sight needs a floor on how often
+## it can take the caster's turn.
+static func _action_cleanse(id: StringName, display_name: String, description: String, range_units: float, wind_up: int, recover: int, resource_cost: int, cooldown_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, CG.DamageType.WATER, range_units, wind_up, recover, 0.0, resource_cost, cooldown_ticks)
+	a.heals = true
+	a.cleanses_harmful = true
 	return a
 
 static func _action_taunt(id: StringName, display_name: String, description: String, wind_up: int, recover: int, taunt_radius: float, duration_ticks: int) -> ActionDef:

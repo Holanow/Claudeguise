@@ -256,3 +256,125 @@ func test_action_off_cooldown_fires_normally() -> void:
 	var intent := PlanInterpreter.decide(state, attacker)
 	assert_not_null(intent)
 	assert_eq(intent.action_id, &"warrior_execute")
+
+
+# ---------------------------------------------------------------------------
+# Issue 87: ally_has_harmful_status / target_ally_with_harmful_status.
+#
+# The two ops are a pair and are tested as one, because the failure that
+# matters is them disagreeing: a condition that holds where the targeting op
+# declines leaves `unit.focus_id` at whatever the previous tick set, and for
+# the Geysermancer that is an enemy.
+# ---------------------------------------------------------------------------
+
+func _three(a: CombatUnit, b: CombatUnit, c: CombatUnit) -> CombatState:
+	var state := CombatState.new(0)
+	state.units.append(a)
+	state.units.append(b)
+	state.units.append(c)
+	return state
+
+func _cleanse_pawn() -> PawnData:
+	var cls := ClassDef.new()
+	cls.id = &"geysermancer"
+	cls.starting_actions = [&"geyser_cleanse"]
+	var pawn := PawnData.new()
+	pawn.pawn_class = cls
+	pawn.plans = [_plan(
+		&"scour",
+		_block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"),
+		[
+			_block(PlanBlock.Kind.TARGETING, &"target_ally_with_harmful_status"),
+			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"geyser_cleanse"}),
+		]
+	)]
+	return pawn
+
+
+func test_ally_has_harmful_status_holds_only_for_a_harmful_one() -> void:
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var ally := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0))
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(100, 0))
+	var state := _three(caster, ally, enemy)
+	var plan := _plan(&"p", _block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"), [])
+
+	assert_false(PlanInterpreter.condition_holds(state, caster, plan), "nobody afflicted")
+
+	ally.statuses[CG.Status.HASTE] = 999
+	assert_false(PlanInterpreter.condition_holds(state, caster, plan), "HASTE is not harmful, per CG.is_harmful")
+
+	ally.statuses[CG.Status.POISON] = 999
+	assert_true(PlanInterpreter.condition_holds(state, caster, plan))
+
+
+func test_ally_has_harmful_status_ignores_the_enemy_team() -> void:
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var ally := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0))
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(40, 0))
+	enemy.statuses[CG.Status.POISON] = 999
+	var state := _three(caster, ally, enemy)
+	var plan := _plan(&"p", _block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"), [])
+	assert_false(PlanInterpreter.condition_holds(state, caster, plan),
+		"a poisoned enemy is not a reason to cleanse -- the whole point of the op is that it never aims at one")
+
+
+func test_ally_has_harmful_status_counts_the_caster_itself() -> void:
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	caster.statuses[CG.Status.POISON] = 999
+	var ally := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0))
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(100, 0))
+	var state := _three(caster, ally, enemy)
+	caster.pawn = _cleanse_pawn()
+	caster.resource = 100  # geyser_cleanse costs 10; _melee_unit starts at 0
+
+	var intent := PlanInterpreter.decide(state, caster)
+	assert_not_null(intent)
+	assert_eq(intent.target_id, caster.id, "a poisoned caster is nearest to itself and scrubs its own affliction")
+
+
+func test_targeting_picks_the_afflicted_ally_not_the_hurt_one() -> void:
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var afflicted := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0), 1.0)
+	afflicted.statuses[CG.Status.POISON] = 999
+	var nearly_dead := _melee_unit(2, CG.Team.PLAYER, Vector2(10, 0), 0.05)
+	var state := _three(caster, afflicted, nearly_dead)
+	state.units.append(_melee_unit(3, CG.Team.ENEMY, Vector2(400, 0)))
+	caster.pawn = _cleanse_pawn()
+	caster.resource = 100  # geyser_cleanse costs 10; _melee_unit starts at 0
+
+	var intent := PlanInterpreter.decide(state, caster)
+	assert_not_null(intent)
+	assert_eq(intent.action_id, &"geyser_cleanse")
+	assert_eq(intent.target_id, afflicted.id,
+		"target_lowest_hp_fraction_ally would have picked unit 2, which has nothing to strip -- measured at 16%% of afflicted ticks in 210 real fights")
+
+
+func test_the_plan_never_fires_at_a_stale_enemy_focus() -> void:
+	# The failure the condition exists to prevent: nobody is afflicted, so
+	# targeting finds nothing and leaves focus_id alone -- and focus_id is an
+	# enemy, left there by the Blast plan on an earlier tick. If this plan
+	# fired anyway it would cleanse an enemy.
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var ally := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0))
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(50, 0))
+	var state := _three(caster, ally, enemy)
+	caster.pawn = _cleanse_pawn()
+	caster.resource = 100  # geyser_cleanse costs 10; _melee_unit starts at 0
+	caster.focus_id = enemy.id
+
+	assert_true(PlanInterpreter.decide(state, caster) == null,
+		"with nothing to strip the plan must decline entirely, not fire at whatever focus_id still holds")
+
+
+func test_a_dead_ally_is_not_a_cleanse_target() -> void:
+	var caster := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var corpse := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0), 0.0)
+	corpse.alive = false
+	corpse.statuses[CG.Status.POISON] = 999
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(100, 0))
+	var state := _three(caster, corpse, enemy)
+	caster.pawn = _cleanse_pawn()
+	caster.resource = 100  # geyser_cleanse costs 10; _melee_unit starts at 0
+
+	assert_true(PlanInterpreter.decide(state, caster) == null,
+		"state.living() is what both ops read, so a corpse's statuses can never open this plan")

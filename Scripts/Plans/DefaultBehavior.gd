@@ -140,9 +140,22 @@ static func _usable_actions(unit: CombatUnit) -> Array[ActionDef]:
 			out.append(a)
 	return out
 
+## Issue 87: `power_scale > 0.0` as well as `heals`, because this function
+## answers "do I have a way to put health back into a hurt ally" and an action
+## that restores nothing is not one. `geyser_cleanse` is the first action in the
+## game with `heals = true` and no healing in it -- the flag is what routes it
+## through `_apply_action_effect`'s heal branch, so it emits no DAMAGE event at
+## an ally, not a claim that it heals.
+##
+## Without this the Geysermancer answers every ally below
+## HEAL_THRESHOLD_FRACTION by casting a 0-power heal, or by walking toward that
+## ally to get in range to cast one, instead of attacking -- a real behaviour
+## change for a class that had no heal at all, arriving from a support action
+## that has nothing to do with hp. Nothing else in the game changes: priest_heal
+## is the only other action with `heals` set and its power_scale is well above 0.
 static func _first_heal(actions: Array[ActionDef]) -> ActionDef:
 	for a in actions:
-		if a.heals:
+		if a.heals and a.power_scale > 0.0:
 			return a
 	return null
 

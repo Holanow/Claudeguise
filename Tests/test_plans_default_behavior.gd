@@ -278,3 +278,41 @@ func test_no_living_enemies_means_idle() -> void:
 
 	var intent := DefaultBehavior.decide(state, priest)
 	assert_eq(intent.kind, CG.IntentKind.IDLE)
+
+
+## Issue 87: geyser_cleanse is the first action in the game with `heals = true`
+## and no healing in it -- the flag routes it through _apply_action_effect's
+## heal branch so it emits no DAMAGE event at an ally, and says nothing about
+## hp. Before `_first_heal` also required `power_scale > 0.0`, a Geysermancer
+## standing next to any ally below HEAL_THRESHOLD_FRACTION answered by casting
+## a 0-power heal, or by walking toward that ally to get in range to cast one,
+## instead of attacking. This is the negative test for that: the fallback path
+## must not reach for this action at all, ever, whatever the party's hp.
+func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> void:
+	var geo_pawn := PawnFactory.make_starter_pawn(&"geysermancer", &"g1", "Geysermancer")
+	var geo := CombatUnit.new()
+	geo.id = 0
+	geo.team = CG.Team.PLAYER
+	geo.pawn = geo_pawn
+	geo.position = Vector2.ZERO
+	geo.hp_max = 100
+	geo.hp = 100
+	geo.resource_kind = CG.ResourceKind.MANA
+	geo.resource_max = 100
+	geo.resource = 100
+	geo.actions = geo_pawn.pawn_class.starting_actions.duplicate()
+	assert_true(geo.actions.has(&"geyser_cleanse"), "fixture is only meaningful while the class actually carries it")
+
+	var dying_ally := _immobile_dummy(1, CG.Team.PLAYER, Vector2(20.0, 0.0))
+	dying_ally.hp = 1
+	var enemy := _immobile_dummy(2, CG.Team.ENEMY, Vector2(150.0, 0.0))
+	var state := CombatState.new(0)
+	state.units.append(geo)
+	state.units.append(dying_ally)
+	state.units.append(enemy)
+
+	var intent := DefaultBehavior.decide(state, geo)
+	assert_true(intent.kind != CG.IntentKind.USE_ACTION or intent.action_id != &"geyser_cleanse",
+		"DefaultBehavior picked the cleanse; its only route into a fight is its own preset plan")
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.target_id, enemy.id, "with no real heal in the kit it should be attacking")
