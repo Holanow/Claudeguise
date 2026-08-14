@@ -112,6 +112,30 @@ func test_every_action_mechanism_is_reachable_from_some_class_or_enemy() -> void
 		assert_true(users.size() > 0,
 			"ActionDef.%s is set by no action any class or enemy can use, so nothing in a real fight can reach it." % field)
 
+## A status nothing can inflict is a badge, a glossary entry and a rules
+## paragraph describing something that cannot happen.
+##
+## Added after swift measured the cleanse window and found it was POISON and
+## nothing else. That prompted counting the rest: of twelve declared
+## statuses, four -- BLEED, ENRAGE, BURN and STUN -- are applied by no action
+## in the game. sable drew badges for all twelve, the glossary explains all
+## twelve, and four of them have never once happened to anybody.
+##
+## The mechanism check above could not see this: it walks `ActionDef` fields,
+## and `applies_status` is set on plenty of actions. The gap is in which
+## *values* it is ever set to.
+func test_every_declared_status_can_actually_be_inflicted() -> void:
+	var appliable := {}
+	for action_id in _reachable_action_ids():
+		var a := Registry.get_action(action_id)
+		if a.applies_status_enabled:
+			appliable[a.applies_status] = action_id
+
+	for status in CG.Status.values():
+		assert_true(appliable.has(status),
+			"CG.Status.%s is applied by no action any class or enemy can use. It has a badge and a glossary entry for something that cannot happen."
+				% CG.Status.keys()[status])
+
 # ---------------------------------------------------------------------------
 # The screen is part of the real path. A thing that fights invisibly is not
 # in the game either.
