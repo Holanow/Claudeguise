@@ -1,0 +1,108 @@
+# Dropping in interface art
+
+Every panel, border, button and icon in this game is currently drawn from code
+and colour constants. This folder is how you replace any of it with a real
+picture, and it works exactly the way `Assets/Units/` already works for units.
+
+## The whole procedure
+
+**Drop a PNG in here, under the name the game asks for.** That is all.
+
+```
+Assets/UI/status/bleed.png
+Assets/UI/action/warrior_execute.png
+Assets/UI/panel_border.png
+```
+
+No code change. No scene to edit. No import step, no registration, no restart of
+anything but the game. The moment a file with the right name exists, the game
+draws it instead of the generated default.
+
+Delete the file and the generated one comes back, which makes it safe to try one
+and change your mind.
+
+## Status badges
+
+One per status effect. These draw above a unit at about 12-16 pixels, so the
+generated ones are built around a shape you can still tell apart at that size.
+
+| File | What it draws |
+| --- | --- |
+| `status/shield.png` | Shield — absorbs damage |
+| `status/block.png` | Block — reduces damage taken |
+| `status/shielding.png` | Directional Block — stops shots crossing the front |
+| `status/haste.png` | Haste — acts faster |
+| `status/enrage.png` | Enrage — deals more damage |
+| `status/taunting.png` | Taunting — forces enemies to attack this unit |
+| `status/bleed.png` | Bleed |
+| `status/burn.png` | Burn |
+| `status/poison.png` | Poison |
+| `status/stun.png` | Stun |
+| `status/marked.png` | Marked — takes more damage |
+| `status/slowed.png` | Slowed — moves slower |
+
+**The generated ones follow a rule, and a replacement should keep it.** Helpful
+statuses sit on a plate that points **up** with a **green** rim. Harmful ones sit
+on a plate that points **down** with a **red** rim. Both cues carry the same
+information on purpose: the colour is faster to read, and the direction still
+works for a player who cannot separate red from green. If you drop in your own
+art and only keep the colour, that second group loses the distinction entirely.
+
+## Ability icons
+
+One per action, shown at the end of a wind-up progress bar so you can see what
+is coming rather than only that something is.
+
+`action/warrior_strike.png`, `action/warrior_guard.png`,
+`action/warrior_execute.png`, `action/warrior_taunt.png`,
+`action/warrior_block.png`, `action/priest_heal.png`, `action/priest_bolt.png`,
+`action/priest_smite.png`, `action/priest_haste.png`, `action/priest_ward.png`,
+`action/goblin_stab.png`, `action/goblin_arrow.png`, `action/archer_shot.png`,
+`action/ghoul_maul.png`, `action/grunt_smash.png`, `action/cultist_bolt.png`,
+`action/geyser_blast.png`, `action/geyser_scald.png`,
+`action/siege_master_shot.png`, `action/siege_engine_bolt.png`,
+`action/build_siege_engine.png`, `action/spotter_mark.png`,
+`action/abomination_claw.png`, `action/abomination_hook.png`,
+`action/abomination_grapple.png`, `action/warden_axe.png`,
+`action/warden_chain_toss.png`
+
+The filename is the action's id. **This list is checked by a test.**
+`Tests/test_art.gd` walks the real content registry and fails if an action ships
+without an icon, so nobody has to notice a blank square in a fight.
+
+The generated icons are coloured by the action's damage type, the same colour the
+floating damage numbers and the projectiles already use. A dropped-in PNG is
+drawn exactly as you painted it, colour included.
+
+## Borders and panels
+
+| File | What it draws |
+| --- | --- |
+| `panel_border.png` | The frame around panels |
+
+A border is **nine-sliced**: the corners are drawn at their own size and the
+edges stretch between them, so one file works for a small tooltip and a full
+panel. Draw it square, and put the corner detail inside the outer third — a
+24x24 file has 8-pixel corners. Without a file the game draws a plain one-pixel
+outline.
+
+## Size and shape
+
+- **Any size.** An icon is scaled so its longest side fits the box it is given.
+- **Aspect ratio is preserved.** A tall image stays tall rather than being
+  squashed.
+- **Transparency works.** Whatever is behind shows through.
+- **Nearest-neighbour scaling**, so pixel art stays crisp instead of blurring.
+  Draw small and let it scale up.
+
+## One thing worth knowing
+
+These images are read with `Image.load()` and turned into textures at runtime,
+rather than through Godot's normal import pipeline, for the same reason
+`Assets/Units/` does it: the Godot editor does not currently run on this machine
+(see the header of `Scripts/Core/CG.gd`), so anything requiring an import step
+would be impossible to add here.
+
+The upshot for you is good: **your PNG works whether or not the editor has ever
+seen it.** If the editor becomes usable later, nothing about this changes and
+nothing needs migrating.

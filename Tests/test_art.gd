@@ -318,3 +318,258 @@ func test_impact_flash_progress_is_clamped() -> void:
 	# not get a negative alpha or a shrinking-past-zero radius.
 	assert_almost_eq(AttackFX.impact_flash_alpha(1.5), AttackFX.impact_flash_alpha(1.0), 0.001)
 	assert_almost_eq(AttackFX.impact_flash_radius(20.0, -0.5), AttackFX.impact_flash_radius(20.0, 0.0), 0.001)
+
+
+# ---------------------------------------------------------------------------
+# The UI art drop-in pipeline and its first two consumers: status badges
+# (PLAYTEST-NOTES-2 item 2), ability icons (item 3), and the loader both sit on
+# (item 15).
+#
+# What these check is what can go wrong *silently*: an icon that exists for
+# every value today and stops existing when somebody adds one, a glyph that
+# draws outside its own box, a drop-in path that quietly never finds the file.
+# How they look is not testable and is not attempted -- Tools/UIArtPreview.tscn
+# and the committed screenshots are for that.
+
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
+const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
+const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
+
+
+func _every_status() -> Array:
+	var out: Array = []
+	for v in CG.Status.values():
+		out.append(v)
+	return out
+
+
+## Every action any class or enemy in the real registry can actually order.
+## Derived from the content rather than from a list typed here, because a list
+## typed here would be a second artifact by the same author and would agree with
+## itself while both were wrong.
+func _every_reachable_action_id() -> Array:
+	var out: Array = []
+	for class_id in Registry.all_class_ids():
+		for a in Registry.get_class_def(class_id).starting_actions:
+			if not out.has(a):
+				out.append(a)
+	for enemy_id in Registry.all_enemy_ids():
+		for a in Registry.get_enemy(enemy_id).actions:
+			if not out.has(a):
+				out.append(a)
+	# A summoned unit's actions are ordered in a real fight but its id is not in
+	# all_enemy_ids() by any path a class walks -- this is exactly the gap that
+	# let a siege engine ship invisible.
+	for action_id in out.duplicate():
+		var action = Registry.get_action(action_id)
+		if action == null or action.summons_unit_id == &"":
+			continue
+		var summoned = Registry.get_enemy(action.summons_unit_id)
+		if summoned == null:
+			continue
+		for a in summoned.actions:
+			if not out.has(a):
+				out.append(a)
+	return out
+
+
+func test_every_status_has_a_badge_glyph() -> void:
+	for s in _every_status():
+		assert_true(
+			StatusIcons.GLYPHS.has(s),
+			"CG.Status.%s has no glyph in StatusIcons.GLYPHS" % CG.Status.keys()[s]
+		)
+		assert_true(
+			(StatusIcons.GLYPHS[s] as Array).size() > 0,
+			"CG.Status.%s has an empty glyph" % CG.Status.keys()[s]
+		)
+
+
+func _count_at(points: Array, y: float) -> int:
+	var n := 0
+	for p in points:
+		if absf(p[1] - y) < 0.001:
+			n += 1
+	return n
+
+
+func test_status_plate_direction_follows_is_harmful() -> void:
+	# The stated rule, asserted rather than trusted: harmful points down,
+	# beneficial points up, and CG.is_harmful() is the only source for it. A
+	# second list in StatusIcons could drift; there is no second list, and this
+	# fails if one is ever introduced.
+	for s in _every_status():
+		var pts := StatusIcons.plate_points(s)
+		var lowest := -999.0
+		var highest := 999.0
+		for p in pts:
+			lowest = maxf(lowest, p[1])
+			highest = minf(highest, p[1])
+		var label := String(CG.Status.keys()[s])
+		if CG.is_harmful(s):
+			assert_almost_eq(lowest, 1.0, 0.001, "%s should sit on a downward plate" % label)
+			assert_eq(_count_at(pts, 1.0), 1, "%s plate should have exactly one bottom point" % label)
+		else:
+			assert_almost_eq(highest, -1.0, 0.001, "%s should sit on an upward plate" % label)
+			assert_eq(_count_at(pts, -1.0), 1, "%s plate should have exactly one top point" % label)
+
+
+func test_harmful_and_beneficial_rims_differ() -> void:
+	assert_ne(StatusIcons.rim_color(CG.Status.BLEED), StatusIcons.rim_color(CG.Status.SHIELD))
+
+
+func test_no_two_statuses_share_a_glyph() -> void:
+	# The whole job of these badges is telling one status from another. Two
+	# entries pointing at the same shape would pass every other check here.
+	var seen: Array = []
+	for s in _every_status():
+		var g: Array = StatusIcons.GLYPHS[s]
+		assert_false(seen.has(g), "CG.Status.%s reuses another status's glyph" % CG.Status.keys()[s])
+		seen.append(g)
+
+
+func test_every_reachable_action_has_an_icon() -> void:
+	var reachable := _every_reachable_action_id()
+	# The negative half: if this walk ever comes back empty the loop below
+	# passes vacuously and says nothing, which is the failure mode a coverage
+	# test has.
+	assert_true(reachable.size() >= 20, "only found %d reachable actions, the registry walk is wrong" % reachable.size())
+	for id in reachable:
+		assert_true(ActionIcons.has_glyph(id), "action %s has no icon in ActionIcons.GLYPHS" % id)
+
+
+func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> void:
+	# The other direction: an icon left behind after content deletes an action
+	# is dead weight and, worse, evidence that the two have drifted.
+	for id in ActionIcons.GLYPHS.keys():
+		assert_not_null(Registry.get_action(id), "ActionIcons has an icon for %s, which the registry does not define" % id)
+
+
+func test_status_backed_action_icons_resolve_to_the_status_glyph() -> void:
+	# Rule 2: an action whose whole effect is a status draws that status's
+	# glyph. Stored as the enum value, so this checks the indirection actually
+	# resolves rather than handing a bare int to the drawing loop.
+	assert_eq(ActionIcons.glyph_for(&"warrior_guard"), StatusIcons.GLYPHS[CG.Status.BLOCK])
+	assert_eq(ActionIcons.glyph_for(&"priest_haste"), StatusIcons.GLYPHS[CG.Status.HASTE])
+	for id in ActionIcons.GLYPHS.keys():
+		assert_true((ActionIcons.glyph_for(id) as Array).size() > 0, "action %s resolves to an empty glyph" % id)
+
+
+func test_unknown_action_draws_a_placeholder_rather_than_nothing() -> void:
+	# A blank looks like the feature failing; a placeholder looks like a missing
+	# icon. Never reached today and asserted anyway.
+	assert_false(ActionIcons.has_glyph(&"no_such_action"))
+	assert_true((ActionIcons.glyph_for(&"no_such_action") as Array).size() > 0)
+
+
+func test_glyph_geometry_stays_inside_its_own_rect() -> void:
+	# A glyph escaping its box shows up as an icon bleeding into the unit next
+	# to it, which reads as a rendering bug rather than as bad art.
+	var rect := Rect2(100.0, 40.0, 16.0, 16.0)
+	var all: Array = []
+	for s in _every_status():
+		all.append(StatusIcons.GLYPHS[s])
+	for id in ActionIcons.GLYPHS.keys():
+		all.append(ActionIcons.glyph_for(id))
+	all.append([{"poly": StatusIcons.PLATE_GOOD}, {"poly": StatusIcons.PLATE_BAD}, {"poly": ActionIcons.PLATE}])
+	for glyph in all:
+		for part in glyph:
+			for p in UIArt.glyph_points(part, rect):
+				assert_true(
+					rect.grow(0.01).has_point(p),
+					"glyph point %s escapes its rect %s" % [p, rect]
+				)
+
+
+func test_glyph_points_are_centred_and_scaled_by_the_rect() -> void:
+	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
+	var pts := UIArt.glyph_points({"poly": [[0.0, 0.0], [1.0, 0.0], [0.0, -1.0]]}, rect)
+	assert_eq(pts[0], Vector2(10.0, 10.0))
+	assert_eq(pts[1], Vector2(20.0, 10.0))
+	assert_eq(pts[2], Vector2(10.0, 0.0))
+
+
+func test_glyph_rotation_turns_a_part_about_the_rect_centre() -> void:
+	# `rot` is what stops warrior_strike rendering as a plus sign, so it is
+	# load-bearing rather than decorative.
+	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
+	var upright := UIArt.glyph_points({"poly": [[0.0, -1.0]]}, rect)
+	var quarter := UIArt.glyph_points({"poly": [[0.0, -1.0]], "rot": PI * 0.5}, rect)
+	assert_eq(upright[0], Vector2(10.0, 0.0))
+	assert_almost_eq(quarter[0].x, 20.0, 0.001)
+	assert_almost_eq(quarter[0].y, 10.0, 0.001)
+
+
+func test_glyph_rotation_moves_dot_and_arc_centres_too() -> void:
+	# A rotated glyph whose polygons turned and whose dots stayed put would come
+	# apart, and it would only be visible by looking.
+	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
+	var still := UIArt.glyph_center({}, [0.0, -1.0, 0.2], rect)
+	var turned := UIArt.glyph_center({"rot": PI * 0.5}, [0.0, -1.0, 0.2], rect)
+	assert_eq(still, Vector2(10.0, 0.0))
+	assert_almost_eq(turned.x, 20.0, 0.001)
+
+
+func test_glyph_scales_to_the_shorter_side_of_a_non_square_rect() -> void:
+	# A caller handing this a wide rect should get a round icon in the middle,
+	# not an ellipse. Aspect distortion reads as a bug.
+	var pts := UIArt.glyph_points({"poly": [[1.0, 1.0]]}, Rect2(0.0, 0.0, 40.0, 10.0))
+	assert_eq(pts[0], Vector2(25.0, 10.0))
+
+
+func test_ui_art_returns_null_for_a_name_with_no_file() -> void:
+	# The normal case today, and it must be silent: a missing override is not
+	# an error and every drawing function relies on that.
+	UIArt.clear_cache()
+	assert_eq(UIArt.texture_for(&"definitely_not_a_real_ui_asset"), null)
+	assert_false(UIArt.has_art(&"status/definitely_not_a_real_status"))
+
+
+func test_a_dropped_in_png_is_found_with_no_registration() -> void:
+	# The item-15 claim, exercised end to end rather than reasoned about: write
+	# a PNG into Assets/UI under a name the game asks for, and the loader finds
+	# it with no import, no registration and no code change. Removed again so
+	# the generated defaults are what ships.
+	var art_name := StatusIcons.art_name(CG.Status.BLEED)
+	assert_eq(String(art_name), "status/bleed")
+	var path := "res://Assets/UI/%s.png" % art_name
+	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
+
+	DirAccess.make_dir_recursive_absolute("res://Assets/UI/status")
+	var image := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	image.fill(Color(1.0, 0.0, 1.0, 1.0))
+	assert_eq(image.save_png(path), OK, "could not write the test override to %s" % path)
+
+	UIArt.clear_cache()
+	var tex := UIArt.texture_for(art_name)
+	assert_not_null(tex, "a PNG dropped into Assets/UI was not picked up")
+	assert_eq(tex.get_width(), 8)
+
+	DirAccess.remove_absolute(path)
+	UIArt.clear_cache()
+	assert_eq(UIArt.texture_for(art_name), null, "the override survived its own deletion")
+
+
+func test_status_row_layout_is_evenly_spaced_and_measurable() -> void:
+	var rects := StatusIcons.layout_row(Vector2(10.0, 5.0), 3, 14.0, 4.0)
+	assert_eq(rects.size(), 3)
+	assert_eq(rects[0].position, Vector2(10.0, 5.0))
+	assert_eq(rects[1].position, Vector2(28.0, 5.0))
+	assert_eq(rects[2].position, Vector2(46.0, 5.0))
+	# row_width must agree with where the last badge actually ends, or a caller
+	# centring a row over a unit centres it wrongly.
+	assert_almost_eq(StatusIcons.row_width(3, 14.0, 4.0), rects[2].end.x - rects[0].position.x, 0.001)
+	assert_almost_eq(StatusIcons.row_width(0, 14.0, 4.0), 0.0, 0.001)
+
+
+func test_status_art_names_are_unique_and_lower_case() -> void:
+	var seen: Array = []
+	for s in _every_status():
+		var n := StatusIcons.art_name(s)
+		assert_eq(String(n), String(n).to_lower())
+		assert_false(seen.has(n), "two statuses share the drop-in name %s" % n)
+		seen.append(n)
+
+
+func test_action_art_name_is_the_action_id() -> void:
+	assert_eq(ActionIcons.art_name(&"warrior_execute"), &"action/warrior_execute")
