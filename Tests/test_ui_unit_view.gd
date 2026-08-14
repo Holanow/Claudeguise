@@ -213,6 +213,35 @@ func test_should_show_label_is_true_for_an_enemy_mid_wind_up() -> void:
 	enemy.action_ticks_left = 5
 	assert_true(UnitView.should_show_label(enemy, [enemy]))
 
+# ---------------------------------------------------------------------------
+# wind_up_elapsed_ticks (PR #69/#71/#72: the wind-up ring becomes a real
+# countdown, coloured by damage type, correct even under HASTE)
+# ---------------------------------------------------------------------------
+
+func test_wind_up_elapsed_ticks_is_total_minus_left() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.action_ticks_total = 10
+	u.action_ticks_left = 4
+	assert_eq(UnitView.wind_up_elapsed_ticks(u), 6)
+
+func test_wind_up_elapsed_ticks_is_zero_at_the_very_start() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.action_ticks_total = 10
+	u.action_ticks_left = 10
+	assert_eq(UnitView.wind_up_elapsed_ticks(u), 0)
+
+## The actual reason action_ticks_total exists rather than reading the
+## action's own base wind_up_ticks: it is captured post-haste, so a hasted
+## unit's shorter wind-up still reports 0 elapsed at its own start and full
+## elapsed at its own end, not against the un-hasted length.
+func test_wind_up_elapsed_ticks_is_correct_for_a_hasted_shorter_wind_up() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.action_ticks_total = 7  # e.g. a base 10-tick wind-up scaled by HASTE
+	u.action_ticks_left = 7
+	assert_eq(UnitView.wind_up_elapsed_ticks(u), 0, "must read 0 elapsed at the start of the hasted wind-up, not against the un-hasted total")
+	u.action_ticks_left = 0
+	assert_eq(UnitView.wind_up_elapsed_ticks(u), 7, "must read fully elapsed at the hasted wind-up's own end")
+
 func test_should_show_label_is_false_for_an_enemy_with_stale_action_but_no_ticks_left() -> void:
 	var enemy := _make_unit(0, Vector2.ZERO)
 	enemy.team = CG.Team.ENEMY

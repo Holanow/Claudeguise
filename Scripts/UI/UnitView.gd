@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
+const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
 ## One combatant on screen: body, health bar, resource bar, name, tags, and the
 ## wind-up indicator that says an action is coming.
@@ -180,7 +181,18 @@ func _draw() -> void:
 	_draw_concentration_badge(u, radius)
 
 	if u.action_ticks_left > 0 and u.current_action != &"":
-		draw_arc(Vector2.ZERO, radius + 4.0, 0.0, TAU, 28, Palette.WIND_UP, 3.0, true)
+		# PR #69 (sable, Scripts/Art/AttackFX.gd), wiring's third and final
+		# piece: a flat Palette.WIND_UP circle told a player "something is
+		# charging" but not what kind or how soon. AttackFX.draw_wind_up
+		# recolours the ring per damage type (_accent(u), the same class
+		# accent Silhouettes.draw_unit already reads a few lines up -- one
+		# colour per unit, body and telegraph agree) and sweeps it as a real
+		# countdown. action_ticks_total (issue, PR #72) captures the
+		# *post-haste* length, so this reads correctly for a hasted unit
+		# too -- elapsed/total would have silently desynced against the
+		# action's own base wind_up_ticks otherwise, for exactly the pawns
+		# (Priest grants HASTE) where it would have mattered.
+		AttackFX.draw_wind_up(self, Vector2.ZERO, radius + 4.0, _accent(u), wind_up_elapsed_ticks(u), u.action_ticks_total)
 		var font := ThemeDB.fallback_font
 		var ticks_text := str(u.action_ticks_left)
 		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size())
@@ -376,6 +388,16 @@ func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: 
 	var chip := Rect2(pos - Vector2(pad.x, text_size.y), text_size + pad * 2.0)
 	draw_rect(chip, Color(Palette.BACKGROUND, 0.65))
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+
+## Split out for testing, same reasoning as status_tags below: the part of
+## the wind-up draw call that is pure arithmetic rather than a draw_* call.
+## action_ticks_total (issue, PR #72) is captured post-haste at the moment
+## the wind-up starts, so this stays correct for a hasted unit -- deriving
+## a denominator from the action's own base wind_up_ticks instead would
+## have silently desynced against a HASTE-scaled action_ticks_left, for
+## exactly the pawns (Priest grants HASTE) where it would have mattered.
+static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
+	return u.action_ticks_total - u.action_ticks_left
 
 ## Split out from _draw_status_tags so it can be tested without a live
 ## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a

@@ -82,6 +82,20 @@ var taunt_radius: float = 0.0
 ## is not read.
 var current_action: StringName = &""
 var action_ticks_left: int = 0
+
+## What `action_ticks_left` started at for the action currently being performed.
+## 0 when the unit is free.
+##
+## Exists so a wind-up can be drawn as a **countdown** rather than a fixed ring:
+## progress is `1.0 - action_ticks_left / action_ticks_total`, and there is no
+## way to recover the denominator after the fact. `wind_up_ticks` on the action
+## is not it -- `_apply_haste` scales the real value at commit time, so a hasted
+## unit's ring would run at the wrong rate against the raw number.
+##
+## Requested by wren with an exact signature rather than worked around in the
+## UI, after sable built the countdown art. Written once beside
+## `action_ticks_left` in `CombatSim`; nothing else should set it.
+var action_ticks_total: int = 0
 var recover_ticks_left: int = 0
 
 ## Keyed by action id, value is the tick the cooldown ends.

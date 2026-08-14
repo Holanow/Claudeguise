@@ -101,6 +101,58 @@ func test_condition_label_does_not_autowrap() -> void:
 	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
 	panel.free()
 
+# ---------------------------------------------------------------------------
+# Hover-info-box system, phase 1
+# ---------------------------------------------------------------------------
+
+func test_attribute_chips_carry_glossary_tooltips() -> void:
+	const Glossary := preload("res://Scripts/UI/Glossary.gd")
+	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+	var pawn := _make_pawn()
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var found := false
+	for child in panel._detail_box.get_children():
+		if child is HBoxContainer:
+			for chip in child.get_children():
+				if chip is Label and chip.text.begins_with("STR"):
+					found = true
+					assert_eq(chip.get_script(), GlossaryLabelScript, "must be hoverable, same as every other glossary term")
+					assert_eq(chip.tooltip_text, Glossary.attribute_text(CG.Attribute.STR))
+					# PLAYTEST-NOTES-2 item 13: "hover is missing on Inspect
+					# classes -- the most important place for it to be." A
+					# real launch (throwaway probe, not this offline
+					# construction) found why: Label's own engine default
+					# mouse_filter is IGNORE, so the tooltip's own machinery
+					# never even sees the mouse arrive. A plain Control
+					# (PartyCard) defaults to STOP, which is why that one
+					# worked and every ad hoc Label built for hover never
+					# could. Set explicitly rather than left to
+					# GlossaryLabel's own _ready(), which never fires here
+					# since this test never puts InspectPanel in a live tree.
+					assert_eq(chip.mouse_filter, Control.MOUSE_FILTER_STOP, "a Label defaults to MOUSE_FILTER_IGNORE and would never receive hover at all")
+	assert_true(found, "expected to find the STR chip")
+	panel.free()
+
+func test_class_tags_header_line_carries_a_glossary_tooltip() -> void:
+	const Glossary := preload("res://Scripts/UI/Glossary.gd")
+	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+	var pawn := _make_pawn(CG.Role.TANK)
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var expected := Glossary.class_tags_text(pawn.pawn_class.role_primary, pawn.pawn_class.style, pawn.pawn_class.method)
+	var found := false
+	for child in panel._detail_box.get_children():
+		if child is Label and child.get_script() == GlossaryLabelScript and child.tooltip_text == expected:
+			found = true
+			assert_eq(child.mouse_filter, Control.MOUSE_FILTER_STOP, "same fix as the attribute chips -- a Label defaults to MOUSE_FILTER_IGNORE")
+	assert_true(found, "expected the tags line to carry the glossary tooltip")
+	panel.free()
+
 ## Real bug, found on a real launch: the list/detail scroll containers had no
 ## vertical size flags, so they collapsed to their content's minimum size
 ## regardless of how much room the panel actually had, and the whole body
@@ -514,6 +566,30 @@ func test_condition_picker_offers_every_condition_op() -> void:
 		if p.item_count == PlanInterpreter.CONDITION_OPS.size():
 			condition_picker = p
 	assert_not_null(condition_picker, "expected one picker offering all %d condition ops" % PlanInterpreter.CONDITION_OPS.size())
+	panel.free()
+
+## rook found this on a real launch: the dropdown read "Self hp below 50%"
+## while the spinbox right beside it read 65% -- every entry, including the
+## selected one, was captioned from the op's default args rather than the
+## plan's own. The label must agree with the setting it is labelling.
+func test_selected_condition_captions_the_real_value_not_the_default() -> void:
+	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_hp_below_fraction"
+	condition.args = {"fraction": 0.65}
+	var plan := _make_plan("Guard when hurt")
+	plan.condition = condition
+	pawn.plans = [plan]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._condition_editor(plan)
+	var picker: OptionButton = row.get_child(1)
+	var selected_text := picker.get_item_text(picker.selected)
+	assert_true(selected_text.contains("65%"), "expected the real 65%% value in '%s'" % selected_text)
+	assert_false(selected_text.contains("50%"), "must not still show the op's default")
 	panel.free()
 
 func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> CombatUnit:

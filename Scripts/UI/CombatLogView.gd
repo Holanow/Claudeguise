@@ -173,6 +173,21 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
 					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
 				]
+			# Issue 74: a summon or a buff still resolves through
+			# _apply_action_effect and still emits a DAMAGE event -- the
+			# event stream is correct, CombatSim must not change (rook's
+			# own instruction) -- but the action never rolled any damage at
+			# all: power_scale is 0 for these, so amount_before_mitigation
+			# is 0 too, not just amount. That is the one signal that tells
+			# "this action does not deal damage" apart from "this attack
+			# was fully absorbed", which the very next check below still
+			# has to keep showing (amount 0, amount_before_mitigation > 0)
+			# per issue 14's own finding that a miss and a fully-mitigated
+			# hit must read differently. Suppressed rather than reworded:
+			# ACTION_FIRE and, where relevant, STATUS_APPLIED already say
+			# what the action actually did on the surrounding lines.
+			if e.amount == 0 and e.amount_before_mitigation == 0:
+				return ""
 			var mitigation := ""
 			if e.amount_before_mitigation > e.amount:
 				mitigation = " (%d before mitigation)" % e.amount_before_mitigation
@@ -193,9 +208,18 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.ACTION_FIRE:
 			return "%s's %s fires" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.STATUS_APPLIED:
-			return "%s is afflicted with %s" % [target_name, _status_name(e.status)]
+			# PLAYTEST-NOTES-2 item 6: a beneficial status ("the Warrior is
+			# afflicted with Shielding") read as a curse landing on the
+			# player's own unit. CG.is_harmful already classifies exactly
+			# this -- built for Cleanse, per its own doc comment -- and the
+			# log never asked it.
+			if CG.is_harmful(e.status):
+				return "%s is afflicted with %s" % [target_name, _status_name(e.status)]
+			return "%s gains %s" % [target_name, _status_name(e.status)]
 		CG.EventKind.STATUS_EXPIRED:
-			return "%s's %s fades" % [target_name, _status_name(e.status)]
+			if CG.is_harmful(e.status):
+				return "%s's %s fades" % [target_name, _status_name(e.status)]
+			return "%s's %s ends" % [target_name, _status_name(e.status)]
 		CG.EventKind.RESOURCE_SPENT:
 			return ""
 	return ""

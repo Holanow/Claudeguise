@@ -385,6 +385,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
 	unit.action_ticks_left = _apply_haste(unit, deps, int(deps.wind_up_ticks.call(unit, action)))
+	unit.action_ticks_total = unit.action_ticks_left
 
 	if action.resource_cost > 0:
 		unit.resource -= action.resource_cost
@@ -546,6 +547,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
+	unit.action_ticks_total = 0
 	unit.recover_ticks_left = _apply_haste(unit, deps, int(deps.recover_ticks.call(unit, action)))
 	if action.cooldown_ticks > 0:
 		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks

@@ -3,6 +3,7 @@ extends "res://Tests/TestCase.gd"
 const CG := preload("res://Scripts/Core/CG.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const PartyCard := preload("res://Scripts/UI/PartyCard.gd")
+const Glossary := preload("res://Scripts/UI/Glossary.gd")
 
 ## Issue 17: a class used to be a checkbox next to a bare word. PartyCard is
 ## the whole card — silhouette, name, role, style — and the whole thing is
@@ -68,6 +69,30 @@ func test_style_text_distinguishes_ranged_from_melee() -> void:
 	assert_ne(ranged._style_text(), melee._style_text())
 	ranged.free()
 	melee.free()
+
+# ---------------------------------------------------------------------------
+# Hover-info-box system, phase 1: the whole card is one tooltip.
+# ---------------------------------------------------------------------------
+
+func test_class_def_sets_tooltip_text_to_the_glossary_tags() -> void:
+	var card := PartyCard.new()
+	var cls := _make_class("warrior", "Warrior", CG.Style.MELEE, CG.Method.MARTIAL, CG.Role.TANK)
+	card.class_def = cls
+	assert_eq(card.tooltip_text, Glossary.class_tags_text(cls.role_primary, cls.style, cls.method))
+	card.free()
+
+func test_make_custom_tooltip_returns_a_control_carrying_the_text() -> void:
+	var card := PartyCard.new()
+	card.class_def = _make_class("priest", "Priest", CG.Style.RANGED, CG.Method.MAGICAL, CG.Role.HEALER)
+	var popup = card._make_custom_tooltip(card.tooltip_text)
+	assert_not_null(popup)
+	var found := false
+	for child in popup.get_children():
+		if child is Label and child.text == card.tooltip_text:
+			found = true
+	assert_true(found, "the tooltip popup must carry the card's own tooltip text")
+	popup.free()
+	card.free()
 
 func test_a_healer_and_a_ranged_class_read_differently() -> void:
 	# The specific check issue 17 asks for: can a player tell the ranged one

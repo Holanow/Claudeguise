@@ -9,6 +9,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 
@@ -52,9 +53,12 @@ var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
 var _inspect_panel = null
 
+var _pause_dim: ColorRect = null
+
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
+	_build_pause_dim()
 	_build_top_bar()
 	_build_end_banner()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
@@ -62,6 +66,23 @@ func _ready() -> void:
 	if is_inside_tree():
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
+
+## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
+## or similar. Nothing currently indicates it." Added first, before any
+## other Hud child, so later Hud elements (the top bar, the pause button
+## itself, the combat log) draw on top of it and stay fully legible while
+## the arena underneath reads as held. Hud is its own CanvasLayer above
+## Arena's, so this only needs to sit early in Hud's own child order to
+## land between the two -- it does not need a z_index or a second layer.
+func _build_pause_dim() -> void:
+	var hud := get_node("Hud")
+	_pause_dim = ColorRect.new()
+	_pause_dim.color = Palette.BACKGROUND
+	_pause_dim.color.a = 0.55
+	_pause_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_dim.visible = false
+	hud.add_child(_pause_dim)
 
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
@@ -475,6 +496,8 @@ func set_paused(p: bool) -> void:
 	paused = p
 	if _pause_button != null:
 		_pause_button.text = "Resume" if paused else "Pause"
+	if _pause_dim != null:
+		_pause_dim.visible = paused
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
@@ -540,6 +563,7 @@ func consume_events() -> void:
 			_combat_log.append_event(state, e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
+			_spawn_impact_flash(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
 		elif e.kind == CG.EventKind.MISS:
@@ -582,6 +606,21 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.position = target.position + _floater_stagger_offset(target.position)
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
+
+## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
+## needs an attack asset ... so I know what's up" — melee had nothing but a
+## number appearing where DamageFloater already stood in for a hit landing.
+## Same event, same target position, same e.damage_type the floater above
+## already reads two lines up — no new lookup.
+func _spawn_impact_flash(e: CombatEvent) -> void:
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	var flash := Node2D.new()
+	flash.set_script(ImpactFlashScript)
+	_arena.add_child(flash)
+	flash.position = target.position
+	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
 
 ## A death lands as an event, not as a unit quietly disappearing: named text
 ## rising from where the unit fell, on screen noticeably longer than a damage

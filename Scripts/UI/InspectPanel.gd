@@ -7,6 +7,8 @@ const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
+const Glossary := preload("res://Scripts/UI/Glossary.gd")
+const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 
 ## Issue 21b: look at your pawns between fights. A full-screen overlay added
 ## as a child of whichever screen opens it (PartySelect or BattleView's end
@@ -207,9 +209,21 @@ func _build_detail(pawn: PawnData) -> void:
 
 	var cls := pawn.pawn_class
 	_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
-	_detail_box.add_child(_line(
+	# Hover-info-box system, phase 1: the same trio PartyCard already makes
+	# hoverable, read through the one shared Glossary function so the two
+	# screens' copy cannot drift apart.
+	var tags_line := _line(
 		"%s · %s" % [_role_text(cls.role_primary), _style_method_text(cls.style, cls.method)],
-		Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
+		Palette.FONT_SIZE_BODY, Palette.TEXT_DIM)
+	tags_line.set_script(GlossaryLabelScript)
+	# Set explicitly rather than left to GlossaryLabel's own _ready(): this
+	# node is built while InspectPanel may not yet be inside a live tree (a
+	# test calling _build_detail() without ever entering one), and _ready()
+	# only fires on real tree entry — same reasoning PartyCard._ready() is
+	# already called manually elsewhere in this file's own sibling screen.
+	tags_line.mouse_filter = Control.MOUSE_FILTER_STOP
+	tags_line.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
+	_detail_box.add_child(tags_line)
 
 	_detail_box.add_child(_section_header("Attributes"))
 	var attrs := HBoxContainer.new()
@@ -222,7 +236,10 @@ func _build_detail(pawn: PawnData) -> void:
 		# launch — every attribute name overlapped into one garbled word.
 		# These seven short chips never need to wrap.
 		var chip := Label.new()
+		chip.set_script(GlossaryLabelScript)
+		chip.mouse_filter = Control.MOUSE_FILTER_STOP
 		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
+		chip.tooltip_text = Glossary.attribute_text(a)
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		chip.add_theme_color_override("font_color", Palette.TEXT)
 		attrs.add_child(chip)
@@ -434,7 +451,17 @@ func _condition_editor(plan) -> Control:
 	var current := 0
 	for i in PlanInterpreter.CONDITION_OPS.size():
 		var op: StringName = PlanInterpreter.CONDITION_OPS[i]
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, _default_condition_args(op))))
+		# The selected entry has to read the plan's own live value, not the
+		# op's default -- rook found this on a real launch: the dropdown read
+		# "Self hp below 50%" while the spinbox beside it read 65%, because
+		# every entry (including the current one) was captioned from
+		# _default_condition_args regardless of what the condition was
+		# actually set to. An unselected entry still previews its own
+		# default, which is exactly what picking it sets (_set_condition_op
+		# resets args to the default on swap), so only the current entry
+		# needs the real args.
+		var preview_args: Dictionary = plan.condition.args if op == current_op and plan.condition != null else _default_condition_args(op)
+		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, preview_args)))
 		if op == current_op:
 			current = i
 	picker.selected = current
