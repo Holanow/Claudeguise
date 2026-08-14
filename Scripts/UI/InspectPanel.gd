@@ -298,13 +298,17 @@ func _build_detail(pawn: PawnData) -> void:
 	# screen is for. Now the same chip-with-a-tooltip shape the attributes row
 	# above already uses and the party cards already use, because reading a
 	# description is exactly what hover is for now.
+	# Issue 100: the pawn's actions, not the class's. An action an item granted is
+	# one this pawn can use and plan with, so leaving it out of this row would
+	# have said the opposite of what the row beneath it now offers.
+	var available := _available_actions(pawn)
 	_detail_box.add_child(_section_header("Actions"))
-	if cls.starting_actions.is_empty():
+	if available.is_empty():
 		_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	else:
 		var actions_row := HBoxContainer.new()
 		actions_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-		for action_id in cls.starting_actions:
+		for action_id in available:
 			actions_row.add_child(_action_chip(action_id))
 		_detail_box.add_child(actions_row)
 
@@ -312,7 +316,7 @@ func _build_detail(pawn: PawnData) -> void:
 		_detail_box.add_child(control)
 
 	var plan_action_ids := _actions_used_in_plans(pawn)
-	var unused := cls.starting_actions.filter(func(a): return not plan_action_ids.has(a))
+	var unused := available.filter(func(a): return not plan_action_ids.has(a))
 	if not unused.is_empty():
 		var names := unused.map(func(a): return _action_display_name(a))
 		_detail_box.add_child(_line(
@@ -557,8 +561,20 @@ func _available_conditions(_pawn: PawnData) -> Array:
 func _available_targetings(_pawn: PawnData) -> Array:
 	return PlanInterpreter.TARGETING_OPS
 
+## Issue 100: `Registry.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
+##
+## This one line is why equipment was untestable. `CombatSim._collect_player_actions`
+## already unioned the class's actions with every equipped piece's
+## `granted_actions`, so the fight knew a Warrior in plate could Directional
+## Block; this screen asked a different question and answered `starting_actions`
+## alone, so the block never appeared for the player to plan with. The action
+## fired and could not be planned, which is #98's principle exactly backwards.
+##
+## Registry owns the answer now so neither caller does. Nothing narrows here:
+## this returns a superset of what it returned before, and a pawn wearing
+## nothing gets a byte-identical list.
 func _available_actions(pawn: PawnData) -> Array:
-	return pawn.pawn_class.starting_actions if pawn.pawn_class != null else []
+	return Registry.actions_for_pawn(pawn)
 
 ## Swaps two plans' priority by index and redraws. `pawn.plans` is the same
 ## array PartySelect/BattleView hand into CombatState, so this is the whole
