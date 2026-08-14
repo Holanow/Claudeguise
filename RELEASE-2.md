@@ -3,8 +3,14 @@
 ## Run it
 
 ```
-"D:\Projects\Claudeguise-team\tools\godot\Godot_v4.7.1-stable_win64.exe" --path D:\Projects\Claudeguise
+"D:/Projects/Claudeguise-team/tools/godot/Godot_v4.7.1-stable_win64.exe" --path D:/Projects/Claudeguise
 ```
+
+**Forward slashes on purpose.** With backslashes this fails as
+`Invalid project path specified: "D:ProjectsClaudeguise"` — an unquoted
+Windows path is eaten by the shell, which reads each `\` as an escape and drops
+it. Quoting the `--path` argument also works; forward slashes work everywhere
+and need no quoting, so that is what is written here.
 
 Every screen was swept on this build and works. Screenshots of all nine are in
 `Screenshots/sweep_*_1280x720.png` if you want to see what I saw.
