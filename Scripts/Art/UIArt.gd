@@ -54,7 +54,7 @@ static var _cache: Dictionary = {}
 static func texture_for(name: StringName) -> Texture2D:
 	var path := "%s/%s.png" % [ART_DIR, name]
 	if not _cache.has(path):
-		_cache[path] = _load(path)
+		_cache[path] = load_png(path)
 	return _cache[path]
 
 static func has_art(name: StringName) -> bool:
@@ -66,7 +66,16 @@ static func has_art(name: StringName) -> bool:
 static func clear_cache() -> void:
 	_cache.clear()
 
-static func _load(path: String) -> Texture2D:
+## Reads a PNG off disk into a texture, or null when there is no file there. A
+## missing file is the normal case and is silent; a file that exists and cannot
+## be read is a real mistake and says so.
+##
+## Public and here rather than private and duplicated: `UnitArt` needs exactly
+## the same loader for `Assets/Units`, and it had its own byte-identical copy
+## until issue #85. The reason it cannot be `load()` is in this file's header
+## and in `UnitArt`'s -- Godot only produces a loadable texture for an image the
+## editor has imported, and the editor does not run on this machine.
+static func load_png(path: String) -> Texture2D:
 	if not FileAccess.file_exists(path):
 		return null
 	var image := Image.new()
@@ -74,6 +83,26 @@ static func _load(path: String) -> Texture2D:
 		push_error("UIArt: %s exists but could not be read as an image" % path)
 		return null
 	return ImageTexture.create_from_image(image)
+
+## A filled polygon with its own outline closed back to the first point.
+##
+## Four files drew this by hand -- `Silhouettes.draw_unit`, `AttackFX.
+## draw_projectile`, `StatusIcons.draw_status` and `ActionIcons.draw_action` --
+## each with its own `duplicate()` / `append(points[0])` pair, because Godot's
+## `draw_polyline` does not close a loop and a polygon without the closing
+## segment is missing exactly one edge. That is a defect nobody sees on the
+## shape they were looking at and everybody ships on the next one.
+##
+## `fill` may be transparent, for the parts of a silhouette that are outline
+## only.
+static func draw_outlined_polygon(canvas: CanvasItem, points: PackedVector2Array, fill: Color, outline: Color, width: float) -> void:
+	if points.size() < 2:
+		return
+	if fill.a > 0.0:
+		canvas.draw_colored_polygon(points, fill)
+	var closed := points.duplicate()
+	closed.append(points[0])
+	canvas.draw_polyline(closed, outline, width, true)
 
 ## Draws `tex` centred in `rect`, scaled so its longest side spans the shorter
 ## side of the rect. Aspect is preserved: a squashed icon reads as a bug and a

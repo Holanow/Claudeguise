@@ -34,8 +34,8 @@ walk into it, which rooms you can reach from where you stand, and what you have
 found so far. A boss is never a surprise.
 
 **Fight a room.** Real time, with pause. Party and enemy health at the top,
-floating damage numbers, wind-up rings showing an action about to land, targeting
-lines, and a combat log in plain language.
+floating damage numbers, a progress bar above each unit with the icon of the
+action it is about to land, targeting lines, and a combat log in plain language.
 
 **Carry your losses forward.** Damage does not reset between rooms and the dead
 stay dead. The floor is meant to wear you down.

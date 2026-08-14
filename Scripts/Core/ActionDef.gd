@@ -104,6 +104,45 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## is the simulation's, not content's.
 @export var summons_unit_id: StringName = &""
 
+## The most summons from this action that may be alive at once. Zero means no
+## limit, which is every action that existed before the Siege Engine.
+##
+## A property of the action rather than a special case for one class, because
+## the summon mechanism above is generic and the next summoner will want it.
+##
+## **This does more than cap a number, and the reason is worth keeping.** The
+## player asked for a cap because engines were "getting built really fast" --
+## 2.69 per fight, peaking at 7. (I first wrote 3.18 here. That came from my
+## own probe running one hardcoded party; finch's runs every buildable party
+## carrying a Siege Master, and theirs is the figure the PR reports. Neither
+## measurement is wrong, but a Core comment disagreeing with the PR beside it
+## is what costs somebody twenty minutes in a month.) But `build_siege_engine`
+## and `spotter_mark`
+## draw on one Mana pool with build ordered first, so building was starving
+## marking, and engines that only fire at marked targets had nothing to shoot.
+## Capping hands every capped-out tick back to the mark plan: marking went 8%
+## of engine-alive ticks to 22% **with no change to `spotter_mark` at all**.
+##
+## That only works because the cap gates where the action is *chosen*, in
+## `PlanInterpreter` beside the affordability check, rather than at spawn. A
+## cap applied at spawn would have wasted the cast and starved marking exactly
+## as before. Do not move it.
+@export var max_active_summons: int = 0
+
+## This action may only be used against a target carrying `CG.Status.MARKED`.
+## False for every action that existed before the Siege Engine.
+##
+## The player's design: a Siege Engine reaches anywhere, fires slowly, cannot
+## move, and **cannot choose its own targets** -- the Siege Master designates
+## them. That turns `spotter_mark` from a damage-amp side ability into the
+## engine's targeting system, and makes the class one thing instead of two
+## unrelated halves.
+##
+## The risk this creates is measurable and was measured: an action gated this
+## way is exactly as useful as marking is frequent. See `max_active_summons`
+## above for why the cap, not the mark action, is what made it viable.
+@export var requires_marked_target: bool = false
+
 ## How far this action drags its target toward the caster, in arena units. Zero
 ## means it does not pull, which is every action that exists today.
 ##

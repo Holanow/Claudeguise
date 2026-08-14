@@ -126,6 +126,10 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _can_afford(state, unit, action_id):
 		return null
+	if not _summon_slot_free(state, unit, action_id):
+		return null
+	if not _target_is_marked(state, unit, action_id):
+		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
@@ -180,6 +184,49 @@ static func _can_afford(state: CombatState, unit: CombatUnit, action_id: StringN
 	if unit.cooldowns.has(action.id) and state.tick < int(unit.cooldowns[action.id]):
 		return false
 	return true
+
+## Issue 93: the summon cap, and it is a gate on *choosing* the action rather
+## than a refusal at spawn time. Same shape and same reasoning as `_can_afford`
+## directly above -- a plan whose action cannot do anything right now must fall
+## through to the next plan instead of committing the unit to a wasted tick.
+##
+## Where this runs is the whole design, not an implementation detail. Refusing
+## inside `CombatSim._spawn_summon` would let a Siege Master pay 20 Mana and
+## stand through a 90-tick wind-up to produce nothing, on every tick it is
+## capped -- which would make `spotter_mark` rarer, and the engines now depend
+## entirely on `spotter_mark`. Falling through here is what turns "capped" into
+## "mark something instead", and it is why the cap and the marked-only gate are
+## one change rather than two.
+##
+## Counts live summons by `EnemyDef` id on the caster's own team, not by who
+## cast what: a second Siege Master's engines occupy the same field the first one
+## is looking at, and two players' worth of engines is exactly what the cap
+## exists to prevent. `max_active_summons` 0 means uncapped, which is every
+## action but one, so this returns true immediately for all of them.
+static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null or action.max_active_summons <= 0 or action.summons_unit_id == &"":
+		return true
+	var live := 0
+	for u in state.living(unit.team):
+		if u.enemy_id == action.summons_unit_id:
+			live += 1
+	return live < action.max_active_summons
+
+## Issue 93: an action that may only be aimed at an enemy carrying MARKED. Same
+## fall-through shape as the range and line-of-sight checks above: a plan aiming
+## an engine at an unmarked target steps aside rather than ordering a shot the
+## engine is not allowed to take.
+##
+## Checked against the *focused* target rather than "is anything marked
+## anywhere". A plan that chose its own target must not get to fire at that
+## target on the strength of some other enemy being marked somewhere else.
+static func _target_is_marked(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null or not action.requires_marked_target:
+		return true
+	var target := state.unit(unit.focus_id)
+	return target != null and target.has_status(CG.Status.MARKED)
 
 static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> bool:
 	if not CONDITION_OPS.has(block.op):
