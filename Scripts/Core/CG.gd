@@ -61,7 +61,26 @@ const ARENA_HALF_HEIGHT := 270.0
 
 ## A fight that has not resolved by this tick is a draw. Stops a stalemate
 ## between two passive parties from hanging the runner.
-const MAX_TICKS := TICKS_PER_SECOND * 120
+##
+## A flat tick count on purpose, not `TICKS_PER_SECOND * <seconds>`. It was
+## the latter, and halving the tick rate therefore halved this too, 3600 ->
+## 1800, while every content tick value -- wind-ups, cooldowns, travel --
+## stayed exactly where it was. The budget is spent by content, so it has to
+## be denominated in the same unit the content is.
+##
+## The change is on principle, and the measurement that prompted it did not
+## support the reason I first gave for it. `Tools/TickBudget.gd` finds 3
+## fights in 700 hitting the ceiling on `floor1_chokepoint`; I assumed the
+## halved budget had truncated them, restored 3600, and found *the same 3*
+## still hitting it. They are genuine stalemates and would stall at any
+## budget. Tracked separately, and not fixed by this constant.
+##
+## What stands on its own is that a fight hitting the ceiling is invisible:
+## CombatSim resolves it to DRAW, the same value a mutual wipe gives, so
+## every run tool counts it as an ordinary loss and nothing anywhere says the
+## fight never finished. That is the failure mode this constant is most able
+## to hide, which is why the budget should not also move on its own.
+const MAX_TICKS := 3600
 
 ## The party deploys inside the left-hand fraction of the arena, so a fight
 ## always begins with ground between the two sides and somebody has to cross it.
