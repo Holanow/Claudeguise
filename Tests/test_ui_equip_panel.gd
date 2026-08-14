@@ -9,6 +9,8 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const EquipPanel := preload("res://Scripts/UI/EquipPanel.gd")
 const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
 const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
+const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
+const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
 
 ## Issue 100: the pre-fight equip screen.
 ##
@@ -118,6 +120,89 @@ func test_the_actions_row_shows_a_granted_action() -> void:
 		"the granted action's name must appear somewhere on the plan editor")
 	editor.free()
 
+# ---------------------------------------------------------------------------
+# Issue 127: the equipment icons had no caller.
+#
+# `EquipmentIcons` shipped in #117 with an icon for each of seventeen items and
+# `EquipPanel` referenced it zero times, so the screen drew none of them -- the
+# eleventh built-and-unreachable feature on this project. These tests exist to
+# make that state fail rather than pass silently, so they assert placement on
+# the *opened* screen and not only inside the row builder: a row builder nothing
+# calls is exactly as unreachable as an icon nothing draws.
+# ---------------------------------------------------------------------------
+
+## The reachability guard. Opening the screen the way the screen is opened must
+## put icons on it. This is the assertion the missing caller would have failed.
+func test_opening_the_screen_puts_item_icons_on_it() -> void:
+	var pawn := _make_pawn()
+	var panel := _panel()
+	panel.open([pawn])
+	var icons := _icons(panel)
+	assert_eq(icons.size(), 3, "one icon per slot must reach the opened screen, got %d" % icons.size())
+	panel.free()
+
+## Each icon must know which slot it stands for, because an empty slot draws its
+## own plate rather than nothing -- an unfilled weapon slot still reads as a
+## weapon slot. Asserted per slot, since one `slot` value applied to all three
+## rows would satisfy a count-only check.
+func test_each_slot_row_carries_an_icon_for_that_slot() -> void:
+	var panel := _panel()
+	var pawn := _make_pawn()
+	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+		var controls := panel._slot_controls(pawn, slot)
+		var icons := _icons(controls[0])
+		assert_eq(icons.size(), 1, "the %s row carries exactly one icon" % panel.slot_name(slot))
+		assert_eq(icons[0].slot, slot, "the icon must draw the plate of its own slot")
+		assert_true(icons[0].item == null, "an unequipped slot's icon holds no item")
+		for c in controls:
+			c.free()
+	panel.free()
+
+## And the filled case, against a real item rather than a fixture, because the
+## claim is about the shipped game: wearing Plate Mail must put Plate Mail's own
+## icon on the armor row.
+func test_the_icon_follows_the_worn_item() -> void:
+	var panel := _panel()
+	var pawn := _make_pawn()
+	pawn.armor = Registry.get_equipment(&"plate_mail")
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
+	var icons := _icons(controls[0])
+	assert_eq(icons.size(), 1)
+	assert_true(icons[0].item != null, "a worn item must reach its icon")
+	assert_eq(icons[0].item.id, &"plate_mail")
+	for c in controls:
+		c.free()
+	panel.free()
+
+## The other half of "the art is reachable": an item the screen offers but
+## `EquipmentIcons` has no glyph for falls back to a bare plate, and three items
+## sharing a bare plate is indistinguishable from the icons working. Checked
+## against what the screen really offers, both methods, all three slots.
+func test_every_item_the_screen_offers_has_its_own_glyph() -> void:
+	var panel := _panel()
+	var missing: Array[String] = []
+	for method in [CG.Method.MARTIAL, CG.Method.MAGICAL]:
+		var pawn := _make_pawn(method)
+		for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+			for item in panel.offered_items(pawn, slot):
+				if not EquipmentIcons.has_glyph(item.id):
+					missing.append(str(item.id))
+	assert_eq(missing.size(), 0, "offered with no icon glyph: %s" % str(missing))
+	panel.free()
+
+## An icon must never sit between the player and the row it decorates. The
+## picker underneath is the control a player reaches for.
+func test_an_item_icon_does_not_eat_input_meant_for_the_row() -> void:
+	var panel := _panel()
+	var controls := panel._slot_controls(_make_pawn(), EquipmentDef.Slot.WEAPON)
+	var icon := _icons(controls[0])[0]
+	assert_eq(icon.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"Control defaults to STOP, which would make the icon swallow clicks")
+	assert_true(icon.custom_minimum_size.x > 0.0, "an icon with no minimum size is drawn at nothing")
+	for c in controls:
+		c.free()
+	panel.free()
+
 func _text_of(node: Node) -> String:
 	var out := ""
 	if node is Label:
@@ -201,7 +286,13 @@ func test_a_slot_picker_cannot_push_the_row_off_the_screen() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
 	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
-	var picker: OptionButton = controls[0].get_child(1)
+	# Found by type, not by child index. It was `get_child(1)`, and issue 127
+	# adding an icon to the front of the row turned that into a `Label`, which
+	# aborted this method mid-way and recorded no assertion at all. A test that
+	# stops measuring the moment somebody adds a control to the row is measuring
+	# the row's shape, and the row's shape is not what this test is about.
+	var picker: OptionButton = _first_of_type(controls[0], "OptionButton")
+	assert_true(picker != null, "the slot row must carry a picker")
 	assert_false(picker.fit_to_longest_item, "a picker sized to its longest entry runs off the row")
 	assert_true(picker.clip_text)
 	assert_eq(picker.get_item_text(0), panel.EMPTY_CHOICE, "clearing a slot must be the first choice")
@@ -301,6 +392,24 @@ func _all_nodes(node: Node) -> Array[Node]:
 	var out: Array[Node] = [node]
 	for child in node.get_children():
 		out.append_array(_all_nodes(child))
+	return out
+
+## The first descendant of a built-in class, by name. `is_class` rather than an
+## index, so adding a control to a row cannot silently repoint a test at the
+## wrong node.
+func _first_of_type(node: Node, type_name: String) -> Node:
+	for n in _all_nodes(node):
+		if n.is_class(type_name):
+			return n
+	return null
+
+## Every descendant carrying `ItemIconView`'s script. Matched on the script
+## rather than on the class, because there is no `class_name` in this project.
+func _icons(node: Node) -> Array[Node]:
+	var out: Array[Node] = []
+	for n in _all_nodes(node):
+		if n.get_script() == ItemIconViewScript:
+			out.append(n)
 	return out
 
 ## The three slots and the granted-skills section must all be on the screen, or

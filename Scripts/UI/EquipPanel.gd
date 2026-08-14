@@ -9,6 +9,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Balance := preload("res://Scripts/Content/Balance.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen. Three slots per pawn, every effect in
 ## specific numbers, and the granted actions an item teaches.
@@ -281,6 +282,24 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 
+	# Issue 127: the item's own icon, first thing on the row. `EquipmentIcons`
+	# shipped in #117 with no caller anywhere and this is it -- the eleventh
+	# built-and-unreachable feature on this project, and it was reachable only
+	# because sable read my diff looking for their own API.
+	#
+	# `worn` is computed below for the effect line; the icon needs it first, so
+	# it is read here and used twice rather than looked up twice.
+	var worn := equipped(pawn, slot)
+	var icon := Control.new()
+	icon.set_script(ItemIconViewScript)
+	# Called directly rather than left to the engine, the same reason every
+	# panel on this screen does: this row is built while EquipPanel may not be
+	# inside a live tree, and _ready() is where the icon takes its size.
+	icon._ready()
+	icon.slot = slot
+	icon.item = worn
+	row.add_child(icon)
+
 	var label := Label.new()
 	label.text = slot_name(slot)
 	label.custom_minimum_size = Vector2(120.0, 0.0)
@@ -305,7 +324,6 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	picker.add_item(EMPTY_CHOICE)
 	var current := 0
-	var worn := equipped(pawn, slot)
 	for i in items.size():
 		picker.add_item(items[i].display_name)
 		if worn != null and items[i].id == worn.id:

@@ -63,17 +63,6 @@ func _build_roster() -> void:
 			continue
 		_available.append(PawnFactory.make_starter_pawn(class_id, class_id, cls.display_name))
 
-## `window/stretch/mode` is `canvas_items` with aspect `expand` (project-wide,
-## the phone-legibility pass): the whole UI is authored in one fixed logical
-## coordinate space and Godot scales the render uniformly to fit any real
-## window or device, the same way BattleView's arena already does. A wrap
-## container computing columns from `get_viewport_rect()` therefore does not
-## get narrower on a physical phone — that call reports design-space size,
-## not physical pixels, by design (`expand` never reports *less* than the
-## design width). A fixed, compact grid plus the project's existing uniform
-## scaling is the right fit for how this project already handles size,
-## rather than a second, competing responsive scheme.
-##
 ## Issue 18: rook's own eyeballed read of party_select_phone_400x800.png was
 ## "every card well under the 48-pixel touch minimum". Measured instead with
 ## get_global_rect() (Control's coordinates are always logical, the same as
@@ -81,14 +70,23 @@ func _build_roster() -> void:
 ## time, not by resizing controls): every card is 170x200, over three times
 ## TOUCH_TARGET_MIN on its short side, at any window size. Godot maps a real
 ## tap back through the same stretch transform, so this is the actual
-## functional target, not merely a number that happens not to shrink. The
-## real complaint underneath — cards crammed into the top of the screen with
-## most of the height empty — is legitimate on its own and worth fixing
-## regardless: two columns instead of three spreads the five classes over
-## three rows rather than two, using more of a tall window's height instead
-## of leaving it blank.
-const CARD_COLUMNS := 2
-
+## functional target, not merely a number that happens not to shrink.
+##
+## **Issue 133 replaced the fixed `CARD_COLUMNS = 2` grid with an
+## `HFlowContainer`, and the argument that column count had to be fixed was
+## wrong in a way worth keeping written down.** It ran: `expand` stretch means
+## `get_viewport_rect()` reports design space rather than physical pixels, so a
+## container computing its own columns from the viewport cannot get narrower on
+## a phone. That is true of `get_viewport_rect()` and it is not an argument for
+## a constant, because **a flow container does not ask the viewport anything.**
+## It wraps at the width its parent gives it, which is a real layout width in
+## the same logical space every other Control here uses. So the responsive case
+## and the wide case are one behaviour rather than two competing schemes, which
+## is what the old comment was right to want.
+##
+## The cost of the constant was the player's complaint: five classes, room for
+## all five, showing two, in the left quarter of a 1280-wide screen, clipped
+## mid-row inside a scroll box.
 func _build_ui() -> void:
 	var bg := ColorRect.new()
 	bg.color = Palette.BACKGROUND
@@ -128,8 +126,19 @@ func _build_ui() -> void:
 	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(roster_scroll)
 
-	_roster_box = GridContainer.new()
-	_roster_box.columns = CARD_COLUMNS
+	# Issue 133, straight from the player: "The opening screen has a ton of
+	# horizontal space to use but I still have to scroll the class selector.
+	# Make it fill the available space instead."
+	#
+	# A ScrollContainer hands its child the child's own minimum width and lets
+	# it scroll sideways, which would let the flow put all five cards on one
+	# line and scroll rather than wrap. Disabling horizontal scrolling makes the
+	# ScrollContainer force the flow to its own width, which is the width the
+	# window actually has -- so the wrap point comes from the layout instead of
+	# from a number anybody typed.
+	roster_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+	_roster_box = HFlowContainer.new()
 	_roster_box.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
 	_roster_box.add_theme_constant_override("v_separation", int(Palette.SPACE_M))
 	_roster_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -198,10 +207,28 @@ func _build_ui() -> void:
 	_start_run_button = Button.new()
 	_start_run_button.set_script(GlossaryButtonScript)
 	_start_run_button.tooltip_text = "Enters the floor with the current party. Fights and rooms follow in sequence, with damage and resources carried between them."
+	# Issue 133: the four secondary destinations share one wrapping row instead
+	# of each taking a full-width band.
+	#
+	# This is the other half of the player's complaint and it is the half that
+	# actually stops the scrolling. Five stacked buttons at TOUCH_TARGET_MIN
+	# apiece spent about 320 of 720 pixels of height, each one 1200 pixels wide
+	# to hold two words -- so the roster was left 175 pixels for a 200-pixel
+	# card and clipped it, and widening the roster alone could not have fixed
+	# that. Flowing these frees the height the cards were missing.
+	#
+	# Start Fight stays a full-width band on its own above this row. It is the
+	# primary action and the only one that is not a detour, and evening the five
+	# out would have made the screen read as five equal choices.
+	var secondary_row := HFlowContainer.new()
+	secondary_row.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
+	secondary_row.add_theme_constant_override("v_separation", int(Palette.SPACE_S))
+	column.add_child(secondary_row)
+
 	_start_run_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	_start_run_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_start_run_button.pressed.connect(_on_start_run_pressed)
-	column.add_child(_start_run_button)
+	secondary_row.add_child(_start_run_button)
 
 	# Issue 21b: reachable from party select, before anyone has committed to a
 	# fight — the obvious place to read what a class will actually do before
@@ -211,7 +238,7 @@ func _build_ui() -> void:
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
-	column.add_child(inspect_button)
+	secondary_row.add_child(inspect_button)
 
 	# Issue 100: equipment before the fight, beside the plan editor rather than
 	# inside it. The two screens answer different questions about the same pawn
@@ -222,7 +249,7 @@ func _build_ui() -> void:
 	equip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	equip_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	equip_button.pressed.connect(_on_equip_pressed)
-	column.add_child(equip_button)
+	secondary_row.add_child(equip_button)
 
 	# Issue 19: the room library the generator draws from was five
 	# hand-written GDScript rooms; this is where a player grows it. Reachable
@@ -233,7 +260,7 @@ func _build_ui() -> void:
 	level_editor_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	level_editor_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	level_editor_button.pressed.connect(func(): level_editor_requested.emit())
-	column.add_child(level_editor_button)
+	secondary_row.add_child(level_editor_button)
 
 	_inspect_panel = Control.new()
 	_inspect_panel.set_script(InspectPanelScript)

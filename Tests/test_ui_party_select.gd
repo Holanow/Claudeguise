@@ -200,3 +200,86 @@ func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
 	assert_true(screen._roster_box.get_parent() is ScrollContainer, "the roster grid must be able to give up space to a short viewport")
 	assert_eq(screen._roster_box.get_parent().size_flags_vertical, Control.SIZE_EXPAND_FILL)
 	screen.free()
+
+# ---------------------------------------------------------------------------
+# Issue 133, from the player: "The opening screen has a ton of horizontal space
+# to use but I still have to scroll the class selector. Make it fill the
+# available space instead."
+#
+# The roster was a `GridContainer` at a constant two columns, so five classes
+# sat in the left quarter of a 1280-wide screen and were clipped mid-row.
+#
+# These measure the geometry rather than the container's class name. A
+# `Container` lays its children out on NOTIFICATION_SORT_CHILDREN, which is
+# queued by the tree; sending it directly runs the same sort now, so the wrap
+# can be measured on a detached screen the way every other test here builds one.
+# ---------------------------------------------------------------------------
+
+## THE WRAP ITSELF IS NOT ASSERTED HERE, AND THE REASON IS WORTH WRITING DOWN
+## BECAUSE I SHIPPED THE INERT VERSION FIRST AND THE GATE WENT GREEN ON IT.
+##
+## I wrote `box.size = Vector2(w, 2000); box.notification(
+## Container.NOTIFICATION_SORT_CHILDREN)` and read the card positions back. The
+## wide case passed. It was measuring nothing: probed on a real launch, that
+## notification lays out nothing on a detached container -- `get_line_count()`
+## comes back 0 and every card's rect is `[P: (0,0), S: (0,0)]`, so all five
+## cards share y=0 and "one row" is what an unlaid-out container looks like, not
+## what a correct one looks like. A `Container` sorts on a frame inside a tree,
+## and these tests build detached screens.
+##
+## So the geometry is verified where it can be: `Tools/ScreenSweep.tscn` at both
+## required resolutions, captures in the PR. What is asserted below are the two
+## structural properties that the capture cannot regress-check, and neither is a
+## restatement of the container's own class name.
+##
+## Announcements rule 2: "X never happens" is also passed by "X can never be
+## observed." This was that, and I only found it by probing rather than trusting
+## a green line.
+
+## `columns` is the thing that made five classes show as two. A flow container
+## has no such field, and the assertion is on the absence of a fixed column
+## count rather than on the class, so a future `GridContainer` with a computed
+## column count would also pass -- it is the constant that was the defect.
+func test_the_roster_has_no_fixed_column_count() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	var cards: int = screen._roster_box.get_child_count()
+	assert_true(cards >= 5, "the shipped game has five classes, got %d" % cards)
+	assert_false(&"columns" in screen._roster_box,
+		"a fixed column count is what put five classes in two columns")
+	assert_true(screen._roster_box is HFlowContainer,
+		"the roster must wrap at the width the layout gives it")
+	screen.free()
+
+## The wrap only reaches the cards if the ScrollContainer forces the flow to its
+## own width. Left at the default it hands the child its minimum width and
+## scrolls sideways instead, which looks identical in the code and puts every
+## card on one unreachable line.
+func test_the_roster_wraps_rather_than_scrolling_sideways() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_eq(screen._roster_box.get_parent().horizontal_scroll_mode,
+		ScrollContainer.SCROLL_MODE_DISABLED,
+		"a sideways-scrolling roster never wraps, whatever container is inside it")
+	screen.free()
+
+## The half that actually stops the scrolling. Five full-width stacked buttons
+## spent about 320 of 720 pixels of height, so the roster was left 175 for a
+## 200-pixel card; widening the roster alone could not have fixed that.
+##
+## Start Fight stays on its own band: it is the primary action, and this asserts
+## the distinction rather than only the saving, because flowing all five would
+## have passed a height check while making the screen read as five equal choices.
+func test_the_secondary_destinations_share_a_row_and_start_fight_does_not() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	var row := screen._start_run_button.get_parent()
+	assert_true(row is HFlowContainer, "the secondary buttons must share a wrapping row")
+	assert_ne(screen._start_button.get_parent(), row, "Start Fight keeps its own full-width band")
+	var texts: Array[String] = []
+	for child in row.get_children():
+		if child is Button:
+			texts.append(child.text)
+	for expected in ["Inspect classes", "Equip pawns", "Level editor"]:
+		assert_true(texts.has(expected), "'%s' must be in the shared row, row holds %s" % [expected, str(texts)])
+	screen.free()
