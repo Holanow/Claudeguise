@@ -226,6 +226,15 @@ const GLYPHS := {
 	&"cultist_bolt": _HEX,
 	&"geyser_blast": _JET,
 	&"geyser_scald": _STEAM,
+	# sable: one data line, no new art, and the only edit issue 79 makes in
+	# your files. `geyser_spout` is the Geysermancer's new zero-cost basic
+	# attack and `test_every_reachable_action_has_an_icon` -- doing exactly the
+	# job this table's own comment describes -- went red the moment it landed.
+	# Pointed at the existing `_JET` rather than inventing a third water shape:
+	# Spout and Blast are the same jet of water, one splashing and one not.
+	# Repoint it if you would rather they read apart; nothing here depends on
+	# which glyph it is.
+	&"geyser_spout": _JET,
 
 	# Siege. The master and the engine fire the same ammunition, so they draw
 	# the same bolt -- inventing a difference the fight does not have would be

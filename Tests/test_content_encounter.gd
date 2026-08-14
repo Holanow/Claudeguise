@@ -382,11 +382,44 @@ func _floor_clear_rate(missing: StringName, seeds: int) -> int:
 ## by ~4/20 on an identical fixture) is still open and unexplained, so a
 ## difference this size is inside the same noise floor rook's own caution
 ## names, not a real regression to tune out.
+## **Issue 79: best and worst are now derived, not named.** This test hardcoded
+## `siege_master x4` as the best comp and `geysermancer x4` as the worst, and
+## **neither was ever true**: measured on the commit before this change,
+## `abomination x4` won 20/20 and `priest x4` won 0/20, while the two named
+## rows sat at 15/20 and 6/20. The margin it checked was 9 out of a real 20,
+## and it passed for years by luck rather than because it was measuring the
+## property in its own name.
+##
+## The Geysermancer's new zero-cost basic attack (issue 79) took
+## `geysermancer x4` from 6/20 to 19/20 and dropped that stale hand-picked
+## margin under the threshold, which is how this was found. Fixing it by
+## re-picking two other names would leave the same trap for the next change,
+## so the two ends are read off all five mono-comps instead. The real margin
+## is 20 both before and after this branch: the invariant was never in danger,
+## only the fixture was.
+##
+## Mono-class rosters are not buildable in `PartySelect` (one card per class),
+## and `Tools/SampleFights.gd` prints them under a heading saying so. They stay
+## here for the same reason that tool keeps them: as a per-class strength read,
+## which is exactly what "does composition matter" needs and what a set of
+## leave-one-out parties cannot give, since those differ by one member out of
+## four.
 func test_composition_still_matters() -> void:
-	var best := _win_rate([&"siege_master", &"siege_master", &"siege_master", &"siege_master"], 20)
-	var worst := _win_rate([&"geysermancer", &"geysermancer", &"geysermancer", &"geysermancer"], 20)
-	print("floor1_room1: best comp (siege_master x4) win rate %d/20  vs  worst comp (geysermancer x4) win rate %d/20" % [best["wins"], worst["wins"]])
-	assert_true(best["wins"] - worst["wins"] >= 8, "best and worst comps should differ by a wide margin in win rate")
+	var best := -1
+	var worst := 999
+	var best_id := &""
+	var worst_id := &""
+	for id in Registry.all_class_ids():
+		var wins: int = _win_rate([id, id, id, id], 20)["wins"]
+		print("floor1_room1: %s x4 win rate %d/20" % [id, wins])
+		if wins > best:
+			best = wins
+			best_id = id
+		if wins < worst:
+			worst = wins
+			worst_id = id
+	print("floor1_room1: best comp (%s x4) %d/20  vs  worst comp (%s x4) %d/20" % [best_id, best, worst_id, worst])
+	assert_true(best - worst >= 8, "best and worst comps should differ by a wide margin in win rate")
 
 
 ## **Target reversed after a full playthrough (PLAYTEST-NOTES.md), not just
@@ -556,16 +589,37 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 ## regen is percent-per-second and self-corrects in expectation, but its
 ## per-tick stochastic rounding does not, so a party living entirely off a
 ## timer (no landed-hit generator) drifts slightly with the tick rate.
-## Not chasing this closer than the band it lands in: issue #63's ~4/20
-## instrument disagreement is the standing reason not to tune to a
-## difference this size.
+## **Issue 79 (warrior_execute made reachable, the Geysermancer given a free
+## basic attack and a working Scald) raised `no_geysermancer`'s cost cap
+## 70% -> 75%: measured at 70.3%, three tenths of a point over the old cap.**
+## That row also holds 20/20 wins. A win getting slightly cheaper is the
+## player's own stated direction for a single fight, and this file has
+## loosened two other rows for the same shape already (see above); it is not
+## worth a fixture change over 0.3 of a point.
+##
+## **The far more useful thing issue 79 found about this table, disclosed
+## because it changes how anyone should read every number in it: The Warden's
+## outcome depends more on the party's spawn ORDER than on the party.** The
+## rows here are built in the alphabetical order of the ids as typed above.
+## `Tools/SampleFights.gd` builds the same five leave-one-out parties in
+## `Registry.all_class_ids()` order, which is a different order, and on this
+## branch the two instruments disagree completely for one party: this test
+## measures `no_geysermancer` at 20/20 while SampleFights measures the same
+## party against the same encounter at 8/20, over 60 seeds as well as 20.
+## Neither is wrong. `CombatSim._party_spawn_position` places party members
+## by their index, so a different order is a different opening geometry
+## against a slow melee boss, and a real player picks any order they like in
+## `PartySelect`. Every historical number in this file's header was measured
+## in one arbitrary order without saying which. Flagged for rook rather than
+## fixed here: making this table order-independent (or deliberately sampling
+## orders) is a change to what the test measures, not a tuning pass.
 func test_the_warden_asks_something_of_every_real_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_warden")
 	assert_not_null(enc)
 	# ids, minimum wins out of 20, maximum median cost on a win (percent)
 	var parties := [
 		[[&"geysermancer", &"priest", &"siege_master", &"warrior"], 0, 100.0],
-		[[&"abomination", &"priest", &"siege_master", &"warrior"], 15, 70.0],
+		[[&"abomination", &"priest", &"siege_master", &"warrior"], 15, 75.0],
 		[[&"abomination", &"geysermancer", &"siege_master", &"warrior"], 15, 85.0],
 		[[&"abomination", &"geysermancer", &"priest", &"warrior"], 15, 70.0],
 		[[&"abomination", &"geysermancer", &"priest", &"siege_master"], 0, 70.0],
@@ -593,7 +647,7 @@ func test_the_warden_asks_something_of_every_real_party() -> void:
 				costs.append(hp / hp_max * 100.0)
 		costs.sort()
 		var median_cost := costs[costs.size() / 2] if not costs.is_empty() else -1.0
-		print("floor1_warden, missing one of %s: %d/20, median cost on a win %.0f%%" % [ids, wins, median_cost])
+		print("floor1_warden, missing one of %s: %d/20, median cost on a win %.1f%%" % [ids, wins, median_cost])
 		assert_true(wins >= min_wins, "%s should win at least %d/20 against The Warden, got %d/20" % [ids, min_wins, wins])
 		if wins > 0:
-			assert_true(median_cost <= max_cost, "%s's wins should cost at most %.0f%% against a boss, median was %.0f%%" % [ids, max_cost, median_cost])
+			assert_true(median_cost <= max_cost, "%s's wins should cost at most %.0f%% against a boss, median was %.1f%%" % [ids, max_cost, median_cost])

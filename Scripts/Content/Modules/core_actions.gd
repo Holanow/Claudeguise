@@ -29,7 +29,42 @@ static func actions() -> Array[ActionDef]:
 	return [
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
 		_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 3 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
-		_action(&"warrior_execute", "Execute", "A heavy melee blow that deals twice the damage of a Strike. Costs 60 Rage.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 60, 40),
+		# Issue 79: cost 60 -> 25. This action fired zero times across 210
+		# real fights, and the cause was not tuning or plan priority: the
+		# Warrior's Rage pool has a *maximum* of 40. `Balance.max_resource`
+		# is `30 + ATN*8 + INT*2`, and the Warrior is ATN 1 / INT 1, so 40 --
+		# full at fight start and capped there for the whole fight. A
+		# 60-cost action was unaffordable by construction for every Warrior
+		# in the game, in every fight, forever. Measured with a throwaway
+		# probe stepping three real encounters tick by tick (not committed):
+		# 0 ticks at Rage >= 60 in any of them.
+		#
+		# 20 of a 40 pool, refilled at `RAGE_GAIN_PERCENT_PER_HIT` (18% of
+		# max, so 7.2) per landed hit: roughly one Execute per three landed
+		# Strikes. Deliberately not fixed by raising the Warrior's ATN
+		# instead -- that inflates what every Rage cost means at once, and
+		# hands a martial class a caster's pool to correct one number.
+		#
+		# 20 and not 25, and its plan fires only at a full 40 (see
+		# `warrior_execute_finisher`), so Execute always leaves exactly one
+		# warrior_guard payable behind it. **That pairing is the tidier
+		# economy and it is not a fix for anything -- disclosing the
+		# hypothesis that failed rather than only the number that came out
+		# of it.** Making Execute reachable costs the one real party whose
+		# only change is this action (abomination/siege_master/priest/
+		# warrior) a large part of its Warden win rate, and Rage contention
+		# with Guard was the obvious explanation. A probe counting casts over
+		# the same 20 seeds killed it: at 25/threshold 35 that party guarded
+		# 60 times and won 7/20; at 20/threshold 40 it guarded *98* times,
+		# survived longer (14 Warrior deaths instead of 20) and won 8/20.
+		# More Guard, more survival, no more wins. The real mechanism is
+		# still unknown and is on the board for rook rather than tuned
+		# around here -- see the full 60-seed table in the pull request.
+		#
+		# The cost was only half of it. See `warrior_execute_finisher` in
+		# PresetPlans.gd for the other half: nothing chose this action
+		# either, at any price.
+		_action(&"warrior_execute", "Execute", "A heavy melee blow that deals twice the damage of a Strike. Costs 20 Rage.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
 		# Issue 30/TAUNTING: self-targeted (target_self, same pattern
 		# build_siege_engine uses), no damage of its own -- the status is
 		# the whole effect. 350 radius covers a real engagement (every
@@ -99,7 +134,31 @@ static func actions() -> Array[ActionDef]:
 		# state SHIELDING was in before issue 52 gave it a real grantor.
 		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 5 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
 
+		# Issue 79: the Geysermancer's no-cost basic attack, the third and last
+		# class to get one. The player's standing instruction, said twice --
+		# "every unit should have some kind of basic attack", "the basic
+		# attack should cost no resource" -- and this class was missed when
+		# that was applied to the Abomination and again when it was applied
+		# to the Priest and the Siege Master (both issue 62). Both of its
+		# actions cost Mana, so a Geysermancer out of Mana stood still.
+		#
+		# 200 range and 65.0 travel, matching geyser_blast and geyser_scald
+		# exactly, so it needs no separate approach logic. power_scale 0.5,
+		# half of Scald's 1.0, so Scald still has a reason to be cast the
+		# moment Mana allows it -- the same relationship priest_bolt (0.5)
+		# has to priest_smite (0.9). WATER rather than FIRE: that is this
+		# class's primary damage type per its own ClassDef, and Scald is
+		# already the fire one. Placed first in starting_classes.gd's own
+		# action list, since `DefaultBehavior._first_non_heal` falls back to
+		# whichever action sits first whenever no plan fires -- existence is
+		# not enough, order is what makes it the fallback.
+		_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), 65.0),
 		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
+		# Issue 79: numbers unchanged. This action also fired zero times in 210
+		# real fights, and nothing about the action itself was the cause --
+		# its plan was strictly dominated by the one above it. See
+		# `geyser_blast_cluster` and `geyser_scald_finisher` in
+		# PresetPlans.gd, which is where the whole fix lives.
 		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
 
 		# Issue 12: siege_shot and siege_barrage retired along with the range
