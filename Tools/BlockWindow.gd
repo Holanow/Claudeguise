@@ -51,14 +51,30 @@ func _init() -> void:
 		var blocks := 0
 		var applied := 0
 		var fights_with_a_block := 0
+		var wins := 0
+		var warrior_deaths := 0
+		var party_hp := 0.0
 		for s in SEEDS:
 			var party: Array[PawnData] = []
 			for cid in party_ids:
 				party.append(PawnFactory.make_starter_pawn(
 					cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
 			var state := CombatSim.build(party, encounter, s)
-			CombatSim.run(state)
+			var outcome := CombatSim.run(state)
 			fights += 1
+			if outcome == CombatState.Outcome.PLAYER_WIN:
+				wins += 1
+			var hp := 0
+			var hp_max := 0
+			for u in state.units:
+				if u.team != CG.Team.PLAYER:
+					continue
+				hp += maxi(0, u.hp)
+				hp_max += u.hp_max
+				if not u.alive and u.pawn != null and String(u.pawn.id).begins_with("warrior"):
+					warrior_deaths += 1
+			if hp_max > 0:
+				party_hp += 100.0 * float(hp) / float(hp_max)
 			var here := 0
 			for e in state.events:
 				match e.kind:
@@ -87,6 +103,11 @@ func _init() -> void:
 			0.0 if shots == 0 else 100.0 * float(blocks) / float(shots),
 		])
 		print("  fights with at least one block: %d of %d" % [fights_with_a_block, fights])
+		# The block redirects damage onto the Warrior rather than deleting it, so
+		# a wider shield is not free. These three say what it costs.
+		print("  wins %d of %d   party finished on %.0f%% hp   warrior died in %d" % [
+			wins, fights, party_hp / float(fights), warrior_deaths,
+		])
 
 		total_fights += fights
 		total_shots += shots
