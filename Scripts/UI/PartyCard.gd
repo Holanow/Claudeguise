@@ -7,6 +7,7 @@ const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
+const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## One selectable class: silhouette, name, role and style, coloured by its
 ## damage type. The whole card is the touch target — Palette.TOUCH_TARGET_MIN
@@ -51,9 +52,16 @@ func _ready() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	focus_mode = Control.FOCUS_ALL
 
+## Issue 112: left-click still picks the pawn, right-click pins the card's
+## glossary popout. The card's own class name is the popout's title, since the
+## card draws its text rather than carrying a Label to read it off.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		toggled.emit(not selected)
+		accept_event()
+		return
+	var title := class_def.display_name if class_def != null else ""
+	if PopoutHost.handle_input(self, event, title, tooltip_text):
 		accept_event()
 
 func _make_custom_tooltip(for_text: String) -> Object:
