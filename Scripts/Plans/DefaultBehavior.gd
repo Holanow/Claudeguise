@@ -84,7 +84,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 
 	var heal_action := _first_heal(candidates)
 	if heal_action != null:
-		var neediest := _lowest_hp_fraction(state.living(unit.team))
+		var neediest := _lowest_hp_fraction(_heal_candidates(state, unit, heal_action))
 		if neediest != null and neediest.hp_fraction() <= HEAL_THRESHOLD_FRACTION:
 			var dist_to_ally := unit.position.distance_to(neediest.position)
 			if dist_to_ally <= heal_action.range_units:
@@ -236,6 +236,28 @@ static func _first_heal(actions: Array[ActionDef]) -> ActionDef:
 		if a.heals and a.power_scale > 0.0:
 			return a
 	return null
+
+## Issue 99: a heal with no reach is a heal a unit casts on itself, so the
+## neediest-ally search is restricted to the caster.
+##
+## `warrior_second_wind` is the first zero-range heal in the game and without
+## this the Warrior is actively broken by carrying it: `_lowest_hp_fraction`
+## searches the whole team, so the moment any ally drops below the threshold the
+## Warrior returns `move_to(that ally)` every tick, trying to close a distance
+## that can never be small enough, and stops fighting entirely. It would not
+## have failed loudly -- a tank that walks toward its hurt healer looks almost
+## deliberate on screen.
+##
+## Reads `range_units` rather than a new flag, because zero range already means
+## exactly this and every other heal in the game states a real reach
+## (`priest_heal` 220, `geyser_cleanse` 200). Nothing else changes behaviour.
+static func _heal_candidates(state: CombatState, unit: CombatUnit, heal_action: ActionDef) -> Array[CombatUnit]:
+	if heal_action.range_units > 0.0:
+		return state.living(unit.team)
+	var out: Array[CombatUnit] = []
+	if unit.alive:
+		out.append(unit)
+	return out
 
 static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 	for a in actions:

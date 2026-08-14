@@ -276,6 +276,15 @@ const GLYPHS := {
 	&"warrior_guard": CG.Status.BLOCK,
 	&"warrior_taunt": CG.Status.TAUNTING,
 	&"warrior_block": CG.Status.SHIELDING,
+	# sable: one data line, no new art, same disclosed shape as issue 79's own
+	# `geyser_spout` entry below. `warrior_second_wind` (issue 99) replaces
+	# Directional Block in the Warrior's kit, so it is reachable and
+	# `test_every_reachable_action_has_an_icon` goes red the moment it lands.
+	# Reusing `_CROSS`, the existing heal glyph -- this is a heal and the rule
+	# in this file is that a glyph names what an action does. Repoint it freely
+	# if you would rather Second Wind read differently from priest_heal.
+	# `warrior_block` stays: it is still reachable, now via plate_mail.
+	&"warrior_second_wind": _CROSS,
 
 	# Priest.
 	&"priest_heal": _CROSS,

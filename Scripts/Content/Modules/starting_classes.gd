@@ -72,7 +72,19 @@ static func classes() -> Array[ClassDef]:
 			# both self-targeted and would be a no-op as a fallback "attack
 			# an enemy" action, so warrior_strike must stay first regardless
 			# of where either plan sits in PresetPlans.
-			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_block"]
+			#
+			# Issue 99: warrior_block leaves this list and warrior_second_wind
+			# takes its place. Block is not gone from the game -- it moves onto
+			# `plate_mail` as a granted action (issue 100), which is where
+			# README's own armor table always had it. The same first-entry rule
+			# still applies and for a stronger reason: second wind sets `heals`,
+			# so `_first_non_heal` skips it outright and `_first_heal` reaches it
+			# only for the caster itself.
+			#
+			# WIS stays at 8. The block plan is replaced rather than added to,
+			# so this class still runs four plans at two blocks each, exactly
+			# the WIS-8 budget the issue-79 note above bought.
+			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_second_wind"]
 		),
 		_class(
 			&"priest", "Priest",
