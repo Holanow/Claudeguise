@@ -60,6 +60,14 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	# The death marker's own vertical offset stacks on top of the
 	# horizontal stagger, not instead of it: a killing blow's DAMAGE event
 	# and its DEATH event fire the same tick and must not overlap either.
+	#
+	# PR #69's wiring adds an ImpactFlash alongside every DAMAGE/HEAL
+	# event's own floater, so "the last child added" is no longer
+	# necessarily the floater -- filtered by script instead (the same
+	# selector _floater_stagger_offset itself already uses) rather than by
+	# position in the tree, which is exactly the kind of assumption a new
+	# sibling node breaks silently.
+	const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 	var view := _make_view_with_target(Vector2(50.0, 50.0))
 	var damage := CombatEvent.make(CG.EventKind.DAMAGE, 1)
 	damage.target_id = 0
@@ -69,13 +77,20 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	view.consume_events()
 
 	var arena := view.get_node("Arena")
-	var floater_x: float = arena.get_child(arena.get_child_count() - 1).position.x
+	var floater_x: float = _last_with_script(arena, DamageFloaterScript).position.x
 
 	var death := CombatEvent.make(CG.EventKind.DEATH, 1)
 	death.target_id = 0
 	view.state.emit(death)
 	view.consume_events()
-	var marker_x: float = arena.get_child(arena.get_child_count() - 1).position.x
+	var marker_x: float = _last_with_script(arena, DamageFloaterScript).position.x
 
 	assert_ne(floater_x, marker_x, "the death marker must not land on the same x as the damage floater it follows")
 	view.free()
+
+func _last_with_script(arena: Node, script: Script) -> Node2D:
+	for i in range(arena.get_child_count() - 1, -1, -1):
+		var child := arena.get_child(i)
+		if child.get_script() == script:
+			return child
+	return null

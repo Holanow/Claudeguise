@@ -69,3 +69,37 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 	assert_eq(battle._encounter_label.text, encounter.display_name)
 	assert_false(battle._encounter_label.text.is_empty())
 	battle.free()
+
+# ---------------------------------------------------------------------------
+# _projectile_damage_type (PR #69 wiring: shots read by damage type, not a
+# plain dot-with-trail). `Projectile` carries action_id, not damage_type --
+# this is the lookup sable flagged as an open question in their signature
+# proposal.
+# ---------------------------------------------------------------------------
+
+func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
+	const CG := preload("res://Scripts/Core/CG.gd")
+	const Projectile := preload("res://Scripts/Core/Projectile.gd")
+	var action_id: StringName = &""
+	for cid in Registry.all_class_ids():
+		var cls := Registry.get_class_def(cid)
+		if cls != null and not cls.starting_actions.is_empty():
+			action_id = cls.starting_actions[0]
+			break
+	if action_id == &"":
+		return
+	var action := Registry.get_action(action_id)
+	var arena := ArenaFloor.new()
+	var p := Projectile.new()
+	p.action_id = action_id
+	assert_eq(arena._projectile_damage_type(p), action.damage_type)
+	arena.free()
+
+func test_projectile_damage_type_falls_back_to_physical_for_an_unknown_action() -> void:
+	const CG := preload("res://Scripts/Core/CG.gd")
+	const Projectile := preload("res://Scripts/Core/Projectile.gd")
+	var arena := ArenaFloor.new()
+	var p := Projectile.new()
+	p.action_id = &"not_a_real_action"
+	assert_eq(arena._projectile_damage_type(p), CG.DamageType.PHYSICAL)
+	arena.free()

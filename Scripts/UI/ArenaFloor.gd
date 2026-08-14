@@ -3,6 +3,8 @@ extends Node2D
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
 ## The ground a fight happens on: a floor filling the play area, a boundary at
 ## the simulated bounds, a faint grid for a sense of scale, and whatever
@@ -42,7 +44,6 @@ var terrain: Array = []
 var projectiles: Array = []
 
 const _PROJECTILE_RADIUS := 5.0
-const _PROJECTILE_TRAIL := 14.0
 
 func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH
@@ -74,19 +75,33 @@ func _draw() -> void:
 	for p in projectiles:
 		_draw_projectile(p)
 
-## One in-flight shot: a dot at its live position with a short trail back
-## toward where it came from, so it reads as moving rather than as a static
-## point. Resolved shots are skipped -- BattleView hands over the live array
-## every tick and a resolved entry stays in place per Projectile.gd's own
-## append-only contract, so this is the filter that keeps a spent shot from
-## drawing forever at its landing point.
+## One in-flight shot, shaped and coloured by damage type
+## (Scripts/Art/AttackFX.gd, PR #69 sable) instead of the plain dot-with-
+## trail this replaces. `Projectile` carries `action_id`, not `damage_type`
+## -- sable flagged this as the one open question their signature proposal
+## couldn't answer from Scripts/Art, and a `Registry.get_action` lookup from
+## here was the cheaper of the two options they posted (the other being a
+## new field on `Projectile` itself, Core, at spawn time). `Registry` is
+## already reachable from Scripts/UI elsewhere (PartySelect, InspectPanel),
+## so no Core change needed for this piece. Resolved shots are skipped --
+## BattleView hands over the live array every tick and a resolved entry
+## stays in place per Projectile.gd's own append-only contract, so this is
+## the filter that keeps a spent shot from drawing forever at its landing
+## point.
 func _draw_projectile(p) -> void:
 	if p.resolved:
 		return
-	var to_origin: Vector2 = (p.origin - p.position)
-	var trail := to_origin.limit_length(_PROJECTILE_TRAIL)
-	draw_line(p.position, p.position + trail, Palette.FOCUS_LINE, 2.5)
-	draw_circle(p.position, _PROJECTILE_RADIUS, Palette.FOCUS_LINE)
+	AttackFX.draw_projectile(self, p.position, p.position - p.origin, _projectile_damage_type(p), _PROJECTILE_RADIUS * 3.0)
+
+## Split from _draw_projectile, same reasoning AttackFX's own geometry
+## functions are split from their draw_* wrappers: Godot refuses draw_*
+## outside _draw(), so this is the part a test can call directly. Falls
+## back to PHYSICAL for an action the registry does not know (mirrors
+## UnitView._shape_id's own fallback-to-known-default reasoning) rather
+## than failing a whole frame's draw over one bad id.
+func _projectile_damage_type(p) -> CG.DamageType:
+	var action := Registry.get_action(p.action_id)
+	return action.damage_type if action != null else CG.DamageType.PHYSICAL
 
 ## Four kinds, two axes (blocks movement / blocks sight), and no new Palette
 ## colours: everything below reuses tokens that already exist, distinguished
