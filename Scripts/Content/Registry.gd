@@ -5,6 +5,7 @@ const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## The composition root, split. Every class, action, enemy and encounter lives
 ## in its own file under Scripts/Content/, and this file only composes them.
@@ -125,6 +126,36 @@ static func all_enemy_ids() -> Array[StringName]:
 		ids.append(k)
 	ids.sort()
 	return ids
+
+## Issue 100: everything a pawn can actually do -- its class's `starting_actions`
+## plus every `granted_actions` entry of every equipped piece, deduplicated, in a
+## stable order (class actions first, then equipment in weapon/armor/accessory
+## order).
+##
+## **One definition, because there were about to be three and they were already
+## disagreeing.** `CombatSim._collect_player_actions` computes this union to
+## decide what a unit may do in a fight. `InspectPanel._available_actions`
+## computes `starting_actions` alone to decide what the player may plan with. So
+## the moment an item granted an action, the fight knew about it and the plan
+## editor did not -- the player could never plan the ability their armour gave
+## them, which is the entire point of `granted_actions`.
+##
+## Lives here rather than in either caller so that neither owns the answer. It is
+## `Scripts/Content` because "what can this pawn do" is a content question: it is
+## the class table plus the item table and nothing else.
+static func actions_for_pawn(pawn: PawnData) -> Array[StringName]:
+	var out: Array[StringName] = []
+	if pawn == null:
+		return out
+	if pawn.pawn_class != null:
+		for a in pawn.pawn_class.starting_actions:
+			if not out.has(a):
+				out.append(a)
+	for e in pawn.equipment():
+		for a in e.granted_actions:
+			if not out.has(a):
+				out.append(a)
+	return out
 
 ## Issue 93: the fifth sibling. Added because two of that issues assertions are
 ## about what every action in the game does NOT do -- no other action carries a

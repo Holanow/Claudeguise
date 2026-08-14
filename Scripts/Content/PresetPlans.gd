@@ -93,30 +93,37 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		## 14/20 and 17/20 to a clean 20/20 apiece.
 		&"warrior":
 			return [
+				# Issue 99: replaces `warrior_block_default`, which went with
+				# Block onto `plate_mail` (issue 100). Same slot in the
+				# budget, so WIS stays at 8.
+				#
+				# **First, above Guard, and the ordering is the design.**
+				# Both plans answer "the Warrior is in trouble" and both cost
+				# Rage out of a 40 pool, so whichever sits higher wins the
+				# ticks where both conditions hold. Guard fires at 0.65 and
+				# mitigates the *next* hit by 25%; this fires at 0.35 and
+				# puts ~51 health back. Below a third of the bar, healing is
+				# worth more than mitigating -- and above it Guard still gets
+				# the whole 0.35-0.65 band to itself, because this plan's
+				# condition simply does not hold there.
+				#
+				# 0.35 rather than Guard's 0.65 on purpose: a second wind
+				# cast at two thirds health is a second wind wasted, and the
+				# 300-tick cooldown means there is usually only one of them
+				# in a fight. `_condition` is checked before affordability,
+				# so on the ticks this cannot be paid for the plan falls
+				# through to Guard rather than stalling the Warrior --
+				# PlanInterpreter's own fallthrough, the same property
+				# `warrior_block_default` relied on.
+				_plan(&"warrior_second_wind_when_critical", "Second wind when critical",
+					_condition(&"self_hp_below_fraction", {"fraction": 0.35}),
+					[_targeting(&"target_self"), _action_block(&"warrior_second_wind")]),
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
 					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
 					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
 				_plan(&"warrior_taunt_default", "Taunt",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
-				# Issue 52: third plan, after guard and taunt -- SHIELDING
-				# had nothing to intercept before shots travelled (issue 18)
-				# and no path from the game to a player even with the
-				# mechanism live, since the plan editor is deferred and a
-				# preset plan is therefore the only way this ability ever
-				# fires. `always`, same shape as taunt: taunt's own
-				# cooldown_ticks equals its duration_ticks, so its plan sits
-				# on cooldown (condition holds, action unaffordable) for
-				# nearly all of its own uptime once cast -- decide()'s own
-				# fallthrough (PlanInterpreter.gd: a plan whose action isn't
-				# affordable falls through to the next one, not to
-				# DefaultBehavior) is what lets this plan actually win a
-				# real decide() tick instead of sitting permanently behind
-				# taunt. starting_classes.gd's own WIS 4->6 note explains
-				# why a third plan needed a budget change too.
-				_plan(&"warrior_block_default", "Directional Block",
-					_condition(&"always", {}),
-					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 				# Issue 79: fourth plan, and the restoration of the one issue
 				# 30 deleted. Its own note above says Execute "is not gone from
 				# the class" because it stays in starting_actions and a player
