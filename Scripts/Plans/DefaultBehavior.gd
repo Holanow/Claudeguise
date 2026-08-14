@@ -100,9 +100,26 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		# changes.
 		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
 			return Intent.move_to(target.position)
+		# PLAYTEST-NOTES-2.md note 11: "the Abomination runs away a lot...
+		# tanks should move toward enemies." Root cause traced directly: with
+		# no plan firing, `_choose_attack_action` picks `abomination_hook`
+		# (range 140, so `is_ranged` here) the moment a target sits beyond
+		# `abomination_grapple`'s own melee commit range -- and this branch
+		# then treated a 140-range gap-closer exactly like a 200+-range
+		# standoff weapon, backing off if the target ever closed inside 84
+		# units (0.6 * 140) instead of letting it hold ground or finish
+		# closing. Every real ranged action in the bestiary is a stay-at-
+		# range weapon (bolts, arrows, blasts); a pull is the opposite by
+		# construction -- it exists to drag a target closer, so a unit
+		# firing one has nothing to protect by keeping its own distance.
+		# `pull_distance > 0.0` is the same generic, action-level signal
+		# `heals`/`requires_line_of_sight` already are: it needs no
+		# ClassDef or role awareness, and no other action in the game sets
+		# it today, so nothing else changes behaviour.
+		var wants_to_close := attack_action.pull_distance > 0.0
 		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
-		if dist < kite_min:
+		if dist < kite_min and not wants_to_close:
 			return Intent.move_to(_retreat_point(unit, target))
 		if dist > commit_max:
 			return Intent.move_to(target.position)

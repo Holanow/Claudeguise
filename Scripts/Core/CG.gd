@@ -34,7 +34,25 @@ extends RefCounted
 ## the same fight play out differently on a different frame rate, and "re-run
 ## the same fight" is an acceptance criterion for this slice.
 
-const TICKS_PER_SECOND := 30
+## 30 -> 15: PLAYTEST-NOTES-2.md note 1, "the fights are too fast to read,
+## everything should be maybe half as fast as it is." One constant rather
+## than a hundred tick-count edits, per this file's own standing note in
+## TEAM_LOG ("still my file and still a one-line change: tell me what you
+## observed and I make it"). Applied by finch directly rather than only
+## proposed -- the task explicitly delegated the decision and the number,
+## and this session has no live channel back for a round trip; full
+## reasoning and the re-measurement it required are in TEAM_LOG. Every
+## wind-up/recovery/cooldown/status-duration/projectile-speed number in
+## Scripts/Content is denominated in ticks and untouched by this -- doubling
+## real-world duration for the same tick counts is the whole point. Resource
+## regeneration (Balance.resource_regen_per_tick) is denominated in percent
+## per *second* and divides by this constant, so its real-time rate is
+## unchanged in expectation -- but per-tick amounts are stochastically
+## rounded to an integer, and halving the tick rate doubles each per-tick
+## fraction, which measurably shifts *which* tick an integer threshold is
+## crossed on. Checked, not assumed: FloorRuns.gd is not bit-identical
+## before/after, so this did require the re-tuning pass, not a free lunch.
+const TICKS_PER_SECOND := 15
 const TICK_SECONDS := 1.0 / float(TICKS_PER_SECOND)
 
 ## Arena is centred on (0, 0). World units, not pixels. The view scales.

@@ -224,6 +224,47 @@ func test_healer_does_not_heal_full_health_allies() -> void:
 		assert_eq(intent.kind, CG.IntentKind.MOVE_TO, "should still do something useful, like closing to attack range")
 
 
+## PLAYTEST-NOTES-2.md note 11: "The Abomination runs away a lot... tanks
+## should move toward enemies." Root cause traced directly: `abomination_hook`
+## (range 140) is classified "ranged" by `MELEE_RANGE_THRESHOLD`, so it
+## inherited the standard kite-and-retreat behaviour built for a stay-at-
+## range weapon -- exactly wrong for a pull, whose entire point is closing
+## distance. 60 units away is inside hook's own 84-unit kite band (0.6 * 140)
+## and outside grapple's own melee commit range (22.5), so the old retreat
+## branch is exactly what would fire here; `resource` is drained on purpose
+## to rule out a plan (both `abomination_grapple_close`/`abomination_hook_far`
+## would be unaffordable) -- this exercises DefaultBehavior's fallback
+## directly, the same thing PlanInterpreter falls through to mid-fight once
+## Rage runs low.
+func test_a_pull_action_never_retreats_even_inside_its_own_kite_band() -> void:
+	var abom_pawn := PawnFactory.make_starter_pawn(&"abomination", &"a1", "Abomination")
+	var abom := CombatUnit.new()
+	abom.id = 0
+	abom.team = CG.Team.PLAYER
+	abom.pawn = abom_pawn
+	abom.position = Vector2.ZERO
+	abom.hp_max = 200
+	abom.hp = 200
+	abom.resource_kind = CG.ResourceKind.RAGE
+	abom.resource_max = 100
+	abom.resource = 0
+	abom.actions = abom_pawn.pawn_class.starting_actions.duplicate()
+
+	var enemy := _immobile_dummy(1, CG.Team.ENEMY, Vector2(60.0, 0.0))
+	var state := CombatState.new(0)
+	state.units.append(abom)
+	state.units.append(enemy)
+
+	var intent := DefaultBehavior.decide(state, abom)
+	if intent.kind == CG.IntentKind.MOVE_TO:
+		var old_dist := abom.position.distance_to(enemy.position)
+		var new_dist := intent.destination.distance_to(enemy.position)
+		assert_true(new_dist <= old_dist, "a pull action must never order a retreat, got a move to %s (was %.1f away, would end %.1f away)" % [intent.destination, old_dist, new_dist])
+	else:
+		assert_eq(intent.kind, CG.IntentKind.USE_ACTION, "expected either an approach or a committed cast, not idle")
+		assert_eq(intent.target_id, enemy.id)
+
+
 func test_no_living_enemies_means_idle() -> void:
 	var priest_pawn := PawnFactory.make_starter_pawn(&"priest", &"p1", "Priest")
 	var priest := CombatUnit.new()
