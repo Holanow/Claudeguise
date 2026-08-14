@@ -23,8 +23,15 @@ const OverlayScript := preload("res://Scripts/UI/LevelEditorOverlay.gd")
 
 signal enemy_placed(index: int)
 signal terrain_placed(index: int)
+signal party_spawn_moved(index: int)
 
-enum Mode { PLACE_ENEMY, PLACE_TERRAIN }
+## Issue 145: `MOVE_PARTY` is the pre-fight deploy screen's mode. The player has
+## asked three times to place their party before a fight, and everything it
+## needs was already here -- this canvas draws the same arena a real fight
+## draws, the same terrain, and the deploy zone -- so the mode is the whole
+## addition rather than a second placement surface that could disagree with
+## this one about where a thing is.
+enum Mode { PLACE_ENEMY, PLACE_TERRAIN, MOVE_PARTY }
 
 ## World-space margin around the arena bounds so the boundary line is not
 ## drawn flush against the canvas edge.
@@ -54,7 +61,21 @@ var terrain: Array = []
 ## default, silently outside the deploy zone this canvas exists to show.
 var party_spawns: Array[Vector2] = []
 
+## Issue 145. Empty on the level editor, one name per spawn on the deploy
+## screen. **The names are the point of that screen, not decoration**: only one
+## class can redirect an enemy and the Warden kills strictly nearest-first, so
+## who stands closest decides a great deal, and until now list order decided it
+## invisibly. A row of identical dots would place a party without answering the
+## only question worth asking.
+var party_labels: Array[String] = []
+
+## Radius the party markers draw and grab at. The editor's 6.0 is a map pin;
+## the deploy screen passes the real unit radius so spacing on screen is the
+## spacing the fight will use.
+var party_radius: float = 6.0
+
 var _floor: Node2D = null
+var _held_party_index := -1
 var _overlay: Node2D = null
 var _dragging := false
 var _drag_start_world: Vector2 = Vector2.ZERO
@@ -166,20 +187,97 @@ func has_blocked_enemy() -> bool:
 			return true
 	return false
 
+# ---------------------------------------------------------------------------
+# Issue 145: moving a party spawn.
+#
+# Exposed as plain methods for the same reason `place_enemy` is, plus a harder
+# one measured on this project: **a pushed `InputEventMouseMotion` does not
+# carry the position it was pushed with.** The viewport takes a motion's
+# position from the real cursor, and nothing in a scripted run moves that, so
+# eight different pushed positions all arrive as the same local coordinate. A
+# drag driven through synthesized motion events therefore cannot be tested
+# end-to-end here at all -- it would assert a stationary cursor. The grab, the
+# move and the constraint are each callable and each tested; the drag itself is
+# verified on a real launch with a screenshot.
+# ---------------------------------------------------------------------------
+
+## The rightmost x a party member may hold, accounting for its own radius so a
+## marker cannot straddle the line it is constrained by. Static and derived from
+## `CG` rather than typed, so it cannot drift from the zone the overlay draws or
+## from the rule encounter authors follow.
+static func clamp_to_deploy_zone(world: Vector2, radius: float) -> Vector2:
+	var min_x := -CG.ARENA_HALF_WIDTH + radius
+	var max_x := CG.party_deploy_max_x() - radius
+	# A radius wider than the zone would invert the range; pin to the zone's
+	# right edge rather than returning something outside it.
+	if max_x < min_x:
+		return Vector2(CG.party_deploy_max_x(), clampf(world.y, -CG.ARENA_HALF_HEIGHT + radius, CG.ARENA_HALF_HEIGHT - radius))
+	return Vector2(
+		clampf(world.x, min_x, max_x),
+		clampf(world.y, -CG.ARENA_HALF_HEIGHT + radius, CG.ARENA_HALF_HEIGHT - radius))
+
+## Index of the party spawn under `world`, or -1. Nearest wins, so overlapping
+## markers still resolve to one.
+func party_spawn_at(world: Vector2) -> int:
+	var best := -1
+	var best_distance := party_radius
+	for i in party_spawns.size():
+		var d := party_spawns[i].distance_to(world)
+		if d <= best_distance:
+			best_distance = d
+			best = i
+	return best
+
+func grab_party_spawn(world: Vector2) -> int:
+	_held_party_index = party_spawn_at(world)
+	return _held_party_index
+
+## Moves the held spawn, clamped into the deploy zone. **Refuses a position
+## inside blocking terrain** using `Terrain.point_is_blocked` -- the same
+## function the simulation's own movement answers that question with, so this
+## screen and a real fight can never disagree about what counts as blocked. A
+## refused move keeps the last good position rather than snapping somewhere the
+## player did not ask for.
+func move_held_party_spawn(world: Vector2) -> bool:
+	if _held_party_index < 0 or _held_party_index >= party_spawns.size():
+		return false
+	var target := clamp_to_deploy_zone(world, party_radius)
+	if Terrain.point_is_blocked(terrain, target, party_radius):
+		return false
+	party_spawns[_held_party_index] = target
+	if _overlay != null:
+		_overlay.queue_redraw()
+	party_spawn_moved.emit(_held_party_index)
+	return true
+
+func release_party_spawn() -> void:
+	_held_party_index = -1
+
+func held_party_spawn() -> int:
+	return _held_party_index
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_dragging = true
 			_drag_start_world = local_to_world(event.position)
 			_drag_current_world = _drag_start_world
+			if mode == Mode.MOVE_PARTY:
+				grab_party_spawn(_drag_start_world)
+				if _overlay != null:
+					_overlay.queue_redraw()
 		else:
 			if _dragging:
 				_finish_drag(local_to_world(event.position))
 			_dragging = false
+			if mode == Mode.MOVE_PARTY:
+				release_party_spawn()
 			if _overlay != null:
 				_overlay.queue_redraw()
 	elif event is InputEventMouseMotion and _dragging:
 		_drag_current_world = local_to_world(event.position)
+		if mode == Mode.MOVE_PARTY:
+			move_held_party_spawn(_drag_current_world)
 		if _overlay != null:
 			_overlay.queue_redraw()
 
@@ -192,6 +290,12 @@ func _finish_drag(end_world: Vector2) -> void:
 			var rect := _rect_from_corners(_drag_start_world, end_world)
 			if rect.size.x >= _MIN_DRAG_WORLD_SIZE and rect.size.y >= _MIN_DRAG_WORLD_SIZE:
 				place_terrain(current_terrain_kind, rect)
+		Mode.MOVE_PARTY:
+			# A click with no motion between press and release still places the
+			# held pawn where the pointer ended. Without this a real drag whose
+			# motion events were coalesced would grab and drop with no effect,
+			# which reads as the screen ignoring the player.
+			move_held_party_spawn(end_world)
 
 static func _rect_from_corners(a: Vector2, b: Vector2) -> Rect2:
 	var pos := Vector2(minf(a.x, b.x), minf(a.y, b.y))
