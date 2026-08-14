@@ -10,9 +10,13 @@ const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Covers issue 10's five acceptance criteria: BURN/POISON damage-over-time,
-## HASTE, and the stun-interrupt decision (documented in
-## Scripts/Combat/CombatSim.gd's _decide_phase: stun does not cancel an
-## action already committed).
+## HASTE, and the stun-interrupt decision.
+##
+## **That last one was overturned by the player in #121: a stun now DOES cancel
+## an action already committed.** The wind-up is lost, the resource is not
+## refunded, and CombatSim emits INTERRUPTED. The criterion-5 section below was
+## inverted rather than rewritten from scratch, so the same fixture that used to
+## prove the action fired now proves it does not.
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -218,10 +222,19 @@ func test_determinism_holds_with_dot_and_haste_in_play() -> void:
 # criterion 5: the interrupt decision, documented and tested
 # ---------------------------------------------------------------------------
 
-func test_stun_does_not_cancel_an_action_already_committed() -> void:
-	# The decision, per Scripts/Combat/CombatSim.gd's _decide_phase: stun
-	# blocks deciding, not acting. A unit mid-wind-up when stunned still
-	# fires on schedule.
+## ISSUE 10'S DECISION WAS OVERTURNED BY THE PLAYER (#121): *"Stun should very
+## much interrupt actions in progress"*. This test used to be
+## `test_stun_does_not_cancel_an_action_already_committed` and asserted the
+## opposite of what it asserts now. It is inverted rather than deleted, and it
+## is the same fixture, so the two behaviours are directly comparable: an
+## identical setup that used to end with the target at 20 hp now ends with it
+## untouched.
+##
+## Rewriting somebody else's assertion to go green is forbidden here. This one is
+## mine (`Tests/test_combat_*` is this session's), it encodes a decision the
+## player has since reversed rather than a property that still holds, and the PR
+## says so plainly.
+func test_stun_cancels_an_action_already_committed() -> void:
 	var atk := _melee(&"atk", 5, 1, 999.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := SimDeps.new()
@@ -243,15 +256,227 @@ func test_stun_does_not_cancel_an_action_already_committed() -> void:
 
 	attacker.statuses[CG.Status.STUN] = 999 # stunned mid-wind-up
 
-	for i in 4: # ticks 2-5: still winding up, then fires despite being stunned
+	for _i in 4: # ticks 2-5: the wind-up would have completed inside this window
 		CombatSim.step(state, deps)
 
-	var fired := false
+	assert_eq(_count(state, CG.EventKind.ACTION_FIRE), 0, "the committed action must never fire")
+	assert_eq(target.hp, target.hp_max, "and therefore must land nothing")
+	assert_eq(attacker.action_ticks_left, 0, "the wind-up is gone")
+	assert_eq(attacker.action_ticks_total, 0, "and so is its denominator, so no ring is drawn")
+	assert_eq(attacker.current_action, &"", "the unit is holding nothing")
+
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 1, "said so exactly once")
+	var e := _first(state, CG.EventKind.INTERRUPTED)
+	assert_eq(e.source_id, 0, "the subject is the unit that lost the action, not the interrupter")
+	assert_eq(e.target_id, -1, "nothing is aimed at")
+	assert_eq(e.action_id, atk.id, "and it names what was lost")
+	assert_eq(e.amount, 1, "one tick of the five-tick wind-up had been invested and is thrown away")
+
+## The wind-up is LOST, not resumed. Once the stun ends the unit has to commit
+## again from scratch -- with a decision layer that never asks for the action
+## again, nothing ever fires. A resumed wind-up would be nearly invisible to
+## somebody watching, which is what makes this the player's call rather than a
+## detail.
+func test_the_interrupted_wind_up_is_not_resumed_when_the_stun_ends() -> void:
+	var atk := _melee(&"atk", 5, 1, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 10.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u): return Intent.idle()
+
+	var state := CombatState.new(88)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+	attacker.statuses[CG.Status.STUN] = 3 # expires once state.tick >= 3
+
+	for _i in 20:
+		CombatSim.step(state, deps)
+
+	assert_false(attacker.has_status(CG.Status.STUN), "the stun really did wear off")
+	assert_eq(_count(state, CG.EventKind.ACTION_FIRE), 0, "and the lost wind-up did not pick itself back up")
+	assert_eq(target.hp, target.hp_max)
+
+## The resource is NOT refunded, the player's ruling and the harshest half of it.
+## RESOURCE_SPENT fired at commit and nothing reverses it.
+func test_an_interrupt_does_not_refund_the_resource() -> void:
+	var atk := _melee(&"atk", 5, 1, 999.0)
+	atk.resource_cost = 7
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 10.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.resource_regen_per_tick = func(_u) -> float: return 0.0
+	deps.default_decide = func(_s, _u): return Intent.idle()
+
+	var state := CombatState.new(89)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	attacker.resource_kind = CG.ResourceKind.MANA
+	attacker.resource_max = 20
+	attacker.resource = 20
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+	assert_eq(attacker.resource, 13, "charged at commit, as it always was")
+
+	attacker.statuses[CG.Status.STUN] = 999
+	for _i in 5:
+		CombatSim.step(state, deps)
+
+	assert_eq(attacker.resource, 13, "and never given back")
+	assert_eq(_count(state, CG.EventKind.RESOURCE_SPENT), 1, "no negative event either")
+
+## One event per interrupted action, not one per stunned tick. A stun that
+## outlasts the cast finds nothing left to cancel on its second tick.
+func test_a_long_stun_interrupts_once_and_not_once_per_tick() -> void:
+	var atk := _melee(&"atk", 5, 1, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 10.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u): return Intent.idle()
+
+	var state := CombatState.new(90)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+	attacker.statuses[CG.Status.STUN] = 999
+	for _i in 30:
+		CombatSim.step(state, deps)
+
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 1, "thirty stunned ticks, one interrupt")
+
+## THE NEGATIVE TEST, and the one this mechanism most needs. A detector that
+## fires on healthy input becomes furniture: a stun landing on a unit that was
+## not committed to anything has taken nothing away, and must say nothing.
+func test_a_stun_on_a_free_unit_interrupts_nothing() -> void:
+	var deps := _idle_deps()
+	var state := CombatState.new(91)
+	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [])
+	unit.statuses[CG.Status.STUN] = 999
+	state.units.append(unit)
+	state.units.append(_dummy_enemy(1))
+
+	for _i in 10:
+		CombatSim.step(state, deps)
+
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "nothing was committed, so nothing was lost")
+
+## The other half of the same worry: a fight with no stun in it at all must
+## produce no interrupts, however many actions are committed and fired.
+func test_a_fight_with_no_stun_emits_no_interrupt() -> void:
+	var atk := _melee(&"atk", 3, 2, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 2.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s: CombatState, u: CombatUnit) -> Intent:
+		return Intent.use_action(atk.id, 1 if u.id == 0 else 0)
+
+	var state := CombatState.new(92)
+	state.units.append(_unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id]))
+	state.units.append(_unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [atk.id]))
+	CombatSim.run(state, deps)
+
+	assert_ne(_count(state, CG.EventKind.ACTION_FIRE), 0, "the fixture really did fight")
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "and nothing was ever interrupted")
+
+## Recovery is deliberately NOT cancelled. Cancelling it would let a stunned
+## unit come out free to act instead of finishing what it owed, which is an
+## interrupt that rewards its victim.
+func test_a_stun_does_not_cancel_recovery() -> void:
+	var atk := _melee(&"atk", 1, 10, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 1.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u): return Intent.idle()
+
+	var state := CombatState.new(93)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps) # commits and fires: wind_up 1
+	CombatSim.step(state, deps)
+	assert_ne(attacker.recover_ticks_left, 0, "it is recovering")
+
+	var before := attacker.recover_ticks_left
+	attacker.statuses[CG.Status.STUN] = 999
+	CombatSim.step(state, deps)
+
+	assert_eq(attacker.recover_ticks_left, before - 1, "recovery keeps running through a stun")
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "and recovery is not an interruptible commitment")
+
+## A stunned unit neither decides NOR acts, which now includes an intent placed
+## before the stun landed. Previously such an intent was still resolved, because
+## the stun branch sat behind a guard that skipped any unit already carrying one.
+func test_a_stunned_unit_drops_an_intent_it_was_already_holding() -> void:
+	var atk := _melee(&"atk", 0, 0, 999.0)
+	var actions_by_id := {atk.id: atk}
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u, _a, _r=null) -> float: return 10.0
+	deps.damage_reduction = func(_u) -> float: return 0.0
+	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s, _u): return Intent.idle()
+
+	var state := CombatState.new(94)
+	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [])
+	state.units.append(attacker)
+	state.units.append(target)
+
+	attacker.statuses[CG.Status.STUN] = 999
+	attacker.intent = Intent.use_action(atk.id, target.id)
+	CombatSim.step(state, deps)
+
+	assert_eq(attacker.intent, null, "the intent is dropped")
+	assert_eq(target.hp, target.hp_max, "and never resolved")
+	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "nothing was committed, so nothing is reported lost")
+
+func _count(state: CombatState, kind: CG.EventKind) -> int:
+	var n := 0
 	for e in state.events:
-		if e.kind == CG.EventKind.ACTION_FIRE and e.source_id == 0:
-			fired = true
-	assert_true(fired, "an action committed before the stun landed must still fire")
-	assert_eq(target.hp, target.hp_max - 10)
+		if e.kind == kind:
+			n += 1
+	return n
+
+func _first(state: CombatState, kind: CG.EventKind) -> CombatEvent:
+	for e in state.events:
+		if e.kind == kind:
+			return e
+	return null
 
 func test_stun_does_prevent_a_new_decision() -> void:
 	# The other half: a unit that has NOT committed anything and gets

@@ -167,36 +167,15 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 
 static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 	for unit in state.units:
-		if not unit.alive or unit.intent != null or unit.is_busy():
+		if not unit.alive:
 			continue
+		## Checked BEFORE the busy guard, which is the whole of the #121 change.
+		## It used to sit after it, so a unit already mid-wind-up was never
+		## reached and its action fired on schedule.
 		if unit.has_status(CG.Status.STUN):
-			# No intent this tick -- a stunned unit neither decides nor acts.
-			#
-			# ISSUE 10'S INTERRUPT DECISION, FINAL: stun does NOT cancel an
-			# action already committed before it landed. A unit mid-wind-up
-			# when stunned still fires on schedule; is_busy() already keeps
-			# it out of this loop regardless of the status, so this branch
-			# only ever matters for a unit that was free to decide.
-			#
-			# Rejected: cancelling an in-flight wind-up on stun. That reading
-			# is equally defensible (it rewards cheap actions under pressure
-			# instead of rewarding a timed commitment) but costs more than it
-			# buys here: it needs a resource-refund policy for anything spent
-			# on commit, a decision about whether the target it was aimed at
-			# still matters, and a new way for teal's content to reason about
-			# "was this interrupted" -- none of which issue 10 asks for, and
-			# all of which would land squarely in the middle of teal's
-			# in-progress issue 7 tuning pass. A wind-up that is safe once
-			# committed is also the simpler thing to teach a player: land the
-			# stun before the swing starts, not during it.
-			#
-			# ISSUE 61: a stun DOES break a sustained action, where it
-			# deliberately does not cancel a committed wind-up. Those are
-			# different commitments. A wind-up is one decision, already paid
-			# for, that the unit is riding out. A channel is a decision renewed
-			# every tick, and a unit that "neither decides nor acts" is by
-			# definition not renewing one.
-			_end_sustain(state, unit)
+			_interrupt_on_stun(state, unit)
+			continue
+		if unit.intent != null or unit.is_busy():
 			continue
 		var intent: Intent = null
 		if unit.pawn != null:
@@ -205,6 +184,74 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 			intent = deps.default_decide.call(state, unit)
 		unit.intent = intent
 		_reaffirm_sustain(state, unit, intent)
+
+## A stunned unit neither decides nor acts, and as of #121 it does not finish
+## what it had already started either.
+##
+## ISSUE 10'S DECISION, OVERTURNED BY THE PLAYER. Kept here rather than deleted,
+## because the reasoning behind the original call is still worth knowing and the
+## costs it named are the costs we now pay.
+##
+## What it used to say, and it was deliberate: stun did NOT cancel an action
+## already committed before it landed. A unit mid-wind-up when stunned still
+## fired on schedule -- `is_busy()` kept it out of this loop entirely, so the
+## status only ever mattered for a unit that was free to decide. The argument
+## was that a wind-up safe once committed is the simpler thing to teach ("land
+## the stun before the swing starts, not during it"), and that cancelling one
+## costs a resource-refund policy, a decision about whether the original target
+## still matters, and a way for content to reason about "was this interrupted".
+##
+## The player's ruling, in their words: *"Stun should very much interrupt actions
+## in progress"*. Which is the ordinary meaning of the word, and a stun that
+## cannot interrupt a cast is a much weaker thing than a player expects when a
+## boss lands one. heron measured the old behaviour live before anybody argued
+## about it -- stunned mid-wind-up, the action still fired -- which is what
+## turned this from a reading of the code into a question worth putting to the
+## player.
+##
+## The three costs the old comment named, now answered, and the player answered
+## all three rather than us:
+##
+##   1. **The wind-up is lost, not resumed.** Resuming is nearly invisible to
+##      somebody watching, and "broadly follow what happened and why" is the
+##      finish line this project is measured against.
+##   2. **The resource is NOT refunded.** `RESOURCE_SPENT` fired at commit and
+##      nothing reverses it. A twenty-Mana cast producing nothing is harsh on
+##      purpose: that is what makes landing a stun on a caster worth doing.
+##   3. **The original target stops mattering**, because there is no longer an
+##      action to aim. `focus_id` is left alone -- it is where the unit is
+##      looking, not a pending commitment, and it is overwritten by whatever the
+##      unit commits to next.
+##
+## Cooldown needs no refund and could not have one: `_fire_action` sets it, and
+## an interrupted action never fires, so it was never on cooldown.
+##
+## RECOVERY IS DELIBERATELY NOT CANCELLED. Only `action_ticks_left`, the wind-up,
+## is thrown away. Cancelling recovery would *help* the stunned unit -- it would
+## come out of the stun free to act instead of finishing what it owed -- and an
+## interrupt that rewards its victim is not an interrupt.
+##
+## ISSUE 61 is unchanged and its reasoning still stands on its own: a stun breaks
+## a sustained action, because a channel is a decision renewed every tick and a
+## unit that neither decides nor acts is by definition not renewing one. That was
+## true when a wind-up survived and it is true now.
+##
+## Emits INTERRUPTED once, on the tick the action is taken away, and never again
+## for the same stun -- the second tick of a stun finds nothing left to cancel.
+## `amount` is the ticks of wind-up already invested and thereby thrown away,
+## which is not recoverable after the fact for the same reason
+## `CombatUnit.action_ticks_total` had to exist at all: HASTE scales the real
+## count at commit, so the number on the ActionDef is not it.
+static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
+	unit.intent = null
+	if unit.action_ticks_left > 0:
+		var e := _event(CG.EventKind.INTERRUPTED, state.tick, unit.id, -1, unit.current_action)
+		e.amount = maxi(0, unit.action_ticks_total - unit.action_ticks_left)
+		state.emit(e)
+		unit.current_action = &""
+		unit.action_ticks_left = 0
+		unit.action_ticks_total = 0
+	_end_sustain(state, unit)
 
 # ---------------------------------------------------------------------------
 # resolve
