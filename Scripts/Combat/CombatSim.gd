@@ -830,6 +830,7 @@ static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
 ## target's current position) rather than once at fire time, so a pillar
 ## sliding into the path blocks that tick's hit-check with no special case.
 static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps) -> void:
+	var travelled_from := p.position
 	var to_aim := p.aim_point - p.position
 	var remaining := to_aim.length()
 	if p.speed >= remaining or remaining <= 0.0001:
@@ -847,9 +848,10 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 		## it would have reached the original target. Checked even if `target`
 		## has already died: the guard reacts to a hostile shot crossing its
 		## front regardless of what the shot was originally aimed at.
-		var shielder := _find_shielder(state, target.team, source.team, p.position)
+		var shielder := _find_shielder(state, target.team, source.team, travelled_from, p.position)
 		if shielder != null:
 			p.resolved = true
+			state.emit(_event(CG.EventKind.BLOCKED, state.tick, p.source_id, shielder.id, p.action_id))
 			for t in _splash_targets(state, shielder, action):
 				_apply_action_effect(state, source, t, action, deps)
 			_on_hit_landed(state, source, deps)
@@ -870,16 +872,66 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 		p.resolved = true
 		state.emit(_event(CG.EventKind.MISS, state.tick, p.source_id, p.target_id, p.action_id))
 
+## How wide the shield is: how close a hostile shot's path has to pass to a
+## SHIELDING unit's front for that unit to take it instead.
+##
+## 40 units, which is melee range -- `warrior_strike` and `warrior_execute`
+## both have `range_units = 40.0`, and that is what "melee" means in this
+## content. It is the player's own original wording for this ability: "block
+## ranged attacks that enter its melee range from the direction it's facing."
+##
+## It was `candidate.radius`, 22 units, the shielder's own body. That cannot
+## do what `warrior_block`'s description promises ("stops a travelling shot
+## aimed at an ally standing behind it") because two units cannot overlap, so
+## an ally standing behind is at least 44 units away -- twice the old window.
+## The shield covered a bubble on the Warrior, and the ally was only ever
+## protected when the shot happened to fly close past the Warrior anyway.
+##
+## Reusing `radius` was the same instinct as reusing it for the ordinary hit
+## check, and it was wrong for the same reason a hit check is right: a hit
+## asks "did this touch a body", a shield asks "did this come through the
+## space I am guarding". Those are different questions and 40 is the answer to
+## the second one, stated rather than borrowed.
+##
+## It does not follow content: if melee range moves, this does not move with
+## it. Deliberate -- a simulation constant that silently tracked an action's
+## range would make this ability change when an unrelated action was tuned.
+const SHIELD_WIDTH := 40.0
+
 ## A shot crossing a SHIELDING unit's front is stopped by it, per
 ## CG.Status.SHIELDING's own doc comment -- this is the projectile-based
 ## design that comment named as the point of building #18 first, replacing
 ## the geometric-line-check fallback it also named (never built, since
 ## projectiles landed before this did).
 ##
-## Front-arc test is a plain half-plane: `facing.dot(to_shot) > 0`. Zero
-## invented constants -- a dot-product sign test already means "generally in
-## front, not behind," same instinct as reusing `radius` for the ordinary hit
-## check rather than inventing a second number for "how close counts."
+## Tested against the **segment the shot travelled this tick**, `from` -> `to`,
+## not against where it happens to have landed at the end of it. A shot moves
+## `speed` units per tick (65 for every real ranged action today) and the
+## window is 40 wide, so a point test lets a shot teleport straight through a
+## raised shield without ever being sampled inside it. That is not a rare edge:
+## it is most shots, and it is a large part of why this ability appeared to do
+## nothing. A segment test has no such hole at any speed, which also means the
+## measurement stops depending on the tick rate.
+##
+## The front arc is now two sign tests instead of one, and the second is new:
+##
+##   1. the shot **started this tick in front**: `facing.dot(from - pos) > 0`
+##   2. the shot is **moving into the shield**: `facing.dot(to - from) < 0`
+##
+## Together that is the player's own wording for the ability -- "ranged attacks
+## that enter its melee range from the direction it's facing". Test 1 alone was
+## what this had, and it cannot tell approach from departure, because it reads
+## where the shot is and never which way it is going. The old comment on the
+## facing test in Tests/test_combat_taunt_and_shield.gd says so outright: a
+## shielder on the shot's line is "briefly in front of the shot during the
+## approach and briefly behind it during departure, for *either* facing". So a
+## shot that had already flown past a guard could be caught on its way out, and
+## widening the window from 22 to 40 would have made that more common, not less.
+## Test 2 removes it: a shield stops what comes at its face.
+##
+## Neither test can be asked of the closest point on the segment. For a shot
+## passing straight through a shielder that point is the shielder's own
+## position, which dots to zero from every facing.
 ##
 ## `attacking_team == defending_team` returns null immediately, so a shield
 ## never blocks a friendly heal or buff aimed at an ally standing behind it --
@@ -888,7 +940,7 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 ## First qualifying shielder in `state.living(defending_team)` order wins,
 ## same "iterate units, never a Dictionary" determinism rule every other
 ## tie-break in this file already follows.
-static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, position: Vector2) -> CombatUnit:
+static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> CombatUnit:
 	if attacking_team == defending_team:
 		return null
 	for candidate in state.living(defending_team):
@@ -896,16 +948,19 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 			continue
 		if candidate.facing == Vector2.ZERO:
 			continue # "no facing yet" per CombatUnit.facing's own doc comment: blocks nothing
-		if position.distance_to(candidate.position) > candidate.radius:
+		var closest := Geometry2D.get_closest_point_to_segment(candidate.position, from, to)
+		if closest.distance_to(candidate.position) > SHIELD_WIDTH:
 			continue
 		## Vector2.normalized() on a zero-length vector returns ZERO rather
-		## than dividing by zero, so a shot landing exactly on the shielder's
-		## own position dots to 0 and correctly falls through to "not in
-		## front" rather than special-casing "can't be behind me if it's
-		## exactly on me" -- a shot dead-centre on a shielder facing away is
-		## still approaching from the shielder's back, not its front.
-		var to_shot := (position - candidate.position).normalized()
-		if candidate.facing.dot(to_shot) > 0.0:
+		## than dividing by zero, so a shot starting its tick exactly on the
+		## shielder's own position dots to 0 and correctly falls through to
+		## "not in front" rather than special-casing "can't be behind me if
+		## it's exactly on me" -- a shot dead-centre on a shielder facing away
+		## is still approaching from the shielder's back, not its front.
+		var to_shot := (from - candidate.position).normalized()
+		if candidate.facing.dot(to_shot) <= 0.0:
+			continue
+		if candidate.facing.dot(to - from) < 0.0:
 			return candidate
 	return null
 

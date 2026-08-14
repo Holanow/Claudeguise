@@ -239,6 +239,27 @@ enum EventKind {
 	## which is indistinguishable from a broken game. A miss is a legitimate
 	## outcome and it has to be legible as one.
 	MISS,
+	## A SHIELDING unit stepped in front of a hostile shot and took it instead
+	## of whoever it was aimed at.
+	##
+	## Appended, never inserted, same rule Status already carries: these values
+	## are written into CombatEvent.kind and read by the log and the floaters.
+	##
+	## `source_id` is the shooter and `action_id` is the shooter's action, so
+	## the pair reads the same way it does on DAMAGE and MISS. `target_id` is
+	## the unit that blocked -- not the unit the shot was aimed at, which is
+	## already gone from the outcome by the time this fires. Same shape the
+	## cleanse's STATUS_EXPIRED uses: the event names the actor whose
+	## behaviour is otherwise invisible.
+	##
+	## Emitted immediately before the redirected hit resolves, so a log reads
+	## "blocked" and then the damage the blocker took for it.
+	##
+	## Added because the interception wrote nothing at all: no log line, no
+	## floater, and a probe (Tools/BlockProbe.gd) that could only count
+	## opportunities. An ability whose entire effect is invisible cannot be
+	## evaluated by a player or by us, and this one was not, for weeks.
+	BLOCKED,
 }
 
 static func attribute_name(a: Attribute) -> String:
