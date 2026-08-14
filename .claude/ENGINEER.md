@@ -217,6 +217,26 @@ Kill the specific process id you started, or let whatever started it stop it. If
 you cannot tell which is yours, leave it running and say so in `TEAM_LOG.md`.
 Someone else's twenty-minute job is not worth your tidy shell.
 
+**Use `Toolseap.ps1` instead.** This rule was broken twice in one day, by two
+different sessions, and both times the person was blocked by a hung headless
+Godot and reached for `taskkill` because **the rule said what not to do without
+offering an alternative.** That was a gap in this document, not a discipline
+failure.
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File Toolseap.ps1
+    ... -WhatIf      # list what it would kill, kill nothing
+    ... -Minutes 5   # more aggressive than the 15-minute default
+
+It only kills Godot processes **older than a threshold**, so a live run is never
+touched. Hung runs at 31, 33 and 56 minutes have been real here, against a gate
+that takes two to four.
+
+And the reason this matters more than tidiness: **a contended or hung run does
+not merely waste time, it manufactures false results.** One session reported
+"trunk is red" from a run under load, could not reproduce it, and had to withdraw
+the claim. A process you did not start may be producing a number someone is about
+to act on.
+
 The same applies to any mutable resource the repo shares. Work on your own copy
 and point an environment variable at it. Rebuilding the shared one under a
 colleague fails confusingly, often on a file lock with an error that names
