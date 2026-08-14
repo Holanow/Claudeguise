@@ -6,6 +6,7 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
 const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
@@ -455,29 +456,63 @@ func test_a_winning_party_wins_comfortably() -> void:
 	assert_true(r["wins"] >= 15, "a party of 4 should win most single battles, got %d/20" % r["wins"])
 
 
-## Issue 13b's cover room: same lever the wall would have tested (terrain
-## denying a party that wins by standing at range), against a room that
-## doesn't hit the movement-corner defect below. If a pillar were decoration,
-## siege_master x4 -- issue 24's free-win composition -- would look the same
-## with and without it, since nothing else about the room changes its range
-## or hp.
-func test_cover_changes_the_fight_for_a_pure_ranged_party() -> void:
-	var open_room := Registry.get_encounter(&"floor1_room1")
+## Issue 13b's cover room. **Issue #110 replaced the comparison, not the
+## property.** The old version of this ran `siege_master x4` in `floor1_room1`
+## and again in `floor1_cover` and asserted the two differed, which answers
+## "are these two rooms different fights" and not "do the pillars do
+## anything": one room had three enemies and the other ten, and the roster
+## alone explains every number it ever printed. It is the same invalid
+## comparison `RETROSPECTIVE.md` records a withdrawn conclusion for, and it
+## would have passed just as happily against a colonnade made of paint --
+## measured while building #94, a candidate `floor1_cover` had pillars that
+## changed nothing at all, bit-identical on 20 of 20 seeds, and this assertion
+## would not have noticed.
+##
+## The room is held fixed and only the terrain varies, which is the only
+## comparison that isolates geometry.
+##
+## **And the party had to change too, because the old name was false.** The
+## pillars do nothing whatsoever for a party that stands off. Measured on
+## `floor1_cover` against itself with the terrain stripped, 20 seeds each:
+##
+##     abomination x4   19/20 seeds differ   77% hp with, 70% without
+##     warrior x4       20/20 seeds differ   92% hp with,  9% without
+##     geysermancer x4   0/20                 3% /  3%, tick-identical
+##     priest x4         0/20                 9% /  9%, tick-identical
+##     siege_master x4   0/20                79% / 79%, tick-identical
+##
+## So the effect is on whoever closes, and it is enormous there -- warrior x4
+## finishes a 195-tick fight at 92% health with the pillars and a 659-tick
+## fight at 9% without. **The three standoff parties are printed and not
+## asserted on**, the same call `test_the_burn_pit_changes_the_fight_for_every_buildable_party`
+## makes: a bit-identical result is the honest measurement today, it
+## corroborates the retrospective, and pinning it would make this test go red
+## the day somebody gives the room a reason to matter at range, which would be
+## good news reported as a regression.
+func test_cover_changes_the_fight_for_the_parties_that_close() -> void:
 	var cover := Registry.get_encounter(&"floor1_cover")
-	assert_not_null(open_room)
 	assert_not_null(cover)
 	assert_true(cover.terrain.size() > 0, "floor1_cover should carry pillars")
 
-	var differs := false
-	for seed in 5:
-		var state_open := CombatSim.build(_party_of(&"siege_master", 4), open_room, seed)
-		CombatSim.run(state_open)
-		var state_cover := CombatSim.build(_party_of(&"siege_master", 4), cover, seed)
-		CombatSim.run(state_cover)
-		print("cover seed %d: open room ticks=%d  vs  cover room ticks=%d" % [seed, state_open.tick, state_cover.tick])
-		if _differs({"outcome": state_open.outcome, "ticks": state_open.tick}, {"outcome": state_cover.outcome, "ticks": state_cover.tick}):
-			differs = true
-	assert_true(differs, "floor1_cover's pillars should change the fight on at least one of 5 seeds, or they are decoration")
+	var bare := Encounter.new()
+	bare.id = cover.id
+	bare.display_name = cover.display_name
+	bare.enemy_spawns = cover.enemy_spawns
+	bare.party_spawns = cover.party_spawns
+	bare.terrain = []
+
+	for class_id in [&"abomination", &"warrior", &"geysermancer", &"priest", &"siege_master"]:
+		var differing := 0
+		for seed in 5:
+			var with_pillars := CombatSim.build(_party_of(class_id, 4), cover, seed)
+			CombatSim.run(with_pillars)
+			var without := CombatSim.build(_party_of(class_id, 4), bare, seed)
+			CombatSim.run(without)
+			if with_pillars.tick != without.tick or with_pillars.outcome != without.outcome:
+				differing += 1
+		print("floor1_cover, %s x4: %d/5 seeds differ with the pillars against the same room without them" % [class_id, differing])
+		if class_id == &"abomination" or class_id == &"warrior":
+			assert_true(differing >= 4, "floor1_cover's pillars should change the fight for %s x4, which closes to melee; changed %d of 5 seeds" % [class_id, differing])
 
 
 ## Issue 34: `floor1_chokepoint` resolves now instead of drawing. It was pulled
