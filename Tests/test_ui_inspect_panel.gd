@@ -101,6 +101,45 @@ func test_condition_label_does_not_autowrap() -> void:
 	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
 	panel.free()
 
+# ---------------------------------------------------------------------------
+# Hover-info-box system, phase 1
+# ---------------------------------------------------------------------------
+
+func test_attribute_chips_carry_glossary_tooltips() -> void:
+	const Glossary := preload("res://Scripts/UI/Glossary.gd")
+	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+	var pawn := _make_pawn()
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var found := false
+	for child in panel._detail_box.get_children():
+		if child is HBoxContainer:
+			for chip in child.get_children():
+				if chip is Label and chip.text.begins_with("STR"):
+					found = true
+					assert_eq(chip.get_script(), GlossaryLabelScript, "must be hoverable, same as every other glossary term")
+					assert_eq(chip.tooltip_text, Glossary.attribute_text(CG.Attribute.STR))
+	assert_true(found, "expected to find the STR chip")
+	panel.free()
+
+func test_class_tags_header_line_carries_a_glossary_tooltip() -> void:
+	const Glossary := preload("res://Scripts/UI/Glossary.gd")
+	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+	var pawn := _make_pawn(CG.Role.TANK)
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var expected := Glossary.class_tags_text(pawn.pawn_class.role_primary, pawn.pawn_class.style, pawn.pawn_class.method)
+	var found := false
+	for child in panel._detail_box.get_children():
+		if child is Label and child.get_script() == GlossaryLabelScript and child.tooltip_text == expected:
+			found = true
+	assert_true(found, "expected the tags line to carry the glossary tooltip")
+	panel.free()
+
 ## Real bug, found on a real launch: the list/detail scroll containers had no
 ## vertical size flags, so they collapsed to their content's minimum size
 ## regardless of how much room the panel actually had, and the whole body
