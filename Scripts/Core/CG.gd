@@ -299,6 +299,34 @@ enum EventKind {
 	## apart is a question about the plan editor, not about the simulation. Say
 	## the word and it is one more field.
 	SUSTAIN_END,
+	## A committed action was cancelled before it fired. Today that is STUN
+	## landing on a unit mid-wind-up; the mechanism itself is not stun-specific.
+	##
+	## Appended, never inserted, same rule the rest of this enum carries. Exact
+	## lines posted to TEAM_LOG.md before they were written, per this file's own
+	## intake instruction, so wren could build the log line and the flash against
+	## a signature rather than a description.
+	##
+	## `source_id` is the unit whose action was lost and `action_id` is the
+	## action it lost -- NOT the interrupter. The pair reads the same way it does
+	## on ACTION_START, which is the event this one cancels: a log that has
+	## already printed "the Geysermancer begins Blast" needs the same subject to
+	## print "and loses it". `target_id` is -1, because what interrupted it is
+	## already in the STATUS_APPLIED event on the same tick.
+	##
+	## `amount` is the ticks of wind-up already invested and thereby thrown away.
+	## Not recoverable after the fact -- HASTE scales the real count at commit,
+	## so the number on the ActionDef is not it, which is the same reason
+	## CombatUnit.action_ticks_total had to exist.
+	##
+	## THE RESOURCE IS NOT REFUNDED, the player's ruling. RESOURCE_SPENT already
+	## fired at commit and nothing reverses it; there is no negative event.
+	##
+	## The player asked for this to be visible twice over -- the badge says what
+	## happened, the flash says it happened now. Losing a wind-up with no refund
+	## is the most punishing thing that can happen to a pawn, so it is exactly
+	## the event that must not be missable.
+	INTERRUPTED,
 }
 
 static func attribute_name(a: Attribute) -> String:
