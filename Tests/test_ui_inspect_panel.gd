@@ -304,13 +304,144 @@ func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	assert_true(text.contains("not called by any plan"), text)
 	panel.free()
 
-## Issue 21a's field (ActionDef.description) is on the trunk but empty on
-## every real action right now. Missing text must read as "not written yet",
-## never as a blank line that looks broken.
+## Missing description text must read as "not written yet", never as a blank
+## tooltip that looks broken. Was asserted against `_action_line`, the
+## name-over-description block issue 68 replaced with a hoverable chip; the
+## guarantee is the same one and it now lives on the tooltip.
+##
+## **This test crashed silently for one gate run and the gate said PASS** --
+## it still called `_action_line` after that function was deleted, the method
+## aborted on a runtime error before reaching its assertion, and `run_tests.gd`
+## counted it as a passing test. See the pull request and TEAM_LOG: it is
+## issue #104's rule pointed at the runner itself.
 func test_an_empty_action_description_reads_as_pending_not_blank() -> void:
+	const ActionDefScript := preload("res://Scripts/Core/ActionDef.gd")
 	var panel := InspectPanel.new()
 	panel._ready()
-	assert_true(panel._action_line(&"nonexistent_action") != null)
+	var blank := ActionDefScript.new()
+	blank.id = &"blank"
+	blank.display_name = "Blank"
+	blank.description = ""
+	assert_eq(panel._action_description(blank), "(no description yet)")
+	# The positive half, per #104: a real description is passed through
+	# unchanged, so this cannot pass by the function returning a constant.
+	var written := ActionDefScript.new()
+	written.description = "Does a real thing."
+	assert_eq(panel._action_description(written), "Does a real thing.")
+	panel.free()
+
+## An action id that is not registered must be visibly wrong on the chip, not
+## silently absent.
+func test_an_unregistered_action_chip_says_so() -> void:
+	var panel := InspectPanel.new()
+	panel._ready()
+	var chip: Label = panel._action_chip(&"nonexistent_action")
+	assert_true(chip.text.contains("not registered"), chip.text)
+	assert_false(chip.tooltip_text.is_empty(), "an unusable action still needs to say why")
+	chip.free()
+	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 68: narrow the screen to plan editing, now that hover covers reading
+# ---------------------------------------------------------------------------
+
+## The round-one note this closes: *"Plans, in priority order still appears on
+## every class's inspect. The general how to play has never replaced it."*
+##
+## Both halves asserted together, per #104 -- "the per-class heading is gone"
+## alone would also pass if the whole plans section vanished, and that is a
+## different screen, not a fix.
+func test_the_general_how_to_play_replaces_the_per_class_plans_explanation() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("only")]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var whole_screen := _all_label_text(panel)
+	var per_pawn := _all_label_text(panel._detail_box)
+
+	# Positive: the general copy exists, once, and it carries the priority
+	# rule that used to be repeated under every class.
+	assert_true(whole_screen.contains(InspectPanel.HOW_TO_PLAY), "the general how-to-play must be on the screen")
+	assert_true(InspectPanel.HOW_TO_PLAY.to_lower().contains("first row"), "it has to actually explain priority order")
+	# Negative: it is not repeated inside the per-pawn detail column, which is
+	# the part that rebuilds per class.
+	assert_false(per_pawn.contains(InspectPanel.HOW_TO_PLAY), "the general copy must not be repeated per class")
+	assert_false(per_pawn.contains("in priority order"), "the per-class heading must not restate the general rule: " + per_pawn)
+	# And the section itself is still there and still says whose budget it is.
+	assert_true(per_pawn.contains("Plans"), per_pawn)
+	assert_true(per_pawn.contains("plan blocks used"), per_pawn)
+	panel.free()
+
+## The heading reframes around editing rather than presenting the screen as
+## general class information.
+func test_the_heading_is_about_editing_not_inspecting() -> void:
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([_make_pawn()])
+	var text := _all_label_text(panel)
+	assert_true(text.contains(InspectPanel.HEADING), text)
+	assert_true(InspectPanel.HEADING.to_lower().contains("plans"), "the heading must name what the screen is for")
+	panel.free()
+
+## Actions are read by hover now, like every other term on this screen. The
+## assertion that matters is that the description is reachable, not that the
+## wall of text is gone -- deleting the section entirely would also remove the
+## wall and would lose the information.
+func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
+	const Registry := preload("res://Scripts/Content/Registry.gd")
+	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var checked := 0
+	for action_id in pawn.pawn_class.starting_actions:
+		var action = Registry.get_action(action_id)
+		assert_not_null(action, "fixture depends on real registered actions")
+		var chip: Label = panel._action_chip(action_id)
+		assert_eq(chip.text, action.display_name)
+		assert_eq(chip.tooltip_text, action.description)
+		assert_false(chip.tooltip_text.is_empty(), "%s has no description to read" % action_id)
+		# PLAYTEST-NOTES-2 item 13: a Label defaults to MOUSE_FILTER_IGNORE and
+		# would never receive hover at all, so the tooltip would be unreachable
+		# and this whole change would move the description out of sight. That
+		# is the eighth built-and-unreachable on this project and it is one
+		# line.
+		assert_eq(chip.mouse_filter, Control.MOUSE_FILTER_STOP)
+		assert_eq(chip.get_script(), GlossaryLabelScript)
+		chip.free()
+		checked += 1
+	assert_true(checked >= 5, "the Priest ships five actions; checked %d" % checked)
+	panel.free()
+
+## The skill chip inside a plan row is the other place an action is named, and
+## it is the one a player is looking at while editing.
+func test_the_skill_block_hover_says_what_the_skill_does() -> void:
+	const Registry := preload("res://Scripts/Content/Registry.gd")
+	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var action_block := PlanBlock.new()
+	action_block.kind = PlanBlock.Kind.ACTION
+	action_block.op = &"use_action"
+	action_block.args = {"action_id": pawn.pawn_class.starting_actions[0]}
+	var picker: OptionButton = panel._action_picker(pawn, action_block)
+	var action = Registry.get_action(pawn.pawn_class.starting_actions[0])
+	assert_not_null(action)
+	assert_true(picker.tooltip_text.contains(action.description),
+		"the skill block's hover must carry the description, got '%s'" % picker.tooltip_text)
+	# Negative half: it is not just a longer copy of the caption already
+	# printed on the chip, which is what the other two blocks get.
+	assert_true(picker.tooltip_text.length() > action.display_name.length(),
+		"the skill hover must say more than the chip already does")
+	picker.free()
 	panel.free()
 
 ## Issue 6, criterion 1/2: reorder is a real swap of `pawn.plans`, not just a
