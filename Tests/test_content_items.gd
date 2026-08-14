@@ -71,9 +71,16 @@ func test_equipment_ids_are_unique_and_sorted() -> void:
 	for id in ids:
 		assert_false(seen.has(id), "duplicate equipment id %s" % id)
 		seen[id] = true
-	var sorted_copy := ids.duplicate()
-	sorted_copy.sort()
-	assert_eq(ids, sorted_copy, "all_equipment_ids should already be sorted")
+	# Was `ids.duplicate().sort()`, which is the same sort the function under
+	# test calls -- the expectation was the output compared to itself and could
+	# not fail. `Array[StringName].sort()` compares interned pointers, not text.
+	# See `Registry._sort_ids`.
+	var as_text: Array[String] = []
+	for id in ids:
+		as_text.append(String(id))
+	var expected := as_text.duplicate()
+	expected.sort()
+	assert_eq(as_text, expected, "all_equipment_ids should be in alphabetical order")
 
 
 ## Issue 40: EquipmentDef.allowed_methods declares who may equip a piece, but

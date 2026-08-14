@@ -9,11 +9,23 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 ## sorted, no duplicates, and every id actually resolves through
 ## Registry.get_enemy.
 
+## This test used to build its expectation by calling `sort()` on a copy --
+## the same `Array[StringName].sort()` the function under test was calling.
+## It compared the output to itself and could not fail, which is why nobody
+## noticed that **`Array[StringName].sort()` is not alphabetical at all**: it
+## compares interned pointers, so `[zebra, apple, mango]` sorts to `[mango,
+## apple, zebra]`.
+##
+## The oracle is now an independent one. See `Registry._sort_ids` for why the
+## order mattered well beyond tidiness.
 func test_all_enemy_ids_is_sorted() -> void:
 	var ids := Registry.all_enemy_ids()
-	var sorted_copy := ids.duplicate()
-	sorted_copy.sort()
-	assert_eq(ids, sorted_copy)
+	var as_text: Array[String] = []
+	for id in ids:
+		as_text.append(String(id))
+	var expected := as_text.duplicate()
+	expected.sort()
+	assert_eq(as_text, expected, "all_enemy_ids should be in alphabetical order")
 
 
 func test_all_enemy_ids_has_no_duplicates() -> void:

@@ -96,12 +96,36 @@ static func get_equipment(id: StringName) -> EquipmentDef:
 
 ## Ordered by id so that anything iterating content is deterministic. Dictionary
 ## order is not something the fight may depend on.
+## **`Array[StringName].sort()` does not sort alphabetically.** It compares
+## interned pointers, so `[zebra, apple, mango]` sorts to `[mango, apple,
+## zebra]` -- checked directly, not inferred. The order it produces depends on
+## what interned each name first, which varies with the entry point.
+##
+## That mattered far beyond tidiness. `party[i]` is placed at
+## `party_spawns[i]`, so the order of `all_class_ids()` decides **who stands
+## where** in every fight a measurement tool builds. `SampleFights`,
+## `TickBudget`, `ArenaUsage` and the test suite each build their parties
+## after touching different content, so they were arranging the same party
+## differently and then disagreeing about the result.
+##
+## That is almost certainly issue 63, an instrument disagreement open for
+## days which I personally failed to explain three times -- every attempt
+## assumed the two instruments were running the same fight. They were not.
+## It also fits finch's separate finding that the Warden's outcome swings
+## 20/20 versus 8/20 on build order alone.
+##
+## Found by heron while authoring rooms. Comparing as `String` is the whole
+## fix; the cost is one conversion per element on lists of five to twenty.
+static func _sort_ids(ids: Array[StringName]) -> void:
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return String(a) < String(b))
+
 static func all_class_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []
 	for k in _classes.keys():
 		ids.append(k)
-	ids.sort()
+	_sort_ids(ids)
 	return ids
 
 static func all_encounter_ids() -> Array[StringName]:
@@ -109,7 +133,7 @@ static func all_encounter_ids() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for k in _encounters.keys():
 		ids.append(k)
-	ids.sort()
+	_sort_ids(ids)
 	return ids
 
 ## The missing fourth sibling of all_class_ids/all_encounter_ids/
@@ -124,7 +148,7 @@ static func all_enemy_ids() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for k in _enemies.keys():
 		ids.append(k)
-	ids.sort()
+	_sort_ids(ids)
 	return ids
 
 ## Issue 100: everything a pawn can actually do -- its class's `starting_actions`
@@ -167,7 +191,7 @@ static func all_action_ids() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for k in _actions.keys():
 		ids.append(k)
-	ids.sort()
+	_sort_ids(ids)
 	return ids
 
 static func all_equipment_ids() -> Array[StringName]:
@@ -175,5 +199,5 @@ static func all_equipment_ids() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for k in _items.keys():
 		ids.append(k)
-	ids.sort()
+	_sort_ids(ids)
 	return ids
