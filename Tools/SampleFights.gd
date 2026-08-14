@@ -281,12 +281,29 @@ func _team_hp_percent(state, team: int) -> int:
 		return 0
 	return int(round(100.0 * float(hp) / float(hp_max)))
 
-## The verdict line. A fight is fine when winning costs the winner something,
-## whatever the win rate is; it is a problem when a party wins without being
-## touched, and a different problem when the party is simply losing.
+## The verdict line, and its polarity is reversed from the version rook
+## wrote it with.
+##
+## The original read: a fight is fine when winning costs the winner
+## something, whatever the win rate is; UNTOUCHED (>=85% hp, nobody down)
+## was flagged as a problem and a COSTLY win (<=40% hp or <=2 survivors) was
+## labelled "the shape we want". That was rook's own target, from before a
+## full playthrough. The player played the finished build and reversed it
+## directly (PLAYTEST-NOTES.md note 5):
+##
+##   "The fights feel too close right now I think. With a party of 4 I
+##   should be winning most single battles and my losses should come from
+##   attrition"
+##
+## A single room is meant to be comfortable; the floor (several rooms, no
+## full heal between them, a dead pawn stays dead) is meant to be where a
+## run is actually lost. So this tool printing "COSTLY WIN: this is the
+## shape we want" beside a close single-room fight was steering straight at
+## the opposite of what the player asked for -- the same thresholds still
+## describe something real, only the label was backwards.
 func _cost_note(party_hp: int, survivors: int) -> String:
-	if party_hp >= 85 and survivors >= 4:
-		return "   <- UNTOUCHED: winning costs nothing"
+	if party_hp >= 55 and survivors >= 4:
+		return "   <- COMFORTABLE WIN: matches the player's own single-fight target"
 	if party_hp <= 40 or survivors <= 2:
-		return "   <- COSTLY WIN: this is the shape we want"
+		return "   <- CLOSE WIN: fine as an occasional room, a problem if every fight looks like this"
 	return "   <- some cost"

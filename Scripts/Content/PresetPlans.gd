@@ -118,11 +118,35 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 			]
+		# The player's own "one for speed, one for resistance" direction.
+		# Both use `target_lowest_hp_fraction_ally` -- the same targeting op
+		# `priest_heal_hurt_ally` already uses, and the only ally-picking op
+		# `PlanInterpreter` whitelists -- so both buffs land on whichever
+		# ally is under the most pressure right now, a defensible read for a
+		# SUPPORT-tagged class and one that needs no new targeting op.
+		#
+		# Ordered heal, ward, haste, smite: a hurt ally always outranks a
+		# buff (heal's own condition is checked first), and both buffs use
+		# `always` rather than a threshold, so whichever is off cooldown
+		# fires ahead of Smite -- `priest_ward`/`priest_haste`'s own cooldown
+		# matches their duration (see `_action_ally_buff`'s comment in
+		# core_actions.gd), so this recasts the instant the buff lapses
+		# rather than spamming every tick, the same fallthrough shape
+		# `warrior_block_default` already established. Ward before haste,
+		# arbitrarily -- a plan whose action is on cooldown falls through to
+		# the next one exactly like an unaffordable one does, so the loser of
+		# this ordering still fires as soon as the winner is on cooldown.
 		&"priest":
 			return [
 				_plan(&"priest_heal_hurt_ally", "Heal the hurt",
 					_condition(&"ally_below_hp_fraction", {"fraction": 0.5}),
 					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_heal")]),
+				_plan(&"priest_ward_default", "Ward",
+					_condition(&"always", {}),
+					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_ward")]),
+				_plan(&"priest_haste_default", "Haste",
+					_condition(&"always", {}),
+					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_haste")]),
 				_plan(&"priest_smite_nearest", "Smite",
 					_condition(&"enemy_in_range", {"range": 220.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),

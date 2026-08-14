@@ -62,14 +62,28 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MAGICAL, CG.Style.RANGED, CG.Role.HEALER, CG.Role.SUPPORT,
 			[CG.DamageType.DIVINE, CG.DamageType.AIR],
 			CG.ResourceKind.MANA,
-			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 5},
+			# WIS 5->8: two new preset plans (priest_haste, priest_ward, the
+			# player's own "one for speed, one for resistance" direction) at
+			# 2 blocks each, on top of the existing 2 plans' own 4 -- 8
+			# blocks total, and Balance.plan_block_budget == WIS. Same "pure
+			# capacity increase, not a power change" reasoning as the
+			# Warrior's own WIS 4->6 for a third plan (issue 52): WIS has no
+			# combat-stat side effect per README, it only governs plan length.
+			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 8},
 			# Issue 62: priest_bolt (no cost) placed before priest_smite --
 			# DefaultBehavior._first_non_heal falls back to the first
 			# non-heal action in this list whenever no plan fires, and
 			# priest_smite_nearest's own plan already falls through to
 			# here the moment Mana can't cover Smite. Same reasoning as
 			# warrior_strike staying first for the Warrior.
-			[&"priest_heal", &"priest_bolt", &"priest_smite"]
+			#
+			# priest_haste and priest_ward, appended: both are ally-targeted
+			# buffs, never picked by DefaultBehavior's own fallback (Priest
+			# has zero melee actions, so `_choose_attack_action` always
+			# defers straight to `_first_non_heal`, which stops at
+			# `priest_bolt` regardless of where these two sit) -- they only
+			# ever fire through their own preset plans in PresetPlans.gd.
+			[&"priest_heal", &"priest_bolt", &"priest_smite", &"priest_haste", &"priest_ward"]
 		),
 		_class(
 			&"geysermancer", "Geysermancer",
