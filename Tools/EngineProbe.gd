@@ -2,6 +2,23 @@ extends SceneTree
 
 ## Measures what Siege Engines actually do in a single room.
 ##
+## **Originally rook's, rewritten by finch on issue 93, and the rewrite is not a
+## matter of taste.** Two things had to change and one was a defect:
+##
+## 1. It reported "distance from each engine to the nearest live enemy, at
+##    build" and measured neither. The loop ran over `state.units` *after*
+##    `CombatSim.run` had finished, so it used end-of-fight positions, and it had
+##    no `alive` check, so it counted corpses as live enemies. That is where the
+##    224-unit figure in issue 93 comes from; measured at the tick each engine
+##    actually appears, against enemies that are actually alive, it is 381.
+##    Doing that requires stepping the fight rather than running it, which is
+##    most of the shape change here.
+## 2. It could not see the marking window at all, and marked-only firing makes
+##    that the number the whole rebuild depends on.
+##
+## Also widened from one hardcoded party to every buildable party carrying a
+## Siege Master, for the reason `SampleFights.gd` already documents at length.
+##
 ##   godot --headless --path . --script res://Tools/EngineProbe.gd
 ##
 ## Not part of the game and not part of the gate.
@@ -57,6 +74,11 @@ var _marked_ticks := 0
 var _engine_alive_ticks := 0
 var _engine_marked_ticks := 0
 var _mark_applications := 0
+var _build_ticks: Array[int] = []
+## Kept from rook's version: how many engines could have shot *without* the
+## unlimited range, so the before/after says how much of the change is reach.
+var _built_in_old_range := 0
+const OLD_BOLT_RANGE := 200.0
 
 func _init() -> void:
 	var class_ids := Registry.all_class_ids()
@@ -118,7 +140,11 @@ func _probe(party_ids: Array, encounter, seed_value: int) -> void:
 			if u.enemy_id == ENGINE_ID:
 				engine_ids[u.id] = true
 				_engines_total += 1
-				_spawn_distances.append(_distance_to_nearest_enemy(state, u))
+				var d := _distance_to_nearest_enemy(state, u)
+				_spawn_distances.append(d)
+				_build_ticks.append(state.tick)
+				if d <= OLD_BOLT_RANGE:
+					_built_in_old_range += 1
 			known += 1
 
 		_fight_ticks += 1
@@ -187,6 +213,10 @@ func _report() -> void:
 			_engine_shots, float(_engine_shots) / float(_engines_total)])
 		print("distance to nearest enemy at build   mean %.0f  min %.0f  max %.0f" % [
 			_mean(_spawn_distances), _min(_spawn_distances), _max(_spawn_distances)])
+		print("within the old 200-unit bolt range at build   %d of %d  (%d%%)" % [
+			_built_in_old_range, _engines_total, _percent(_built_in_old_range, _engines_total)])
+		print("mean build tick   %.0f  (%.1fs at %d tps)" % [
+			_mean_int(_build_ticks), _mean_int(_build_ticks) / float(CG.TICKS_PER_SECOND), CG.TICKS_PER_SECOND])
 	print("")
 	print("-- the marking window ----------------------------------")
 	print("spotter_mark applications      %d  (%.2f per fight)" % [

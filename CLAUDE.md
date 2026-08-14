@@ -1,10 +1,49 @@
 # Claudeguise
 
-A Godot 4.5 roguelike autobattler. Copied from `God-Guise` as a fresh repository
-with no remote and no shared history. `README.md` is the design document and is
-the only substantial thing in here so far: the rest is an empty scene and script
-skeleton with placeholder `icon.svg` files, plus `Scripts/Pawns/Pawn.gd` and
-`Scripts/Pawns/PawnGenerator.gd`.
+A Godot 4.5 roguelike autobattler. `README.md` is the design document.
+
+The game is playable. A deterministic fixed-tick simulation, five classes, a
+plan system the player edits, terrain, projectiles, summons and a drawn battle
+screen all exist and run. **This paragraph described "an empty scene and script
+skeleton" for weeks after that stopped being true**, which is the failure mode
+this file is most prone to: a description written once and never re-read
+against the thing it describes.
+
+## The goal right now
+
+**One room, and nothing else.** In the player's words: *"get single room combat
+super satisfying and fun — I should be eager to try out every team
+combination."* And, ruling out the rest: *"This should really be one room,
+nothing else. For now at least."*
+
+Floors, runs, room sequencing, shops and between-floor economy are **parked**,
+and their issues carry the `parked-not-single-room` label. Do not work them, and
+do not use a floor-run measurement as evidence for a single-room decision.
+`Tools/SampleFights.gd` is single-encounter and is the right instrument;
+`Tools/FloorRuns.gd` is not.
+
+## The principle that governs pawn behaviour
+
+> **Pawns should never do anything the player cannot see in the plans of
+> action.**
+
+The player's own words, and it is binding. An autobattler's loop is: author
+behaviour, watch it, adjust. Every hidden rule breaks that loop twice — once
+when the pawn does something unasked, and again when there is nowhere to change
+it.
+
+This has already cost real work three times. An automatic kiting branch made
+the Abomination run away from fights it was built to close. `DefaultBehavior`
+picking the first affordable action in list order is why `warden_chain_toss`
+never fired, and why `geyser_spout` had to be *placed first* in
+`starting_actions` to work at all. **Two of those three were mistaken for
+balance problems** and tuned against before anyone found the cause.
+
+It does not mean deleting `DefaultBehavior`: enemies have no plans and do not
+need them. It does not mean the player must configure everything — an immutable
+default row they can read but not edit satisfies it. The test is: **can the
+player see it happening and find where it is decided?** If not, it becomes a
+block, a visible default, or it goes. Audit and detail in issue #98.
 
 ## Roles
 
