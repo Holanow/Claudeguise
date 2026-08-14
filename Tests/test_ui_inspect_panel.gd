@@ -25,7 +25,7 @@ func _make_action(id: String, name: String, description: String = "") -> ActionD
 	a.description = description
 	return a
 
-func _make_pawn(role: CG.Role = CG.Role.DPS) -> PawnData:
+func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
@@ -33,6 +33,12 @@ func _make_pawn(role: CG.Role = CG.Role.DPS) -> PawnData:
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
 	cls.starting_actions = [&"test_swing"]
+	# WIS is the plan block budget (Balance.plan_block_budget). Left at the
+	# ClassDef default of 0 every fixture would sit permanently over budget and
+	# every Add button would be disabled, which is a different screen from the
+	# one most of these tests mean to exercise. The budget tests set it
+	# themselves.
+	cls.base_attributes = {CG.Attribute.WIS: wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -45,60 +51,67 @@ func _make_plan(display_name: String) -> Plan:
 	p.display_name = display_name
 	return p
 
-## Issue 53 sweep: on a real launch, the "Targeting:" label and the picker's
-## own text overlapped into "TaSelfting:" (Screenshots/
-## sweep_inspect_plan_editor_*). _line()'s autowrap makes a Label report a
-## near-zero minimum width in the HBoxContainer beside the SIZE_EXPAND_FILL
-## picker, the same bug already found and worked around for the Attributes
-## chips. Asserted directly on the built row rather than only via a
-## screenshot: the prefix label must not autowrap.
-func test_targeting_label_does_not_autowrap() -> void:
+## Issue 53 found the "Targeting:"/"Action:"/"Condition:" prefix labels
+## overlapping their own pickers on a real launch ("TaSelfting:",
+## Screenshots/sweep_inspect_plan_editor_*): `_line()`'s autowrap makes a Label
+## report a near-zero minimum width beside a SIZE_EXPAND_FILL control.
+##
+## **Those three prefixes no longer exist** — issue 96 made each block a chip
+## captioned with its own value, so there is nothing left to label, and the
+## three tests that asserted each prefix's autowrap mode are replaced by these
+## two rather than deleted. The trap is a property of `_line`, not of those
+## strings: one short label still sits in that position (the priority number),
+## and it gets the same assertion. Disclosed in the pull request.
+func test_the_priority_number_label_does_not_autowrap() -> void:
 	var pawn := _make_pawn()
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_self"
-	var plan := _make_plan("Always act")
-	plan.blocks = [targeting]
-	pawn.plans = [plan]
-
+	pawn.plans = [_make_plan("Always act")]
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn])
 
-	var row := panel._targeting_picker(targeting)
-	var label: Label = row.get_child(0)
-	assert_eq(label.text, "Targeting:")
-	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF, "a short fixed prefix must not report a near-zero minimum width")
+	var row := panel._plan_row(pawn.plans[0], pawn, 0)
+	var number: Label = row.get_child(0)
+	assert_eq(number.text, "1.")
+	assert_eq(number.autowrap_mode, TextServer.AUTOWRAP_OFF, "a short fixed prefix must not report a near-zero minimum width")
+	row.free()
 	panel.free()
 
-func test_action_label_does_not_autowrap() -> void:
+## Issue 96: one row of blocks, not a sentence with labelled dropdowns stacked
+## underneath. The structural claim is that the condition, target and skill
+## controls are siblings in one HBoxContainer, and that no Label sits between
+## them captioning them.
+func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_hp_below_fraction"
+	condition.args = {"fraction": 0.35}
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_self"
 	var action := PlanBlock.new()
 	action.kind = PlanBlock.Kind.ACTION
 	action.op = &"use_action"
 	action.args = {"action_id": &"test_swing"}
-	var panel := InspectPanel.new()
-	panel._ready()
-	panel.open([pawn])
-
-	var row := panel._action_picker(pawn, action)
-	var label: Label = row.get_child(0)
-	assert_eq(label.text, "Action:")
-	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
-	panel.free()
-
-func test_condition_label_does_not_autowrap() -> void:
-	var pawn := _make_pawn()
-	var plan := _make_plan("Always act")
+	var plan := _make_plan("Guard when hurt")
+	plan.condition = condition
+	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
+
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn])
 
-	var row := panel._condition_editor(plan)
-	var label: Label = row.get_child(0)
-	assert_eq(label.text, "Condition:")
-	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_OFF)
+	var row := panel._plan_row(plan, pawn, 0)
+	assert_true(row is HBoxContainer, "a plan is one row")
+	var chips := _find_option_buttons(row)
+	assert_eq(chips.size(), 3, "condition, target and skill, all in the one row")
+	# The only Label in the row is the priority number. "Targeting:",
+	# "Action:" and "Condition:" are gone.
+	var labels := _labels_in(row)
+	assert_eq(labels.size(), 1, "the only label left is the priority number, found: %s" % str(labels.map(func(l): return l.text)))
+	assert_eq(labels[0].text, "1.")
+	row.free()
 	panel.free()
 
 # ---------------------------------------------------------------------------
@@ -222,9 +235,13 @@ func test_availability_is_stated_on_screen() -> void:
 	assert_true(text.to_lower().contains("available"), text)
 	panel.free()
 
-## Issue 21a's describe_op is real now: a plan reads as a full sentence, not
-## just its own display_name, and a raw op id must never reach the screen.
-func test_plan_line_reads_as_a_full_sentence_via_describe_op() -> void:
+## Issue 21a's describe_op still writes every chip's caption, so a raw op id
+## must never reach the screen. Was `test_plan_line_reads_as_a_full_sentence_
+## via_describe_op` and asserted against the sentence and the plan's own
+## display_name; issue 96 replaced the sentence with the chips, and the plan's
+## authored display_name is no longer drawn at all (the chips say what it
+## does). Same guarantee, read off the controls that carry it now.
+func test_plan_blocks_read_in_a_players_language_via_describe_op() -> void:
 	var pawn := _make_pawn()
 	var plan := _make_plan("Guard when hurt")
 	var condition := PlanBlock.new()
@@ -245,25 +262,28 @@ func test_plan_line_reads_as_a_full_sentence_via_describe_op() -> void:
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn])
-	var text := _all_label_text(panel._detail_box)
-	assert_true(text.contains("Guard when hurt"), text)
-	assert_true(text.contains("self hp below 35%"), text)
-	assert_true(text.contains("self"), text)
+	var text := _selected_chip_text(panel._detail_box)
+	assert_true(text.contains("Self hp below 35%"), text)
+	assert_true(text.contains("Self"), text)
 	assert_false(text.contains("self_hp_below_fraction"), "a raw op id must never reach the screen: " + text)
+	assert_false(text.contains("target_self"), "a raw op id must never reach the screen: " + text)
 	panel.free()
 
-## Plans show in priority order, by the plan's own real display_name.
+## Plans show in priority order. Read off the chips rather than the plan's own
+## display_name, which issue 96 stopped drawing -- two plans distinguished by
+## their conditions, in the order `pawn.plans` holds them.
 func test_plans_list_in_priority_order() -> void:
 	var pawn := _make_pawn()
-	pawn.plans = [_make_plan("Guard when hurt"), _make_plan("Execute when raging")]
+	pawn.plans = [_plan_with_condition("first", &"self_hp_below_fraction", {"fraction": 0.35}),
+		_plan_with_condition("second", &"enemy_in_range", {"range": 45.0})]
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn])
-	var text := _all_label_text(panel._detail_box)
-	var guard_at := text.find("Guard when hurt")
-	var execute_at := text.find("Execute when raging")
-	assert_true(guard_at != -1 and execute_at != -1, text)
-	assert_true(guard_at < execute_at, "priority order not preserved: " + text)
+	var text := _selected_chip_text(panel._detail_box)
+	var hurt_at := text.find("Self hp below 35%")
+	var range_at := text.find("An enemy within 45 units")
+	assert_true(hurt_at != -1 and range_at != -1, text)
+	assert_true(hurt_at < range_at, "priority order not preserved: " + text)
 	panel.free()
 
 ## use_action blocks with no matching plan block are what "unused" means here.
@@ -299,8 +319,8 @@ func test_an_empty_action_description_reads_as_pending_not_blank() -> void:
 ## it; the button wiring itself is covered by the disabled-state test below.
 func test_reorder_swaps_plan_priority_in_pawns_plans_array() -> void:
 	var pawn := _make_pawn()
-	var guard := _make_plan("Guard when hurt")
-	var execute := _make_plan("Execute when raging")
+	var guard := _plan_with_condition("guard", &"self_hp_below_fraction", {"fraction": 0.35})
+	var execute := _plan_with_condition("execute", &"enemy_in_range", {"range": 45.0})
 	pawn.plans = [guard, execute]
 	var panel := InspectPanel.new()
 	panel._ready()
@@ -316,9 +336,9 @@ func test_reorder_swaps_plan_priority_in_pawns_plans_array() -> void:
 	# deferred call to run. Rebuilding by hand stands in for the frame this
 	# test does not process, and still exercises the real render path.
 	panel._build_detail(pawn)
-	var text := _all_label_text(panel._detail_box)
-	var execute_at := text.find("Execute when raging")
-	var guard_at := text.find("Guard when hurt")
+	var text := _selected_chip_text(panel._detail_box)
+	var execute_at := text.find("An enemy within 45 units")
+	var guard_at := text.find("Self hp below 35%")
 	assert_true(execute_at != -1 and guard_at != -1, text)
 	assert_true(execute_at < guard_at, "screen did not follow the reorder: " + text)
 	panel.free()
@@ -586,11 +606,285 @@ func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 	panel.open([pawn])
 
 	var row := panel._condition_editor(plan)
-	var picker: OptionButton = row.get_child(1)
+	var picker: OptionButton = row.get_child(0)
 	var selected_text := picker.get_item_text(picker.selected)
 	assert_true(selected_text.contains("65%"), "expected the real 65%% value in '%s'" % selected_text)
 	assert_false(selected_text.contains("50%"), "must not still show the op's default")
 	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 95: add and remove plans, against the block budget
+# ---------------------------------------------------------------------------
+
+## The whole point of the issue: a pawn is no longer stuck with the number of
+## plans its class shipped with, and the plan the button makes is one the real
+## interpreter will run -- not a row that only exists on this screen.
+func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
+	var pawn := _make_pawn()
+	pawn.pawn_class.starting_actions = [&"test_swing"]
+	pawn.plans = []
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._add_plan(pawn)
+
+	assert_eq(pawn.plans.size(), 1)
+	assert_eq(pawn.plans[0].block_count(), InspectPanel.NEW_PLAN_BLOCK_COST)
+
+	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	attacker.pawn = pawn
+	var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	var state := _state_with(attacker, enemy)
+
+	var intent = PlanInterpreter.decide(state, attacker)
+	assert_not_null(intent, "an added plan must fire, not just appear")
+	assert_eq(intent.action_id, &"test_swing")
+	assert_eq(intent.target_id, enemy.id, "a new plan targets the nearest enemy")
+	assert_eq(PlanInterpreter.last_error, "", "the added plan must use only whitelisted ops")
+	panel.free()
+
+## A new plan lands last so it cannot silently outrank a plan the player
+## already tuned.
+func test_an_added_plan_goes_last_in_priority() -> void:
+	var pawn := _make_pawn()
+	var existing := _plan_with_condition("existing", &"self_hp_below_fraction", {"fraction": 0.35})
+	pawn.plans = [existing]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._add_plan(pawn)
+	assert_eq(pawn.plans.size(), 2)
+	assert_eq(pawn.plans[0], existing, "an existing plan must keep its priority")
+	panel.free()
+
+## The budget is a real limit, and the button says so rather than doing
+## nothing. WIS 3 buys one two-block plan and leaves 1 free, which is less than
+## a plan costs.
+func test_add_is_refused_and_the_button_disabled_when_the_budget_is_spent() -> void:
+	var pawn := _make_pawn(CG.Role.DPS, 3)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	panel._add_plan(pawn)
+	assert_eq(pawn.plans.size(), 1, "the first plan fits in a budget of 3")
+
+	panel._build_detail(pawn)
+	var add := _button_named(panel._detail_box, "+ Add a plan")
+	assert_not_null(add, "the Add button must be on the screen")
+	assert_true(add.disabled, "1 block free and a plan costs 2 -- the button must be disabled")
+	assert_true(add.tooltip_text.contains("2"), "the reason must name the cost: '%s'" % add.tooltip_text)
+
+	panel._add_plan(pawn)
+	assert_eq(pawn.plans.size(), 1, "the guard must hold even if the function is called directly")
+	panel.free()
+
+## Negative half of the test above: with room, the button is live. A guard that
+## refuses everything passes the test above and is useless.
+func test_add_is_enabled_when_there_is_room() -> void:
+	var pawn := _make_pawn(CG.Role.DPS, 8)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var add := _button_named(panel._detail_box, "+ Add a plan")
+	assert_not_null(add)
+	assert_false(add.disabled, "8 blocks free is room for a plan costing 2")
+	panel.free()
+
+func test_removing_a_plan_takes_it_out_and_gives_its_blocks_back() -> void:
+	var pawn := _make_pawn(CG.Role.DPS, 4)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._add_plan(pawn)
+	panel._add_plan(pawn)
+	assert_eq(pawn.plans.size(), 2)
+	assert_eq(panel._blocks_used(pawn), 4)
+
+	panel._remove_plan(pawn, 0)
+	assert_eq(pawn.plans.size(), 1)
+	assert_eq(panel._blocks_used(pawn), 2, "the removed plan's blocks must come back")
+
+	panel._build_detail(pawn)
+	var add := _button_named(panel._detail_box, "+ Add a plan")
+	assert_false(add.disabled, "removing a plan must make the Add button live again")
+	panel.free()
+
+## Removing everything is allowed. Issue 96 is why: the fallback is no longer
+## invisible, it is the row underneath.
+func test_removing_every_plan_is_allowed_and_the_default_row_remains() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("only")]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	panel._remove_plan(pawn, 0)
+	assert_eq(pawn.plans.size(), 0)
+	panel._build_detail(pawn)
+	assert_eq(panel._default_rows(pawn).size() > 0, true, "the default row must survive an empty plan list")
+	panel.free()
+
+## The player's standing copy rule: no qualitative words for scale. The budget
+## has to be readable as numbers, and it has to move when the plans do.
+func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
+	var pawn := _make_pawn(CG.Role.DPS, 6)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var before := _all_label_text(panel._detail_box)
+	assert_true(before.contains("0 of 6 plan blocks used"), before)
+	assert_true(before.contains("6 free"), before)
+
+	panel._add_plan(pawn)
+	panel._build_detail(pawn)
+	var after := _all_label_text(panel._detail_box)
+	assert_true(after.contains("2 of 6 plan blocks used"), after)
+	assert_true(after.contains("4 free"), after)
+	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 96: the immutable default row
+# ---------------------------------------------------------------------------
+
+## The row exists, it is last, and it is not a control -- "immutable in the UI
+## and it should look it, not a dropdown that refuses to open".
+func test_the_default_row_is_last_and_carries_no_editable_control() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("mine")]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	for row in panel._default_rows(pawn):
+		assert_eq(_find_option_buttons(row).size(), 0, "the default row must carry no picker")
+		assert_eq(_find_buttons(row).size(), 0, "the default row must carry no button")
+	panel.free()
+
+## Issue 96's build note, agreed with rather than decided quietly: the floor
+## everyone has is not something a pawn spent WIS on.
+func test_the_default_row_costs_no_block_budget() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	assert_eq(panel._blocks_used(pawn), 0, "a pawn with no plans of its own has spent nothing")
+	assert_true(panel._default_rows(pawn).size() > 0, "and still has a default row")
+	panel.free()
+
+## **The assertion that matters, and the one issue 96 asked for by name: the
+## row has to match what actually happens.** For every real class, the action
+## named in the default row is the action `DefaultBehavior` really returns for
+## that pawn at that distance -- run through the real fallback, not compared
+## against a second list typed in this file.
+##
+## Two distances per class on purpose. A ranged pawn standing too close backs
+## away instead of firing, which is the behaviour behind PLAYTEST-NOTES-2 item
+## 11, and a row that only held at one distance would not catch a row naming
+## the wrong half of a two-action class.
+func test_the_default_row_names_the_action_default_behavior_really_picks() -> void:
+	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
+	const Registry := preload("res://Scripts/Content/Registry.gd")
+	var panel := InspectPanel.new()
+	panel._ready()
+	for class_id in [&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior"]:
+		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
+		# No plans: the fallback is what decides, which is exactly what this
+		# row describes. A pawn keeping its preset plans would mostly be
+		# testing PlanInterpreter instead.
+		pawn.plans = []
+		panel.open([pawn])
+		var row_text := ""
+		for row in panel._default_rows(pawn):
+			row_text += _all_label_text(row) + "\n"
+
+		for distance in [30.0, 400.0]:
+			var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+			unit.pawn = pawn
+			unit.actions = pawn.pawn_class.starting_actions
+			var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(distance, 0))
+			var state := _state_with(unit, enemy)
+			var intent = DefaultBehavior.decide(state, unit)
+			if intent == null or intent.action_id == &"":
+				continue
+			var action = Registry.get_action(intent.action_id)
+			assert_not_null(action, "%s: default behaviour ordered an unregistered action" % class_id)
+			assert_true(row_text.contains(action.display_name),
+				"%s at %d units really uses '%s', and the default row does not say so:\n%s" % [
+					class_id, int(distance), action.display_name, row_text])
+	panel.free()
+
+## The Priest is the one class whose fallback checks its allies before it
+## attacks, and the row has to show that branch rather than the player's
+## shorter description of it. Asserted against the real thing: a Priest beside
+## a badly hurt ally really heals.
+func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> void:
+	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
+	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var rows := panel._default_rows(pawn)
+	assert_eq(rows.size(), 2, "a class with a real heal has a heal branch and an attack branch")
+
+	var priest := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	priest.pawn = pawn
+	priest.actions = pawn.pawn_class.starting_actions
+	priest.resource = 999
+	var hurt_ally := _melee_unit(1, CG.Team.PLAYER, Vector2(10, 0), 0.2)
+	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(300, 0))
+	var state := CombatState.new(0)
+	state.units.append(priest)
+	state.units.append(hurt_ally)
+	state.units.append(enemy)
+
+	var intent = DefaultBehavior.decide(state, priest)
+	assert_not_null(intent)
+	assert_eq(intent.target_id, hurt_ally.id, "the Priest fallback really does treat an ally first")
+	var row_text := _all_label_text(rows[0])
+	assert_true(row_text.contains("ally"), row_text)
+	panel.free()
+
+## The row's numbers are read out of DefaultBehavior's own constants rather
+## than typed here, so the screen cannot drift from the simulation. Asserted
+## the only way that means anything: against the constants themselves.
+func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
+	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
+	const Registry := preload("res://Scripts/Content/Registry.gd")
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master")
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var text := ""
+	for row in panel._default_rows(pawn):
+		text += _all_label_text(row)
+
+	var shot = Registry.get_action(&"siege_master_shot")
+	assert_not_null(shot)
+	assert_true(shot.range_units > DefaultBehavior.MELEE_RANGE_THRESHOLD, "this fixture is only meaningful for a ranged action")
+	var kite := int(shot.range_units * DefaultBehavior.KITE_RANGE_FRACTION)
+	var commit := int(shot.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)
+	assert_true(text.contains(str(kite)), "expected the kite distance %d in:\n%s" % [kite, text])
+	assert_true(text.contains(str(commit)), "expected the commit distance %d in:\n%s" % [commit, text])
+	panel.free()
+
+func _button_named(node: Node, text: String) -> Button:
+	for b in _find_buttons(node):
+		if b.text == text:
+			return b
+	return null
 
 func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -625,6 +919,32 @@ func _find_option_buttons(node: Node) -> Array:
 		out.append(node)
 	for c in node.get_children():
 		out.append_array(_find_option_buttons(c))
+	return out
+
+## Direct children only: the claim is about what the row itself puts beside the
+## chips, not about anything an engine control builds inside itself.
+func _plan_with_condition(name: String, op: StringName, args: Dictionary) -> Plan:
+	var plan := _make_plan(name)
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = op
+	condition.args = args
+	plan.condition = condition
+	return plan
+
+## Every block chip's currently selected caption, which is what a player reads.
+func _selected_chip_text(node: Node) -> String:
+	var out := ""
+	for picker in _find_option_buttons(node):
+		if picker.selected >= 0:
+			out += picker.get_item_text(picker.selected) + "\n"
+	return out
+
+func _labels_in(node: Node) -> Array:
+	var out := []
+	for c in node.get_children():
+		if c is Label:
+			out.append(c)
 	return out
 
 func _all_label_text(node: Node) -> String:
