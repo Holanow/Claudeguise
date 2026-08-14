@@ -306,27 +306,41 @@ static func _cheapest(actions: Array[ActionDef]) -> ActionDef:
 			best = a
 	return best
 
+## The attack this fallback would reach for on one side of
+## `MELEE_RANGE_THRESHOLD`, or null when it owns none on that side.
+##
+## **Public on purpose, and it is the fix for a drift that has already happened
+## twice on this project.** `Scripts/UI/InspectPanel.gd` draws the immutable
+## "default row" that tells a player what a pawn does when no plan fires -- issue
+## 98's principle in its most direct form -- and it did that by keeping its own
+## copy of this rule, written as "the first non-heal action on the requested
+## side, in list order". A copy of a rule is a copy that goes stale: the same
+## shape put `starting_actions` in the plan editor and `starting_actions plus
+## equipment` in the fight (issue 100), and this is the one shared function that
+## made those two agree again. One definition, two callers.
+static func default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
+	var side: Array[ActionDef] = []
+	for a in _attack_candidates(actions):
+		if (a.range_units > MELEE_RANGE_THRESHOLD) == want_ranged:
+			side.append(a)
+	return _cheapest(side)
+
 ## Issue 62: among a unit's attacks, prefers whichever one's own melee-vs-ranged
 ## shape matches the target's current distance -- melee if already (or almost)
-## in a melee action's own commit range, ranged otherwise. With nothing to
-## choose between (no candidates, or every candidate on the same side of
-## MELEE_RANGE_THRESHOLD) it takes the cheapest of the lot. The Warden is still
-## the only unit in the game carrying both a melee and a ranged attack.
+## in a melee action's own commit range, ranged otherwise. With only one side
+## present it uses that side. The Warden is still the only unit in the game
+## carrying both a melee and a ranged attack.
 static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, target: CombatUnit) -> ActionDef:
-	var melee: Array[ActionDef] = []
-	var ranged: Array[ActionDef] = []
-	for a in _attack_candidates(actions):
-		if a.range_units > MELEE_RANGE_THRESHOLD:
-			ranged.append(a)
-		else:
-			melee.append(a)
-	if melee.is_empty() or ranged.is_empty():
-		return _cheapest(melee + ranged)
-	var best_melee := _cheapest(melee)
+	var melee := default_attack_action(actions, false)
+	var ranged := default_attack_action(actions, true)
+	if melee == null:
+		return ranged
+	if ranged == null:
+		return melee
 	var dist := unit.position.distance_to(target.position)
-	if dist <= best_melee.range_units * MELEE_COMMIT_FRACTION:
-		return best_melee
-	return _cheapest(ranged)
+	if dist <= melee.range_units * MELEE_COMMIT_FRACTION:
+		return melee
+	return ranged
 
 ## TAUNTING forces target *selection*, not what a unit does after choosing --
 ## a taunted unit still uses its own approach/kite/commit logic against the
