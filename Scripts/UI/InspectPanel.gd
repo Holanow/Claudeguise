@@ -74,6 +74,23 @@ const _TOUCH := Palette.TOUCH_TARGET_MIN
 ## infer it from a number that moves by two.
 const NEW_PLAN_BLOCK_COST := 2
 
+## Issue 68: this screen is the plan editor. Hover covers reading a class now
+## (glossary chips here, on the party cards, and the action descriptions below),
+## so the heading no longer presents the screen as general class information.
+const HEADING := "Edit your pawns' plans"
+
+## The general "how to play", written once for the whole screen rather than
+## repeated per class. Every fact in it used to live under each pawn's own
+## plans heading. Kept to four sentences on purpose: it sits above the thing it
+## explains, and a paragraph nobody finishes is worse than a shorter one.
+const HOW_TO_PLAY := (
+	"A pawn runs the first row whose condition holds, checked from the top down. " +
+	"The last row is its fallback and always matches, so a pawn always does something. " +
+	"Reorder rows with the arrows, change a block by picking from it, and add or remove rows " +
+	"within the pawn's block budget. " +
+	"Nothing is locked yet: every action and every block is available to every pawn this slice."
+)
+
 ## How the three blocks share a row's width. Not equal thirds, because the
 ## three do not carry comparable strings: a skill is a name ("Guard", "Smite"),
 ## a target is a phrase ("the nearest ally with a harmful status"), and a
@@ -126,7 +143,7 @@ func _ready() -> void:
 	column.add_child(top_row)
 
 	var title := Label.new()
-	title.text = "Inspect your pawns"
+	title.text = HEADING
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
 	title.add_theme_color_override("font_color", Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -138,14 +155,21 @@ func _ready() -> void:
 	close_button.pressed.connect(close)
 	top_row.add_child(close_button)
 
-	# Everything on this screen is available to every pawn this slice — say so
-	# once, rather than leaving "why does nothing look locked" as an open
-	# question. Per issue 21's own instruction, since loot is out of scope.
-	var availability := Label.new()
-	availability.text = "Nothing is locked yet — every action and plan op is available to every pawn this slice."
-	availability.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	availability.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(availability)
+	# Issue 68: one general "how to play", once, at the top of the screen. It
+	# replaces the per-class explanation that used to sit under every pawn's
+	# own plans heading, which is the round-one note this closes ("not every
+	# class needs a plans-in-priority-order section, there should be a general
+	# how to play"). Nothing below this line repeats any of it.
+	#
+	# The availability sentence is folded in rather than dropped: issue 21's
+	# criterion 4 wants "why does nothing look locked" answered on the screen,
+	# and it is the same kind of fact as the rest of this paragraph.
+	var how_to_play := Label.new()
+	how_to_play.text = HOW_TO_PLAY
+	how_to_play.autowrap_mode = TextServer.AUTOWRAP_WORD
+	how_to_play.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	how_to_play.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	column.add_child(how_to_play)
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", int(Palette.SPACE_L))
@@ -269,11 +293,20 @@ func _build_detail(pawn: PawnData) -> void:
 		attrs.add_child(chip)
 	_detail_box.add_child(attrs)
 
+	# Issue 68: was one full-width block per action, name over description --
+	# five actions on a Priest, so a wall of ten lines above the thing this
+	# screen is for. Now the same chip-with-a-tooltip shape the attributes row
+	# above already uses and the party cards already use, because reading a
+	# description is exactly what hover is for now.
 	_detail_box.add_child(_section_header("Actions"))
 	if cls.starting_actions.is_empty():
 		_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
-	for action_id in cls.starting_actions:
-		_detail_box.add_child(_action_line(action_id))
+	else:
+		var actions_row := HBoxContainer.new()
+		actions_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
+		for action_id in cls.starting_actions:
+			actions_row.add_child(_action_chip(action_id))
+		_detail_box.add_child(actions_row)
 
 	for control in _plans_section(pawn):
 		_detail_box.add_child(control)
@@ -294,15 +327,35 @@ func _actions_used_in_plans(pawn: PawnData) -> Array:
 				out.append(block.args.get("action_id", &""))
 	return out
 
-func _action_line(action_id: StringName) -> Control:
+## One action as a hoverable chip. Same construction as the attribute chips
+## above, including the `mouse_filter` line: `Label`'s engine default is
+## `IGNORE`, so a chip built this way and left at the default never receives
+## hover at all and its tooltip is unreachable. That was PLAYTEST-NOTES-2 item
+## 13 and it is the reason every new hoverable Label on this screen sets it
+## explicitly rather than trusting `GlossaryLabel._ready()`, which does not fire
+## for a panel built outside a live tree.
+func _action_chip(action_id: StringName) -> Control:
+	var chip := Label.new()
+	chip.set_script(GlossaryLabelScript)
+	chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	var action := Registry.get_action(action_id)
 	if action == null:
-		return _line("%s (not registered)" % String(action_id).capitalize(), Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
-	var box := VBoxContainer.new()
-	box.add_child(_line(action.display_name, Palette.FONT_SIZE_BODY, Palette.TEXT))
-	var desc := action.description if action.description != "" else "(no description yet)"
-	box.add_child(_line(desc, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
-	return box
+		chip.text = "%s (not registered)" % String(action_id).capitalize()
+		chip.add_theme_color_override("font_color", Palette.HP_LOW)
+		chip.tooltip_text = "This action is not in the registry, so nothing can use it."
+		return chip
+	chip.text = action.display_name
+	chip.add_theme_color_override("font_color", Palette.TEXT)
+	chip.tooltip_text = _action_description(action)
+	return chip
+
+## Missing text must read as "not written yet", never as a blank tooltip that
+## looks broken. Every registered action has a real description today
+## (Tests/test_content_classes.gd holds that), so this is the guard for the
+## next one added, not a state on the screen now.
+func _action_description(action) -> String:
+	return action.description if action.description != "" else "(no description yet)"
 
 func _action_display_name(action_id: StringName) -> String:
 	var action := Registry.get_action(action_id)
@@ -342,7 +395,12 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	var heading := _section_header("Plans, in priority order")
+	# Issue 68 / the round-one note: "Plans, in priority order" appeared on
+	# every class's inspect, and the sentence explaining what priority order
+	# means appeared under it every time. Both facts are general, both now sit
+	# in HOW_TO_PLAY once, and what is left under this heading is the only part
+	# that is actually about this pawn: its own budget, in its own numbers.
+	var heading := _section_header("Plans")
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
 	header.add_child(_add_plan_button(pawn))
@@ -354,16 +412,12 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		"%d of %d plan blocks used, %d free. A target block and a skill block cost 1 each, so a new plan costs %d. A condition costs 0. The budget is this pawn's WIS." % [
 			used, budget, maxi(0, budget - used), NEW_PLAN_BLOCK_COST],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT))
-	out.append(_line(
-		"The first row whose condition holds is the one that fires. Reorder with the arrows, " +
-		"change a block by picking from it, remove a row with X.",
-		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
 	for i in pawn.plans.size():
 		out.append(_plan_row(pawn.plans[i], pawn, i))
 
 	out.append(_line(
-		"Always last, always matches, and not yours to change:",
+		"Fallback, always last and not yours to change:",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	for row in _default_rows(pawn):
 		out.append(row)
@@ -575,7 +629,15 @@ func _action_picker(pawn: PawnData, block) -> Control:
 		if action_id == current_id:
 			current = i
 	picker.selected = current
-	_caption_tooltip(picker)
+	# Not `_caption_tooltip`: for a skill the useful hover is what the skill
+	# does, not a longer copy of the word already printed on the chip. Issue
+	# 68's whole premise is that reading is hover's job now, and this is the
+	# one chip on the row that has something to read.
+	var chosen = Registry.get_action(choices[current])
+	if chosen != null:
+		picker.tooltip_text = "%s\n%s" % [chosen.display_name, _action_description(chosen)]
+	else:
+		_caption_tooltip(picker)
 	picker.item_selected.connect(func(idx): _set_action(block, choices[idx]))
 	return picker
 
@@ -793,7 +855,7 @@ func _default_rows(pawn: PawnData) -> Array[Control]:
 	var base := "Otherwise" if heal != null else "Always"
 	var target_text := "The nearest enemy, or whoever is taunting"
 	if melee == null and ranged == null:
-		out.append(_fixed_row(["Nothing — this pawn has no attack", target_text, base]))
+		out.append(_fixed_row(["Nothing. This pawn has no attack", target_text, base]))
 	elif melee != null and ranged != null:
 		# The only case with two rows to choose between, and the cut is the
 		# melee action's own commit distance, not MELEE_RANGE_THRESHOLD --
