@@ -5,6 +5,8 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const UnitView := preload("res://Scripts/UI/UnitView.gd")
 const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
+const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
 ## this; only "things that happened" must come from events). These tests check
@@ -167,12 +169,89 @@ func test_the_badge_row_sits_below_the_body() -> void:
 		Vector2(0.0, radius + UnitView.STATUS_BADGE_TOP_GAP), 1, UnitView.STATUS_BADGE_SIZE)
 	assert_true(rects[0].position.y > radius, "badges must clear the body downward")
 
-## AttackFX.draw_wind_up rings the body at radius + 4.0 with a 3.0-wide
-## stroke. A row starting inside that clips the countdown ring on exactly the
-## units a player is watching.
-func test_the_badge_row_clears_the_wind_up_ring() -> void:
-	assert_true(UnitView.STATUS_BADGE_TOP_GAP > 4.0 + 3.0 * 0.5,
-		"badges must start outside AttackFX.draw_wind_up's ring")
+## The badge row's own clearance has to be bigger than the gap between two
+## badges, or a unit's row stops reading as one row belonging to that unit.
+func test_the_badge_row_is_held_off_whatever_is_above_it() -> void:
+	assert_true(UnitView.STATUS_BADGE_TOP_GAP > UnitView.STATUS_BADGE_GAP,
+		"the row must separate from the thing above it more than its badges separate from each other")
+
+# ---------------------------------------------------------------------------
+# The wind-up progress bar and its ability icon (PLAYTEST-NOTES-2 item 3)
+# ---------------------------------------------------------------------------
+
+func _winding_up(elapsed: int, total: int) -> CombatUnit:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"warrior_strike"
+	u.action_ticks_total = total
+	u.action_ticks_left = total - elapsed
+	return u
+
+func test_a_wind_up_bar_is_empty_at_the_start_and_full_at_the_end() -> void:
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(0, 30)), 0.0, 0.001)
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(15, 30)), 0.5, 0.001)
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(30, 30)), 1.0, 0.001)
+
+## The reason the half-speed change (CG.TICKS_PER_SECOND 30 -> 15) moved
+## nothing here: the bar is a ratio of elapsed to this action's own total, not
+## a count of ticks against any constant. A wind-up half as long in ticks
+## reads identically at the same point through itself.
+func test_a_wind_up_bar_is_a_ratio_not_a_tick_count() -> void:
+	assert_almost_eq(UnitView.wind_up_fraction(_winding_up(45, 90)),
+		UnitView.wind_up_fraction(_winding_up(22, 44)), 0.02,
+		"the same fraction through two differently-scaled wind-ups must read the same")
+
+## The case the ring was built for and the one a derivation from the action's
+## own base wind_up_ticks would have got wrong: HASTE shortens the wind-up, and
+## action_ticks_total captures the post-haste length.
+func test_a_hasted_wind_up_still_reads_zero_to_full_across_its_own_length() -> void:
+	var hasted := _winding_up(0, 20)
+	assert_almost_eq(UnitView.wind_up_fraction(hasted), 0.0, 0.001)
+	hasted.action_ticks_left = 0
+	assert_almost_eq(UnitView.wind_up_fraction(hasted), 1.0, 0.001)
+
+## An instant action has nothing to wait for, so the bar is full rather than
+## dividing by zero or reading as a countdown that never moves.
+func test_an_action_with_no_wind_up_reads_as_full() -> void:
+	var u := _winding_up(0, 0)
+	u.action_ticks_left = 1
+	assert_almost_eq(UnitView.wind_up_fraction(u), 1.0, 0.001)
+
+## Bar plus icon plus their gap is exactly the hp bar's width. A unit's chrome
+## must not get wider at the moment the arena is most crowded -- that is issue
+## #82's own failure mode.
+func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
+	assert_almost_eq(
+		UnitView.wind_up_bar_width() + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
+		UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE, 0.001)
+	assert_true(UnitView.wind_up_bar_width() > 0.0, "the bar must survive the icon taking its share")
+
+## The telegraph is coloured by the ACTION's damage type, not by the class
+## accent. A Priest's class accent is Divine and priest_bolt is not, so a
+## telegraph keyed on the accent would disagree with the projectile and the
+## floating number that follow it -- which is the one thing the icon exists to
+## make agree. Tests/test_art.gd already asserts ActionIcons covers the
+## registry; this asserts this view asks for it by the id a unit actually
+## carries in current_action.
+func test_the_telegraph_is_coloured_by_the_action_not_the_class_accent() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"priest_smite"
+	var view := UnitView.new()
+	var smite := Registry.get_action(&"priest_smite")
+	assert_not_null(smite, "sanity: the registry defines the action this test names")
+	assert_eq(view._wind_up_damage_type(u), smite.damage_type)
+	assert_true(ActionIcons.has_glyph(u.current_action), "no ability icon for %s" % u.current_action)
+	view.free()
+
+## The negative half: an action the registry does not know still draws
+## something rather than crashing mid-fight. ActionIcons has its own unknown
+## placeholder; this is the colour half of the same fallback.
+func test_an_unknown_action_falls_back_to_the_class_accent() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	u.current_action = &"no_such_action"
+	var view := UnitView.new()
+	assert_eq(view._wind_up_damage_type(u), CG.DamageType.PHYSICAL)
+	view.free()
+
 
 func test_crowd_rank_is_zero_when_units_are_far_apart() -> void:
 	var a := _make_unit(0, Vector2.ZERO)
