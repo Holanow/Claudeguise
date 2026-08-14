@@ -103,8 +103,15 @@ looks like a weapon slot.
 to raise a Directional Block, and it carries a small badge in its corner holding
 that ability's own icon — the same picture you will see on the wind-up bar when
 the block is being raised, and again on the status badge once it is up. An item
-that only changes numbers has no badge. That difference is worth more than any
-one of these pictures, so if you replace Plate Mail, put something in the corner.
+that only changes numbers has no badge.
+
+**The bottom-right corner is reserved, and your picture does not replace it.**
+Everything else here works the other way round: drop a file in and the generated
+version is gone. The badge is the exception because it is information rather
+than decoration — which item teaches an ability is something you need to know
+before you equip it, and a replacement picture that quietly removed it would
+look perfectly fine and would have taken something away. Leave the lower right
+of an ability-granting item fairly plain and the badge will sit on it cleanly.
 
 ## Borders and panels
 

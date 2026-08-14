@@ -463,10 +463,22 @@ static func draw_item(canvas: CanvasItem, item: EquipmentDef, rect: Rect2) -> vo
 	var tex := UIArt.texture_for(art_name(item.id))
 	if tex != null:
 		UIArt.draw_fit(canvas, tex, rect)
-		return
-	_draw_plate(canvas, item.slot, rect, slot_color(item.slot))
-	var color := gem_color(item.id) if RING_GEMS.has(item.id) else Palette.TEXT
-	UIArt.draw_glyph(canvas, glyph_for(item.id), _inner(item.slot, rect), color)
+	else:
+		_draw_plate(canvas, item.slot, rect, slot_color(item.slot))
+		var color := gem_color(item.id) if RING_GEMS.has(item.id) else Palette.TEXT
+		UIArt.draw_glyph(canvas, glyph_for(item.id), _inner(item.slot, rect), color)
+	# The badge is drawn on BOTH paths, and that is deliberate.
+	#
+	# It was inside the generated branch until the drop-in was rendered end to
+	# end, and the render is what showed the cost: a PNG dropped in for
+	# `plate_mail` replaced the icon and **silently deleted the only thing on
+	# screen saying that this item teaches an ability.** The art looked correct.
+	# That is the same failure `PartyCard` already hit and solved -- a nine-slice
+	# is drawn as painted, so a dropped-in border cannot carry state, and there
+	# the selection ring had to keep being drawn over the art.
+	#
+	# The rule this project has arrived at: a picture may replace decoration, and
+	# may not replace information. The corner is reserved.
 	if not item.granted_actions.is_empty():
 		_draw_grant_badge(canvas, item.granted_actions[0], rect)
 
