@@ -20,8 +20,8 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## different:
 ##
 ##   floor1_room1       open ground, no terrain      the baseline
-##   floor1_cover       five pillars, sight broken   archers and cultists
-##   floor1_hazard      three burn bands, two lanes  ghouls and goblins
+##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker
+##   floor1_hazard      three burn bands, two lanes  ghouls, goblins, a Brute
 ##   floor1_chokepoint  pits, one land bridge        room1's exact roster
 ##
 ## **All four field exactly ten enemies.** That is a rule, not a coincidence.
@@ -226,8 +226,12 @@ static func _the_chokepoint() -> Encounter:
 ## are the only things that vary and neither is confounded by headcount.
 ##
 ## The roster is the room's other half. Nearly every fight in the game is
-## goblins; this one is a shooting gallery -- four archers and three cultists
-## behind three goblins. The cultist is the only POISON source in the game and
+## goblins; this one is a shooting gallery -- three archers, a Stalker and
+## three cultists behind three goblins. **The fourth archer became the Stalker
+## in issue #121**; every measurement in the table below was taken with four
+## archers, and the after-column is in that PR rather than rewritten in here,
+## because a tuning table is a record of what was tried and not a description
+## of the current roster. The cultist is the only POISON source in the game and
 ## the player has almost never met one, so three of them put a status the
 ## bestiary owns in front of the player for the first time.
 ##
@@ -287,7 +291,27 @@ static func _the_cover_room() -> Encounter:
 		{"enemy_id": &"goblin_archer", "position": Vector2(250.0, -225.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, -85.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, 85.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(250.0, 225.0)},
+		## **Issue #121: the Stalker takes the fourth archer's place, and the
+		## headcount rule is why it is a swap rather than an addition.** Ten
+		## enemies per pickable room is what makes the four rooms comparable
+		## to each other (#94), and the retrospective's worst measurement was
+		## a three-enemy room compared against a ten-enemy one.
+		##
+		## The fourth archer rather than a cultist or a goblin: the roster
+		## table above chose three cultists deliberately (the game's only
+		## POISON source, and the 200-range attacker the pillars act on) and
+		## three goblins are what stop the fight resolving back at the party
+		## spawns where a pillar is scenery. The archers are the one rank with
+		## a spare, and the Stalker is a 220-range shooter itself, so ranged
+		## density is unchanged at seven.
+		##
+		## And this is the room the mark is *for*. A marker is worthless
+		## unless something exploits it, and this room has six other ranged
+		## enemies to do the exploiting the day
+		## `DefaultBehavior._choose_target` learns to prefer a marked target.
+		## Until then the mark strips natural armour and nothing else --
+		## measured effect in the pull request, and it is small.
+		{"enemy_id": &"stalker", "position": Vector2(250.0, 225.0)},
 		{"enemy_id": &"cultist", "position": Vector2(350.0, -155.0)},
 		{"enemy_id": &"cultist", "position": Vector2(360.0, 0.0)},
 		{"enemy_id": &"cultist", "position": Vector2(350.0, 155.0)},
@@ -359,8 +383,9 @@ static func _the_cover_room() -> Encounter:
 ## THE HAZARD ROOM. Issue #94's third of four pickable rooms.
 ##
 ## Issue 13b's hazard criterion: a hazard worth walking around, not one that
-## simply blocks the straight line the way a wall would. Ghouls anchor the far
-## side, so the shortest path to them cuts straight through the burn patch --
+## simply blocks the straight line the way a wall would. Two ghouls and, since
+## issue #121, a Brute anchor the far side, so the shortest path to them cuts
+## straight through the burn patch --
 ## profane/undead ghouls being immune to their own room's fire would read as a
 ## bug, so this deliberately is not that pairing.
 ##
@@ -389,7 +414,21 @@ static func _the_hazard_room() -> Encounter:
 	e.enemy_spawns = [
 		{"enemy_id": &"ghoul", "position": Vector2(180.0, -60.0)},
 		{"enemy_id": &"ghoul", "position": Vector2(190.0, 60.0)},
-		{"enemy_id": &"ghoul", "position": Vector2(260.0, 0.0)},
+		## **Issue #121: the Brute takes the third ghoul's place.** Same
+		## headcount rule as the colonnade -- ten, so an addition is a swap.
+		##
+		## This room rather than another, because the burn pit is the one
+		## place in the game where a pawn is already paying for every tick it
+		## spends deciding. A stun that cancels a committed wind-up costs its
+		## victim the ticks it had already spent, and standing in fire while
+		## that happens is a cost the player can watch land.
+		##
+		## The deep ghoul rather than one of the pair at the front: the room's
+		## premise is "ghouls anchor the far side so the shortest path cuts
+		## through the fire", and two of them still do. Ghoul to Brute is also
+		## the smallest swap in the bestiary -- both slow, tough, melee -- so
+		## what changes is the stun and not the shape of the room.
+		{"enemy_id": &"brute", "position": Vector2(260.0, 0.0)},
 		{"enemy_id": &"goblin", "position": Vector2(230.0, -215.0)},
 		{"enemy_id": &"goblin", "position": Vector2(240.0, -135.0)},
 		{"enemy_id": &"goblin", "position": Vector2(240.0, 135.0)},
