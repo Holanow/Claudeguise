@@ -155,6 +155,34 @@ func _run_tests(collected: Array[String]) -> void:
 			case.teardown()
 			_tests_run += 1
 			_assertions += case.assertions
+
+			## A test that finishes having recorded no assertion at all either
+			## crashed part-way or asserts nothing, and **both used to count as
+			## a pass.**
+			##
+			## `Object.call` on a method that raises a runtime error aborts the
+			## method and returns normally. `case.failures` stays empty because
+			## the method died before it could assert, `_tests_run` increments,
+			## and the gate prints PASS. wren hit this by deleting a function
+			## while a test still called it: the only symptom anywhere was the
+			## assertion count moving 4399 -> 4398.
+			##
+			## That is issue 104's rule pointed at the runner itself -- "X never
+			## happened" is indistinguishable from "X could never be observed"
+			## -- and the runner is the worst possible place for it, because
+			## every other check in this project is trusted on the strength of
+			## its verdict.
+			##
+			## Measured before adopting rather than argued for: wren ran this
+			## detector across the whole suite and it produced **1 hit, the
+			## genuinely broken test, and 0 false positives across the other
+			## 572.** A test with nothing to assert is welcome to say so with
+			## `assert_true(true, "...")` and a reason.
+			if case.assertions == 0:
+				var vacuous := "%s::%s  ran and recorded no assertion -- it crashed part-way, or it asserts nothing" % [path.get_file(), name]
+				_test_failures.append(vacuous)
+				printerr("FAIL  %s" % vacuous)
+
 			if not case.failures.is_empty():
 				for f in case.failures:
 					var line := "%s::%s  %s" % [path.get_file(), name, f]
