@@ -235,6 +235,14 @@ const GLYPHS := {
 	# Repoint it if you would rather they read apart; nothing here depends on
 	# which glyph it is.
 	&"geyser_spout": _JET,
+	# sable: the second one-line data edit in your file, same shape and same
+	# reason as the one above -- `geyser_cleanse` (issue 87, the Geysermancer's
+	# debuff removal) makes `test_every_reachable_action_has_an_icon` red the
+	# moment it lands, and leaving it out would put a red assertion of yours on
+	# the trunk. Pointed at `_STEAM`, which Scald already uses: both are the
+	# class boiling something off. Repoint it freely if you would rather the two
+	# read apart; nothing depends on which glyph it is.
+	&"geyser_cleanse": _STEAM,
 
 	# Siege. The master and the engine fire the same ammunition, so they draw
 	# the same bolt -- inventing a difference the fight does not have would be

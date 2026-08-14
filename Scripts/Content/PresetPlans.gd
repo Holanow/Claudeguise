@@ -215,8 +215,46 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# clause was doing nothing the structural check was not already doing,
 		# and keeping it would only have hidden the resource gate behind a
 		# second condition.
+		# Issue 87: geyser_scour_afflicted, first, and the position is the
+		# decision worth reading.
+		#
+		# swift measured that a cleanse in `starting_actions` and nowhere else
+		# fires ZERO times in 210 real fights, and not because of its cost --
+		# their probe action was free. `DefaultBehavior` is the only other route
+		# and it never reaches an ally-shaped action for this class. So a preset
+		# plan is not an improvement here, it is the whole difference between an
+		# ability and a line in a data file. That is the same failure
+		# `geyser_scald` had before issue 79, in the same class, one issue apart.
+		#
+		# **First, above the Mana ladder, not below it.** A plan below Scald
+		# would only get the ticks Blast and Scald both decline, which are
+		# exactly the ticks when Mana is nearly gone -- so the cleanse would
+		# arrive late or not at all, when an affliction is worth answering the
+		# moment it lands. It is affordable to put it first only because its
+		# condition is narrow: `ally_has_harmful_status` is true for a few
+		# percent of ticks in a real fight, so on every other tick this plan
+		# does not hold and Blast is reached exactly as before. Contrast with
+		# `always`, which swift measured at 4055 casts for 8 strips, dropping
+		# Blast 593->101 and Scald 676->32 -- the class stops being a damage
+		# dealer. The cost of a plan is the caster's *time*, so it is governed by
+		# how often the condition opens, not by where the plan sits.
+		#
+		# `ally_has_harmful_status` and `target_ally_with_harmful_status` are
+		# both new (PlanInterpreter.gd, issue 87) and they are a pair. The
+		# condition alone, with `target_lowest_hp_fraction_ally` (the only
+		# ally-picking op that existed), asks a genuinely different question:
+		# the hurt ally and the poisoned ally are frequently different units,
+		# and a cleanse aimed at the wrong one strips nothing while costing the
+		# same turn.
+		#
+		# Block cost: 2, taking this class from 4 to 6, which is exactly its WIS
+		# budget (`Balance.plan_block_budget` == WIS == 6). No WIS raise, unlike
+		# the Warrior's and the Priest's own third and fourth plans.
 		&"geysermancer":
 			return [
+				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
+					_condition(&"ally_has_harmful_status", {}),
+					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
 				_plan(&"geyser_blast_cluster", "Blast a cluster",
 					_condition(&"self_resource_at_least", {"amount": 60}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"geyser_blast")]),

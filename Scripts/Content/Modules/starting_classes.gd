@@ -121,7 +121,18 @@ static func classes() -> Array[ClassDef]:
 			# Mana: a Geysermancer out of Mana had nothing affordable to
 			# fall back to at all. Same reasoning, and the same fix, as
 			# priest_bolt and siege_master_shot in issue 62.
-			[&"geyser_spout", &"geyser_blast", &"geyser_scald"]
+				# Issue 87: geyser_cleanse appended last. It is ally-targeted and
+				# `DefaultBehavior` must never reach for it -- and cannot,
+				# structurally rather than by ordering: `heals` is set, so
+				# `_first_non_heal`/`_choose_attack_action` skip it, and
+				# `_first_heal` now requires `power_scale > 0.0`, which this
+				# action does not have. Its only path into a fight is
+				# `geyser_scour_afflicted` in PresetPlans.gd. Appended anyway
+				# rather than left out of the list, because `starting_actions` is
+				# what the class card shows a player and what
+				# `Tests/test_integration_reach.gd` walks; an action a class owns
+				# and does not list is invisible to both.
+				[&"geyser_spout", &"geyser_blast", &"geyser_scald", &"geyser_cleanse"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
 		## `Style.SUMMONER` was on the class card while it played as pure

@@ -38,12 +38,14 @@ const CONDITION_OPS := [
 	&"ally_below_hp_fraction",
 	&"self_resource_at_least",
 	&"enemy_in_range",
+	&"ally_has_harmful_status",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
 	&"target_lowest_hp_fraction_ally",
 	&"target_lowest_hp_fraction_enemy",
 	&"target_self",
+	&"target_ally_with_harmful_status",
 ]
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
@@ -64,6 +66,7 @@ const CONDITION_ARG_SHAPE := {
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
+	&"ally_has_harmful_status": {"kind": "none"},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -201,6 +204,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			if nearest == null:
 				return false
 			return unit.position.distance_to(nearest.position) <= range_units
+		&"ally_has_harmful_status":
+			return _nearest_afflicted_ally(state, unit) != null
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -219,6 +224,9 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return e.id if e != null else -1
 		&"target_self":
 			return unit.id
+		&"target_ally_with_harmful_status":
+			var afflicted := _nearest_afflicted_ally(state, unit)
+			return afflicted.id if afflicted != null else -1
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
@@ -239,6 +247,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "self resource at least %d" % int(args.get("amount", 0))
 		&"enemy_in_range":
 			return "an enemy within %d units" % int(args.get("range", 0.0))
+		&"ally_has_harmful_status":
+			return "an ally has a harmful status"
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
@@ -247,6 +257,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "the enemy with the lowest hp"
 		&"target_self":
 			return "self"
+		&"target_ally_with_harmful_status":
+			return "the nearest ally with a harmful status"
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
@@ -271,6 +283,48 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 			best_dist = d
 			best = candidate
 	return best
+
+## Issue 87: the nearest living ally carrying any status `CG.is_harmful`
+## classifies as harmful, or null when nobody does. `unit` itself counts as an
+## ally at distance 0, so a poisoned caster scrubs its own affliction first --
+## a cleanse that cannot answer the one status the caster is standing in would
+## be a strange ability, and `state.living(unit.team)` already includes it.
+##
+## Backs BOTH the `ally_has_harmful_status` condition and the
+## `target_ally_with_harmful_status` targeting op, deliberately from one
+## function rather than two similar ones: the two must agree exactly. If the
+## condition could hold on an ally the targeting op then declines to pick,
+## `_eval_targeting` returns -1, `_run_blocks` leaves `unit.focus_id` at
+## whatever the previous tick left there -- which for this class is an *enemy*,
+## from `geyser_blast_cluster`'s own targeting block -- and the plan would fire
+## an ally-shaped action at an enemy. That is not hypothetical: it is the exact
+## shape swift warned about in their #87 signature note, arriving through
+## targeting rather than through `heals`.
+##
+## `CG.is_harmful` is the only thing consulted for what counts, the same single
+## source `CombatSim._cleanse_harmful` and the status badges already use, so a
+## plan that fires and a cleanse that strips cannot disagree about what a
+## harmful status is.
+##
+## Nearest wins, ties broken by iteration order over `state.living`, which is
+## `state.units` order and therefore fixed for a seed. No rng.
+static func _nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := INF
+	for ally in state.living(unit.team):
+		if not _has_harmful_status(ally):
+			continue
+		var d := unit.position.distance_to(ally.position)
+		if d < best_dist:
+			best_dist = d
+			best = ally
+	return best
+
+static func _has_harmful_status(u: CombatUnit) -> bool:
+	for s in u.statuses.keys():
+		if CG.is_harmful(s):
+			return true
+	return false
 
 static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 	var best: CombatUnit = null
