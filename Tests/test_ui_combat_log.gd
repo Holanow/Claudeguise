@@ -160,6 +160,83 @@ func test_a_hazard_tick_names_no_source_and_reads_differently_from_poison() -> v
 	assert_ne(line, view.line_for_event(state, poison), "hazard and poison must not read identically")
 	view.free()
 
+# ---------------------------------------------------------------------------
+# PLAYTEST-NOTES-2 item 6: a beneficial status must not read as an
+# affliction.
+# ---------------------------------------------------------------------------
+
+func test_a_beneficial_status_gains_rather_than_afflicts() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	e.target_id = 0
+	e.status = CG.Status.SHIELD
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("gains"), line)
+	assert_false(line.to_lower().contains("afflict"), line)
+
+func test_a_beneficial_status_ends_rather_than_fades() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 1)
+	e.target_id = 0
+	e.status = CG.Status.HASTE
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("ends"), line)
+	assert_false(line.contains("fades"), line)
+
+func test_a_harmful_status_still_reads_as_an_affliction() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var applied := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	applied.target_id = 1
+	applied.status = CG.Status.MARKED
+	assert_true(view.line_for_event(state, applied).contains("afflicted"))
+
+	var expired := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 1)
+	expired.target_id = 1
+	expired.status = CG.Status.MARKED
+	assert_true(view.line_for_event(state, expired).contains("fades"))
+
+# ---------------------------------------------------------------------------
+# Issue 74: a non-damaging action must not read as a zero-damage hit.
+# ---------------------------------------------------------------------------
+
+func test_a_non_damaging_action_is_dropped_from_the_log() -> void:
+	# The exact shape a summon/buff's own DAMAGE event carries: power_scale
+	# 0 means both amount and amount_before_mitigation are 0, not just the
+	# final amount -- that is what tells it apart from a real attack fully
+	# absorbed by armor, which still has to show (see the mitigation test
+	# above/below).
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = 0
+	e.target_id = 0
+	e.amount = 0
+	e.amount_before_mitigation = 0
+	e.damage_type = CG.DamageType.PHYSICAL
+	assert_eq(view.line_for_event(state, e), "", "a summon/buff's own zero-power resolution must not read as a hit")
+	view.free()
+
+func test_a_fully_mitigated_real_attack_still_shows_the_raw_roll() -> void:
+	# Regression guard for the fix above: the suppression must key on both
+	# amount and amount_before_mitigation being 0, not on amount alone --
+	# a real attack (amount_before_mitigation > 0) reduced to 0 by
+	# mitigation is genuinely different information and issue 14 already
+	# requires it to read differently from a miss.
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.amount = 0
+	e.amount_before_mitigation = 12
+	var line := view.line_for_event(state, e)
+	assert_false(line.is_empty(), "a fully-mitigated real attack must still be visible")
+	assert_true(line.contains("before mitigation"), line)
+	view.free()
+
 ## Checked rather than assumed, per the issue's own instruction: MISS is
 ## always emitted with the acting unit as source (CombatSim.gd:461), never
 ## -1, so it was never actually exposed to this bug. Pinning that here so a

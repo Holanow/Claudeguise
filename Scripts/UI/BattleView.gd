@@ -53,9 +53,12 @@ var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
 var _inspect_panel = null
 
+var _pause_dim: ColorRect = null
+
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
+	_build_pause_dim()
 	_build_top_bar()
 	_build_end_banner()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
@@ -63,6 +66,23 @@ func _ready() -> void:
 	if is_inside_tree():
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
+
+## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
+## or similar. Nothing currently indicates it." Added first, before any
+## other Hud child, so later Hud elements (the top bar, the pause button
+## itself, the combat log) draw on top of it and stay fully legible while
+## the arena underneath reads as held. Hud is its own CanvasLayer above
+## Arena's, so this only needs to sit early in Hud's own child order to
+## land between the two -- it does not need a z_index or a second layer.
+func _build_pause_dim() -> void:
+	var hud := get_node("Hud")
+	_pause_dim = ColorRect.new()
+	_pause_dim.color = Palette.BACKGROUND
+	_pause_dim.color.a = 0.55
+	_pause_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_dim.visible = false
+	hud.add_child(_pause_dim)
 
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
@@ -476,6 +496,8 @@ func set_paused(p: bool) -> void:
 	paused = p
 	if _pause_button != null:
 		_pause_button.text = "Resume" if paused else "Pause"
+	if _pause_dim != null:
+		_pause_dim.visible = paused
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
