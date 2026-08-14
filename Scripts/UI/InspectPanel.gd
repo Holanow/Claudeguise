@@ -434,7 +434,17 @@ func _condition_editor(plan) -> Control:
 	var current := 0
 	for i in PlanInterpreter.CONDITION_OPS.size():
 		var op: StringName = PlanInterpreter.CONDITION_OPS[i]
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, _default_condition_args(op))))
+		# The selected entry has to read the plan's own live value, not the
+		# op's default -- rook found this on a real launch: the dropdown read
+		# "Self hp below 50%" while the spinbox beside it read 65%, because
+		# every entry (including the current one) was captioned from
+		# _default_condition_args regardless of what the condition was
+		# actually set to. An unselected entry still previews its own
+		# default, which is exactly what picking it sets (_set_condition_op
+		# resets args to the default on swap), so only the current entry
+		# needs the real args.
+		var preview_args: Dictionary = plan.condition.args if op == current_op and plan.condition != null else _default_condition_args(op)
+		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, preview_args)))
 		if op == current_op:
 			current = i
 	picker.selected = current
