@@ -102,6 +102,16 @@ func test_start_button_explains_why_it_is_disabled_with_no_party() -> void:
 	assert_ne(screen._start_button.text, "Start Fight", "must say why, not just be greyed out")
 	screen.free()
 
+## rook found this on a real 844x390 launch: both buttons read "Pick at
+## least one class" while disabled, literally indistinguishable -- the
+## disabled-state version of the player's own complaint that Start Fight
+## and Start Run don't say what they do.
+func test_disabled_start_fight_and_start_run_read_differently() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_ne(screen._start_button.text, screen._start_run_button.text, "the two disabled buttons must not read identically")
+	screen.free()
+
 func test_start_button_enables_and_reads_start_once_a_pawn_is_picked() -> void:
 	var screen := PartySelect.new()
 	screen._ready()

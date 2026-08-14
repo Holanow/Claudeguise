@@ -516,6 +516,30 @@ func test_condition_picker_offers_every_condition_op() -> void:
 	assert_not_null(condition_picker, "expected one picker offering all %d condition ops" % PlanInterpreter.CONDITION_OPS.size())
 	panel.free()
 
+## rook found this on a real launch: the dropdown read "Self hp below 50%"
+## while the spinbox right beside it read 65% -- every entry, including the
+## selected one, was captioned from the op's default args rather than the
+## plan's own. The label must agree with the setting it is labelling.
+func test_selected_condition_captions_the_real_value_not_the_default() -> void:
+	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"self_hp_below_fraction"
+	condition.args = {"fraction": 0.65}
+	var plan := _make_plan("Guard when hurt")
+	plan.condition = condition
+	pawn.plans = [plan]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._condition_editor(plan)
+	var picker: OptionButton = row.get_child(1)
+	var selected_text := picker.get_item_text(picker.selected)
+	assert_true(selected_text.contains("65%"), "expected the real 65%% value in '%s'" % selected_text)
+	assert_false(selected_text.contains("50%"), "must not still show the op's default")
+	panel.free()
+
 func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> CombatUnit:
 	var u := CombatUnit.new()
 	u.id = id

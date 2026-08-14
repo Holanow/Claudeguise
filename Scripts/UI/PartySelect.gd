@@ -278,10 +278,15 @@ func _update_status() -> void:
 		_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	if _start_button != null:
 		_start_button.disabled = _selected.is_empty()
-		_start_button.text = "Pick at least one class" if _selected.is_empty() else "Start Fight"
+		# rook found this on a real 844x390 launch: both buttons read "Pick
+		# at least one class" while disabled and were literally
+		# indistinguishable, which is the disabled-state version of the
+		# player's own complaint that these two buttons don't say what they
+		# do. Each now names its own screen even while disabled.
+		_start_button.text = "Pick a party to fight" if _selected.is_empty() else "Start Fight"
 	if _start_run_button != null:
 		_start_run_button.disabled = _selected.is_empty()
-		_start_run_button.text = "Pick at least one class" if _selected.is_empty() else "Start Run"
+		_start_run_button.text = "Pick a party for a run" if _selected.is_empty() else "Start Run"
 
 func _on_start_pressed() -> void:
 	battle_requested.emit(current_config())
