@@ -60,9 +60,17 @@ func _init() -> void:
 					died[e.target_id] = e.tick
 			for id in engine_ids:
 				var eu = state.unit(id)
+				# `hp > 0` was missing here and the omission produced a wrong
+				# number I then published: 224 units, when the real figure is
+				# 381. A dead unit lying where it fell is not a target, and
+				# counting corpses pulled every distance down. finch caught
+				# it, and their framing of the same data is better than mine
+				# was -- only 3% of engines were ever inside their own
+				# weapon's range at the moment they were built. That single
+				# number is the whole bug.
 				var nearest := 1e9
 				for other in state.units:
-					if other.team == CG.Team.ENEMY and other.enemy_id != &"siege_engine":
+					if other.hp > 0 and other.team == CG.Team.ENEMY and other.enemy_id != &"siege_engine":
 						nearest = minf(nearest, eu.position.distance_to(other.position))
 				if nearest < 1e9:
 					_built_checked += 1
