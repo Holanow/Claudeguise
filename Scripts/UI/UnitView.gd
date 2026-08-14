@@ -6,6 +6,7 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
+const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 
 ## One combatant on screen: body, health bar, resource bar, name, tags, and the
 ## wind-up indicator that says an action is coming.
@@ -180,6 +181,14 @@ func _draw() -> void:
 
 	_draw_concentration_badge(u, radius)
 
+	# Everything below the body is stacked here, in order, because they used to
+	# be written independently and two of them landed on the same pixels: the
+	# wind-up countdown number sits at radius + 4 + a text height, which is
+	# exactly where a badge row goes. Caught on a real 3x capture of a real
+	# fight (Screenshots/wren_badge_placement_zoom3x.png), not by reading the
+	# code -- both draws are correct on their own.
+	var below := _draw_status_badges(u, radius)
+
 	if u.action_ticks_left > 0 and u.current_action != &"":
 		# PR #69 (sable, Scripts/Art/AttackFX.gd), wiring's third and final
 		# piece: a flat Palette.WIND_UP circle told a player "something is
@@ -196,10 +205,11 @@ func _draw() -> void:
 		var font := ThemeDB.fallback_font
 		var ticks_text := str(u.action_ticks_left)
 		var text_size := font.get_string_size(ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size())
-		draw_string(font, Vector2(-text_size.x * 0.5, radius + 4.0 + text_size.y),
+		draw_string(font, Vector2(-text_size.x * 0.5, radius + below + 4.0 + text_size.y),
 			ticks_text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.WIND_UP)
+		below += 4.0 + text_size.y
 
-	_draw_status_tags(u, radius)
+	_draw_status_tags(u, radius, below)
 
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
@@ -362,14 +372,81 @@ func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	draw_string(font, badge_center - text_size * 0.5 + Vector2(0.0, text_size.y * 0.75),
 		text, HORIZONTAL_ALIGNMENT_LEFT, -1, _label_font_size(), Palette.TEXT)
 
-## Stunned and out-of-resource both look identical to "idle" on the arena
-## otherwise: the unit just doesn't do anything, and a viewer with no access
-## to CombatUnit.statuses cannot tell a stalled decision from a disabled one.
-func _draw_status_tags(u: CombatUnit, radius: float) -> void:
+## PLAYTEST-NOTES-2 item 2: "no clear visual for who is afflicted with what."
+## Statuses were legible only from the log, which scrolls, in a fight the same
+## notes call too fast to read.
+##
+## Below the unit, not above it. The whole existing stack -- resource bar, hp
+## bar, name label, and the crowding stagger that pushes names further up when
+## units bunch -- grows *upward* from the body, so the band above a unit is the
+## contested one and the band below it is empty. Issue #82 (five names in one
+## label's worth of space, death floaters crossing the arena) is about that
+## upward band specifically, so putting badges there would have added a
+## thirteenth thing to the pile. Death floaters spawn at the unit's own
+## position and rise, so they clear this band too.
+const STATUS_BADGE_SIZE := 14.0 * DISPLAY_SCALE
+const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
+
+## Clearance from the body before the row starts. Not the same number as the
+## gap between badges: AttackFX.draw_wind_up puts its ring at radius + 4.0 with
+## a 3.0-wide stroke, so anything closer than radius + 5.5 lands on top of the
+## countdown ring. Measured off that call rather than guessed -- the first
+## version used the inter-badge gap for both and the row clipped the ring's
+## bottom arc on every unit mid-wind-up, which is exactly when a player is
+## looking at that unit.
+const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
+
+## A unit can in principle carry every status at once. Four is what fits in a
+## row roughly as wide as the unit's own hp bar, which is the widest thing it
+## already draws -- past that the row is wider than the unit and starts
+## colliding with its neighbours' rows instead of its own chrome. Harmful
+## first (see status_badges), so the four shown are the four a player most
+## needs: what is being done *to* this unit.
+const MAX_STATUS_BADGES := 4
+
+## Which badges this unit gets, in draw order. Split out from the drawing for
+## the same reason status_tags is: Godot refuses draw_* outside _draw(), so a
+## test that can only call the drawing wrapper logs errors and asserts nothing.
+##
+## Harmful before beneficial, each group in CG.Status declaration order.
+## CombatUnit.statuses is a Dictionary, so its own key order is insertion
+## order -- the order statuses happened to land during a fight, which would
+## make the same unit's badges reshuffle mid-fight for no reason a player
+## could read. CG.is_harmful() is the only thing consulted for the split,
+## the same single source of truth StatusIcons uses for the plate direction.
+static func status_badges(u: CombatUnit) -> Array:
+	var harmful: Array = []
+	var beneficial: Array = []
+	for s in CG.Status.values():
+		if not u.has_status(s):
+			continue
+		if CG.is_harmful(s):
+			harmful.append(s)
+		else:
+			beneficial.append(s)
+	var all := harmful + beneficial
+	return all.slice(0, MAX_STATUS_BADGES)
+
+func _draw_status_badges(u: CombatUnit, radius: float) -> float:
+	var badges := status_badges(u)
+	if badges.is_empty():
+		return 0.0
+	var top := radius + STATUS_BADGE_TOP_GAP
+	var width := StatusIcons.row_width(badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	var rects := StatusIcons.layout_row(Vector2(-width * 0.5, top), badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	for i in badges.size():
+		StatusIcons.draw_status(self, badges[i], rects[i])
+	return STATUS_BADGE_TOP_GAP + STATUS_BADGE_SIZE
+
+## Out-of-resource looks identical to "idle" on the arena otherwise: the unit
+## just doesn't do anything, and a viewer with no access to CombatUnit cannot
+## tell a stalled decision from a disabled one. It is not a CG.Status, so it
+## has no badge and stays text, drawn under whatever is already below the body.
+func _draw_status_tags(u: CombatUnit, radius: float, below: float) -> void:
 	var tags := status_tags(u)
 	if tags.is_empty():
 		return
-	_draw_label_chip(" ".join(tags), radius + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
+	_draw_label_chip(" ".join(tags), radius + below + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
 
 ## Renders text centred on its own width with a small backdrop chip behind
 ## it, rather than a fixed draw width that truncates. Found by rendering a
@@ -403,10 +480,14 @@ static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 ## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a
 ## drawing function directly logs errors and asserts nothing, which is
 ## exactly the trap Silhouettes.build_parts's own doc comment names.
+##
+## STUN used to be listed here as text as well. It is a CG.Status, so it now
+## draws as a badge like every other status, and leaving the word next to its
+## own badge would have been the same fact twice in the most crowded part of
+## the screen. Its own test in Tests/test_ui_unit_view.gd moved to
+## status_badges rather than being deleted -- disclosed in the PR.
 static func status_tags(u: CombatUnit) -> Array[String]:
 	var tags: Array[String] = []
-	if u.has_status(CG.Status.STUN):
-		tags.append("STUN")
 	if u.resource_max > 0 and u.resource <= 0:
 		tags.append("OOM")
 	return tags
