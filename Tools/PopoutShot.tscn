@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/PopoutShot.gd" id="1_po"]
+
+[node name="PopoutShot" type="Node"]
+script = ExtResource("1_po")

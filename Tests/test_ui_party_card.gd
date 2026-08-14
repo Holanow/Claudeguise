@@ -86,9 +86,12 @@ func test_make_custom_tooltip_returns_a_control_carrying_the_text() -> void:
 	card.class_def = _make_class("priest", "Priest", CG.Style.RANGED, CG.Method.MAGICAL, CG.Role.HEALER)
 	var popup = card._make_custom_tooltip(card.tooltip_text)
 	assert_not_null(popup)
+	# `contains`, not `==`, since issue 112: the box carries the glossary
+	# sentence plus the sentence naming the gesture that pins it. Disclosed in
+	# the PR. The assertion still fails if the card's own text goes missing.
 	var found := false
 	for child in popup.get_children():
-		if child is Label and child.text == card.tooltip_text:
+		if child is Label and child.text.contains(card.tooltip_text):
 			found = true
 	assert_true(found, "the tooltip popup must carry the card's own tooltip text")
 	popup.free()
