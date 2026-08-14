@@ -462,6 +462,17 @@ const _DELIBERATE_SHARED_GLYPHS := {
 	# one not. Same verb, same element, and telling them apart buys the player
 	# nothing they cannot get from the bar's length. Left shared on purpose.
 	"geyser_blast|geyser_spout": true,
+	# sable: added by finch on issue 99, using the mechanism this test's own
+	# failure message prescribes rather than editing the assertion. Second Wind
+	# is the Warrior's self-heal, replacing Directional Block. Every glyph in
+	# ActionIcons is already spoken for, so the choice was share one or author
+	# new art, and the art is yours rather than mine to draw. `_CROSS` is the
+	# right share on this file's own rule that a glyph names what an action
+	# does: both of these restore health. They are never drawn side by side --
+	# they belong to different classes and no pawn can carry both.
+	# **If you would rather Second Wind had its own shape, draw one and delete
+	# this entry; the negative half of this test will then fail if you forget.**
+	"priest_heal|warrior_second_wind": true,
 }
 
 

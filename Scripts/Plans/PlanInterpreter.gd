@@ -120,6 +120,8 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 					return null
 	if action_id == &"" or unit.focus_id == -1:
 		return null
+	if not _unit_has_action(unit, action_id):
+		return null
 	if not _target_in_range(state, unit, action_id):
 		return null
 	if not _target_in_los(state, unit, action_id):
@@ -131,6 +133,36 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 	if not _target_is_marked(state, unit, action_id):
 		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Issue 100: a plan may only fire an action the unit actually has.
+##
+## **Nothing anywhere checked this before, and it is what made `granted_actions`
+## meaningless.** `PlanInterpreter` resolved an action straight out of `Registry`
+## and `CombatSim._resolve_use_action` did the same, so any plan could fire any
+## action in the game regardless of whether the pawn owned it. A Warrior with no
+## Plate Mail and a Warrior wearing one would both have cast Directional Block,
+## which makes equipping the item worth nothing and makes the whole equipment
+## feature impossible to test: there is no observable difference between granted
+## and not granted.
+##
+## It is also the reverse of issue 98's principle -- *"pawns should never do
+## anything the player cannot see in the plans of action"* -- because a pawn
+## firing an ability it does not own is the same class of surprise seen from the
+## other side.
+##
+## `unit.actions` is the right list to read: `CombatSim._collect_player_actions`
+## builds it as the class's `starting_actions` plus every equipped piece's
+## `granted_actions`, so it is already the exact union of "everything this pawn
+## can do", equipment included, and it is what the plan editor should show.
+##
+## An empty `actions` list means "not a real unit yet", which several tests build
+## deliberately, so it is allowed through rather than treated as owning nothing.
+## Narrowing that is a change to fixtures other sessions own, and this gate is
+## about equipment rather than about test hygiene.
+static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
+	if unit.actions.is_empty():
+		return true
+	return unit.actions.has(action_id)
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
 ## focused target's distance is checked against the action's own range here,

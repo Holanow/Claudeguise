@@ -148,6 +148,39 @@ static func actions() -> Array[ActionDef]:
 		# not compete with Execute for the same pool.
 		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 5 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
+		# Issue 99: the Warrior's self-sustain, replacing Directional Block in
+		# this class's kit. The player's own call -- "Something like the
+		# projectile block the warrior has now would belong to a shield
+		# instead of the class. You should then replace the warrior skill
+		# with some kind of self-sustain, like a second wind that heals him
+		# for a bit."
+		#
+		# **`warrior_block` is not deleted.** It moves onto `plate_mail` via
+		# `granted_actions` (issue 100), which is where README's own armor
+		# table always had it: `Plate Mail | Tank | Block`. It stays in this
+		# file, unchanged, because it is still a real action -- it is just no
+		# longer something the class carries for free.
+		#
+		# Numbers, sized against this class rather than picked. The Warrior
+		# has STR 9, so `Balance.attack_power` is 9 * 1.9 = 17.1, and
+		# `max_hp` is 60 + 14*12 + 9*2 = 246. power_scale 3.0 heals ~51, a
+		# fifth of the bar: "for a bit", not a full reset, and well short of
+		# out-healing the ~58 a Warden swing lands.
+		#
+		# **cooldown 300 ticks (20s) is what makes it a second wind rather
+		# than a heal.** Without it this is a zero-cooldown self-heal on a
+		# class whose Rage refills from every landed hit, which is exactly
+		# the failure `warrior_block` shipped with (see its own comment
+		# above): a cheap self-targeted action with no cooldown wins every
+		# decide() tick forever and the class stops doing anything else.
+		#
+		# Costs 15 Rage rather than the 20 that Guard and Execute cost. Rage
+		# only fills from landed hits, so a Warrior who is losing -- the one
+		# this exists for -- is precisely the one who has not been landing
+		# hits. 20 made it unaffordable in the moment it was needed; 15
+		# leaves it reachable without making it free.
+		_action_self_heal(&"warrior_second_wind", "Second Wind", "Draws on a reserve of stamina to heal the Warrior for a moderate amount. Can only be done occasionally. Costs 15 Rage.", CG.DamageType.PHYSICAL, 15, 12, 2.2, 15, 450),
+
 		_action_heal(&"priest_heal", "Heal", "Restores health to an ally within 220 units.", CG.DamageType.DIVINE, 220.0, 8, 10, 1.4, 25),
 		# Issue 62: the Priest's no-cost basic attack. Same range and travel
 		# time as priest_smite so it needs no separate approach logic, weaker
@@ -447,6 +480,26 @@ static func _action(id: StringName, display_name: String, description: String, d
 	a.resource_cost = resource_cost
 	a.cooldown_ticks = cooldown_ticks
 	a.requires_line_of_sight = requires_los
+	return a
+
+## Issue 99: a heal a unit casts on itself, with a real cooldown.
+##
+## `_action_heal` does not cover this and wrapping it would be worse: it takes a
+## `range_units` an ally heal needs and has no `cooldown_ticks` parameter, and
+## every existing caller of it is a ranged heal aimed at somebody else.
+##
+## **`range_units` 0.0 is what makes it self-only, and that is a real statement
+## rather than a placeholder.** `DefaultBehavior` reads it: a heal with no reach
+## can only be cast on the caster, so the neediest-ally search is restricted to
+## the caster itself. Without that, a Warrior carrying this would walk toward a
+## hurt Priest forever trying to get in range of a heal that has none.
+##
+## `requires_line_of_sight` stays false, the same exception `priest_heal` and
+## `geyser_cleanse` already carry: nothing stands between a unit and itself.
+static func _action_self_heal(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, recover: int, power_scale: float, resource_cost: int, cooldown_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, recover, power_scale, resource_cost, 0)
+	a.heals = true
+	a.cooldown_ticks = cooldown_ticks
 	return a
 
 static func _action_heal(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int) -> ActionDef:
