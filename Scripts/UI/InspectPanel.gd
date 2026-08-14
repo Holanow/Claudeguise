@@ -837,12 +837,18 @@ func _fixed_chip(text: String) -> Control:
 #    row can now see the retreat rather than being surprised by it. An action
 #    with `pull_distance > 0.0` never backs off, and that exception shows too.
 # 3. **"The basic attack" is not what it picks.** `_choose_attack_action` takes
-#    the first non-heal melee action and the first non-heal ranged action in
-#    `starting_actions` order, then chooses between them by the target's
+#    the **cheapest action that can actually deal damage** on each side of
+#    `MELEE_RANGE_THRESHOLD`, then chooses between the two by the target's
 #    current distance; with only one of the two it uses that one whatever the
-#    distance. That list order is why `warden_chain_toss` never fired and why
-#    `geyser_spout` had to be moved to the front — so the row names the actual
-#    action, from the actual rule, rather than a concept the code does not have.
+#    distance. So the row names the actual action, from the actual rule, rather
+#    than a concept the code does not have.
+#
+#    **That rule used to be "first in `starting_actions` order", and issue 129
+#    ended it.** List order was why `warden_chain_toss` never fired and why
+#    `geyser_spout` had to be moved to the front of its class's list; it could
+#    not survive the basic attack arriving from the main-hand weapon, because
+#    equipment grants are appended after class actions and first-in-list would
+#    have named a Warrior's Guard — a self-buff with no damage in it.
 #
 # Target selection is the fourth thing this row states: a taunter in range wins
 # over distance (`_nearest_taunter`), otherwise the nearest enemy.
@@ -907,17 +913,20 @@ func _default_heal_action(actions: Array[ActionDef]) -> ActionDef:
 			return a
 	return null
 
-## Mirrors the halves of `DefaultBehavior._choose_attack_action`: the first
-## non-heal action on the requested side of `MELEE_RANGE_THRESHOLD`, in
-## `starting_actions` order. A class with only one side gets that one at every
-## distance, which is what `_first_non_heal` does there.
+## Issue 129: `DefaultBehavior` itself, not a mirror of it.
+##
+## This used to keep its own copy of the rule -- "the first non-heal action on
+## the requested side, in `starting_actions` order" -- and the copy is what
+## broke. When the basic attack moved onto the main-hand weapon, the fallback
+## stopped being about list order at all (equipment grants are appended *after*
+## class actions, so first-in-list would pick a Warrior's Guard), and this row
+## went on describing a rule the game no longer had. Same shape as the
+## `_CONDITION_ARG_SHAPE` copy this file already deleted once.
+##
+## `DefaultBehavior.default_attack_action` is public for exactly this caller, so
+## the screen and the simulation now read one definition.
 func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
-	for a in actions:
-		if a.heals:
-			continue
-		if (a.range_units > DefaultBehavior.MELEE_RANGE_THRESHOLD) == want_ranged:
-			return a
-	return null
+	return DefaultBehavior.default_attack_action(actions, want_ranged)
 
 func _fixed_row(texts: Array) -> Control:
 	var row := HBoxContainer.new()
