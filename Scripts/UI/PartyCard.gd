@@ -4,8 +4,10 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
+const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## One selectable class: silhouette, name, role and style, coloured by its
 ## damage type. The whole card is the touch target — Palette.TOUCH_TARGET_MIN
@@ -22,6 +24,11 @@ signal toggled(pressed: bool)
 const CARD_SIZE := Vector2(170.0, 200.0)
 const SILHOUETTE_RADIUS := 42.0
 const SILHOUETTE_CENTER_Y := 70.0
+
+## How far inside a dropped-in border the selection ring is drawn. Enough to
+## clear a decorated frame's own corner detail, which `UIArt.draw_nine_slice`
+## sizes at a third of the PNG's shorter side.
+const SELECTION_INSET := 4.0
 
 ## Hover-info-box system, phase 1: the whole card is one tooltip, reading
 ## the same three tags it already draws (role/style/method) rather than a
@@ -45,9 +52,16 @@ func _ready() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	focus_mode = Control.FOCUS_ALL
 
+## Issue 112: left-click still picks the pawn, right-click pins the card's
+## glossary popout. The card's own class name is the popout's title, since the
+## card draws its text rather than carrying a Label to read it off.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		toggled.emit(not selected)
+		accept_event()
+		return
+	var title := class_def.display_name if class_def != null else ""
+	if PopoutHost.handle_input(self, event, title, tooltip_text):
 		accept_event()
 
 func _make_custom_tooltip(for_text: String) -> Object:
@@ -58,8 +72,7 @@ func _draw() -> void:
 		return
 	var rect := Rect2(Vector2.ZERO, size)
 	draw_rect(rect, Palette.ARENA_FLOOR)
-	var border_color := Palette.TEAM_PLAYER if selected else Palette.ARENA_EDGE
-	draw_rect(rect, border_color, false, 3.0 if selected else 1.0)
+	_draw_frame(rect)
 
 	_draw_silhouette(Vector2(size.x * 0.5, SILHOUETTE_CENTER_Y))
 
@@ -67,6 +80,32 @@ func _draw() -> void:
 	_centered_text(font, class_def.display_name, 128.0, Palette.FONT_SIZE_BODY, Palette.TEXT)
 	_centered_text(font, _role_text(), 154.0, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	_centered_text(font, _style_text(), 174.0, Palette.FONT_SIZE_SMALL, Palette.damage_color(_accent()))
+
+## The card's frame, through the drop-in pipeline: with
+## `Assets/UI/panel_border.png` present this is that PNG, nine-sliced; with no
+## file it is the flat outline this function used to draw inline. PLAYTEST-
+## NOTES-2 item 15 asked for a way to drop in artier interface elements, and
+## `UIArt.draw_border` was written for it and had no game caller at all --
+## found by sable in #103 and flagged rather than deleted, correctly.
+##
+## **Without a file this draws exactly the pixels it drew before**: same colour,
+## same rect, same thickness, passed straight through as `draw_border`'s
+## fallback. That is deliberate. This is a path for the player's art, not new
+## art from us.
+##
+## Selection is the one thing a dropped-in border must not be able to erase. A
+## nine-slice is drawn as painted, colour included, so it cannot carry the
+## selected/unselected distinction the fallback carries in `border_color`. When
+## art is present the selection ring is drawn inside it instead, in the same
+## Palette token, so the card still says which four you picked whatever the
+## border looks like. `UIArt.has_art` is what asks, and this is its first
+## caller too.
+func _draw_frame(rect: Rect2) -> void:
+	var border_color := Palette.TEAM_PLAYER if selected else Palette.ARENA_EDGE
+	var thickness := 3.0 if selected else 1.0
+	UIArt.draw_border(self, rect, border_color, thickness)
+	if selected and UIArt.has_art(&"panel_border"):
+		draw_rect(rect.grow(-SELECTION_INSET), Palette.TEAM_PLAYER, false, thickness)
 
 ## Reuses Silhouettes.build_parts rather than draw_unit, which assumes it is
 ## drawing centred on the canvas's own origin: a card needs the silhouette

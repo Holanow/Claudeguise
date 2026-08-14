@@ -93,30 +93,37 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		## 14/20 and 17/20 to a clean 20/20 apiece.
 		&"warrior":
 			return [
+				# Issue 99: replaces `warrior_block_default`, which went with
+				# Block onto `plate_mail` (issue 100). Same slot in the
+				# budget, so WIS stays at 8.
+				#
+				# **First, above Guard, and the ordering is the design.**
+				# Both plans answer "the Warrior is in trouble" and both cost
+				# Rage out of a 40 pool, so whichever sits higher wins the
+				# ticks where both conditions hold. Guard fires at 0.65 and
+				# mitigates the *next* hit by 25%; this fires at 0.35 and
+				# puts ~51 health back. Below a third of the bar, healing is
+				# worth more than mitigating -- and above it Guard still gets
+				# the whole 0.35-0.65 band to itself, because this plan's
+				# condition simply does not hold there.
+				#
+				# 0.35 rather than Guard's 0.65 on purpose: a second wind
+				# cast at two thirds health is a second wind wasted, and the
+				# 300-tick cooldown means there is usually only one of them
+				# in a fight. `_condition` is checked before affordability,
+				# so on the ticks this cannot be paid for the plan falls
+				# through to Guard rather than stalling the Warrior --
+				# PlanInterpreter's own fallthrough, the same property
+				# `warrior_block_default` relied on.
+				_plan(&"warrior_second_wind_when_critical", "Second wind when critical",
+					_condition(&"self_hp_below_fraction", {"fraction": 0.35}),
+					[_targeting(&"target_self"), _action_block(&"warrior_second_wind")]),
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
 					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
 					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
 				_plan(&"warrior_taunt_default", "Taunt",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
-				# Issue 52: third plan, after guard and taunt -- SHIELDING
-				# had nothing to intercept before shots travelled (issue 18)
-				# and no path from the game to a player even with the
-				# mechanism live, since the plan editor is deferred and a
-				# preset plan is therefore the only way this ability ever
-				# fires. `always`, same shape as taunt: taunt's own
-				# cooldown_ticks equals its duration_ticks, so its plan sits
-				# on cooldown (condition holds, action unaffordable) for
-				# nearly all of its own uptime once cast -- decide()'s own
-				# fallthrough (PlanInterpreter.gd: a plan whose action isn't
-				# affordable falls through to the next one, not to
-				# DefaultBehavior) is what lets this plan actually win a
-				# real decide() tick instead of sitting permanently behind
-				# taunt. starting_classes.gd's own WIS 4->6 note explains
-				# why a third plan needed a budget change too.
-				_plan(&"warrior_block_default", "Directional Block",
-					_condition(&"always", {}),
-					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 				# Issue 79: fourth plan, and the restoration of the one issue
 				# 30 deleted. Its own note above says Execute "is not gone from
 				# the class" because it stays in starting_actions and a player
@@ -215,8 +222,46 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# clause was doing nothing the structural check was not already doing,
 		# and keeping it would only have hidden the resource gate behind a
 		# second condition.
+		# Issue 87: geyser_scour_afflicted, first, and the position is the
+		# decision worth reading.
+		#
+		# swift measured that a cleanse in `starting_actions` and nowhere else
+		# fires ZERO times in 210 real fights, and not because of its cost --
+		# their probe action was free. `DefaultBehavior` is the only other route
+		# and it never reaches an ally-shaped action for this class. So a preset
+		# plan is not an improvement here, it is the whole difference between an
+		# ability and a line in a data file. That is the same failure
+		# `geyser_scald` had before issue 79, in the same class, one issue apart.
+		#
+		# **First, above the Mana ladder, not below it.** A plan below Scald
+		# would only get the ticks Blast and Scald both decline, which are
+		# exactly the ticks when Mana is nearly gone -- so the cleanse would
+		# arrive late or not at all, when an affliction is worth answering the
+		# moment it lands. It is affordable to put it first only because its
+		# condition is narrow: `ally_has_harmful_status` is true for a few
+		# percent of ticks in a real fight, so on every other tick this plan
+		# does not hold and Blast is reached exactly as before. Contrast with
+		# `always`, which swift measured at 4055 casts for 8 strips, dropping
+		# Blast 593->101 and Scald 676->32 -- the class stops being a damage
+		# dealer. The cost of a plan is the caster's *time*, so it is governed by
+		# how often the condition opens, not by where the plan sits.
+		#
+		# `ally_has_harmful_status` and `target_ally_with_harmful_status` are
+		# both new (PlanInterpreter.gd, issue 87) and they are a pair. The
+		# condition alone, with `target_lowest_hp_fraction_ally` (the only
+		# ally-picking op that existed), asks a genuinely different question:
+		# the hurt ally and the poisoned ally are frequently different units,
+		# and a cleanse aimed at the wrong one strips nothing while costing the
+		# same turn.
+		#
+		# Block cost: 2, taking this class from 4 to 6, which is exactly its WIS
+		# budget (`Balance.plan_block_budget` == WIS == 6). No WIS raise, unlike
+		# the Warrior's and the Priest's own third and fourth plans.
 		&"geysermancer":
 			return [
+				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
+					_condition(&"ally_has_harmful_status", {}),
+					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
 				_plan(&"geyser_blast_cluster", "Blast a cluster",
 					_condition(&"self_resource_at_least", {"amount": 60}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"geyser_blast")]),

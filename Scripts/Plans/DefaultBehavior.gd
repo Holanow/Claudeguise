@@ -59,9 +59,32 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if candidates.is_empty():
 		return Intent.idle()
 
+	# Issue 93: an action that may only be aimed at a MARKED enemy narrows the
+	# candidate list before anything else looks at it, and a unit whose only
+	# attacks are marked-only holds fire when nothing is marked.
+	#
+	# This, not the range change, is what the Siege Engine rebuild rests on. An
+	# engine is a summon, so it has no plan at all and every decision it makes
+	# arrives here. Filtering the candidates rather than vetoing after
+	# `_choose_target` matters: the nearest enemy is usually not the marked one,
+	# so a veto would make an engine idle beside a target it is allowed to shoot.
+	#
+	# Deliberately generic. It reads `ActionDef.requires_marked_target` and
+	# nothing class-specific, the same way this file already infers "ranged" from
+	# an action's own range rather than from a ClassDef -- a second unit with a
+	# spotter is picked up for free. Every unit whose actions all leave the flag
+	# false sees no change at all, which is every unit but one.
+	if _all_attacks_require_a_mark(candidates):
+		enemies = _only_marked(enemies)
+		if enemies.is_empty():
+			# Hold fire. Not `move_to`: the engine cannot move (move_speed 0.0)
+			# and, more to the point, an artillery piece with no designated
+			# target should sit silent rather than wander toward one.
+			return Intent.idle()
+
 	var heal_action := _first_heal(candidates)
 	if heal_action != null:
-		var neediest := _lowest_hp_fraction(state.living(unit.team))
+		var neediest := _lowest_hp_fraction(_heal_candidates(state, unit, heal_action))
 		if neediest != null and neediest.hp_fraction() <= HEAL_THRESHOLD_FRACTION:
 			var dist_to_ally := unit.position.distance_to(neediest.position)
 			if dist_to_ally <= heal_action.range_units:
@@ -89,6 +112,35 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		return Intent.idle()
 
 	var dist := unit.position.distance_to(target.position)
+
+	# Issue 93: a unit that cannot move does not kite and does not approach. It
+	# fires if the target is in range and waits if it is not.
+	#
+	# **This is not a tidy-up, it is the bug that would have made the whole
+	# artillery rebuild do nothing, and it was found by reasoning about the two
+	# numbers together rather than by running it.** Both movement branches below
+	# are fractions of the action's own range: a ranged unit retreats inside
+	# `KITE_RANGE_FRACTION` (0.6) and approaches beyond `RANGED_COMMIT_FRACTION`
+	# (0.85). Giving the Siege Engine ARENA_SPAN range makes those 720 and 1020
+	# units, and the arena's own diagonal is 1101 -- so essentially every target
+	# in the game sits inside the kite band, and an engine would have answered
+	# every one of them with `move_to(_retreat_point(...))`. It has move_speed
+	# 0.0, so that resolves to standing still, forever, without ever firing.
+	# Unlimited range would have turned "never fires because it is out of range"
+	# into "never fires because it thinks it is too close".
+	#
+	# Written against `move_speed` rather than against the Siege Engine, because
+	# the defect is general: kiting and approaching are both statements about
+	# where a unit intends to stand, and neither means anything to a unit that
+	# cannot stand anywhere else. Nothing else in the game has move_speed 0.0,
+	# so no existing behaviour changes.
+	if unit.move_speed <= 0.0:
+		if dist > attack_action.range_units:
+			return Intent.idle()
+		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+			return Intent.idle()
+		return Intent.use_action(attack_action.id, target.id)
+
 	var is_ranged := attack_action.range_units > MELEE_RANGE_THRESHOLD
 
 	if is_ranged:
@@ -132,6 +184,32 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 
 # ---------------------------------------------------------------------------
 
+## Issue 93: true only when the unit has at least one attack and *every* one of
+## them requires a marked target. "Every", not "any", on purpose -- a unit that
+## also carries an ordinary weapon should use that weapon on unmarked enemies
+## rather than standing idle, and only a unit whose whole arsenal is
+## marked-only has a reason to hold fire. The Siege Engine is the one unit in
+## the game with a single action, and that action is marked-only.
+##
+## Heals are excluded because `_first_heal` handles them on its own path above
+## and an ally is never a marked-target candidate.
+static func _all_attacks_require_a_mark(actions: Array[ActionDef]) -> bool:
+	var found := false
+	for a in actions:
+		if a.heals:
+			continue
+		if not a.requires_marked_target:
+			return false
+		found = true
+	return found
+
+static func _only_marked(enemies: Array[CombatUnit]) -> Array[CombatUnit]:
+	var out: Array[CombatUnit] = []
+	for e in enemies:
+		if e.has_status(CG.Status.MARKED):
+			out.append(e)
+	return out
+
 static func _usable_actions(unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for id in unit.actions:
@@ -140,11 +218,46 @@ static func _usable_actions(unit: CombatUnit) -> Array[ActionDef]:
 			out.append(a)
 	return out
 
+## Issue 87: `power_scale > 0.0` as well as `heals`, because this function
+## answers "do I have a way to put health back into a hurt ally" and an action
+## that restores nothing is not one. `geyser_cleanse` is the first action in the
+## game with `heals = true` and no healing in it -- the flag is what routes it
+## through `_apply_action_effect`'s heal branch, so it emits no DAMAGE event at
+## an ally, not a claim that it heals.
+##
+## Without this the Geysermancer answers every ally below
+## HEAL_THRESHOLD_FRACTION by casting a 0-power heal, or by walking toward that
+## ally to get in range to cast one, instead of attacking -- a real behaviour
+## change for a class that had no heal at all, arriving from a support action
+## that has nothing to do with hp. Nothing else in the game changes: priest_heal
+## is the only other action with `heals` set and its power_scale is well above 0.
 static func _first_heal(actions: Array[ActionDef]) -> ActionDef:
 	for a in actions:
-		if a.heals:
+		if a.heals and a.power_scale > 0.0:
 			return a
 	return null
+
+## Issue 99: a heal with no reach is a heal a unit casts on itself, so the
+## neediest-ally search is restricted to the caster.
+##
+## `warrior_second_wind` is the first zero-range heal in the game and without
+## this the Warrior is actively broken by carrying it: `_lowest_hp_fraction`
+## searches the whole team, so the moment any ally drops below the threshold the
+## Warrior returns `move_to(that ally)` every tick, trying to close a distance
+## that can never be small enough, and stops fighting entirely. It would not
+## have failed loudly -- a tank that walks toward its hurt healer looks almost
+## deliberate on screen.
+##
+## Reads `range_units` rather than a new flag, because zero range already means
+## exactly this and every other heal in the game states a real reach
+## (`priest_heal` 220, `geyser_cleanse` 200). Nothing else changes behaviour.
+static func _heal_candidates(state: CombatState, unit: CombatUnit, heal_action: ActionDef) -> Array[CombatUnit]:
+	if heal_action.range_units > 0.0:
+		return state.living(unit.team)
+	var out: Array[CombatUnit] = []
+	if unit.alive:
+		out.append(unit)
+	return out
 
 static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 	for a in actions:

@@ -72,7 +72,19 @@ static func classes() -> Array[ClassDef]:
 			# both self-targeted and would be a no-op as a fallback "attack
 			# an enemy" action, so warrior_strike must stay first regardless
 			# of where either plan sits in PresetPlans.
-			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_block"]
+			#
+			# Issue 99: warrior_block leaves this list and warrior_second_wind
+			# takes its place. Block is not gone from the game -- it moves onto
+			# `plate_mail` as a granted action (issue 100), which is where
+			# README's own armor table always had it. The same first-entry rule
+			# still applies and for a stronger reason: second wind sets `heals`,
+			# so `_first_non_heal` skips it outright and `_first_heal` reaches it
+			# only for the caster itself.
+			#
+			# WIS stays at 8. The block plan is replaced rather than added to,
+			# so this class still runs four plans at two blocks each, exactly
+			# the WIS-8 budget the issue-79 note above bought.
+			[&"warrior_strike", &"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_second_wind"]
 		),
 		_class(
 			&"priest", "Priest",
@@ -121,7 +133,18 @@ static func classes() -> Array[ClassDef]:
 			# Mana: a Geysermancer out of Mana had nothing affordable to
 			# fall back to at all. Same reasoning, and the same fix, as
 			# priest_bolt and siege_master_shot in issue 62.
-			[&"geyser_spout", &"geyser_blast", &"geyser_scald"]
+				# Issue 87: geyser_cleanse appended last. It is ally-targeted and
+				# `DefaultBehavior` must never reach for it -- and cannot,
+				# structurally rather than by ordering: `heals` is set, so
+				# `_first_non_heal`/`_choose_attack_action` skip it, and
+				# `_first_heal` now requires `power_scale > 0.0`, which this
+				# action does not have. Its only path into a fight is
+				# `geyser_scour_afflicted` in PresetPlans.gd. Appended anyway
+				# rather than left out of the list, because `starting_actions` is
+				# what the class card shows a player and what
+				# `Tests/test_integration_reach.gd` walks; an action a class owns
+				# and does not list is invisible to both.
+				[&"geyser_spout", &"geyser_blast", &"geyser_scald", &"geyser_cleanse"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
 		## `Style.SUMMONER` was on the class card while it played as pure

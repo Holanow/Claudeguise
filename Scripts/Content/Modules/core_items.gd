@@ -20,13 +20,17 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 ## CON by a percentage"). `Balance.attribute()` is what actually applies
 ## these; this file only declares the numbers.
 ##
-## No tag-gating field exists on `EquipmentDef` yet -- it has id, slot,
-## description, attribute_percent/flat, damage_reduction and
-## granted_actions, and nothing that says which class may equip a given
-## piece. Each item's doc comment below names the tag combination it targets
-## per README's own tables, but nothing here refuses an equip that violates
-## it; that is either a Core field to ask for or pike's equip screen to
-## enforce, flagged on the board rather than guessed at here.
+## `allowed_methods` (issue 40) is the tag-gating field, and it is populated
+## on every weapon. It speaks martial-versus-magical only, which is the axis
+## that makes a caster in plate wrong; README also gates by role and damage
+## type, and nothing here enforces those. Per `EquipmentDef`'s own note,
+## declaring is content's job and refusing is the equip screen's -- the screen
+## should never offer a piece a pawn cannot use, so the player meets it as an
+## absence rather than an error.
+##
+## Issue 100: `granted_actions` was empty on all seventeen items until
+## `plate_mail` carried Directional Block. That field existing and no item
+## using it is why equipment counted as unreachable.
 
 static func classes() -> Array[ClassDef]:
 	return []
@@ -64,7 +68,24 @@ static func items() -> Array[EquipmentDef]:
 
 		# --- Armor: flat, occasional CON percent, per README -------------
 		# Tank.
-		_armor(&"plate_mail", "Plate Mail", "Adds 2 CON, increases CON by 10%, and absorbs 5% of every hit.", {CG.Attribute.CON: 2}, {CG.Attribute.CON: 0.10}, 0.05),
+		# Issue 100: the first granted action in the game, and the whole point
+		# of the issue -- `granted_actions` had been on `EquipmentDef` since
+		# issue 39 with every one of the seventeen items leaving it empty, so
+		# nothing had ever proved the field reaches a fight.
+		#
+		# Block rather than a new action, because README's own armor table
+		# already says `Plate Mail | Tank | Block` -- this ability was always
+		# meant to come from armor. Issue 99 takes it off the Warrior class at
+		# the same time, so it does not exist in two places at once: a Warrior
+		# now gets Directional Block by *wearing plate*, not by being a Warrior.
+		#
+		# `allowed_methods` deliberately left empty, so any class may wear it.
+		# README gates armor by role (`Tank`) and `allowed_methods` only speaks
+		# martial-versus-magical, so gating here would say something the design
+		# does not -- the Abomination is a Tank and is MAGICAL. Per
+		# `EquipmentDef.allowed_methods`'s own note, an item nobody has a reason
+		# to refuse should not carry a restriction that means the wrong thing.
+		_armor(&"plate_mail", "Plate Mail", "Heavy plate. Adds 2 CON, increases CON by 10%, absorbs 5% of every hit, and teaches its wearer to raise a Directional Block.", {CG.Attribute.CON: 2}, {CG.Attribute.CON: 0.10}, 0.05, [&"warrior_block"]),
 		# DPS.
 		_armor(&"silk_wraps", "Silk Wraps", "Adds 2 AGI.", {CG.Attribute.AGI: 2}, {}, 0.0),
 		# Support.
@@ -96,7 +117,7 @@ static func _weapon(id: StringName, display_name: String, description: String, a
 	e.allowed_methods = allowed_methods
 	return e
 
-static func _armor(id: StringName, display_name: String, description: String, attribute_flat: Dictionary, attribute_percent: Dictionary, damage_reduction: float) -> EquipmentDef:
+static func _armor(id: StringName, display_name: String, description: String, attribute_flat: Dictionary, attribute_percent: Dictionary, damage_reduction: float, granted_actions: Array[StringName] = []) -> EquipmentDef:
 	var e := EquipmentDef.new()
 	e.id = id
 	e.display_name = display_name
@@ -105,6 +126,7 @@ static func _armor(id: StringName, display_name: String, description: String, at
 	e.attribute_flat = attribute_flat
 	e.attribute_percent = attribute_percent
 	e.damage_reduction = damage_reduction
+	e.granted_actions = granted_actions
 	return e
 
 static func _accessory(id: StringName, display_name: String, description: String, attribute_percent: Dictionary) -> EquipmentDef:

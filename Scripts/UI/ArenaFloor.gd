@@ -5,6 +5,7 @@ const Palette := preload("res://Scripts/Core/Palette.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The ground a fight happens on: a floor filling the play area, a boundary at
 ## the simulated bounds, a faint grid for a sense of scale, and whatever
@@ -70,7 +71,17 @@ func _draw() -> void:
 	for feature in terrain:
 		_draw_feature(feature)
 
-	draw_rect(Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)), Palette.ARENA_EDGE, false, BOUNDARY_WIDTH)
+	# The frame around the arena, through the same drop-in pipeline as the
+	# party cards: `Assets/UI/panel_border.png` if it is there, nine-sliced,
+	# and the flat outline this line used to draw if it is not. Byte-identical
+	# with no file present -- same colour, same rect, same thickness, handed to
+	# `draw_border` as its fallback.
+	#
+	# Drawn last on purpose, after terrain and before projectiles, exactly
+	# where the flat outline was: the boundary has to sit on top of a hazard
+	# rect that runs to the wall.
+	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
+		Palette.ARENA_EDGE, BOUNDARY_WIDTH)
 
 	for p in projectiles:
 		_draw_projectile(p)

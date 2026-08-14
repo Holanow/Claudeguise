@@ -3,6 +3,7 @@ extends RefCounted
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Placeholder art, as polygons in code.
 ##
@@ -319,14 +320,12 @@ static func draw_unit(
 		return
 
 	for part in build_parts(shape_id, radius, team, accent, facing_left, center):
-		var points: PackedVector2Array = part["points"]
-		if part["filled"]:
-			canvas.draw_colored_polygon(points, part["fill"])
-		# A darker edge. Without it the accent shapes bleed into the body at the
-		# sizes these actually get drawn at.
-		var closed := points.duplicate()
-		closed.append(points[0])
-		canvas.draw_polyline(closed, part["outline"], part["outline_width"], true)
+		# A darker edge under every part. Without it the accent shapes bleed into
+		# the body at the sizes these actually get drawn at. `draw_outlined_
+		# polygon` is the one closed-polyline helper the art files share; a
+		# transparent fill is how an outline-only part asks for no fill.
+		var fill: Color = part["fill"] if part["filled"] else Color(0.0, 0.0, 0.0, 0.0)
+		UIArt.draw_outlined_polygon(canvas, part["points"], fill, part["outline"], part["outline_width"])
 
 ## Every polygon of a shape, resolved to world-space points and final colours.
 ##

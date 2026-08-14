@@ -84,11 +84,15 @@ func test_slowed_text_reads_the_real_speed_scale() -> void:
 # GlossaryTooltip: the themed popup every hoverable node returns.
 # ---------------------------------------------------------------------------
 
+## Issue 112 made this `contains` rather than `==`: the box now ends with the
+## sentence naming the gesture that pins it, so its label is the glossary
+## sentence plus that hint. The assertion still fails if the sentence itself
+## goes missing, which is what it was written to catch. Disclosed in the PR.
 func test_tooltip_builds_a_control_carrying_the_text() -> void:
 	var popup := GlossaryTooltip.build("Deals 4 damage.")
 	var found := false
 	for child in popup.get_children():
-		if child is Label and child.text == "Deals 4 damage.":
+		if child is Label and child.text.contains("Deals 4 damage."):
 			found = true
 	assert_true(found, "the built popup must contain the given text")
 	popup.free()

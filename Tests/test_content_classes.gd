@@ -71,9 +71,19 @@ func test_every_starting_action_resolves() -> void:
 ## starting_classes.gd's own WIS 6->8 note.
 ##
 ## Every other class keeps the original two-plan invariant.
+##
+## Issue 87: Geysermancer ships three. `geyser_cleanse` is ally-targeted, and
+## `DefaultBehavior` cannot reach an ally-targeted action for this class at all,
+## so -- exactly like warrior_execute and warrior_block before it -- a preset
+## plan is the only path from the game to the ability. Measured, not assumed:
+## swift's `Tools/CleanseWindow.gd` fired a *free* cleanse zero times in 210
+## real fights when it sat in `starting_actions` and nowhere else. Unlike those
+## two this needed no WIS raise: three plans at 2 blocks each is exactly the
+## WIS-6 budget this class already had.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 4,
 	&"priest": 4,
+	&"geysermancer": 3,
 }
 
 func test_every_class_ships_its_expected_preset_plans_within_its_wis_budget() -> void:

@@ -38,15 +38,50 @@ const CONDITION_OPS := [
 	&"ally_below_hp_fraction",
 	&"self_resource_at_least",
 	&"enemy_in_range",
+	&"ally_has_harmful_status",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
 	&"target_lowest_hp_fraction_ally",
 	&"target_lowest_hp_fraction_enemy",
 	&"target_self",
+	&"target_ally_with_harmful_status",
 ]
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
+
+## Issue 97. One op, not three.
+##
+## `keep_distance{range: float}` covers every case the issue lists, because all
+## of them are a distance the pawn wants to hold relative to its focus:
+##
+##   "keep 120 units away"  ->  keep_distance{range: 120}   (kite)
+##   "close to melee"       ->  keep_distance{range: 0}     (charge)
+##
+## The player's other suggestion -- *"move 25 units left and 25 units up"* --
+## is deliberately not built. An absolute vector does not know where the enemy
+## is, so the same block reads as a retreat or as a charge depending on which
+## side the enemy happens to be standing, and the arena has no fixed facing to
+## reason from. A distance from the target works from every side.
+##
+## "Hold position" is genuinely not a distance and is genuinely not here.
+## Nothing needs it yet; it is a second op when something does.
+const MOVEMENT_OPS := [&"keep_distance"]
+
+## How close to the requested distance counts as arrived, in world units.
+##
+## **This is hysteresis and it is load-bearing, not a tolerance.** Without a
+## band, a pawn that overshoots by a single tick's movement is now on the wrong
+## side of the threshold and turns around, forever -- which is not a
+## hypothetical. Measured on issue 94: a pawn resting where two rules disagreed
+## alternated between them on a **two-tick cycle** for 2400 ticks and never
+## fired a shot, positions exactly period-2 at ticks 2000/2001/2002.
+##
+## 15 units, against a fastest pawn move of 6.25 units per tick (the
+## Abomination; the other four are 4.70 to 5.45, from `Balance.move_speed` on
+## real starter pawns). So the band is wider than two ticks of travel for every
+## pawn in the game, and a unit that steps into it stays in it.
+const KEEP_DISTANCE_BAND := 15.0
 
 ## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
 ## each CONDITION op reads. `_eval_condition` above is the source of truth for
@@ -64,6 +99,7 @@ const CONDITION_ARG_SHAPE := {
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
+	&"ally_has_harmful_status": {"kind": "none"},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -96,6 +132,7 @@ static func condition_holds(state: CombatState, unit: CombatUnit, plan: Plan) ->
 
 static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
 	var action_id: StringName = &""
+	var movement: PlanBlock = null
 	for block in plan.blocks:
 		match block.kind:
 			PlanBlock.Kind.TARGETING:
@@ -115,7 +152,16 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 				if not CONDITION_OPS.has(block.op):
 					_fail(plan, block)
 					return null
+			PlanBlock.Kind.MOVEMENT:
+				if not MOVEMENT_OPS.has(block.op):
+					_fail(plan, block)
+					return null
+				movement = block
+	if movement != null:
+		return _run_movement(state, unit, plan, movement, action_id)
 	if action_id == &"" or unit.focus_id == -1:
+		return null
+	if not _unit_has_action(unit, action_id):
 		return null
 	if not _target_in_range(state, unit, action_id):
 		return null
@@ -123,7 +169,104 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _can_afford(state, unit, action_id):
 		return null
+	if not _summon_slot_free(state, unit, action_id):
+		return null
+	if not _target_is_marked(state, unit, action_id):
+		return null
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Issue 97: **the first time the plan layer decides where a pawn stands.**
+##
+## Everything above this function either fires an action or returns null, and
+## null means `DefaultBehavior` decides — including all movement. This file's
+## own comment on `_target_in_range` said so plainly: *"PlanInterpreter has
+## never handled movement, that is DefaultBehavior's whole job."* So where a
+## pawn stood was never visible in a plan, which is issue 98's principle, and
+## kiting was its loudest symptom: a pawn backing out of a fight the player told
+## it to join, with nowhere to go and change it.
+##
+## **A plan carrying a MOVEMENT block never falls through to
+## `DefaultBehavior`.** That is the whole point rather than a detail. A block
+## whose effect can be silently overruled by hidden code is not control, and
+## building it any other way would recreate issue 98 inside the fix for it.
+##
+## The one exception, and it is not a fall-through in spirit: **no focus at
+## all.** "Keep 120 units away" is relative to something, and with no target
+## there is nothing to be 120 units from. That happens only when the plan's
+## targeting found no enemy, which means the fight is over, so this returns null
+## and lets the ordinary path handle it rather than freezing the pawn at a
+## distance from nobody.
+static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock, action_id: StringName) -> Intent:
+	var target := state.unit(unit.focus_id)
+	if target == null or not target.alive:
+		return null
+
+	var wanted := float(block.args.get("range", 0.0))
+	var dist := unit.position.distance_to(target.position)
+	var away := unit.position - target.position
+	if away.length() < 0.0001:
+		# Standing exactly on the target. Any direction is "away"; pick one
+		# deterministically rather than reaching for the rng, because a fight
+		# must replay bit for bit from its seed.
+		away = Vector2(1.0, 0.0)
+
+	if dist < wanted - KEEP_DISTANCE_BAND:
+		return Intent.move_to(unit.position + away.normalized() * (wanted - dist), plan.id)
+	if dist > wanted + KEEP_DISTANCE_BAND:
+		return Intent.move_to(target.position + away.normalized() * wanted, plan.id)
+
+	# Standing where the player asked. Fire if there is an action and it can
+	# fire; otherwise hold, which is the instruction being obeyed rather than a
+	# pawn doing nothing for no reason. `plan.id` rides on the idle so the
+	# combat log names the plan that decided it -- issue 98 is about the player
+	# being able to see why, and an unattributed idle is the thing it objects
+	# to.
+	if action_id == &"" or not _action_can_fire(state, unit, action_id):
+		return Intent.idle(plan.id)
+	return Intent.use_action(action_id, unit.focus_id, plan.id)
+
+## Every gate `_run_blocks` applies to an action, asked as one question.
+##
+## Extracted rather than duplicated: a movement block has to know whether the
+## action would fire in order to decide between firing and holding, and two
+## copies of a seven-clause list is how the two paths drift apart.
+static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	return _unit_has_action(unit, action_id) \
+		and _target_in_range(state, unit, action_id) \
+		and _target_in_los(state, unit, action_id) \
+		and _can_afford(state, unit, action_id) \
+		and _summon_slot_free(state, unit, action_id) \
+		and _target_is_marked(state, unit, action_id)
+
+## Issue 100: a plan may only fire an action the unit actually has.
+##
+## **Nothing anywhere checked this before, and it is what made `granted_actions`
+## meaningless.** `PlanInterpreter` resolved an action straight out of `Registry`
+## and `CombatSim._resolve_use_action` did the same, so any plan could fire any
+## action in the game regardless of whether the pawn owned it. A Warrior with no
+## Plate Mail and a Warrior wearing one would both have cast Directional Block,
+## which makes equipping the item worth nothing and makes the whole equipment
+## feature impossible to test: there is no observable difference between granted
+## and not granted.
+##
+## It is also the reverse of issue 98's principle -- *"pawns should never do
+## anything the player cannot see in the plans of action"* -- because a pawn
+## firing an ability it does not own is the same class of surprise seen from the
+## other side.
+##
+## `unit.actions` is the right list to read: `CombatSim._collect_player_actions`
+## builds it as the class's `starting_actions` plus every equipped piece's
+## `granted_actions`, so it is already the exact union of "everything this pawn
+## can do", equipment included, and it is what the plan editor should show.
+##
+## An empty `actions` list means "not a real unit yet", which several tests build
+## deliberately, so it is allowed through rather than treated as owning nothing.
+## Narrowing that is a change to fixtures other sessions own, and this gate is
+## about equipment rather than about test hygiene.
+static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
+	if unit.actions.is_empty():
+		return true
+	return unit.actions.has(action_id)
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
 ## focused target's distance is checked against the action's own range here,
@@ -178,6 +321,49 @@ static func _can_afford(state: CombatState, unit: CombatUnit, action_id: StringN
 		return false
 	return true
 
+## Issue 93: the summon cap, and it is a gate on *choosing* the action rather
+## than a refusal at spawn time. Same shape and same reasoning as `_can_afford`
+## directly above -- a plan whose action cannot do anything right now must fall
+## through to the next plan instead of committing the unit to a wasted tick.
+##
+## Where this runs is the whole design, not an implementation detail. Refusing
+## inside `CombatSim._spawn_summon` would let a Siege Master pay 20 Mana and
+## stand through a 90-tick wind-up to produce nothing, on every tick it is
+## capped -- which would make `spotter_mark` rarer, and the engines now depend
+## entirely on `spotter_mark`. Falling through here is what turns "capped" into
+## "mark something instead", and it is why the cap and the marked-only gate are
+## one change rather than two.
+##
+## Counts live summons by `EnemyDef` id on the caster's own team, not by who
+## cast what: a second Siege Master's engines occupy the same field the first one
+## is looking at, and two players' worth of engines is exactly what the cap
+## exists to prevent. `max_active_summons` 0 means uncapped, which is every
+## action but one, so this returns true immediately for all of them.
+static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null or action.max_active_summons <= 0 or action.summons_unit_id == &"":
+		return true
+	var live := 0
+	for u in state.living(unit.team):
+		if u.enemy_id == action.summons_unit_id:
+			live += 1
+	return live < action.max_active_summons
+
+## Issue 93: an action that may only be aimed at an enemy carrying MARKED. Same
+## fall-through shape as the range and line-of-sight checks above: a plan aiming
+## an engine at an unmarked target steps aside rather than ordering a shot the
+## engine is not allowed to take.
+##
+## Checked against the *focused* target rather than "is anything marked
+## anywhere". A plan that chose its own target must not get to fire at that
+## target on the strength of some other enemy being marked somewhere else.
+static func _target_is_marked(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+	var action = Registry.get_action(action_id)
+	if action == null or not action.requires_marked_target:
+		return true
+	var target := state.unit(unit.focus_id)
+	return target != null and target.has_status(CG.Status.MARKED)
+
 static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> bool:
 	if not CONDITION_OPS.has(block.op):
 		_fail(plan, block)
@@ -201,6 +387,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			if nearest == null:
 				return false
 			return unit.position.distance_to(nearest.position) <= range_units
+		&"ally_has_harmful_status":
+			return _nearest_afflicted_ally(state, unit) != null
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -219,6 +407,9 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return e.id if e != null else -1
 		&"target_self":
 			return unit.id
+		&"target_ally_with_harmful_status":
+			var afflicted := _nearest_afflicted_ally(state, unit)
+			return afflicted.id if afflicted != null else -1
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
@@ -239,6 +430,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "self resource at least %d" % int(args.get("amount", 0))
 		&"enemy_in_range":
 			return "an enemy within %d units" % int(args.get("range", 0.0))
+		&"ally_has_harmful_status":
+			return "an ally has a harmful status"
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
@@ -247,6 +440,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "the enemy with the lowest hp"
 		&"target_self":
 			return "self"
+		&"target_ally_with_harmful_status":
+			return "the nearest ally with a harmful status"
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
@@ -271,6 +466,48 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 			best_dist = d
 			best = candidate
 	return best
+
+## Issue 87: the nearest living ally carrying any status `CG.is_harmful`
+## classifies as harmful, or null when nobody does. `unit` itself counts as an
+## ally at distance 0, so a poisoned caster scrubs its own affliction first --
+## a cleanse that cannot answer the one status the caster is standing in would
+## be a strange ability, and `state.living(unit.team)` already includes it.
+##
+## Backs BOTH the `ally_has_harmful_status` condition and the
+## `target_ally_with_harmful_status` targeting op, deliberately from one
+## function rather than two similar ones: the two must agree exactly. If the
+## condition could hold on an ally the targeting op then declines to pick,
+## `_eval_targeting` returns -1, `_run_blocks` leaves `unit.focus_id` at
+## whatever the previous tick left there -- which for this class is an *enemy*,
+## from `geyser_blast_cluster`'s own targeting block -- and the plan would fire
+## an ally-shaped action at an enemy. That is not hypothetical: it is the exact
+## shape swift warned about in their #87 signature note, arriving through
+## targeting rather than through `heals`.
+##
+## `CG.is_harmful` is the only thing consulted for what counts, the same single
+## source `CombatSim._cleanse_harmful` and the status badges already use, so a
+## plan that fires and a cleanse that strips cannot disagree about what a
+## harmful status is.
+##
+## Nearest wins, ties broken by iteration order over `state.living`, which is
+## `state.units` order and therefore fixed for a seed. No rng.
+static func _nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := INF
+	for ally in state.living(unit.team):
+		if not _has_harmful_status(ally):
+			continue
+		var d := unit.position.distance_to(ally.position)
+		if d < best_dist:
+			best_dist = d
+			best = ally
+	return best
+
+static func _has_harmful_status(u: CombatUnit) -> bool:
+	for s in u.statuses.keys():
+		if CG.is_harmful(s):
+			return true
+	return false
 
 static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 	var best: CombatUnit = null

@@ -180,11 +180,8 @@ static func draw_status(canvas: CanvasItem, status: CG.Status, rect: Rect2) -> v
 	# rather than the team colour: a badge has to read the same on a Warrior and
 	# on a Ghoul, or the player learns the colour and not the status.
 	var plate := UIArt.glyph_points({"poly": plate_points(status)}, rect)
-	canvas.draw_colored_polygon(plate, Palette.HP_BACK)
-	var closed := plate.duplicate()
-	closed.append(plate[0])
 	var half := minf(rect.size.x, rect.size.y) * 0.5
-	canvas.draw_polyline(closed, rim_color(status), maxf(1.0, half * 0.16), true)
+	UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, rim_color(status), maxf(1.0, half * 0.16))
 	# The glyph sits in the middle 70% so it never crowds the rim or the point.
 	var inner := Rect2(rect.position + rect.size * 0.15, rect.size * 0.7)
 	UIArt.draw_glyph(canvas, GLYPHS[status], inner, Palette.TEXT)

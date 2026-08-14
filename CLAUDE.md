@@ -1,10 +1,89 @@
 # Claudeguise
 
-A Godot 4.5 roguelike autobattler. Copied from `God-Guise` as a fresh repository
-with no remote and no shared history. `README.md` is the design document and is
-the only substantial thing in here so far: the rest is an empty scene and script
-skeleton with placeholder `icon.svg` files, plus `Scripts/Pawns/Pawn.gd` and
-`Scripts/Pawns/PawnGenerator.gd`.
+A Godot 4.5 roguelike autobattler. `README.md` is the design document.
+
+The game is playable. A deterministic fixed-tick simulation, five classes, a
+plan system the player edits, terrain, projectiles, summons and a drawn battle
+screen all exist and run. **This paragraph described "an empty scene and script
+skeleton" for weeks after that stopped being true**, which is the failure mode
+this file is most prone to: a description written once and never re-read
+against the thing it describes.
+
+## The goal right now
+
+**One room, and nothing else.** In the player's words: *"get single room combat
+super satisfying and fun — I should be eager to try out every team
+combination."* And, ruling out the rest: *"This should really be one room,
+nothing else. For now at least."*
+
+Floors, runs, room sequencing, shops and between-floor economy are **parked**,
+and their issues carry the `parked-not-single-room` label. Do not work them, and
+do not use a floor-run measurement as evidence for a single-room decision.
+`Tools/SampleFights.gd` is single-encounter and is the right instrument;
+`Tools/FloorRuns.gd` is not.
+
+## Balance is frozen until equipment lands
+
+> **"Equipment will pretty fundamentally change the balance so basically all
+> balance changes should be tabled until then."**
+
+The player's ruling, and it is binding. The reason is not caution, it is that
+**every balance number this project has ever taken was measured on pawns
+wearing no equipment.** Seventeen items are defined, `PawnFactory` equips
+nothing, and the day a pawn can wear plate the whole table moves. Tuning
+against today's numbers is tuning against a state the game will not be in.
+
+**What this forbids:**
+
+- Changing damage, health, costs, cooldowns, ranges or attribute values *to
+  move a win rate*.
+- Loosening or tightening a threshold in a test because a measurement crossed
+  it. finch already refused this once and was right: a cap 0.9 points over
+  while the underlying number moved eighteen points is not a threshold problem.
+- "Fixing" a party that got worse. Several deliberately did — the Warrior lost
+  Block to armor and gets it back by wearing plate, which is the equip screen's
+  job to prove.
+
+**What it does not forbid**, and these are where the work is:
+
+- **Building systems and features.** Equipment, the plan editor, the room
+  picker, kiting as a block, making hidden behaviour visible.
+- **Fixing defects.** A mechanic that does nothing, an ability nothing can
+  reach, a stall, a wrong icon. If it is broken it gets fixed, whatever it does
+  to a number.
+- **Measuring, and reporting what you measure.** Keep taking numbers. Report
+  movement plainly, including regressions. **Report it; do not act on it.**
+- Content that adds something new, as long as it is not authored to hit a
+  target win rate.
+
+If you cannot tell which side of the line a change falls on, it is a balance
+change. Post it on the board and ask.
+
+**The unblocker is #100, equipment**, and it is therefore the highest-value
+work on the board.
+
+## The principle that governs pawn behaviour
+
+> **Pawns should never do anything the player cannot see in the plans of
+> action.**
+
+The player's own words, and it is binding. An autobattler's loop is: author
+behaviour, watch it, adjust. Every hidden rule breaks that loop twice — once
+when the pawn does something unasked, and again when there is nowhere to change
+it.
+
+This has already cost real work three times. An automatic kiting branch made
+the Abomination run away from fights it was built to close. `DefaultBehavior`
+picking the first affordable action in list order is why `warden_chain_toss`
+never fired, and why `geyser_spout` had to be *placed first* in
+`starting_actions` to work at all. **Two of those three were mistaken for
+balance problems** and tuned against before anyone found the cause.
+
+It does not mean deleting `DefaultBehavior`: enemies have no plans and do not
+need them. It does not mean the player must configure everything — an immutable
+default row they can read but not edit satisfies it. The test is: **can the
+player see it happening and find where it is decided?** If not, it becomes a
+block, a visible default, or it goes. Audit and detail in issue #98.
 
 ## Roles
 

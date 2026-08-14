@@ -287,23 +287,11 @@ func test_projectile_shape_falls_back_for_an_unknown_damage_type() -> void:
 	assert_true(points.size() >= 3)
 
 
-func test_wind_up_sweep_angle_tracks_progress() -> void:
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 10), 0.0, 0.001)
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(5, 10), PI, 0.001)
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(10, 10), TAU, 0.001)
-
-
-func test_wind_up_sweep_angle_clamps_past_completion() -> void:
-	# A caller one tick late (the action landed on the tick it read) must not
-	# produce an angle past a full circle.
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(15, 10), TAU, 0.001)
-
-
-func test_wind_up_sweep_angle_handles_zero_duration() -> void:
-	# wind_up_ticks == 0 is legal (ActionDef's own doc comment: rare, but not
-	# forbidden). A divide-by-zero here would be a crash on the first
-	# instant action anyone plays, not a cosmetic miss.
-	assert_almost_eq(AttackFX.wind_up_sweep_angle(0, 0), TAU, 0.001)
+# The three `wind_up_sweep_angle` tests that stood here were deleted with the
+# ring itself in issue #85, deliberately not ported to the progress bar that
+# replaced it: the bar is `Scripts/UI`'s and already carries its own test that
+# it reads elapsed/total ratios rather than absolute ticks, which is the
+# property those three were really protecting.
 
 
 func test_impact_flash_grows_and_fades_with_progress() -> void:
@@ -462,6 +450,61 @@ func test_unknown_action_draws_a_placeholder_rather_than_nothing() -> void:
 	assert_true((ActionIcons.glyph_for(&"no_such_action") as Array).size() > 0)
 
 
+## The pairs of actions that are allowed to draw the same glyph, and why. Any
+## other pair is a collision and fails the test below.
+const _DELIBERATE_SHARED_GLYPHS := {
+	# `archer_shot` is retired from the bestiary -- `core_actions.gd` says so in
+	# its own description, and no enemy or class lists it. It survives only so an
+	# older fixture resolves, so it can never be drawn beside `goblin_arrow`, or
+	# at all.
+	"archer_shot|goblin_arrow": true,
+	# Spout and Blast are the same jet of water from the same unit, one free and
+	# one not. Same verb, same element, and telling them apart buys the player
+	# nothing they cannot get from the bar's length. Left shared on purpose.
+	"geyser_blast|geyser_spout": true,
+	# sable: added by finch on issue 99, using the mechanism this test's own
+	# failure message prescribes rather than editing the assertion. Second Wind
+	# is the Warrior's self-heal, replacing Directional Block. Every glyph in
+	# ActionIcons is already spoken for, so the choice was share one or author
+	# new art, and the art is yours rather than mine to draw. `_CROSS` is the
+	# right share on this file's own rule that a glyph names what an action
+	# does: both of these restore health. They are never drawn side by side --
+	# they belong to different classes and no pawn can carry both.
+	# **If you would rather Second Wind had its own shape, draw one and delete
+	# this entry; the negative half of this test will then fail if you forget.**
+	"priest_heal|warrior_second_wind": true,
+}
+
+
+func test_no_two_ability_icons_share_a_glyph_by_accident() -> void:
+	# The test the icon sheet was doing by eye. `siege_master_shot` and
+	# `siege_engine_bolt` both drew `_BOLT_HEAVY`, and a Siege Master builds the
+	# engine and then fights beside it -- so the same icon sat over two units at
+	# once, on two bars, which is the exact case rule 4 exists to prevent. It
+	# survived a correct-looking table and two rendered sheets. An accidental
+	# share is now a red test rather than something somebody has to spot.
+	var seen: Dictionary = {}
+	for id in ActionIcons.GLYPHS.keys():
+		var glyph: Array = ActionIcons.glyph_for(id)
+		for other in seen.keys():
+			if seen[other] != glyph:
+				continue
+			var pair := "%s|%s" % ([String(id), String(other)] if String(id) < String(other) else [String(other), String(id)])
+			assert_true(
+				_DELIBERATE_SHARED_GLYPHS.has(pair),
+				"%s and %s draw the same glyph. If that is deliberate, add '%s' to _DELIBERATE_SHARED_GLYPHS with the reason; otherwise give one of them its own shape." % [id, other, pair]
+			)
+		seen[id] = glyph
+	# The negative half: if the allowlist ever names a pair that no longer shares
+	# a glyph, the entry is stale and its reasoning is describing nothing.
+	for pair in _DELIBERATE_SHARED_GLYPHS.keys():
+		var ids: PackedStringArray = String(pair).split("|")
+		assert_eq(
+			ActionIcons.glyph_for(StringName(ids[0])), ActionIcons.glyph_for(StringName(ids[1])),
+			"_DELIBERATE_SHARED_GLYPHS still excuses '%s', but those two no longer share a glyph" % pair
+		)
+
+
 func test_glyph_geometry_stays_inside_its_own_rect() -> void:
 	# A glyph escaping its box shows up as an icon bleeding into the unit next
 	# to it, which reads as a rendering bug rather than as bad art.
@@ -573,3 +616,308 @@ func test_status_art_names_are_unique_and_lower_case() -> void:
 
 func test_action_art_name_is_the_action_id() -> void:
 	assert_eq(ActionIcons.art_name(&"warrior_execute"), &"action/warrior_execute")
+
+
+# ---------------------------------------------------------------------------
+# EquipmentIcons: one icon per item, for issue 100's equip screen.
+#
+# Geometry and table checks only, same reasoning as everything above -- `draw_*`
+# needs a live canvas. The check these cannot make is whether two icons look
+# alike, and that one is `Tools/EquipmentIconSheet.tscn`, which is the only
+# instrument that has ever caught a collision on this project.
+# ---------------------------------------------------------------------------
+
+const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
+const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
+
+const _EVERY_SLOT := [
+	EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY,
+]
+
+
+func test_every_registered_item_has_an_icon() -> void:
+	# The reason `EquipmentDef` sat unreachable for weeks is that nothing failed
+	# when it was not drawn. An item added in Scripts/Content now goes red here
+	# rather than shipping as a blank square on the equip screen.
+	var ids := Registry.all_equipment_ids()
+	assert_true(ids.size() > 0, "no items registered; this test would pass on an empty game")
+	for id in ids:
+		assert_true(
+			EquipmentIcons.has_glyph(id),
+			"item '%s' is registered but EquipmentIcons has no glyph for it" % id
+		)
+
+
+func test_the_icon_table_has_no_entries_for_items_that_do_not_exist() -> void:
+	# The other direction. An entry for a deleted item is dead art nobody sees,
+	# and it is how a table drifts away from the content it claims to describe.
+	for id in EquipmentIcons.known_ids():
+		assert_not_null(
+			Registry.get_equipment(id),
+			"EquipmentIcons draws '%s', which is not a registered item" % id
+		)
+
+
+func test_no_two_items_share_a_glyph() -> void:
+	# The four rings deliberately share a band and differ by gem, so `glyph_for`
+	# returns band-plus-gem and no two of them are equal. Anything that does come
+	# out equal here is an accident.
+	var seen: Dictionary = {}
+	for id in EquipmentIcons.known_ids():
+		var glyph: Array = EquipmentIcons.glyph_for(id)
+		for other in seen.keys():
+			assert_ne(
+				seen[other], glyph,
+				"%s and %s draw the same glyph; give one of them its own shape" % [id, other]
+			)
+		seen[id] = glyph
+
+
+func test_the_three_slots_are_told_apart_by_shape_and_by_colour() -> void:
+	# Two redundant channels, and this test exists because losing one of them is
+	# silent: a player who cannot separate the rim colours still has the plate,
+	# and a greyscale screenshot still shows three different outlines.
+	var shapes: Array = []
+	var colors: Array = []
+	for slot in _EVERY_SLOT:
+		var points: Array = EquipmentIcons.plate_points(slot)
+		assert_false(shapes.has(points), "two slots draw the same plate outline")
+		shapes.append(points)
+		var c := EquipmentIcons.slot_color(slot)
+		assert_false(colors.has(c), "two slots draw the same rim colour")
+		colors.append(c)
+	# The accessory is a circle rather than a polygon, and that is the point --
+	# an n-gon here would be ActionIcons.PLATE with the corners knocked off.
+	assert_true(EquipmentIcons.plate_points(EquipmentDef.Slot.ACCESSORY).is_empty())
+
+
+func test_no_item_plate_is_another_icon_system_s_plate() -> void:
+	# Three icon systems can be on the equip screen at once -- the item, the
+	# action it grants, and the status that action applies. A glance should never
+	# have to work out which system it is reading first.
+	for slot in _EVERY_SLOT:
+		var points: Array = EquipmentIcons.plate_points(slot)
+		assert_ne(points, ActionIcons.PLATE, "an item plate is the ability plate")
+		assert_ne(points, StatusIcons.PLATE_GOOD, "an item plate is the beneficial status plate")
+		assert_ne(points, StatusIcons.PLATE_BAD, "an item plate is the harmful status plate")
+
+
+func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> void:
+	# Rule 3, and the thing #100 made true that no art had yet said: `plate_mail`
+	# teaches Directional Block, and an item that changes what a pawn can DO is a
+	# different kind of item from one that adds 3 STR.
+	#
+	# There is deliberately no second table here. The badge resolves through
+	# `ActionIcons.glyph_for`, so it cannot drift from what the wind-up bar draws
+	# for the same action -- which is exactly how `geyser_cleanse` came to show a
+	# damage-over-time attack's icon.
+	var granting := 0
+	for id in Registry.all_equipment_ids():
+		var item := Registry.get_equipment(id)
+		for action_id in item.granted_actions:
+			assert_true(
+				ActionIcons.has_glyph(action_id),
+				"item '%s' grants '%s', which has no icon to put in its corner badge" % [id, action_id]
+			)
+			granting += 1
+	assert_true(granting > 0, "no item grants an action; this test would pass on content that cannot exercise it")
+
+
+func test_item_glyph_geometry_stays_inside_its_own_rect() -> void:
+	# A glyph escaping its box shows up as an icon bleeding into the slot beside
+	# it, which reads as a rendering bug rather than as bad art. Rotated parts are
+	# the ones that do it: a corner inside the unit square is not necessarily
+	# inside the unit circle.
+	var rect := Rect2(100.0, 40.0, 20.0, 20.0)
+	var all: Array = []
+	for id in EquipmentIcons.known_ids():
+		all.append(EquipmentIcons.glyph_for(id))
+	for slot in _EVERY_SLOT:
+		var points: Array = EquipmentIcons.plate_points(slot)
+		if not points.is_empty():
+			all.append([{"poly": points}])
+	for glyph in all:
+		for part in glyph:
+			for p in UIArt.glyph_points(part, rect):
+				assert_true(
+					rect.grow(0.01).has_point(p),
+					"glyph point %s escapes its rect %s" % [p, rect]
+				)
+
+
+func test_the_four_rings_differ_by_colour_and_by_cut() -> void:
+	# They are four rings and pretending they have four unrelated outlines would
+	# be inventing a difference the content does not have. So they carry two
+	# channels of their own, and losing either is silent: without the cut a
+	# greyscale reader has four identical icons, without the colour a 20px reader
+	# has four identical icons.
+	var colors: Array = []
+	var cuts: Array = []
+	for id in EquipmentIcons.RING_GEMS.keys():
+		var c := EquipmentIcons.gem_color(id)
+		assert_false(colors.has(c), "two rings share a gem colour")
+		colors.append(c)
+		var cut: Array = EquipmentIcons.RING_GEMS[id]
+		assert_false(cuts.has(cut), "two rings share a gem cut")
+		cuts.append(cut)
+	assert_eq(colors.size(), 4)
+
+
+func test_item_art_name_is_the_item_id() -> void:
+	assert_eq(EquipmentIcons.art_name(&"plate_mail"), &"item/plate_mail")
+
+
+func test_the_equipment_replacement_instructions_match_the_real_content() -> void:
+	# Assets/UI/README.md is now a document the player is expected to read and
+	# use. An item added without a line there is an item whose PNG silently never
+	# appears, and the artist finds out by dropping one in.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	assert_ne(readme, "", "Assets/UI/README.md is missing")
+	for id in Registry.all_equipment_ids():
+		assert_true(
+			readme.contains("item/%s.png" % id),
+			"item '%s' is registered but Assets/UI/README.md does not list item/%s.png" % [id, id]
+		)
+
+
+# ---------------------------------------------------------------------------
+# UIArt theming (#115): borders and backgrounds for the major elements, through
+# the pipeline that already exists.
+#
+# These write real PNGs into Assets/UI and delete them again, the same way
+# `test_a_dropped_in_png_is_found_with_no_registration` does, because the claim
+# being made is about files on disk and reasoning about it proves nothing.
+#
+# Every one has a NEGATIVE half. With no file present these calls must produce
+# exactly what the screens already build by hand -- that property is what makes
+# it safe to convert nine screens at once, and a test that only checked the
+# themed path would pass while the default silently changed.
+# ---------------------------------------------------------------------------
+
+const Palette := preload("res://Scripts/Core/Palette.gd")
+
+const _THEME_SCRATCH := ["res://Assets/UI/panel.png", "res://Assets/UI/panel/scratch_element.png",
+	"res://Assets/UI/background.png", "res://Assets/UI/border/scratch_element.png"]
+
+
+func _write_theme_png(path: String, size: int = 12) -> void:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 1.0, 1.0, 1.0))
+	assert_eq(image.save_png(path), OK, "could not write %s" % path)
+	UIArt.clear_cache()
+
+
+func _clear_theme_scratch() -> void:
+	for path in _THEME_SCRATCH:
+		DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute("res://Assets/UI/panel")
+	DirAccess.remove_absolute("res://Assets/UI/background")
+	DirAccess.remove_absolute("res://Assets/UI/border")
+	UIArt.clear_cache()
+
+
+func test_with_no_theme_files_a_panel_is_the_flat_box_the_screens_build_today() -> void:
+	# The negative half, and the load-bearing one. Nine screens are meant to be
+	# converted to this call, and the promise that makes it safe is that with no
+	# file present nothing changes by a single pixel.
+	_clear_theme_scratch()
+	var style := UIArt.panel_style(&"anything", Palette.ARENA_FLOOR, Palette.ARENA_EDGE, 1, Palette.SPACE_S)
+	assert_true(style is StyleBoxFlat, "with no file a panel must be the StyleBoxFlat the screens already use")
+	assert_eq(style.bg_color, Palette.ARENA_FLOOR)
+	assert_eq(style.border_color, Palette.ARENA_EDGE)
+	assert_eq(style.border_width_left, 1)
+	assert_almost_eq(style.content_margin_left, Palette.SPACE_S, 0.001)
+
+
+func test_with_no_theme_files_a_background_is_the_flat_colour_rect() -> void:
+	_clear_theme_scratch()
+	var node := UIArt.background_node(&"anything", Palette.BACKGROUND)
+	assert_true(node is ColorRect, "with no file a background must be the ColorRect the screens already use")
+	assert_eq(node.color, Palette.BACKGROUND)
+	node.free()
+
+
+func test_a_background_never_swallows_mouse_input() -> void:
+	# A background that eats clicks is a screen whose buttons stop working, and
+	# that failure looks exactly like the buttons being broken rather than like
+	# the theming. Both paths, because only one of them is a new node type.
+	_clear_theme_scratch()
+	var bare := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_eq(bare.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	bare.free()
+	_write_theme_png("res://Assets/UI/background.png")
+	var themed := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_eq(themed.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	themed.free()
+	_clear_theme_scratch()
+
+
+func test_a_background_covers_its_rect_rather_than_fitting_inside_it() -> void:
+	# The one place this pipeline deliberately departs from `draw_fit`. An icon
+	# that does not quite fill its box looks slightly small; a background that
+	# does not quite fill its screen has bars down the sides and looks broken.
+	_write_theme_png("res://Assets/UI/background.png")
+	var node := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_true(node is TextureRect)
+	assert_eq(node.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+	assert_eq(node.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+	node.free()
+	_clear_theme_scratch()
+
+
+func test_one_general_file_themes_every_element() -> void:
+	# Drop in `panel.png` and every panel in the game is re-skinned, with no code
+	# change and no per-element file. Without this a player needs nine files
+	# before anything looks different.
+	_write_theme_png("res://Assets/UI/panel.png")
+	assert_eq(UIArt.theme_name(&"panel", &"one_element"), &"panel")
+	assert_eq(UIArt.theme_name(&"panel", &"a_completely_different_element"), &"panel")
+	assert_true(UIArt.panel_style(&"one_element", Palette.ARENA_FLOOR, Palette.ARENA_EDGE) is StyleBoxTexture)
+	_clear_theme_scratch()
+
+
+func test_a_specific_file_overrides_the_general_one_for_that_element_only() -> void:
+	# And the other half: adding `panel/<element>.png` later must win for that
+	# element without disturbing anything else that is already themed.
+	_write_theme_png("res://Assets/UI/panel.png")
+	_write_theme_png("res://Assets/UI/panel/scratch_element.png")
+	assert_eq(UIArt.theme_name(&"panel", &"scratch_element"), &"panel/scratch_element")
+	assert_eq(UIArt.theme_name(&"panel", &"some_other_element"), &"panel",
+		"a specific override leaked onto an element it was not written for")
+	_clear_theme_scratch()
+
+
+func test_theme_lookup_is_silent_when_nothing_is_dropped_in() -> void:
+	# The detector-stays-quiet half. A lookup that resolved to something on an
+	# empty Assets/UI would theme the game with a file nobody wrote.
+	_clear_theme_scratch()
+	assert_eq(UIArt.theme_name(&"panel", &"scratch_element"), &"")
+	assert_eq(UIArt.theme_name(&"background", &"scratch_element"), &"")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"")
+	assert_eq(UIArt.border_art_name(&""), &"")
+
+
+func test_a_border_resolves_the_specific_file_then_the_documented_general_one() -> void:
+	# `panel_border` and not `border` as the general name, because that is what
+	# Assets/UI/README.md has told the player since #81 and renaming it would
+	# break a promise already made in writing.
+	_clear_theme_scratch()
+	_write_theme_png("res://Assets/UI/panel_border.png")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"panel_border")
+	_write_theme_png("res://Assets/UI/border/scratch_element.png")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"border/scratch_element")
+	assert_eq(UIArt.border_art_name(&"another_element"), &"panel_border")
+	DirAccess.remove_absolute("res://Assets/UI/panel_border.png")
+	_clear_theme_scratch()
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"",
+		"a theme file survived its own deletion")
+
+
+func test_the_theming_instructions_name_every_file_the_code_looks_for() -> void:
+	# Assets/UI/README.md is a document the player is expected to read and use.
+	# A lookup the code performs and the README does not mention is a file that
+	# would work and that nobody could know to write.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	for name in ["panel.png", "panel_border.png", "background.png"]:
+		assert_true(readme.contains(name), "Assets/UI/README.md does not mention %s" % name)

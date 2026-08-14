@@ -118,12 +118,53 @@ const _ARROW := [
 ]
 
 ## Siege ammunition: a heavier head and no fletching at all, which is what tells
-## it apart from the arrow when both are 16px wide.
+## it apart from the arrow when both are 16px wide. The Siege Master's own shot
+## -- flat, direct, aimed by the unit firing it.
 const _BOLT_HEAVY := [
 	{"poly": [
 		[0.95, 0.0], [0.1, 0.6], [0.1, 0.22], [-0.85, 0.22],
 		[-0.85, -0.22], [0.1, -0.22], [0.1, -0.6],
 	]},
+]
+
+## The Siege Engine's shot: the same ammunition on a lobbed path instead of a
+## flat one, so the trajectory carries the read and the head does not have to.
+##
+## This one is a fix, not a new ability. Both siege actions drew `_BOLT_HEAVY`
+## on the reasoning that the master and its engine "fire the same ammunition",
+## and that was wrong for the only reason that matters here: **a Siege Master
+## fights alongside the engine it builds**, so the two icons appear over two
+## units in the same fight, on two bars, at the same instant. Rule 4 says no two
+## glyphs share an outline; these shared one exactly where sharing costs the
+## most. Found by rendering `Screenshots/ui_icons_sheet.png`, same as the six
+## collisions the first sheet caught.
+##
+## The arc is also what the engine is becoming rather than only what it is: an
+## artillery piece -- immobile, slow, unlimited range, firing only at marked
+## targets. An indirect-fire weapon and a shoulder-aimed one are not the same
+## shot, and once the rebuild lands "the same ammunition" is no longer true.
+## The first version of this drew the trajectory as a thin arc with a small bolt
+## on it, and rendering it settled the matter in one look: at 16px the arc is the
+## only thing left and the icon reads as `abomination_hook`, a curl. A thin line
+## describing where something went cannot compete with the thing itself.
+##
+## So the shot carries it, on two cues at once -- the same pair `_SWORD_DOWN`
+## uses to stay clear of `_SWORD`, because a merely rotated copy is the same icon
+## twice:
+##
+##   ANGLE. Nose-down at about 55 degrees, where the master's is flat. Plunging
+##   fire is what an artillery piece does and a shoulder-aimed shot does not.
+##   THIRTY degrees off is enough to destroy a read; this is nearly twice that.
+##   WEIGHT. Fatter shaft, broader barbs, blunt tail. A shell, not a dart.
+const _BOLT_LOBBED := [
+	# Authored along +X and rotated about the glyph centre, the same technique
+	# the sword and the axe use -- hand-computing rotated vertices is how you get
+	# them slightly wrong. Every point is inside the unit CIRCLE, not just the
+	# unit square, because rotation is what carries a corner out of the box.
+	{"poly": [
+		[0.98, 0.0], [0.14, 0.72], [0.14, 0.3], [-0.7, 0.3],
+		[-0.7, -0.3], [0.14, -0.3], [0.14, -0.72],
+	], "rot": 0.95},
 ]
 
 const _ORB := [
@@ -161,6 +202,34 @@ const _JET := [
 	]},
 	{"dot": [-0.78, -0.3, 0.16]},
 	{"dot": [0.78, -0.36, 0.16]},
+]
+
+## Cleanse: a wave sweeping across, and two short diagonals leaving upward --
+## the thing being washed off, going away. Not a variant of `_STEAM`.
+##
+## The second collision this pass fixes, and the one that was actually wrong
+## rather than merely repeated: `geyser_cleanse` drew `_STEAM`, the glyph of the
+## Geysermancer's damage-over-time attack, on the same unit's bar. Same class,
+## same colour, same 16px square, opposite meanings -- an icon that says "damage
+## incoming" for an ability that strips harmful statuses off an ally. It was a
+## one-line placeholder added under time pressure and explicitly offered for
+## repointing (TEAM_LOG.md, finch), which is what this is.
+## The first version drew a wave with a scalloped top and a flat bottom, and it
+## rendered as a mountain range with two ski tracks on it -- which is the exact
+## defect `StatusIcons`' ENRAGE already documented and fixed, and I walked into
+## it again. A flat bottom edge is what makes a jagged top edge read as
+## landscape. There is no baseline here at all.
+const _RINSE := [
+	# One heavy drop, in flight, leaning the way it is travelling.
+	{"poly": [
+		[0.3, -0.9], [0.74, -0.14], [0.72, 0.3], [0.36, 0.72],
+		[-0.04, 0.56], [-0.16, 0.14], [0.0, -0.3],
+	]},
+	# Two streaks behind it. The Geysermancer's other two glyphs are a standing
+	# fountain and a rising steam column; a drop being thrown across is neither,
+	# and the streaks are what stop it reading as a fourth stationary shape.
+	{"line": [[-0.34, -0.86], [-0.62, 0.1]], "w": 0.16},
+	{"line": [[-0.78, -0.62], [-0.96, 0.0]], "w": 0.13},
 ]
 
 const _STEAM := [
@@ -207,6 +276,15 @@ const GLYPHS := {
 	&"warrior_guard": CG.Status.BLOCK,
 	&"warrior_taunt": CG.Status.TAUNTING,
 	&"warrior_block": CG.Status.SHIELDING,
+	# sable: one data line, no new art, same disclosed shape as issue 79's own
+	# `geyser_spout` entry below. `warrior_second_wind` (issue 99) replaces
+	# Directional Block in the Warrior's kit, so it is reachable and
+	# `test_every_reachable_action_has_an_icon` goes red the moment it lands.
+	# Reusing `_CROSS`, the existing heal glyph -- this is a heal and the rule
+	# in this file is that a glyph names what an action does. Repoint it freely
+	# if you would rather Second Wind read differently from priest_heal.
+	# `warrior_block` stays: it is still reachable, now via plate_mail.
+	&"warrior_second_wind": _CROSS,
 
 	# Priest.
 	&"priest_heal": _CROSS,
@@ -235,12 +313,18 @@ const GLYPHS := {
 	# Repoint it if you would rather they read apart; nothing here depends on
 	# which glyph it is.
 	&"geyser_spout": _JET,
+	# finch pointed this at `_STEAM` as a placeholder when the ability landed,
+	# and said to repoint it freely. Repointed in issue #85: sharing Scald's
+	# glyph made a debuff-strip on an ally look like a damage-over-time attack.
+	&"geyser_cleanse": _RINSE,
 
-	# Siege. The master and the engine fire the same ammunition, so they draw
-	# the same bolt -- inventing a difference the fight does not have would be
-	# worse than the repetition.
+	# Siege. Direct fire for the master, a lobbed path for the engine. These two
+	# drew the same bolt until issue #85, on the reasoning that the difference
+	# was invented -- but the master builds the engine and then fights beside it,
+	# so it is the one repetition on the sheet that a player is guaranteed to see
+	# twice at once. See `_BOLT_LOBBED`.
 	&"siege_master_shot": _BOLT_HEAVY,
-	&"siege_engine_bolt": _BOLT_HEAVY,
+	&"siege_engine_bolt": _BOLT_LOBBED,
 	&"build_siege_engine": _ENGINE,
 	&"spotter_mark": CG.Status.MARKED,
 
@@ -298,9 +382,6 @@ static func draw_action(canvas: CanvasItem, action_id: StringName, damage_type: 
 		UIArt.draw_fit(canvas, tex, rect)
 		return
 	var plate := UIArt.glyph_points({"poly": PLATE}, rect)
-	canvas.draw_colored_polygon(plate, Palette.HP_BACK)
-	var closed := plate.duplicate()
-	closed.append(plate[0])
-	canvas.draw_polyline(closed, Palette.ARENA_EDGE, 1.0, true)
+	UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, Palette.ARENA_EDGE, 1.0)
 	var inner := Rect2(rect.position + rect.size * 0.16, rect.size * 0.68)
 	UIArt.draw_glyph(canvas, glyph_for(action_id), inner, Palette.damage_color(damage_type))
