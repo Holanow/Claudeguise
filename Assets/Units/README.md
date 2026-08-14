@@ -40,8 +40,21 @@ The filename is the unit's id. These are the current ones:
 | `dungeon_archer.png` | Archer (being retired) |
 | `dungeon_cultist.png` | Cultist (being retired) |
 
-`rat.png`, `grub.png` and `brute.png` also exist as shapes but nothing spawns
-them yet.
+| `rat_king.png` | The Rat King (floor 1 miniboss) |
+| `rat.png` | Rat — what the Rat King leaves behind |
+
+`grub.png` and `brute.png` also exist as shapes but nothing spawns them yet.
+
+**The Rat King and the rat are a pair and should be replaced as one.** The
+README describes the miniboss as *"a big collection of rats joined at the tail"*
+whose attacks *"leave behind rats"*, so the fight is a pile of the very thing it
+keeps spawning. The generated art carries that relationship in the silhouette —
+the pile is three rounded backs with three heads facing three different ways,
+and the rat is one of those backs and one of those heads at a third of the size.
+If you replace only one of them, the fight stops being about one creature.
+
+`Screenshots/rat_king.png` shows both, at design size and at the size the game
+actually draws them, with the Warden beside them for scale.
 
 **This table is checked by a test.** `Tests/test_art.gd` walks the real content
 registry and fails if this list drifts from what the game actually asks for, so

@@ -17,6 +17,20 @@ const CLASS_SHAPES := [&"warrior", &"priest", &"geysermancer", &"siege_master", 
 ## nothing and later floors will want them.
 const UNUSED_SHAPES := [&"rat", &"grub", &"brute"]
 
+## Shapes that exist ahead of the content that will spawn them, named here
+## because **no other test in this file can see them.**
+##
+## `test_every_registered_class_and_enemy_has_a_shape` walks encounter spawn
+## lists, and a unit nothing spawns appears in none. That is exactly how the
+## Siege Master's engine shipped invisible for weeks -- it was drawing the
+## unknown-shape fallback in real fights and the art suite was green throughout,
+## because a summoned unit is in no spawn list either.
+##
+## So anything drawn before its content exists goes here and gets checked like
+## content. The Rat King is floor 1's miniboss and the rat is what its attacks
+## leave behind; neither is in an encounter yet.
+const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine"]
+
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# The check that was missing, and the reason it was missing is instructive:
@@ -100,6 +114,122 @@ func test_every_class_in_the_readme_has_a_shape() -> void:
 func test_the_unused_shapes_are_still_there() -> void:
 	for id in UNUSED_SHAPES:
 		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
+
+
+func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
+	# Not just `has_shape`: the failure being guarded against is a unit drawing
+	# the unknown-shape fallback in a real fight, and `has_shape` is exactly the
+	# thing that would have been false while nobody looked. So this asserts the
+	# shape is present AND that what it builds is not the fallback.
+	var unknown := Silhouettes.build_parts(&"not_a_real_shape", 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	for id in AHEAD_OF_CONTENT_SHAPES:
+		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
+		var parts := Silhouettes.build_parts(id, 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+		assert_true(parts.size() > unknown.size(),
+			"'%s' builds %d polygons, the unknown fallback builds %d -- it is drawing the fallback" % [
+				id, parts.size(), unknown.size()])
+
+
+func test_the_rat_king_reads_as_more_than_one_animal() -> void:
+	# THE DESIGN RULE, ASSERTED AS GEOMETRY, and it is a stand-in so it says what
+	# it stands for: every other unit in this game reads as ONE creature and the
+	# Rat King has to read as MANY -- "a big collection of rats joined at the
+	# tail". The cue that survives being shrunk to 50 pixels is a SCALLOPED top
+	# edge: several rounded backs with real sky between them. One dome is one
+	# animal at any size.
+	#
+	# So: sample the top of the silhouette across its width and count the peaks.
+	# Two passes of this shape failed for opposite reasons -- humps overlapped
+	# into a single dome, then humps sharpened into a mountain range -- and this
+	# catches the first. It cannot catch the second; only looking can, which is
+	# why Tools/RatKingSheet.tscn exists and why the sheet is committed.
+	# **What this measures, stated exactly, because it is not quite what the
+	# design claim says.** It counts peaks in the whole outline, and the tail
+	# strands are part of that outline, so a Rat King with flattened backs but
+	# intact strands would still pass. It is a guard against the shape collapsing
+	# into a dome, not proof that the humps specifically are doing the work.
+	# Measured: rat_king 8, the_warden 1, ghoul 1, brute 1, grub 0.
+	var peaks := _peaks(&"rat_king")
+	assert_true(peaks >= 2,
+		"the Rat King's outline has %d peaks; it reads as one animal, not a pile" % peaks)
+
+	# The negative half, and it is what makes the number above mean anything: a
+	# single-creature silhouette must NOT pass this. Without it, a sampling bug
+	# that found peaks everywhere would look exactly like success.
+	for one_animal in [&"the_warden", &"ghoul", &"brute"]:
+		assert_true(_peaks(one_animal) < peaks,
+			"'%s' scores %d peaks against the Rat King's %d -- this is not measuring 'many'" % [
+				one_animal, _peaks(one_animal), peaks])
+
+
+func test_the_rat_king_outline_keeps_headroom_over_a_single_creature() -> void:
+	# The margin, guarded separately, per this project's own rule: a floor of
+	# `>= 2` reads identically at 8 and at 2 and speaks only on the build that
+	# breaks it, which lands on whoever touched the file next rather than
+	# whoever caused the drift. Measured at 8 against a single-creature baseline
+	# of 1. This fires while the shape is still passing.
+	assert_true(_peaks(&"rat_king") >= 4,
+		"the Rat King is down to %d peaks from a measured 8; the pile is flattening out" % _peaks(&"rat_king"))
+
+
+func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void:
+	# The rat's identity, checked rather than asserted in a comment. The first
+	# version WAS a third mound, indistinguishable from `grub` and `brute` at a
+	# glance -- the failure the top of Silhouettes.gd warns about, sitting in the
+	# file underneath the warning.
+	#
+	# Deliberately NOT "flattest of every shape in the game". It is, at 1.21
+	# against grub's 1.15, and asserting a superlative on a six-percent margin
+	# would hand a failure to whoever next edits an unrelated shape. The design
+	# requirement is that it is not mistakable for the mounds, and that is what
+	# is checked.
+	var ratio := _aspect(&"rat")
+	for id in [&"grub", &"brute", &"ghoul", &"goblin", &"rat_king"]:
+		assert_true(ratio > _aspect(id),
+			"'%s' is %.2f wide-to-tall and the rat is only %.2f; the rat must read as the long low one" % [
+				id, _aspect(id), ratio])
+
+
+func _peaks(id: StringName) -> int:
+	var radius := 200.0
+	var bins := 40
+	var top := []
+	top.resize(bins)
+	top.fill(INF)
+	for part in Silhouettes.build_parts(id, radius, CG.Team.ENEMY, CG.DamageType.PHYSICAL):
+		for p in part["points"]:
+			var bin := clampi(int((p.x + radius) / (radius * 2.0) * float(bins)), 0, bins - 1)
+			top[bin] = minf(top[bin], p.y)
+	var margin := radius * 0.08
+	var peaks := 0
+	for i in range(1, bins - 1):
+		if top[i] == INF or top[i - 1] == INF or top[i + 1] == INF:
+			continue
+		if top[i] < top[i - 1] - margin and top[i] < top[i + 1] - margin:
+			peaks += 1
+	return peaks
+
+
+func _aspect(id: StringName) -> float:
+	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for part in parts:
+		for p in part["points"]:
+			lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+			hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
+
+
+func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
+	# They are a pair and they are meant to be related, which is precisely the
+	# condition under which two shapes drift into being one. The miniboss and its
+	# chaff appear on screen together and constantly.
+	var king := Silhouettes.build_parts(&"rat_king", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	var rat := Silhouettes.build_parts(&"rat", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	assert_ne(king.size(), rat.size(), "the Rat King and the rat build identical polygon counts")
+	assert_true(_aspect(&"rat") > _aspect(&"rat_king"),
+		"the rat must be the flatter of the two: the pile is tall because it is a pile")
 
 
 func test_an_unknown_shape_is_reported_as_unknown() -> void:
