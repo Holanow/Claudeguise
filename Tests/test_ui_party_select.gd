@@ -183,6 +183,17 @@ func test_every_card_meets_the_minimum_touch_target() -> void:
 ## keeps its own minimum size and stays reachable regardless of how many
 ## classes the roster grows to. Asserted on the tree shape rather than only
 ## via a screenshot -- a real launch's rect check backs this in the PR.
+## PLAYTEST-NOTES 11 / hover-info-box system: "Start Fight and Start Run
+## don't say what they do." Same GlossaryButton mechanism as every other
+## hoverable term.
+func test_start_fight_and_start_run_carry_distinct_glossary_tooltips() -> void:
+	var screen := PartySelect.new()
+	screen._ready()
+	assert_false(screen._start_button.tooltip_text.is_empty())
+	assert_false(screen._start_run_button.tooltip_text.is_empty())
+	assert_ne(screen._start_button.tooltip_text, screen._start_run_button.tooltip_text)
+	screen.free()
+
 func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
 	var screen := PartySelect.new()
 	screen._ready()
