@@ -117,13 +117,50 @@ of an ability-granting item fairly plain and the badge will sit on it cleanly.
 
 | File | What it draws |
 | --- | --- |
-| `panel_border.png` | The frame around panels |
+| `panel.png` | Every panel, card, tooltip and chip in the game |
+| `panel_border.png` | Every border |
+| `background.png` | Every screen background, including the main menu |
 
-A border is **nine-sliced**: the corners are drawn at their own size and the
-edges stretch between them, so one file works for a small tooltip and a full
-panel. Draw it square, and put the corner detail inside the outer third — a
-24x24 file has 8-pixel corners. Without a file the game draws a plain one-pixel
-outline.
+**One file changes everything of that kind.** Drop in `panel.png` and every
+panel in the game is re-skinned at once. That is deliberate: a theme you have to
+assemble out of nine files before anything looks different is a theme nobody
+finishes.
+
+**Then a second file changes one thing.** When you want a particular element to
+look different from the rest, add it under a folder named after the kind:
+
+```
+Assets/UI/panel/inspect.png        just the inspect panel
+Assets/UI/border/arena.png         just the arena frame
+Assets/UI/background/menu.png      just the main menu
+```
+
+The specific file wins for that element, the general one keeps covering
+everything else, and neither step is a code change. Delete either and the game
+falls back a level.
+
+A border and a panel are **nine-sliced**: the corners are drawn at their own
+size and the edges stretch between them, so one file works for a small tooltip
+and a full panel. Draw it square, and put the corner detail inside the outer
+third — a 24x24 file has 8-pixel corners.
+
+A **background is different**: it is scaled to **cover** the screen and cropped,
+rather than fitted inside it with bars down the sides. So its aspect ratio does
+not have to match anything, but **keep anything you care about away from the
+edges**, because which edge gets cropped depends on the window. Anything from
+about 480x270 upward scales up cleanly; there is no maximum.
+
+### What the borders are still saying
+
+Some of these borders are carrying information as well as decoration. A party
+card's border says whether that pawn is one of the four you picked. Where that
+is true, the game keeps drawing the signal **inside** your border rather than
+letting your file replace it, so a picked pawn still looks picked.
+
+That is the rule everywhere here: **a picture replaces decoration, and does not
+replace information.** It is worth knowing because the alternative would look
+completely fine in a screenshot and would have quietly removed something you
+need to see.
 
 ## Size and shape
 
