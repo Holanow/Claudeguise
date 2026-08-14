@@ -11,6 +11,7 @@ picture, and it works exactly the way `Assets/Units/` already works for units.
 ```
 Assets/UI/status/bleed.png
 Assets/UI/action/warrior_execute.png
+Assets/UI/item/plate_mail.png
 Assets/UI/panel_border.png
 ```
 
@@ -73,6 +74,44 @@ without an icon, so nobody has to notice a blank square in a fight.
 The generated icons are coloured by the action's damage type, the same colour the
 floating damage numbers and the projectiles already use. A dropped-in PNG is
 drawn exactly as you painted it, colour included.
+
+## Equipment icons
+
+One per item, shown on the pre-fight equip screen at about 32 pixels.
+
+`item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
+`item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
+`item/scrubs.png`, `item/whetstone.png`, `item/brown_ring.png`,
+`item/red_ring.png`, `item/blue_ring.png`, `item/yellow_ring.png`,
+`item/censer.png`, `item/fetish.png`, `item/piece_of_nothing.png`
+
+The filename is the item's id, and **this list is checked by a test** the same
+way the ability icons are: an item added to the game without an icon fails the
+build rather than shipping as a blank square.
+
+**The generated ones follow two rules, and a replacement is worth keeping them
+for.**
+
+**The plate says which slot it is**, before you read anything inside it. A weapon
+sits on a **diamond**, armor on a **broad flat slab**, an accessory on a
+**circle**. The rim colour says the same thing a second time — warm, cool and
+neutral — so the shape still carries it if the colours are hard to separate. An
+empty slot draws the plate on its own, so a weapon slot with nothing in it still
+looks like a weapon slot.
+
+**An item that teaches an action shows which one.** Plate Mail teaches its wearer
+to raise a Directional Block, and it carries a small badge in its corner holding
+that ability's own icon — the same picture you will see on the wind-up bar when
+the block is being raised, and again on the status badge once it is up. An item
+that only changes numbers has no badge.
+
+**The bottom-right corner is reserved, and your picture does not replace it.**
+Everything else here works the other way round: drop a file in and the generated
+version is gone. The badge is the exception because it is information rather
+than decoration — which item teaches an ability is something you need to know
+before you equip it, and a replacement picture that quietly removed it would
+look perfectly fine and would have taken something away. Leave the lower right
+of an ability-granting item fairly plain and the badge will sit on it cleanly.
 
 ## Borders and panels
 
