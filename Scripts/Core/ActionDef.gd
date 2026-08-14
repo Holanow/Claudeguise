@@ -112,7 +112,12 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ##
 ## **This does more than cap a number, and the reason is worth keeping.** The
 ## player asked for a cap because engines were "getting built really fast" --
-## 3.18 per fight, peaking at 7. But `build_siege_engine` and `spotter_mark`
+## 2.69 per fight, peaking at 7. (I first wrote 3.18 here. That came from my
+## own probe running one hardcoded party; finch's runs every buildable party
+## carrying a Siege Master, and theirs is the figure the PR reports. Neither
+## measurement is wrong, but a Core comment disagreeing with the PR beside it
+## is what costs somebody twenty minutes in a month.) But `build_siege_engine`
+## and `spotter_mark`
 ## draw on one Mana pool with build ordered first, so building was starving
 ## marking, and engines that only fire at marked targets had nothing to shoot.
 ## Capping hands every capped-out tick back to the mark plan: marking went 8%
