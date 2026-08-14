@@ -22,6 +22,46 @@ do not use a floor-run measurement as evidence for a single-room decision.
 `Tools/SampleFights.gd` is single-encounter and is the right instrument;
 `Tools/FloorRuns.gd` is not.
 
+## Balance is frozen until equipment lands
+
+> **"Equipment will pretty fundamentally change the balance so basically all
+> balance changes should be tabled until then."**
+
+The player's ruling, and it is binding. The reason is not caution, it is that
+**every balance number this project has ever taken was measured on pawns
+wearing no equipment.** Seventeen items are defined, `PawnFactory` equips
+nothing, and the day a pawn can wear plate the whole table moves. Tuning
+against today's numbers is tuning against a state the game will not be in.
+
+**What this forbids:**
+
+- Changing damage, health, costs, cooldowns, ranges or attribute values *to
+  move a win rate*.
+- Loosening or tightening a threshold in a test because a measurement crossed
+  it. finch already refused this once and was right: a cap 0.9 points over
+  while the underlying number moved eighteen points is not a threshold problem.
+- "Fixing" a party that got worse. Several deliberately did — the Warrior lost
+  Block to armor and gets it back by wearing plate, which is the equip screen's
+  job to prove.
+
+**What it does not forbid**, and these are where the work is:
+
+- **Building systems and features.** Equipment, the plan editor, the room
+  picker, kiting as a block, making hidden behaviour visible.
+- **Fixing defects.** A mechanic that does nothing, an ability nothing can
+  reach, a stall, a wrong icon. If it is broken it gets fixed, whatever it does
+  to a number.
+- **Measuring, and reporting what you measure.** Keep taking numbers. Report
+  movement plainly, including regressions. **Report it; do not act on it.**
+- Content that adds something new, as long as it is not authored to hit a
+  target win rate.
+
+If you cannot tell which side of the line a change falls on, it is a balance
+change. Post it on the board and ask.
+
+**The unblocker is #100, equipment**, and it is therefore the highest-value
+work on the board.
+
 ## The principle that governs pawn behaviour
 
 > **Pawns should never do anything the player cannot see in the plans of
