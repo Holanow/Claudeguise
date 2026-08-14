@@ -85,6 +85,27 @@ const GLYPHS := {
 		{"poly": [[-0.5, -0.7], [-0.18, -0.7], [-0.18, 0.7], [-0.5, 0.7]]},
 		{"arc": [-0.35, 0.0, 0.85, -PI / 3.0, PI / 3.0], "w": 0.2},
 	],
+	# An hourglass. Issue 61's sustained channel: something the pawn is holding
+	# open while a pool drains underneath it.
+	#
+	# A bowtie is not an outline anything else here has, which is the test this
+	# set is held to at 12px. Rejected: radiating arcs around a centre, which is
+	# the obvious "aura" reading and is also TAUNTING's horn-and-sound-arcs at
+	# small sizes.
+	#
+	# The hourglass says "running out" rather than "for a fixed time", and for
+	# this status the thing running out is resource, not a duration -- a channel
+	# ends when the pawn cannot pay for it, and has no clock at all.
+	#
+	# **swift wrote this, in sable's file.** `test_art.gd` and
+	# `test_ui_unit_view.gd` both refuse a CG.Status with no glyph, which is the
+	# guard working as intended -- a new status cannot ship invisible. It is one
+	# entry and it is meant to be replaced by whoever owns the art.
+	CG.Status.SUSTAINING: [
+		{"poly": [
+			[-0.6, -0.78], [0.6, -0.78], [0.1, 0.0], [0.6, 0.78], [-0.6, 0.78], [-0.1, 0.0],
+		]},
+	],
 	# Double chevron. Faster.
 	CG.Status.HASTE: [
 		{"poly": [[-0.7, -0.6], [-0.2, 0.0], [-0.7, 0.6], [-0.95, 0.6], [-0.45, 0.0], [-0.95, -0.6]]},

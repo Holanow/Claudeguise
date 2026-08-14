@@ -200,3 +200,31 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## nothing prefers a summon over the nearest pawn, which makes a summoner just a
 ## fragile damage dealer. One mechanism, two classes.
 @export var taunt_radius: float = 0.0
+
+## Issue 61. Resource charged to the caster on every tick this action is held.
+## 0 means the action is not sustained, which is every action that exists today,
+## so adding this changes no behaviour and invalidates no measurement -- the same
+## inert-by-default pattern as pull_distance, summons_unit_id and
+## projectile_speed before it.
+##
+## **This is the first action in the game that is not a point in time.**
+## Everything else resolves as wind-up, fire, recover. A sustained action fires
+## once and is then *held*: it deals its effect and charges this cost on every
+## tick, for as long as the pawn's plan keeps choosing it.
+##
+## The player's direction for the Abomination's Immolate: "damage to enemies
+## nearby that costs rage per tick". Immolate is retired from the game entirely
+## today because this mechanism did not exist.
+##
+## `resource_cost` is unchanged and still charged once, at commit. The two are
+## different things: what it costs to light, and what it costs to keep burning.
+@export var sustain_cost_per_tick: int = 0
+
+## World units around the caster a held effect reaches on each tick. Every
+## living enemy inside it takes the action's effect, the same
+## membership-per-tick shape `_tick_hazards` already uses for standing in fire.
+##
+## A nonzero `sustain_cost_per_tick` with this left at 0 is a channel that
+## charges the caster and reaches nothing. `Tests/test_combat_sustain.gd`
+## asserts content never authors that pair.
+@export var sustain_radius: float = 0.0
