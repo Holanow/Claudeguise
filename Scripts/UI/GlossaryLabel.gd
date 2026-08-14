@@ -1,6 +1,7 @@
 extends Label
 
 const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
+const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## A Label that shows a themed glossary popup on hover, for the ad hoc
 ## `Label.new()` chips existing screens already build (InspectPanel's
@@ -30,3 +31,10 @@ func _ready() -> void:
 
 func _make_custom_tooltip(for_text: String) -> Object:
 	return GlossaryTooltip.build(for_text)
+
+## Issue 112: this chip's own text is the popout's title -- "STR 12", "Strike",
+## whichever word the player right-clicked. The hover is unchanged; a pin is a
+## right-click, which cannot collide with anything a Label does.
+func _gui_input(event: InputEvent) -> void:
+	if PopoutHost.handle_input(self, event, text, tooltip_text):
+		accept_event()
