@@ -80,6 +80,7 @@ drawn exactly as you painted it, colour included.
 One per item, shown on the pre-fight equip screen at about 32 pixels.
 
 `item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
+`item/bow.png`, `item/staff.png`,
 `item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
 `item/scrubs.png`, `item/whetstone.png`, `item/brown_ring.png`,
 `item/red_ring.png`, `item/blue_ring.png`, `item/yellow_ring.png`,

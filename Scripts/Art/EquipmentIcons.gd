@@ -339,6 +339,47 @@ const _RING_BAND := [
 	{"arc": [0.0, 0.34, 0.56], "w": 0.2},
 ]
 
+## sable: DRAWN BY finch ON ISSUE 129, AND YOURS TO REDRAW WITHOUT ASKING.
+## Two weapons landed (Bow, Staff) and `test_every_registered_item_has_an_icon`
+## goes red the instant an item is registered without a glyph, so leaving these
+## out would have put a red assertion of yours on the trunk. Same move as the two
+## `ActionIcons` data lines on issues 87 and 99, one size up because a weapon
+## needs a shape rather than a pointer at an existing one. Both were checked on
+## `Tools/EquipmentIconSheet.tscn` at true size rather than read off the table --
+## your own note that the sheet is the only thing that has ever caught a
+## collision here.
+
+## A bow with an arrow on the string. The C alone is the honest shape of a bow
+## and it is also unreadable at 20px: a stroked crescent with nothing in it is
+## the same mark as a ring seen edge-on, and this set already has a ring. The
+## arrow is what makes it a bow rather than a curve -- and it is drawn straight
+## through the string's midpoint, which no other item in the set crosses itself
+## at.
+##
+## Nothing else here is C-shaped: `_SICKLE` is a filled J with a root and a tip,
+## and `_WRENCH`'s jaw is a squared-off U. The nearest neighbour is `_WRENCH` and
+## the two separate on stroke weight and on the arrow.
+const _BOW := [
+	{"arc": [0.2, 0.0, 0.75, 2.0, 4.28], "w": 0.15},
+	{"line": [[-0.11, -0.68], [-0.11, 0.68]], "w": 0.07},
+	{"line": [[-0.34, 0.0], [0.62, 0.0]], "w": 0.1},
+	{"poly": [[0.92, 0.0], [0.56, -0.2], [0.56, 0.2]]},
+]
+
+## A quarterstaff: one long diagonal shaft with a band at each end.
+##
+## The diagonal is not decoration. Drawn upright it is a vertical bar, which is
+## the one mark every icon set collides on, and `_SWORD` and `_SICKLE` both
+## record the same finding in this file. The two bands are what stop it reading
+## as a spear or a wand: a shaft with a mass at ONE end is an arrow (the trap
+## `_SICKLE` died on three times), and a shaft with the same mark at BOTH ends
+## cannot be pointing anywhere.
+const _STAFF := [
+	{"poly": [[-0.68, 0.82], [-0.5, 0.92], [0.5, -0.82], [0.32, -0.92]]},
+	{"poly": [[-0.52, 0.36], [-0.34, 0.46], [-0.18, 0.18], [-0.36, 0.08]]},
+	{"poly": [[0.16, -0.14], [0.34, -0.04], [0.5, -0.32], [0.32, -0.42]]},
+]
+
 ## The four gem cuts. Shape is the channel that survives greyscale; `gem_color`
 ## is the channel that survives distance.
 ##
@@ -362,6 +403,8 @@ const GLYPHS := {
 	&"wrench": _WRENCH,
 	&"sickle": _SICKLE,
 	&"orb": _ORB,
+	&"bow": _BOW,
+	&"staff": _STAFF,
 
 	# Armor.
 	&"plate_mail": _CUIRASS,

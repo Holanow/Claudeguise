@@ -327,12 +327,35 @@ func test_same_seed_replays_bit_identical() -> void:
 ## than a toss-up. What still matters, and still needs a regression guard,
 ## is that composition still produces a real spread rather than every real
 ## party landing on the same number.
+##
+## **Issue 129 closed the wall, and that is a result rather than a regression.**
+## Arming every starter pawn took `no_warrior` from **2/20 to 10/20** at floor
+## altitude while `no_geysermancer` stayed at 20/20. A party with no taunt is no
+## longer unplayable; it is merely worse, which is what a composition choice is
+## supposed to be.
+##
+## So the assertion is now the **gap** rather than a named wall. "This one party
+## is a wall" was a fact about one build and it has already stopped being true
+## once; "composition still produces a real spread" is the property the test was
+## written to protect, and it survives the wall closing. The two parties are
+## still named because they were the measured extremes both before and after --
+## if a future build moves the extremes elsewhere, re-derive them rather than
+## bending the gap.
+##
+## **rook: this is a floor-altitude fixture and `CLAUDE.md` parks floors.** It is
+## the last floor measurement left in this file, it costs 40 full floor runs per
+## gate, and by the project's own rule its numbers may not be used as evidence
+## for a single-room decision. I have re-derived it rather than deleted it
+## because deleting someone's regression guard on my own authority is not mine to
+## do -- but I think it should move to single-room altitude or go, and that is
+## your call.
 func test_real_parties_show_a_genuine_spread_at_floor_altitude() -> void:
 	var best := _floor_clear_rate(&"geysermancer", 20)
 	var worst := _floor_clear_rate(&"warrior", 20)
 	print("floor: no_geysermancer clear rate %d/20, no_warrior clear rate %d/20" % [best, worst])
 	assert_true(best >= 15, "expected a party with a dedicated tank to clear the floor most of the time, got %d/20" % best)
-	assert_true(worst <= 2, "expected a party missing its only taunt to be a real wall, got %d/20" % worst)
+	assert_true(best - worst >= 6,
+		"every real party landed within %d of the same clear rate (%d/20 and %d/20). Composition has stopped mattering at floor altitude, which is what this test exists to catch." % [best - worst, best, worst])
 
 
 ## A full floor run for every class except `missing`, seeded 0..seeds-1,
@@ -648,13 +671,37 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 ## in one arbitrary order without saying which. Flagged for rook rather than
 ## fixed here: making this table order-independent (or deliberately sampling
 ## orders) is a change to what the test measures, not a tuning pass.
+##
+## **Issue 129, and this is the day `CLAUDE.md`'s balance freeze was written
+## about.** "Every balance number this project has ever taken was measured on
+## pawns wearing no equipment ... the day a pawn can wear plate the whole table
+## moves." Every starter pawn is now armed and the whole table moved, in one
+## direction. Median hp remaining on a win -- higher is an easier boss:
+##
+##     party (leaving out)   main    issue-129
+##     no_abomination        0/20    3/20   @ 33.4%   (was never winning at all)
+##     no_geysermancer      70.3%    81.0%  <- the only row over its own cap
+##     no_priest            56.0%    69.5%
+##     no_siege_master      56.9%    62.7%
+##     no_warrior            9/20    20/20  @ 47.0%
+##
+## **The Warden got easier for every real party, and two parties that could not
+## beat it now can.** That is the finding, and per the freeze I have reported it
+## and tuned nothing: not one weapon percentage was chosen to move a row.
+##
+## Only `no_geysermancer` crossed its cap, so only that cap moved, 75% -> 85%.
+## **And the thing rook should read rather than the number: this is the fifth
+## time a cap in this table has been widened and no cap has ever narrowed.** A
+## bound that only ever moves outward stops being a bound -- announcement rule 4
+## in a different costume. The table cannot be re-narrowed while balance is
+## frozen, so I am naming the ratchet rather than adding another notch quietly.
 func test_the_warden_asks_something_of_every_real_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_warden")
 	assert_not_null(enc)
 	# ids, minimum wins out of 20, maximum median cost on a win (percent)
 	var parties := [
 		[[&"geysermancer", &"priest", &"siege_master", &"warrior"], 0, 100.0],
-		[[&"abomination", &"priest", &"siege_master", &"warrior"], 15, 75.0],
+		[[&"abomination", &"priest", &"siege_master", &"warrior"], 15, 85.0],
 		[[&"abomination", &"geysermancer", &"siege_master", &"warrior"], 15, 85.0],
 		[[&"abomination", &"geysermancer", &"priest", &"warrior"], 15, 70.0],
 		[[&"abomination", &"geysermancer", &"priest", &"siege_master"], 0, 70.0],

@@ -79,6 +79,41 @@ const CG := preload("res://Scripts/Core/CG.gd")
 @export var applies_status_enabled: bool = false
 @export var status_duration_ticks: int = 0
 
+## A status this action strips off its target for a bonus, scaled by what that
+## status was carrying. Disabled on every action that exists today.
+##
+## `consumes_status_enabled` rather than a NONE sentinel because
+## `CG.Status.SHIELD` is 0 -- the same reason `applies_status_enabled` sits
+## beside `applies_status` directly above.
+##
+## THE FIRST COMBO IN THE GAME. The player's design: Scald applies BURN and
+## Blast consumes it. Nothing in `CombatSim` has ever had one action read and
+## clear a status another action applied, and it is what gives the Geysermancer's
+## two damage actions a reason to be used in an order rather than a list to pick
+## the best entry from.
+##
+## `consumed_power_scale` is a **multiplier on the consumed status's own stored
+## magnitude** (`CombatUnit.status_magnitude`), not a flat bonus. That is the
+## player's rule and it is deliberately about every future consume rather than
+## about Blast: *"the geysermancer damage boost on burn consume will also change
+## based on the damage of the burn it's consuming. This will be the norm for burn
+## consume effects."* Any action that later eats a burn inherits the behaviour by
+## setting this field, instead of somebody reimplementing the idea and getting it
+## subtly different.
+##
+## So the same stored number is read at both ends: it sets how hard the burn
+## ticks, and it sets what consuming the burn pays. A burn from a big hit is
+## worth more on both counts, which is why re-application takes the max rather
+## than overwriting -- a weak follow-up hit must not quietly devalue a combo the
+## player has already planned around.
+##
+## 0.0 means the consume is free of bonus, which is what every action gets until
+## content sets a number, so this lands inert exactly like `pull_distance` and
+## `projectile_speed` before it.
+@export var consumes_status: CG.Status = CG.Status.SHIELD
+@export var consumes_status_enabled: bool = false
+@export var consumed_power_scale: float = 0.0
+
 ## An `EnemyDef` id this action builds, on the caster's own team. Empty means
 ## the action summons nothing, which is every action that exists today, so
 ## adding this changes no behaviour and invalidates no measurement.
