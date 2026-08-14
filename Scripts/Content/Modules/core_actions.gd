@@ -13,6 +13,54 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 ## faster from one file than five. See Registry.gd for the module contract.
 ## OWNER: teal.
 
+## Travel speed, in world units per tick, for every real ranged action on either
+## side. One constant rather than the literal repeated at twelve call sites: it
+## was already the same number everywhere, and the player has now asked for it to
+## move twice.
+##
+## **32.5, halved from 65.0 at the player's direct request: "can we cut
+## specifically projectile speed in half again, it's just hard to read."**
+##
+## Wall-clock, which is what they are reading and what the number below does not
+## say on its own: this is per *tick*, and `TICKS_PER_SECOND` already went 30 to
+## 15, so a shot is now four times slower on screen than when projectiles landed,
+## not twice. 32.5/tick is 487 units/second, and the arena is 960 wide.
+##
+## **This value has a floor as well as a ceiling, and 32.5 is below the floor the
+## old comment here claimed.** The ceiling is tunnelling: a shot moving further
+## per tick than a target's diameter can step past it between checks. The floor is
+## the frozen aim point -- `CombatSim._spawn_projectile` freezes `aim_point` at
+## launch and never homes, so a target retreating in a straight line stays outside
+## its own hit radius for the whole flight whenever
+## `speed * target_radius < range * flee_speed`. The previous comment picked 65.0
+## specifically to clear that (~40 at range 200, ~55 at range 270, against a
+## hypothetical 7.0/tick runner). Halving does not clear it against *real* units:
+## a fleeing `goblin_archer` (move_speed 3.2, radius 11) shot at from 200 units
+## needs 58.2 and now gets 32.5.
+##
+## That is a real cost and it is not hidden here: the player asked for legibility
+## and the price is more misses against anything that runs. What it cost in win
+## rate is measured in issue 93's PR rather than corrected for by moving damage.
+const RANGED_PROJECTILE_SPEED := 32.5
+
+## "Reaches anywhere in the room", expressed as a real number.
+##
+## Issue 93, the player's spec for the Siege Engine: unlimited range. A literal
+## `INF` would be the honest spelling of that and it is deliberately not used --
+## every range comparison, distance sort and `_target_in_range` check in the
+## project takes a float and works unchanged against a large finite one, whereas
+## `INF` would make each of them a place someone has to think about infinity.
+##
+## The arena is `2 * CG.ARENA_HALF_WIDTH` by `2 * CG.ARENA_HALF_HEIGHT`, so the
+## true maximum distance between two points in it is the diagonal,
+## sqrt(960^2 + 540^2) = 1101.4. 1200.0 sits above that with margin and is not
+## derived from the CG constants here because GDScript has no constant-expression
+## `sqrt`. **The guard against that going stale is a test, not this comment:**
+## `Tests/test_content_actions.gd` recomputes the diagonal from `CG` and asserts
+## this still exceeds it, so resizing the arena fails loudly instead of silently
+## giving artillery a range that no longer covers the room.
+const ARENA_SPAN := 1200.0
+
 static func classes() -> Array[ClassDef]:
 	return []
 
@@ -109,8 +157,8 @@ static func actions() -> Array[ActionDef]:
 		# DefaultBehavior's fallback (the first non-heal action in the class's
 		# own list, see starting_classes.gd) would keep ordering an unaffordable
 		# Smite forever rather than actually landing a hit.
-		_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), 65.0),
-		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), 65.0),
+		_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), RANGED_PROJECTILE_SPEED),
 		# The Priest's two buff spells, per the player's own direction ("one
 		# for speed, one for resistance") -- both target an ally within 220
 		# units, the same range as Heal and Smite, so they need no separate
@@ -142,7 +190,7 @@ static func actions() -> Array[ActionDef]:
 		# to the Priest and the Siege Master (both issue 62). Both of its
 		# actions cost Mana, so a Geysermancer out of Mana stood still.
 		#
-		# 200 range and 65.0 travel, matching geyser_blast and geyser_scald
+		# 200 range and the shared RANGED_PROJECTILE_SPEED, matching geyser_blast and geyser_scald
 		# exactly, so it needs no separate approach logic. power_scale 0.5,
 		# half of Scald's 1.0, so Scald still has a reason to be cast the
 		# moment Mana allows it -- the same relationship priest_bolt (0.5)
@@ -152,14 +200,14 @@ static func actions() -> Array[ActionDef]:
 		# action list, since `DefaultBehavior._first_non_heal` falls back to
 		# whichever action sits first whenever no plan fires -- existence is
 		# not enough, order is what makes it the fallback.
-		_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), 65.0),
-		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), 65.0),
+		_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED),
 		# Issue 79: numbers unchanged. This action also fired zero times in 210
 		# real fights, and nothing about the action itself was the cause --
 		# its plan was strictly dominated by the one above it. See
 		# `geyser_blast_cluster` and `geyser_scald_finisher` in
 		# PresetPlans.gd, which is where the whole fix lives.
-		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), 65.0),
+		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), RANGED_PROJECTILE_SPEED),
 		# Issue 87: the player's own "Geysermancer can do debuff removal", and
 		# the thing that makes this class's SUPPORT tag true -- until this it
 		# had three actions and all three were pure damage.
@@ -210,7 +258,7 @@ static func actions() -> Array[ActionDef]:
 		# this. 200 range matches the room's own ranged band (geyser_blast,
 		# priest_smite, cultist_bolt) rather than reaching past it, same
 		# reasoning as spotter_mark's own range choice below.
-		_projectile(_action(&"siege_master_shot", "Shot", "A ranged shot dealing damage at up to 200 units. Costs nothing.", CG.DamageType.PHYSICAL, 200.0, 8, 10, 1.0, 0, 0, true), 65.0),
+		_projectile(_action(&"siege_master_shot", "Shot", "A ranged shot dealing damage at up to 200 units. Costs nothing.", CG.DamageType.PHYSICAL, 200.0, 8, 10, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 		# spotter_mark: a light ranged hit that leaves MARKED for 5s
 		# (150 ticks -- long enough to matter across several of the
 		# Siege Master's own attacks and an ally's, not so long it never
@@ -223,7 +271,7 @@ static func actions() -> Array[ActionDef]:
 		# real party carrying it lost every floor room. Raised to 1.0, in
 		# line with a normal single-target hit: the debuff is still the
 		# point, but the hit landing it should not be a rounding error.
-		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 5 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), 65.0),
+		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 5 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), RANGED_PROJECTILE_SPEED),
 		# build_siege_engine: self-targeted (range 0, no line-of-sight
 		# needed), deals no damage of its own -- power_scale 0.0, the
 		# summon is the whole effect. wind_up 90 ticks (3s) is the "takes a
@@ -239,7 +287,19 @@ static func actions() -> Array[ActionDef]:
 		# gets a second or third engine out of the same Mana pool, which is
 		# what "having two of these on the field" (see siege_engine_bolt's
 		# own comment) actually requires instead of just describing.
-		_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 3 seconds building a Siege Engine with 140 health that then fights at range on its own. Costs 20 Mana.", 90, 20, 20, &"siege_engine"),
+		#
+		# Issue 93: capped at 2 live engines. The player's spec, and the cap is
+		# not only a limit on engines -- it is what pays for the marking the
+		# engines now depend on. This action and spotter_mark compete for one
+		# Mana pool and this one wins nearly every tick it is affordable
+		# (PresetPlans orders build first), which is why spotter_mark was
+		# measured landing 0.34 times per fight before this. Every capped-out
+		# tick is a tick the build plan falls through and the mark plan fires.
+		# That only works because the cap is enforced where the action is
+		# *chosen* (PlanInterpreter/DefaultBehavior) rather than where the summon
+		# spawns: refusing at spawn time would still burn 20 Mana and a 90-tick
+		# wind-up, making marking rarer instead of more frequent.
+		_summon_cap(_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 3 seconds building a Siege Engine with 140 health. It cannot move and only fires at enemies you have marked. Two at most. Costs 20 Mana.", 90, 20, 20, &"siege_engine"), 2),
 
 		# Issue 62: abomination_claw, restored. The player's own direction --
 		# "Restore abomination_claw" -- reversing issue 52's retirement of it.
@@ -266,11 +326,11 @@ static func actions() -> Array[ActionDef]:
 		# unit melee reach, so a hook lands its target close enough that one
 		# more step (or a second hook) closes the gap rather than needing to
 		# close 140 units on foot. requires_line_of_sight and
-		# projectile_speed 65.0, same as every other real ranged action in
+		# the shared RANGED_PROJECTILE_SPEED, same as every real ranged action in
 		# the game (issue 18) -- a hook is a thrown line, not an instant
 		# grab, and giving it a real travel time is what makes SHIELDING
 		# able to intercept it too, same as any other travelling shot.
-		_projectile(_pull(_action(&"abomination_hook", "Hook", "A profane tendril that deals damage and pulls the target 100 units toward the caster. Reaches 140 units. Costs 15 Rage.", CG.DamageType.PROFANE, 140.0, 10, 12, 1.4, 15, 0, true), 100.0), 65.0),
+		_projectile(_pull(_action(&"abomination_hook", "Hook", "A profane tendril that deals damage and pulls the target 100 units toward the caster. Reaches 140 units. Costs 15 Rage.", CG.DamageType.PROFANE, 140.0, 10, 12, 1.4, 15, 0, true), 100.0), RANGED_PROJECTILE_SPEED),
 		# abomination_grapple: melee range (45, matching this bestiary's
 		# other melee actions), applies SLOWED so a target the hook just
 		# dragged in cannot simply walk back out before the Abomination's
@@ -282,10 +342,10 @@ static func actions() -> Array[ActionDef]:
 		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 5 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, 8, 10, 2.8, 20, CG.Status.SLOWED, 150),
 
 		_action(&"goblin_stab", "Stab", "A melee jab dealing damage at up to 40 units.", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
-		_projectile(_action(&"goblin_arrow", "Arrow", "A ranged shot dealing damage at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), 65.0),
+		_projectile(_action(&"goblin_arrow", "Arrow", "A ranged shot dealing damage at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 		_action(&"ghoul_maul", "Maul", "A melee blow at up to 45 units, with a 0.5-second wind-up.", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
 		# Issue 23: the bestiary's status user. Profane -> POISON per README.md.
-		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt at up to 200 units that poisons the target for 9% of its max health per second, for 3 seconds.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), 65.0),
+		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt at up to 200 units that poisons the target for 9% of its max health per second, for 3 seconds.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), RANGED_PROJECTILE_SPEED),
 
 		# Issue 44: The Warden, floor 1's boss (README's own name and flavour
 		# -- "big, slow, scary, wields an executioner's axe that can do a ton
@@ -298,13 +358,41 @@ static func actions() -> Array[ActionDef]:
 		# the axe on purpose, since the point is denying safety, not
 		# out-damaging melee.
 		_action(&"warden_axe", "Executioner's Axe", "A melee swing at up to 55 units, with a 0.7-second wind-up.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
-		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A ranged attack at up to 270 units.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), 65.0),
+		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A ranged attack at up to 270 units.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 
-		# Issue 12: the siege engine's own attack, once built. Ranged and
-		# reliable rather than powerful on its own -- the Siege Master's
-		# contribution is having two of these on the field, not one hitting
-		# hard. 200 range, same band as the room's other ranged casters.
-		_projectile(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 12, 12, 1.0, 0, 0, true), 65.0),
+		# Issue 93: the siege engine's own attack, rebuilt as artillery at the
+		# player's spec -- "give the engines infinite range and a lower than
+		# average attack speed", "but they only fire on marked targets", "they
+		# should also be pretty much stationary".
+		#
+		# **Range ARENA_SPAN, not INF.** A real float keeps every existing
+		# range comparison, distance sort and `_target_in_range` check working
+		# unchanged; nothing in the project has to learn what infinity means. It
+		# is a constant rather than a literal so the guard test can prove it
+		# still exceeds the real arena diagonal if anyone resizes the room.
+		#
+		# **wind_up 45 / recover 15, a 60-tick cycle: 4.0 seconds, 15.0 shots
+		# per minute.** Measured against every other ranged action rather than
+		# picked: their cycles are 16 to 34 ticks, mean 20.4 (44.1 shots/min),
+		# and the slowest thing in the game before this was warden_chain_toss at
+		# 34 ticks (26.5/min). So this is 2.9x slower than the ranged average
+		# and 1.8x slower than the previous slowest, which is what "lower than
+		# average" has to mean for a weapon that can hit anywhere. Most of it
+		# is wind_up rather than recover on purpose: ActionDef.wind_up_ticks is
+		# the interruptible, readable half, and a siege piece visibly cranking
+		# for three seconds is the whole read.
+		#
+		# **The one that decides whether any of this matters: only fires at a
+		# MARKED enemy.** `spotter_mark` stops being a damage-amp bolted onto a
+		# summoner and becomes the engine's targeting system, which makes the
+		# Siege Master one class instead of two unrelated halves.
+		#
+		# Cost of the pair, stated rather than buried: at ARENA_SPAN the bolt is
+		# in flight ~34 ticks (1101 / RANGED_PROJECTILE_SPEED), so a maximum-
+		# range shot is over 5 seconds from decision to impact, against a frozen
+		# aim point that does not home. Long shots at anything mobile will miss
+		# often. That is measured in the PR, not corrected for here.
+		_projectile(_marked_only(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 4 seconds.", CG.DamageType.PHYSICAL, ARENA_SPAN, 45, 15, 1.0, 0, 0, true)), RANGED_PROJECTILE_SPEED),
 
 		## Issue 12 retired dungeon_grunt/dungeon_archer/dungeon_cultist from
 		## the bestiary, but these two actions are still referenced by name in
@@ -391,25 +479,43 @@ static func _action_status(id: StringName, display_name: String, description: St
 ## and every existing caller of it is a damage-dealing status application
 ## where those two would not mean anything.
 ## Issue 18/content: wraps any ActionDef with a real travel speed rather than
-## the instant-by-default 0.0. 65.0 world units/tick for every real ranged
-## action in the game, found empirically rather than picked -- a throwaway
-## probe (not committed) fired at a target that flees directly away from the
-## shooter the instant the shot launches, every tick, at 7.0 units/tick
-## (faster than any real unit's own move_speed today). Below 40 (this
-## bestiary's shortest real range, goblin_arrow at 200) and below 55
-## (warden_chain_toss at 270, the longest range in the game) respectively,
-## that worst case always misses -- not "harder to hit", genuinely
-## unhittable, because the projectile's frozen aim_point is a fixed distance
-## from the shooter and a target retreating fast enough relative to the
-## shot's own speed can keep the gap at expiry wider than its own hit
-## radius for the whole flight. 65.0 clears both thresholds with real
-## margin (a real unit fleeing this fast does not exist today), while still
-## giving projectiles real travel time to matter -- a 200-range shot takes
-## ~3 ticks, a 270-range one ~4. This is also what makes SHIELDING's own
-## interception real: at projectile_speed 0.0 there is nothing in flight for
-## a shielder to intercept.
+## the instant-by-default 0.0, which is what makes SHIELDING's interception real
+## -- at projectile_speed 0.0 there is nothing in flight for a shielder to catch.
+##
+## **The paragraph that used to live here justified 65.0 as clearing a lower
+## bound, and issue 93 halved the number below that bound at the player's
+## request. It is rewritten rather than left standing, because a comment
+## defending a value the file no longer holds is worse than none.** The bound
+## itself was correct and is now stated where the value lives:
+## `RANGED_PROJECTILE_SPEED` at the top of this file.
 static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
+	return a
+
+## Issue 93: wraps an ActionDef so it may only be aimed at an enemy carrying
+## MARKED. Same inert-by-default, content-decides-who-uses-it shape as
+## `_projectile` and `_pull`: the field is false on every other action, so this
+## adds a capability without changing one existing behaviour.
+##
+## Only `siege_engine_bolt` sets it, and that is the whole of the Siege Master's
+## rebuild -- the engine cannot choose its own targets, the Siege Master
+## designates them with `spotter_mark`. The gate is enforced in
+## `Scripts/Plans/DefaultBehavior.gd`, which is where a unit picks what to shoot
+## at; an engine with nothing marked holds fire rather than shooting at the
+## nearest thing.
+static func _marked_only(a: ActionDef) -> ActionDef:
+	a.requires_marked_target = true
+	return a
+
+## Issue 93: caps how many live summons this action may have on the field at
+## once. Built as a property of the summoning action rather than a special case
+## for the Siege Master, because `summons_unit_id` is generic on either team and
+## the next summoner will want the same thing -- there was no cap mechanism
+## anywhere before this (`grep max_summon|summon_limit` returned nothing).
+##
+## 0 means uncapped, which is every other action, so this is additive.
+static func _summon_cap(a: ActionDef, cap: int) -> ActionDef:
+	a.max_active_summons = cap
 	return a
 
 ## Issue 52/14: wraps an ActionDef with a real pull, same "the mechanism was
