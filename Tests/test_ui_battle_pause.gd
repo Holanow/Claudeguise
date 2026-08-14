@@ -118,6 +118,33 @@ func test_space_bar_toggles_pause() -> void:
 	assert_false(view.paused)
 	view.free()
 
+## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
+## or similar. Nothing currently indicates it."
+func test_pause_shows_the_dim_overlay() -> void:
+	var view = _spawn_battle_view()
+	assert_false(view._pause_dim.visible, "must not be dimmed before pausing")
+	view.set_paused(true)
+	assert_true(view._pause_dim.visible)
+	view.free()
+
+func test_resuming_hides_the_dim_overlay_again() -> void:
+	var view = _spawn_battle_view()
+	view.set_paused(true)
+	view.set_paused(false)
+	assert_false(view._pause_dim.visible)
+	view.free()
+
+func test_space_bar_also_toggles_the_dim_overlay() -> void:
+	var view = _spawn_battle_view()
+	var press := InputEventKey.new()
+	press.keycode = KEY_SPACE
+	press.pressed = true
+	view._unhandled_input(press)
+	assert_true(view._pause_dim.visible)
+	view._unhandled_input(press)
+	assert_false(view._pause_dim.visible)
+	view.free()
+
 ## Issue 18 criterion 3: every control at least TOUCH_TARGET_MIN on its
 ## short side, asserted rather than eyeballed. Unset, a Button's default
 ## minimum height comes in under 48 and looks fine in a screenshot anyway.

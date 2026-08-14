@@ -216,6 +216,12 @@ func _build_detail(pawn: PawnData) -> void:
 		"%s · %s" % [_role_text(cls.role_primary), _style_method_text(cls.style, cls.method)],
 		Palette.FONT_SIZE_BODY, Palette.TEXT_DIM)
 	tags_line.set_script(GlossaryLabelScript)
+	# Set explicitly rather than left to GlossaryLabel's own _ready(): this
+	# node is built while InspectPanel may not yet be inside a live tree (a
+	# test calling _build_detail() without ever entering one), and _ready()
+	# only fires on real tree entry — same reasoning PartyCard._ready() is
+	# already called manually elsewhere in this file's own sibling screen.
+	tags_line.mouse_filter = Control.MOUSE_FILTER_STOP
 	tags_line.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
 	_detail_box.add_child(tags_line)
 
@@ -231,6 +237,7 @@ func _build_detail(pawn: PawnData) -> void:
 		# These seven short chips never need to wrap.
 		var chip := Label.new()
 		chip.set_script(GlossaryLabelScript)
+		chip.mouse_filter = Control.MOUSE_FILTER_STOP
 		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
 		chip.tooltip_text = Glossary.attribute_text(a)
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
