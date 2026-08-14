@@ -184,14 +184,28 @@ static func _the_chokepoint() -> Encounter:
 	e.display_name = "Floor 1, The Narrows"
 	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
 	e.party_spawns = _PARTY_SPAWNS
+	## **No pillars at the bridge mouth, and a 120-unit bridge.** Both were
+	## measured at 40 seeds x 5 buildable parties, 200 fights per variant.
+	##
+	## The first version put two sight-blocking pillars in the gap, on the
+	## reasoning that a chokepoint should choke shooting as well as walking.
+	## It reintroduced the colonnade's limit cycle -- 3 stalls in 200 -- for
+	## the same reason and with none of the pits involved. **Pits alone: zero
+	## stalls in 200, at all three bridge widths tried.** The pillars were a
+	## nice idea that cost the room the property it was rebuilt to have.
+	##
+	## Bridge width, pits only, 200 fights each:
+	##
+	##   120  no stalls, cost 32-69 across the five parties, losses in 3 of 5
+	##   180  no stalls, cost 61-66 -- barely distinguishable from open ground
+	##   240  no stalls, cost 41-75, and hardly a funnel at 44% of the arena
+	##
+	## 120 wins on every count: it is the narrowest, so it is most obviously
+	## the room its name describes, and it is the one that asks different
+	## parties for different amounts.
 	e.terrain = [
-		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, -270.0, 60.0, 180.0)),
-		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, 90.0, 60.0, 180.0)),
-		## The bridge mouth. Sight-blocking only, so the funnel is a real
-		## chokepoint for shooting as well as walking without adding back a
-		## surface anything can deadlock against.
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-20.0, -70.0, 60.0, 50.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-20.0, 20.0, 60.0, 50.0)),
+		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, -270.0, 60.0, 210.0)),
+		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, 60.0, 60.0, 210.0)),
 	]
 	return e
 
@@ -228,15 +242,48 @@ static func _the_cover_room() -> Encounter:
 	e.id = &"floor1_cover"
 	e.display_name = "Floor 1, Broken Colonnade"
 	e.enemy_spawns = [
-		## Two ghouls rather than three goblins in front. Measured: with three
-		## goblins the colonnade cost every buildable party only 8-20% of its
-		## health, which is a room with no price at all. A ghoul does not care
-		## whether it can see you -- it walks at whatever is nearest and mauls
-		## it -- so it is the piece that keeps pressure on a party that has
-		## just spent the fight winning the sight-line game.
-		{"enemy_id": &"ghoul", "position": Vector2(110.0, -170.0)},
+		## **Four rosters were measured at 20 seeds x 5 buildable parties,
+		## each one both with the colonnade and with the terrain stripped, and
+		## the second column is the one that decided it.** Comparing rosters
+		## against each other only says which is harder. Comparing a roster
+		## against itself on bare ground says whether this is a cover room at
+		## all.
+		##
+		## Ranged density is the whole lever: an archer or a cultist can only
+		## fire down a lane the pillars leave open, and a goblin does not care
+		## where the pillars are because it is walking at you regardless.
+		##
+		##   roster                          wins (pillars / bare)   cost effect
+		##   2 gob + ghoul, 4 arch, 3 cult   3/20 vs 1/20            huge, but
+		##                                                           a wall
+		##   2 gob + ghoul, 3 arch, 2 cult   19-20 vs 19-20          **none.**
+		##                                                           39/39,
+		##                                                           73/73 --
+		##                                                           decoration
+		##   3 gob, 4 arch, 2 cult + gob     20 vs 20                +0..+16
+		## **3 gob, 4 arch, 3 cult           20 vs 19-20             +0..+18**
+		##
+		## The rejected middle row is the instructive one and it nearly
+		## shipped: it had the best cost spread of the four and its pillars did
+		## **nothing at all**, bit-identical tick counts on 20 of 20 seeds.
+		## Enough goblins rush the party that the fight resolves near the party
+		## spawns, a long way from the colonnade, and a pillar behind the
+		## fighting is scenery. Judging it on its win table alone would have
+		## shipped a cover room with no cover in it, which is this project's
+		## single most repeated failure.
+		##
+		## Three cultists rather than two, for the same reason: the cultist is
+		## the game's only POISON source and the player has almost never met
+		## one, and it is also a 200-range attacker, so it is both the thing
+		## worth showing and the thing the pillars act on.
+		##
+		## Direction of the effect, which is the opposite of the room's own
+		## original premise: the pillars **help the party**, by +12 to +18
+		## points of finishing health for three of the five parties. A
+		## colonnade is cover for whoever is walking through it.
+		{"enemy_id": &"goblin", "position": Vector2(110.0, -170.0)},
 		{"enemy_id": &"goblin", "position": Vector2(120.0, 0.0)},
-		{"enemy_id": &"ghoul", "position": Vector2(110.0, 170.0)},
+		{"enemy_id": &"goblin", "position": Vector2(110.0, 170.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(250.0, -225.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, -85.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, 85.0)},
@@ -246,12 +293,66 @@ static func _the_cover_room() -> Encounter:
 		{"enemy_id": &"cultist", "position": Vector2(350.0, 155.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
+	## **The two x offsets below are swept, not chosen.** They are the one
+	## number in this file that could not be reasoned about, because the
+	## colonnade has two failure modes pulling in opposite directions and the
+	## band between them is narrow.
+	##
+	## Too near where the fight settles and the fight **hangs**. The first
+	## version put a rank at x = -40 and drew 4 of 20 for `no_abomination`;
+	## x = -60 drew 8 of 20. Nothing is blocked -- a pillar stops sight and
+	## not movement -- it is a **two-tick limit cycle** in `DefaultBehavior`.
+	## The blocked-line-of-sight branch approaches, the kite branch retreats
+	## when a ranged unit is inside `KITE_RANGE_FRACTION` of its own range, and
+	## neither has hysteresis. A unit at rest on a pillar's edge alternates: it
+	## steps 3 units, the line clears, it is now too close, it steps back, the
+	## line breaks. Dumped at ticks 2000/2001/2002 the positions are exactly
+	## period-2 and **not one shot is fired for 2400 ticks**. Reported to rook
+	## for whoever owns `Scripts/Plans`; this file cannot fix it.
+	##
+	## Too far into the enemy half and the pillars are **decoration**. At
+	## x = 60/200 the room measured byte-identical to the same roster on bare
+	## ground for one party -- same wins, same median cost, same median tick
+	## count -- which is the thing `test_content_encounter.gd` has an assertion
+	## against for good reason.
+	##
+	## Swept at 20 seeds x 5 buildable parties per offset pair, 500 fights,
+	## with the class order pinned (see `test_content_rooms.gd` on why an
+	## unpinned one silently changes which class stands where):
+	##
+	##   -120/-20   4 draws, and the party hides: 84-93% health left, no price
+	##    -60/40    1 draw,  86-91% health left
+	##    -20/100   1 draw,  42-84%
+	##  **20/160    zero draws in 100 fights, 47-72%, every party differs**
+	##     60/200   zero draws, but byte-identical to bare ground for one
+	##              party -- same wins, same cost, same tick count. Decoration.
+	##
+	## 20/160 is the only pair that is neither a hang nor a decoration, and it
+	## carries a 25-point cost spread across the five parties on top.
+	##
+	## Worth writing down because it is the opposite of the intuition the room
+	## was built on: **the pillars help the party more than they help the
+	## shooters.** The same ten-enemy roster on bare ground wins 14-20 of 20;
+	## with the colonnade it wins 19-20. A colonnade is cover for whoever is
+	## walking through it.
+	## **Square, and that is a correctness fix rather than taste.**
+	## `ArenaFloor._draw_feature` draws a PILLAR as "a circle inscribed in its
+	## rect", with `radius = min(width, height) * 0.5`. That reads truthfully
+	## only for a square rect. These were 50 x 100, so the player saw a circle
+	## of radius 25 while the simulation blocked sight across the full 50 x 100
+	## footprint -- **half the drawn area, and a fight you cannot reason about
+	## from the screen.** Caught by looking at the screenshot, not by any test.
+	## 100 x 100 makes the drawn circle and the blocking footprint agree
+	## everywhere except the four corners.
+	##
+	## The general problem is still there for the next author who writes a
+	## non-square PILLAR, and `Scripts/UI/ArenaFloor.gd` is not mine. Reported.
 	e.terrain = [
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-40.0, -250.0, 50.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-40.0, -50.0, 50.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-40.0, 150.0, 50.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(150.0, -150.0, 50.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(150.0, 50.0, 50.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -250.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -50.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, 150.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(160.0, -150.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(160.0, 50.0, 100.0, 100.0)),
 	]
 	return e
 
