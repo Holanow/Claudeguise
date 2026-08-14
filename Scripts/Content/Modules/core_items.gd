@@ -8,9 +8,10 @@ const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Base equipment types. README.md's own tables, filtered to the tag
-## combinations the five starting classes actually carry -- a Bow (Ranged +
-## Martial) has no class to fit yet, so it is not here; adding one is a new
-## entry, not a rewrite of this file's shape. See Registry.gd for the module
+## combinations the five starting classes actually carry. This note used to say
+## a Bow had no class to fit and was therefore absent; issue 129 added one (and
+## a Staff), because a Siege Master is Martial and fights at range and a Bow is
+## exactly what it was holding all along. See Registry.gd for the module
 ## contract. OWNER: teal.
 ##
 ## Issue 39: weapons and accessories are percent per README ("directly
@@ -31,6 +32,41 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 ## Issue 100: `granted_actions` was empty on all seventeen items until
 ## `plate_mail` carried Directional Block. That field existing and no item
 ## using it is why equipment counted as unreachable.
+##
+## Issue 129, the player's own instruction -- "a unit's basic attack should be
+## determined by its main hand weapon rather than its class". README's weapon
+## table has carried a **Provided Actions** column from the start (Sword ->
+## Attack, Bow -> Ranged Attack, Orb -> Ranged Magical Attack) and no weapon
+## here provided anything. Every weapon now grants exactly one basic attack,
+## and `starting_classes.gd` no longer ships one.
+##
+## | Weapon | README tags     | Provides         |
+## | ------ | --------------- | ---------------- |
+## | Sword  | Melee, Martial  | Strike           |
+## | Wrench | Melee, Summoner | Strike           |
+## | Sickle | Melee, Magical  | Claw             |
+## | Bow    | Ranged, Martial | Shot             |
+## | Orb    | Ranged, Magical | Spout            |
+## | Staff  | Ranged, Magical | Bolt             |
+##
+## **The five actions are the five each class used to carry, unchanged and not
+## renamed.** The mapping is deliberately the identity one -- a Warrior with a
+## Sword still swings Strike, a Priest with a Staff still casts Bolt -- so that
+## the only thing this issue moves is *where the action comes from*, and the
+## balance measurement is attributable to that and to the weapon's own
+## percentages rather than to five new sets of numbers. Their ids keep their
+## old class prefixes (`warrior_strike`, `priest_bolt`, ...) because renaming
+## them would edit `Scripts/Art/ActionIcons.gd`, `Tests/test_art.gd`,
+## `Tests/test_combat_sim.gd` and `Tests/test_ui_*` -- four files across two
+## other sessions -- for no change a player can see. Worth its own issue, not
+## worth taking someone else's fixtures hostage for this one.
+##
+## **Every weapon grants exactly one attack, and there is a test for it.** A
+## weapon that granted nothing would be a trap: a pawn holding it has no free
+## action at all and stands still whenever it cannot pay for a spell, which is
+## the resource-exhaustion wall issues 22, 62 and 79 each fixed once. README
+## lists Wrench as providing "Tag, Overcharge" -- neither mechanism exists --
+## so it provides the plain melee attack instead of nothing.
 
 static func classes() -> Array[ClassDef]:
 	return []
@@ -54,17 +90,32 @@ static func items() -> Array[EquipmentDef]:
 		# reach (rook's own scope note), so they stay unrestricted.
 		#
 		# Melee + Martial. warrior.
-		_weapon(&"sword", "Sword", "Increases STR by 15%.", {CG.Attribute.STR: 0.15}, [CG.Method.MARTIAL]),
+		_weapon(&"sword", "Sword", "A straight blade. Increases STR by 15%, and its wielder attacks with a Strike.", {CG.Attribute.STR: 0.15}, [CG.Method.MARTIAL], [&"warrior_strike"]),
 		# Melee + Summoner. siege_master's own class is Ranged/Summoner in
 		# practice (siege_shot, siege_barrage are both ranged), but README
 		# gates Wrench on Melee+Summoner tags specifically; kept as the
 		# closest base type to the class's Martial+Summoner combination
 		# rather than inventing a sixth weapon type for one class.
-		_weapon(&"wrench", "Wrench", "Increases DEX by 12% and STR by 5%.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}, [CG.Method.MARTIAL]),
+		_weapon(&"wrench", "Wrench", "A heavy spanner. Increases DEX by 12% and STR by 5%, and its wielder attacks with a Strike.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}, [CG.Method.MARTIAL], [&"warrior_strike"]),
 		# Melee + Magical. abomination.
-		_weapon(&"sickle", "Sickle", "Increases INT by 15%.", {CG.Attribute.INT: 0.15}, [CG.Method.MAGICAL]),
-		# Ranged + Magical. priest, geysermancer.
-		_weapon(&"orb", "Orb", "Increases INT by 18%.", {CG.Attribute.INT: 0.18}, [CG.Method.MAGICAL]),
+		_weapon(&"sickle", "Sickle", "A curved, filthy blade. Increases INT by 15%, and its wielder attacks with a poisoning Claw.", {CG.Attribute.INT: 0.15}, [CG.Method.MAGICAL], [&"abomination_claw"]),
+		# Ranged + Magical. geysermancer.
+		_weapon(&"orb", "Orb", "A sphere of trapped water. Increases INT by 18%, and its wielder attacks with a Spout.", {CG.Attribute.INT: 0.18}, [CG.Method.MAGICAL], [&"geyser_spout"]),
+		# Ranged + Martial. siege_master. Issue 129: the player asked for a bow
+		# by name, and README's table has had one from the start with no class
+		# whose tags fit it -- the note at the top of this file said as much.
+		# The Siege Master is MARTIAL and fights at 200 units, so it fits now.
+		# DEX because that is what `Balance.attack_power` reads for a Martial
+		# class that is not Melee, the same relationship Sword has to STR.
+		_weapon(&"bow", "Bow", "A recurve bow. Increases DEX by 15%, and its wielder attacks with a Shot at range.", {CG.Attribute.DEX: 0.15}, [CG.Method.MARTIAL], [&"siege_master_shot"]),
+		# Ranged + Magical. priest. Issue 129: the player asked for a staff by
+		# name. README's own table does not have one -- its Ranged+Magical entry
+		# is the Orb -- so this is a second weapon of the same base tags rather
+		# than a new tag combination, which is what lets the Priest and the
+		# Geysermancer hold different things. The player is writing real items
+		# into the design document later; this is not an attempt to guess that
+		# table.
+		_weapon(&"staff", "Staff", "A long carved stave. Increases INT by 12%, and its wielder attacks with a Bolt at range.", {CG.Attribute.INT: 0.12}, [CG.Method.MAGICAL], [&"priest_bolt"]),
 
 		# --- Armor: flat, occasional CON percent, per README -------------
 		# Tank.
@@ -107,7 +158,7 @@ static func items() -> Array[EquipmentDef]:
 		_accessory(&"piece_of_nothing", "Piece of Nothing", "Increases AGI, ATN, and INT by 8% each.", {CG.Attribute.AGI: 0.08, CG.Attribute.ATN: 0.08, CG.Attribute.INT: 0.08}),
 	]
 
-static func _weapon(id: StringName, display_name: String, description: String, attribute_percent: Dictionary, allowed_methods: Array[CG.Method] = []) -> EquipmentDef:
+static func _weapon(id: StringName, display_name: String, description: String, attribute_percent: Dictionary, allowed_methods: Array[CG.Method] = [], granted_actions: Array[StringName] = []) -> EquipmentDef:
 	var e := EquipmentDef.new()
 	e.id = id
 	e.display_name = display_name
@@ -115,6 +166,7 @@ static func _weapon(id: StringName, display_name: String, description: String, a
 	e.slot = EquipmentDef.Slot.WEAPON
 	e.attribute_percent = attribute_percent
 	e.allowed_methods = allowed_methods
+	e.granted_actions = granted_actions
 	return e
 
 static func _armor(id: StringName, display_name: String, description: String, attribute_flat: Dictionary, attribute_percent: Dictionary, damage_reduction: float, granted_actions: Array[StringName] = []) -> EquipmentDef:

@@ -558,7 +558,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 		_tick_regen(state, unit, deps)
 		_tick_sustain(state, unit, deps)
 		_tick_dot_statuses(state, unit, deps)
-		_tick_statuses(state, unit)
+		_tick_statuses(state, unit, deps)
 		_tick_hazards(state, unit)
 		## Anything above can kill this unit -- its own aura cannot, but a DOT,
 		## a hazard, or a death that resolved earlier in this tick can. Checked
@@ -590,32 +590,60 @@ static func _stochastic_round(state: CombatState, value: float) -> int:
 		whole += 1
 	return whole
 
-static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
+## Keys are sorted before iterating because a Dictionary's key order is insertion
+## order -- the order the statuses happened to land in during a fight.
+##
+## A STACKING STATUS DOES NOT DROP NINE STACKS AT ONCE. On expiry it loses one
+## and re-arms for `deps.status_stack_decay_ticks`, so a bleed reads down 3, 2,
+## 1, gone rather than vanishing in a single frame the tick its source dies.
+## That decay window is content's number, and it defaults to 0 -- which means
+## the whole status comes off at once, exactly the refresh behaviour every
+## status had before this existed. So this is inert until finch sets it, like
+## everything else here.
+##
+## A dropped stack emits nothing. The status has not expired, and the badge count
+## is drawn live off `status_magnitude`, so the player sees it fall without a log
+## line per step -- which at nine stacks would be nine lines saying the same
+## thing gets smaller.
+static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.statuses.is_empty():
 		return
 	var expired: Array = unit.statuses.keys()
 	expired.sort()
 	for status in expired:
 		if state.tick >= int(unit.statuses[status]):
-			unit.statuses.erase(status)
-			## TAUNTING is the first status with a stored magnitude
-			## (taunt_radius) rather than a pure read-while-present multiplier
-			## like SLOWED/HASTE -- reset it so nothing downstream can read a
-			## stale radius off a unit that no longer carries the status.
-			if status == CG.Status.TAUNTING:
-				unit.taunt_radius = 0.0
+			if _decay_one_stack(state, unit, status, deps):
+				continue
+			## `_remove_status` also resets the two fields that shadow a status:
+			## TAUNTING's radius, so nothing downstream reads a stale reach off a
+			## unit that is no longer taunting, and SUSTAINING's action id.
+			##
 			## SUSTAINING is applied with a CG.MAX_TICKS expiry, so in a real
-			## fight it is only ever removed by `_end_sustain`. This is here for
-			## the same reason the TAUNTING line above is: the two pieces of
-			## state must not be able to diverge. It deliberately does not emit
-			## SUSTAIN_END -- nothing in a fight can reach this branch, and a
-			## second end event for one channel would be worse than none.
-			elif status == CG.Status.SUSTAINING:
-				unit.sustaining = &""
-				unit.sustain_started_tick = -1
+			## fight it is only ever removed by `_end_sustain`. It is handled
+			## there for the same reason: the two pieces of state must not be
+			## able to diverge. This deliberately does not emit SUSTAIN_END --
+			## nothing in a fight can reach that case, and a second end event for
+			## one channel would be worse than none.
+			_remove_status(unit, status)
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
 			state.emit(e)
+
+## True when one stack came off and the status survives, so the caller leaves it
+## alone. False for everything else, which is every status that does not stack
+## and the last stack of one that does.
+static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.Status, deps: SimDeps) -> bool:
+	if not _STACKING_STATUSES.has(status):
+		return false
+	var remaining := float(unit.status_magnitude.get(status, 0.0)) - 1.0
+	if remaining < 1.0:
+		return false
+	var window: int = int(deps.status_stack_decay_ticks.call(status))
+	if window <= 0:
+		return false
+	unit.status_magnitude[status] = remaining
+	unit.statuses[status] = state.tick + window
+	return true
 
 ## BURN and POISON deal their damage every tick they are active, with a
 ## DAMAGE event per hit so the log and floaters see it -- the same
@@ -624,16 +652,48 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 ## that. Fires before _tick_statuses checks expiry, so the tick a status
 ## expires on still deals its damage; the tick after, it does not, matching
 ## the hazard "stops the tick after it leaves" behaviour.
+## BLEED appended, never inserted: this is iterated in order and two statuses
+## killing a unit on the same tick must resolve in a fixed one.
 const _DOT_STATUSES := {
 	CG.Status.BURN: CG.DamageType.FIRE,
 	CG.Status.POISON: CG.DamageType.PROFANE,
+	CG.Status.BLEED: CG.DamageType.PHYSICAL,
 }
 
+## THREE STATUSES, THREE SCALING RULES, one expression:
+##
+##     per_tick = base(unit, status) + per_magnitude(unit, status) * magnitude
+##
+##   - POISON scales off the target's max health. Base only; it stores no
+##     magnitude, so the second term is zero and it is untouched.
+##   - BURN scales off the hit that applied it. Content moves its number from
+##     the base to the per-magnitude side and burn punishes being hit hard.
+##   - BLEED scales off repetition. Per-magnitude times the stack count, ticking
+##     on a slower interval, so it punishes being hit often.
+##
+## Both new seams default to inert (`0.0` and `1`), so until content wires a
+## number this is arithmetically the identical expression it was before: BURN
+## and POISON take their base and nothing else, and BLEED, which nothing
+## applies, does nothing. That matters more than usual here -- `_stochastic_round`
+## draws from `state.rng`, so a rate that moved at all would reshuffle the shared
+## stream and change every fight in the game rather than only the burning ones.
+##
+## The interval gate is `state.tick % interval`, on the fight's own clock rather
+## than a per-unit counter. Two units bleeding tick together, which reads as one
+## rhythm on screen instead of an arrhythmia, and there is no per-unit state to
+## keep in step with the status.
 static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	for status in _DOT_STATUSES:
 		if not unit.has_status(status):
 			continue
-		var amount := _stochastic_round(state, deps.status_damage_per_tick.call(unit, status))
+		var interval: int = maxi(1, int(deps.status_tick_interval.call(status)))
+		if state.tick % interval != 0:
+			continue
+		var rate: float = deps.status_damage_per_tick.call(unit, status)
+		var magnitude := float(unit.status_magnitude.get(status, 0.0))
+		if magnitude > 0.0:
+			rate += float(deps.status_damage_per_magnitude.call(unit, status)) * magnitude
+		var amount := _stochastic_round(state, rate)
 		if amount <= 0:
 			continue
 		var before := unit.hp
@@ -805,8 +865,18 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	if not target.alive:
 		return
 
+	## Resolved BEFORE the damage is computed, so the bonus lands inside the one
+	## DAMAGE event rather than beside it as a second number. A player reading
+	## "Blast consumes Burn" and then a single large figure can follow the combo;
+	## two damage lines for one hit is the same fact told twice and read as two.
+	var bonus := _consume_status(state, unit, target, action)
+
+	## How hard this hit landed, after mitigation, or 0 for a heal. Read below by
+	## `_apply_status` for a status whose magnitude is the hit that applied it.
+	var dealt := 0
+
 	if action.heals:
-		var amount := maxi(0, int(round(deps.attack_power.call(unit, action, state.rng))))
+		var amount := maxi(0, int(round(deps.attack_power.call(unit, action, state.rng) + bonus)))
 		var before := target.hp
 		target.hp = mini(target.hp_max, target.hp + amount)
 		var applied := target.hp - before
@@ -816,12 +886,13 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 			e.damage_type = action.damage_type
 			state.emit(e)
 	else:
-		var raw: float = deps.attack_power.call(unit, action, state.rng)
+		var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
 		var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 		var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
 		var before := target.hp
 		target.hp = maxi(0, target.hp - mitigated)
 		var applied := before - target.hp
+		dealt = mitigated
 		var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, target.id, action.id)
 		e.amount = applied
 		e.amount_before_mitigation = int(round(raw))
@@ -829,16 +900,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		state.emit(e)
 
 	if action.applies_status_enabled:
-		target.statuses[action.applies_status] = state.tick + action.status_duration_ticks
-		## TAUNTING's reach is stored on the taunting unit itself rather than
-		## re-derived from its action list each tick -- ActionDef.taunt_radius's
-		## own doc comment. Reapplying (a refresh) overwrites it the same way
-		## reapplying any other status already overwrites its expiry tick.
-		if action.applies_status == CG.Status.TAUNTING:
-			target.taunt_radius = action.taunt_radius
-		var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, unit.id, target.id, action.id)
-		se.status = action.applies_status
-		state.emit(se)
+		_apply_status(state, unit, target, action, dealt)
 
 	if target.hp <= 0 and target.alive:
 		target.alive = false
@@ -849,6 +911,142 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 
 	if action.cleanses_harmful and target.alive:
 		_cleanse_harmful(state, unit, target, action)
+
+# ---------------------------------------------------------------------------
+# a status that remembers something (issues 121 and 130)
+# ---------------------------------------------------------------------------
+#
+# A STATUS USED TO BE A DURATION AND NOTHING ELSE. `CombatUnit.statuses` maps a
+# status to the tick it ends and there has never been anywhere to put a
+# per-application payload, which is why nothing in this game stacks and why every
+# damage-over-time status scaled off the same thing.
+#
+# Two of the player's rulings need the same missing piece, so they are one
+# mechanism and not two:
+#
+#   "Bleed should differentiate itself from poison in that it does damage less
+#    often but stacks infinitely."
+#   "BURN damage per tick should be relative to the hit that applied it."
+#
+# `CombatUnit.status_magnitude` is that piece. What the number MEANS is decided
+# per status, by exactly one of the two tables below, and the sim owns only how
+# it is written and how it decays. Every number it turns into is content's,
+# through SimDeps, so there is no tuning value in this file.
+
+## Statuses that accumulate instead of refreshing: applying one again adds a
+## stack rather than replacing what was there.
+##
+## BLEED and nothing else, per #130, which names BLEED and is silent about the
+## rest. A table here rather than a flag on `ActionDef` on purpose: whether a
+## status stacks is a property of the status, and a field would let two actions
+## applying BLEED disagree about it, which is a knob nobody asked to turn.
+const _STACKING_STATUSES := {
+	CG.Status.BLEED: true,
+}
+
+## Statuses whose magnitude is the damage of the hit that applied them.
+##
+## BURN, per the player's ruling. The stored number is the **mitigated** damage
+## -- what the hit actually dealt, which is the figure in the floater and the
+## log, so "it burns as hard as it hit" is something a player can check on
+## screen. Armour therefore matters twice, and that is the intended reading: a
+## well-armoured target takes a small hit and consequently a small burn.
+##
+## `mitigated` rather than the `applied` figure the event carries, because
+## `applied` is clamped by the target's remaining health -- a killing blow
+## would otherwise store a number that describes how nearly dead the target
+## already was rather than how hard it was hit.
+const _HIT_SCALED_STATUSES := {
+	CG.Status.BURN: true,
+}
+
+## Writes the status, its expiry and its magnitude in one place, so the three
+## cannot be set inconsistently by two call sites.
+##
+## RE-APPLICATION, and this is the decision with a wrong answer a player would
+## notice and be unable to explain:
+##
+##   - **Stacking statuses add one and refresh the expiry.** That is the whole
+##     of "stacks infinitely".
+##   - **Hit-scaled statuses take the MAX and refresh the expiry.** Not
+##     overwrite. Overwriting downward means a second, weaker fire attack makes
+##     the player's burn *worse*, which is an outcome nobody could explain from
+##     watching. It is worse still now that a consume's payoff scales off the
+##     same number: a weak follow-up would silently devalue a combo the player
+##     had already planned around. The duration always refreshes, so a light hit
+##     still keeps a strong burn alive -- it just cannot dilute it.
+##   - **Everything else behaves exactly as before**, a plain refresh.
+##
+## `STATUS_APPLIED.amount` carries the resulting magnitude, which is unset on
+## that kind today, so a log line can say "Bleed (3)" or "Burn (18)" without a
+## new field and without reaching into the unit.
+static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, dealt: int) -> void:
+	var status: CG.Status = action.applies_status
+	var carried := float(target.status_magnitude.get(status, 0.0))
+	if _STACKING_STATUSES.has(status):
+		target.status_magnitude[status] = carried + 1.0
+	elif _HIT_SCALED_STATUSES.has(status):
+		target.status_magnitude[status] = maxf(carried, float(dealt))
+
+	target.statuses[status] = state.tick + action.status_duration_ticks
+	## TAUNTING's reach is stored on the taunting unit itself rather than
+	## re-derived from its action list each tick -- ActionDef.taunt_radius's
+	## own doc comment. Reapplying (a refresh) overwrites it the same way
+	## reapplying any other status already overwrites its expiry tick.
+	if status == CG.Status.TAUNTING:
+		target.taunt_radius = action.taunt_radius
+
+	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
+	se.status = status
+	se.amount = int(target.status_magnitude.get(status, 0.0))
+	state.emit(se)
+
+## Strips `action.consumes_status` off the target and returns the bonus power it
+## paid, or 0.0 when the action consumes nothing or the target is not carrying
+## it. Every action in the game today takes the second branch.
+##
+## The bonus is `consumed_power_scale` times the status's OWN stored magnitude,
+## which is the player's rule and is about every consume rather than about
+## Blast: *"this will be the norm for burn consume effects"*. A burn from a big
+## hit ticks harder and is worth more to eat, off one stored number read at both
+## ends.
+##
+## A stacking status is consumed whole -- every stack, for the total magnitude.
+## Eating one stack of nine would need a second decision about which stack and
+## leave the player with a badge that barely moved.
+##
+## Emits STATUS_EXPIRED carrying the caster and the consuming action, exactly as
+## `_cleanse_harmful` does and for the same reason: that pair is the only thing
+## separating "Blast ate the burn" from "the burn ran out", and it is emitted
+## before the DAMAGE event so a log reads in cause-then-effect order.
+static func _consume_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> float:
+	if not action.consumes_status_enabled:
+		return 0.0
+	var status: CG.Status = action.consumes_status
+	if not target.has_status(status):
+		return 0.0
+	var magnitude := float(target.status_magnitude.get(status, 0.0))
+	_remove_status(target, status)
+	var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, caster.id, target.id, action.id)
+	e.status = status
+	state.emit(e)
+	return action.consumed_power_scale * magnitude
+
+## The one place a status comes off a unit. Every erasure goes through here so
+## `statuses`, `status_magnitude` and the two fields that shadow a status
+## (`taunt_radius`, `sustaining`) cannot be left disagreeing -- which is exactly
+## how a stale taunt radius or a phantom stack would survive a cleanse.
+##
+## Emits nothing: the three callers each say something different about why the
+## status went (expiry, cleanse, consume) and the event belongs to them.
+static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
+	unit.statuses.erase(status)
+	unit.status_magnitude.erase(status)
+	if status == CG.Status.TAUNTING:
+		unit.taunt_radius = 0.0
+	elif status == CG.Status.SUSTAINING:
+		unit.sustaining = &""
+		unit.sustain_started_tick = -1
 
 ## Issue 87: strips every harmful status from `target`, one STATUS_EXPIRED per
 ## status removed.
@@ -866,12 +1064,19 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 ## own damage and death resolution, so a cleanse never fires on a corpse, and
 ## an action that sets neither field behaves exactly as it did before.
 ##
-## Removal is straight erasure with no state to restore. Every harmful status
-## is a read-while-present flag -- SLOWED is a multiplier read in
+## Removal goes through `_remove_status`, which takes the magnitude with it.
+## That was not always necessary: every harmful status used to be a pure
+## read-while-present flag -- SLOWED a multiplier read in
 ## `_effective_move_speed`, STUN a check in `_decide_phase`, MARKED a read in
-## Balance, BURN/POISON membership tests in `_tick_dot_statuses`. The one
-## status carrying a stored magnitude on the unit (TAUNTING, via taunt_radius)
-## is not harmful and so is never touched here.
+## Balance, BURN/POISON membership tests in `_tick_dot_statuses` -- and the only
+## status carrying anything extra (TAUNTING, via taunt_radius) was harmless and
+## therefore never reached here.
+##
+## **BLEED and BURN broke that**: both are harmful and both now carry a
+## magnitude, so a cleanse that erased only the expiry would leave nine stacks
+## of bleed sitting on a unit that no longer has bleed, waiting to be revived at
+## full strength by the next application. One removal path is what stops that
+## from ever being a question again.
 ##
 ## Keys are sorted before iterating, exactly as `_tick_statuses` does: a
 ## Dictionary's key order is insertion order, so two fights from one seed
@@ -891,7 +1096,7 @@ static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: Com
 	for status in present:
 		if not CG.is_harmful(status):
 			continue
-		target.statuses.erase(status)
+		_remove_status(target, status)
 		var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, caster.id, target.id, action.id)
 		e.status = status
 		state.emit(e)
