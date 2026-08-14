@@ -25,7 +25,6 @@ const RESOURCE_RAGE := Color("e08a4b")
 const RESOURCE_ENERGY := Color("e0d24b")
 
 const FOCUS_LINE := Color("ffffff40")
-const WIND_UP := Color("f0c674")
 
 const SPACE_XS := 4.0
 const SPACE_S := 8.0
