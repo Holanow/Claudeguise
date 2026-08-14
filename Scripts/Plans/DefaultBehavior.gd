@@ -68,12 +68,24 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 				return Intent.use_action(heal_action.id, neediest.id)
 			return Intent.move_to(neediest.position)
 
-	var attack_action := _first_non_heal(candidates)
-	if attack_action == null:
-		return Intent.idle()
-
 	var target := _choose_target(state, unit, enemies)
 	if target == null:
+		return Intent.idle()
+
+	# Issue 62: picks a melee-vs-ranged action by the current target's actual
+	# distance, rather than always the first non-heal entry in unit.actions.
+	# Found while re-tuning after free basic attacks moved the floor-clear
+	# table: The Warden carries both warden_axe (melee) and warden_chain_toss
+	# (ranged, "chain for whoever does not [close]" per its own content
+	# comment) specifically so a party that kites its slow move_speed still
+	# has to answer something -- but axe being first in EnemyDef.actions
+	# meant chain_toss never fired even once in a real fight, because the
+	# old _first_non_heal always returned axe regardless of range. A unit
+	# with only one non-heal action (every player, every other enemy in the
+	# bestiary today) sees no behaviour change: _choose_attack_action
+	# returns that single action exactly like _first_non_heal did.
+	var attack_action := _choose_attack_action(candidates, unit, target)
+	if attack_action == null:
 		return Intent.idle()
 
 	var dist := unit.position.distance_to(target.position)
@@ -122,6 +134,32 @@ static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
 		if not a.heals:
 			return a
 	return null
+
+## Issue 62: among a unit's non-heal actions, prefers whichever one's own
+## melee-vs-ranged shape matches the target's current distance -- melee if
+## already (or almost) in a melee action's own commit range, ranged
+## otherwise. Falls back to `_first_non_heal`'s exact behaviour (the first
+## non-heal action, in list order) whenever there is nothing to choose
+## between: no candidates, only one, or every candidate on the same side of
+## MELEE_RANGE_THRESHOLD. That covers every unit in the game today except
+## The Warden, the only one carrying both a melee and a ranged action.
+static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, target: CombatUnit) -> ActionDef:
+	var melee: ActionDef = null
+	var ranged: ActionDef = null
+	for a in actions:
+		if a.heals:
+			continue
+		if a.range_units > MELEE_RANGE_THRESHOLD:
+			if ranged == null:
+				ranged = a
+		elif melee == null:
+			melee = a
+	if melee == null or ranged == null:
+		return _first_non_heal(actions)
+	var dist := unit.position.distance_to(target.position)
+	if dist <= melee.range_units * MELEE_COMMIT_FRACTION:
+		return melee
+	return ranged
 
 ## TAUNTING forces target *selection*, not what a unit does after choosing --
 ## a taunted unit still uses its own approach/kite/commit logic against the

@@ -63,7 +63,13 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.DIVINE, CG.DamageType.AIR],
 			CG.ResourceKind.MANA,
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 5},
-			[&"priest_heal", &"priest_smite"]
+			# Issue 62: priest_bolt (no cost) placed before priest_smite --
+			# DefaultBehavior._first_non_heal falls back to the first
+			# non-heal action in this list whenever no plan fires, and
+			# priest_smite_nearest's own plan already falls through to
+			# here the moment Mana can't cover Smite. Same reasoning as
+			# warrior_strike staying first for the Warrior.
+			[&"priest_heal", &"priest_bolt", &"priest_smite"]
 		),
 		_class(
 			&"geysermancer", "Geysermancer",
@@ -101,7 +107,15 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.PHYSICAL, CG.DamageType.RAW],
 			CG.ResourceKind.MANA,
 			{CG.Attribute.STR: 3, CG.Attribute.DEX: 9, CG.Attribute.AGI: 5, CG.Attribute.CON: 4, CG.Attribute.INT: 2, CG.Attribute.ATN: 2, CG.Attribute.WIS: 4},
-			[&"spotter_mark", &"build_siege_engine"]
+			# Issue 62: siege_master_shot (no cost) placed first --
+			# DefaultBehavior._first_non_heal falls back to the first action
+			# in this list whenever no plan fires, and both spotter_mark_
+			# default and siege_master_build_when_ready already fall through
+			# to here the moment Mana can't cover them. Before this, the
+			# fallback was spotter_mark itself, which also costs Mana -- a
+			# Siege Master out of Mana had nothing affordable to fall back
+			# to at all.
+			[&"siege_master_shot", &"spotter_mark", &"build_siege_engine"]
 		),
 		## CON 8->10 (issue 24, history only, superseded below). AGI 2->8,
 		## CON 10->12, INT 7->12 (issue 37): the leave-one-out ablation showed
@@ -122,21 +136,24 @@ static func classes() -> Array[ClassDef]:
 		## 11-13/20 coin flip without any party hitting 20/20, but does not
 		## fully clear issue 37's 4-6 target for the Siege-Master-less party
 		## (measured 1/20) -- disclosed on the board rather than forced.
-		# Issue 52: abomination_claw and abomination_immolate retired,
-		# replaced by abomination_hook and abomination_grapple -- the class
-		# is being replaced, not extended, per the issue's own instruction.
-		# hook first: it is the class's own opening move ("far enough to
-		# open a fight, close enough to be a commitment," per the player),
-		# and DefaultBehavior._first_non_heal falls back to whichever
-		# action is first here whenever no plan fires -- same reasoning as
-		# warrior_strike staying first for the Warrior.
+		# Issue 52 retired abomination_claw and abomination_immolate,
+		# replaced by abomination_hook and abomination_grapple. Issue 62
+		# restored claw (the player's own direction) and put it first --
+		# see that action's own comment in core_actions.gd for why.
 		_class(
 			&"abomination", "Abomination",
 			CG.Method.MAGICAL, CG.Style.MELEE, CG.Role.ANTI_SUPPORT, CG.Role.TANK,
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
 			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
-			[&"abomination_hook", &"abomination_grapple"]
+			# Issue 62: abomination_claw restored and placed first -- both
+			# hook and grapple cost Rage, and Rage only fills from a landed
+			# hit, so a Rage-starved Abomination needs a no-cost fallback the
+			# same way Warrior's strike is one. DefaultBehavior._first_non_
+			# heal falls back to whichever action sits first here whenever no
+			# plan fires; both preset plans below already fall through to
+			# here the moment Rage can't cover hook or grapple.
+			[&"abomination_claw", &"abomination_hook", &"abomination_grapple"]
 		),
 	]
 
