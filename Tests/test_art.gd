@@ -778,3 +778,146 @@ func test_the_equipment_replacement_instructions_match_the_real_content() -> voi
 			readme.contains("item/%s.png" % id),
 			"item '%s' is registered but Assets/UI/README.md does not list item/%s.png" % [id, id]
 		)
+
+
+# ---------------------------------------------------------------------------
+# UIArt theming (#115): borders and backgrounds for the major elements, through
+# the pipeline that already exists.
+#
+# These write real PNGs into Assets/UI and delete them again, the same way
+# `test_a_dropped_in_png_is_found_with_no_registration` does, because the claim
+# being made is about files on disk and reasoning about it proves nothing.
+#
+# Every one has a NEGATIVE half. With no file present these calls must produce
+# exactly what the screens already build by hand -- that property is what makes
+# it safe to convert nine screens at once, and a test that only checked the
+# themed path would pass while the default silently changed.
+# ---------------------------------------------------------------------------
+
+const Palette := preload("res://Scripts/Core/Palette.gd")
+
+const _THEME_SCRATCH := ["res://Assets/UI/panel.png", "res://Assets/UI/panel/scratch_element.png",
+	"res://Assets/UI/background.png", "res://Assets/UI/border/scratch_element.png"]
+
+
+func _write_theme_png(path: String, size: int = 12) -> void:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 1.0, 1.0, 1.0))
+	assert_eq(image.save_png(path), OK, "could not write %s" % path)
+	UIArt.clear_cache()
+
+
+func _clear_theme_scratch() -> void:
+	for path in _THEME_SCRATCH:
+		DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute("res://Assets/UI/panel")
+	DirAccess.remove_absolute("res://Assets/UI/background")
+	DirAccess.remove_absolute("res://Assets/UI/border")
+	UIArt.clear_cache()
+
+
+func test_with_no_theme_files_a_panel_is_the_flat_box_the_screens_build_today() -> void:
+	# The negative half, and the load-bearing one. Nine screens are meant to be
+	# converted to this call, and the promise that makes it safe is that with no
+	# file present nothing changes by a single pixel.
+	_clear_theme_scratch()
+	var style := UIArt.panel_style(&"anything", Palette.ARENA_FLOOR, Palette.ARENA_EDGE, 1, Palette.SPACE_S)
+	assert_true(style is StyleBoxFlat, "with no file a panel must be the StyleBoxFlat the screens already use")
+	assert_eq(style.bg_color, Palette.ARENA_FLOOR)
+	assert_eq(style.border_color, Palette.ARENA_EDGE)
+	assert_eq(style.border_width_left, 1)
+	assert_almost_eq(style.content_margin_left, Palette.SPACE_S, 0.001)
+
+
+func test_with_no_theme_files_a_background_is_the_flat_colour_rect() -> void:
+	_clear_theme_scratch()
+	var node := UIArt.background_node(&"anything", Palette.BACKGROUND)
+	assert_true(node is ColorRect, "with no file a background must be the ColorRect the screens already use")
+	assert_eq(node.color, Palette.BACKGROUND)
+	node.free()
+
+
+func test_a_background_never_swallows_mouse_input() -> void:
+	# A background that eats clicks is a screen whose buttons stop working, and
+	# that failure looks exactly like the buttons being broken rather than like
+	# the theming. Both paths, because only one of them is a new node type.
+	_clear_theme_scratch()
+	var bare := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_eq(bare.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	bare.free()
+	_write_theme_png("res://Assets/UI/background.png")
+	var themed := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_eq(themed.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	themed.free()
+	_clear_theme_scratch()
+
+
+func test_a_background_covers_its_rect_rather_than_fitting_inside_it() -> void:
+	# The one place this pipeline deliberately departs from `draw_fit`. An icon
+	# that does not quite fill its box looks slightly small; a background that
+	# does not quite fill its screen has bars down the sides and looks broken.
+	_write_theme_png("res://Assets/UI/background.png")
+	var node := UIArt.background_node(&"scratch_element", Palette.BACKGROUND)
+	assert_true(node is TextureRect)
+	assert_eq(node.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+	assert_eq(node.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+	node.free()
+	_clear_theme_scratch()
+
+
+func test_one_general_file_themes_every_element() -> void:
+	# Drop in `panel.png` and every panel in the game is re-skinned, with no code
+	# change and no per-element file. Without this a player needs nine files
+	# before anything looks different.
+	_write_theme_png("res://Assets/UI/panel.png")
+	assert_eq(UIArt.theme_name(&"panel", &"one_element"), &"panel")
+	assert_eq(UIArt.theme_name(&"panel", &"a_completely_different_element"), &"panel")
+	assert_true(UIArt.panel_style(&"one_element", Palette.ARENA_FLOOR, Palette.ARENA_EDGE) is StyleBoxTexture)
+	_clear_theme_scratch()
+
+
+func test_a_specific_file_overrides_the_general_one_for_that_element_only() -> void:
+	# And the other half: adding `panel/<element>.png` later must win for that
+	# element without disturbing anything else that is already themed.
+	_write_theme_png("res://Assets/UI/panel.png")
+	_write_theme_png("res://Assets/UI/panel/scratch_element.png")
+	assert_eq(UIArt.theme_name(&"panel", &"scratch_element"), &"panel/scratch_element")
+	assert_eq(UIArt.theme_name(&"panel", &"some_other_element"), &"panel",
+		"a specific override leaked onto an element it was not written for")
+	_clear_theme_scratch()
+
+
+func test_theme_lookup_is_silent_when_nothing_is_dropped_in() -> void:
+	# The detector-stays-quiet half. A lookup that resolved to something on an
+	# empty Assets/UI would theme the game with a file nobody wrote.
+	_clear_theme_scratch()
+	assert_eq(UIArt.theme_name(&"panel", &"scratch_element"), &"")
+	assert_eq(UIArt.theme_name(&"background", &"scratch_element"), &"")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"")
+	assert_eq(UIArt.border_art_name(&""), &"")
+
+
+func test_a_border_resolves_the_specific_file_then_the_documented_general_one() -> void:
+	# `panel_border` and not `border` as the general name, because that is what
+	# Assets/UI/README.md has told the player since #81 and renaming it would
+	# break a promise already made in writing.
+	_clear_theme_scratch()
+	_write_theme_png("res://Assets/UI/panel_border.png")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"panel_border")
+	_write_theme_png("res://Assets/UI/border/scratch_element.png")
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"border/scratch_element")
+	assert_eq(UIArt.border_art_name(&"another_element"), &"panel_border")
+	DirAccess.remove_absolute("res://Assets/UI/panel_border.png")
+	_clear_theme_scratch()
+	assert_eq(UIArt.border_art_name(&"scratch_element"), &"",
+		"a theme file survived its own deletion")
+
+
+func test_the_theming_instructions_name_every_file_the_code_looks_for() -> void:
+	# Assets/UI/README.md is a document the player is expected to read and use.
+	# A lookup the code performs and the README does not mention is a file that
+	# would work and that nobody could know to write.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	for name in ["panel.png", "panel_border.png", "background.png"]:
+		assert_true(readme.contains(name), "Assets/UI/README.md does not mention %s" % name)
