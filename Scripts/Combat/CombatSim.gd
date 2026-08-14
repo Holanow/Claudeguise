@@ -189,6 +189,14 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 			# in-progress issue 7 tuning pass. A wind-up that is safe once
 			# committed is also the simpler thing to teach a player: land the
 			# stun before the swing starts, not during it.
+			#
+			# ISSUE 61: a stun DOES break a sustained action, where it
+			# deliberately does not cancel a committed wind-up. Those are
+			# different commitments. A wind-up is one decision, already paid
+			# for, that the unit is riding out. A channel is a decision renewed
+			# every tick, and a unit that "neither decides nor acts" is by
+			# definition not renewing one.
+			_end_sustain(state, unit)
 			continue
 		var intent: Intent = null
 		if unit.pawn != null:
@@ -196,6 +204,7 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		if intent == null:
 			intent = deps.default_decide.call(state, unit)
 		unit.intent = intent
+		_reaffirm_sustain(state, unit, intent)
 
 # ---------------------------------------------------------------------------
 # resolve
@@ -370,6 +379,23 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	if action == null:
 		push_error("CombatSim: unit %d tried unknown action '%s'" % [unit.id, intent.action_id])
 		return
+
+	## Issue 61: the plan choosing a sustained action the unit is *already*
+	## holding is the re-affirmation that keeps the channel alive, and it must
+	## not also re-commit. Without this the unit would pay `resource_cost`,
+	## restart its wind-up and refresh its cooldown on every single tick of the
+	## channel, which would make holding an action strictly more expensive than
+	## firing it and would mean it never actually ticked.
+	##
+	## Checked before the affordability and cooldown gates below on purpose: a
+	## cooldown on a sustained action must not be able to interrupt one already
+	## running. (Content should not put a cooldown on one at all --
+	## `PlanInterpreter._can_afford` would refuse to re-choose it and the channel
+	## would end itself on the next free tick. `Tests/test_combat_sustain.gd`
+	## asserts no authored action does.)
+	if action.sustain_cost_per_tick > 0 and unit.sustaining == action.id:
+		return
+
 	if unit.resource < action.resource_cost:
 		return
 	if unit.cooldowns.has(action.id) and state.tick < int(unit.cooldowns[action.id]):
@@ -405,6 +431,13 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 	for unit in state.units:
 		if not unit.alive:
+			## Issue 61: a channel does not outlive its caster. Deaths land in
+			## several places -- an attack in `_resolve_phase`, a DOT or a hazard
+			## or somebody else's aura later in this same loop -- so this is
+			## checked at the one point every dead unit passes through on every
+			## tick, rather than beside each of them.
+			if unit.sustaining != &"":
+				_end_sustain(state, unit)
 			continue
 		if unit.action_ticks_left > 0:
 			unit.action_ticks_left -= 1
@@ -419,9 +452,17 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 			if unit.recover_ticks_left == 0:
 				unit.current_action = &""
 		_tick_regen(state, unit, deps)
+		_tick_sustain(state, unit, deps)
 		_tick_dot_statuses(state, unit, deps)
 		_tick_statuses(state, unit)
 		_tick_hazards(state, unit)
+		## Anything above can kill this unit -- its own aura cannot, but a DOT,
+		## a hazard, or a death that resolved earlier in this tick can. Checked
+		## again here so the channel's end event lands on the tick the caster
+		## died rather than one tick later, which is what the top-of-loop check
+		## alone would give.
+		if not unit.alive and unit.sustaining != &"":
+			_end_sustain(state, unit)
 
 ## Mana and Energy refill over time; Rage does not — CombatSim enforces that
 ## itself rather than trusting the rate function, so a rate that forgets to
@@ -459,6 +500,15 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit) -> void:
 			## stale radius off a unit that no longer carries the status.
 			if status == CG.Status.TAUNTING:
 				unit.taunt_radius = 0.0
+			## SUSTAINING is applied with a CG.MAX_TICKS expiry, so in a real
+			## fight it is only ever removed by `_end_sustain`. This is here for
+			## the same reason the TAUNTING line above is: the two pieces of
+			## state must not be able to diverge. It deliberately does not emit
+			## SUSTAIN_END -- nothing in a fight can reach this branch, and a
+			## second end event for one channel would be worse than none.
+			elif status == CG.Status.SUSTAINING:
+				unit.sustaining = &""
+				unit.sustain_started_tick = -1
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
 			state.emit(e)
@@ -526,23 +576,35 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if action.summons_unit_id != &"":
 		_spawn_summon(state, unit, action, deps)
 
-	var targets := _resolve_targets(state, unit, action)
-	if targets.is_empty():
-		state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
-	elif action.projectile_speed > 0.0:
-		## Issue 18: range and line-of-sight are still checked right here, at
-		## the moment the wind-up completes, exactly as an instant action --
-		## an out-of-range or blocked target still MISSes immediately above,
-		## nothing launches. The only change for a target that IS resolved:
-		## the effect does not land yet. `_spawn_projectile` aims at
-		## `targets[0]` (the primary) only; splash, if any, is regathered
-		## around the target's live position at impact, not fire time -- see
-		## `_splash_targets`'s own doc comment.
-		_spawn_projectile(state, unit, targets[0], action, deps)
+	## Issue 61: a sustained action lands nothing at the moment it fires. Firing
+	## is ignition; the first tick of upkeep is the first tick of effect, and it
+	## arrives on this same tick because `_tick_sustain` runs later in
+	## `_tick_phase` than the branch that called this.
+	##
+	## It deliberately skips `_resolve_targets` rather than running it and
+	## ignoring the result. A channel is aimed at an area around its caster, so
+	## it has no focused target to be in range of -- running the ordinary path
+	## would emit a MISS on every ignition, which is a lie in the combat log and
+	## exactly the kind of wrong-but-plausible record issue 98 is about.
+	if action.sustain_cost_per_tick > 0:
+		_begin_sustain(state, unit, action)
 	else:
-		for target in targets:
-			_apply_action_effect(state, unit, target, action, deps)
-		if not targets.is_empty():
+		var targets := _resolve_targets(state, unit, action)
+		if targets.is_empty():
+			state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
+		elif action.projectile_speed > 0.0:
+			## Issue 18: range and line-of-sight are still checked right here, at
+			## the moment the wind-up completes, exactly as an instant action --
+			## an out-of-range or blocked target still MISSes immediately above,
+			## nothing launches. The only change for a target that IS resolved:
+			## the effect does not land yet. `_spawn_projectile` aims at
+			## `targets[0]` (the primary) only; splash, if any, is regathered
+			## around the target's live position at impact, not fire time -- see
+			## `_splash_targets`'s own doc comment.
+			_spawn_projectile(state, unit, targets[0], action, deps)
+		else:
+			for target in targets:
+				_apply_action_effect(state, unit, target, action, deps)
 			_on_hit_landed(state, unit, deps)
 
 	unit.current_action = action.id
@@ -751,6 +813,177 @@ static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUn
 	var travel := minf(distance, dist)
 	var step := to_caster.normalized() * travel
 	target.position = _sweep(state, target, step)
+
+# ---------------------------------------------------------------------------
+# sustained actions (issue 61)
+# ---------------------------------------------------------------------------
+#
+# THE FIRST THING IN THIS SIMULATION THAT IS NOT A POINT IN TIME.
+#
+# Every other action resolves as wind-up, fire, recover -- three moments. A
+# sustained action fires once and is then *held*: it deals its effect and
+# charges `sustain_cost_per_tick` on every tick, and it keeps doing so for
+# exactly as long as the pawn's decision layer keeps choosing it.
+#
+# WHAT ENDS IT, and this is the design decision rather than an implementation
+# detail. Four things, and the first one is the important one:
+#
+#   1. The plan stops choosing it. A holding unit is NOT busy, so
+#      `_decide_phase` asks the decision layer every tick exactly as it always
+#      has. An intent of USE_ACTION naming the same action re-affirms the
+#      channel; anything else ends it (`_reaffirm_sustain`).
+#   2. Resource below the per-tick cost (`_tick_sustain`).
+#   3. STUN (`_decide_phase`).
+#   4. Death (`_tick_phase`, both ends of the loop body).
+#
+# (1) was chosen over an autonomous toggle the pawn switches off by itself, and
+# the reason is CLAUDE.md's binding principle: *pawns should never do anything
+# the player cannot see in the plans of action.* A channel that outlives the
+# plan that started it is a pawn burning its own resource for reasons written
+# nowhere the player can read, which is that failure exactly. Re-affirmation
+# also means the plan's CONDITION is the off switch -- already authored, already
+# visible on the inspect screen, already editable.
+#
+# It costs nothing to implement, because the seam was already there: the sim has
+# always asked for an intent whenever a unit is free, and a held action leaves
+# the unit free.
+#
+# ON DURATION, the fifth PlanBlock kind, whose ops are `[&"once"]` and which
+# stores no per-plan progress anywhere. A sustained action is the first thing
+# that could have given it a meaning and I decided against it deliberately
+# rather than leaving it inert by accident: **this mechanism makes CONDITION do
+# DURATION's job.** The channel's lifetime *is* the plan's condition,
+# re-evaluated every tick. A DURATION block saying "for N ticks" beside it would
+# be a second, competing governor of the same lifetime, and a plan whose
+# condition drops at tick 20 with a duration of 60 has no correct answer. If
+# DURATION is ever to mean something it is scheduling -- "keep re-firing this
+# plan for N ticks before yielding to a later one" -- which is a concept
+# `PlanInterpreter` has never had, lives in a file this session does not own,
+# and is not what issue 61 asks for.
+#
+# The unit is free to move while holding: movement is not a competing action,
+# and the player asked for an aura rather than a root. In practice a plan that
+# stops firing hands the tick to `DefaultBehavior`, which usually moves, and the
+# channel ends there -- through (1), for a reason the player can read.
+
+## Begins the channel. Both pieces of state are written here and nowhere else,
+## which is what keeps `CombatUnit.sustaining` and `CG.Status.SUSTAINING` from
+## being able to disagree.
+##
+## The status carries a CG.MAX_TICKS expiry -- "outlives the fight", the same
+## thing `_build_enemy_unit` does for a spawn-time TAUNTING, and for the same
+## reason: this status is ended by a rule, not by a clock, so it must never
+## expire on its own.
+static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
+	unit.sustaining = action.id
+	unit.sustain_started_tick = state.tick
+	unit.statuses[CG.Status.SUSTAINING] = CG.MAX_TICKS
+	state.emit(_event(CG.EventKind.SUSTAIN_START, state.tick, unit.id, -1, action.id))
+
+## Ends it, from any of the four causes. Safe to call on a unit holding nothing,
+## which is why every caller is a plain unguarded call.
+##
+## Erasing the status here does NOT emit STATUS_EXPIRED, where `_tick_statuses`
+## and `_cleanse_harmful` both do. SUSTAIN_END is that event, carrying strictly
+## more information (which action, how long); two events for one ending would
+## put the same fact in a log twice and let a reader count a channel as having
+## stopped twice.
+static func _end_sustain(state: CombatState, unit: CombatUnit) -> void:
+	if unit.sustaining == &"":
+		return
+	var e := _event(CG.EventKind.SUSTAIN_END, state.tick, unit.id, -1, unit.sustaining)
+	e.amount = maxi(0, state.tick - unit.sustain_started_tick)
+	state.emit(e)
+	unit.sustaining = &""
+	unit.sustain_started_tick = -1
+	unit.statuses.erase(CG.Status.SUSTAINING)
+
+## Cause (1). Called from `_decide_phase` with whatever the decision layer just
+## returned, on every tick the unit was free to decide.
+##
+## A unit that is busy is never asked, so it is never checked here, and its
+## channel survives its own recovery ticks. That is deliberate: recovery is the
+## unit finishing the thing it was told to do, not the unit changing its mind.
+static func _reaffirm_sustain(state: CombatState, unit: CombatUnit, intent: Intent) -> void:
+	if unit.sustaining == &"":
+		return
+	if intent != null and intent.kind == CG.IntentKind.USE_ACTION and intent.action_id == unit.sustaining:
+		return
+	_end_sustain(state, unit)
+
+## One tick of upkeep: charge, then deal.
+##
+## The same membership-per-tick shape `_tick_hazards` already uses for standing
+## in fire, pointed at the caster instead of at a fixed patch of ground. That
+## was the model issue 61 named and it is the right one -- there is no duration
+## to decay, no list of affected units to maintain, nothing to clean up when
+## somebody walks out. Position is re-read every tick and that is the whole
+## bookkeeping.
+##
+## ON THE TICK THE RESOURCE RUNS OUT: it stops cleanly and there is no partial
+## tick. Nothing is charged and nothing is dealt. The alternative -- spend what
+## is left and deal a fraction of the effect -- makes the last tick of every
+## channel a different tick from all the others for no gain a player could
+## read.
+##
+## DETERMINISM: `state.living()` is `state.units` order, which is fixed for a
+## seed, and the only randomness reached is `state.rng` through
+## `deps.attack_power`, consumed in that same fixed order. No wall clock, no
+## Dictionary iteration.
+##
+## This can kill a unit that `_tick_phase` has not reached yet in the loop that
+## called it, which is the same thing an attack in `_resolve_phase` has always
+## been able to do -- that unit is simply skipped for the rest of this tick.
+static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
+	if unit.sustaining == &"":
+		return
+	var action: ActionDef = deps.action_lookup.call(unit.sustaining)
+	if action == null or action.sustain_cost_per_tick <= 0:
+		_end_sustain(state, unit)
+		return
+	if unit.resource < action.sustain_cost_per_tick:
+		_end_sustain(state, unit)
+		return
+
+	unit.resource -= action.sustain_cost_per_tick
+	var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
+	spent.amount = action.sustain_cost_per_tick
+	state.emit(spent)
+
+	for target in _sustain_targets(state, unit, action):
+		_apply_action_effect(state, unit, target, action, deps)
+
+## Everyone inside the channel's radius this tick.
+##
+## `action.heals` picks the side, the same field that already decides whether
+## `_apply_action_effect` adds or subtracts hp -- so a sustained heal aura is a
+## card content can author with no further work here, which is what issue 61
+## means by "a new category, not a new number". A damage aura reads the enemy
+## team and therefore can never catch the caster's own party.
+##
+## `requires_line_of_sight` is honoured per target, so a pillar between the
+## Abomination and a goblin spares the goblin. An aura that burns through a wall
+## would be the same defect `Terrain.line_is_blocked` was built to fix for
+## shots.
+##
+## A zero radius returns nothing rather than falling back to the focused target.
+## A channel with a cost and no reach is content authored wrong, and it should
+## look wrong -- silently retargeting it would hide the mistake.
+static func _sustain_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
+	var out: Array[CombatUnit] = []
+	if action.sustain_radius <= 0.0:
+		return out
+	var side := unit.team if action.heals else _enemy_team(unit.team)
+	for other in state.living(side):
+		if unit.position.distance_to(other.position) > action.sustain_radius:
+			continue
+		if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, other.position):
+			continue
+		out.append(other)
+	return out
+
+static func _enemy_team(team: CG.Team) -> CG.Team:
+	return CG.Team.ENEMY if team == CG.Team.PLAYER else CG.Team.PLAYER
 
 # ---------------------------------------------------------------------------
 # projectiles

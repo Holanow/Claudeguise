@@ -192,6 +192,23 @@ enum Status {
 	## the same way Terrain.line_is_blocked already stops a shot at a wall. That
 	## is the fallback, not the design.
 	SHIELDING,
+	## This unit is holding a sustained action: an effect that ticks every tick
+	## and charges it resource every tick, for as long as its plan keeps
+	## choosing it. Issue 61.
+	##
+	## Appended, never inserted, same rule the rest of this enum carries.
+	##
+	## Not harmful, so a cleanse never strips a pawn's own channel.
+	##
+	## It exists so the *middle* of a channel is visible, not only its two ends.
+	## SUSTAIN_START and SUSTAIN_END below mark the boundaries in the log; this
+	## is what puts a badge on the unit for every tick in between. An effect that
+	## ticks invisibly is the failure this project keeps repeating, and it is
+	## what made the Warrior's block unevaluable for weeks.
+	##
+	## Carries a magnitude on the unit the way TAUNTING does: `CombatUnit.taunt_radius`
+	## for that one, `CombatUnit.sustaining` (which action) for this one.
+	SUSTAINING,
 }
 
 ## Whether a status is something a unit would want removed. Cleanse needs this
@@ -260,6 +277,28 @@ enum EventKind {
 	## opportunities. An ability whose entire effect is invisible cannot be
 	## evaluated by a player or by us, and this one was not, for weeks.
 	BLOCKED,
+	## A unit began holding a sustained action. Issue 61.
+	##
+	## Appended, never inserted, same rule as BLOCKED above.
+	##
+	## `source_id` is the caster, `action_id` is the action, `target_id` is -1 --
+	## a channel is aimed at an area around its caster rather than at a unit.
+	## Emitted from `_fire_action`, immediately after ACTION_FIRE, so the pair
+	## reads "the Abomination ignites" and then "and is now burning".
+	SUSTAIN_START,
+	## A unit stopped holding a sustained action, whatever ended it: its plan
+	## chose something else, its resource ran out, it was stunned, or it died.
+	##
+	## `amount` is how many ticks it was held for. That number is not recoverable
+	## from the event stream otherwise, and it is the one thing a player wants to
+	## know about a channel after it is over.
+	##
+	## **The end *reason* is deliberately not encoded**, and that is a decision
+	## rather than an oversight -- it would want another field on CombatEvent, and
+	## whether a player needs to tell "I ran out of rage" from "my plan switched"
+	## apart is a question about the plan editor, not about the simulation. Say
+	## the word and it is one more field.
+	SUSTAIN_END,
 }
 
 static func attribute_name(a: Attribute) -> String:

@@ -78,6 +78,22 @@ var facing: Vector2 = Vector2.ZERO
 ## rest of the derived-at-apply-time state on this shape.
 var taunt_radius: float = 0.0
 
+## Issue 61. The sustained action this unit is currently holding, or &"" when it
+## is holding nothing -- which is every unit in every fight until content
+## authors an action with `sustain_cost_per_tick > 0`.
+##
+## Stored here rather than derived, on exactly the `taunt_radius` precedent: a
+## status the rest of the game can see (CG.Status.SUSTAINING) with its magnitude
+## -- here, *which* action -- kept on the unit beside it. CombatSim is the only
+## writer and sets both in the same two places, so the pair cannot drift.
+var sustaining: StringName = &""
+
+## The tick the current channel began, or -1 when nothing is held. Carried into
+## SUSTAIN_END.amount so a log line can say how long a pawn held it, which is
+## otherwise unrecoverable after the fact for the same reason
+## `action_ticks_total` had to exist.
+var sustain_started_tick: int = -1
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""

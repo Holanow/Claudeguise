@@ -135,5 +135,15 @@ static func status_text(s: CG.Status) -> String:
 			return "Forces nearby enemies to target this unit while it lasts."
 		CG.Status.SHIELDING:
 			return "Stops an incoming ranged shot aimed at an ally standing behind this unit, while it lasts."
+		## Issue 61. No number, and for a different reason from the others above:
+		## this status has no magnitude of its own at all. What it costs and what
+		## it reaches are per-action data on whichever ActionDef is being held,
+		## so a shared constant here would be wrong for every caster but one.
+		##
+		## **swift wrote this, in wren's file.** `test_ui_glossary.gd` refuses a
+		## CG.Status with no text, which is the guard working -- the sentence is
+		## one line and is meant to be rewritten by whoever owns the copy.
+		CG.Status.SUSTAINING:
+			return "This unit is holding an action open. It pays that action's cost every tick, and stops when its plan chooses something else or it can no longer pay."
 		_:
 			return ""
