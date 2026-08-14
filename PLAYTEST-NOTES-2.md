@@ -84,12 +84,26 @@ in other people's work all day: **checking the artefact instead of the screen.**
 
 12. **Siege engines are still invisible.** rook added a silhouette and verified
     *the shape existed in the registry* — never that a summoned engine draws it in
-    a real fight. The real cause is therefore something else, most likely that a
-    mid-fight summon never gets a view node at all.
+    a real fight.
+
+    **Real cause found.** `BattleView._rebuild_units()` has exactly one call site,
+    at fight start, and builds one view per unit in the list *at that instant*. A
+    unit appended mid-fight never gets a view node — it fights, deals damage,
+    takes damage and dies entirely invisibly. The silhouette was necessary and
+    nowhere near sufficient. This is not one class's bug: the summon mechanism is
+    generic, so **every future summon is invisible by default.**
+    *(Issue 75, wren.)*
 13. **Hover definitions are missing on the Inspect classes screen** — *"the most
-    important place for it to be"*. The PR reported wiring `InspectPanel.gd`. If
-    it is not reaching the terms the player hovers, that is the eighth instance of
-    built-and-unreachable on this project.
+    important place for it to be"*. The PR reported wiring `InspectPanel.gd`.
+
+    **Real cause found**, by driving the real screen through its own button
+    rather than trusting the unit tests, which call `open()` directly and never
+    touch input at all: `Label`'s engine default `mouse_filter` is `IGNORE`. A
+    plain `Control` defaults to `STOP`, which is why `PartyCard`'s tooltip always
+    worked and why every glossary chip built on a `Label` never could. The eighth
+    built-and-unreachable on this project, and it was one line every other
+    hoverable node got for free by inheriting from a different base class.
+    *(Fixed, PR 76.)*
 
 ## Still outstanding from round one
 
