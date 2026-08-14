@@ -50,6 +50,7 @@ replaces the blip.
 | `event/death.ogg` | A unit dies. |
 | `event/miss.ogg` | An ability went off and reached nothing. |
 | `event/blocked.ogg` | A shielding unit stepped in front of a shot and took it. |
+| `event/interrupted.ogg` | A stun landed mid-cast. The wind-up is lost and the resource is not refunded, so this is the harshest thing that happens to a pawn and the strongest case in this table for a sound. |
 
 These have **no sound at all** today. Drop a file on any of them and it gets
 one, which is the same one-file operation as replacing a blip.
