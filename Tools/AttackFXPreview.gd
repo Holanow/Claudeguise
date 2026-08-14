@@ -4,12 +4,14 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
-## Draws AttackFX's three pieces standalone -- readable size and true
-## on-screen size, side by side -- and saves a screenshot. Same reasoning as
+## Draws AttackFX's two pieces standalone -- readable size and true on-screen
+## size, side by side -- and saves a screenshot. Same reasoning as
 ## Tools/ArtPreview.gd: "the shapes are fine" is not something to conclude
-## from reading a coordinate table, and none of AttackFX's own callers are
-## wired up yet (they live in Scripts/UI, not mine), so this is the only way
-## to actually look at the output before asking wren to wire it in.
+## from reading a coordinate table, and both pieces are small and brief enough
+## in a live fight that a still sheet is the only place to judge them.
+##
+## It drew three. The wind-up ring row went with the ring in issue #85 -- the
+## progress bar in `UnitView` replaced it and this file was its last caller.
 ##
 ##   godot --path . --resolution 1280x900 Tools/AttackFXPreview.tscn
 ##
@@ -63,7 +65,7 @@ func _draw() -> void:
 	draw_string(font, Vector2(_MARGIN.x, 30.0), "AttackFX -- per-damage-type attack visuals",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_HEADING, Palette.TEXT)
 	draw_string(font, Vector2(_MARGIN.x, 52.0),
-		"row 1: projectile, readable size (30px)  ·  row 2: true on-screen size (~5-10px)  ·  row 3: wind-up ring, one snapshot at 60% charged  ·  row 4: impact flash, one snapshot at t=0.4",
+		"row 1: projectile, readable size (30px)  ·  row 2: true on-screen size (~5-10px)  ·  row 3: impact flash, one snapshot at t=0.4",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 
 	var scale := _screen_scale()
@@ -73,7 +75,6 @@ func _draw() -> void:
 	var row1_y := _MARGIN.y + 40.0
 	var row2_y := row1_y + 110.0
 	var row3_y := row2_y + 90.0
-	var row4_y := row3_y + 90.0
 
 	for i in _ALL_TYPES.size():
 		var dt: CG.DamageType = _ALL_TYPES[i]
@@ -93,39 +94,16 @@ func _draw() -> void:
 		draw_rect(Rect2(row2 - Vector2(45.0, 25.0), Vector2(90.0, 50.0)), Palette.ARENA_FLOOR)
 		AttackFX.draw_projectile(self, row2, Vector2(1.0, -0.4), dt, true_projectile_size)
 
-		# Row 3: one wind-up snapshot, on a body-sized circle so it reads
-		# against the thing it will actually surround.
+		# Row 3: one impact-flash snapshot, mid-lifetime.
 		var row3 := Vector2(x, row3_y)
-		draw_circle(row3, true_unit_radius, Palette.team_color(CG.Team.PLAYER).darkened(0.6))
-		AttackFX.draw_wind_up(self, row3, true_unit_radius + 4.0, dt, 6, 10)
+		AttackFX.draw_impact_flash(self, row3, true_unit_radius, dt, 0.4)
 
-		# Row 4: one impact-flash snapshot, mid-lifetime.
-		var row4 := Vector2(x, row4_y)
-		AttackFX.draw_impact_flash(self, row4, true_unit_radius, dt, 0.4)
-
-	# Below the grid: two filmstrips, generously spaced, showing the actual
-	# progression the single snapshots above can only hint at. Physical and
-	# Divine chosen as a plain vs. bright contrast pair.
-	var strip_y := row4_y + 90.0
-	draw_string(font, Vector2(_MARGIN.x, strip_y - 30.0),
-		"Wind-up countdown over time (Physical, then Divine) -- 0% / 33% / 66% / 100% charged:",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
-	_wind_up_strip(CG.DamageType.PHYSICAL, Vector2(_MARGIN.x + 70.0, strip_y + 40.0), true_unit_radius)
-	_wind_up_strip(CG.DamageType.DIVINE, Vector2(_MARGIN.x + 70.0, strip_y + 140.0), true_unit_radius)
-
-	var flash_y := strip_y + 240.0
+	var flash_y := row3_y + 130.0
 	draw_string(font, Vector2(_MARGIN.x, flash_y - 30.0),
 		"Impact flash growing and fading, overlaid (Fire, then Water) -- t=0 (brightest, smallest) to t=1 (faintest, largest):",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	_flash_overlay(CG.DamageType.FIRE, Vector2(_MARGIN.x + 100.0, flash_y + 50.0), true_unit_radius)
 	_flash_overlay(CG.DamageType.WATER, Vector2(_MARGIN.x + 320.0, flash_y + 50.0), true_unit_radius)
-
-func _wind_up_strip(dt: CG.DamageType, at: Vector2, radius: float) -> void:
-	var stops := [0.0, 3.0, 6.0, 10.0]
-	for i in stops.size():
-		var center := at + Vector2(float(i) * 90.0, 0.0)
-		draw_circle(center, radius, Palette.team_color(CG.Team.PLAYER).darkened(0.6))
-		AttackFX.draw_wind_up(self, center, radius + 4.0, dt, int(stops[i]), 10)
 
 func _flash_overlay(dt: CG.DamageType, at: Vector2, radius: float) -> void:
 	# All four stops drawn at the same centre on purpose: growing radius and

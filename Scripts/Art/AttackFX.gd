@@ -2,15 +2,14 @@ extends RefCounted
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The attack visuals PLAYTEST-NOTES item 4 asks for: "every class needs an
 ## attack asset or animation so I know what's up."
 ##
-## MANAGER-OWNED (`Scripts/Art/**`). Nothing in this file draws itself into a
-## fight yet -- the three call sites that would (ArenaFloor's projectile
-## marker, UnitView's wind-up ring, BattleView's floater spawn) are all
-## Scripts/UI, wren's. See TEAM_LOG.md, sable's block, for the proposed
-## signatures at each site.
+## MANAGER-OWNED (`Scripts/Art/**`). Both pieces are wired into the fight and
+## both call sites are `Scripts/UI`, wren's: `ArenaFloor` draws the projectile
+## marker and `ImpactFlash` draws the burst.
 ##
 ## ---------------------------------------------------------------------------
 ## WHY DAMAGE TYPE AND NOT CLASS
@@ -27,19 +26,22 @@ const Palette := preload("res://Scripts/Core/Palette.gd")
 ## threw it" is.
 ##
 ## ---------------------------------------------------------------------------
-## THREE PIECES
+## TWO PIECES
 ##
 ## 1. Projectile shape (`projectile_points` / `draw_projectile`) -- a small
 ##    distinct silhouette per damage type, replacing a single dot-with-trail
 ##    for every ranged shot.
-## 2. Wind-up telegraph (`wind_up_sweep_angle` / `draw_wind_up`) -- the same
-##    ring UnitView already draws, recoloured per damage type and swept as a
-##    real countdown instead of a fixed full circle. Covers melee, which has
-##    nothing else coming once the ring fires.
-## 3. Impact flash (`impact_flash_radius` / `impact_flash_alpha` /
-##    `draw_impact_flash`) -- new. A brief radial burst at the position and
-##    tick a DAMAGE/HEAL event lands, so melee gets an actual attack visual
-##    and not just a number appearing.
+## 2. Impact flash (`impact_flash_radius` / `impact_flash_alpha` /
+##    `draw_impact_flash`) -- a brief radial burst at the position and tick a
+##    DAMAGE/HEAL event lands, so melee gets an actual attack visual and not
+##    just a number appearing.
+##
+## There were three. The middle one was a wind-up telegraph ring, and it is
+## gone: PR #84 replaced the ring with a progress bar carrying an ability icon
+## (`UnitView._draw_wind_up` + `ActionIcons`), the player preferred the bar, and
+## nothing in the game reached `draw_wind_up` afterwards. Removed in issue #85
+## rather than left with passing tests, which is the one thing that makes dead
+## code look load-bearing.
 ##
 ## Geometry and colour are split from the actual draw_* calls the same way
 ## Silhouettes.build_parts is split from Silhouettes.draw_unit: Godot refuses
@@ -128,33 +130,7 @@ static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vect
 	var points := projectile_points(damage_type, size, forward)
 	for i in points.size():
 		points[i] += position
-	canvas.draw_colored_polygon(points, Palette.damage_color(damage_type))
-	var closed := points.duplicate()
-	closed.append(points[0])
-	canvas.draw_polyline(closed, Palette.ARENA_EDGE, 1.0, true)
-
-## How far around the ring a wind-up telegraph has swept, in radians, given
-## elapsed/total ticks. Clamped so a caller that passes a stale or completed
-## action still gets a legal angle rather than an ever-growing one.
-static func wind_up_sweep_angle(elapsed_ticks: int, total_ticks: int) -> float:
-	if total_ticks <= 0:
-		return TAU
-	var progress := clampf(float(elapsed_ticks) / float(total_ticks), 0.0, 1.0)
-	return progress * TAU
-
-## The wind-up ring, recoloured per damage type instead of UnitView's current
-## fixed `Palette.WIND_UP`, and drawn as a real countdown: a dim full circle
-## for "wind-up is happening at all", plus a brighter arc for "this much of it
-## is done" -- so a slow priest heal and a fast warrior strike read visibly
-## differently as they charge, not just once they fire.
-static func draw_wind_up(canvas: CanvasItem, center: Vector2, radius: float, damage_type: CG.DamageType, elapsed_ticks: int, total_ticks: int, width: float = 3.0) -> void:
-	var color := Palette.damage_color(damage_type)
-	var dim := color
-	dim.a = 0.35
-	canvas.draw_arc(center, radius, 0.0, TAU, 28, dim, width * 0.6, true)
-	var sweep := wind_up_sweep_angle(elapsed_ticks, total_ticks)
-	if sweep > 0.0:
-		canvas.draw_arc(center, radius, -PI * 0.5, -PI * 0.5 + sweep, 28, color, width, true)
+	UIArt.draw_outlined_polygon(canvas, points, Palette.damage_color(damage_type), Palette.ARENA_EDGE, 1.0)
 
 ## Impact flash geometry. `progress` is 0 at the tick the hit lands, 1 at the
 ## end of its own short on-screen life (a fraction of a second -- callers own

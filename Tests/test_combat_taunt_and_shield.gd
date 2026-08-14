@@ -241,6 +241,144 @@ func test_splash_on_a_redirected_hit_gathers_around_the_shielder() -> void:
 	assert_eq(behind_shielder.hp, behind_shielder.hp_max - 6, "splash must gather around the shielder, not the original target")
 	assert_eq(squishy.hp, squishy.hp_max, "the original target, out of splash range of the shielder, must be untouched")
 
+# ---------------------------------------------------------------------------
+# The block is observable: a BLOCKED event, and the width it is blocked at
+# ---------------------------------------------------------------------------
+
+func _events_of(state: CombatState, kind: CG.EventKind) -> Array:
+	var out := []
+	for e in state.events:
+		if e.kind == kind:
+			out.append(e)
+	return out
+
+## Three units, one shot, one interception: the event stream has to say so.
+## Before this, the interception wrote nothing at all and the only way to know
+## it had happened was to read hp.
+func test_an_interception_emits_a_blocked_event_naming_shooter_blocker_and_action() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(311)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	var blocked := _events_of(state, CG.EventKind.BLOCKED)
+	assert_eq(blocked.size(), 1, "exactly one interception, exactly one BLOCKED event")
+	var e: CombatEvent = blocked[0]
+	assert_eq(e.source_id, shooter.id, "source_id is the shooter, same as DAMAGE and MISS carry")
+	assert_eq(e.target_id, shielder.id, "target_id is the unit that blocked")
+	assert_eq(e.action_id, shot.id, "action_id is the shot that was stopped")
+	assert_eq(shielder.hp, shielder.hp_max - 7, "sanity: the block still happened")
+
+## The negative half. A detector that fires on healthy input is worse than none,
+## and this is the one a log or a floater would show constantly if it were wrong.
+func test_no_blocked_event_when_nothing_intercepts() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(312)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var bystander := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 500), []) # nowhere near the path
+	bystander.statuses[CG.Status.SHIELDING] = 999
+	bystander.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(bystander)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(_events_of(state, CG.EventKind.BLOCKED).size(), 0, "an ordinary unblocked shot must emit no BLOCKED event")
+	assert_eq(squishy.hp, squishy.hp_max - 7, "sanity: the shot landed on its intended target")
+
+## The defect that made this ability mostly imaginary. Every real ranged action
+## travels 65 units a tick and the shield used to be 22 wide, so a shot passing
+## dead through a raised shield was sampled in front of it on one tick and
+## behind it on the next, having touched the window on neither.
+func test_a_shot_that_steps_clean_over_the_shielder_in_one_tick_is_still_blocked() -> void:
+	var shot := _shot(&"shot", 200.0) # one tick carries it from x=0 past x=100
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(313)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(400, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(_events_of(state, CG.EventKind.BLOCKED).size(), 1, "a shot faster than the shield is wide must still be caught")
+	assert_eq(squishy.hp, squishy.hp_max, "the intended target must be untouched")
+
+## The width is 40 and it is a real edge, not "everything nearby". 50 units off
+## the path is outside it; the old 22 and the new 40 disagree between these two
+## cases, which is what makes this pair worth having.
+func test_the_shield_is_forty_wide_and_not_wider() -> void:
+	var shot := _shot(&"shot", 20.0)
+
+	var run := func(offset: float) -> Array:
+		var deps := _deps_with_action(shot, 7.0)
+		var state := CombatState.new(314)
+		var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+		var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+		var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, offset), [])
+		shielder.statuses[CG.Status.SHIELDING] = 999
+		shielder.facing = Vector2(-1, 0)
+		state.units.append(shooter)
+		state.units.append(squishy)
+		state.units.append(shielder)
+		shooter.intent = Intent.use_action(shot.id, squishy.id)
+		for i in 20:
+			CombatSim.step(state, deps)
+		return _events_of(state, CG.EventKind.BLOCKED)
+
+	assert_eq((run.call(35.0) as Array).size(), 1, "35 units off the path is inside a 40-wide shield -- and outside the old 22")
+	assert_eq((run.call(50.0) as Array).size(), 0, "50 units off the path is outside it: the shield is a width, not the whole room")
+
+## A guard does not catch what has already gone past it. The front-arc test is
+## asked of where the shot started its tick, so a shot leaving out the back is
+## not blocked on the way out.
+func test_a_shot_already_past_the_shielder_is_not_blocked_on_its_way_out() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(315)
+	# Shooter is behind the shielder's back: it faces +x, away from the shot.
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(1, 0) # pointing the way the shot is going: it arrives at its back
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(_events_of(state, CG.EventKind.BLOCKED).size(), 0, "a shot arriving at a shielder's back must not be blocked")
+	assert_eq(squishy.hp, squishy.hp_max - 7, "it reaches its target instead")
+
 func test_determinism_holds_with_shielding_in_play() -> void:
 	var shot := _shot(&"shot", 20.0)
 

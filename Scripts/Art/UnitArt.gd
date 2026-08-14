@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CG := preload("res://Scripts/Core/CG.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Real art, if any exists, in place of the placeholder polygons.
 ##
@@ -41,7 +42,8 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## So this reads the file itself with `Image.load()` and builds an
 ## `ImageTexture`, which was measured working on 2026-08-12: `load()` failed with
 ## "No loader found", `Image.load()` returned OK at the correct size, and the
-## texture drew.
+## texture drew. That loader is `UIArt.load_png` -- one copy, shared with the
+## `Assets/UI` drop-in, which needs precisely the same trick for the same reason.
 ##
 ## The consequence for you is that **it works whether or not the editor has ever
 ## imported the file**, which is the property that makes this a drop-in. If the
@@ -64,7 +66,7 @@ static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
 			if _cache[candidate] != null:
 				return _cache[candidate]
 			continue
-		var tex := _load(candidate)
+		var tex := UIArt.load_png(candidate)
 		_cache[candidate] = tex
 		if tex != null:
 			return tex
@@ -72,15 +74,6 @@ static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
 
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return texture_for(shape_id, team) != null
-
-static func _load(path: String) -> Texture2D:
-	if not FileAccess.file_exists(path):
-		return null
-	var image := Image.new()
-	if image.load(path) != OK:
-		push_error("UnitArt: %s exists but could not be read as an image" % path)
-		return null
-	return ImageTexture.create_from_image(image)
 
 ## Draws the texture centred on `center`, scaled so its longest side spans the
 ## unit's diameter. Aspect ratio is preserved: art that is taller than it is wide
@@ -113,12 +106,3 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	if facing_left:
 		drawn.x = -drawn.x
 	canvas.draw_texture_rect(tex, Rect2(center - drawn * 0.5, drawn), false)
-
-## Every id the game will look for a file under. Used by the test that keeps
-## Assets/Units/README.md honest, so the instructions can never drift from the
-## content.
-static func expected_filenames(shape_ids: Array) -> Array[String]:
-	var out: Array[String] = []
-	for id in shape_ids:
-		out.append("%s.png" % id)
-	return out
