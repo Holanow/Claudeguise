@@ -82,6 +82,67 @@ var idle_resource_regen_scale: Callable = _default_idle_resource_regen_scale
 ## than hardcoding those two, so a future DOT status needs no change here.
 var status_damage_per_tick: Callable = _default_status_damage_per_tick
 
+## Damage per tick contributed by each unit of a status's stored magnitude, ON
+## TOP of `status_damage_per_tick` above. The whole rate is
+##
+##     status_damage_per_tick(unit, status)
+##         + status_damage_per_magnitude(unit, status) * magnitude
+##
+## and it is the one expression that expresses all three of the player's
+## damage-over-time rules:
+##
+##   - **POISON**: base only. It stores no magnitude, so this term is zero.
+##   - **BLEED**: this term only, times the stack count. Damage per tick per
+##     stack, per the player: *"It would be damage per tick per stack no?"*
+##   - **BURN**: this term only, times the damage of the hit that applied it,
+##     per *"BURN damage per tick should be relative to the hit that applied
+##     it."*
+##
+## **finch, the number and the risk in one place.** BURN's move is not additive:
+## its percentage-of-max-health rate has to come OFF
+## `Balance.status_damage_per_tick` in the same commit that puts a fraction here,
+## or burn does both at once. And watch the multiplication -- this is per TICK,
+## so a fraction of 0.2 on a 30-tick burn returns six times the original hit.
+## The honest denominator is the duration, not the fraction that looks small.
+##
+## Defaults to 0.0, which makes the second term vanish for every status and
+## leaves the expression arithmetically identical to what it was before this
+## existed. That is stronger than "nothing is wired yet": the rate feeds
+## `_stochastic_round`, which draws from the fight's shared rng, so a rate that
+## moved by any amount at all would change the outcome of every fight in the
+## game rather than only the burning ones.
+##
+## Local default rather than a Balance call, for the reason `slowed_speed_scale`
+## records below: a call to a Balance method that does not exist is a
+## **parse-time** failure in every script that transitively preloads this one.
+var status_damage_per_magnitude: Callable = _default_status_damage_per_magnitude
+
+## How many ticks apart a damage-over-time status deals its damage. 1 is every
+## tick, which is what BURN and POISON have always done.
+##
+## This is the *"does damage less often"* half of the player's bleed ruling, and
+## it is what stops a stacking status from being simply a bigger poison: bleed
+## hits hard and rarely, poison hits lightly and constantly, and a player can
+## tell them apart by rhythm alone without reading a number.
+##
+## Takes the status rather than the unit: a slower drip is a property of the
+## affliction, not of who is carrying it.
+##
+## Defaults to 1 -- inert, and the same argument as above applies, since
+## skipping a tick would skip an rng draw.
+var status_tick_interval: Callable = _default_status_tick_interval
+
+## How long a stacking status holds on after its expiry, per stack still left.
+##
+## `CombatSim._tick_statuses` drops ONE stack on expiry and re-arms for this
+## many ticks, so a bleed reads down 3, 2, 1, gone instead of nine stacks
+## vanishing in a single frame the tick the thing applying them dies.
+##
+## Defaults to 0, which means the whole status comes off at once -- exactly the
+## behaviour every status had before stacking existed. The graceful decay is a
+## content decision, not a free consequence of stacking.
+var status_stack_decay_ticks: Callable = _default_status_stack_decay_ticks
+
 ## Multiplier on wind-up/recover ticks for a unit carrying HASTE.
 var haste_tick_scale: Callable = _default_haste_tick_scale
 
@@ -159,6 +220,17 @@ static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
 
 static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
 	return Balance.status_damage_per_tick(unit, status)
+
+## The three defaults that make magnitude inert. See each field above for why
+## none of them calls Balance yet and what the content half has to do.
+static func _default_status_damage_per_magnitude(_unit: CombatUnit, _status: CG.Status) -> float:
+	return 0.0
+
+static func _default_status_tick_interval(_status: CG.Status) -> int:
+	return 1
+
+static func _default_status_stack_decay_ticks(_status: CG.Status) -> int:
+	return 0
 
 static func _default_haste_tick_scale(unit: CombatUnit) -> float:
 	return Balance.haste_tick_scale(unit)
