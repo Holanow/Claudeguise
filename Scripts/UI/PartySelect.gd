@@ -9,6 +9,7 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
+const GlossaryButtonScript := preload("res://Scripts/UI/GlossaryButton.gd")
 
 ## Pick up to four pawns and a seed, then start the fight.
 ##
@@ -176,7 +177,13 @@ func _build_ui() -> void:
 	_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	column.add_child(_status_label)
 
+	# PLAYTEST-NOTES 11 / hover-info-box system: "Start Fight and Start Run
+	# don't say what they do." Same mechanism as every other glossary term
+	# (GlossaryButton, same set_script pattern GlossaryLabel already uses)
+	# rather than a second system for two buttons specifically.
 	_start_button = Button.new()
+	_start_button.set_script(GlossaryButtonScript)
+	_start_button.tooltip_text = "Runs one fight with the current party and seed, right now."
 	_start_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	_start_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_start_button.pressed.connect(_on_start_pressed)
@@ -187,6 +194,8 @@ func _build_ui() -> void:
 	# single-fight button rather than replacing it — the single fight is
 	# how the balance actually gets measured (issue 43's own criterion 5).
 	_start_run_button = Button.new()
+	_start_run_button.set_script(GlossaryButtonScript)
+	_start_run_button.tooltip_text = "Enters the floor with the current party. Fights and rooms follow in sequence, with damage and resources carried between them."
 	_start_run_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	_start_run_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_start_run_button.pressed.connect(_on_start_run_pressed)

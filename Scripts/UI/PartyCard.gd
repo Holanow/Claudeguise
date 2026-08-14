@@ -4,6 +4,8 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
+const Glossary := preload("res://Scripts/UI/Glossary.gd")
+const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
 
 ## One selectable class: silhouette, name, role and style, coloured by its
 ## damage type. The whole card is the touch target — Palette.TOUCH_TARGET_MIN
@@ -21,7 +23,18 @@ const CARD_SIZE := Vector2(170.0, 200.0)
 const SILHOUETTE_RADIUS := 42.0
 const SILHOUETTE_CENTER_Y := 70.0
 
-var class_def: ClassDef = null
+## Hover-info-box system, phase 1: the whole card is one tooltip, reading
+## the same three tags it already draws (role/style/method) rather than a
+## separate mechanism per tag — there is no sub-region hit-testing on a
+## custom-drawn Control without building phase 2's arena-style hit-test
+## early for no reason, and a class's three tags are read together as a
+## trio everywhere else in the game (this card's own text, InspectPanel's
+## header line), not one at a time.
+var class_def: ClassDef = null:
+	set(value):
+		class_def = value
+		tooltip_text = Glossary.class_tags_text(value.role_primary, value.style, value.method) if value != null else ""
+		queue_redraw()
 var selected: bool = false:
 	set(value):
 		selected = value
@@ -36,6 +49,9 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		toggled.emit(not selected)
 		accept_event()
+
+func _make_custom_tooltip(for_text: String) -> Object:
+	return GlossaryTooltip.build(for_text)
 
 func _draw() -> void:
 	if class_def == null:
