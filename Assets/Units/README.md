@@ -39,11 +39,20 @@ The filename is the unit's id. These are the current ones:
 | `dungeon_grunt.png` | Grunt (being retired) |
 | `dungeon_archer.png` | Archer (being retired) |
 | `dungeon_cultist.png` | Cultist (being retired) |
-
+| `brute.png` | Brute — the heavy that stuns |
+| `stalker.png` | Stalker — marks a pawn for everything else to shoot |
 | `rat_king.png` | The Rat King (floor 1 miniboss) |
 | `rat.png` | Rat — what the Rat King leaves behind |
 
-`grub.png` and `brute.png` also exist as shapes but nothing spawns them yet.
+`grub.png` also exists as a shape but nothing spawns it yet.
+
+**The Stalker is meant to look like it does not matter.** It is the smallest
+outline in the game, thinner than a goblin, and that is deliberate rather than a
+shortcut: it has 30 health and almost no attack, and it kills parties by marking
+one pawn so everything else concentrates on it. If you redraw it, the thing to
+keep is the contradiction. Its only heavy cue is that it *points* — a straight
+needle held level, clear of the body. It is the one unit in the game aiming at
+you, and everything else about it is slight.
 
 **The Rat King and the rat are a pair and should be replaced as one.** The
 README describes the miniboss as *"a big collection of rats joined at the tail"*

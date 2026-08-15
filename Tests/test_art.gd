@@ -29,7 +29,7 @@ const UNUSED_SHAPES := [&"rat", &"grub", &"brute"]
 ## So anything drawn before its content exists goes here and gets checked like
 ## content. The Rat King is floor 1's miniboss and the rat is what its attacks
 ## leave behind; neither is in an encounter yet.
-const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine"]
+const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine", &"stalker"]
 
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
@@ -556,11 +556,49 @@ func test_every_reachable_action_has_an_icon() -> void:
 		assert_true(ActionIcons.has_glyph(id), "action %s has no icon in ActionIcons.GLYPHS" % id)
 
 
+## Icons drawn before the content that will use them exists.
+##
+## **This list breaks a genuine deadlock rather than excusing a mistake.** Art
+## and content for one enemy are two commits in two files owned by two sessions,
+## and each is red without the other: an icon with no action fails the test
+## below, and an action with no icon fails `test_every_reachable_action_has_an
+## _icon`. Whichever merges first turns the trunk red for the other. heron put
+## it exactly right on #148 -- *"you cannot add an enemy to this game without one
+## commit in `Scripts/Art`"* -- and that coupling is fine as long as it does not
+## also mean the trunk cannot be green until both land in the same minute.
+##
+## **Every entry here is temporary and this list deletes itself.** The check
+## below asserts the reason for each entry is STILL TRUE, so the moment the
+## action reaches the registry the entry is stale and the gate says so, naming
+## the line to remove. A comment saying "remove this later" rots; an assertion
+## that the excuse still applies cannot.
+const _ICONS_AHEAD_OF_CONTENT := {
+	# heron's #148. Delete these three the same time that branch merges.
+	&"brute_slam": "issue 121, heron, PR #148",
+	&"stalker_mark": "issue 121, heron, PR #148",
+	&"stalker_dart": "issue 121, heron, PR #148",
+}
+
+
 func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> void:
 	# The other direction: an icon left behind after content deletes an action
 	# is dead weight and, worse, evidence that the two have drifted.
 	for id in ActionIcons.GLYPHS.keys():
+		if _ICONS_AHEAD_OF_CONTENT.has(id):
+			continue
 		assert_not_null(Registry.get_action(id), "ActionIcons has an icon for %s, which the registry does not define" % id)
+
+
+func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
+	# The expiry date on the list above. Without this the exemption outlives its
+	# reason, and the next icon left behind by deleted content hides inside it.
+	for id in _ICONS_AHEAD_OF_CONTENT:
+		assert_true(ActionIcons.GLYPHS.has(id),
+			"_ICONS_AHEAD_OF_CONTENT names %s, which has no icon -- the entry describes nothing" % id)
+		assert_eq(Registry.get_action(id), null,
+			("the registry now defines %s (%s), so its icon is no longer ahead of content. "
+			+ "DELETE the '%s' line from _ICONS_AHEAD_OF_CONTENT in this file -- that is the whole fix.") % [
+				id, _ICONS_AHEAD_OF_CONTENT[id], id])
 
 
 func test_status_backed_action_icons_resolve_to_the_status_glyph() -> void:

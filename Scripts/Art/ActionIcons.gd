@@ -264,6 +264,77 @@ const _ENGINE := [
 	{"dot": [0.52, -0.72, 0.26]},
 ]
 
+## The Brute's Slam: a heavy mass landing, and the ground splitting under it.
+##
+## Deliberately NOT another weapon. `_CLUB`, `_HAMMER`, `_AXE`, `_SWORD` and
+## `_SWORD_DOWN` are five held objects already and a sixth would be a sixth
+## vertical shaft in a set where the outline is the whole read at 16px. What is
+## distinctive about a slam is not the limb, it is the ground -- so this is the
+## only glyph in the file with a horizontal baseline, which is what tells it
+## apart at a glance rather than on inspection.
+##
+## It also has to say STUN without borrowing STUN's badge, because a slam is not
+## a pure-status action: it lands 16-18 damage as well.
+##
+## Redrawn once after rendering it. The first cut was a wide flat mass sitting
+## just above a straight bar, and at 40px it read as a TABLE -- two horizontal
+## slabs of similar width with a thin gap, which is furniture, not violence.
+## Three changes fixed it and all three are about the ground rather than the
+## mass: the bar now BOWS under the impact instead of staying straight, the mass
+## is narrower than the bar so it reads as landing ON it rather than as a second
+## shelf, and two chips fly out sideways. A straight line is a surface; a bent
+## one is a surface being hit.
+const _SLAM := [
+	{"poly": [[-0.44, -0.94], [0.44, -0.94], [0.52, -0.30], [-0.52, -0.30]]},
+	{"poly": [[-0.95, 0.10], [0.0, 0.36], [0.95, 0.10], [0.95, 0.38], [0.0, 0.64], [-0.95, 0.38]]},
+	{"poly": [[-0.62, -0.16], [-0.94, -0.34], [-0.86, 0.0]]},
+	{"poly": [[0.62, -0.16], [0.94, -0.34], [0.86, 0.0]]},
+]
+
+## The Stalker's Mark: a pennant on a staff.
+##
+## **This is the one glyph in the file that breaks rule 2 on purpose, so the
+## reason is here rather than in a commit.** Rule 2 says an action whose effect
+## is a status draws that status's glyph, and Mark's status is MARKED, whose
+## glyph is a crosshair. `spotter_mark` already draws it -- correctly, it is the
+## Siege Master's and it obeys the rule.
+##
+## But `stalker_mark` is an ENEMY action in `floor1_cover`, and a party with a
+## Siege Master fights that room. Both would be winding up at once, on two bars,
+## drawing one icon -- which is exactly the case rule 4 exists to prevent and
+## exactly the defect that shipped when `siege_master_shot` and
+## `siege_engine_bolt` shared `_BOLT_HEAVY` beside a unit and its own summon.
+##
+## A flag is the other way a thing gets designated, it is the only flag in the
+## file, and a triangle on a stick survives 16px better than a crosshair does.
+const _PENNANT := [
+	{"poly": [[-0.30, -0.92], [-0.12, -0.92], [-0.12, 0.92], [-0.30, 0.92]]},
+	{"poly": [[-0.12, -0.86], [0.86, -0.44], [-0.12, -0.02]]},
+]
+
+## The Stalker's Dart: a needle, pointed at both ends.
+##
+## `_ARROW` is a shaft with a head and two fletches and `_BOLT_HEAVY` and
+## `_BOLT_LOBBED` are already the heavy ranged shapes, so the read here is
+## *light*: no fletching, no shaft, nothing but the point. Nothing else in this
+## file tapers at both ends, and that is the whole distinction -- an arrow has a
+## back and this does not.
+##
+## Redrawn once after rendering it. The first cut was a needle tapered at both
+## ends, which was a lovely idea and drew a SCRATCH: at 16px a shape with no
+## width anywhere is a stroke of dirt on the plate.
+##
+## `goblin_arrow` is in the same room as this -- the Stalker takes the fourth
+## archer's place in `floor1_cover` -- so the two have to be tellable apart on
+## sight. The difference that survives 16px is not fletching, it is ANGLE: the
+## arrow is horizontal, this is steeply diagonal, and orientation reads at any
+## size. The fat head is what stops it being a line.
+const _DART := [
+	{"poly": [[0.94, -0.60], [0.46, -0.52], [0.26, -0.02], [0.74, -0.10]]},
+	{"line": [[0.58, -0.32], [-0.60, 0.42]], "w": 0.18},
+	{"poly": [[-0.50, 0.24], [-0.88, 0.32], [-0.64, 0.66]]},
+]
+
 ## Every action id in the content registry. `Tests/test_art.gd` asserts this
 ## covers the registry exactly, so an action added in `Scripts/Content` fails
 ## the gate here rather than shipping with no icon and nobody noticing -- which
@@ -334,6 +405,13 @@ const GLYPHS := {
 	&"abomination_grapple": CG.Status.SLOWED,
 	&"warden_axe": _AXE,
 	&"warden_chain_toss": _CHAIN,
+
+	# The Brute and the Stalker, floor 1's first stun source and first mark
+	# source (issue 121, heron). `stalker_mark` does not draw the MARKED
+	# crosshair and `_PENNANT` says why.
+	&"brute_slam": _SLAM,
+	&"stalker_mark": _PENNANT,
+	&"stalker_dart": _DART,
 }
 
 ## Drawn when an id has no entry. Never reached today and asserted against, but

@@ -320,6 +320,50 @@ const _PARTS := {
 	],
 	# Brute: the largest outline of all, hunched forward, tiny head set low
 	# between the shoulders, club head heavier than the arm holding it.
+	# The Stalker (issue 121, heron). 30 hp, radius 10 -- the smallest thing in
+	# the game, smaller than a goblin -- and it is a threat only through what it
+	# enables: it marks a pawn and the mark strips that pawn's armour.
+	#
+	# **The brief is a contradiction and the contradiction is the design: it has
+	# to look negligible and be the reason a party dies.** Those pull opposite
+	# ways in a silhouette, so they are split across two channels rather than
+	# averaged into something middling.
+	#
+	#   NEGLIGIBLE is carried by MASS. It is a stalk. It does not fill its
+	#   radius, it has no bulk anywhere, and it is the only unit here with a
+	#   ground shadow narrower than its own body. Beside a Brute it should look
+	#   like something you would not bother with.
+	#
+	#   DANGEROUS is carried by AIM. It is the only silhouette in the game that
+	#   POINTS -- a straight needle held level, extending past the body with a
+	#   gap under it. The goblin archer's bow is a curve and reads as a tool; a
+	#   straight line leaving a small body reads as being aimed at you.
+	#
+	# Against the goblin archer specifically, because they share `floor1_cover`
+	# and the Stalker literally takes the fourth archer's place: the archer is a
+	# hunched mound with a curve, this is an upright stalk with a straight line.
+	# Nothing about the two outlines is the same.
+	&"stalker": [
+		# The dart, held out and level. ACCENT is near-white and this is the one
+		# place on the shape it is spent: the pointing is the whole read.
+		{"tint": Tint.ACCENT, "poly": [[0.32, -0.20], [1.00, -0.30], [1.00, -0.16], [0.32, -0.06]]},
+		# Ground shadow. The smallest in the game and deliberately narrower than
+		# the stance, so the unit does not sit on a slab that gives it mass.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.30, 1.00], [-0.22, 0.74], [0.26, 0.74], [0.34, 1.00], [0.02, 0.94]]},
+		# Legs: thin, set apart, crouched. Gaps between them and the body.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.32, 0.78], [-0.18, 0.26], [-0.04, 0.30], [-0.14, 0.80]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.32, 0.78], [0.18, 0.26], [0.06, 0.30], [0.16, 0.80]]},
+		# Body: a narrow stalk. This is the "negligible" read and it is the
+		# thinnest torso in the file by a long way.
+		{"tint": Tint.TEAM, "poly": [[-0.19, 0.36], [-0.15, -0.38], [0.15, -0.38], [0.19, 0.36]]},
+		# The arm, level with the dart, with real space beneath it.
+		{"tint": Tint.TEAM, "poly": [[0.10, -0.36], [0.38, -0.28], [0.36, -0.12], [0.08, -0.18]]},
+		# Head: small, low and thrust forward off the front of the shoulders,
+		# which is what makes a thin thing read as predatory rather than frail.
+		{"tint": Tint.TEAM, "poly": [[-0.08, -0.40], [0.20, -0.52], [0.34, -0.70], [0.10, -0.82], [-0.16, -0.68]]},
+		# Eye.
+		{"tint": Tint.ACCENT, "poly": [[0.14, -0.68], [0.26, -0.64], [0.15, -0.57]]},
+	],
 	&"brute": [
 		{"tint": Tint.ACCENT, "poly": [[0.44, -0.36], [0.66, -0.98], [0.98, -0.86], [0.9, -0.28], [0.6, -0.14]]},
 		{"tint": Tint.ACCENT, "poly": [[0.34, 0.28], [0.5, -0.28], [0.68, -0.22], [0.52, 0.34]]},
