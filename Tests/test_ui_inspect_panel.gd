@@ -10,6 +10,10 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
+const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
+const IntentScript := preload("res://Scripts/Core/Intent.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## Issue 21b: pawn inspection between fights. Issue 6 added editing: reorder a
 ## pawn's plans, swap the targeting or action inside a block, and swap or
@@ -1028,6 +1032,201 @@ func _button_named(node: Node, text: String) -> Button:
 		if b.text == text:
 			return b
 	return null
+
+# ---------------------------------------------------------------------------
+# Issue 155: the pause inspection says why a row is or is not firing
+# ---------------------------------------------------------------------------
+
+## THE DEFECT THIS FILE DID NOT HAVE A TEST FOR, and it was on the trunk.
+##
+## `CONDITION_ARG_SHAPE`'s "status" entries carry no `min`/`max`/`step`, and
+## `_condition_value_editor` read `shape["min"]` for every non-fraction kind.
+## The raise ABORTS THE METHOD AND RETURNS NORMALLY, so `_condition_editor`
+## quietly returned a row with no value editor in it and nothing went red.
+##
+## What it cost: the Geysermancer's "when an enemy has Burn" -- the gate on the
+## only combo in the game -- and the Abomination's "when an enemy has no Poison"
+## had NO CONTROL AT ALL in the plan editor. Reproduced on `main` with
+## `git stash` before it was fixed.
+##
+## Walks every real class rather than a fixture, because a fixture would have to
+## be written with a status condition in it by somebody who already knew.
+func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void:
+	var checked := 0
+	for class_id in Registry.all_class_ids():
+		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
+		var panel := InspectPanel.new()
+		panel._ready()
+		panel.open([pawn])
+		var rows := _plan_rows(panel)
+		assert_eq(rows.size(), pawn.plans.size(),
+			"%s: %d rows on screen for %d plans" % [class_id, rows.size(), pawn.plans.size()])
+		for i in rows.size():
+			var plan = pawn.plans[i]
+			if plan.condition == null:
+				continue
+			var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(plan.condition.op, {"kind": "none"})
+			if shape.get("kind") == "none":
+				continue
+			var controls := _find_option_buttons(rows[i]).size() + _spin_boxes_in(rows[i]).size()
+			# skill + target + condition op = 3 pickers, and the value editor is
+			# the fourth control. Three means the value editor is missing.
+			assert_true(controls >= 4,
+				"%s plan %d (%s, %s) has no editor for its condition value" % [
+					class_id, i + 1, plan.condition.op, shape.get("kind")])
+			checked += 1
+		panel.free()
+	assert_true(checked > 0, "no real pawn has a condition that takes a value; this test measured nothing")
+
+## And the status kind specifically, end to end: the control exists, it shows the
+## status the plan is really on, and picking another one reaches the interpreter.
+func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() -> void:
+	var pawn := _make_pawn()
+	var condition := PlanBlock.new()
+	condition.kind = PlanBlock.Kind.CONDITION
+	condition.op = &"enemy_has_status"
+	condition.args = {"status": CG.Status.BURN}
+	var plan := _make_plan("Blast the burning")
+	plan.condition = condition
+	pawn.plans = [plan]
+
+	var burning := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
+	burning.statuses[CG.Status.POISON] = 999
+	var watcher := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	var state := _state_with(watcher, burning)
+	assert_false(PlanInterpreter.condition_holds(state, watcher, plan),
+		"nothing is burning, so the row must not hold before the edit")
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var row: Control = _plan_rows(panel)[0]
+	var pickers := _find_option_buttons(row)
+	var status_picker: OptionButton = null
+	for p in pickers:
+		if p.selected >= 0 and p.get_item_text(p.selected) == "Burn":
+			status_picker = p
+	assert_true(status_picker != null,
+		"the status editor must show the status the plan is actually on, found: %s" % _selected_chip_text(row))
+
+	panel._set_condition_arg(condition, "status", CG.Status.POISON)
+	assert_true(PlanInterpreter.condition_holds(state, watcher, plan),
+		"picking Poison must reach the interpreter, not just the label")
+	panel.free()
+
+## The live verdicts. `waiting` and `acting` have to be produced by two rows of
+## the same pawn in the same state, or the assertion is passed by a panel that
+## prints one word everywhere.
+func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() -> void:
+	var pawn := _make_pawn()
+	var hurt := _make_plan("Only when badly hurt")
+	var hurt_condition := PlanBlock.new()
+	hurt_condition.kind = PlanBlock.Kind.CONDITION
+	hurt_condition.op = &"self_hp_below_fraction"
+	hurt_condition.args = {"fraction": 0.1}
+	hurt.condition = hurt_condition
+	var always := _make_plan("Always")
+	pawn.plans = [hurt, always]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+	var acted := CombatEvent.make(CG.EventKind.ACTION_START, 5)
+	acted.source_id = 0
+	acted.source_plan = always.id
+	state.events.append(acted)
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn], state)
+	## Asserted per row rather than over the whole panel. **The whole-panel
+	## version was written first and it was vacuous:** the sentence explaining
+	## the verdicts contains every one of these words, so `text.contains("acting")`
+	## passes on a panel that marks nothing at all. Caught by the sibling test
+	## below going red for exactly that reason.
+	var rows := _plan_rows(panel)
+	assert_true(_all_label_text(rows[0]).contains(InspectPanel.VERDICT_WAITING), "row 1 is the one waiting")
+	assert_true(_all_label_text(rows[1]).contains(InspectPanel.VERDICT_ACTING), "row 2 is the one that acted")
+	panel.free()
+
+## The compulsion, which is the whole reason the sentinel exists: a taunted pawn
+## must not read as the fallback deciding.
+func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always")]
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+	var compelled := CombatEvent.make(CG.EventKind.ACTION_START, 5)
+	compelled.source_id = 0
+	compelled.source_plan = IntentScript.COMPELLED
+	state.events.append(compelled)
+
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn], state)
+	var fallback := _all_label_text(_fallback_header(panel))
+	assert_true(fallback.contains(InspectPanel.VERDICT_TAUNTED), fallback)
+	assert_false(fallback.contains(InspectPanel.VERDICT_ACTING),
+		"a compulsion is not the fallback deciding: %s" % fallback)
+	panel.free()
+
+	## And the case the compulsion has to be told apart FROM, in the same state
+	## with one field changed. Without this pair, "taunted" could be the only
+	## word the fallback row ever prints and both assertions above would still
+	## pass. 19.0% of everything a player's pawns do lands here.
+	compelled.source_plan = &""
+	var second := InspectPanel.new()
+	second._ready()
+	second.open([pawn], state)
+	var fell_through := _all_label_text(_fallback_header(second))
+	assert_true(fell_through.contains(InspectPanel.VERDICT_ACTING), fell_through)
+	assert_false(fell_through.contains(InspectPanel.VERDICT_TAUNTED), fell_through)
+	second.free()
+
+## The quiet case. Opened between fights -- which is how `PartySelect` opens it,
+## and how it has always been opened -- there is nothing live to report and the
+## screen must say nothing rather than guess. A verdict on a screen with no
+## fight behind it would be furniture within one session.
+func test_between_fights_no_row_carries_a_verdict() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always")]
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	var text := _all_label_text(panel._detail_box)
+	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
+			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED]:
+		assert_false(text.contains(word), "'%s' on a panel with no fight behind it: %s" % [word, text])
+	panel.free()
+
+## A plan row is the row carrying the Remove button; the fallback rows and the
+## headings have none. Derived from the screen rather than from an index, so it
+## still finds the rows if the section grows another heading.
+func _plan_rows(panel) -> Array:
+	var out := []
+	for child in panel._detail_box.get_children():
+		for b in _find_buttons(child):
+			if b.text == "X":
+				out.append(child)
+				break
+	return out
+
+## The row carrying the "Fallback, always last..." label, which is where the
+## fallback's own verdict hangs.
+func _fallback_header(panel) -> Node:
+	for child in panel._detail_box.get_children():
+		if _all_label_text(child).contains("Fallback, always last"):
+			return child
+	return null
+
+func _spin_boxes_in(node: Node) -> Array:
+	var out := []
+	if node is SpinBox:
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_spin_boxes_in(c))
+	return out
 
 func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> CombatUnit:
 	var u := CombatUnit.new()

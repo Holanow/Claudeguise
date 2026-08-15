@@ -33,6 +33,28 @@ var status: CG.Status = CG.Status.SHIELD
 ## rather than leaving a player to wonder why a hit landed small.
 var amount_before_mitigation: int = 0
 
+## Issue 155. Which plan row chose this, copied off `Intent.source_plan` at the
+## moment the intent is consumed.
+##
+## `Intent.source_plan` has existed since the skeleton, with a doc comment saying
+## it is "written into the combat log so a player can see which plan fired", and
+## NOTHING HAS EVER READ IT. An intent is created and destroyed inside one
+## `step()`, so the only way the field can reach a view is by riding on an event,
+## and no event carried it. That is why the log has never been able to say why a
+## pawn did anything: the answer was computed, stored, and thrown away every
+## tick.
+##
+## Set on ACTION_START only. That is deliberate rather than incomplete — it is
+## the one event that marks a *decision* rather than a consequence, so one tag
+## per decision is the whole cost, and a DAMAGE line inherits its reason from the
+## ACTION_START above it.
+##
+## Three meanings, and the log tells all three apart:
+##   - a plan id      -> that row of the pawn's plans fired
+##   - &""            -> nothing fired and DefaultBehavior chose (the fallback row)
+##   - Intent.COMPELLED -> a taunt overrode whatever the plans wanted
+var source_plan: StringName = &""
+
 static func make(kind: CG.EventKind, tick: int) -> Self:
 	var e := Self.new()
 	e.kind = kind
