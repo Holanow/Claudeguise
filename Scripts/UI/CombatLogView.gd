@@ -148,8 +148,8 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# source — the cultist that applied the poison may be dead, and
 			# attributing the damage to them would be a worse lie than
 			# omitting a source. Neither fits "X hits Y", which needs an X.
-			# _DOT_STATUSES (CombatSim.gd) only ever sets `status` to BURN
-			# or POISON on a DAMAGE event; a hazard tick never touches it,
+			# _tick_dot_statuses (CombatSim.gd) sets `status` on every
+			# affliction tick; a hazard tick never touches it,
 			# leaving the field at its unrelated default (SHIELD) — that
 			# is what tells the two apart here, since the event itself
 			# carries nothing more explicit than that.
@@ -168,7 +168,25 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				# is unaffected — standing somewhere bad is different
 				# information from being afflicted, and is not the thing
 				# twelve identical lines were measured on.
-				if e.status == CG.Status.BURN or e.status == CG.Status.POISON:
+				#
+				# Issue 202: this used to name the two afflictions it knew
+				# about (BURN, POISON) and let the ground line catch
+				# everything else. BLEED joined `_DOT_STATUSES` afterwards
+				# and fell into that "everything else", so the Rat King's
+				# nest, which has no terrain at all, logged a column of
+				# "Geysermancer takes 2 Physical damage from the ground" --
+				# and bleed is the King's own signature mechanic. Both of
+				# issue 24's defects in one line: the flood was never
+				# collapsed for bleed either.
+				#
+				# Written the other way round now. The ground has to
+				# identify itself (`status` still at its unset default) and
+				# anything else sourceless is an affliction. A future
+				# damage-over-time status is then silent by default rather
+				# than misattributed by default, which is the safe
+				# direction: an empty line is a gap a player might notice,
+				# a confident wrong attribution is one they will believe.
+				if e.status != CG.Status.SHIELD:
 					return ""
 				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
 					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
