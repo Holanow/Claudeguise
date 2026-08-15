@@ -395,26 +395,59 @@ const _PARTS := {
 		# Bolt already nocked, pointing left, clear of the frame.
 		{"tint": Tint.ACCENT, "poly": [[-0.98, -0.12], [-0.60, -0.20], [-0.58, -0.06], [-0.96, 0.02]]},
 	],
-	# Floor 1's boss. Built to read as a boss at a glance and at phone size:
-	# it fills more of its radius than anything else here, stands squarer, and
-	# carries the one silhouette detail no other unit has -- a chain, for the
-	# 270-range toss that stops a party declining the fight from out of reach.
-	# Bosses should be recognisable before the health bar is read.
+	# Floor 1's boss, redrawn for issue #241. The player, watching it at true size
+	# in a real fight: *"It reads as an object, not a creature -- horizontal axis,
+	# squat mass with a lintel, looks like furniture beside the pawns."*
+	#
+	# Both halves of that were true and the first version caused them. It was a
+	# rounded rectangle with a helm inlaid flush along its top edge and a matched
+	# pauldron on each side, so the top line was one flat lintel and the whole
+	# unit was mirror-symmetric. Symmetric means **no facing**, and the Warden is
+	# the one enemy on floor 1 that needs one: `CombatUnit.facing` gates the
+	# Warrior's guard, so a boss whose front is unreadable makes a real rule
+	# unwatchable.
+	#
+	# Three changes, in the order they survive shrinking:
+	#
+	#   1. **The head is a separate lobe, above the shoulder line and forward.**
+	#      A notch of open sky between the hunched back and the helm is the whole
+	#      "creature, not furniture" cue, and it is the first thing to protect in
+	#      any redraw. Inlaid in the top edge, a head is a moulding.
+	#   2. **Everything points one way.** Helm forward and low, visor slit
+	#      breaking the front edge, hunched back trailing behind, front foot
+	#      further forward than the rear one. Facing is carried by four cues that
+	#      agree, not by one detail somebody might miss.
+	#   3. **Mass stays the read.** Still the widest and now the tallest shape in
+	#      the file; the weapon is planted at the bottom of the front, not raised
+	#      over the top, so nothing competes with the head for the top line.
+	#
+	# The chain -- the 270-range toss that stops a party declining the fight from
+	# out of reach -- survives here, where there is resolution for it. It did not
+	# survive in `Assets/Units/the_warden.png`, which is the art the game actually
+	# draws; see the note in that file's entry in `Assets/Units/README.md`.
 	&"the_warden": [
-		# Chain, trailing to the unit's left, drawn first so the body sits on it.
+		# Chain, trailing behind (the unit's left when facing right), drawn first
+		# so the body sits on it.
 		{"tint": Tint.ACCENT, "poly": [[-1.0, 0.18], [-0.82, 0.06], [-0.72, 0.2], [-0.9, 0.32]]},
 		{"tint": Tint.ACCENT, "poly": [[-0.72, 0.02], [-0.54, -0.1], [-0.44, 0.04], [-0.62, 0.16]]},
 		{"tint": Tint.ACCENT, "poly": [[-0.44, -0.14], [-0.26, -0.26], [-0.16, -0.12], [-0.34, 0.0]]},
-		# Heavy square stance.
-		{"tint": Tint.TEAM_DARK, "poly": [[-0.86, 1.0], [-0.7, 0.42], [0.7, 0.42], [0.86, 1.0], [0.0, 0.9]]},
-		# Bulk: wider and taller than any other silhouette in this file.
-		{"tint": Tint.TEAM, "poly": [[-0.82, 0.46], [-0.9, -0.44], [-0.5, -0.86], [0.5, -0.86], [0.9, -0.44], [0.82, 0.46]]},
-		# Helm, closed, with a single visor slit rather than eyes.
-		{"tint": Tint.TEAM_DARK, "poly": [[-0.44, -0.86], [-0.36, -1.0], [0.36, -1.0], [0.44, -0.86]]},
-		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.94], [0.3, -0.94], [0.3, -0.86], [-0.3, -0.86]]},
-		# Pauldrons, to break the outline at the shoulders so it is not a slab.
-		{"tint": Tint.TEAM_DARK, "poly": [[-0.98, -0.5], [-0.72, -0.72], [-0.5, -0.5], [-0.76, -0.34]]},
-		{"tint": Tint.TEAM_DARK, "poly": [[0.98, -0.5], [0.72, -0.72], [0.5, -0.5], [0.76, -0.34]]},
+		# Heavy stance.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.86, 1.0], [-0.7, 0.5], [0.7, 0.5], [0.86, 1.0], [0.0, 0.9]]},
+		# Axe, planted in front of the front foot: a dark haft with the one large
+		# pale shape on the unit at the end of it.
+		{"tint": Tint.TEAM_DARK, "poly": [[0.78, -0.46], [0.88, -0.46], [0.96, 0.72], [0.86, 0.72]]},
+		{"tint": Tint.ACCENT, "poly": [[0.84, -0.30], [1.0, -0.16], [1.0, 0.26], [0.84, 0.34]]},
+		# Legs, the front one further forward than the rear one.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.54, 0.54], [-0.24, 0.54], [-0.22, 0.98], [-0.56, 0.98]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.10, 0.54], [0.44, 0.54], [0.48, 0.98], [0.08, 0.98]]},
+		# Bulk: still the widest silhouette in this file, but the top line now
+		# slopes down from the hunched back at the rear to the shoulder the head
+		# sits on, instead of running flat across.
+		{"tint": Tint.TEAM, "poly": [[-0.86, 0.6], [-0.94, -0.1], [-0.76, -0.46], [-0.4, -0.6], [0.3, -0.56], [0.62, -0.34], [0.7, 0.1], [0.66, 0.6]]},
+		# Helm: a lobe of its own, clear of the shoulder, thrust forward past the
+		# body's front edge. The visor is the only feature on it and it points.
+		{"tint": Tint.TEAM_DARK, "poly": [[0.16, -0.5], [0.22, -0.8], [0.44, -0.98], [0.72, -0.92], [0.82, -0.7], [0.76, -0.46], [0.5, -0.38], [0.24, -0.4]]},
+		{"tint": Tint.ACCENT, "poly": [[0.4, -0.78], [0.8, -0.72], [0.8, -0.62], [0.4, -0.68]]},
 	],
 }
 
