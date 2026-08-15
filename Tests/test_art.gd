@@ -1216,6 +1216,59 @@ func test_the_equipment_replacement_instructions_match_the_real_content() -> voi
 		)
 
 
+func test_the_status_badge_instructions_match_the_real_statuses() -> void:
+	# **This test exists because a rename slipped past every check in the file.**
+	#
+	# ENRAGE became TAUNTED in `CG.Status`. The enum moved, the badge was
+	# redrawn, the glossary sentence was rewritten -- and `Assets/UI/README.md`
+	# went on telling the player to drop in `status/enrage.png`, a filename
+	# `StatusIcons.art_name` has not resolved since the rename. Drop that file in
+	# and nothing happens, silently, which is the worst failure this pipeline
+	# has: the whole promise of the folder is "no code change, it just works".
+	# SUSTAINING was added and never listed at all, the same defect from the
+	# other direction.
+	#
+	# Every other drop-in table here is checked against the code that reads it.
+	# This one was not, so it was the one that rotted. Asked as "does the code's
+	# own lookup name appear", never as a hand-typed list -- a list typed here
+	# would rot in exactly the same way and agree with itself while doing it.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	assert_ne(readme, "", "Assets/UI/README.md is missing")
+	for status in CG.Status.values():
+		var name := "%s.png" % StatusIcons.art_name(status)
+		assert_true(
+			readme.contains(name),
+			"CG.Status.%s draws a badge but Assets/UI/README.md does not list %s" % [
+				CG.Status.keys()[status], name]
+		)
+
+
+func test_the_ability_icon_instructions_match_the_real_content() -> void:
+	# The same check for the action table, which had drifted further: seven of
+	# the thirty-four actions the registry defines were missing from it --
+	# brute_slam, geyser_cleanse, geyser_spout, rat_bite, stalker_dart,
+	# stalker_mark and warrior_second_wind.
+	#
+	# The README already claimed "this list is checked by a test", and that was
+	# false. The nearby test walks the registry against `ActionIcons.GLYPHS`,
+	# never against this file, so the sentence described a check that did not
+	# exist. It does now.
+	#
+	# Registry-driven, so an action added tomorrow fails here rather than at the
+	# moment an artist drops in a PNG that never appears.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	assert_ne(readme, "", "Assets/UI/README.md is missing")
+	var checked := 0
+	for id in Registry.all_action_ids():
+		var name := "%s.png" % ActionIcons.art_name(id)
+		assert_true(
+			readme.contains(name),
+			"action '%s' is registered but Assets/UI/README.md does not list %s" % [id, name]
+		)
+		checked += 1
+	assert_true(checked > 0, "no actions checked; this test would pass on an empty game")
+
+
 # ---------------------------------------------------------------------------
 # UIArt theming (#115): borders and backgrounds for the major elements, through
 # the pipeline that already exists.
