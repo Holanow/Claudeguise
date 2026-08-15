@@ -50,7 +50,13 @@ func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH
 	var hh := CG.ARENA_HALF_HEIGHT
 
-	draw_rect(Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)), Palette.ARENA_FLOOR)
+	# Issue 237. `Assets/UI/README.md` has promised the player an
+	# `Assets/UI/background/arena.png` since the drop-in pipeline was built, and
+	# this `draw_rect` is the whole reason that file did nothing. With no art
+	# present `draw_background` draws exactly this rect in exactly this colour,
+	# so the shipped screen is unchanged.
+	UIArt.draw_background(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
+		&"arena", Palette.ARENA_FLOOR)
 
 	var grid_color := Palette.ARENA_EDGE
 	grid_color.a = GRID_ALPHA
@@ -80,8 +86,16 @@ func _draw() -> void:
 	# Drawn last on purpose, after terrain and before projectiles, exactly
 	# where the flat outline was: the boundary has to sit on top of a hazard
 	# rect that runs to the wall.
+	#
+	# Issue 237: it now passes `&"arena"` as well, which `Assets/UI/README.md`
+	# has documented as `border/arena.png` = "just the frame around the arena"
+	# the whole time. `test_art.gd`'s own build note records reproducing this by
+	# rendering -- a real yellow-cornered `border/arena.png` was dropped in and
+	# the frame kept the general file's green corners, because no element name
+	# was passed. `panel_border.png` is unaffected; it is still the fallback the
+	# specific name resolves past.
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
-		Palette.ARENA_EDGE, BOUNDARY_WIDTH)
+		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
 
 	for p in projectiles:
 		_draw_projectile(p)
