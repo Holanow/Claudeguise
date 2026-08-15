@@ -137,15 +137,14 @@ func test_a_bleed_tick_emits_a_damage_event_carrying_the_status() -> void:
 # and nothing else moved
 # ---------------------------------------------------------------------------
 
-## **BURN left this list on issue 121, and that is the assertion doing its job.**
-## swift wrote it as "the placeholder is BLEED-only, and BURN and POISON must
-## return exactly what they returned before" -- true while BURN's rate was a
-## percent of max health, and false the moment BURN's rate became a fraction of
-## the hit that lit it. Only BURN moved; every status below is untouched, which
-## is the half that still protects every fight in the game through the shared
-## rng. Rewritten by finch, not loosened: BURN is asserted live in
-## `test_a_burn_carrying_a_magnitude_pays_for_it` below.
-func test_the_placeholder_touches_no_status_but_bleed_and_burn() -> void:
+## The placeholder is BLEED-only. BURN and POISON must return exactly what they
+## returned before, because both are reachable from content and either would
+## move every fight in the game through the shared rng.
+## Narrowed on #121: BURN left this list because finch moved its number onto the
+## magnitude side, which is the ruling landing rather than a regression. What the
+## test always meant is intact -- **a status that stores nothing is unaffected**
+## -- and that is still the half that keeps unrelated fights from moving.
+func test_the_seams_touch_no_status_that_stores_nothing() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
 	for status in [CG.Status.POISON, CG.Status.STUN, CG.Status.SLOWED,
@@ -155,31 +154,36 @@ func test_the_placeholder_touches_no_status_but_bleed_and_burn() -> void:
 		assert_eq(int(deps.status_tick_interval.call(status)), 1, "still every tick for %d" % status)
 		assert_eq(int(deps.status_stack_decay_ticks.call(status)), 0, "no decay window for %d" % status)
 
-## **Inverted on issue 121, which is the commit swift's own message named:** "a
-## stored burn magnitude pays nothing **until finch moves BURN's number**". It is
-## moved. The same two arenas now prove the opposite, which is the whole point of
-## having written it this way -- a burn from a big hit must hurt more than a burn
-## from nothing.
+## And the two that DO store something carry a live rate. Asserted here rather
+## than left implicit, because "BURN is not in the list above" and "BURN is
+## wired" are different claims and only the second one is the feature.
+func test_burn_and_bleed_both_carry_a_live_magnitude_rate() -> void:
+	var deps := SimDeps.new()
+	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
+	for status in [CG.Status.BURN, CG.Status.BLEED]:
+		assert_true(float(deps.status_damage_per_magnitude.call(unit, status)) > 0.0,
+			"status %d stores a magnitude and must be paid for it" % status)
+
+## **INVERTED ON #121, and this is the tripwire doing its job.** It used to
+## assert a stored burn magnitude paid nothing -- true while BURN's number sat on
+## the base side, and the message said so by name. finch moved it, this fired,
+## and the real assertion is the opposite one: the player's ruling is that burn
+## damage per tick is relative to the hit that applied it.
 ##
-## The rng half is kept and inverted too. It is not paranoia: the rate feeds
-## `_stochastic_round` off the fight's shared stream, so "the magnitude changed
-## the damage" and "the magnitude changed the stream" are two different claims
-## and the second is what makes a burn re-order every fight it touches.
-func test_a_burn_carrying_a_magnitude_pays_for_it() -> void:
+## Same fixture, opposite direction, so the two builds are directly comparable.
+func test_a_burn_from_a_bigger_hit_ticks_harder() -> void:
 	var plain := _arena()
 	plain.unit(1).statuses[CG.Status.BURN] = 999
 
 	var loaded := _arena()
 	loaded.unit(1).statuses[CG.Status.BURN] = 999
-	loaded.unit(1).status_magnitude[CG.Status.BURN] = 400.0
+	loaded.unit(1).status_magnitude[CG.Status.BURN] = 40.0
 
 	_run(plain, _real_deps(), 20)
 	_run(loaded, _real_deps(), 20)
 
 	assert_true(loaded.unit(1).hp < plain.unit(1).hp,
-		"a burn carrying the damage of the hit that lit it must hurt more than one carrying nothing")
-	assert_ne(plain.rng.randf(), loaded.rng.randf(),
-		"and it draws from the shared rng, which is why it re-orders the fights it touches")
+		"a burn that remembers a 40-damage hit must hurt more than one that remembers nothing")
 
 ## **`test_no_authored_action_applies_bleed_yet` fired on #130 and is gone.**
 ##
