@@ -6,6 +6,8 @@ const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const BattleView := preload("res://Scripts/UI/BattleView.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 
 ## How big does a status badge have to be before it means anything?
 ##
@@ -43,8 +45,29 @@ const BattleView := preload("res://Scripts/UI/BattleView.gd")
 
 const CAPTURE_PATH := "res://Screenshots/badge_legibility.png"
 
-## The shipped size sits in here, and so do the sizes either side of it.
-const LADDER := [12.0, 14.0, 17.4, 24.0, 32.0]
+## The sizes the game actually draws sit in here, and so do the sizes either
+## side of them.
+##
+## **This ladder used to start at 12.0 and label 17.4 as "SHIPPED", and both
+## became false.** Issue #190 made the badge scale with the drawn body, and the
+## body is small: measured through `status_badge_size`, every ordinary enemy --
+## goblin, archer, cultist, ghoul, rat, stalker -- is pinned to the clamp FLOOR
+## at 8.7 px, and the largest pawn reaches 15.9. The size this document was
+## arguing about is now the size nothing on the field is drawn at.
+##
+## 4.7 is the same floor at 844x390. It is on the ladder because that is what a
+## phone gets, not because anything could work there.
+const LADDER := [4.7, 8.7, 10.4, 15.9, 17.4, 24.0, 32.0]
+
+## Drawn beside a row when it is a size the game really uses, so nobody argues
+## about a rung nothing renders at again. Keyed by the ladder value.
+const REAL_SIZES := {
+	4.7: "every small enemy at 844x390",
+	8.7: "<- EVERY ORDINARY ENEMY at 1280x720 (clamp floor)",
+	10.4: "<- warrior, geysermancer",
+	15.9: "<- siege_master, the largest pawn",
+	17.4: "the old pre-#190 size, drawn at nothing now",
+}
 
 const _MARGIN := 40.0
 const _TOP := 150.0
@@ -62,45 +85,69 @@ func _ready() -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	if image.get_width() != int(get_viewport_rect().size.x):
-		printerr("BadgeLegibility: laid out at %d, captured at %d -- CROPPED." % [
-			int(get_viewport_rect().size.x), image.get_width()])
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
 	image.save_png(CAPTURE_PATH)
 	print("BadgeLegibility: wrote ", CAPTURE_PATH)
-	_measure(image)
+	_measure(image, float(image.get_width()) / get_viewport_rect().size.x)
 	get_tree().quit(0)
 
 ## THE SIZE THE GAME ACTUALLY DRAWS, asked of the function the real screen uses.
 ##
-## This is also where an instrument defect turned up, and it is the reason this
-## section prints three numbers instead of one.
+## **This function has now been wrong twice, in opposite directions, and both
+## times it looked right.** Keeping the history because the shape of the mistake
+## is the same both times and it will be made a third time otherwise:
+##
+##   1. `Tools/IconsOverlay.gd` hardcoded 14.0 px while the game drew 17.4. Every
+##      rendered judgement about these badges, including a playtest's, was made
+##      on a picture 20% small. Fixed in #161 and pinned by a test.
+##   2. **Then that test pinned the wrong constant.** This file read
+##      `UnitViewScript.STATUS_BADGE_SIZE` and called it "the size the game
+##      draws". Issue #190 made the badge row scale with the *drawn body*, so
+##      that constant became the **maximum of a clamp** that almost nothing
+##      reaches. The instrument went from 20% small to substantially large, and
+##      the test written to prevent exactly this drift went green throughout,
+##      because it compared the harness against the same stale constant.
+##
+## The lesson, and it is the general one: **a test that pins an instrument to a
+## constant only holds while the constant is still the answer.** Ask the
+## function, never the constant. `status_badge_size` is the function the screen
+## calls, so this asks it, per shape, at each unit's real radius.
 func _report_real_sizes() -> void:
 	print("")
 	print("HOW BIG IS A STATUS BADGE, REALLY")
+	print("  floor %.1f world / ceiling %.1f world (STATUS_BADGE_SIZE)" % [
+		7.0 * UnitViewScript.DISPLAY_SCALE, UnitViewScript.STATUS_BADGE_SIZE])
+
 	for size in [Vector2(1280.0, 720.0), Vector2(844.0, 390.0)]:
 		var layout := BattleView.compute_layout(size)
-		var px: float = UnitViewScript.STATUS_BADGE_SIZE * layout["scale"].x
-		print("  shipped, at %dx%d: %.1f px  (STATUS_BADGE_SIZE %.1f world x arena scale %.4f)" % [
-			int(size.x), int(size.y), px, UnitViewScript.STATUS_BADGE_SIZE, layout["scale"].x])
-	# What the row of badges costs, against the unit it is describing. A mark
-	# wider than the thing it annotates is the crowding the playtest reported as
-	# "a dozen 12px badges layered on top of each other".
-	var scale: float = BattleView.compute_layout(Vector2(1280.0, 720.0))["scale"].x
-	var badge: float = UnitViewScript.STATUS_BADGE_SIZE * scale
-	var gap: float = UnitViewScript.STATUS_BADGE_GAP * scale
-	var row: float = float(UnitViewScript.MAX_STATUS_BADGES) * badge + 3.0 * gap
-	print("  a full row of %d badges is %.0f px wide at 1280x720" % [
-		UnitViewScript.MAX_STATUS_BADGES, row])
-	for pair in [["goblin", 11.0], ["ghoul", 16.0], ["the_warden", 22.0]]:
-		var across: float = float(pair[1]) * UnitViewScript.DISPLAY_SCALE * scale * 2.0
-		print("    vs %-11s %.0f px across  -> the badges are %.1fx the unit" % [
-			pair[0], across, row / across])
-	print("  the diagnostic harness, Tools/IconsOverlay.gd: 14.0 px, HARDCODED")
-	print("  -> the harness every judgement about these badges has been made on")
-	print("     draws them ~20%% SMALLER than the game does. Its own comment says")
-	print("     it exists to stop them 'silently being drawn bigger than they")
-	print("     are'. The intent was right and the number was not derived.")
+		var scale: float = layout["scale"].x
+		print("")
+		print("  at %dx%d (arena scale %.4f)" % [int(size.x), int(size.y), scale])
+		print("    %-16s %-8s %-9s %-9s %s" % [
+			"unit", "body px", "badge px", "row of 4", "row / body"])
+		for row in _units():
+			var radius: float = float(row[1]) * UnitViewScript.DISPLAY_SCALE
+			var badge := UnitViewScript.status_badge_size(row[0], row[2], radius) * scale
+			var gap := UnitViewScript.STATUS_BADGE_GAP * (badge / (UnitViewScript.STATUS_BADGE_SIZE * scale))
+			var body := UnitViewScript.drawn_half_width(row[0], row[2], radius) * 2.0 * scale
+			var full := float(UnitViewScript.MAX_STATUS_BADGES) * badge + 3.0 * gap
+			print("    %-16s %-8.1f %-9.1f %-9.1f %.1fx" % [
+				row[0], body, badge, full, full / maxf(body, 0.001)])
+
+## Every unit the game can put on a field, with the radius the content gives it.
+## Read from the registry rather than typed in here: the last version of this
+## carried three hardcoded radii, which is a second copy of a number that lives
+## somewhere else and is therefore a number that goes stale silently.
+func _units() -> Array:
+	var out: Array = []
+	# Pawns have no per-class radius: they all take `CombatUnit`'s default, which
+	# is read off a real instance rather than copied as a literal.
+	var pawn_radius: float = CombatUnit.new().radius
+	for cid in Registry.all_class_ids():
+		out.append([cid, pawn_radius, CG.Team.PLAYER])
+	for eid in Registry.all_enemy_ids():
+		out.append([eid, Registry.get_enemy(eid).radius, CG.Team.ENEMY])
+	return out
 
 func _label(at: Vector2, text: String, size: int, color: Color) -> void:
 	draw_string(_font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
@@ -124,17 +171,17 @@ func _draw() -> void:
 		"Every row is the same 13 badges. Drawn on the arena floor colour, because that is what they sit on.",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	_label(Vector2(_MARGIN, 110.0),
-		"17.4 is what the game ships. 14.0 is what the diagnostic harness draws. Neither is a choice anyone made.",
+		"Since #190 the badge scales with the DRAWN BODY. Every ordinary enemy sits on the clamp floor at 8.7 px.",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 
 	for r in LADDER.size():
 		var badge: float = LADDER[r]
 		var y := _TOP + float(r) * _ROW
 		var note := ""
-		if is_equal_approx(badge, 17.4):
-			note = "  <- SHIPPED"
-		elif is_equal_approx(badge, 14.0):
-			note = "  <- the harness"
+		for key in REAL_SIZES:
+			if is_equal_approx(badge, float(key)):
+				note = "  " + str(REAL_SIZES[key])
+				break
 		_label(Vector2(_MARGIN, y - 12.0), "%.1f px%s" % [badge, note],
 			Palette.FONT_SIZE_SMALL, Palette.TEXT if note != "" else Palette.TEXT_DIM)
 		for c in _statuses.size():
@@ -144,17 +191,35 @@ func _draw() -> void:
 ## ---------------------------------------------------------------------------
 ## THE MEASUREMENT
 
-func _measure(image: Image) -> void:
+## `capture_scale` is image pixels per layout unit, and it is not always 1.
+##
+## **The third instrument defect in this file, and the worst-behaved.** The
+## project runs `stretch/mode="canvas_items"` with a 1280 base width, so a window
+## opened at any other width draws the whole sheet SCALED. `_draw` and `_measure`
+## then agreed with each other perfectly and both disagreed with the image: every
+## box was read from coordinates the badges were no longer at, and the tool
+## reported **0.0% ink and 0.0% discrimination for every badge at every size**.
+##
+## That failure was at least loud. The dangerous version is a scale near 1, where
+## the boxes land slightly off-centre and the numbers stay plausible.
+##
+## So this no longer assumes the capture is in layout space -- it converts. The
+## tool is now correct at any resolution instead of only at 1280 wide, which is
+## the property the previous two fixes here both lacked.
+func _measure(image: Image, capture_scale: float) -> void:
+	if not is_equal_approx(capture_scale, 1.0):
+		print("")
+		print("  (captured at %.3fx layout scale -- boxes converted to image space)" % capture_scale)
 	# Every badge box extracted once per size, then reused for ink and for all
 	# 78 pairs. The first version re-read the image per pair and blew the tool
 	# budget.
 	var boxes := {}
 	for r in LADDER.size():
-		var badge: float = LADDER[r]
-		var y := _TOP + float(r) * _ROW
+		var badge: float = LADDER[r] * capture_scale
+		var y := (_TOP + float(r) * _ROW) * capture_scale
 		var row := []
 		for c in _statuses.size():
-			row.append(_box(image, Vector2(_MARGIN + 90.0 + float(c) * _COL, y), badge))
+			row.append(_box(image, Vector2((_MARGIN + 90.0 + float(c) * _COL) * capture_scale, y), badge))
 		boxes[r] = row
 
 	print("")
@@ -164,7 +229,10 @@ func _measure(image: Image) -> void:
 		var total_ink := 0
 		for c in _statuses.size():
 			total_ink += _ink_of(boxes[r][c], Palette.ARENA_FLOOR)
-		var area := badge * badge
+		# Ink is counted in IMAGE pixels, so the area it is a fraction of has to
+		# be the box's image-space area too. Dividing image-space ink by
+		# layout-space area is how a covered badge reports 120%.
+		var area := badge * capture_scale * badge * capture_scale
 		print("  %5.1f px badge: %4.0f px of box, %4.0f px of ink on average (%.0f%% covered)" % [
 			badge, area, float(total_ink) / float(_statuses.size()),
 			100.0 * float(total_ink) / float(_statuses.size()) / area])
