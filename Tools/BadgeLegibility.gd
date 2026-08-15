@@ -115,8 +115,12 @@ func _ready() -> void:
 func _report_real_sizes() -> void:
 	print("")
 	print("HOW BIG IS A STATUS BADGE, REALLY")
-	print("  floor %.1f world / ceiling %.1f world (STATUS_BADGE_SIZE)" % [
-		7.0 * UnitViewScript.DISPLAY_SCALE, UnitViewScript.STATUS_BADGE_SIZE])
+	# Issue 208: read from the constant, not from a copy of its old value. The
+	# floor moved and this line went on printing 10.5 -- a measuring tool that
+	# reports a stale number is worse than one that reports nothing.
+	print("  floor %.1f world / ceiling %.1f world / cap %d badges" % [
+		UnitViewScript.STATUS_BADGE_MIN, UnitViewScript.STATUS_BADGE_SIZE,
+		UnitViewScript.MAX_STATUS_BADGES])
 
 	for size in [Vector2(1280.0, 720.0), Vector2(844.0, 390.0)]:
 		var layout := BattleView.compute_layout(size)
@@ -124,13 +128,17 @@ func _report_real_sizes() -> void:
 		print("")
 		print("  at %dx%d (arena scale %.4f)" % [int(size.x), int(size.y), scale])
 		print("    %-16s %-8s %-9s %-9s %s" % [
-			"unit", "body px", "badge px", "row of 4", "row / body"])
+			"unit", "body px", "badge px", "full row", "row / body"])
 		for row in _units():
 			var radius: float = float(row[1]) * UnitViewScript.DISPLAY_SCALE
 			var badge := UnitViewScript.status_badge_size(row[0], row[2], radius) * scale
 			var gap := UnitViewScript.STATUS_BADGE_GAP * (badge / (UnitViewScript.STATUS_BADGE_SIZE * scale))
 			var body := UnitViewScript.drawn_half_width(row[0], row[2], radius) * 2.0 * scale
-			var full := float(UnitViewScript.MAX_STATUS_BADGES) * badge + 3.0 * gap
+			# Issue 208: the gap count was hardcoded at 3, which is right for a
+			# row of four and wrong for every other cap. There is one fewer gap
+			# than there are slots.
+			var slots := float(UnitViewScript.MAX_STATUS_BADGES)
+			var full := slots * badge + (slots - 1.0) * gap
 			print("    %-16s %-8.1f %-9.1f %-9.1f %.1fx" % [
 				row[0], body, badge, full, full / maxf(body, 0.001)])
 
