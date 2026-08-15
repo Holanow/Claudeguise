@@ -957,7 +957,11 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var parties := 0
 	var shortened := 0
 	var largest_health := 0
+	var largest_carrier := ""
 	var health_total := 0
+	var enemy_fire := 0
+	var party_fire := 0
+	var fights := 0
 	for ids in _buildable_parties():
 		var burnt_hp := 0
 		var bare_hp := 0
@@ -970,6 +974,10 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 			bare_hp += _party_hp_percent(b)
 			burnt_ticks += a.tick
 			bare_ticks += b.tick
+			var burned := _hazard_damage_by_team(a)
+			party_fire += burned[0]
+			enemy_fire += burned[1]
+			fights += 1
 		var ratio := float(burnt_ticks) / float(maxi(1, bare_ticks))
 		ratio_total += ratio
 		parties += 1
@@ -980,11 +988,16 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 		if ratio < 0.95:
 			shortened += 1
 		var health_delta := (burnt_hp - bare_hp) / seeds
+		if absi(health_delta) > largest_health:
+			largest_carrier = "%s (%+d)" % [ids, health_delta]
 		largest_health = maxi(largest_health, absi(health_delta))
 		health_total += absi(health_delta)
 	var mean_ratio := ratio_total / float(maxi(1, parties))
 	print("floor1_hazard: mean fire/bare tick ratio across %d parties %.2f, shortened for %d" % [parties, mean_ratio, shortened])
-	print("floor1_hazard: largest single health effect %d points, total across five parties %d" % [largest_health, health_total])
+	print("floor1_hazard: largest single health effect %d points, carried by %s; total across five parties %d" % [largest_health, largest_carrier, health_total])
+	print("floor1_hazard: the fire itself dealt %d health per fight to the enemy and %d to the party, over %d fights" % [
+		enemy_fire / maxi(1, fights), party_fire / maxi(1, fights), fights,
+	])
 
 	# **THE DETECTOR, PROVED NOT INERT.** The header has claimed since #178 that
 	# a hazard of paint scores 1.00 and zero, and nothing ever asserted it. A
@@ -999,6 +1012,14 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 		"with no difference between the arms this test must measure no health effect at all")
 	assert_eq(control_a.tick, control_b.tick,
 		"with no difference between the arms this test must measure no length effect at all")
+	# And the same proof for the fire-output floor below, which is the half of
+	# this test that is *not* a difference of two arms and so has no control of
+	# its own. A detector nobody feeds known-good input to is `ENGINEER.md`'s
+	# sixteen-passing-tests failure; a hazard of paint is the known-good input.
+	var control_bare := _run(_pawns(_buildable_parties()[0], 0), bare, 0)
+	var control_burn := _hazard_damage_by_team(control_bare)
+	assert_eq(control_burn[0], 0, "with the terrain stripped nothing can be burnt, and the party took %d" % control_burn[0])
+	assert_eq(control_burn[1], 0, "with the terrain stripped nothing can be burnt, and the enemy took %d" % control_burn[1])
 	# **finch, issue 121: "every party" became "four of five", and the exception is
 	# named rather than the threshold widened.** Measured: 0.56, 0.55, **1.17**,
 	# 0.74, 0.84. The outlier is `abomination, geysermancer, siege_master, warrior`
@@ -1140,11 +1161,104 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	assert_true(largest_health >= 20,
 		"the fire should change at least one party's fight substantially, largest health effect was %d points" % largest_health)
 
+	# **EVERY ASSERTION ABOVE IS A DIFFERENCE OF TWO ARMS, AND NOTHING HERE
+	# ASSERTED THAT THE FIRE HAS EVER DEALT A POINT OF DAMAGE.** Both tick
+	# ratios and `largest_health` compare the room against itself stripped, so
+	# anything that moves the *bare* arm moves the verdict without the fire
+	# mattering less. rook asked whether `largest_health` measures the fire or
+	# measures how bad a party is without it, and that is the honest form of the
+	# question. This is the answer, and it is a measurement rather than an
+	# argument.
+	#
+	# **`largest_health` is acquitted, with one real weakness named.** Run
+	# against sample size on two builds (`Tools/BurnPitSize.gd`, per-party
+	# deltas, fire minus bare):
+	#
+	#     n     main eb99d92                     #235 with main merged
+	#      4    -15, -27, -11,  +3, +29  -> 29   -15, -30, -11,  -7, +15  -> 30
+	#      8     -5, -26,  -7,  +0, +27  -> 27   -10, -31,  -7,  -9, +19  -> 31
+	#     20     -3, -27,  -9,  +1, +26  -> 27    -6, -29,  -9,  +0, +20  -> 29
+	#     40     -6, -27,  -8,  +3, +27  -> 27    -7, -30,  -8,  +2, +20  -> 30
+	#     80     -7, -25,  -8,  +1, +29  -> 29    -6, -28,  -8,  +0, +21  -> 28
+	#
+	# It converges -- 26-31 across a twentyfold change in sample and across two
+	# builds -- which is exactly what `health_total` could not do and why that
+	# one was deleted rather than lowered. **The weakness is not noise, it is
+	# that the five deltas disagree in sign**, so `largest_health` is a
+	# magnitude-of-anything detector: on `main` it is carried by `no_warrior` at
+	# **+27** (the fire helps that party), and on #235 by `no_geysermancer` at
+	# **-30** (the fire hurts that one). The carrier flipped party and sign
+	# while the number barely moved. So the *number* is trustworthy and a red on
+	# it says nothing about which party or which direction until you read the
+	# row -- which is why the carrier is now printed beside it.
+	#
+	# **And here is the quantity that is not a difference of two arms at all.**
+	# `_tick_hazards` emits `DAMAGE` with `source_id == -1`, an empty
+	# `action_id` and `status` left at its default, so the fire's own output is
+	# observable from `state.events` (announcement rule 2). Health taken by the
+	# fire, per fight, `Tools/FireOutput.gd`:
+	#
+	#     n     main: party / enemy      #235: party / enemy
+	#      4      104.9 / 186.3            123.1 / 187.9
+	#      8       99.8 / 185.0            111.1 / 188.1
+	#     20       94.7 / 181.3             99.3 / 184.0
+	#     40       93.0 / 179.3             93.3 / 183.5
+	#
+	# **The enemy column is the steadiest number in this file: 179-188 across
+	# two builds and a tenfold change in sample, a 5% band.** It is zero against
+	# a hazard of paint by construction rather than by baseline -- both controls
+	# in that tool read exactly 0 -- and no change to how good the party is can
+	# move it, because it is not measured against the party at all.
+	#
+	# The floor is **100 per fight against a measured 186**, deliberately near
+	# half. Board rule 4: a floor set just under today's number fires on
+	# whoever touches behaviour next. This one fires when the fire stops
+	# burning, which is the only thing it claims.
+	#
+	# It does not replace anything above it. `largest_health` says the fire
+	# changes the fight; this says the fire is what changed it. The pair is what
+	# announcement rule 1 asks for, and neither alone survives losing the other:
+	# a hazard doing damage that nothing routes around would pass this and fail
+	# the ratios, and a terrain change that shuffled the fight without burning
+	# anybody would pass the ratios and fail this.
+	assert_true(enemy_fire / maxi(1, fights) >= 100,
+		"the fire should burn the enemy back rank crossing it; it dealt %d health per fight over %d fights, against 0 for a hazard of paint" % [enemy_fire / maxi(1, fights), fights])
+
 
 func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 	var state := CombatSim.build(party, enc, seed)
 	CombatSim.run(state)
 	return state
+
+
+## Health taken from terrain, as `[party, enemy]`.
+##
+## **The discriminator is `status`, and it is not arbitrary.** `_tick_hazards`
+## and the damage-over-time tick both emit `DAMAGE` with `source_id == -1` and
+## an empty `action_id`, so neither of those separates them. The DoT tick sets
+## `status` to BURN, POISON or BLEED; the hazard leaves it at `CombatEvent`'s
+## default of SHIELD, and SHIELD is not a DoT status, so the pair cannot
+## collide. A burning pawn that walks out of the fire keeps taking BURN ticks
+## and none of them are counted here, which is the distinction this wants.
+##
+## Read from `state.events` rather than from anything inside a `step()`,
+## announcement rule 2.
+func _hazard_damage_by_team(state: CombatState) -> Array:
+	var mine := 0
+	var theirs := 0
+	for e in state.events:
+		if e.kind != CG.EventKind.DAMAGE or e.source_id != -1 or e.action_id != &"":
+			continue
+		if e.status != CG.Status.SHIELD:
+			continue
+		var u := state.unit(e.target_id)
+		if u == null:
+			continue
+		if u.team == CG.Team.PLAYER:
+			mine += e.amount
+		else:
+			theirs += e.amount
+	return [mine, theirs]
 
 
 ## **THIS COUNTED SUMMONED SIEGE ENGINES AS PARTY UNTIL 2026-08-15, and finch
