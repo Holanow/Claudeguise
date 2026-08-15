@@ -9,6 +9,7 @@ const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
 ## this; only "things that happened" must come from events). These tests check
@@ -190,7 +191,7 @@ func test_nothing_is_reported_hidden_while_everything_fits() -> void:
 		count += 1
 	assert_eq(UnitView.hidden_status_count(u), 0, "a full-but-fitting row hides nothing")
 	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES,
-		"and all four are drawn, with no slot given up to a chip")
+		"and the whole cap is drawn, with no slot given up to a chip")
 
 	# And the empty case, since `hidden_status_count` is consulted before the
 	# early return in the drawing.
@@ -712,3 +713,72 @@ func test_damage_still_darkens_the_fill() -> void:
 		"a full and a nearly-dead bar look the same (%s vs %s)" % [full, nearly_dead])
 	assert_true(_distance(nearly_dead, Palette.HP_BACK) < _distance(full, Palette.HP_BACK),
 		"damage must move the fill toward the trough, not away from it")
+
+
+# ---------------------------------------------------------------------------
+# Issue 208: every ordinary enemy's badge was 8.7 px, and nothing was watching.
+# ---------------------------------------------------------------------------
+
+## THE GUARD, and it is the point of #208 rather than the constant.
+##
+## `#190` made the badge scale with the drawn body, which was right, and the
+## clamp floor it landed on put **every ordinary enemy in the game at 8.7 px on
+## screen** -- goblin, goblin_archer, cultist, ghoul, rat, stalker, all pinned to
+## the same floor. Nothing failed. `BADGE-LEGIBILITY.md` went on arguing about
+## 17.4 px for months while nothing was drawn at 17.4 px, and that document had
+## already recorded that *"at 9.4 px there is no badge design that works"*.
+##
+## So the size is asserted where it is experienced: in screen pixels, at the real
+## desktop resolution, through `BattleView.compute_layout`'s own arena scale and
+## `status_badge_size`, walked over every unit the registry can put on a field.
+## Both halves of that matter -- a world-unit assertion would have passed
+## throughout the defect, and a hardcoded list of enemies would go stale the
+## first time content adds one.
+const _LEGIBLE_BADGE_PX := 16.0
+
+func _every_drawable_shape() -> Array:
+	var out: Array = []
+	var pawn_radius: float = CombatUnit.new().radius
+	for id in Registry.all_class_ids():
+		out.append([id, pawn_radius, CG.Team.PLAYER])
+	for id in Registry.all_enemy_ids():
+		var e = Registry.get_enemy(id)
+		out.append([id, e.radius if e != null else pawn_radius, CG.Team.ENEMY])
+	return out
+
+func test_no_units_status_badge_is_drawn_below_the_legible_size() -> void:
+	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
+	var shapes := _every_drawable_shape()
+	assert_true(shapes.size() > 8, "the walk must cover the real roster, got %d" % shapes.size())
+	for row in shapes:
+		var radius: float = float(row[1]) * UnitView.DISPLAY_SCALE
+		var px: float = UnitView.status_badge_size(row[0], row[2], radius) * scale
+		assert_true(px >= _LEGIBLE_BADGE_PX - 0.2,
+			"%s draws its status badges at %.1f px on a 1280x720 screen. The glyph set does not read below %.0f px (sable, Screenshots/badge_legibility.png)." % [row[0], px, _LEGIBLE_BADGE_PX])
+
+## The negative half: prove the assertion above can fail, rather than trusting a
+## green run on a walk that might be measuring nothing. The old floor is the
+## known-bad input, and it must be rejected by the same arithmetic.
+func test_the_old_floor_would_be_caught_by_that_guard() -> void:
+	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
+	var old_floor := 7.0 * UnitView.DISPLAY_SCALE
+	assert_true(old_floor * scale < _LEGIBLE_BADGE_PX,
+		"the floor #208 replaced measured %.1f px, and a guard that would have passed it is not a guard" % (old_floor * scale))
+	assert_true(UnitView.STATUS_BADGE_MIN * scale >= _LEGIBLE_BADGE_PX - 0.2,
+		"the new floor must clear the bar it was chosen for")
+
+## The cap, with the reason attached to the number. sable measured 2,201,587
+## unit-ticks: three or more statuses at once happens on 2.5% of them, and no
+## enemy in the sample ever carried five. A cap of one would have hidden
+## something on 8.2%, which is an overflow chip a player learns to distrust.
+func test_the_badge_cap_is_two_and_a_third_status_is_counted_not_dropped() -> void:
+	assert_eq(UnitView.MAX_STATUS_BADGES, 2)
+	var u := _make_unit(0, Vector2.ZERO)
+	u.statuses[CG.Status.BURN] = 100
+	u.statuses[CG.Status.BLEED] = 100
+	assert_eq(UnitView.status_badges(u).size(), 2, "two fit, so two are drawn and no chip appears")
+	assert_eq(UnitView.hidden_status_count(u), 0)
+
+	u.statuses[CG.Status.POISON] = 100
+	assert_eq(UnitView.status_badges(u).size(), 1, "a third status gives its slot up to the chip")
+	assert_eq(UnitView.hidden_status_count(u), 2, "and the chip must count both, not just the third")

@@ -658,13 +658,31 @@ const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
 ## row, and the row belongs to the unit rather than to the thing above it.
 const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
 
-## A unit can in principle carry every status at once. Four is what fits in a
-## row roughly as wide as the unit's own hp bar, which is the widest thing it
-## already draws -- past that the row is wider than the unit and starts
-## colliding with its neighbours' rows instead of its own chrome. Harmful
-## first (see status_badges), so the four shown are the four a player most
+## A unit can in principle carry every status at once. **Two**, on the player's
+## ruling in issue 208, and the reason is that the reservation was being paid
+## for in width by every unit and earned by almost none.
+##
+## sable's `Tools/StatusLoad.gd`, 2,201,587 unit-ticks over real parties and
+## every encounter at 20 seeds:
+##
+##   statuses at once      0     1     2     3     4     5     6     7
+##   share            79.14 12.63  5.76  1.38  0.74  0.25  0.07  0.03  %
+##   enemies at 5+                                          0     0     0
+##
+## **The row is empty 79.1% of the time, and of the ticks carrying anything,
+## 88.2% carry one or two.** No enemy in two million unit-ticks ever carried
+## five. Four slots were reserved always and earned on 1.0% of ticks, and the
+## width was charged to every goblin -- exactly where the row is worst, at 2.7x
+## the drawn body.
+##
+## **A cap of two hides something on 2.5% of unit-ticks** and #161's "+N" chip
+## reports that truthfully. One would have hidden something on 8.2%, and the
+## difference between those two is an overflow chip that is rare and one a
+## player learns to distrust.
+##
+## Harmful first (see status_badges), so the two shown are the two a player most
 ## needs: what is being done *to* this unit.
-const MAX_STATUS_BADGES := 4
+const MAX_STATUS_BADGES := 2
 
 ## Which badges this unit gets, in draw order. Split out from the drawing for
 ## the same reason status_tags is: Godot refuses draw_* outside _draw(), so a
@@ -713,11 +731,41 @@ static func hidden_status_count(u: CombatUnit) -> int:
 		return 0
 	return total - (MAX_STATUS_BADGES - 1)
 
+## The floor, and issue 208 is entirely about this number.
+##
+## It was `7.0 * DISPLAY_SCALE`, and **every ordinary enemy in the game was
+## pinned to it** -- goblin, goblin_archer, cultist, ghoul, rat and stalker all
+## measured **8.7 px on screen at 1280x720**, and 4.7 px at 844x390. That is
+## #190's downstream consequence: making the decoration fit the drawn body was
+## right, and nobody measured what it did to the badges.
+##
+## `BADGE-LEGIBILITY.md` has been arguing about 17.4 px since February and
+## nothing on the field has been drawn at 17.4 px for months. That same document
+## already said *"at 9.4 px there is no badge design that works"*, and the
+## DESKTOP size was below it.
+##
+## **sable rendered all thirteen glyphs at every rung and the set reads at 16 px**
+## (`Screenshots/badge_legibility.png`), so the fix is the size and not the
+## drawing -- which overturned the assignment they were given, and they said so
+## rather than redrawing something that was never the problem.
+##
+## `13.0 * DISPLAY_SCALE` is 19.5 world units, which the arena's own fit puts at
+## **~16 px at 1280x720**, expressed the same way as the ceiling two constants
+## up so the two move together. The floor is now close to the ceiling on purpose:
+## a badge is a fixed piece of iconography rather than a scaled decoration, and
+## below 16 px there is no drawing that rescues it.
+##
+## AND DO NOT REACH FOR THE DISCRIMINATION METRIC TO APPROVE A SMALLER ONE. It
+## runs backwards -- 24.0% at 4.7 px against 13.2% at 32 px -- because at small
+## sizes it is measuring the plate rather than the glyph. sable found that and it
+## is the sort of number that reads as permission.
+const STATUS_BADGE_MIN := 13.0 * DISPLAY_SCALE
+
 ## Issue 190: sable measured a row of four badges at 84px against a 27px goblin,
 ## 3.1x the unit. The row scales with the drawn body for the same reason the bar
 ## does -- and the gap scales with it, or three badges of 9px sit in 12px of air.
 static func status_badge_size(shape_id: StringName, team: CG.Team, radius: float) -> float:
-	return clampf(drawn_half_width(shape_id, team, radius) * 0.7, 7.0 * DISPLAY_SCALE, STATUS_BADGE_SIZE)
+	return clampf(drawn_half_width(shape_id, team, radius) * 0.7, STATUS_BADGE_MIN, STATUS_BADGE_SIZE)
 
 func _draw_status_badges(u: CombatUnit, radius: float, top_offset: float, below: float) -> float:
 	var size := status_badge_size(_shape_id(u), u.team, radius)
