@@ -105,12 +105,16 @@ var status_damage_per_tick: Callable = _default_status_damage_per_tick
 ## so a fraction of 0.2 on a 30-tick burn returns six times the original hit.
 ## The honest denominator is the duration, not the fraction that looks small.
 ##
-## Defaults to 0.0, which makes the second term vanish for every status and
-## leaves the expression arithmetically identical to what it was before this
-## existed. That is stronger than "nothing is wired yet": the rate feeds
-## `_stochastic_round`, which draws from the fight's shared rng, so a rate that
-## moved by any amount at all would change the outcome of every fight in the
-## game rather than only the burning ones.
+## Defaults to 0.0 for every status EXCEPT BLEED, which carries a live
+## placeholder -- see `_BLEED_DAMAGE_PER_STACK_PER_TICK` below for why one
+## status is treated differently. For BURN and POISON the second term still
+## vanishes, leaving the expression arithmetically identical to what it was
+## before this existed. That is stronger than "nothing is wired yet": the rate
+## feeds `_stochastic_round`, which draws from the fight's shared rng, so a rate
+## that moved by any amount at all would change the outcome of every fight in
+## the game rather than only the burning ones. BLEED is exempt from that worry
+## for one reason only, and it is checked rather than assumed: nothing in the
+## game applies BLEED, so no unit ever carries a magnitude for it.
 ##
 ## Local default rather than a Balance call, for the reason `slowed_speed_scale`
 ## records below: a call to a Balance method that does not exist is a
@@ -128,8 +132,9 @@ var status_damage_per_magnitude: Callable = _default_status_damage_per_magnitude
 ## Takes the status rather than the unit: a slower drip is a property of the
 ## affliction, not of who is carrying it.
 ##
-## Defaults to 1 -- inert, and the same argument as above applies, since
-## skipping a tick would skip an rng draw.
+## Defaults to 1 for every status except BLEED, which is the whole point of the
+## field. The same rng argument as above applies -- skipping a tick skips a draw
+## -- and BLEED is exempt for the same checked reason: nothing applies it.
 var status_tick_interval: Callable = _default_status_tick_interval
 
 ## How long a stacking status holds on after its expiry, per stack still left.
@@ -138,9 +143,11 @@ var status_tick_interval: Callable = _default_status_tick_interval
 ## many ticks, so a bleed reads down 3, 2, 1, gone instead of nine stacks
 ## vanishing in a single frame the tick the thing applying them dies.
 ##
-## Defaults to 0, which means the whole status comes off at once -- exactly the
-## behaviour every status had before stacking existed. The graceful decay is a
-## content decision, not a free consequence of stacking.
+## Defaults to 0 for every status except BLEED, meaning the whole status comes
+## off at once -- exactly the behaviour every status had before stacking
+## existed. BLEED carries a placeholder window so the decay it was designed for
+## is actually reachable; the real number is a content decision, not a free
+## consequence of stacking.
 var status_stack_decay_ticks: Callable = _default_status_stack_decay_ticks
 
 ## Multiplier on wind-up/recover ticks for a unit carrying HASTE.
@@ -221,15 +228,58 @@ static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
 static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
 	return Balance.status_damage_per_tick(unit, status)
 
-## The three defaults that make magnitude inert. See each field above for why
-## none of them calls Balance yet and what the content half has to do.
-static func _default_status_damage_per_magnitude(_unit: CombatUnit, _status: CG.Status) -> float:
+## BLEED'S PLACEHOLDER NUMBERS, and why they are here rather than in Balance.
+##
+## The stacking mechanism landed on top of an effect with no base: BLEED is in
+## `CombatSim._DOT_STATUSES` and multiplies correctly, and it multiplies **zero**,
+## because `Balance.status_damage_per_tick` has no BLEED case and every seam
+## above defaulted to inert. Stacks that stack nothing. heron found it by trying
+## to build the bleeder and having nothing to put on it.
+##
+## That is the exact failure this project has now paid for three times -- a
+## default returning zero looks identical to a feature nobody has used yet, and
+## regeneration sat at 0.0 for hours behind the same disguise. So BLEED gets a
+## live placeholder instead of another round trip.
+##
+## **These are placeholders, not balance decisions**, the same status as
+## `_DEFAULT_SLOWED_SPEED_SCALE` above and for the same reason: `Balance.gd` is
+## finch's file and a call to a Balance method that does not exist is a
+## parse-time failure here. The moment finch adds
+## `Balance.status_damage_per_magnitude`, `status_tick_interval` and
+## `status_stack_decay_ticks`, these three bodies become one-line calls and the
+## constants go.
+##
+## Nothing in the game applies BLEED, so this changes no fight today -- checked,
+## not assumed. What it changes is that the first action to apply BLEED will do
+## something visible instead of nothing, which is the difference between heron
+## shipping a bleeder and heron shipping a bleeder that has to be debugged.
+##
+## Every other status is untouched and returns exactly what it returned before,
+## which keeps BURN and POISON bit-identical.
+const _BLEED_DAMAGE_PER_STACK_PER_TICK := 1.0
+
+## Every 5 ticks, a third of a second. The player's *"does damage less often"*,
+## against POISON's every single tick -- a rhythm a player can tell apart
+## without reading a number.
+const _BLEED_TICK_INTERVAL := 5
+
+## Two seconds per stack. What makes a bleed read down 3, 2, 1 rather than
+## vanishing whole the tick the thing applying it dies.
+const _BLEED_STACK_DECAY_TICKS := 30
+
+static func _default_status_damage_per_magnitude(_unit: CombatUnit, status: CG.Status) -> float:
+	if status == CG.Status.BLEED:
+		return _BLEED_DAMAGE_PER_STACK_PER_TICK
 	return 0.0
 
-static func _default_status_tick_interval(_status: CG.Status) -> int:
+static func _default_status_tick_interval(status: CG.Status) -> int:
+	if status == CG.Status.BLEED:
+		return _BLEED_TICK_INTERVAL
 	return 1
 
-static func _default_status_stack_decay_ticks(_status: CG.Status) -> int:
+static func _default_status_stack_decay_ticks(status: CG.Status) -> int:
+	if status == CG.Status.BLEED:
+		return _BLEED_STACK_DECAY_TICKS
 	return 0
 
 static func _default_haste_tick_scale(unit: CombatUnit) -> float:
