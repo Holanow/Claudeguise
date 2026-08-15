@@ -247,17 +247,16 @@ func _build_top_bar() -> void:
 ## **In the side strip the log already has, not over the arena.** That strip is
 ## reserved out of the viewport before the arena is fitted (`compute_layout`), so
 ## everything drawn in it is free: putting the panel anywhere else would shrink
-## the fight to make room for a description of it. The cost is paid by the log
-## instead, which loses the top `TeamStatusView.MAX_PANEL_HEIGHT` of its column.
+## the fight to make room for a description of it.
 ##
-## **That cost is real and I am naming it rather than burying it.** At 1280x720
-## the log goes from the full 720 to about 366, from roughly 33 lines to 17. The
-## issue's own build note is that this is "a good candidate for the space the log
-## is losing" and that notes item 8 wants the log in a bottom corner; that move
-## has not happened, so until it does the two share the column.
+## The log used to pay for it, losing the top `TeamStatusView.MAX_PANEL_HEIGHT`
+## of its own column. **It no longer pays anything**: notes item 8 has landed and
+## the log is a fixed `CombatLogView.LOG_HEIGHT` box in the bottom corner, so the
+## panel has the top of the column, the log has the bottom of it, and the middle
+## is empty. `test_ui_team_status.gd` asserts they do not meet.
 ##
-## Portrait puts the log along the bottom instead, so there is nothing to inset
-## and the panel simply sits in the top right.
+## Portrait puts the log along the bottom band instead, well clear of the panel
+## in the top right.
 func _build_team_status() -> void:
 	var hud := get_node("Hud")
 	_team_status = Control.new()
@@ -522,22 +521,29 @@ func _layout_arena() -> void:
 	_arena.scale = layout.scale
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
-		_combat_log.set_top_inset(log_top_inset(size))
 
-## Issue 113: how far down the side column the log starts, so the team status
-## panel can have the top of it.
+## Where the log's box begins, so the team status panel above it can be checked
+## against something measured rather than against a constant.
 ##
-## Split out of `_layout_arena` for the same reason `compute_layout` is: it
-## depends on the viewport size, which Godot only answers honestly inside a
-## tree, and the branch that matters here is the one that does NOT apply. In
-## portrait the log is a band along the bottom and the panel is nowhere near it,
-## so the inset has to go back to zero rather than staying set from the last
-## orientation -- a stale value, which only shows on the second call and is
-## invisible in any test that checks one orientation.
-static func log_top_inset(size: Vector2) -> float:
-	if size.x < size.y:
-		return 0.0
-	return _PANEL_TOP + TeamStatusViewScript.MAX_PANEL_HEIGHT
+## **I built a clamp here first and deleted it, and the deletion is the finding.**
+## The panel is bounded at `_PANEL_TOP + MAX_PANEL_HEIGHT` = 450 and a 200 px box
+## on a 720-tall column starts at 500, so the two clear each other by 50 -- but
+## only while the column is 720. I assumed a phone landscape was shorter than
+## that (inferring it from a 390x844 launch reporting 1280x2770) and wrote a
+## clamp for it.
+##
+## **Measured instead of inferred: a real 844x390 launch reports 1558x720.** The
+## stretch is `canvas_items` + `expand` off a 1280x720 base, which pins whichever
+## axis has the smaller window/base ratio and expands the other, so a landscape
+## window is never shorter than 720 logical pixels: above 16:9 the height pins at
+## 720, at or below it the width pins at 1280 and the height comes out at
+## 1280/aspect >= 720. The clamp could never have fired in any window the game
+## can be opened in, and shipping it would have been another unreachable branch
+## in a project that has shipped thirteen. `test_ui_team_status.gd` asserts the
+## invariant it was guarding, over real window sizes through the real stretch
+## rule, which is the thing worth keeping.
+static func log_box_top(size: Vector2) -> float:
+	return size.y + CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT
 
 ## Split out from _layout_arena so the fit math can be checked without a
 ## live viewport — Godot only gives get_viewport_rect() a real answer inside
