@@ -238,9 +238,98 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			if CG.is_harmful(e.status):
 				return "%s's %s fades" % [target_name, _status_name(e.status)]
 			return "%s's %s ends" % [target_name, _status_name(e.status)]
+		CG.EventKind.BLOCKED:
+			# `target_id` is the BLOCKER, not the unit the shot was aimed at --
+			# see CG.EventKind.BLOCKED's own comment. The aimed-at unit is
+			# already gone from the outcome by the time this fires, so naming
+			# it here would need a field the event does not carry, and the
+			# interesting subject is the guard anyway.
+			#
+			# Logged on every one, ~19.5 a fight on swift's measurement,
+			# against a log already running a few hundred lines. That is a few
+			# percent, and it buys the thing #99 exists for: the block has been
+			# in the event stream for weeks and a player could not see a single
+			# one of them. The DAMAGE line that follows on the same tick shows
+			# the guard being hit rather than the ally it was aimed at, which is
+			# only comprehensible with this line in front of it.
+			return "[color=%s]%s blocks %s's %s[/color]" % [
+				Palette.TEAM_PLAYER.to_html(), target_name, source_name, _action_name(e.action_id)
+			]
+		CG.EventKind.SUSTAIN_START:
+			# ACTION_FIRE printed "X's Y fires" on this same tick, and a channel
+			# is exactly the case where firing is not the end of it.
+			return "%s holds %s" % [source_name, _action_name(e.action_id)]
+		CG.EventKind.SUSTAIN_END:
+			# `amount` is the ticks it was held for, and it is the one thing a
+			# player wants from a channel once it is over -- not recoverable
+			# from the event stream any other way. Shown in seconds, the unit
+			# every other duration on this screen already uses.
+			return "%s stops %s after %s" % [
+				source_name, _action_name(e.action_id), _seconds(e.amount)
+			]
+		CG.EventKind.INTERRUPTED:
+			# `source_id` is the unit that LOST the action, not the interrupter.
+			# That matches ACTION_START, which is the event this one cancels, so
+			# a log that printed "Geysermancer begins Blast" prints the same
+			# subject losing it. What did the interrupting is the STATUS_APPLIED
+			# on the same tick.
+			#
+			# `amount` is the wind-up already invested and thrown away, and the
+			# resource is NOT refunded (the player's ruling). That is the most
+			# punishing thing that can happen to a pawn, so it takes a loud
+			# colour rather than the dim treatment a miss gets. BattleView also
+			# flashes the unit on this event: the line says what happened, the
+			# flash says it happened now, and the player asked for both.
+			return "[color=%s]%s's %s is interrupted, %s of wind-up lost[/color]" % [
+				Palette.TEAM_ENEMY.to_html(), source_name,
+				_action_name(e.action_id), _seconds(e.amount)
+			]
+		CG.EventKind.SUMMONED:
+			# `target_id` is the NEW unit, not a foe. swift's shape, with
+			# "summons" where they wrote "builds": the Siege Master builds an
+			# engine and the Rat King does not build a rat, and one verb has to
+			# cover both.
+			return "%s summons %s" % [source_name, target_name]
 		CG.EventKind.RESOURCE_SPENT:
+			# Deliberate. See SILENT_KINDS below -- the list is what makes this
+			# silence distinguishable from an oversight.
 			return ""
 	return ""
+
+## Every CG.EventKind either produces a line above or is named here, and
+## `Tests/test_ui_combat_log.gd::test_every_event_kind_speaks_or_is_named_silent`
+## walks the real enum to enforce it.
+##
+## Issue 151, and this guard is the point of that issue rather than the lines.
+## `line_for_event` is a `match` with `return ""` underneath, so a kind added to
+## the enum renders nothing at all, in real fights, with the gate green
+## throughout. That happened FIVE times to THREE people -- BLOCKED,
+## SUSTAIN_START, SUSTAIN_END, INTERRUPTED, and SUMMONED -- including from a
+## pull request whose entire purpose was to stop the Warrior's block being
+## invisible.
+##
+## Adding a `CG.Status` has never been able to happen invisibly: three gate
+## tests refuse a status with no glyph and no glossary entry. This is that guard
+## for the other enum. The working precedent is swift's
+## `test_audio.gd::test_the_replacement_instructions_name_every_event_kind`,
+## which caught a missing kind on its own first gate run.
+##
+## A deliberate silence goes in this list, and that is what makes it
+## distinguishable from an oversight -- which is the whole difference the guard
+## buys.
+const SILENT_KINDS := [
+	# The spend is already on screen twice: the resource bar drops on the same
+	# tick, and ACTION_START names what it was spent on. A line per spend is one
+	# per action per pawn, the largest thing that could be added to this log and
+	# the least informative.
+	CG.EventKind.RESOURCE_SPENT,
+]
+
+## Ticks as the seconds a player reads off the clock, matching BattleView's own
+## elapsed display, so a duration in the log and a duration on the HUD are the
+## same unit.
+func _seconds(ticks: int) -> String:
+	return "%.1fs" % (float(ticks) / float(CG.TICKS_PER_SECOND))
 
 ## Issue 19: "warrior_strike fires" is the same developer-language problem
 ## the win screen's tick count was, in a quieter place. Prefers the real
