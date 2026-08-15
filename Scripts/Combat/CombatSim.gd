@@ -1839,8 +1839,16 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	if deps == null:
 		deps = SimDeps.new()
-	var player_alive := _side_can_fight(state, CG.Team.PLAYER, deps)
-	var enemy_alive := _side_can_fight(state, CG.Team.ENEMY, deps)
+	var player_alive := not state.living(CG.Team.PLAYER).is_empty()
+	var enemy_alive := not state.living(CG.Team.ENEMY).is_empty()
+	# Issue 233. Only asked while both sides still have somebody standing: a
+	# side with nothing left alive has already lost by the rule above, and
+	# asking whether its corpses can act would turn a win into a draw. That is
+	# not hypothetical -- it is what the first version of this did, and
+	# `test_an_empty_side_still_loses_immediately` caught it.
+	if player_alive and enemy_alive:
+		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
+		enemy_alive = _side_can_fight(state, CG.Team.ENEMY, deps)
 
 	var outcome := CombatState.Outcome.UNRESOLVED
 	if player_alive and not enemy_alive:
