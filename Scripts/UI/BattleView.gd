@@ -890,21 +890,83 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
 func _show_outcome() -> void:
-	var verdict: String
-	match state.outcome:
-		CombatState.Outcome.PLAYER_WIN:
-			verdict = "Victory"
-		CombatState.Outcome.ENEMY_WIN:
-			verdict = "Defeat"
-		_:
-			verdict = "Draw"
+	var verdict := outcome_word(state)
 	var duration := _format_duration(state.tick)
 	_outcome_label.text = "%s (%s)" % [verdict, duration]
 
 	_end_outcome_label.text = verdict
 	_end_outcome_label.add_theme_color_override("font_color",
-		Palette.TEAM_PLAYER if state.outcome == CombatState.Outcome.PLAYER_WIN
-		else Palette.TEAM_ENEMY if state.outcome == CombatState.Outcome.ENEMY_WIN
+		Palette.TEAM_PLAYER if verdict == "Victory"
+		else Palette.TEAM_ENEMY if verdict == "Defeat"
 		else Palette.TEXT)
+	var reason := end_reason_sentence(state)
 	_end_cost_label.text = "%s  ·  %s" % [_cost_summary(), duration]
+	if reason != "":
+		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
 	_end_banner.visible = true
+
+## Issue 218. **The banner used to contradict the line under it**: a fight where
+## every pawn died and the siege engines finished the room off printed "Victory"
+## over "None of your party survived."
+##
+## rook's ruling: a fight where every pawn is dead is a **Defeat**, because a
+## summon outliving the party is a fact about the summon. `CombatSim` owns the
+## question -- `is_pawnless_win` is swift's, on `CombatState`, and 11 of 40 seeds
+## on `floor1_warden` end this way, so it is not a corner case. Asked here rather
+## than re-derived: a second "which of these units was a pawn" in this file would
+## drift from the one in the simulation, which is what `_cost_summary`'s own
+## comment above already had to be careful about.
+##
+## The colour follows the word rather than the outcome enum, or the banner would
+## say Defeat in the player's own colour.
+static func outcome_word(state: CombatState) -> String:
+	if CombatSim.is_pawnless_win(state):
+		return "Defeat"
+	match state.outcome:
+		CombatState.Outcome.PLAYER_WIN:
+			return "Victory"
+		CombatState.Outcome.ENEMY_WIN:
+			return "Defeat"
+	return "Draw"
+
+## Issue 249: what finished the fight, in words, or "" when saying anything would
+## add nothing.
+##
+## `outcome` says who won and `CG.EndReason` says what ended it, and since #243
+## those are genuinely two facts: a side can lose because it is dead, or because
+## nothing left on it can ever act again. On seed 0 the screen read "The Warden's
+## Marked fades" and then Defeat, which is legible only to somebody who already
+## knows the rule.
+##
+## **NO_SURVIVORS prints nothing.** It is the ending the game has always had and
+## "everything on the other side is dead" is what a player already reads Victory
+## as meaning. A line under every banner restating the obvious is furniture
+## within two fights, and then the one ending that needed explaining is wearing
+## the same clothes as the one that never did.
+##
+## UNSET prints nothing either, and that is not the same silence: it means
+## nothing set a reason, which `CG.EndReason` calls a defect in the setter rather
+## than a fourth ending. `test_ui_battle_end_banner.gd` asserts a real fight never
+## reaches the banner carrying it, so the silence cannot hide one.
+##
+## The side is named rather than left as "they". The reason is a fact about the
+## LOSER, and a player reading "nothing could fight any more" under a Defeat has
+## to know whether that was their party or the room.
+static func end_reason_sentence(state: CombatState) -> String:
+	if end_reason_of(state) != CG.EndReason.CANNOT_ACT:
+		return ""
+	if state.outcome == CombatState.Outcome.PLAYER_WIN:
+		return "Nothing on the enemy's side could fight any more."
+	if state.outcome == CombatState.Outcome.ENEMY_WIN:
+		return "Nothing on your side could fight any more."
+	return "Neither side could fight any more."
+
+## The reason off the fight's own FIGHT_END event.
+##
+## Searched from the end because FIGHT_END is the last thing in the stream and a
+## restarted fight appends to a fresh state, so the last one is this fight's.
+static func end_reason_of(state: CombatState) -> CG.EndReason:
+	for i in range(state.events.size() - 1, -1, -1):
+		if state.events[i].kind == CG.EventKind.FIGHT_END:
+			return state.events[i].end_reason
+	return CG.EndReason.UNSET
