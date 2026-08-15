@@ -1071,6 +1071,9 @@ static func _spawn_summon(state: CombatState, caster: CombatUnit, action: Action
 	var new_id := state.units.size()
 	var summon := _build_enemy_unit(new_id, enemy_def, action.summons_unit_id, caster.position, caster.team)
 	state.units.append(summon)
+	## Issue 193. Emitted after the append, so `state.unit(target_id)` already
+	## resolves for anything reading the event on this tick.
+	state.emit(_event(CG.EventKind.SUMMONED, state.tick, caster.id, new_id, action.id))
 
 ## Range and line of sight are both measured here, at the moment the effect
 ## lands, against the target the action committed to -- same reasoning for
