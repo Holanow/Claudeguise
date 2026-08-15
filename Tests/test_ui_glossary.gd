@@ -59,10 +59,21 @@ func test_poison_text_reads_the_real_damage_percent() -> void:
 	var text := Glossary.status_text(CG.Status.POISON)
 	assert_true(text.contains("%.2f" % Balance.POISON_DAMAGE_PERCENT_PER_TICK), text)
 
-func test_burn_text_reads_the_real_damage_percent_and_differs_from_poison() -> void:
+## Issue 121, finch: **burn no longer has a percentage to read.** Its rate is a
+## fraction of the hit that lit it, so there is no single number to print -- a
+## big hit burns harder. The line follows BLEED's precedent and states the rule
+## in words, which was wren's own preference.
+##
+## The two assertions left are the ones that still mean something: burn does not
+## read like poison, and **it names the combo**. A player who cannot see that
+## Blast eats a burn cannot find the only combo in the game (#186).
+func test_burn_text_states_its_rule_and_names_the_combo() -> void:
 	var text := Glossary.status_text(CG.Status.BURN)
-	assert_true(text.contains("%.2f" % Balance.BURN_DAMAGE_PERCENT_PER_TICK), text)
-	assert_ne(text, Glossary.status_text(CG.Status.POISON), "BURN and POISON have different real percentages and must not read identically")
+	assert_true(text.to_lower().contains("blast"),
+		"burn's text must say what snuffs it, or the combo is invisible: %s" % text)
+	assert_false(text.contains("%"),
+		"burn has no fixed percentage now; a number here would be a lie: %s" % text)
+	assert_ne(text, Glossary.status_text(CG.Status.POISON), "BURN and POISON work differently and must not read identically")
 
 func test_marked_text_reads_the_real_vulnerability_bonus() -> void:
 	var text := Glossary.status_text(CG.Status.MARKED)

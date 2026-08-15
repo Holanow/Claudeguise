@@ -112,6 +112,72 @@ static func actions() -> Array[ActionDef]:
 		## cannot mark at would spend the fight out of position for its own
 		## specialty.
 		_projectile(_action(&"stalker_dart", "Dart", "A light ranged dart at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 6, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
+
+		## **Issue #130's BLEED source, and the fastest action in the game.**
+		## 3 ticks of wind-up and 4 of recovery is a bite every 7 ticks, under
+		## half the Goblin's 12. The player asked for *"something small that
+		## hits fast"* and for a status that *"does damage less often but
+		## stacks infinitely"* -- so the enemy is the delivery rate and the
+		## status is the payload, and neither is dangerous alone.
+		##
+		## **A stack is worth more than the bite that carries it, and that is
+		## the whole design.** At the live placeholders in `SimDeps` -- 1 per
+		## stack per tick on a 5-tick rhythm -- one stack is 3 damage a second
+		## against a 3-damage bite landing every half second, so a rat that
+		## keeps biting overtakes its own direct damage inside two seconds and
+		## keeps going. Four rats on one pawn is the shape #130 is about.
+		##
+		## **45 ticks of duration against a 30-tick per-stack decay, both
+		## deliberate.** `CombatSim._tick_statuses` drops one stack on expiry
+		## and re-arms for the decay window, so a pawn that breaks away from a
+		## rat reads down 3, 2, 1, gone over about six seconds rather than
+		## having nine stacks vanish on one tick. 45 is longer than the decay
+		## so a bite always extends the bleed it lands on; shorter than twice
+		## it so walking away is a real escape rather than a formality.
+		##
+		## power_scale 1.0 on `attack_power` 3. There is no hidden multiplier
+		## here: the bite is meant to be beneath notice.
+		_action_status(&"rat_bite", "Bite", "A fast melee bite at up to 40 units that adds a stack of Bleed.", CG.DamageType.PHYSICAL, 40.0, 3, 4, 1.0, 0, CG.Status.BLEED, 45),
+
+		## **Floor 1's miniboss, and README wrote its whole design in one line:**
+		## *"Big collection of rats joined at the tail. Ranged attacker, all
+		## attacks leave behind rats which are close range melee attackers."*
+		##
+		## So this is one action doing two things, and that is the point rather
+		## than a shortcut. Every other summon in the game is a dedicated
+		## build action that deals nothing (`build_siege_engine`,
+		## `power_scale` 0.0); this one damages **and** spawns, because "all
+		## attacks leave behind rats" is not a summoning ability the king
+		## chooses to use, it is what its attacks are. A separate summon action
+		## would also have to win `DefaultBehavior`'s first-usable-action race
+		## against the attack, which is the trap that kept `warden_chain_toss`
+		## from ever firing.
+		##
+		## Ranged at 200 to match the goblin archer, so the king holds the
+		## back rank and the rats it sheds do the closing -- the shape the
+		## README line describes. 20/22 ticks is the slowest cadence in the
+		## bestiary after the Brute: the swarm is the threat and the lash is
+		## how the swarm arrives, so a fast lash would be two threats.
+		##
+		## **`max_active_summons` IS DELIBERATELY NOT SET, and I set it to 6
+		## first and took it out.** The cap is enforced in
+		## `PlanInterpreter._summon_slot_free`; enemies have no plans and go
+		## through `DefaultBehavior`, whose `_usable_actions` returns every
+		## action on the unit with no summon-slot check at all. **So a cap on
+		## an enemy's summon does nothing whatever.**
+		##
+		## Two reasons it is out rather than set as documentation. It would be
+		## a number a reader trusts and the simulation ignores, which is worse
+		## than an absent one. And `test_content_siege_artillery.gd` asserts
+		## that exactly one action in the game carries a cap -- that guard is
+		## right, it is there to catch a cap set without thinking, and it
+		## caught mine. I did not touch it.
+		##
+		## **It also turned out not to matter, which I measured rather than
+		## assumed.** The uncapped swarm never exceeds the four rats the room
+		## starts with, on any party, on any seed -- a 20 hp rat dies faster
+		## than a 42-tick lash cycle replaces it. Numbers in the pull request.
+		_summons(_action(&"rat_king_lash", "Tail Lash", "A ranged strike at up to 200 units that leaves a rat behind.", CG.DamageType.PHYSICAL, 200.0, 20, 22, 1.0, 0, 0, true), &"rat"),
 	]
 
 static func enemies() -> Array[EnemyDef]:
@@ -207,9 +273,14 @@ static func enemies() -> Array[EnemyDef]:
 		## distant target spends the fight walking.
 		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam"], ["Melee", "Tough", "Stun"], 0.0),
 
-		## **Issue #121's anti-support specialist, and it is deliberately the
-		## squishiest thing in the game: 30 hp, under the Goblin Archer's 28
-		## by two.** It deals 5 damage. It is a threat because of what it
+		## **Issue #121's anti-support specialist. Deliberately fragile at 30
+		## hp, and my own comment here was wrong when I wrote it** -- it said
+		## "the squishiest thing in the game, under the Goblin Archer's 28 by
+		## two", and 30 is above 28, not under it. The Goblin Archer was
+		## already the squishiest thing in the game and still is until the Rat
+		## below at 20. Corrected rather than quietly dropped: it was the kind
+		## of claim a reader would take on trust and nothing would ever check.
+		## It deals 5 damage. It is a threat because of what it
 		## enables, not what it deals, and I would rather ship it visibly weak
 		## and say so than pad its damage until it looks useful.
 		##
@@ -231,6 +302,67 @@ static func enemies() -> Array[EnemyDef]:
 		## interesting until then: this enemy has one action and it is the
 		## mark.
 		_enemy(&"stalker", "Stalker", 30, 0, CG.ResourceKind.ENERGY, 3.8, 10.0, {CG.DamageType.PHYSICAL: 5}, 0.0, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
+
+		## **Issue #130's BLEED source. The player's words are "something small
+		## that hits fast", and every number here is that sentence and nothing
+		## else.**
+		##
+		## 20 hp, the least in the game, below the Goblin Archer's 28.
+		## move_speed 5.0, the most in the game, above the Goblin's 4.0.
+		## 3 damage a bite, the least in the game. `radius` 8.0, the smallest
+		## body in the game. **A rat loses every exchange it is in.** What it
+		## has instead is `rat_bite`'s 7-tick cycle and a status that does not
+		## reset.
+		##
+		## **A rat rather than an invention, and the art was already there.**
+		## `Silhouettes.gd` has carried a `rat` shape in `UNUSED_SHAPES` since
+		## before any content existed, and README's floor-1 miniboss is the Rat
+		## King -- *"all attacks leave behind rats which are close range melee
+		## attackers"* -- so this is the thing that miniboss is made of rather
+		## than a one-off. That is the second time sable's ahead-of-content art
+		## has met the content it was drawn for, after the Brute.
+		##
+		## focus_bias 0.8, the highest in the game, above the Goblin's 0.7.
+		## This is the one number that is about the status rather than about
+		## the body: BLEED is the first thing in this game where **hitting the
+		## same target twice is worth more than hitting two targets once**, so
+		## a swarm that splits its bites across four pawns wastes the mechanic
+		## it exists to carry. A high bias is what makes a rat pack read as a
+		## pack.
+		##
+		## Issue 12's rule that any two enemies differ by 2x on some axis: hp
+		## 20 against the Goblin's 35 is 1.75x, but damage 3 against 9 is 3x
+		## and against the Brute's 24 is 8x.
+		_enemy(&"rat", "Rat", 20, 0, CG.ResourceKind.ENERGY, 5.0, 8.0, {CG.DamageType.PHYSICAL: 3}, 0.0, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
+
+		## **Floor 1's miniboss. README pairs it with The Warden, and it is the
+		## opposite kind of fight in every way I could make it.**
+		##
+		## The Warden is one body with 1000 hp that walks at you. The Rat King
+		## is 420 hp that never closes and keeps making the problem wider. A
+		## party that beats the Warden by out-damaging one target has to do
+		## something different here, which is the only reason to have two
+		## minibosses on one floor.
+		##
+		## move_speed 1.2 -- slower than anything else that moves, slower than
+		## the Warden's 1.4. A thing made of rats joined at the tail should not
+		## be nimble, and mechanically it is what stops the king closing: it
+		## sheds rats and they arrive, it does not.
+		##
+		## `damage_reduction` 0.0 on purpose, against the Warden's 0.05 and the
+		## Brute's 0.15. It has no armour at all -- it is a knot of small
+		## animals. What protects it is the distance and the bodies in front of
+		## it, and if a party gets to it, it should die like the thing it is
+		## made of.
+		##
+		## focus_bias 0.0: the king picks the nearest and does not join a pile.
+		## Its rats carry 0.8 and swarm, which is the division of labour the
+		## README line implies.
+		##
+		## **21 damage on a 42-tick cycle is 7.5 a second, less than half the
+		## Warden's axe.** Direct damage is not what this fight is; if the king
+		## out-damaged its own swarm the swarm would be scenery.
+		_enemy(&"rat_king", "The Rat King", 420, 0, CG.ResourceKind.ENERGY, 1.2, 24.0, {CG.DamageType.PHYSICAL: 21}, 0.0, [&"rat_king_lash"], ["Ranged", "Miniboss", "Summoner"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:
@@ -276,6 +408,15 @@ static func _action_status(id: StringName, display_name: String, description: St
 static func _action_status_cd(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, status: CG.Status, duration_ticks: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:
 	var a := _action_status(id, display_name, description, damage_type, range_units, wind_up, recover, power_scale, resource_cost, status, duration_ticks, requires_los)
 	a.cooldown_ticks = cooldown_ticks
+	return a
+
+## An action that spawns a unit as well as doing whatever else it does.
+## `core_actions.gd`'s `_action_summon` is not this: it hardcodes
+## `power_scale` 0.0 and a self-target, because every summon before this one
+## was a dedicated build action. The Rat King's lash is an attack that happens
+## to shed a rat, which is what "all attacks leave behind rats" means.
+static func _summons(a: ActionDef, unit_id: StringName) -> ActionDef:
+	a.summons_unit_id = unit_id
 	return a
 
 static func _projectile(a: ActionDef, speed: float) -> ActionDef:

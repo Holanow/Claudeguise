@@ -11,9 +11,17 @@ extends SceneTree
 ##
 ## The counts mirror `test_content_cleanse.gd` exactly -- same party (every
 ## class but the Abomination, in `Registry.all_class_ids()` order), same
-## `_cleanse_events` shape (STATUS_EXPIRED carrying a source, which only a
-## cleanse produces), same stepping loop. If those drift, this stops being an
-## instrument for that test.
+## `_cleanse_events` shape, same stepping loop. If those drift, this stops being
+## an instrument for that test.
+##
+## **Issue 121, finch: it drifted, and this is the correction.** The shape used to
+## be "STATUS_EXPIRED carrying a source, which only a cleanse produces". A cleanse
+## is no longer the only thing that produces it -- `geyser_blast` consuming a BURN
+## emits the same event on purpose, so a log can tell "Blast ate the burn" from
+## "the burn ran out". Unfixed, this tool counted the combo as cleanses and
+## reported floor1_room1 at 66 ally cleanses where the test sees 0. **I nearly
+## picked a fixture off that number**, which is the "measurement answers a
+## slightly different question" trap this project keeps paying for.
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
@@ -43,7 +51,7 @@ func _init() -> void:
 						var t := state.unit(e.target_id)
 						if t != null and t.team == CG.Team.PLAYER:
 							poisonings += 1
-					elif e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1:
+					elif e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1 and e.action_id == &"geyser_cleanse":
 						strips += 1
 						if e.target_id != e.source_id:
 							on_ally += 1

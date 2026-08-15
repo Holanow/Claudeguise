@@ -259,13 +259,13 @@ static func actions() -> Array[ActionDef]:
 		# action that can damage, so what makes this the fallback is that it
 		# is free, not where it sits in a list.
 		_restores(_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
-		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED),
+		_consumes(_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Against a burning target it snuffs the flames and hits far harder. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED), CG.Status.BURN, BURN_CONSUME_POWER_SCALE),
 		# Issue 79: numbers unchanged. This action also fired zero times in 210
 		# real fights, and nothing about the action itself was the cause --
 		# its plan was strictly dominated by the one above it. See
 		# `geyser_blast_cluster` and `geyser_scald_finisher` in
 		# PresetPlans.gd, which is where the whole fix lives.
-		_projectile(_action(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, 0, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action_status(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away, setting it alight for 6 seconds. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, CG.Status.BURN, BURN_DURATION_TICKS, true), RANGED_PROJECTILE_SPEED),
 		# Issue 87: the player's own "Geysermancer can do debuff removal", and
 		# the thing that makes this class's SUPPORT tag true -- until this it
 		# had three actions and all three were pure damage.
@@ -570,11 +570,48 @@ static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
 	return a
 
+## Issue 121: how long `geyser_scald`'s BURN lasts. **Paired with
+## `Balance.BURN_FRACTION_OF_HIT_PER_TICK` and the two must move together** --
+## burn's whole output is the fraction times this number times the applying hit,
+## so halving one and doubling the other is the same burn. A test asserts the
+## product rather than either value, so changing one alone goes red.
+##
+## 90 ticks is six seconds, and it is `POISON`'s authored duration exactly. The
+## two damage-over-time statuses in the game read as one family on the badge row
+## and differ in what they are *for* -- poison is a flat drain that ignores who
+## applied it, burn is an echo of one hit that a Blast can cash in.
+const BURN_DURATION_TICKS := 90
+
+## Issue 121: what `geyser_blast` gets for eating a BURN, as a multiple of the
+## burn's own stored magnitude -- the mitigated damage of the hit that lit it.
+##
+## **1.0 means "the Blast hits again for what the Scald hit for", and the combo is
+## worth roughly twice letting the burn tick out.** Burn left alone returns 0.5 of
+## the applying hit over six seconds; eaten immediately it returns about 0.85 of
+## it at once, after the consuming hit's own mitigation. Two ratios, both stated
+## rather than tuned: **burn is worth half a hit, and cashing it in is worth
+## nearly a whole one.**
+##
+## The bonus is added to the Blast's power *before* mitigation while the stored
+## magnitude was recorded *after* it, so a well-armoured target pays the reduction
+## twice. That is a real quirk of swift's seam, it is small, and it points the
+## right way -- a combo is worth slightly less into heavy armour.
+const BURN_CONSUME_POWER_SCALE := 1.0
+
 ## Issue 132: the mana a magic class's default attack returns when it lands.
 ## Same inert-by-default shape as `_projectile` and `_marked_only` -- the field
 ## is 0 on every other action.
 static func _restores(a: ActionDef, amount: int) -> ActionDef:
 	a.restores_resource = amount
+	return a
+
+## Issue 121: strips a status off the target and adds `scale` times its stored
+## magnitude to this hit. The first consume in the game; every other action
+## leaves `consumes_status_enabled` false and is untouched.
+static func _consumes(a: ActionDef, status: CG.Status, scale: float) -> ActionDef:
+	a.consumes_status_enabled = true
+	a.consumes_status = status
+	a.consumed_power_scale = scale
 	return a
 
 ## Issue 93: wraps an ActionDef so it may only be aimed at an enemy carrying

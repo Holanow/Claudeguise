@@ -203,3 +203,46 @@ func _all(node: Node) -> Array[Node]:
 	for c in node.get_children():
 		out.append_array(_all(c))
 	return out
+
+# ---------------------------------------------------------------------------
+# Issue 82: name plates become the second toggle
+# ---------------------------------------------------------------------------
+
+const UnitView := preload("res://Scripts/UI/UnitView.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+
+func test_name_plates_are_off_by_default() -> void:
+	_reset()
+	assert_false(DisplayOptions.enabled(&"name_plates"),
+		"plates default off: eight units in one scrum collide and the top plate wins")
+
+## The rule that decides *when* a plate would show -- focused or winding up,
+## plus a hold because that trigger flickers several times a second -- must
+## survive the toggle. It is a third state somebody may want, and implementing
+## "off" by deleting it would throw away the harder half.
+func test_the_label_activity_rule_survives_the_toggle() -> void:
+	_reset()
+	var state := CombatState.new(0)
+	var a := CombatUnit.new()
+	a.id = 0
+	a.hp = 10
+	a.hp_max = 10
+	a.display_name = "A"
+	var b := CombatUnit.new()
+	b.id = 1
+	b.hp = 10
+	b.hp_max = 10
+	b.display_name = "B"
+	b.team = CG.Team.ENEMY
+	state.units.append(a)
+	state.units.append(b)
+
+	# An ENEMY that is idle and unfocused: nothing to say about it. Party units
+	# are always named by this rule, so they cannot show the negative half.
+	assert_false(UnitView.should_show_label(b, state.units),
+		"an idle, unfocused enemy has no reason to be named")
+	# Focused by someone: the trigger the hold exists to smooth.
+	a.focus_id = b.id
+	assert_true(UnitView.should_show_label(b, state.units),
+		"the activity rule must still fire -- it is not deleted, only gated")

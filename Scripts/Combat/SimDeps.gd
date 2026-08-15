@@ -290,10 +290,24 @@ const _BLEED_TICK_INTERVAL := 5
 ## vanishing whole the tick the thing applying it dies.
 const _BLEED_STACK_DECAY_TICKS := 30
 
-static func _default_status_damage_per_magnitude(_unit: CombatUnit, status: CG.Status) -> float:
-	if status == CG.Status.BLEED:
-		return _BLEED_DAMAGE_PER_STACK_PER_TICK
-	return 0.0
+## Issue 121, finch: repointed at `Balance`, which is what the note above says to
+## do once the method exists. It did not when swift wrote this -- "a call to a
+## Balance method that does not exist is a parse-time failure" -- and that was an
+## ordering precaution, not a preference. `Balance.status_damage_per_magnitude`
+## exists as of this commit, so the precondition is met.
+##
+## **This repoint is load-bearing rather than tidying.** BURN's rate had to come
+## off `Balance.status_damage_per_tick` in the same commit that gave it a
+## fraction here, and `_default_status_damage_per_tick` above already calls
+## Balance. Without this line the two halves land in different files and burn
+## deals exactly nothing.
+##
+## BLEED's number is unchanged across the move: `Balance` returns the same 1.0
+## this constant holds, deliberately and with the reasoning recorded at both ends,
+## because a rate feeds `_stochastic_round` off the fight's shared rng and a rate
+## that moved at all would change every fight rather than only the bleeding ones.
+static func _default_status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> float:
+	return Balance.status_damage_per_magnitude(unit, status)
 
 static func _default_status_tick_interval(status: CG.Status) -> int:
 	if status == CG.Status.BLEED:

@@ -471,6 +471,64 @@ static func draw_unit(
 		var fill: Color = part["fill"] if part["filled"] else Color(0.0, 0.0, 0.0, 0.0)
 		UIArt.draw_outlined_polygon(canvas, part["points"], fill, part["outline"], part["outline_width"])
 
+## The box `draw_unit` actually puts ink in, in the same local space it draws
+## into. **This is the number issue #190 is about.**
+##
+## Everything a unit wears -- health bar, badge row, impact ring, name plate --
+## is sized from `u.radius * DISPLAY_SCALE`, the *simulation's collision radius*.
+## No drawing fills that. The measured consequence, from PLAYTEST-FRESH-2: a
+## goblin is a 15px body wearing a 90px health bar, an 84px badge row and a 49px
+## impact ring, and the overshoot is worst on the smallest units -- the ones a
+## player can least identify. *"A field of floating coloured dashes with insects
+## underneath them"* is that mismatch.
+##
+## **The fix is not to redraw the units.** A goblin is a small hunched creature
+## and drawing it wider would make it not a goblin. The fix is for decoration to
+## size from the drawing, and this is where the drawing's size comes from.
+##
+## `UnitView` is wren's and the sizing change is wren's; this function is the
+## half of it that lives in the art.
+##
+## It goes through the same two paths `draw_unit` does, in the same order, and
+## **that matters more than anything else here**: ten shapes have real PNGs in
+## `Assets/Units/` today, so for those the polygons in this file are dead code
+## that nothing renders. A measurement taken off `build_parts` is a measurement
+## of art the game does not draw. I know because I published one -- see the
+## correction note in `BADGE-LEGIBILITY.md`.
+static func drawn_extent(
+	shape_id: StringName,
+	radius: float,
+	team: CG.Team,
+	accent: CG.DamageType = CG.DamageType.PHYSICAL,
+	center: Vector2 = Vector2.ZERO
+) -> Rect2:
+	var tex := UnitArt.texture_for(shape_id, team)
+	if tex != null:
+		return UnitArt.opaque_rect(radius, tex, center)
+
+	var parts := build_parts(shape_id, radius, team, accent, false, center)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for part in parts:
+		for p in part["points"]:
+			lo = lo.min(p)
+			hi = hi.max(p)
+	if lo.x > hi.x:
+		return Rect2(center, Vector2.ZERO)
+	return Rect2(lo, hi - lo)
+
+## `drawn_extent` as a fraction of the footprint the game reserves for the unit,
+## per axis. 1.0 means the drawing fills its nominal box on that axis.
+##
+## Normalised so it can be compared across shapes and tabulated; a caller sizing
+## a real bar wants `drawn_extent` and the radius it already has, not this.
+static func fill_ratio(shape_id: StringName, team: CG.Team) -> Vector2:
+	var tex := UnitArt.texture_for(shape_id, team)
+	if tex != null:
+		return UnitArt.opaque_fraction(tex)
+	# Polygons are authored in a -1..1 box, so any radius gives the same answer.
+	return drawn_extent(shape_id, 100.0, team).size / 200.0
+
 ## Every polygon of a shape, resolved to world-space points and final colours.
 ##
 ## Split out from `draw_unit` so it can be tested. Godot refuses `draw_*` calls

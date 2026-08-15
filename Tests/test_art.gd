@@ -221,6 +221,115 @@ func _aspect(id: StringName) -> float:
 	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
 
 
+## Fraction of its own nominal box a shape's drawn width actually covers.
+##
+## **This used to read `Silhouettes.build_parts` and it was measuring the wrong
+## thing.** Ten shapes have real PNGs in `Assets/Units/`, and for those the
+## polygons in `Silhouettes` are dead code the game never renders -- so the
+## number this produced was a fact about art nobody sees. It goes through
+## `Silhouettes.fill_ratio`, which takes the same two paths `draw_unit` does, in
+## the same order. See the correction note in `BADGE-LEGIBILITY.md`.
+func _fill_fraction(id: StringName) -> float:
+	return Silhouettes.fill_ratio(id, CG.Team.ENEMY).x
+
+
+func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
+	# Measured for PLAYTEST-FRESH-2, whose headline is that units are too small
+	# to identify. The floor fails nothing today and fires on a shape drawn
+	# smaller than any that has ever shipped.
+	#
+	# This is NOT a claim that any shape should be wider. A goblin is a small
+	# hunched creature and that is what the shape is. It is a claim that nobody
+	# should add a shape that occupies a third of the space the game reserves for
+	# it, because the decoration around it is sized from the reservation.
+	#
+	# The floor stays at 0.5 across the correction from polygons to real art, and
+	# that is a coincidence worth writing down rather than a threshold left
+	# alone: the polygon path's worst was the goblin at 0.56, the real art's
+	# worst is `priest.png` at exactly 0.50 -- twelve opaque columns of a
+	# twenty-four wide file. It sits ON the floor, so the next shape drawn any
+	# narrower goes red immediately.
+	for id in CLASS_SHAPES + UNUSED_SHAPES + AHEAD_OF_CONTENT_SHAPES + [&"goblin", &"goblin_archer", &"ghoul", &"the_warden", &"cultist"]:
+		var fill := _fill_fraction(id)
+		assert_true(fill >= 0.5,
+			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
+
+
+func test_fill_ratio_reads_the_real_art_and_not_the_dead_polygons() -> void:
+	# The regression guard for the defect above, and the reason it is possible to
+	# state as an assertion: for a shape with a PNG, the two paths disagree.
+	# `warrior` has `Assets/Units/warrior.png`, so `draw_unit` draws the texture
+	# and `build_parts` is never reached.
+	#
+	# If somebody deletes the PNGs this goes red rather than silently passing --
+	# which is correct: the whole point is that the measurement follows the art.
+	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER),
+		"this test measures the texture path; without a PNG for warrior it measures nothing")
+
+	var from_art := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
+	var parts := Silhouettes.build_parts(&"warrior", 100.0, CG.Team.PLAYER, CG.DamageType.PHYSICAL)
+	var lo := INF
+	var hi := -INF
+	for part in parts:
+		for p in part["points"]:
+			lo = minf(lo, p.x)
+			hi = maxf(hi, p.x)
+	var from_polygons := (hi - lo) / 200.0
+	assert_true(absf(from_art.x - from_polygons) > 0.05,
+		"fill_ratio returned the polygon width (%.2f) for a shape that draws a texture" % from_polygons)
+
+
+func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
+	# The trap this exists to close, and the reason `opaque_rect` scans pixels
+	# instead of reading `get_width`. Pixel art carries margin: `siege_master.png`
+	# is a 24x14 file with only 20x8 of it opaque. A caller that moved off the
+	# collision radius and onto the file dimensions would fix part of #190 and
+	# look like it had fixed all of it.
+	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
+		"this test measures the texture path; without a PNG for siege_master it measures nothing")
+	var tex := UnitArt.texture_for(&"siege_master", CG.Team.PLAYER)
+	var file_fraction := Vector2(tex.get_width(), tex.get_height()) / maxf(tex.get_width(), tex.get_height())
+	var opaque := UnitArt.opaque_fraction(tex)
+	assert_true(opaque.y < file_fraction.y - 0.1,
+		"opaque_fraction returned the file's height (%.2f), margin included" % file_fraction.y)
+	# And the extent must agree with the fraction, or the two answers drift.
+	var extent := Silhouettes.drawn_extent(&"siege_master", 100.0, CG.Team.PLAYER)
+	assert_true(absf(extent.size.y / 200.0 - opaque.y) < 0.01,
+		"drawn_extent and opaque_fraction disagree about the same sprite")
+
+
+func test_a_fully_transparent_sprite_does_not_collapse_to_nothing() -> void:
+	# The negative case, and it is not hypothetical: the drop-in pipeline takes
+	# whatever PNG is on disk. A zero-size extent would make every bar sized from
+	# it vanish, which reads as the UI being broken rather than as the art being
+	# blank. The fallback is the whole file.
+	var image := Image.create(8, 4, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var tex := ImageTexture.create_from_image(image)
+	assert_eq(UnitArt.opaque_fraction(tex), Vector2(1.0, 0.5),
+		"a blank sprite must fall back to its file box, not to a zero-size extent")
+
+
+func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:
+	# The negative half. A floor nobody has proved can fire is furniture, and
+	# this project has shipped exactly that before -- a detector with sixteen
+	# passing tests that could never go red.
+	#
+	# `_unknown_parts` is the fallback drawn for a shape id nothing defines, and
+	# it is deliberately a full-size marker, so it passes. The failing case is
+	# built here rather than added to the roster: a real shape drawn at a third
+	# scale.
+	assert_true(_fill_fraction(&"definitely_not_a_shape") >= 0.5,
+		"the unknown-shape fallback should fill its own footprint")
+	var lo := INF
+	var hi := -INF
+	for p in [Vector2(-0.3, -0.3), Vector2(0.3, -0.3), Vector2(0.3, 0.3), Vector2(-0.3, 0.3)]:
+		lo = minf(lo, p.x * 100.0)
+		hi = maxf(hi, p.x * 100.0)
+	assert_false((hi - lo) / 200.0 >= 0.5,
+		"a shape spanning 0.3 of the unit box must fail the floor, or the floor checks nothing")
+
+
 func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
 	# They are a pair and they are meant to be related, which is precisely the
 	# condition under which two shapes drift into being one. The miniboss and its
@@ -539,11 +648,136 @@ func test_harmful_and_beneficial_rims_differ() -> void:
 func test_no_two_statuses_share_a_glyph() -> void:
 	# The whole job of these badges is telling one status from another. Two
 	# entries pointing at the same shape would pass every other check here.
+	#
+	# **This test is necessary and it is nowhere near sufficient, which is worth
+	# stating where the next person reads it.** It compares the arrays for
+	# equality, so it only ever catches a copy-paste. bleed and burn passed it
+	# for months while sharing 98% of their pixels, because a droplet and a
+	# flame are different arrays and the same picture. The test below is the one
+	# that would have caught that.
 	var seen: Array = []
 	for s in _every_status():
 		var g: Array = StatusIcons.GLYPHS[s]
 		assert_false(seen.has(g), "CG.Status.%s reuses another status's glyph" % CG.Status.keys()[s])
 		seen.append(g)
+
+
+## How much of a glyph's own box each of two glyphs covers differently, sampled
+## on a grid. A poor man's rasteriser, in pure GDScript, so the property can be a
+## test rather than a tool somebody remembers to run.
+##
+## `Geometry2D.is_point_in_polygon` does the real work for filled parts; dots and
+## strokes are distance tests. It is coarse on purpose -- badges are 17 pixels,
+## so a 24x24 sample is finer than the thing it models.
+func _glyph_coverage(glyph: Array, grid: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(grid * grid)
+	for gy in grid:
+		for gx in grid:
+			var p := Vector2(
+				(float(gx) + 0.5) / float(grid) * 2.0 - 1.0,
+				(float(gy) + 0.5) / float(grid) * 2.0 - 1.0)
+			var hit := 0
+			for part in glyph:
+				var rot := float(part.get("rot", 0.0))
+				var q := p.rotated(-rot)
+				if part.has("poly"):
+					var poly := PackedVector2Array()
+					for v in part["poly"]:
+						poly.append(Vector2(v[0], v[1]))
+					if Geometry2D.is_point_in_polygon(q, poly):
+						hit = 1
+				elif part.has("dot"):
+					var d: Array = part["dot"]
+					if q.distance_to(Vector2(d[0], d[1])) <= float(d[2]):
+						hit = 1
+				elif part.has("arc"):
+					var a: Array = part["arc"]
+					var w: float = float(part.get("w", 0.18)) * 0.5
+					if absf(q.distance_to(Vector2(a[0], a[1])) - float(a[2])) <= w:
+						hit = 1
+				elif part.has("line"):
+					var pts: Array = part["line"]
+					var w2: float = float(part.get("w", 0.18)) * 0.5
+					for i in range(pts.size() - 1):
+						var s := Vector2(pts[i][0], pts[i][1])
+						var e := Vector2(pts[i + 1][0], pts[i + 1][1])
+						if Geometry2D.get_closest_point_to_segment(q, s, e).distance_to(q) <= w2:
+							hit = 1
+				if hit == 1:
+					break
+			out[gy * grid + gx] = hit
+	return out
+
+
+func _glyph_difference(a: PackedByteArray, b: PackedByteArray) -> float:
+	var differing := 0
+	for i in a.size():
+		if a[i] != b[i]:
+			differing += 1
+	return float(differing) / float(a.size())
+
+
+func test_no_two_status_glyphs_are_the_same_picture() -> void:
+	# THE TEST THAT WOULD HAVE CAUGHT BLEED AND BURN, and the reason it exists is
+	# that the header of StatusIcons.gd asserted "no two share an outline" for
+	# months and it was false. A droplet and a flame are different arrays and the
+	# same picture; measured on screen they disagreed on 2.1% of their pixels,
+	# flat from 12px to 32px.
+	#
+	# The full measurement is `Tools/BadgeLegibility.tscn`, which renders and
+	# compares real pixels. This is its cheap shadow: a grid sample of the glyph
+	# alone, no plate, no rim, no rendering. It cannot replace the tool -- it
+	# knows nothing about how much of the badge the glyph occupies -- but it
+	# guards the one thing the tool found, and it runs in the gate.
+	#
+	# Only same-category pairs are checked, because rim colour and plate
+	# direction already separate harmful from helpful and no glyph has to.
+	var grid := 24
+	var coverage := {}
+	for s in _every_status():
+		coverage[s] = _glyph_coverage(StatusIcons.GLYPHS[s], grid)
+
+	var worst := 1.0
+	var worst_pair := ""
+	for a in _every_status():
+		for b in _every_status():
+			if a >= b or CG.is_harmful(a) != CG.is_harmful(b):
+				continue
+			var d := _glyph_difference(coverage[a], coverage[b])
+			if d < worst:
+				worst = d
+				worst_pair = "%s/%s" % [CG.Status.keys()[a], CG.Status.keys()[b]]
+	# Measured after the #130 rework: the closest same-category glyph pair
+	# differs on about a quarter of its own box. The floor is set well under
+	# that so ordinary redrawing does not trip it, and well over the 6% the old
+	# droplet-and-flame pair scored on this same measure.
+	assert_true(worst > 0.12,
+		("the closest same-category glyph pair is %s at %.1f%% of their own box. "
+		+ "Two badges that similar are one badge on a 17px unit -- redraw one, "
+		+ "and re-run Tools/BadgeLegibility.tscn for the on-screen number.") % [
+			worst_pair, worst * 100.0])
+
+
+func test_the_glyph_similarity_detector_actually_fires() -> void:
+	# A detector shipped without this is the failure mode this project has
+	# written down: sixteen tests asserting a warning is well-formed when it
+	# fires, none asserting it fires at all. Feed it the exact pair that started
+	# this -- a droplet and the flame it was indistinguishable from -- and assert
+	# it would have caught them.
+	var droplet := [{"poly": [
+		[0.0, -0.8], [0.42, -0.05], [0.42, 0.3], [0.18, 0.65],
+		[-0.18, 0.65], [-0.42, 0.3], [-0.42, -0.05]]}]
+	var flame: Array = StatusIcons.GLYPHS[CG.Status.BURN]
+	var d := _glyph_difference(_glyph_coverage(droplet, 24), _glyph_coverage(flame, 24))
+	assert_true(d <= 0.12,
+		"the old droplet scores %.1f%% against the flame, above the floor -- this detector is inert" % [d * 100.0])
+	# And the negative half: the shape that REPLACED it must clear the floor, or
+	# the detector is simply rejecting everything.
+	var slash: Array = StatusIcons.GLYPHS[CG.Status.BLEED]
+	var d2 := _glyph_difference(_glyph_coverage(slash, 24), _glyph_coverage(flame, 24))
+	assert_true(d2 > 0.12,
+		"the replacement slash scores %.1f%% against the flame, so it is no better" % [d2 * 100.0])
 
 
 func test_every_reachable_action_has_an_icon() -> void:
@@ -573,7 +807,10 @@ func test_every_reachable_action_has_an_icon() -> void:
 ## the line to remove. A comment saying "remove this later" rots; an assertion
 ## that the excuse still applies cannot.
 const _ICONS_AHEAD_OF_CONTENT := {
+	# heron's #162. Delete this one the same time that branch merges.
 	# heron's #148. Delete these three the same time that branch merges.
+	# heron's #192, the Rat King. Delete this line when that branch merges --
+	# the test below names it for you.
 }
 
 
@@ -1088,6 +1325,59 @@ func test_the_equipment_replacement_instructions_match_the_real_content() -> voi
 			readme.contains("item/%s.png" % id),
 			"item '%s' is registered but Assets/UI/README.md does not list item/%s.png" % [id, id]
 		)
+
+
+func test_the_status_badge_instructions_match_the_real_statuses() -> void:
+	# **This test exists because a rename slipped past every check in the file.**
+	#
+	# ENRAGE became TAUNTED in `CG.Status`. The enum moved, the badge was
+	# redrawn, the glossary sentence was rewritten -- and `Assets/UI/README.md`
+	# went on telling the player to drop in `status/enrage.png`, a filename
+	# `StatusIcons.art_name` has not resolved since the rename. Drop that file in
+	# and nothing happens, silently, which is the worst failure this pipeline
+	# has: the whole promise of the folder is "no code change, it just works".
+	# SUSTAINING was added and never listed at all, the same defect from the
+	# other direction.
+	#
+	# Every other drop-in table here is checked against the code that reads it.
+	# This one was not, so it was the one that rotted. Asked as "does the code's
+	# own lookup name appear", never as a hand-typed list -- a list typed here
+	# would rot in exactly the same way and agree with itself while doing it.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	assert_ne(readme, "", "Assets/UI/README.md is missing")
+	for status in CG.Status.values():
+		var name := "%s.png" % StatusIcons.art_name(status)
+		assert_true(
+			readme.contains(name),
+			"CG.Status.%s draws a badge but Assets/UI/README.md does not list %s" % [
+				CG.Status.keys()[status], name]
+		)
+
+
+func test_the_ability_icon_instructions_match_the_real_content() -> void:
+	# The same check for the action table, which had drifted further: seven of
+	# the thirty-four actions the registry defines were missing from it --
+	# brute_slam, geyser_cleanse, geyser_spout, rat_bite, stalker_dart,
+	# stalker_mark and warrior_second_wind.
+	#
+	# The README already claimed "this list is checked by a test", and that was
+	# false. The nearby test walks the registry against `ActionIcons.GLYPHS`,
+	# never against this file, so the sentence described a check that did not
+	# exist. It does now.
+	#
+	# Registry-driven, so an action added tomorrow fails here rather than at the
+	# moment an artist drops in a PNG that never appears.
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	assert_ne(readme, "", "Assets/UI/README.md is missing")
+	var checked := 0
+	for id in Registry.all_action_ids():
+		var name := "%s.png" % ActionIcons.art_name(id)
+		assert_true(
+			readme.contains(name),
+			"action '%s' is registered but Assets/UI/README.md does not list %s" % [id, name]
+		)
+		checked += 1
+	assert_true(checked > 0, "no actions checked; this test would pass on an empty game")
 
 
 # ---------------------------------------------------------------------------

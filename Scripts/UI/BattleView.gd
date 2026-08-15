@@ -126,9 +126,20 @@ func _build_top_bar() -> void:
 	# Issue 15: "you cannot tell who is winning" without parsing seven small
 	# bars. Two aggregate bars answer that at a glance, colour-coded the same
 	# way a single unit's own hp bar is.
-	var summary := HBoxContainer.new()
-	summary.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	summary.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	# Issue 82: the two bars are stacked, not side by side, and their labels are
+	# one fixed width.
+	#
+	# A fresh reader measured them as "teal ~117px, red ~133px at full" and
+	# concluded the comparison was meaningless. The troughs were always the same
+	# width -- what differed was where each one *started*, because "Party" and
+	# "Enemies" are different lengths and each bar sat in its own row after its
+	# own label. **Two bars you are meant to compare must share a left edge**,
+	# or the eye is comparing right-hand ends that begin in different places.
+	# The one question a spectator has is *am I ahead*, and this is the control
+	# that answers it.
+	var summary := VBoxContainer.new()
+	summary.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	summary.add_theme_constant_override("separation", int(Palette.SPACE_XS))
 	summary.offset_left = Palette.SPACE_M
 	summary.offset_top = _SUMMARY_ROW_TOP
 	hud.add_child(summary)
@@ -324,13 +335,19 @@ const _SUMMARY_BAR_WIDTH := 120.0
 
 ## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
 ## Returns the fill rect so _update_team_summary can resize it later.
-func _build_summary_bar(parent: HBoxContainer, label_text: String, color: Color) -> ColorRect:
+## One fixed label width so both troughs begin at the same x. Issue 82: without
+## it the two bars start in different places and cannot be compared by eye,
+## which is the only thing they exist for.
+const _SUMMARY_LABEL_WIDTH := 64.0
+
+func _build_summary_bar(parent: Container, label_text: String, color: Color) -> ColorRect:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	parent.add_child(row)
 
 	var label := Label.new()
 	label.text = label_text
+	label.custom_minimum_size = Vector2(_SUMMARY_LABEL_WIDTH, 0.0)
 	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	row.add_child(label)
@@ -701,7 +718,18 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, int(round(Palette.FONT_SIZE_BODY * UnitViewScript.DISPLAY_SCALE)))
+	# Issue 187. Two changes, and the colour is a defect rather than a taste
+	# call: this was `Palette.TEAM_ENEMY` for EVERY death, so **losing your own
+	# pawn was announced in the enemy's colour.** Same class of mistake as
+	# `HP_LOW` and `TEAM_ENEMY` being the same value on the health bars. The
+	# dying unit's own team colour says whose death it was, which is information
+	# the old version did not merely omit but actively got wrong.
+	#
+	# And smaller: a cold reader called this "looks like an error message", and
+	# a second one found it overlapping the `Miss` text in large type over live
+	# units. It is one event among many, not a banner.
+	marker.show_text("%s dies" % target.display_name, Palette.team_color(target.team), 1.8,
+		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
@@ -717,7 +745,14 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _floater_stagger_offset(target.position)
-	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
+	# Issue 187: was `FONT_SIZE_FLOATER` -- 34 before the display scale, so
+	# **51 pixels of "Miss" across the arena** at the same size as a damage
+	# number, which is exactly why a cold reader read it as another overlapping
+	# number until they squinted. A miss is the smallest event in the game: the
+	# action resolved and connected with nothing. It should be the quietest mark
+	# on the screen, not one of the loudest.
+	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS,
+		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
 func _show_outcome() -> void:
 	var verdict: String

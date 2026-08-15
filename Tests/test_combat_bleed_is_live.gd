@@ -140,19 +140,38 @@ func test_a_bleed_tick_emits_a_damage_event_carrying_the_status() -> void:
 ## The placeholder is BLEED-only. BURN and POISON must return exactly what they
 ## returned before, because both are reachable from content and either would
 ## move every fight in the game through the shared rng.
-func test_the_placeholder_touches_no_status_but_bleed() -> void:
+## Narrowed on #121: BURN left this list because finch moved its number onto the
+## magnitude side, which is the ruling landing rather than a regression. What the
+## test always meant is intact -- **a status that stores nothing is unaffected**
+## -- and that is still the half that keeps unrelated fights from moving.
+func test_the_seams_touch_no_status_that_stores_nothing() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
-	for status in [CG.Status.BURN, CG.Status.POISON, CG.Status.STUN, CG.Status.SLOWED,
+	for status in [CG.Status.POISON, CG.Status.STUN, CG.Status.SLOWED,
 			CG.Status.MARKED, CG.Status.TAUNTING, CG.Status.SHIELDING, CG.Status.HASTE]:
 		assert_almost_eq(float(deps.status_damage_per_magnitude.call(unit, status)), 0.0,
 			0.0001, "no magnitude damage for %d" % status)
 		assert_eq(int(deps.status_tick_interval.call(status)), 1, "still every tick for %d" % status)
 		assert_eq(int(deps.status_stack_decay_ticks.call(status)), 0, "no decay window for %d" % status)
 
-## A burning unit under the real defaults takes its base rate and nothing more,
-## even while carrying a magnitude from the hit that applied it.
-func test_a_burn_carrying_a_magnitude_still_deals_only_its_base_rate() -> void:
+## And the two that DO store something carry a live rate. Asserted here rather
+## than left implicit, because "BURN is not in the list above" and "BURN is
+## wired" are different claims and only the second one is the feature.
+func test_burn_and_bleed_both_carry_a_live_magnitude_rate() -> void:
+	var deps := SimDeps.new()
+	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
+	for status in [CG.Status.BURN, CG.Status.BLEED]:
+		assert_true(float(deps.status_damage_per_magnitude.call(unit, status)) > 0.0,
+			"status %d stores a magnitude and must be paid for it" % status)
+
+## **INVERTED ON #121, and this is the tripwire doing its job.** It used to
+## assert a stored burn magnitude paid nothing -- true while BURN's number sat on
+## the base side, and the message said so by name. finch moved it, this fired,
+## and the real assertion is the opposite one: the player's ruling is that burn
+## damage per tick is relative to the hit that applied it.
+##
+## Same fixture, opposite direction, so the two builds are directly comparable.
+func test_a_burn_from_a_bigger_hit_ticks_harder() -> void:
 	var plain := _arena()
 	plain.unit(1).statuses[CG.Status.BURN] = 999
 
@@ -163,22 +182,24 @@ func test_a_burn_carrying_a_magnitude_still_deals_only_its_base_rate() -> void:
 	_run(plain, _real_deps(), 20)
 	_run(loaded, _real_deps(), 20)
 
-	assert_eq(plain.unit(1).hp, loaded.unit(1).hp,
-		"a stored burn magnitude pays nothing until finch moves BURN's number")
-	assert_eq(plain.rng.randf(), loaded.rng.randf(), "and draws nothing extra from the rng")
+	assert_true(loaded.unit(1).hp < plain.unit(1).hp,
+		"a burn that remembers a 40-damage hit must hurt more than one that remembers nothing")
 
-## The reason the BLEED placeholder is safe to ship live while BURN's is not:
-## nothing applies BLEED, so no unit in a real fight carries a magnitude for it.
-## This fails on the day heron's bleeder lands, which is exactly when the
-## balance table needs re-measuring -- rather than a comment that rots.
-func test_no_authored_action_applies_bleed_yet() -> void:
-	var appliers: Array[StringName] = []
-	for id in Registry.all_action_ids():
-		var a: ActionDef = Registry.get_action(id)
-		if a != null and a.applies_status_enabled and a.applies_status == CG.Status.BLEED:
-			appliers.append(id)
-	assert_eq(appliers, [] as Array[StringName],
-		"when this fails, BLEED is live in real fights and the table moved: re-measure")
+## **`test_no_authored_action_applies_bleed_yet` fired on #130 and is gone.**
+##
+## It asserted that nothing applied BLEED, and said in its own message that the
+## day it failed was the day to re-measure. `rat_bite` is what failed it. The
+## re-measurement is in that pull request; the assertion is deleted rather than
+## loosened, because it was a statement about a moment and the moment passed.
+##
+## What replaces it is not another structural read. It is
+## `test_content_rooms.gd::test_the_rats_bleed_stacks_on_a_real_pawn`, which
+## runs real fights in `floor1_hazard` and counts stacks out of `state.events`
+## -- the thing this file could not do, since nothing here builds a room.
+##
+## Two expiring assertions in two files fired on the same commit, both written
+## by swift, both naming the next action instead of rotting into a comment.
+## Worth recording that the pattern works.
 
 func test_two_runs_from_one_seed_bleed_identically() -> void:
 	var a := _arena()
