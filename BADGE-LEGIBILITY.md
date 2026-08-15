@@ -150,6 +150,15 @@ of it:
 | stalker | 0.66 |
 | **goblin** | **0.56** |
 
+> ### CORRECTION, 2026-08-15. The table above is wrong. See section 8.
+>
+> **It measures polygons the game does not draw.** Ten shapes have real PNGs in
+> `Assets/Units/` and take the texture path through `Silhouettes.draw_unit`; for
+> those, `build_parts` is dead code. I measured the dead code and published it.
+> The finding it supports survives and gets worse; the numbers do not. The
+> corrected table is section 8 and the measurement now goes through
+> `Silhouettes.fill_ratio`, which takes the same two paths `draw_unit` does.
+
 At 1280x720, in real screen pixels:
 
 | enemy | drawn body | impact ring ends at | ring / body |
@@ -198,6 +207,78 @@ Two consequences, and the second is the real one:
 The geometry is mine. Which damage type gets passed is `BattleView`'s. Whether an
 impact should be recoloured, reshaped, or moved to the attacker is a design call
 and is filed, not decided here.
+
+## 8. The fill table, corrected — and the pawns are the worst of it
+
+Section 6's table was taken off `Silhouettes.build_parts`. Ten shapes have PNGs
+in `Assets/Units/` and draw the texture instead, so for those the polygons are
+dead code. **The published number was a fact about art nobody sees.**
+
+Re-measured through `Silhouettes.fill_ratio`, which branches exactly the way
+`draw_unit` branches, and against the sprite's **opaque** pixels rather than its
+file dimensions — pixel art carries transparent margin, and reading `get_width`
+would have fixed part of the error while looking like it fixed all of it.
+
+| shape | art? | **real x** | **real y** | polygon x (published) |
+|---|---|---|---|---|
+| **priest** | yes | **0.50** | 0.96 | 0.72 |
+| **warrior** | yes | **0.54** | 0.71 | 0.96 |
+| **geysermancer** | yes | **0.54** | 0.71 | 0.86 |
+| ghoul | yes | 0.54 | 0.83 | 0.86 |
+| cultist | yes | 0.58 | 0.79 | 0.76 |
+| goblin_archer | yes | 0.58 | 0.71 | 0.59 |
+| stalker | no | 0.66 | 0.91 | 0.66 |
+| **goblin** | yes | **0.71** | 0.75 | **0.56** |
+| abomination | yes | 0.79 | **0.50** | 0.99 |
+| **siege_master** | yes | 0.83 | **0.33** | 0.97 |
+| the_warden | yes | 0.88 | 0.79 | 0.99 |
+| rat_king, brute | no | 1.00 | 0.97 | 1.00 |
+
+Three things change, and two of them matter more than the original claim.
+
+1. **The goblin is not the worst shape. It is one of the better ones** (0.71).
+   I said *"the overshoot is worst on the smallest units"* and named the goblin;
+   the direction was right and the example was wrong.
+2. **The narrowest things on the field are the player's own pawns.** Priest
+   0.50, Warrior 0.54, Geysermancer 0.54. Every published number said the pawns
+   were nearly full (0.72 to 0.96). So the mismatch is worst on the four units
+   the player is actually watching, which makes #190 a bigger fix than filed,
+   not a smaller one.
+3. **The vertical axis was never measured at all and is worse than the
+   horizontal.** `siege_master` fills **0.33** of its box vertically, the
+   abomination 0.50. Anything stacked *above* a unit — the whole bar and badge
+   column — is offset from a radius the art misses by two thirds.
+
+`Silhouettes.drawn_extent` returns the box, per axis, in the space `draw_unit`
+draws into. That is the art half of #190 and it is all of it that is mine.
+
+`priest.png` is twelve opaque columns of a twenty-four-wide file, so it lands on
+exactly 0.50, which is where `test_no_silhouette_is_drawn_tiny_inside_its_own_
+footprint` puts its floor. The floor did not move across the correction; the
+worst shape moved onto it. The next shape drawn any narrower goes red.
+
+---
+
+## The rule this file exists to stop me forgetting
+
+**The read is mass, not taper. A gentle taper is not a taper at 9 pixels.**
+
+Every glyph defect I have shipped is one sentence: I drew a shape whose identity
+lives in a gradual change of width, and at badge size the gradual part quantises
+away and leaves a blob whose *area* is the only thing the eye gets. Bleed and
+burn shared 98% of their pixels for exactly this reason — both are teardrops,
+and a teardrop is a taper.
+
+So when a glyph has to differ from another glyph, differ in **how much ink is
+where**: solid versus hollow, one part versus three, ink at the top versus ink
+at the bottom. Never in the *rate* at which an edge narrows.
+
+And its corollary, which has cost more than the rule itself:
+
+**Rendering has caught fifteen defects on this project. Reading has caught
+none.** Including a glyph that rendered as the exact drawing the comment I had
+just written said it was avoiding. If you have not looked at it at true size,
+you do not know what it is.
 
 ## What I did not do
 
