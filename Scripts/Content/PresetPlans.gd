@@ -331,6 +331,41 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# self-corrects rather than needing a third condition.
 		&"abomination":
 			return [
+				## **Issue 206: Claw, and the first version of this row was wrong.**
+				## The Sickle grants Claw and Claw fired **zero** times -- a weapon
+				## granting an action that can never fire, this project's oldest
+				## defect in its thirteenth costume.
+				##
+				## **I built the obvious row first and measured it dead: "Claw while
+				## you cannot afford a Hook" fired 3 times in 80 fights.** The reason
+				## is in the rage distribution, not the row: across 1693 ticks alive,
+				## the Abomination sits under Hook's 15 Rage for **3 of them, 0.2%**,
+				## and spends the fight between 40 and 89. swift's rage fix works so
+				## well that "cannot pay" is a state this class is never in.
+				##
+				## **So affordability is the wrong reason to Claw, and poison is the
+				## right one.** Claw is the only thing in the kit that applies POISON;
+				## Hook pulls and Grapple slows. Read as three tools rather than a
+				## ladder, the row that was missing is "put poison on something that
+				## does not have any yet" -- which is a reason that survives a full
+				## Rage bar, and gives the Abomination the spread-the-poison identity
+				## its own damage type already implies.
+				##
+				## **First, above Grapple, and I measured my way into that too.** Placed
+				## below Grapple it fired 7 times, because `abomination_grapple_close`
+				## holds on any enemy within 45 and therefore takes every melee tick.
+				## Claw only ever got the ticks where nothing was in reach -- which are
+				## exactly the ticks its own 45-unit range makes it decline. Above
+				## Grapple it takes the first hit on a clean target and hands the rest
+				## back, because its condition stops holding once everything reachable
+				## is poisoned. No threshold to tune.
+				##
+				## Costs a third plan, so WIS 4 -> 6 in `starting_classes.gd`. Pure
+				## capacity, the same reasoning as the Warrior's and the Priest's own
+				## raises.
+				_plan(&"abomination_claw_the_unpoisoned", "Claw whoever is not poisoned",
+					_condition(&"enemy_lacks_status", {"status": CG.Status.POISON}),
+					[_targeting(&"target_enemy_without_status", {"status": CG.Status.POISON}), _action_block(&"abomination_claw")]),
 				_plan(&"abomination_grapple_close", "Grapple",
 					_condition(&"enemy_in_range", {"range": 45.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_grapple")]),

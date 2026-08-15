@@ -220,7 +220,13 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MAGICAL, CG.Style.MELEE, CG.Role.ANTI_SUPPORT, CG.Role.TANK,
 			[CG.DamageType.PROFANE, CG.DamageType.FIRE],
 			CG.ResourceKind.RAGE,
-			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 4},
+			# Issue 206: WIS 4 -> 6, for a third plan and nothing else. Pure
+			# capacity -- WIS has no combat-stat effect per README, it only
+			# governs plan length, the same reasoning as the Warrior's 6->8
+			# and the Priest's 5->8. The third plan is
+			# `abomination_claw_when_poor`, which is what makes the Sickle's
+			# granted Claw reachable at all; see PresetPlans.gd.
+			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 6},
 			# Issue 129: abomination_claw leaves this list for the Sickle. Rage
 			# only fills from a landed hit and both actions left here cost
 			# Rage, so this is the class the weapon matters most to: an unarmed

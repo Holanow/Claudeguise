@@ -68,6 +68,14 @@ func _draw() -> void:
 		_draw_wind_up(u, center.x, center.y - edge)
 		_draw_badges(u, center.x, center.y + edge)
 
+## The same mapping `UnitView._shape_id` makes: a pawn draws its class, an enemy
+## draws its enemy id. Duplicated here rather than reached for because the one in
+## `UnitView` is an instance method on a node this overlay does not have.
+static func _shape_id(u) -> StringName:
+	if u.pawn != null and u.pawn.pawn_class != null:
+		return u.pawn.pawn_class.id
+	return u.enemy_id
+
 func _draw_badges(u, cx: float, y: float) -> void:
 	var list: Array = u.statuses.keys()
 	if list.is_empty():
@@ -75,7 +83,7 @@ func _draw_badges(u, cx: float, y: float) -> void:
 	# Harmful first so a fight full of buffs never pushes the thing that is
 	# killing you off the end of the row.
 	list.sort_custom(func(a, b): return CG.is_harmful(a) and not CG.is_harmful(b))
-	var badge := badge_px(arena.transform.get_scale().x)
+	var badge := badge_px(_shape_id(u), u.team, UnitViewScript.display_radius(u), arena.transform.get_scale().x)
 	var width := StatusIcons.row_width(list.size(), badge)
 	var rects := StatusIcons.layout_row(Vector2(cx - width * 0.5, y), list.size(), badge)
 	for i in list.size():
@@ -96,10 +104,29 @@ func _draw_wind_up(u, cx: float, y: float) -> void:
 	draw_rect(Rect2(x, y - BAR_H, BAR_W * progress, BAR_H), color)
 	ActionIcons.draw_action(self, u.current_action, action.damage_type, Rect2(x + BAR_W + 4.0, y - icon, icon, icon))
 
-## The size the SHIPPED badge occupies on screen, given the arena's scale.
-## Static so a test can check the harness against the game without a live scene.
-static func badge_px(arena_scale: float) -> float:
-	return UnitViewScript.STATUS_BADGE_SIZE * arena_scale
+## The size the SHIPPED badge occupies on screen, for THIS unit, given the
+## arena's scale. Static so a test can check the harness against the game
+## without a live scene.
+##
+## **This has now been wrong twice, and the second time the test caught nothing.**
+##
+## It first hardcoded 14.0 while the game drew 17.4. Fixed in #161 by reading
+## `UnitViewScript.STATUS_BADGE_SIZE`, and pinned by a test comparing the two.
+##
+## Then #190 made the badge scale with the drawn body, and `STATUS_BADGE_SIZE`
+## stopped being the size and became the **ceiling of a clamp that almost nothing
+## reaches**. Measured: every ordinary enemy is pinned to the clamp FLOOR at
+## 8.7px while this returned 17.4px. The harness went from 20% small to 100%
+## large, and **the test stayed green the whole time, because both sides of it
+## read the same stale constant.**
+##
+## A test that pins an instrument to a constant only holds while the constant is
+## still the answer. So this asks the function the screen calls, with the same
+## arguments the screen passes, and takes the unit rather than a scale alone --
+## the shape and radius are now part of the answer and a signature that cannot
+## carry them is a signature that will go stale again.
+static func badge_px(shape_id: StringName, team: CG.Team, radius: float, arena_scale: float) -> float:
+	return UnitViewScript.status_badge_size(shape_id, team, radius) * arena_scale
 
 static func icon_px(arena_scale: float) -> float:
 	return UnitViewScript.WIND_UP_ICON_SIZE * arena_scale

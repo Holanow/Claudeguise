@@ -1123,21 +1123,43 @@ const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 func test_the_diagnostic_harness_draws_badges_at_the_size_the_game_does() -> void:
 	# Tools/IconsOverlay.gd is the harness every judgement about these badges has
 	# been made on, including a fresh-eyes playtest that called them "invisible
-	# at 1x". It hardcoded 14.0 and 16.0 raw pixels while the game draws 17.4 and
-	# 19.9 -- so it understated them by about 20% and nobody could tell, because
-	# a preview that is wrong in one direction still looks like a preview.
+	# at 1x".
 	#
-	# An instrument that disagrees with the thing it measures is worse than no
-	# instrument. This is the guard that stops the two drifting again.
+	# **This test has already failed to do its job once, and the way it failed is
+	# the point.** It hardcoded 14.0 while the game drew 17.4; that was fixed by
+	# comparing the harness against `UnitViewScript.STATUS_BADGE_SIZE`. Then #190
+	# made the badge scale with the drawn body, `STATUS_BADGE_SIZE` became the
+	# ceiling of a clamp almost nothing reaches, and this test went on passing
+	# while the harness drew badges at TWICE the size the game did -- because
+	# both sides of the assertion read the same stale constant.
+	#
+	# So it now compares against `status_badge_size`, the function the screen
+	# calls, at a real unit's real radius. An assertion whose two sides can go
+	# stale together is not a guard.
 	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
-	assert_almost_eq(IconsOverlay.badge_px(scale), UnitViewScript.STATUS_BADGE_SIZE * scale, 0.001,
+	var radius := 11.0 * UnitViewScript.DISPLAY_SCALE
+	assert_almost_eq(
+		IconsOverlay.badge_px(&"goblin", CG.Team.ENEMY, radius, scale),
+		UnitViewScript.status_badge_size(&"goblin", CG.Team.ENEMY, radius) * scale, 0.001,
 		"the harness draws badges at a different size from UnitView")
 	assert_almost_eq(IconsOverlay.icon_px(scale), UnitViewScript.WIND_UP_ICON_SIZE * scale, 0.001,
 		"the harness draws wind-up icons at a different size from UnitView")
-	# The negative half: these must actually differ from the old hardcoded
-	# numbers, or the test passes while proving nothing was fixed.
-	assert_true(absf(IconsOverlay.badge_px(scale) - 14.0) > 1.0,
-		"badge_px is back at the old hardcoded 14.0")
+
+	# The negative half, and it is the half that was missing. A harness reading a
+	# single constant cannot vary between a goblin and the Warden; the game's
+	# does. If badge_px ever goes back to returning one number for every unit,
+	# these two collapse to the same value and this fires.
+	var warden_radius := 30.0 * UnitViewScript.DISPLAY_SCALE
+	assert_true(
+		IconsOverlay.badge_px(&"the_warden", CG.Team.ENEMY, warden_radius, scale)
+			> IconsOverlay.badge_px(&"goblin", CG.Team.ENEMY, radius, scale) + 1.0,
+		"badge_px returns the same size for a goblin and the Warden, so it is reading a constant again")
+	# And it must not have drifted back to the pre-#190 ceiling, which is what it
+	# silently returned for every unit for the whole of #190's life.
+	assert_true(
+		absf(IconsOverlay.badge_px(&"goblin", CG.Team.ENEMY, radius, scale)
+			- UnitViewScript.STATUS_BADGE_SIZE * scale) > 1.0,
+		"badge_px is back at STATUS_BADGE_SIZE, the clamp ceiling rather than the drawn size")
 
 
 func test_status_row_layout_is_evenly_spaced_and_measurable() -> void:

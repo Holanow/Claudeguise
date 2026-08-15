@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## CombatLogView.line_for_event is pure formatting split out of the Control so
 ## it can be checked without a live RichTextLabel. This is the half of issue 3
@@ -349,4 +350,196 @@ func test_miss_reads_differently_from_a_landed_hit_and_a_fully_mitigated_one() -
 	assert_true(miss_line.contains("misses"))
 	assert_false(landed_line.contains("misses"))
 	assert_true(absorbed_line.contains("before mitigation"), "a fully absorbed hit must still show the raw roll, not read like a miss")
+	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 202: BLEED was logged as terrain damage, in rooms with no terrain.
+# ---------------------------------------------------------------------------
+
+## The defect, reproduced: the ground line was reached by elimination -- "not
+## BURN and not POISON" -- so BLEED, which joined `_DOT_STATUSES` long after
+## that branch was written, printed "Geysermancer takes 2 Physical damage from
+## the ground" in the Rat King's nest, which has no terrain at all. Bleed is the
+## King's signature mechanic and the log credited the floor.
+func test_a_bleed_tick_is_dropped_from_the_log() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 2
+	e.amount_before_mitigation = 2
+	e.damage_type = CG.DamageType.PHYSICAL
+	e.status = CG.Status.BLEED
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("ground"), "bleed is not terrain: " + line)
+	assert_eq(line, "", "a per-tick bleed line is texture, not story")
+	view.free()
+
+## The guard, so the next damage-over-time status does not repeat this. The
+## branch is now written the other way round -- a hazard tick is the one that
+## leaves `status` at its unset default, and everything else with no source is
+## an affliction -- and this walks CombatSim's own `_DOT_STATUSES` rather than a
+## list typed here, so a status added there fails this without anyone editing a
+## test. `_DOT_STATUSES` is the same dictionary `_tick_dot_statuses` iterates,
+## so the two cannot disagree.
+func test_no_damage_over_time_status_is_ever_credited_to_the_ground() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	assert_false(CombatSim._DOT_STATUSES.is_empty(), "the walk must have something to walk")
+	for status in CombatSim._DOT_STATUSES:
+		var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+		e.source_id = -1
+		e.target_id = 1
+		e.amount = 2
+		e.amount_before_mitigation = 2
+		e.damage_type = CombatSim._DOT_STATUSES[status]
+		e.status = status
+		var line := view.line_for_event(state, e)
+		assert_eq(line, "", "%s ticked into the log as: %s" % [CG.Status.keys()[status], line])
+	view.free()
+
+## The negative half: the ground line must still exist for a real hazard, or the
+## fix above would be "suppress everything with no source", which loses the one
+## thing standing in a fire is meant to tell you.
+func test_a_real_hazard_tick_still_says_the_ground() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 5
+	e.amount_before_mitigation = 5
+	e.damage_type = CG.DamageType.FIRE
+	# status untouched, exactly as CombatSim._tick_hazards emits it.
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("ground"), line)
+	assert_true(line.contains("Rat"), line)
+	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 151: the guard, and then the five kinds that were rendering nothing.
+# ---------------------------------------------------------------------------
+
+## THE POINT OF ISSUE 151. `line_for_event` is a `match` with `return ""`
+## underneath, so a kind appended to `CG.EventKind` renders nothing in real
+## fights with the gate green throughout. It happened five times to three
+## people. A status cannot be added invisibly -- three gate tests refuse one
+## with no glyph and no glossary entry -- and there was no equivalent for the
+## other enum.
+##
+## Walked from the real enum, not from a list typed here, so appending a kind
+## fails this test rather than shipping silent. A kind that is meant to be
+## silent goes in `CombatLogView.SILENT_KINDS` and says so out loud.
+##
+## The event this builds is deliberately generic: a real source, a real target,
+## a real action, an amount. A kind that needs something more specific than that
+## to produce a line is a kind whose line is fragile.
+func test_every_event_kind_speaks_or_is_named_silent() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var kinds: Array = CG.EventKind.values()
+	assert_true(kinds.size() > 10, "the walk must have something to walk")
+	for kind in kinds:
+		var e := CombatEvent.make(kind, 1)
+		e.source_id = 0
+		e.target_id = 1
+		e.action_id = &"warrior_strike"
+		e.amount = 6
+		e.amount_before_mitigation = 6
+		var line: String = view.line_for_event(state, e)
+		var name: String = CG.EventKind.keys()[kind]
+		if CombatLogView.SILENT_KINDS.has(kind):
+			assert_eq(line, "", "%s is on SILENT_KINDS but produced: %s" % [name, line])
+		else:
+			assert_ne(line, "", "CG.EventKind.%s renders nothing. Give it a line in CombatLogView.line_for_event, or put it on SILENT_KINDS and say why." % name)
+	view.free()
+
+## The negative half of the guard: it must be able to fail. A test that walks an
+## enum and finds every entry handled looks identical whether the check works or
+## is inert, so this proves the branch that fires. A kind not on SILENT_KINDS
+## and not in the match is exactly the defect, and RESOURCE_SPENT is the only
+## kind in the game that renders empty on purpose.
+func test_the_guard_would_catch_a_silent_kind() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.RESOURCE_SPENT, 1)
+	e.source_id = 0
+	e.target_id = 1
+	assert_eq(view.line_for_event(state, e), "", "RESOURCE_SPENT is the silent one")
+	assert_true(CombatLogView.SILENT_KINDS.has(CG.EventKind.RESOURCE_SPENT),
+		"the only kind that renders empty must be the one the list names, or the guard above passes for the wrong reason")
+	assert_eq(CombatLogView.SILENT_KINDS.size(), 1,
+		"a second deliberate silence needs its own reasoning in the list, not a quiet append")
+	view.free()
+
+## #99: the block was in the event stream for weeks and a player could not see
+## one. `target_id` is the BLOCKER, `source_id` the shooter.
+func test_a_block_names_the_guard_and_the_shot_it_took() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.BLOCKED, 1)
+	e.source_id = 1
+	e.target_id = 0
+	e.action_id = &"goblin_arrow"
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Warrior"), line)
+	assert_true(line.contains("Rat"), line)
+	assert_true(line.to_lower().contains("block"), line)
+	view.free()
+
+## #61: a channel's middle was visible as a badge and its two ends were not.
+## SUSTAIN_END carries the held duration in `amount`, and it is the one thing
+## about a channel that is unrecoverable from the stream any other way.
+func test_a_channel_logs_both_ends_and_says_how_long_it_was_held() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var started := CombatEvent.make(CG.EventKind.SUSTAIN_START, 1)
+	started.source_id = 0
+	started.target_id = -1
+	started.action_id = &"warrior_strike"
+	var start_line := view.line_for_event(state, started)
+	assert_true(start_line.contains("Warrior"), start_line)
+
+	var ended := CombatEvent.make(CG.EventKind.SUSTAIN_END, 40)
+	ended.source_id = 0
+	ended.target_id = -1
+	ended.action_id = &"warrior_strike"
+	ended.amount = 30
+	var end_line := view.line_for_event(state, ended)
+	assert_true(end_line.contains("Warrior"), end_line)
+	assert_true(end_line.contains("2.0s"), "30 ticks at 15/s is 2.0s: " + end_line)
+	assert_ne(start_line, end_line, "the two ends of a channel must not read alike")
+	view.free()
+
+## #121: the Brute cancels a cast in silence today. `source_id` is the unit that
+## LOST the action, not the interrupter -- the same subject ACTION_START used
+## for "X begins Y" -- and `amount` is the wind-up thrown away with no refund.
+func test_an_interrupt_names_the_pawn_the_action_and_what_it_cost() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.INTERRUPTED, 12)
+	e.source_id = 0
+	e.target_id = -1
+	e.action_id = &"warrior_strike"
+	e.amount = 15
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Warrior"), line)
+	assert_true(line.to_lower().contains("interrupt"), line)
+	assert_true(line.contains("1.0s"), "15 ticks at 15/s is 1.0s of wind-up lost: " + line)
+	view.free()
+
+## #193: `target_id` is the NEW unit, not a foe, so the line can name what
+## arrived. Without it a rat appears on screen and nothing says where from.
+func test_a_summon_names_the_summoner_and_the_unit_that_arrived() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.SUMMONED, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.action_id = &"warrior_strike"
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Warrior"), line)
+	assert_true(line.contains("Rat"), line)
 	view.free()

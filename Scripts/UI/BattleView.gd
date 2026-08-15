@@ -634,6 +634,8 @@ func consume_events() -> void:
 			_spawn_death_marker(e)
 		elif e.kind == CG.EventKind.MISS:
 			_spawn_miss_marker(e)
+		elif e.kind == CG.EventKind.INTERRUPTED:
+			_spawn_interrupt_flash(e)
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one
@@ -701,6 +703,33 @@ func _spawn_impact_flash(e: CombatEvent) -> void:
 	_arena.add_child(flash)
 	flash.position = target.position
 	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
+
+## Issue 151, and the player asked for it twice over: "the stun icon should
+## appear and the unit should flash white or something". The badge is already
+## drawn by UnitView from the STATUS_APPLIED on the same tick and says WHAT
+## happened; this says it happened NOW, which is the half a badge cannot do for
+## someone watching without pausing.
+##
+## `source_id`, not `target_id` -- INTERRUPTED names the unit that LOST the
+## action, and `target_id` is -1 on this kind. Passing it to the damage-shaped
+## helpers above would silently flash nothing.
+##
+## White rather than a damage colour: an interrupt is not damage and has no
+## damage type, and borrowing one would put a lie into the vocabulary the
+## floating numbers and the projectile marks share.
+##
+## NOT behind the damage_numbers option, for the same reason death and miss
+## markers are not: it marks something a player has no other way to see at the
+## moment it happens.
+func _spawn_interrupt_flash(e: CombatEvent) -> void:
+	var unit := state.unit(e.source_id)
+	if unit == null:
+		return
+	var flash := Node2D.new()
+	flash.set_script(ImpactFlashScript)
+	_arena.add_child(flash)
+	flash.position = unit.position
+	flash.flash_color(Palette.TEXT, UnitViewScript.display_radius(unit))
 
 ## A death lands as an event, not as a unit quietly disappearing: named text
 ## rising from where the unit fell, on screen noticeably longer than a damage

@@ -259,6 +259,130 @@ worst shape moved onto it. The next shape drawn any narrower goes red.
 
 ---
 
+# 9. The glyphs are readable. The game stopped drawing them at a readable size.
+
+**I was asked to redraw the glyph set at true size. The measurement says the
+drawing is not what is wrong**, and reporting that is worth more than a redraw.
+
+## 9a. What "true size" now is
+
+`Tools/BadgeLegibility.tscn`, asking `UnitView.status_badge_size` per shape at
+each unit's real radius, at 1280x720:
+
+| unit | drawn body | badge | row of 4 | row / body |
+|---|---|---|---|---|
+| goblin, archer, cultist, ghoul, rat, stalker | 16-22 px | **8.7** | 43.8 | 2.3-2.7x |
+| priest | 27.3 | 9.6 | 48.1 | 1.8x |
+| warrior, geysermancer | 29.6 | 10.4 | 52.1 | 1.8x |
+| abomination | 43.2 | 15.1 | 76.2 | 1.8x |
+| siege_master | 45.5 | 15.9 | 80.2 | 1.8x |
+| the_warden | 47.8 | 16.7 | 84.2 | 1.8x |
+
+At 844x390 every one of those halves: small enemies get **4.7 px**.
+
+**Every ordinary enemy is pinned to the clamp floor at 8.7 px.** Section 1 of
+this document argued about 17.4 px, and **nothing on the field is drawn at 17.4
+px any more.** Issue #190 was right and I supplied the numbers for it; this is
+its downstream consequence and nobody had measured it.
+
+Section "What I would drop", item 4 said *"at 9.4 px there is no badge design
+that works"*. **The desktop resolution is now below that number.**
+
+## 9b. The glyph set works at 16 px. I rendered it.
+
+`Screenshots/badge_legibility.png` draws all thirteen at 4.7, 8.7, 10.4, 15.9,
+17.4, 24 and 32. The 15.9 and 17.4 rows are legible — slash, flame, dots,
+asterisk, crosshair, chevrons, wall, shield, hourglass all read. The 8.7 row is
+the grey noise the second playtester described, and 4.7 is nothing at all.
+
+**So the answer to "make the glyphs readable at true size" is: make true size
+16 px.** That is `MAX_STATUS_BADGES` and the clamp floor in `status_badge_size`,
+both in `Scripts/UI/UnitView.gd`, wren's — filed rather than taken.
+
+## 9c. Four badge slots are reserved always and earned almost never
+
+New instrument, `Tools/StatusLoad.gd`. Every living unit on every tick, real
+parties, every encounter, 20 seeds: **2,201,587 unit-ticks.**
+
+| statuses at once | unit-ticks | share | player | enemy |
+|---|---|---|---|---|
+| 0 | 1,742,412 | **79.14%** | 894,368 | 848,044 |
+| 1 | 278,046 | 12.63% | 148,519 | 129,527 |
+| 2 | 126,904 | 5.76% | 90,186 | 36,718 |
+| 3 | 30,279 | 1.38% | 25,246 | 5,033 |
+| 4 | 16,283 | 0.74% | 16,049 | 234 |
+| 5 | 5,491 | 0.25% | 5,491 | **0** |
+| 6 | 1,493 | 0.07% | 1,493 | **0** |
+| 7 | 679 | 0.03% | 679 | **0** |
+
+- **The badge row is empty 79% of the time.**
+- Of the ticks carrying anything, **88.2% carry one or two**.
+- A cap of **2** would hide something on **2.5% of all unit-ticks** — and the
+  `+N` chip already exists to say so truthfully (#161).
+- **No enemy ever carried more than four, and none ever carried five.** The
+  entire four-slot reservation is paid for in width by every goblin on the
+  field, and goblins are where the row is worst (2.7x the body).
+
+Four was reasoned from *"a unit can in principle carry every status at once"* —
+true of the type, and not true of the game.
+
+## 9d. What I changed, and it is small
+
+**SLOWED redrawn.** It had become the closest pair in the system against POISON
+at 13.6%, taking the place bleed/burn and then taunted/burn each held. The two
+are nothing alike as pictures — POISON is three dots, SLOWED was a wide blob low
+with a small arc above — and that is the trap: **the same mass in the same
+places.** Now a thick vertical spine on a wide foot, the one arrangement no
+other harmful glyph has. 13.6% → 15.0%, still the closest pair, and I am
+reporting that as the marginal improvement it is rather than as a fix.
+
+Not a downward wedge, which was the first idea: `PLATE_BAD` is itself a
+downward-pointing pentagon, so a wedge would echo its own plate.
+
+## 9e. The instrument was wrong. Again. For the third time.
+
+1. `Tools/IconsOverlay.gd` hardcoded 14.0 px while the game drew 17.4. Fixed in
+   #161, pinned by a test.
+2. **That test then pinned the wrong constant.** It compared the harness against
+   `UnitViewScript.STATUS_BADGE_SIZE`. #190 turned that constant into the
+   **ceiling of a clamp almost nothing reaches**, so the harness drew every
+   badge at 17.4 px while the game drew 8.7 — **twice too large, having
+   previously been 20% too small** — and the test stayed green throughout,
+   because both of its sides read the same stale constant.
+3. `Tools/BadgeLegibility.gd` measured in layout space and captured in image
+   space. The project stretches `canvas_items` from a 1280 base, so running the
+   sheet at any other width silently read every box from coordinates the badges
+   were not at. It reported **0.0% ink and 0.0% discrimination for everything**.
+
+All three fixed. Both harnesses now ask `status_badge_size` rather than a
+constant, `badge_px` takes the unit so a signature that cannot carry the answer
+cannot go stale again, and the sheet converts to image space so it is correct at
+any resolution rather than only at 1280.
+
+**The general rule, which cost three instruments to learn:** a test that pins an
+instrument to a constant only holds while the constant is still the answer.
+**Ask the function.** And an assertion whose two sides can go stale together is
+not a guard — it is two copies of the same mistake agreeing.
+
+## 9f. And the discrimination metric is now provably not a legibility metric
+
+Same-category pair disagreement, worst pair, by size:
+
+```
+   4.7 px   24.0%      <- the SMALLEST badge scores the BEST
+   8.7 px   19.8%
+  15.9 px   14.2%
+  32.0 px   13.2%      <- the LARGEST badge scores the WORST
+```
+
+**It runs backwards.** At small sizes the badge is almost all plate, and the
+plates differ by direction, so the number measures the plate and not the glyph.
+I have said since the first version that pixel disagreement is a floor and not
+legibility. This is the quantitative proof, and it means **no threshold on this
+number should ever be used to approve a badge at a small size.**
+
+---
+
 ## The rule this file exists to stop me forgetting
 
 **The read is mass, not taper. A gentle taper is not a taper at 9 pixels.**
