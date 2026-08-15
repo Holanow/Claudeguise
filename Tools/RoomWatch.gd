@@ -123,6 +123,27 @@ func _watch(room_id: StringName) -> void:
 	# 90 seconds of real time per room. This runs at the speed a player watches
 	# it at -- the point is the picture, and an unresolved fight still produces
 	# every frame the shots need. The tick reached is printed either way.
+	#
+	# **"UNRESOLVED" HERE MEANS THIS CAP, NOT A STALL, AND MY OWN #201 REPORT
+	# READ IT THE WRONG WAY.** That run said room1, hazard and rat_king "did not
+	# resolve", which invites the reading that three of five rooms hang. They do
+	# not. 90 seconds lands near tick 493, and headless over 12 seeds x 5
+	# buildable parties (`Tools/SwarmProbe.gd`) **every one of the 300 fights
+	# resolved**, none reaching CG.MAX_TICKS:
+	#
+	#   room                median   p90   max   past tick 493
+	#   floor1_room1           337   452   501             3%
+	#   floor1_cover           290   364   495             2%
+	#   floor1_hazard          345   554   660            22%
+	#   floor1_chokepoint      446   548   836            27%
+	#   floor1_rat_king        252   478   907            10%
+	#
+	# So the instrument is short, the fights are not long, and the cap is left
+	# where it is: three of these five medians sit inside it, and the shots
+	# through tick 340 are what this tool is for. Raising it to catch the tail
+	# would cost about a minute per room for the last tenth of the fights.
+	# Read an UNRESOLVED line here as "the window closed", and take fight length
+	# from SwarmProbe, which measures it properly.
 	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < 60 * 90:
 		await get_tree().process_frame
 		frames += 1
