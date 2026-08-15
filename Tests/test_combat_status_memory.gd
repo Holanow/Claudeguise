@@ -75,6 +75,15 @@ func _deps(actions: Array, power: float = 10.0) -> SimDeps:
 	deps.recover_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.recover_ticks
 	deps.resource_regen_per_tick = func(_u: CombatUnit) -> float: return 0.0
 	deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
+	## Pinned rather than left on the shipped defaults, because those are no
+	## longer uniform: BLEED now carries live placeholder numbers (a 5-tick
+	## rhythm and a decay window) so the mechanism is not dead on arrival for
+	## the first action that applies it. Every fixture in this file is about the
+	## magnitude arithmetic, so it pins the rhythm and the decay to the neutral
+	## values and measures one thing at a time. `Tests/test_combat_bleed_is_live.gd`
+	## is where the shipped defaults themselves are asserted.
+	deps.status_tick_interval = func(_s: CG.Status) -> int: return 1
+	deps.status_stack_decay_ticks = func(_s: CG.Status) -> int: return 0
 	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
 	return deps
 
@@ -164,7 +173,7 @@ func test_stacks_fall_off_one_at_a_time_when_content_asks_for_it() -> void:
 	var cut := _hit(&"cut", CG.Status.BLEED, 2, 1.0)
 	var state := _arena()
 	var deps := _deps([cut])
-	deps.status_stack_decay_ticks = func(_s: CG.Status) -> int: return 3
+	deps.status_stack_decay_ticks = func(_s: CG.Status) -> int: return 3 # over the pin in _deps
 
 	_strike(state, deps, cut)
 	_strike(state, deps, cut)
@@ -436,13 +445,24 @@ func test_status_applied_carries_the_resulting_magnitude() -> void:
 # INERT: nothing above changes a single fight until content wires a number
 # ---------------------------------------------------------------------------
 
-func test_the_seams_default_to_values_that_make_the_new_arithmetic_vanish() -> void:
+## NARROWED, and saying so rather than quietly editing it. This asserted that
+## every seam was inert for every status, which was true when written and is no
+## longer: BLEED carries live placeholder numbers so its stacking mechanism is
+## not dead on arrival. It is my own test and it encoded a state the project has
+## deliberately left, not a property that still holds.
+##
+## What it always meant is intact and is the half that matters -- the statuses
+## content can actually reach are untouched, so no fight in the game moves.
+## `Tests/test_combat_bleed_is_live.gd` asserts the BLEED side, including that
+## the placeholder reaches no other status.
+func test_the_seams_stay_inert_for_every_status_content_can_reach() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO)
-	assert_almost_eq(float(deps.status_damage_per_magnitude.call(unit, CG.Status.BURN)), 0.0,
-		0.0001, "magnitude contributes no damage")
-	assert_eq(int(deps.status_tick_interval.call(CG.Status.BLEED)), 1, "every status still ticks every tick")
-	assert_eq(int(deps.status_stack_decay_ticks.call(CG.Status.BLEED)), 0, "and stacks do not linger")
+	for status in [CG.Status.BURN, CG.Status.POISON]:
+		assert_almost_eq(float(deps.status_damage_per_magnitude.call(unit, status)), 0.0,
+			0.0001, "magnitude contributes no damage")
+		assert_eq(int(deps.status_tick_interval.call(status)), 1, "still ticks every tick")
+		assert_eq(int(deps.status_stack_decay_ticks.call(status)), 0, "and does not linger")
 
 ## A burn under the shipped defaults deals exactly what it dealt before this
 ## existed: the base rate and nothing else, whatever the hit was worth.

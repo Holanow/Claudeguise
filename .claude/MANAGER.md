@@ -766,3 +766,30 @@ misleads the next reader.
 - If a session is blocked for more than ten minutes, reassign or cut the scope.
   Do not let anyone wait on you.
 - Keep issues in sync with reality. If work has landed, close it.
+
+## Periodic fresh-eyes playtest
+
+The player's idea, and it fills a gap nothing else on this project can:
+
+> "Could you periodically have a subagent without any context on the project do
+> a playtest? I think that will help you find things that might be confusing"
+
+**Everyone working here knows what the icons mean.** That makes every session,
+including the manager, blind to the one thing the current goal is measured on --
+*"watch a fight without pausing and broadly follow what happened and why"*. A
+reviewer who knows a badge is a status cannot tell you it reads as a smudge.
+
+Spawn one after any stretch that changed what is on screen. **The brief must be
+starved on purpose**: how to render the screens, and nothing else. Forbid the
+source, `README.md`, `CLAUDE.md`, `PLAYING.md`, the playtest notes and the issue
+board -- all of them explain what things are meant to mean, which destroys the
+only measurement a fresh session can take.
+
+Two instructions that make the report worth reading. Ask **what they think the
+game is**, because being wrong about that is the most valuable sentence they can
+write. And tell them **"I could not tell" is a result, not a failure** -- an
+agent that digs into the code to resolve its own confusion has converted the
+finding into a fact and thrown the finding away.
+
+Findings go in `PLAYTEST-FRESH-<n>.md`, alongside the player's own notes.
+

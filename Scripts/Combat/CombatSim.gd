@@ -45,7 +45,7 @@ static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int,
 	var next_id := 0
 
 	for i in party.size():
-		var unit := _build_player_unit(next_id, party[i], _party_spawn_position(encounter, i), deps)
+		var unit := _build_player_unit(next_id, party[i], party_spawn_position(encounter, i), deps)
 		state.units.append(unit)
 		next_id += 1
 
@@ -87,7 +87,11 @@ static func run(state: CombatState, deps: SimDeps = null) -> CombatState.Outcome
 # build() helpers
 # ---------------------------------------------------------------------------
 
-static func _party_spawn_position(encounter: Encounter, index: int) -> Vector2:
+## Public since issue 145, on finch's `default_attack_action` precedent: the
+## deploy screen has to open showing where each pawn *would* have started, and a
+## screen that reimplemented the overflow rule would drift from the fight it is
+## meant to be previewing. One rule, asked rather than copied.
+static func party_spawn_position(encounter: Encounter, index: int) -> Vector2:
 	if index < encounter.party_spawns.size():
 		return encounter.party_spawns[index]
 	var base := Vector2.ZERO
