@@ -151,6 +151,97 @@ func _kinds(enc: Encounter) -> Array:
 	return out
 
 
+## **Issue #121, and board rule 1 is the whole reason this test exists: a win
+## table cannot see a dead mechanic.**
+##
+## The Brute's before/after win table on `floor1_hazard` is nearly flat, and if
+## that were all I had looked at I would have concluded the stun was doing
+## nothing. Read from `state.events` instead, it fires 50 times in 60 fights
+## and cancels a committed wind-up 8 times. Both numbers are the deliverable of
+## this enemy: it is the first STUN source in the game, and `INTERRUPTED` is
+## the mechanism swift shipped when the player overturned issue 10.
+##
+## **Counted from `state.events`, not from `unit.statuses`, per board rule 2.**
+## A status set snapshotted after `run()` says only what happened to survive to
+## the last tick, and an 8-tick stun on a fight that ends 200 ticks later never
+## survives anything. `STATUS_APPLIED` is emitted at the moment it lands.
+##
+## The thresholds have margin on purpose, per board rule 4: `> 0` on an
+## emergent count reads identically at 17 and at 1 and only ever speaks on the
+## build that hits zero, which is whoever touched content next rather than
+## whoever caused the drift. Measured 17 stuns and 2-3 interrupts per 20
+## fights; the floors are 8 and 1.
+##
+## **The interrupt floor of 1 is a cliff and I am naming it rather than
+## dressing it up.** An interrupt needs the slam to land on a pawn during a
+## wind-up, which is a narrow window, and there is no larger sample available
+## that does not cost the gate real time. If it drifts to 1 it will fail on the
+## next unrelated change; that is worse than a false green here, because a
+## silent zero means the mechanism that justifies this enemy stopped working.
+func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
+	var enc := Registry.get_encounter(&"floor1_hazard")
+	var has_brute := false
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"brute":
+			has_brute = true
+	assert_true(has_brute, "floor1_hazard should field the Brute -- this test measures nothing without it")
+
+	var stuns := 0
+	var interrupts := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.STUN and e.action_id == &"brute_slam":
+					stuns += 1
+				if e.kind == CG.EventKind.INTERRUPTED:
+					interrupts += 1
+	print("floor1_hazard over %d fights: brute_slam stunned %d times, INTERRUPTED %d casts" % [fights, stuns, interrupts])
+	assert_true(stuns >= 8, "the Brute's stun should land repeatedly across %d fights, landed %d" % [fights, stuns])
+	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
+
+
+## **Issue #121's Stalker, and the honest half of it.**
+##
+## What is asserted is that the mark reaches the game at all. What is *not*
+## asserted, because it does not exist yet, is the half the player asked for:
+## *"it just causes ranged enemies to focus their fire on a specific target."*
+## `DefaultBehavior` has a marked-only **restriction** and no marked
+## **preference**, so the three cultists and three archers standing beside this
+## thing still shoot whoever is nearest. That tie-break is one filter in a file
+## I do not own.
+##
+## **The mark is not inert in the meantime, and I checked rather than assumed
+## it either way.** MARKED subtracts `Balance.MARKED_VULNERABILITY_BONUS` from
+## the target's damage reduction, which strips a pawn's CON-derived natural
+## armour. Measured with a temporary edit disabling only this action's status,
+## same room, same seeds, 12 seeds x 5 buildable parties: four of the five
+## parties finish worse with the mark than without it, by 3, 4, 11 and 12
+## points of health, and one is unchanged. That control is not in the gate --
+## it needs an edit to content to run -- so this asserts the reachable half and
+## the number lives in the pull request.
+##
+## The floor is 25 against a measured 46 in 20 fights. It was 229 before the
+## mark got a cooldown -- eleven applications per fight and eleven log lines
+## from one 30hp enemy -- and why that was worth fixing is written beside the
+## cooldown in `floor1_enemies.gd`.
+func test_the_stalkers_mark_lands_on_the_colonnade() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var marks := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.action_id == &"stalker_mark":
+					marks += 1
+	print("floor1_cover over %d fights: stalker_mark landed %d times" % [fights, marks])
+	assert_true(marks >= 25, "the Stalker's mark should land throughout the fight, landed %d in %d fights" % [marks, fights])
+
+
 ## **The #78 regression guard, and the reason this file exists.**
 ##
 ## #78: three fights in 700 never resolved on `floor1_chokepoint` and reported
