@@ -456,9 +456,12 @@ const _DART := [
 ## with a solid mass at its centre and nothing crossing it.
 const _AURA_FLAME := [
 	{"arc": [0.0, 0.0, 0.84], "w": 0.15},
+	# Sized down from the first cut after rendering it: the flame reached to
+	# within 1.3px of the ring at 16px and the pair fused into a filled disc.
+	# A feature only counts if negative space separates it from the mass.
 	{"poly": [
-		[0.0, -0.60], [0.20, -0.30], [0.30, 0.04], [0.20, 0.36], [-0.06, 0.48],
-		[-0.30, 0.34], [-0.34, 0.04], [-0.16, -0.06], [-0.14, -0.34],
+		[0.0, -0.49], [0.16, -0.25], [0.25, 0.03], [0.16, 0.30], [-0.05, 0.39],
+		[-0.25, 0.28], [-0.28, 0.03], [-0.13, -0.05], [-0.11, -0.28],
 	]},
 ]
 
