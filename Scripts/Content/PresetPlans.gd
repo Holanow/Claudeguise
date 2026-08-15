@@ -490,8 +490,18 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				## damage over a 4% longer fight.** A channel is the only thing in
 				## the game that stops a unit acting AND moving, and one condition
 				## per plan cannot say both "something is near" and "I can afford
-				## to stop". The player can move this row or delete it, which is
-				## the point of it being a row.
+				## to stop".
+				##
+				## **And it is SHORT: 5.0 ticks a channel, a third of a second.**
+				## Grapple sits above it and takes the tick the instant anything
+				## reaches 45, so what a player sees is a flicker of the hourglass
+				## and two log lines, not a stance. That is the honest cost of
+				## keeping Grapple alive, and it is the trade to revisit first if
+				## the channel reads as noise on screen: above Grapple it holds
+				## about twice as long and Grapple stops happening.
+				##
+				## The player can move this row or delete it, which is the point of
+				## it being a row rather than a rule.
 				_plan(&"abomination_immolate_dump", "Immolate what is close but not gripped",
 					_condition(&"enemy_in_range", {"range": 90.0}),
 					[_targeting(&"target_self"), _action_block(&"abomination_immolate")]),

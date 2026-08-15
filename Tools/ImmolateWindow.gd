@@ -23,11 +23,14 @@ extends SceneTree
 ## Single room, per CLAUDE.md: `floor1_room1` is the instrument. `Tools/
 ## FloorRuns.gd` is not evidence about a single-room decision.
 ##
-## Read `wasted` first. It is the price the plan's own comment in
-## `PresetPlans.gd` promises to state out loud: Immolate's condition is a Rage
-## floor, not a proximity check, so the Abomination can burn Rage with nothing
-## inside its 90 units. `wasted` is the share of charged ticks that reached
-## nobody.
+## **Two columns are the honest ones and they are both costs.** `wasted` is the
+## share of charged aura ticks that reached no enemy at all -- the channel holds
+## while an enemy is within 90 and charges every tick regardless of whether one
+## is still standing there when the tick resolves. `held each` is how long one
+## channel lasts, and it is short: `abomination_grapple_close` sits above the
+## aura's plan and takes the tick the moment anything reaches 45 units, so the
+## channel is punctuation rather than a stance. Both are stated in
+## `PresetPlans.gd` beside the row that causes them.
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
@@ -52,7 +55,7 @@ func _init() -> void:
 	var without := _arm(false)
 	var with_it := _arm(true)
 	print("%-18s %8s %10s %8s %9s %10s %8s %9s %8s" % [
-		"arm", "wins", "avg ticks", "lost", "channels", "ticks held", "burn", "% party", "wasted"])
+		"arm", "wins", "avg ticks", "lost", "channels", "held each", "burn", "% party", "wasted"])
 	_row("no immolate plan", without)
 	_row("shipped", with_it)
 	print("")
@@ -60,18 +63,16 @@ func _init() -> void:
 	_kit_row("no immolate plan", without)
 	_kit_row("shipped", with_it)
 	print("")
-	print("'channels' and 'ticks held' are SUSTAIN_START/SUSTAIN_END per fight --")
-	print("the two event kinds #219 exists to make happen. 'wasted' is charged")
-	print("aura ticks that reached no enemy, the stated price of a Rage-floor")
-	print("condition. The kit table is the guard against the new plan making the")
-	print("other three actions inert, which is how this project keeps losing")
-	print("abilities.")
+	print("'channels' is SUSTAIN_START per fight, the event kind #219 exists to")
+	print("make happen; 'held each' is ticks per channel, at 15 ticks a second.")
+	print("The kit table is the guard against the new plan making the other three")
+	print("actions inert, which is how this project keeps losing abilities.")
 	quit(0)
 
 func _row(label: String, r: Dictionary) -> void:
 	print("%-18s %4d/%-3d %10.1f %8.2f %9.2f %10.1f %8d %8.1f%% %7.1f%%" % [
 		label, r["wins"], SEEDS, r["avg_ticks"], r["pawns_lost"], r["channels"],
-		r["ticks_held"], r["burn"], r["burn_share"] * 100.0, r["wasted"] * 100.0,
+		r["ticks_each"], r["burn"], r["burn_share"] * 100.0, r["wasted"] * 100.0,
 	])
 
 func _kit_row(label: String, r: Dictionary) -> void:
@@ -144,6 +145,7 @@ func _arm(with_plan: bool) -> Dictionary:
 		"pawns_lost": float(pawns_lost) / float(SEEDS),
 		"channels": float(channels) / float(SEEDS),
 		"ticks_held": float(ticks_held) / float(SEEDS),
+		"ticks_each": (float(ticks_held) / float(channels)) if channels > 0 else 0.0,
 		"burn": burn,
 		"burn_share": (float(burn) / float(party_damage)) if party_damage > 0 else 0.0,
 		"wasted": (float(wasted_ticks) / float(charged_ticks)) if charged_ticks > 0 else 0.0,
