@@ -139,8 +139,27 @@ func _party_select_full_and_start_fight() -> void:
 
 	_press_named("start fight")
 	await _settle()
+
+	## Issue 145 put a deploy screen between party select and the fight, so
+	## "Start Fight" now means "go and place your party" and there is a second
+	## Start Fight on the deploy screen itself.
+	##
+	## **This sweep silently stopped covering the battle for several merges and
+	## nobody noticed**, because it prints a line and returns while the previous
+	## run's `sweep_battle_*.png` stay on disk looking current. A fresh-eyes
+	## playtester found it by trying to reach a fight and failing -- not by
+	## reading this file. That is the failure mode the whole project keeps
+	## hitting, pointed at its own instrument: **a harness that stops early and
+	## leaves stale output is indistinguishable from one that passed.**
+	if _current_screen_name() == "Deploy":
+		await _shot("sweep_deploy")
+		_press_named("start fight")
+		await _settle()
+
 	if _current_screen_name() != "Battle":
-		print("ScreenSweep: did not reach Battle from Start Fight at %s" % _res_tag)
+		printerr("ScreenSweep: did not reach Battle from Start Fight at %s -- the")
+		printerr("  battle screenshots on disk are from an older run and must not")
+		printerr("  be cited as current.")
 		return
 	var battle := _main.get_child(0)
 	await _shot("sweep_battle_start")
