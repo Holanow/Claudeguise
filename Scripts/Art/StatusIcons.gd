@@ -55,11 +55,17 @@ const PLATE_BAD := [[0.0, 1.0], [0.9, 0.35], [0.9, -1.0], [-0.9, -1.0], [-0.9, 0
 ## Glyphs, in `UIArt.draw_glyph`'s -1..1 part format. Each is kept inside about
 ## 0.8 of the box so it never touches the plate's own rim.
 ##
-## Chosen for shape family first, meaning first: droplet, flame, three dots,
-## asterisk, crosshair, weight | shield, wall, shield-and-arc, chevrons, spikes,
-## horn. No two share an outline, which is what has to hold at 12px -- the same
-## finding as the unit roster, where interior detail vanished and silhouette did
-## not.
+## Chosen for shape family first, meaning first: slash, flame, three dots,
+## asterisk, crosshair, weight, turning-arrow | shield, wall, shield-and-arc,
+## chevrons, hourglass, horn. No two share an outline, which is what has to hold
+## at 12px -- the same finding as the unit roster, where interior detail vanished
+## and silhouette did not.
+##
+## **"No two share an outline" was an assertion for months and it was false.**
+## `Tools/BadgeLegibility.tscn` measures how many pixels two badges actually
+## disagree on. It found bleed and burn at 2.1% -- the same badge -- and later
+## found taunted and burn at 9.3% after an enum rename moved taunted from one
+## category to the other. Re-run it after touching anything here.
 const GLYPHS := {
 	# --- beneficial ---------------------------------------------------------
 	# Heater shield. The plainest "protected" read there is.
@@ -111,15 +117,6 @@ const GLYPHS := {
 		{"poly": [[-0.7, -0.6], [-0.2, 0.0], [-0.7, 0.6], [-0.95, 0.6], [-0.45, 0.0], [-0.95, -0.6]]},
 		{"poly": [[0.0, -0.6], [0.5, 0.0], [0.0, 0.6], [-0.25, 0.6], [0.25, 0.0], [-0.25, -0.6]]},
 	],
-	# Three rising spikes, tallest in the middle. Separate triangles, not one
-	# zigzag on a shared baseline: the shared baseline version rendered as a
-	# mountain range on the first sheet, because a flat bottom edge is what
-	# makes a jagged top edge read as landscape.
-	CG.Status.TAUNTED: [
-		{"poly": [[-0.78, 0.6], [-0.46, -0.3], [-0.14, 0.6]]},
-		{"poly": [[-0.32, 0.7], [0.0, -0.92], [0.32, 0.7]]},
-		{"poly": [[0.14, 0.6], [0.46, -0.3], [0.78, 0.6]]},
-	],
 	# A horn with two sound arcs. Forcing attention, not receiving it.
 	CG.Status.TAUNTING: [
 		{"poly": [[-0.75, -0.42], [-0.12, -0.75], [-0.12, 0.75], [-0.75, 0.42]]},
@@ -128,15 +125,53 @@ const GLYPHS := {
 	],
 
 	# --- harmful ------------------------------------------------------------
-	# Droplet: point up, heavy round bottom.
-	CG.Status.BLEED: [
-		{"poly": [
-			[0.0, -0.8], [0.42, -0.05], [0.42, 0.3], [0.18, 0.65],
-			[-0.18, 0.65], [-0.42, 0.3], [-0.42, -0.05],
-		]},
+	# A pull: an arc turning back on itself with a head on the end. You are not
+	# choosing your target any more.
+	#
+	# **This was three rising spikes, and it was fine until the enum moved.**
+	# ENRAGE was renamed TAUNTED in place -- correct, it duplicated TAUNTING --
+	# and that quietly moved the badge from the HELPFUL category to the HARMFUL
+	# one. Three spikes among green badges was distinct. Beside a red flame it
+	# was not: measured at the shipped size it became the closest pair in the
+	# whole system at 9.3%, taking the place bleed/burn had just vacated.
+	#
+	# **Nobody could have seen that from the rename.** The diff was one enum
+	# value and a comment; the art consequence was in a file it did not touch,
+	# in a comparison that did not exist before. It surfaced because the
+	# measurement got re-run, which is the argument for the measurement being a
+	# committed tool rather than a thing I did once.
+	CG.Status.TAUNTED: [
+		{"arc": [0.0, 0.12, 0.60, PI * 0.78, PI * 1.92], "w": 0.26},
+		{"poly": [[0.20, -0.86], [0.86, -0.62], [0.36, -0.16]]},
 	],
-	# Flame, asymmetric with one inward notch -- the notch is what stops it
-	# reading as the droplet above at small size.
+	# A GASH, not a droplet, and the reason is a measurement rather than taste.
+	#
+	# This was a droplet. BURN is a flame, and a flame is a droplet with a notch
+	# taken out of it. Measured at the shipped 17.4px, the two badges disagreed on
+	# **2.1% of their pixels** -- and that number is flat from 12px to 32px, so
+	# they were the same badge at every size this game will ever draw one. The
+	# comment on BURN below still claimed its notch was "what stops it reading as
+	# the droplet above at small size". It did not, and nobody could have seen
+	# that by looking, because anyone looking already knows which is which.
+	#
+	# Nothing curved and tapered survives beside a flame at 17 pixels, so bleed
+	# stops being curved. One bold diagonal slash: the only diagonal bar in the
+	# set, angular where every neighbour is round, and it cannot be notched into
+	# a flame.
+	CG.Status.BLEED: [
+		{"poly": [[-0.60, -0.74], [-0.24, -0.88], [0.64, 0.66], [0.28, 0.80]]},
+		# Two drops falling clear of the low end, so it reads as a wound rather
+		# than as a stroke of dirt on the plate. Deliberately the first thing to
+		# vanish as the badge shrinks: the slash is the read, these are for the
+		# hover panel where there is room for them.
+		{"dot": [-0.46, 0.46, 0.13]},
+		{"dot": [-0.10, 0.80, 0.10]},
+	],
+	# Flame, asymmetric with one inward notch. **The notch was claimed to be
+	# "what stops it reading as the droplet above at small size" and it was not:
+	# measured, the two badges shared 98% of their pixels at every size.** BLEED
+	# is now a slash, which is what actually separates them. Left as a flame,
+	# because a flame is right for burn and it was never the half at fault.
 	CG.Status.BURN: [
 		{"poly": [
 			[0.05, -0.85], [0.45, -0.1], [0.5, 0.3], [0.22, 0.7],
@@ -181,6 +216,37 @@ static func rim_color(status: CG.Status) -> Color:
 static func plate_points(status: CG.Status) -> Array:
 	return PLATE_BAD if CG.is_harmful(status) else PLATE_GOOD
 
+## Where the glyph sits inside the badge, and it is no longer the middle.
+##
+## **The structural half of the legibility finding.** Measured at the shipped
+## 17.4px, two same-category badges disagreed on a mean of 15.9% of their pixels,
+## and the most distinct pair in the whole system shared three quarters of its
+## pixels. The reason is an allocation: ~84% of a badge went to plate and rim,
+## which encode harmful-versus-helpful -- a fact already carried TWICE, by rim
+## colour and by plate direction, deliberately, for colourblind safety -- and
+## ~16% went to the glyph, which is the only thing not encoded anywhere else.
+##
+## Only the glyph can separate two badges in the same category, so only the glyph
+## is worth pixels. Two changes, both small in the code and both aimed at that:
+##
+##   - The box grows from 0.70 of the badge to 0.78, and the rim thins from 0.16
+##     to 0.12 of the half-extent.
+##   - **The box moves off-centre, away from the plate's point.** The plate is a
+##     pentagon: its flat side has room and its point does not. Centring the
+##     glyph in the bounding box wasted the flat end to keep clear of a point
+##     that is only at one end. Harmful plates point down, so their glyph shifts
+##     up, and helpful the other way.
+##
+## Verified rather than asserted: `Tools/BadgeLegibility.tscn` reports the same
+## numbers before and after, and the PR states both.
+static func glyph_rect(rect: Rect2, status: CG.Status) -> Rect2:
+	var side := minf(rect.size.x, rect.size.y)
+	var box := side * 0.78
+	var centre := rect.get_center()
+	var shift := side * 0.08
+	centre.y += -shift if CG.is_harmful(status) else shift
+	return Rect2(centre - Vector2(box, box) * 0.5, Vector2(box, box))
+
 ## The override a dropped-in PNG lives under: `Assets/UI/status/bleed.png`.
 ## Lower-cased enum name, so it is guessable without reading any code -- the
 ## same property that makes `Assets/Units/warrior.png` work.
@@ -208,10 +274,8 @@ static func draw_status(canvas: CanvasItem, status: CG.Status, rect: Rect2, stac
 		# and on a Ghoul, or the player learns the colour and not the status.
 		var plate := UIArt.glyph_points({"poly": plate_points(status)}, rect)
 		var half := minf(rect.size.x, rect.size.y) * 0.5
-		UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, rim_color(status), maxf(1.0, half * 0.16))
-		# The glyph sits in the middle 70% so it never crowds the rim or the point.
-		var inner := Rect2(rect.position + rect.size * 0.15, rect.size * 0.7)
-		UIArt.draw_glyph(canvas, GLYPHS[status], inner, Palette.TEXT)
+		UIArt.draw_outlined_polygon(canvas, plate, Palette.HP_BACK, rim_color(status), maxf(1.0, half * 0.12))
+		UIArt.draw_glyph(canvas, GLYPHS[status], glyph_rect(rect, status), Palette.TEXT)
 
 	# OUTSIDE BOTH BRANCHES, AND THAT IS THE WHOLE POINT.
 	#

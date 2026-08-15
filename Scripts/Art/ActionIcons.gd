@@ -188,9 +188,28 @@ const _HEX := [
 ## A column of light widening as it comes down, onto a struck plate. The first
 ## version tapered the wrong way and put three separate strokes under it, which
 ## rendered as a figure with legs.
+## Smite: a shaft of light widening as it falls, and something struck under it.
+##
+## **This was the single most confusing object on screen and a fresh player said
+## so.** PLAYTEST-FRESH-1, from someone who had never seen the game: "a lone
+## cream bar with a pen-nib icon floating at the bottom-left attached to
+## nothing." The bar is a wind-up progress bar and the cream is DIVINE's damage
+## colour -- but the pen nib was this glyph, and they were right. The old shape
+## narrowed DOWNWARD to a rounded end and sat on a full-width horizontal base
+## bar, which is a nib and a nib-holder, drawn in ink-bottle cream.
+##
+## Two cues did it and both are gone: it now widens downward instead of
+## narrowing, and the base bar is replaced by two chips thrown out sideways with
+## a gap under the beam. Nothing that widens as it descends, over open space, can
+## be read as a pen.
+##
+## Told apart from `_SLAM` -- the other glyph that strikes something -- by having
+## no ground line at all. Slam is a mass on a bowed bar; this is light in mid-air
+## with the struck thing implied.
 const _BEAM := [
-	{"poly": [[-0.26, -0.95], [0.26, -0.95], [0.5, 0.34], [-0.5, 0.34]]},
-	{"poly": [[-0.75, 0.5], [0.75, 0.5], [0.75, 0.78], [-0.75, 0.78]]},
+	{"poly": [[-0.15, -0.95], [0.15, -0.95], [0.60, 0.40], [-0.60, 0.40]]},
+	{"poly": [[-0.62, 0.60], [-0.95, 0.86], [-0.48, 0.84]]},
+	{"poly": [[0.62, 0.60], [0.95, 0.86], [0.48, 0.84]]},
 ]
 
 ## A fountain crown: a narrow base flaring into a spray. The first version was a
