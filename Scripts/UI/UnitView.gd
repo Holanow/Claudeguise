@@ -66,54 +66,62 @@ const MIN_BAR_WIDTH := 20.0
 ## could drift from the art. sable owns whether this belongs on `Silhouettes`
 ## as a real API; asked on the board, and if they expose one this collapses to
 ## a call.
+## **sable's `Silhouettes.drawn_extent` / `fill_ratio` (#200), not my own
+## derivation, and the correction matters more than the plumbing.** My version
+## measured `build_parts` only. **Ten shapes have real PNGs in `Assets/Units/`
+## and for those the polygons are dead code the game never renders**, so it was
+## measuring shapes nobody sees -- which is how the goblin got written down as
+## the worst shape at 0.56 when it is 0.71 and one of the better ones.
+##
+## Two things that changes:
+##
+##   - **The narrowest things on the field are the player's own pawns** (priest
+##     0.50, warrior 0.54, geysermancer 0.54), so my "warrior and abomination
+##     unchanged in practice" was where the remaining error was -- I reported it
+##     as the reassuring half and it was the defect.
+##   - **The vertical axis was never measured and is worse.** `siege_master`
+##     fills 0.33 of its box vertically, so the whole bar-and-badge column was
+##     anchored to a radius the art misses by two thirds.
+##
+## Do NOT reach for the texture's `get_width()`: pixel art carries margin --
+## `siege_master.png` is 24x14 with 20x8 opaque -- and that path fixes a third
+## of the error while looking like it fixed all of it. `opaque_rect` scans.
+##
+## Cached per shape and team at a reference radius: PNG art is per-team, and
+## both paths scale linearly with radius, so one measurement rescales.
 static var _extents := {}
+const _EXTENT_REFERENCE_RADIUS := 100.0
 
-## The drawn shape's bounding box, in fractions of the radius it was built at.
-static func drawn_extent(shape_id: StringName) -> Rect2:
-	if _extents.has(shape_id):
-		return _extents[shape_id]
-	var parts := Silhouettes.build_parts(shape_id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for part in parts:
-		for point in part["points"]:
-			lo = Vector2(minf(lo.x, point.x), minf(lo.y, point.y))
-			hi = Vector2(maxf(hi.x, point.x), maxf(hi.y, point.y))
-	var box := Rect2(Vector2.ZERO, Vector2.ZERO)
-	if lo.x <= hi.x:
-		box = Rect2(lo / 100.0, (hi - lo) / 100.0)
-	_extents[shape_id] = box
-	return box
+static func drawn_box(shape_id: StringName, team: CG.Team, radius: float) -> Rect2:
+	var key := "%s|%d" % [shape_id, int(team)]
+	if not _extents.has(key):
+		_extents[key] = Silhouettes.drawn_extent(shape_id, _EXTENT_REFERENCE_RADIUS, team)
+	var box: Rect2 = _extents[key]
+	var scale := radius / _EXTENT_REFERENCE_RADIUS
+	return Rect2(box.position * scale, box.size * scale)
 
-## Half the drawn body's width, in pixels, for a unit of this footprint radius.
-static func drawn_half_width(shape_id: StringName, radius: float) -> float:
-	var box := drawn_extent(shape_id)
-	if box.size.x <= 0.0:
-		return radius
-	return box.size.x * 0.5 * radius
+## Half the drawn body's width in pixels. Falls back to the footprint when a
+## shape measures empty, so an unknown id keeps the decoration it always had.
+static func drawn_half_width(shape_id: StringName, team: CG.Team, radius: float) -> float:
+	var box := drawn_box(shape_id, team, radius)
+	return radius if box.size.x <= 0.0 else box.size.x * 0.5
 
-## How far above centre the drawn body reaches. The bar stack starts here rather
-## than at the footprint's edge, which is what put a bar 40px above a 15px body
-## with empty grid between them.
-static func drawn_top(shape_id: StringName, radius: float) -> float:
-	var box := drawn_extent(shape_id)
-	if box.size.y <= 0.0:
-		return radius
-	return absf(box.position.y) * radius
+## How far above centre the drawn body actually reaches. Read off the box's top
+## edge rather than assumed symmetric: art that sits low in its canvas has a top
+## edge nowhere near `-radius`, which is the `siege_master` case.
+static func drawn_top(shape_id: StringName, team: CG.Team, radius: float) -> float:
+	var box := drawn_box(shape_id, team, radius)
+	return radius if box.size.y <= 0.0 else absf(box.position.y)
 
-## How far below centre it reaches, so the badge row sits under the creature
-## rather than under its reservation.
-static func drawn_bottom(shape_id: StringName, radius: float) -> float:
-	var box := drawn_extent(shape_id)
-	if box.size.y <= 0.0:
-		return radius
-	return box.end.y * radius
+static func drawn_bottom(shape_id: StringName, team: CG.Team, radius: float) -> float:
+	var box := drawn_box(shape_id, team, radius)
+	return radius if box.size.y <= 0.0 else box.end.y
 
 ## Sized to the drawn body, floored so a bar stays a bar. The floor is small
 ## because the point of the issue is that a bar much wider than its creature
 ## reads as the main object.
-static func bar_width(radius: float, shape_id: StringName = &"") -> float:
-	var body := radius * 2.0 if shape_id == &"" else drawn_half_width(shape_id, radius) * 2.0
+static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team = CG.Team.PLAYER) -> float:
+	var body := radius * 2.0 if shape_id == &"" else drawn_half_width(shape_id, team, radius) * 2.0
 	return clampf(body, MIN_BAR_WIDTH, BAR_WIDTH * DISPLAY_SCALE)
 
 ## Issue 31: units read too small, worse now that sable's real art carries
@@ -281,7 +289,7 @@ func _draw() -> void:
 	# chip describes a condition.
 	# Issue 190: measured from the drawn body's bottom, not the footprint's, so
 	# the badge row sits under the creature rather than under its reservation.
-	var body_bottom := drawn_bottom(_shape_id(u), radius)
+	var body_bottom := drawn_bottom(_shape_id(u), u.team, radius)
 	var below := _draw_wind_up(u, radius, body_bottom)
 	below += _draw_status_badges(u, radius, body_bottom, below)
 	_draw_status_tags(u, body_bottom, below)
@@ -289,10 +297,10 @@ func _draw() -> void:
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
 	# label sits an extra font-height above where the last bar was drawn.
-	var width := bar_width(radius, _shape_id(u))
+	var width := bar_width(radius, _shape_id(u), u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
 	var bar_gap := BAR_GAP * DISPLAY_SCALE
-	var y := -drawn_top(_shape_id(u), radius) - bar_gap
+	var y := -drawn_top(_shape_id(u), u.team, radius) - bar_gap
 	var stack_bottom := y
 
 	if u.resource_max > 0:
@@ -490,6 +498,10 @@ static func concentration_count(u: CombatUnit, units: Array) -> int:
 
 const CONCENTRATION_THRESHOLD := 2
 
+## Issue 198: 8, not 11, and drawn as an arc rather than a filled disc.
+const CONCENTRATION_BADGE_RADIUS := 8.0 * DISPLAY_SCALE
+const CONCENTRATION_BADGE_WIDTH := 2.0
+
 ## Only drawn once concentration is actually worth flagging (2+): a badge on
 ## every unit all the time would be noise, and the issue this answers is
 ## specifically "three attackers on one pawn read as nothing at all", not
@@ -514,10 +526,16 @@ func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	# at a fixed 16.5px radius this was a 33px disc on a 15px goblin, one of the
 	# clearest cases of the decoration outweighing the unit.
 	var shape := _shape_id(u)
-	var half := drawn_half_width(shape, radius)
-	var badge_radius := clampf(half * 0.5, 5.0 * DISPLAY_SCALE, 9.0 * DISPLAY_SCALE)
-	var badge_center := Vector2(half, -drawn_top(shape, radius) + badge_radius)
-	draw_circle(badge_center, badge_radius, _concentration_color(u))
+	var half := drawn_half_width(shape, u.team, radius)
+	# Issue 198, sable's prescription taken as written: an ARC at radius 8, not a
+	# filled disc at 11. Re-measured against a current frame it was 28x25 --
+	# **2.8x the widest enemy and larger than the enemy health bars** -- with two
+	# on screen at once, both on player pawns, both occluding a body. An outline
+	# marks without covering, which is what a "you are being focused" flag has to
+	# do: the thing it is about is underneath it.
+	var badge_radius := clampf(half * 0.45, 5.0 * DISPLAY_SCALE, CONCENTRATION_BADGE_RADIUS)
+	var badge_center := Vector2(half, -drawn_top(shape, u.team, radius) + badge_radius)
+	draw_arc(badge_center, badge_radius, 0.0, TAU, 20, _concentration_color(u), CONCENTRATION_BADGE_WIDTH, true)
 	var font := ThemeDB.fallback_font
 	var text := str(count)
 	var size := int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE * 0.8))
@@ -562,11 +580,11 @@ const WIND_UP_ICON_GAP := 3.0 * DISPLAY_SCALE
 ## The icon scales with the block it sits in. Fixed at `WIND_UP_ICON_SIZE` it
 ## was 24px inside what is now a 20px bar for a goblin -- wider than the whole
 ## block, which is why the bar could not shrink before.
-static func wind_up_icon_size(radius: float, shape_id: StringName = &"") -> float:
-	return clampf(bar_width(radius, shape_id) * 0.34, 7.0 * DISPLAY_SCALE, WIND_UP_ICON_SIZE)
+static func wind_up_icon_size(radius: float, shape_id: StringName = &"", team: CG.Team = CG.Team.PLAYER) -> float:
+	return clampf(bar_width(radius, shape_id, team) * 0.34, 7.0 * DISPLAY_SCALE, WIND_UP_ICON_SIZE)
 
-static func wind_up_bar_width(radius: float, shape_id: StringName = &"") -> float:
-	return bar_width(radius, shape_id) - wind_up_icon_size(radius, shape_id) - WIND_UP_ICON_GAP
+static func wind_up_bar_width(radius: float, shape_id: StringName = &"", team: CG.Team = CG.Team.PLAYER) -> float:
+	return bar_width(radius, shape_id, team) - wind_up_icon_size(radius, shape_id, team) - WIND_UP_ICON_GAP
 
 ## How full the bar is, 0..1. Its own function so it can be checked without a
 ## canvas, same split as wind_up_elapsed_ticks. A total of 0 means the action
@@ -599,10 +617,10 @@ func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
 		return 0.0
 
 	var shape := _shape_id(u)
-	var width := wind_up_bar_width(radius, shape)
-	var icon_size := wind_up_icon_size(radius, shape)
+	var width := wind_up_bar_width(radius, shape, u.team)
+	var icon_size := wind_up_icon_size(radius, shape, u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
-	var block_left := -bar_width(radius, shape) * 0.5
+	var block_left := -bar_width(radius, shape, u.team) * 0.5
 	var top := top_offset + WIND_UP_TOP_GAP
 	var damage_type := _wind_up_damage_type(u)
 
@@ -698,11 +716,11 @@ static func hidden_status_count(u: CombatUnit) -> int:
 ## Issue 190: sable measured a row of four badges at 84px against a 27px goblin,
 ## 3.1x the unit. The row scales with the drawn body for the same reason the bar
 ## does -- and the gap scales with it, or three badges of 9px sit in 12px of air.
-static func status_badge_size(shape_id: StringName, radius: float) -> float:
-	return clampf(drawn_half_width(shape_id, radius) * 0.7, 7.0 * DISPLAY_SCALE, STATUS_BADGE_SIZE)
+static func status_badge_size(shape_id: StringName, team: CG.Team, radius: float) -> float:
+	return clampf(drawn_half_width(shape_id, team, radius) * 0.7, 7.0 * DISPLAY_SCALE, STATUS_BADGE_SIZE)
 
 func _draw_status_badges(u: CombatUnit, radius: float, top_offset: float, below: float) -> float:
-	var size := status_badge_size(_shape_id(u), radius)
+	var size := status_badge_size(_shape_id(u), u.team, radius)
 	var gap := STATUS_BADGE_GAP * (size / STATUS_BADGE_SIZE)
 	var badges := status_badges(u)
 	var hidden := hidden_status_count(u)
