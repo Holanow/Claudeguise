@@ -1886,6 +1886,18 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 
 	if outcome != CombatState.Outcome.UNRESOLVED:
 		state.outcome = outcome
+		# finch's #219 finding, and the fifth way a channel can end: the fight
+		# stops while it is still lit. The other four all run `_end_sustain`;
+		# this one dropped the event, so a log could show a channel starting
+		# and never stopping, and anything counting SUSTAIN_START against
+		# SUSTAIN_END would come out short by at most one per fight.
+		#
+		# Before FIGHT_END, in unit order: the channel stopped because the
+		# fight did, so it reads that way round, and no dictionary is iterated
+		# to decide it.
+		for unit in state.units:
+			if unit.alive and unit.sustaining != &"":
+				_end_sustain(state, unit)
 		var end_event := _event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &"")
 		end_event.end_reason = reason
 		state.emit(end_event)

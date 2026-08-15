@@ -811,6 +811,9 @@ const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #148. Delete these three the same time that branch merges.
 	# heron's #192, the Rat King. Delete this line when that branch merges --
 	# the test below names it for you.
+	# finch's #219, PR #252, the first sustained action. Delete this line when
+	# that branch merges -- the test below names it for you.
+	&"abomination_immolate": "finch, #219 / PR #252",
 }
 
 
