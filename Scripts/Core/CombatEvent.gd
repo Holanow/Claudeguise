@@ -55,6 +55,14 @@ var amount_before_mitigation: int = 0
 ##   - Intent.COMPELLED -> a taunt overrode whatever the plans wanted
 var source_plan: StringName = &""
 
+## Set on FIGHT_END only. See `CG.EndReason` for why the ending now needs a name.
+##
+## On the `source_plan` precedent directly above: a fact the simulation knows at
+## the moment it decides, which the view cannot recover afterwards. By the time
+## the banner draws, "the last enemy died" and "the last enemy became furniture"
+## look identical from the outside — both leave a side that cannot fight.
+var end_reason: CG.EndReason = CG.EndReason.UNSET
+
 static func make(kind: CG.EventKind, tick: int) -> Self:
 	var e := Self.new()
 	e.kind = kind

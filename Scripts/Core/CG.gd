@@ -257,6 +257,33 @@ enum IntentKind {
 	USE_ACTION,
 }
 
+## Why a fight stopped, carried on the FIGHT_END event.
+##
+## Before #243 there was one ending and it did not need naming: a side had no
+## bodies left. #243 added a second — **a side that still has units standing but
+## can never act again** — and a reason the player has never been shown is a
+## reason the player cannot follow. On seed 0 the screen reads "The Warden's
+## Marked fades", then Defeat, and that is legible only to somebody who already
+## knows the rule.
+##
+## That is the exact failure the definition of done names: *watch a fight without
+## pausing and broadly follow what happened **and why***. `outcome` says who won.
+## This says what finished it.
+##
+## UNSET is what every FIGHT_END carries until `CombatSim` sets one, so adding
+## this changes nothing and invalidates no measurement. It is not a fourth
+## ending; a fight that ends with UNSET on it is a defect in the setter.
+enum EndReason {
+	UNSET,
+	## The losing side has no living unit left. The ending the game has always
+	## had.
+	NO_SURVIVORS,
+	## The losing side has units alive that can never act again for the rest of
+	## the fight. Today the only way in is a unit with `move_speed` 0 whose every
+	## action `requires_marked_target`, with nothing left alive that can mark.
+	CANNOT_ACT,
+}
+
 ## Everything the simulation reports outwards. The view and the combat log read
 ## these and nothing else: no reaching into CombatUnit for "what just happened".
 enum EventKind {

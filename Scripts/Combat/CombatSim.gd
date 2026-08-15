@@ -1846,9 +1846,17 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	# asking whether its corpses can act would turn a win into a draw. That is
 	# not hypothetical -- it is what the first version of this did, and
 	# `test_an_empty_side_still_loses_immediately` caught it.
+	# Issue 249. The reason is decided here rather than derived later because
+	# here is the only place that still knows it: after the tick, "the last
+	# enemy died" and "the last enemy became furniture" both look like a side
+	# that cannot fight. Taken before `_side_can_fight` can overwrite either
+	# flag, so a side that was already empty is never reported as stranded.
+	var reason := CG.EndReason.NO_SURVIVORS
 	if player_alive and enemy_alive:
 		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
 		enemy_alive = _side_can_fight(state, CG.Team.ENEMY, deps)
+		if not player_alive or not enemy_alive:
+			reason = CG.EndReason.CANNOT_ACT
 
 	var outcome := CombatState.Outcome.UNRESOLVED
 	if player_alive and not enemy_alive:
@@ -1859,10 +1867,28 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 		outcome = CombatState.Outcome.DRAW
 	elif state.tick >= CG.MAX_TICKS:
 		outcome = CombatState.Outcome.DRAW
+		# THE ONE ENDING `CG.EndReason` HAS NO NAME FOR, AND I AM NOT INVENTING
+		# ONE: the enum is Core and Core is rook's. Both sides are alive and
+		# able, and the fight stopped because it ran out of ticks, which is
+		# neither NO_SURVIVORS nor CANNOT_ACT.
+		#
+		# Reachable in code, and **not reached in practice**: 1600 fights over
+		# every encounter x party x 40 seeds produced 1587 PLAYER_WIN, 13
+		# ENEMY_WIN and zero draws of any kind (`Tools/OutcomeTable.gd`).
+		#
+		# This is deliberately left as UNSET rather than mapped onto a reason
+		# that would be a lie. `Tests/test_combat_end_reason.gd` holds both
+		# halves of it: every ending the game actually produces carries a
+		# reason, and the tick cap is still unreachable. The second goes red
+		# the day a fight hits the cap, which is the day the enum needs a
+		# third value -- rather than a comment quietly certifying an absence.
+		reason = CG.EndReason.UNSET
 
 	if outcome != CombatState.Outcome.UNRESOLVED:
 		state.outcome = outcome
-		state.emit(_event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &""))
+		var end_event := _event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &"")
+		end_event.end_reason = reason
+		state.emit(end_event)
 
 ## Issue 233. A side is beaten when it has no living unit left **or** when
 ## every unit it has left can never act again for the rest of the fight.
@@ -1886,6 +1912,42 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 ## It is deliberately not "end the fight when the last pawn dies": that throws
 ## away the eleven wins the engines earn, and they earn them in under four
 ## seconds.
+## Issue 218, and rook's ruling: **a fight where every pawn is dead is not a
+## victory.** The simulation's result does not change -- the enemies are gone,
+## so `outcome` is PLAYER_WIN and stays PLAYER_WIN -- but the screen must not
+## call it one. This is the question the banner asks to tell the two endings
+## apart.
+##
+## Public because the answer belongs here rather than in the view: it is a
+## property of the fight, and a second implementation of "which of these units
+## was a pawn" in `BattleView` would drift from this one. 11 of 40 seeds on
+## `floor1_warden` end this way (issue 233), so it is not a corner case.
+##
+## **No new field was needed and I did not add one.** `state.units` keeps dead
+## units in place with `alive == false` for the whole fight, and a pawn is the
+## one player-team unit with `pawn != null` -- `build()` sets `.pawn` for party
+## members and leaves `enemy_id` empty, while a summon is built from an EnemyDef
+## and carries one. So "the party existed and every one of them is dead" is
+## readable off `CombatState` at any tick, including after the fight ends.
+##
+## The party-existed half is not decoration: a fight with no pawns at all (the
+## level editor's test fight can build one) would otherwise report every win as
+## pawnless and the banner would read Defeat on it.
+static func party_was_wiped(state: CombatState) -> bool:
+	var pawns := 0
+	for unit in state.units:
+		if unit.team != CG.Team.PLAYER or unit.pawn == null:
+			continue
+		pawns += 1
+		if unit.alive:
+			return false
+	return pawns > 0
+
+## The ending rook ruled on: the party is gone, and the summons they left behind
+## finished the enemies off afterwards.
+static func is_pawnless_win(state: CombatState) -> bool:
+	return state.outcome == CombatState.Outcome.PLAYER_WIN and party_was_wiped(state)
+
 static func _side_can_fight(state: CombatState, team: CG.Team, deps: SimDeps) -> bool:
 	var living := state.living(team)
 	if living.is_empty():
