@@ -274,16 +274,28 @@ static func _the_chokepoint() -> Encounter:
 		## early-out has to move before this does anything. Noted here because
 		## a reader of this line will otherwise assume it works.
 		##
-		## **In the gap and nowhere else, and that is the whole design.** The
-		## two pits leave one 120-unit land bridge at y = -60..60, and every
-		## unit on either side funnels through it -- that is what makes this
-		## room a chokepoint rather than a wall. A hazard laid over the bridge
-		## is therefore the one piece of terrain in the game that **every**
-		## unit in the fight must cross, which is what makes it worth watching
-		## rather than a patch to walk around. It also costs the room nothing
-		## in reachability: SLOWED is a movement multiplier, so a slow crossing
-		## is still a crossing, where damage on the bridge would have made the
-		## room a toll gate that kills whoever is poorest.
+		## **In the gap and nowhere else.** The two pits leave one 120-unit
+		## land bridge at y = -60..60, so anything walking from one side to the
+		## other funnels through it -- that is what makes this room a chokepoint
+		## rather than a wall. It costs the room nothing in reachability: SLOWED
+		## is a movement multiplier, so a slow crossing is still a crossing,
+		## where damage on the bridge would have made the room a toll gate that
+		## kills whoever is poorest.
+		##
+		## **CORRECTION, measured 2026-08-15 in a running fight
+		## (`Tools/RoomWatch.gd`, PR #201). This comment claimed the bridge was
+		## "the one piece of terrain in the game that every unit in the fight
+		## must cross". That is false, and the claim was mine.** Counted over a
+		## full 90-second run of this room: **8 crossings, all eight of them
+		## enemies, zero party.** The party holds its spawn side and shoots; the
+		## enemies walk to it. So the slow is a **one-sided tax the player never
+		## pays on their own pawn**, not a shared cost.
+		##
+		## The room still works and the funnel is real -- it is the enemy
+		## advance that gets funnelled. Read the tar as an approach penalty on
+		## whoever closes, which on every roster this file fields is the enemy.
+		## For the player to feel it, something has to make the party cross, and
+		## nothing here does.
 		##
 		## 45 ticks, three seconds, refreshed every tick a unit stands in it.
 		## Longer than the crossing takes, so it is felt on the far side rather

@@ -80,10 +80,19 @@ func test_every_starting_action_resolves() -> void:
 ## real fights when it sat in `starting_actions` and nowhere else. Unlike those
 ## two this needed no WIS raise: three plans at 2 blocks each is exactly the
 ## WIS-6 budget this class already had.
+##
+## Issue 206: Abomination ships three. Same shape as every entry above -- the
+## Sickle grants `abomination_claw` and Claw fired **zero** times, so a preset
+## plan is the only path from the game to it. Measured twice before settling:
+## "Claw while you cannot afford a Hook" fired 3 times in 80 fights, because this
+## class sits under Hook's cost for 0.2% of its alive ticks; "Claw whoever is not
+## poisoned" fires 260. WIS 4 -> 6 for the third plan, the same pure-capacity
+## raise the Warrior and Priest entries above record.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 4,
 	&"priest": 4,
 	&"geysermancer": 3,
+	&"abomination": 3,
 }
 
 func test_every_class_ships_its_expected_preset_plans_within_its_wis_budget() -> void:

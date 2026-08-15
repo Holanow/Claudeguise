@@ -101,11 +101,29 @@ static func actions() -> Array[ActionDef]:
 		## this enemy inert for five sixths of every fight, which is a worse
 		## outcome than the log spam the cooldown fixes.
 		##
-		## The rotation works the way The Warden's does, through list order:
-		## `_choose_attack_action` finds no melee action here, falls back to
-		## `_first_non_heal` over the *usable* candidates, and `stalker_mark`
-		## is first -- so the Stalker marks whenever it can and plinks with
-		## this the rest of the time.
+		## **THE ROTATION DOES NOT WORK AND THIS ACTION HAS NEVER FIRED. My
+		## claim, measured false.** It used to read: "the rotation works the way
+		## The Warden's does, through list order: `_choose_attack_action` finds
+		## no melee action here, falls back to `_first_non_heal` over the
+		## *usable* candidates, and `stalker_mark` is first -- so the Stalker
+		## marks whenever it can and plinks with this the rest of the time."
+		##
+		## Counted with `Tools/SwarmProbe.gd` over 300 fights, every room, all
+		## five buildable parties: `stalker_mark` fires 0.19 times per 100
+		## ticks and **`stalker_dart` fires zero times, ever.**
+		##
+		## The word *usable* is what is wrong. `DefaultBehavior._usable_actions`
+		## returns every action on the unit and filters neither cooldown nor
+		## resource cost, so `stalker_mark` is chosen on every tick including
+		## the 60 it is on cooldown for. `CombatSim._start_action` then refuses
+		## it at the cooldown gate and **the tick is spent**. The dart under it
+		## is never consulted.
+		##
+		## That is issue 22's fall-through bug exactly, on the enemy side of the
+		## game, and it is the same first-affordable-action trap that kept
+		## `warden_chain_toss` from ever firing -- which the paragraph below
+		## warns about and which I then walked into anyway. Reported to rook:
+		## the fix is one filter in `DefaultBehavior`, which is not my file.
 		##
 		## 200 units rather than 220 on purpose, so the dart never reaches
 		## something the mark could not: an enemy that plinks at a range it
@@ -175,8 +193,40 @@ static func actions() -> Array[ActionDef]:
 		##
 		## **It also turned out not to matter, which I measured rather than
 		## assumed.** The uncapped swarm never exceeds the four rats the room
-		## starts with, on any party, on any seed -- a 20 hp rat dies faster
-		## than a 42-tick lash cycle replaces it. Numbers in the pull request.
+		## starts with, on any party, on any seed. That observation stands.
+		##
+		## **THE CAUSE I GAVE FOR IT WAS WRONG, and the real one is a defect
+		## rather than a number.** This comment used to say "a 20 hp rat dies
+		## faster than a 42-tick lash cycle replaces it", which reads as a
+		## balance statement about the rat. Measured with `Tools/SwarmProbe.gd`,
+		## 12 seeds x 5 buildable parties, counting every tick:
+		##
+		##   the lash fires a median of 1 time in a whole fight of ~250 ticks
+		##   a fight of 250 ticks affords 6 lash cycles
+		##   one party in five fires it ZERO times
+		##   median rat lifetime is 60-96 ticks, which is not short
+		##
+		## The rat is not dying too fast. **The king is almost never allowed to
+		## lash.** `DefaultBehavior` gives a ranged unit a firing band between
+		## `range * KITE_RANGE_FRACTION` (0.6) and `range * RANGED_COMMIT_FRACTION`
+		## (0.85) -- for a 200-range lash that is the 50 units between 120 and
+		## 170. Inside 120 it retreats, beyond 170 it approaches. The king spends
+		## **3-6% of its life inside that band**, 32-52% retreating and 43-59%
+		## walking forward, and it walks on essentially every tick it is alive.
+		##
+		## It is not a general ranged defect: `goblin_arrow` has the same 200
+		## range and fires 5.72 times per 100 ticks against this lash's 0.10,
+		## because a Goblin Archer at move_speed 3.2 can re-establish the band
+		## and the king at **1.2, the slowest unit in the game**, cannot. A
+		## melee pawn closes on it once and it reverses for the rest of the
+		## fight.
+		##
+		## So the swarm is dead for the reason CLAUDE.md's pawn-behaviour
+		## principle names -- an automatic kiting branch the player cannot see
+		## or edit, the same one that made the Abomination run away. Issue #97.
+		## **Not tuned here.** No number in this file fixes a band that is a
+		## fraction of whatever number I write, and raising the range widens the
+		## band it cannot stay inside. Reported to rook with the table.
 		_summons(_action(&"rat_king_lash", "Tail Lash", "A ranged strike at up to 200 units that leaves a rat behind.", CG.DamageType.PHYSICAL, 200.0, 20, 22, 1.0, 0, 0, true), &"rat"),
 	]
 
