@@ -8,6 +8,7 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 
 ## Issue 87, the content half: does the Geysermancer's cleanse reach a real
 ## fight, and does it strip anything when it gets there?
@@ -167,8 +168,49 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## #91 finding, showing up as test maintenance for the sixth time. **Filed as an
 ## issue for rook rather than decided here**, because dropping it weakens a real
 ## claim (that Scour is exercised against poison) and that is a design call.
+## **Seventh movement, issue 160, and this one ENDS the ping-pong instead of
+## continuing it. I filed the question as #223 and then answered it myself,
+## because the branch produced evidence the issue did not have.**
+##
+## #214 moved this from `floor1_cover` (2 ally cleanses) to `floor1_room1` (10).
+## Dressing the Warrior in plate flipped them straight back **inside the same
+## session**: room1 reads **0** and cover reads **10** again. Fourth swap between
+## those two rooms, third one this fortnight, and neither change was careless --
+## each was a real mechanic landing.
+##
+## `Tools/CleanseFixture.gd`, the same table taken on both branches:
+##
+##     encounter          seeds   on_ally (#214)   on_ally (#160)
+##     floor1_room1          24              10                0
+##     floor1_cover          24               2               10
+##     floor1_chokepoint     24              13               14
+##     floor1_rat_king       24              86               76
+##     floor1_rat_king       48             170              144
+##
+## **Every poison room swings between 0 and 20 on any behaviour change. The Rat
+## King's room does not move**, and the reason is structural rather than lucky: a
+## swarm of rats bleeds a bunched party continuously, where a poison room needs an
+## afflicted ally to happen to be standing inside the cleanse's 200 units. That is
+## the geometry finding this header has now recorded four times.
+##
+## **So the fixture points at `floor1_rat_king` and the supply assertion asks for
+## a harmful status rather than for POISON specifically.** Since #141 the
+## ability's asserted contract is *strips something harmful and never strips a
+## buff*; the POISON clause was the last thing pinning a general ability to the
+## one status whose supply nobody designs, which is #91 turning up as test
+## maintenance for the seventh time.
+##
+## **The supply assertion still bites, and that is the whole reason it can be
+## generalised safely.** `floor1_ghoul_den` and `floor1_horde` read 0 casts and 0
+## strips at every seed count, so a room with nothing harmful in it fails this
+## test exactly as it did before.
+##
+## **And nothing is lost on the poison side**, because the poison-specific claim
+## moved to `test_scour_strips_poison_specifically` below -- one hand-built pawn,
+## one poison, one cast. Deterministic, so it cannot drift with fight geometry,
+## which is what an emergent count over a room could never promise.
 const SEEDS := 24
-const ENCOUNTER := &"floor1_room1"
+const ENCOUNTER := &"floor1_rat_king"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
 ## below the measured 10 so ordinary content tuning does not trip it, and well
@@ -256,9 +298,17 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 	# all and would pass every "never strips a buff" check by stripping nothing.
 	# The old POISON equality was guarding this by accident; now it is guarded on
 	# purpose, and it names the room rather than the whole game.
-	assert_true(int(by_status.get(CG.Status.POISON, 0)) > 0,
-		("no POISON was stripped in %d fights of %s, so this fixture's affliction supply has gone. "
-		+ "It is not enough that SOMETHING was stripped: this room was chosen for its poison. "
+	# Issue 160: a harmful status, not POISON specifically. See the header for the
+	# seven movements that forced it and for why this still fails on a room with
+	# nothing harmful in it -- `floor1_ghoul_den` and `floor1_horde` strip nothing
+	# at any seed count. The poison-specific claim lives in
+	# `test_scour_strips_poison_specifically` below, where it is deterministic.
+	var harmful := 0
+	for k in by_status.keys():
+		if CG.is_harmful(k):
+			harmful += int(by_status[k])
+	assert_true(harmful > 0,
+		("nothing harmful was stripped in %d fights of %s, so this fixture's affliction supply has gone. "
 		+ "Re-measure with Tools/CleanseFixture.gd and re-point ENCOUNTER, and do NOT edit a "
 		+ "room's roster to feed this test. Stripped instead: %s") % [SEEDS, ENCOUNTER, _describe(by_status)])
 
@@ -379,3 +429,47 @@ func test_the_combat_log_reports_the_cleanse() -> void:
 				saw_the_strip = true
 	log_view.free()
 	assert_true(saw_the_cast and saw_the_strip)
+
+## **The poison-specific claim, moved here from the fight above in issue 160 and
+## made deterministic on the way.**
+##
+## The old version asserted it as an emergent count over a room chosen for its
+## poison, which is exactly what forced this fixture to move seven times: the room
+## kept ceasing to supply poison as unrelated mechanics landed. Poison being
+## strippable is not a fact about a room, so it should never have been measured
+## through one.
+##
+## One Geysermancer, one poisoned ally in reach, one distant enemy so the fight
+## does not resolve before anything happens. No seeds, no geometry, nothing that
+## can drift.
+func test_scour_strips_poison_specifically() -> void:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"geysermancer", &"g0", "Geysermancer"),
+		PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest"),
+	]
+	var deps := SimDeps.new()
+	var state := CombatSim.build(party, Registry.get_encounter(ENCOUNTER), 0, deps)
+	var ally: CombatUnit = null
+	var caster: CombatUnit = null
+	for u in state.units:
+		if u.pawn == null:
+			continue
+		if u.pawn.pawn_class.id == &"geysermancer":
+			caster = u
+		else:
+			ally = u
+	assert_not_null(caster)
+	assert_not_null(ally)
+	# Inside the cleanse's 200-unit reach, and afflicted.
+	ally.position = caster.position + Vector2(50.0, 0.0)
+	ally.statuses[CG.Status.POISON] = state.tick + 300
+	var stripped := 0
+	for i in 240:
+		CombatSim.step(state, deps)
+		for e in _cleanse_events(state):
+			if e.status == CG.Status.POISON and e.target_id == ally.id:
+				stripped += 1
+		if stripped > 0:
+			break
+	assert_true(stripped > 0,
+		"a Geysermancer standing 50 units from a poisoned ally never scoured the poison off it")
