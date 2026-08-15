@@ -12,6 +12,7 @@ const PlanScript := preload("res://Scripts/Core/Plan.gd")
 const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
+const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
 ## Issue 21b: look at your pawns between fights. A full-screen overlay added
 ## as a child of whichever screen opens it (PartySelect or BattleView's end
@@ -107,6 +108,12 @@ var _selected_index: int = 0
 
 var _list_box: VBoxContainer = null
 var _detail_box: VBoxContainer = null
+
+## Issue 155. The fight this panel was opened over, or null when there is none.
+## Untyped on purpose: `CombatState` is not otherwise needed by this screen and
+## a typed field would make the between-fights caller (`PartySelect`) carry a
+## preload for a class it never touches.
+var _live_state = null
 
 func _ready() -> void:
 	# set_anchors_preset (not used here) tries to *preserve the control's
@@ -209,8 +216,21 @@ func _ready() -> void:
 	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_scroll.add_child(_detail_box)
 
-func open(pawns: Array[PawnData]) -> void:
+## Issue 155's second half, and the answer to that issue's volume question.
+##
+## The log names the row that DID fire, once per decision. It cannot also carry
+## why the other rows did not: that is one fact per row per tick, on a log a
+## fresh reader already called the only way to follow the fight *and* the thing
+## that made them stop watching the arena. So the "why not" lives here, in the
+## pause inspection, where it costs the log nothing and sits in the screen where
+## the fix is made.
+##
+## `state` is a live `CombatState` or null. Null is the between-fights case --
+## `PartySelect` opens this screen with no fight in existence -- and the plan
+## rows then read exactly as they did before, with no verdicts on them.
+func open(pawns: Array[PawnData], state = null) -> void:
 	_pawns = pawns
+	_live_state = state
 	_selected_index = 0
 	visible = true
 	_rebuild_list()
@@ -417,12 +437,26 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 			used, budget, maxi(0, budget - used), NEW_PLAN_BLOCK_COST],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT))
 
+	## Issue 155. One sentence, and only while a fight exists to read -- between
+	## fights every verdict would be blank and the sentence would explain nothing.
+	if _live_unit(pawn) != null:
+		out.append(_line(
+			"Right now: %s is the row that chose what this pawn last did. %s means the row's condition is true this instant. A %s row that is not %s was beaten by a row above it, or its skill could not fire (nothing in range, or not enough resource)." % [
+				VERDICT_ACTING, VERDICT_READY, VERDICT_READY, VERDICT_ACTING],
+			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+
 	for i in pawn.plans.size():
 		out.append(_plan_row(pawn.plans[i], pawn, i))
 
-	out.append(_line(
+	var fallback_header := HBoxContainer.new()
+	fallback_header.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	fallback_header.add_child(_line(
 		"Fallback, always last and not yours to change:",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	var fallback_verdict := _live_fallback_verdict(pawn)
+	if fallback_verdict != "":
+		fallback_header.add_child(_verdict_label(fallback_verdict))
+	out.append(fallback_header)
 	for row in _default_rows(pawn):
 		out.append(row)
 	return out
@@ -468,6 +502,12 @@ func _plan_row(plan, pawn: PawnData, index: int) -> Control:
 	var number := _tag_label("%d." % (index + 1))
 	number.custom_minimum_size = Vector2(24.0, 0.0)
 	row.add_child(number)
+
+	## Issue 155. Same number the combat log prints ("plan 3"), same order, from
+	## the same array -- so a player who reads a tag in the log can find the row.
+	var verdict := _live_verdict(pawn, plan)
+	if verdict != "":
+		row.add_child(_verdict_label(verdict))
 
 	var up := Button.new()
 	up.text = "^"
@@ -611,7 +651,13 @@ func _targeting_picker(pawn: PawnData, block) -> Control:
 	var current := 0
 	for i in ops.size():
 		var op: StringName = ops[i]
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, {})))
+		# The block's own args for the entry it is already on, the same
+		# correction `_condition_editor` above carries and for the same reason:
+		# with `{}` here, `target_enemy_with_status` captioned itself "the
+		# nearest enemy with Shield" whatever status it was really aimed at,
+		# because `_status_arg` defaults to 0. An unselected entry previews its
+		# own default, which is what picking it sets.
+		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, block.args if op == block.op else {})))
 		if op == block.op:
 			current = i
 	picker.selected = current
@@ -734,10 +780,30 @@ func _set_condition_op(plan, op: StringName) -> void:
 ## that does not store what it shows: the control reads and writes whole
 ## percent (0-100) because that is what `describe_op` prints, and it is
 ## rescaled to the 0.0-1.0 `PlanInterpreter` actually reads on the way out.
+##
+## **A DEFECT FOUND BY RENDERING, ON THE TRUNK, WHILE BUILDING #155.** A "status"
+## shape carries no `min`/`max`/`step` -- it is a choice from an enum, not a
+## number -- and the `else` branch below read `shape["min"]` unconditionally.
+## That raises at runtime, and a GDScript error ABORTS THE METHOD AND RETURNS
+## NORMALLY (the board's rule 2, and the same mechanism that once let failing
+## tests count as passes), so `_condition_editor` simply returned without adding
+## its value editor and nothing anywhere went red.
+##
+## What that cost the player: **the Geysermancer's "when an enemy has Burn" and
+## the Abomination's "when an enemy has no Poison" had no control at all in the
+## plan editor.** The first of those gates the only combo in the game. It is the
+## pawn-behaviour principle broken in the screen the principle exists to
+## protect -- the player could not see where the condition was decided, because
+## the condition was not on the screen.
+##
+## Reproduced on `main` before it was fixed, with `git stash`, not reasoned
+## about: geysermancer and abomination raise, warrior does not.
 func _condition_value_editor(block, shape: Dictionary) -> Control:
+	var key: String = shape["key"]
+	if shape["kind"] == "status":
+		return _condition_status_editor(block, key, int(shape["default"]))
 	var spin := SpinBox.new()
 	spin.custom_minimum_size = Vector2(96.0, _TOUCH)
-	var key: String = shape["key"]
 	if shape["kind"] == "fraction":
 		spin.min_value = 0
 		spin.max_value = 100
@@ -752,6 +818,21 @@ func _condition_value_editor(block, shape: Dictionary) -> Control:
 		spin.value = float(block.args.get(key, shape["default"]))
 		spin.value_changed.connect(func(v): _set_condition_arg(block, key, v if shape["kind"] == "range" else int(v)))
 	return spin
+
+## A status is picked, not counted. Names come from `CG.Status.keys()`, the same
+## source `CombatLogView._status_name` and `PlanInterpreter._status_word` read,
+## so the editor, the log and the plan sentence cannot call one status three
+## different things.
+func _condition_status_editor(block, key: String, fallback: int) -> Control:
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(140.0, _TOUCH)
+	var current := int(block.args.get(key, fallback))
+	for i in CG.Status.keys().size():
+		picker.add_item(String(CG.Status.keys()[i]).capitalize(), i)
+		if i == current:
+			picker.selected = picker.item_count - 1
+	picker.item_selected.connect(func(idx): _set_condition_arg(block, key, picker.get_item_id(idx)))
+	return picker
 
 ## Deferred for the same reason as `_move_plan`.
 func _set_condition_arg(block, key: String, value) -> void:
@@ -975,6 +1056,101 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 ## issue 96 made each block a chip that says its own value, so there is nothing
 ## left to label -- but the trap is a property of `_line`, not of those
 ## strings, and the number label sits in exactly the same position.
+# ---------------------------------------------------------------------------
+# Issue 155: live verdicts, so a paused fight says why a row is not firing
+# ---------------------------------------------------------------------------
+#
+# The issue names four reasons a row a player wrote did not fire, and says the
+# game distinguishes none of them: the condition was false, the action was
+# unaffordable, the row was outranked, or nothing fired and the fallback
+# decided. Three of the four are separated here.
+#
+# **WHAT THIS DOES NOT DO, stated rather than implied.** "Unaffordable / out of
+# range / no line of sight" is the fourth, and it is NOT distinguished. Every
+# gate that produces it is a private static inside `PlanInterpreter._run_blocks`
+# (finch's file), and re-implementing those seven checks here would be a second
+# copy of the decision, which is exactly how the log and the sim would come to
+# disagree about why a pawn did something. The honest half is on screen: a row
+# reading `ready` while the fallback reads `acting` says the condition was true
+# and the row still lost, which narrows it to affordability, range, or being
+# outranked. The exact line needs `PlanInterpreter.why_not(state, unit, plan)`
+# and it is asked for on the board.
+#
+# `condition_holds` is the one piece of the decision that is already public and
+# already pure -- `_eval_condition` only reads -- so it can be asked live
+# without touching the fight. **Nothing here calls `decide()`**, which would
+# look like the more direct answer and is not: `decide()` writes `unit.focus_id`
+# as a side effect, so a player opening this panel would change the next tick of
+# the fight they are inspecting.
+
+const VERDICT_ACTING := "acting"
+const VERDICT_READY := "ready"
+const VERDICT_WAITING := "waiting"
+const VERDICT_TAUNTED := "taunted"
+
+## One word for one plan row, or "" when there is no live fight to read.
+func _live_verdict(pawn: PawnData, plan) -> String:
+	var unit = _live_unit(pawn)
+	if unit == null:
+		return ""
+	if _last_source_plan(unit) == plan.id:
+		return VERDICT_ACTING
+	return VERDICT_READY if PlanInterpreter.condition_holds(_live_state, unit, plan) else VERDICT_WAITING
+
+## The same, for the immutable fallback row. It has no condition to hold, so it
+## is either what the pawn is doing or it is not -- and the compulsion gets its
+## own word, because a taunted pawn is not falling back, it is being overruled.
+func _live_fallback_verdict(pawn: PawnData) -> String:
+	var unit = _live_unit(pawn)
+	if unit == null:
+		return ""
+	var last := _last_source_plan(unit)
+	if last == IntentScript.COMPELLED:
+		return VERDICT_TAUNTED
+	return VERDICT_ACTING if last == &"" else ""
+
+## The plan behind this unit's most recent decision, read off the event stream
+## rather than off the unit. `CombatUnit.intent` is created and consumed inside
+## one `step()` and is null by the time anything can look at it -- rule 2 on the
+## board, "X never happens is also passed by X can never be observed" -- so
+## ACTION_START is the only place the answer survives.
+##
+## Returns &"" for the fallback, which is also what a unit that has not acted
+## yet returns. Those two read the same and that is correct: a pawn that has
+## done nothing is not being decided by any row of its own.
+func _last_source_plan(unit) -> StringName:
+	var events = _live_state.events
+	for i in range(events.size() - 1, -1, -1):
+		var e = events[i]
+		if e.kind == CG.EventKind.ACTION_START and e.source_id == unit.id:
+			return e.source_plan
+	return &""
+
+## The fighting unit built from this PawnData, or null. Matched on the PawnData
+## instance, which `CombatSim.build` stores on the unit -- the same instance
+## this panel edits, so a pawn cannot be confused with another of the same class.
+func _live_unit(pawn: PawnData):
+	if _live_state == null:
+		return null
+	for u in _live_state.units:
+		if u.pawn == pawn:
+			return u
+	return null
+
+func _verdict_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	label.add_theme_color_override("font_color",
+		Palette.TEAM_PLAYER if text == VERDICT_ACTING else (
+			Palette.TEXT if text == VERDICT_READY else Palette.TEXT_DIM))
+	# Same reason every other chip on this screen sets it: `Label`'s engine
+	# default is MOUSE_FILTER_IGNORE and a chip left at the default never gets a
+	# hover, which is the defect this panel's own history records.
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.custom_minimum_size = Vector2(64.0, 0.0)
+	return label
+
 func _tag_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text

@@ -357,9 +357,11 @@ static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDe
 	var chosen: ActionDef = melee
 	if melee == null or dist > melee.range_units:
 		chosen = ranged if ranged != null else melee
+	## Issue 155: both carry `Intent.COMPELLED` so the log can say the pawn was
+	## dragged rather than letting a compulsion look like the fallback deciding.
 	if chosen == null or dist > chosen.range_units:
-		return Intent.move_to(taunter.position)
-	return Intent.use_action(chosen.id, taunter.id)
+		return Intent.move_to(taunter.position, Intent.COMPELLED)
+	return Intent.use_action(chosen.id, taunter.id, Intent.COMPELLED)
 
 ## Puts TAUNTED on everyone the taunt reaches, at the moment it is applied.
 ##
@@ -744,7 +746,12 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		spent.amount = action.resource_cost
 		state.emit(spent)
 
-	state.emit(_event(CG.EventKind.ACTION_START, state.tick, unit.id, intent.target_id, action.id))
+	## Issue 155: the one place the decision layer's answer survives its own tick.
+	## The intent is cleared by `_resolve_phase` immediately after this call, so
+	## if the reason does not ride out on this event it is gone.
+	var started := _event(CG.EventKind.ACTION_START, state.tick, unit.id, intent.target_id, action.id)
+	started.source_plan = intent.source_plan
+	state.emit(started)
 
 	if unit.action_ticks_left <= 0:
 		_fire_action(state, unit, action, deps)

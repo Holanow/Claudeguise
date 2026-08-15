@@ -205,6 +205,22 @@ func _build_top_bar() -> void:
 	view_button.pressed.connect(func(): _display_options.toggle_visible())
 	controls.add_child(view_button)
 
+	# Issue 155, and it is the reachability half of that issue rather than a
+	# convenience. The plan verdicts this panel now carries -- which row chose
+	# what a pawn is doing, which rows' conditions are true -- are facts about a
+	# fight that is happening. "Inspect party" existed only on the end banner, so
+	# without this button every one of them would be readable exactly once, on a
+	# finished fight, where "acting" names a decision nobody can still watch.
+	#
+	# Beside Pause for the same reason the display toggles are: the issue's own
+	# words are "the pause inspection", and pausing to ask why a pawn just did
+	# something is the whole gesture.
+	var plans_button := Button.new()
+	plans_button.text = "Plans"
+	plans_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+	plans_button.pressed.connect(_on_inspect_pressed)
+	controls.add_child(plans_button)
+
 	_display_options = Control.new()
 	_display_options.set_script(DisplayOptionsPanelScript)
 	hud.add_child(_display_options)
@@ -290,7 +306,11 @@ func _build_end_banner() -> void:
 
 func _on_inspect_pressed() -> void:
 	if _inspect_panel != null and config != null:
-		_inspect_panel.open(config.party)
+		## Issue 155: the live fight goes with the party. With it, every plan row
+		## carries its verdict this instant -- which row chose what the pawn is
+		## doing, and which rows' conditions are true. Without it the panel is
+		## the between-fights screen it has always been.
+		_inspect_panel.open(config.party, state)
 
 ## e.g. 197 ticks at 30 ticks/second reads as "6.6s" — a player has never
 ## seen a tick, and won't start now.

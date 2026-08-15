@@ -33,6 +33,20 @@ var target_id: int = -1
 ## combat log so a player can see which plan fired.
 var source_plan: StringName = &""
 
+## Issue 155. The reserved `source_plan` for an intent NO decision layer chose:
+## the taunt compulsion in `CombatSim._compelled_intent`, which beats a stated
+## plan on purpose.
+##
+## It needs its own value because it is a third thing, not a shade of the other
+## two. Left at &"" it reads as "the fallback decided", which is wrong in the one
+## case a player is most likely to be confused by — their pawn abandoning the row
+## they wrote. Issue 98's principle is exactly this: a pawn doing something that
+## is in no plan the player can see.
+##
+## The `@` prefix cannot collide with a real plan id: `Plan.id` values are
+## authored as identifiers in `PresetPlans`.
+const COMPELLED := &"@taunted"
+
 static func idle(plan: StringName = &"") -> Self:
 	var i := Self.new()
 	i.kind = CG.IntentKind.IDLE

@@ -7,6 +7,11 @@ const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const Intent := preload("res://Scripts/Core/Intent.gd")
+const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
+const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## CombatLogView.line_for_event is pure formatting split out of the Control so
 ## it can be checked without a live RichTextLabel. This is the half of issue 3
@@ -658,3 +663,159 @@ func test_a_status_whose_magnitude_is_not_a_strength_prints_no_number() -> void:
 		assert_false(line.contains("7"),
 			"%s's magnitude is not a strength and must not be printed as one: %s" % [CG.Status.keys()[status], line])
 	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 155: the log names the plan row that chose the action
+# ---------------------------------------------------------------------------
+#
+# "I wrote the brain and was never shown it thinking." The log named the action
+# and never the row, so four different reasons a pawn ignored a plan looked
+# identical.
+#
+# `Intent.source_plan` has existed since the skeleton with a comment saying it
+# is "written into the combat log", and NOTHING EVER READ IT: an intent dies
+# inside one `step()`, and no event carried the field out. There was also no
+# test anywhere asserting the ACTION_START line's text at all, which is why
+# that stayed true for five releases.
+
+## Against a real fight, through the real `line_for_event`, rather than against
+## a hand-built event -- the shape being checked is that the simulation carries
+## the field out of the tick it was created in, and a synthetic event proves
+## only that this function formats one.
+func test_a_real_fight_names_the_plan_row_behind_a_pawns_action() -> void:
+	var state := _real_fight()
+	var view := CombatLogView.new()
+	var tagged := 0
+	var fallback := 0
+	for e in state.events:
+		if e.kind != CG.EventKind.ACTION_START:
+			continue
+		var source := state.unit(e.source_id)
+		if source == null or source.pawn == null:
+			continue
+		var line := view.line_for_event(state, e)
+		if line.contains("[fallback]"):
+			fallback += 1
+			continue
+		var row := view.plan_row_number(source.pawn, e.source_plan)
+		assert_true(row > 0, "a pawn action with no fallback tag must name a real row: %s" % line)
+		assert_true(line.contains("[plan %d]" % row), line)
+		tagged += 1
+	assert_true(tagged > 0, "no pawn action in a whole fight named its plan")
+	assert_true(fallback > 0,
+		"no pawn action fell through to the fallback, so that wording went unexercised")
+	view.free()
+
+## The negative half, and it is where the volume argument lives. An enemy has no
+## plans and never will, so a tag on its line names nothing the player can go
+## and change -- and enemies are roughly half of every fight's actions. A
+## detector that fires on everything becomes furniture.
+func test_an_enemys_action_carries_no_plan_tag_at_all() -> void:
+	var state := _real_fight()
+	var view := CombatLogView.new()
+	var checked := 0
+	for e in state.events:
+		if e.kind != CG.EventKind.ACTION_START:
+			continue
+		var source := state.unit(e.source_id)
+		if source == null or source.pawn != null:
+			continue
+		var line := view.line_for_event(state, e)
+		assert_false(line.contains("["), "an enemy has no plans to name: %s" % line)
+		checked += 1
+	assert_true(checked > 0, "no enemy acted, so the quiet case was never exercised")
+	view.free()
+
+## The number in the log is the number the plan editor draws down the same list
+## (`InspectPanel._plan_row` prints "%d." % (index + 1)), so a player reading
+## "plan 3" can go to row 3 and find it. Checked against real preset plans.
+func test_the_row_number_is_the_editors_row_number() -> void:
+	var view := CombatLogView.new()
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
+	assert_true(pawn.plans.size() > 1, "a one-plan pawn cannot detect an off-by-one")
+	for i in pawn.plans.size():
+		assert_eq(view.plan_row_number(pawn, pawn.plans[i].id), i + 1)
+	assert_eq(view.plan_row_number(pawn, &"no_such_plan"), 0)
+	view.free()
+
+## A plan id with no row prints the id rather than a wrong number -- a plan
+## removed while its action was still winding up. Exercised against the failing
+## case rather than reasoned about: a naive `index + 1` over a -1 miss would
+## print "plan 0", which is a row that does not exist.
+func test_an_unknown_plan_id_prints_the_id_rather_than_a_wrong_row() -> void:
+	var state := _make_state()
+	state.unit(0).pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.ACTION_START, 4)
+	e.source_id = 0
+	e.action_id = &"warrior_strike"
+	e.source_plan = &"a_plan_that_was_deleted"
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("a_plan_that_was_deleted"), line)
+	assert_false(line.contains("plan 0"), line)
+	view.free()
+
+## The compulsion is a THIRD reason, not a shade of the fallback, and it is the
+## one a player is most likely to be confused by: their pawn abandoning the row
+## they wrote. Left at &"" it would read "[fallback]", a confident wrong answer.
+##
+## Built here rather than sampled, because `Tools/PlanAttribution.gd` measured
+## 4404 tagged actions over 100 real fights and NOT ONE was a compulsion -- no
+## offered room taunts a pawn. A path real content never walks is exactly the
+## path that ships broken.
+func test_a_taunted_pawn_says_so_instead_of_blaming_the_fallback() -> void:
+	var state := _make_state()
+	state.unit(0).pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
+	var view := CombatLogView.new()
+
+	var compelled := CombatEvent.make(CG.EventKind.ACTION_START, 4)
+	compelled.source_id = 0
+	compelled.action_id = &"warrior_strike"
+	compelled.source_plan = Intent.COMPELLED
+	var line := view.line_for_event(state, compelled)
+	assert_true(line.contains("[taunted]"), line)
+	assert_false(line.contains("fallback"), line)
+
+	var fell_through := CombatEvent.make(CG.EventKind.ACTION_START, 4)
+	fell_through.source_id = 0
+	fell_through.action_id = &"warrior_strike"
+	assert_true(view.line_for_event(state, fell_through).contains("[fallback]"),
+		"and an unstamped intent still reads as the fallback")
+	view.free()
+
+## The simulation's half: `CombatSim._compelled_intent` has to stamp the
+## sentinel, or the line above formats a value nothing in the game produces.
+func test_the_compulsion_stamps_its_own_sentinel_on_both_intents() -> void:
+	var taunter := CombatUnit.new()
+	taunter.id = 0
+	taunter.position = Vector2.ZERO
+	var victim := CombatUnit.new()
+	victim.id = 1
+	victim.actions = [&"claw"]
+
+	var claw := ActionDef.new()
+	claw.id = &"claw"
+	claw.range_units = 40.0
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName) -> ActionDef:
+		return claw if id == &"claw" else null
+	deps.default_attack_action = func(defs: Array, ranged: bool) -> ActionDef:
+		return null if ranged else (defs[0] if not defs.is_empty() else null)
+
+	victim.position = Vector2(20.0, 0.0)
+	assert_eq(CombatSim._compelled_intent(victim, taunter, deps).source_plan, Intent.COMPELLED,
+		"the compelled attack")
+	victim.position = Vector2(500.0, 0.0)
+	assert_eq(CombatSim._compelled_intent(victim, taunter, deps).source_plan, Intent.COMPELLED,
+		"and the compelled walk into range")
+
+## `line_for_event` is the whole log, so a party of four fighting a real room is
+## the only fixture that can say what the log actually reads like.
+func _real_fight() -> CombatState:
+	var party: Array[PawnData] = []
+	for cid in Registry.all_class_ids().slice(0, 4):
+		party.append(PawnFactory.make_starter_pawn(
+			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
+	CombatSim.run(state)
+	return state
