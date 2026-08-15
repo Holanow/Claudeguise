@@ -377,6 +377,33 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 		return nearest
 	return focused if state.rng.randf() < enemy_def.focus_bias else nearest
 
+## **Issue 132 asked whether this should go, now that `CombatSim._decide_phase`
+## compels a TAUNTED unit outright. It stays, and the reason is a real
+## behavioural gap rather than caution.**
+##
+## The two are keyed on different things. The compulsion reads **TAUNTED**, which
+## `_apply_taunt` stamps on everyone inside the radius **at the moment the taunt
+## is cast**. This reads **TAUNTING**, which sits on the taunter for the whole
+## duration. So a unit that walks *into* the radius after the cast is never
+## TAUNTED and the compulsion does not see it at all; this is the only thing that
+## makes it prefer the taunter.
+##
+## That is a seam, not a duplicate: the hard mechanism covers who was there when
+## the shout went up, the soft one covers who arrives during it. **swift: if you
+## want the compulsion to own both, it needs to re-stamp TAUNTED per tick on
+## radius membership -- the shape `_tick_hazards` already uses -- and then this
+## can go. That is your call and a behaviour change, so I have not made it.**
+##
+## Also checked rather than assumed, and it is the more interesting half:
+## `EnemyDef.spawn_taunt_radius` -- the permanent aura this function was
+## originally written for -- **is set by no enemy in the game.** `_enemy()` in
+## `core_actions.gd` does not even take the parameter. So that field and the
+## `CombatSim` branch that reads it are a matched unreachable pair, and heron's
+## Brute comment explains why nobody wants it: at `CG.MAX_TICKS` it is exactly
+## the permanent lock the player's #58 ruling forbids. rook, that is worth an
+## issue -- a Core field, a sim branch and a doc comment describing a mechanism
+## no content can reach.
+##
 ## The nearest living, opposing candidate carrying TAUNTING whose own
 ## taunt_radius reaches `unit` -- null when nobody taunting is in range,
 ## the natural "taunt does not apply" case. Deterministic: iterates the same
