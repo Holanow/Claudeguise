@@ -52,7 +52,21 @@ do not use a floor-run measurement as evidence for a single-room decision.
 `Tools/SampleFights.gd` is single-encounter and is the right instrument;
 `Tools/FloorRuns.gd` is not.
 
-## Balance is frozen until equipment lands
+## Balance: the freeze has lifted, the discipline has not
+
+**The freeze's own condition is met.** It read *"frozen until equipment lands"*
+and named #100 as the unblocker; #100 merged. Pawns wear gear, weapons grant the
+basic attack, seventeen items are equippable.
+
+So balance changes are allowed again. **What does not change:**
+
+- **Measure, report, then act -- in that order.** Every number this project got
+  wrong was got wrong by acting first.
+- **Do not edit a threshold because a measurement crossed it.** #144 records five
+  widenings of one cap and zero narrowings; after five it constrains nothing.
+- **A regression is a finding.** Report it plainly, including when it is yours.
+
+The original reasoning, kept because it explains every number below it:
 
 > **"Equipment will pretty fundamentally change the balance so basically all
 > balance changes should be tabled until then."**
