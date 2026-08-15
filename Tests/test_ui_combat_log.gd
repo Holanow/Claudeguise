@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## CombatLogView.line_for_event is pure formatting split out of the Control so
 ## it can be checked without a live RichTextLabel. This is the half of issue 3
@@ -349,4 +350,69 @@ func test_miss_reads_differently_from_a_landed_hit_and_a_fully_mitigated_one() -
 	assert_true(miss_line.contains("misses"))
 	assert_false(landed_line.contains("misses"))
 	assert_true(absorbed_line.contains("before mitigation"), "a fully absorbed hit must still show the raw roll, not read like a miss")
+	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 202: BLEED was logged as terrain damage, in rooms with no terrain.
+# ---------------------------------------------------------------------------
+
+## The defect, reproduced: the ground line was reached by elimination -- "not
+## BURN and not POISON" -- so BLEED, which joined `_DOT_STATUSES` long after
+## that branch was written, printed "Geysermancer takes 2 Physical damage from
+## the ground" in the Rat King's nest, which has no terrain at all. Bleed is the
+## King's signature mechanic and the log credited the floor.
+func test_a_bleed_tick_is_dropped_from_the_log() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 2
+	e.amount_before_mitigation = 2
+	e.damage_type = CG.DamageType.PHYSICAL
+	e.status = CG.Status.BLEED
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("ground"), "bleed is not terrain: " + line)
+	assert_eq(line, "", "a per-tick bleed line is texture, not story")
+	view.free()
+
+## The guard, so the next damage-over-time status does not repeat this. The
+## branch is now written the other way round -- a hazard tick is the one that
+## leaves `status` at its unset default, and everything else with no source is
+## an affliction -- and this walks CombatSim's own `_DOT_STATUSES` rather than a
+## list typed here, so a status added there fails this without anyone editing a
+## test. `_DOT_STATUSES` is the same dictionary `_tick_dot_statuses` iterates,
+## so the two cannot disagree.
+func test_no_damage_over_time_status_is_ever_credited_to_the_ground() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	assert_false(CombatSim._DOT_STATUSES.is_empty(), "the walk must have something to walk")
+	for status in CombatSim._DOT_STATUSES:
+		var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+		e.source_id = -1
+		e.target_id = 1
+		e.amount = 2
+		e.amount_before_mitigation = 2
+		e.damage_type = CombatSim._DOT_STATUSES[status]
+		e.status = status
+		var line := view.line_for_event(state, e)
+		assert_eq(line, "", "%s ticked into the log as: %s" % [CG.Status.keys()[status], line])
+	view.free()
+
+## The negative half: the ground line must still exist for a real hazard, or the
+## fix above would be "suppress everything with no source", which loses the one
+## thing standing in a fire is meant to tell you.
+func test_a_real_hazard_tick_still_says_the_ground() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
+	e.source_id = -1
+	e.target_id = 1
+	e.amount = 5
+	e.amount_before_mitigation = 5
+	e.damage_type = CG.DamageType.FIRE
+	# status untouched, exactly as CombatSim._tick_hazards emits it.
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("ground"), line)
+	assert_true(line.contains("Rat"), line)
 	view.free()
