@@ -14,6 +14,7 @@ const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
+const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
@@ -47,6 +48,7 @@ var _seed_label: Label = null
 var _outcome_label: Label = null
 var _display_options: Control = null
 var _pause_button: Button = null
+var _team_status: Control = null
 
 var _party_summary_fill: ColorRect = null
 var _enemy_summary_fill: ColorRect = null
@@ -63,6 +65,7 @@ func _ready() -> void:
 	_combat_log = get_node("Hud/CombatLog")
 	_build_pause_dim()
 	_build_top_bar()
+	_build_team_status()
 	_build_end_banner()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
 	# added scene to reach the HUD nodes begin() needs, without a live viewport.
@@ -98,7 +101,16 @@ func _build_top_bar() -> void:
 	backdrop.color = Palette.BACKGROUND
 	backdrop.color.a = 0.72
 	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	backdrop.offset_bottom = _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_S
+	backdrop.offset_bottom = _TOP_BAR_BOTTOM
+	# Issue 113: it stops where the team panel's own column begins. This strip
+	# exists to keep the top bar's own text legible against the arena; it was
+	# full-width because nothing else was ever up there, and two translucent
+	# backdrops overlapping read as a third, darker shade that means nothing.
+	#
+	# Stopping it is also what lets the panel start at the top of the screen
+	# rather than under this, which is worth 144 px of column -- paid for by the
+	# combat log, so it is not a cosmetic saving.
+	backdrop.offset_right = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(backdrop)
 
@@ -229,6 +241,48 @@ func _build_top_bar() -> void:
 	# Under the control row it belongs to. Issue 145 taught me to add_child
 	# before any manual _ready(), or the engine runs a second one.
 	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
+
+## Issue 113: the player's whole team, in a fixed place, above the log.
+##
+## **In the side strip the log already has, not over the arena.** That strip is
+## reserved out of the viewport before the arena is fitted (`compute_layout`), so
+## everything drawn in it is free: putting the panel anywhere else would shrink
+## the fight to make room for a description of it. The cost is paid by the log
+## instead, which loses the top `TeamStatusView.MAX_PANEL_HEIGHT` of its column.
+##
+## **That cost is real and I am naming it rather than burying it.** At 1280x720
+## the log goes from the full 720 to about 366, from roughly 33 lines to 17. The
+## issue's own build note is that this is "a good candidate for the space the log
+## is losing" and that notes item 8 wants the log in a bottom corner; that move
+## has not happened, so until it does the two share the column.
+##
+## Portrait puts the log along the bottom instead, so there is nothing to inset
+## and the panel simply sits in the top right.
+func _build_team_status() -> void:
+	var hud := get_node("Hud")
+	_team_status = Control.new()
+	_team_status.set_script(TeamStatusViewScript)
+	hud.add_child(_team_status)
+	if not _team_status.is_inside_tree():
+		_team_status._ready()
+	_team_status.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	# The same 20px the log holds off the right edge (CombatLogView.LOG_MARGIN),
+	# so the panel and the column under it share one edge rather than two that
+	# nearly agree.
+	_team_status.offset_right = CombatLogView.LOG_MARGIN
+	_team_status.offset_left = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
+	# At the top of the screen, beside the top bar rather than under it. The bar's
+	# backdrop now stops at this column's left edge (see _build_top_bar), which is
+	# the only reason there is room: starting below it cost 144 px of a column the
+	# combat log is paying for.
+	_team_status.offset_top = _PANEL_TOP
+	_team_status.offset_bottom = _PANEL_TOP + TeamStatusViewScript.MAX_PANEL_HEIGHT
+
+## Where the top bar's backdrop ends. Still the bar's own height; the panel no
+## longer sits under it.
+const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_S
+
+const _PANEL_TOP := Palette.SPACE_M
 
 ## Issue 19: the outcome is the payoff of the whole fight and used to show as
 ## a small toolbar label — same weight as "Seed 0000002A". This is the
@@ -468,6 +522,22 @@ func _layout_arena() -> void:
 	_arena.scale = layout.scale
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
+		_combat_log.set_top_inset(log_top_inset(size))
+
+## Issue 113: how far down the side column the log starts, so the team status
+## panel can have the top of it.
+##
+## Split out of `_layout_arena` for the same reason `compute_layout` is: it
+## depends on the viewport size, which Godot only answers honestly inside a
+## tree, and the branch that matters here is the one that does NOT apply. In
+## portrait the log is a band along the bottom and the panel is nowhere near it,
+## so the inset has to go back to zero rather than staying set from the last
+## orientation -- a stale value, which only shows on the second call and is
+## invisible in any test that checks one orientation.
+static func log_top_inset(size: Vector2) -> float:
+	if size.x < size.y:
+		return 0.0
+	return _PANEL_TOP + TeamStatusViewScript.MAX_PANEL_HEIGHT
 
 ## Split out from _layout_arena so the fit math can be checked without a
 ## live viewport — Godot only gives get_viewport_rect() a real answer inside
@@ -549,6 +619,11 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_outcome_label.text = ""
 	_end_banner.visible = false
 	_update_team_summary()
+	# Issue 113: before the first tick, not after it. A player looking at the
+	# screen on frame one should see their party in the panel, not an empty box
+	# that fills in once something happens.
+	if _team_status != null:
+		_team_status.sync(state)
 	set_process(true)
 
 func set_paused(p: bool) -> void:
@@ -633,6 +708,11 @@ func _process(delta: float) -> void:
 	_arena.projectiles = state.projectiles
 	_arena.queue_redraw()
 	_update_team_summary()
+	# Issue 113. Same place and same trigger as the unit views: "live means live"
+	# is the issue's own build note, and a cooldown that updated on some other
+	# clock than the fight would be worse than none.
+	if _team_status != null:
+		_team_status.sync(state)
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_show_outcome()
 		set_process(false)

@@ -44,6 +44,25 @@ var _backdrop: ColorRect = null
 var _seam: ColorRect = null
 var _landscape := true
 
+## Issue 113: how far down the side strip the log starts, so the team status
+## panel can have the top of it.
+##
+## Landscape only, and the two orientations differ because the strips do: in
+## landscape the log is a full-height column on the right and the panel shares
+## it, in portrait the log is a bottom band and the panel is nowhere near it.
+##
+## Set once from `BattleView` with the panel's **maximum** height rather than
+## its current one. The panel grows a row when an engine is built and loses it
+## when the engine dies, and a log that slid up and down the screen every time
+## that happened would be worse than a shorter one.
+var _top_inset := 0.0
+
+func set_top_inset(px: float) -> void:
+	if is_equal_approx(px, _top_inset):
+		return
+	_top_inset = px
+	_apply_orientation()
+
 func _ready() -> void:
 	_backdrop = ColorRect.new()
 	_backdrop.color = Palette.BACKGROUND
@@ -90,19 +109,19 @@ func _apply_orientation() -> void:
 		_backdrop.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		_backdrop.offset_left = LOG_MARGIN - LOG_WIDTH
 		_backdrop.offset_right = LOG_MARGIN
-		_backdrop.offset_top = 0.0
+		_backdrop.offset_top = _top_inset
 		_backdrop.offset_bottom = 0.0
 
 		_seam.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		_seam.offset_left = LOG_MARGIN - LOG_WIDTH
 		_seam.offset_right = LOG_MARGIN - LOG_WIDTH + 2.0
-		_seam.offset_top = 0.0
+		_seam.offset_top = _top_inset
 		_seam.offset_bottom = 0.0
 
 		_label.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		_label.offset_left = LOG_MARGIN - LOG_WIDTH
 		_label.offset_right = LOG_MARGIN
-		_label.offset_top = 0.0
+		_label.offset_top = _top_inset
 		_label.offset_bottom = 0.0
 	else:
 		_backdrop.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
