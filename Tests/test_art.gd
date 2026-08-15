@@ -221,6 +221,59 @@ func _aspect(id: StringName) -> float:
 	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
 
 
+## Fraction of its own nominal box a shape's drawn width actually covers.
+## Everything a unit wears -- health bar, badge row, impact ring, name plate --
+## is sized from `u.radius * DISPLAY_SCALE` and not from this, so a shape drawn
+## small inside its own footprint gets full-size decoration around a body that
+## is not there.
+func _fill_fraction(id: StringName) -> float:
+	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	var lo := INF
+	var hi := -INF
+	for part in parts:
+		for p in part["points"]:
+			lo = minf(lo, p.x)
+			hi = maxf(hi, p.x)
+	return (hi - lo) / 200.0
+
+
+func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
+	# Measured for PLAYTEST-FRESH-2, whose headline is that units are too small
+	# to identify. The floor is real and it was measured, not chosen: the goblin
+	# is the worst shape in the game at 0.56, and every other shape is 0.66 or
+	# better. 0.5 therefore fails nothing today and fires on a shape drawn
+	# smaller than any that has ever shipped.
+	#
+	# This is NOT a claim that the goblin should be wider. It is a small hunched
+	# creature and that is what the shape is. It is a claim that nobody should
+	# add a shape that occupies a third of the space the game reserves for it,
+	# because the decoration around it is sized from the reservation.
+	for id in CLASS_SHAPES + UNUSED_SHAPES + AHEAD_OF_CONTENT_SHAPES + [&"goblin", &"goblin_archer", &"ghoul", &"the_warden", &"cultist"]:
+		var fill := _fill_fraction(id)
+		assert_true(fill >= 0.5,
+			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
+
+
+func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:
+	# The negative half. A floor nobody has proved can fire is furniture, and
+	# this project has shipped exactly that before -- a detector with sixteen
+	# passing tests that could never go red.
+	#
+	# `_unknown_parts` is the fallback drawn for a shape id nothing defines, and
+	# it is deliberately a full-size marker, so it passes. The failing case is
+	# built here rather than added to the roster: a real shape drawn at a third
+	# scale.
+	assert_true(_fill_fraction(&"definitely_not_a_shape") >= 0.5,
+		"the unknown-shape fallback should fill its own footprint")
+	var lo := INF
+	var hi := -INF
+	for p in [Vector2(-0.3, -0.3), Vector2(0.3, -0.3), Vector2(0.3, 0.3), Vector2(-0.3, 0.3)]:
+		lo = minf(lo, p.x * 100.0)
+		hi = maxf(hi, p.x * 100.0)
+	assert_false((hi - lo) / 200.0 >= 0.5,
+		"a shape spanning 0.3 of the unit box must fail the floor, or the floor checks nothing")
+
+
 func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
 	# They are a pair and they are meant to be related, which is precisely the
 	# condition under which two shapes drift into being one. The miniboss and its

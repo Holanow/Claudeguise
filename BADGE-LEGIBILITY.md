@@ -115,6 +115,90 @@ Stated as recommendations, not decisions — routing is rook's.
 4. **Nothing survives at 844x390.** At 9.4 px there is no badge design that
    works. That resolution needs the marks dropped entirely, not shrunk.
 
+---
+
+# Addendum, after PLAYTEST-FRESH-2
+
+The rework shipped and a second cold reader saw it. **Both halves of my own
+prediction held.** They could half-see the individual glyphs — *"a white diagonal
+slash on red, a three-dot triangle, a `»` double-chevron in green, a plain white
+shield in green, an asterisk"* — which is bleed, poison, haste, shield and stun,
+correctly distinguished. That is the pixel-disagreement work paying off.
+
+And then: *"At the size they render they are grey noise."* Section 2 above said
+pixel disagreement is a floor and not legibility, and that the only real test was
+another fresh pair of eyes. It was, and the answer is that **distinct is not the
+same as readable.** Recommendation 3 — cut the number of badges — is the one that
+matters now, and it is not a drawing change.
+
+## 6. Every mark on a unit is sized from a radius the art does not fill
+
+New measurement, and it explains the playtest's headline complaint in numbers.
+
+Everything attached to a unit — health bar, badge row, impact ring, name plate —
+is sized from `u.radius * DISPLAY_SCALE`. That is the **simulation's collision
+radius**, not the size of the drawing. The silhouettes fill between 0.56 and 1.00
+of it:
+
+| shape | drawn width / nominal |
+|---|---|
+| rat_king, brute | 1.00 |
+| the_warden, abomination | 0.99 |
+| siege_master, warrior | 0.96 |
+| ghoul, geysermancer | 0.86 |
+| priest | 0.72 |
+| stalker | 0.66 |
+| **goblin** | **0.56** |
+
+At 1280x720, in real screen pixels:
+
+| enemy | drawn body | impact ring ends at | ring / body |
+|---|---|---|---|
+| goblin | 15.3 px | 49.2 px | **3.2x** |
+| goblin_archer | 16.1 px | 49.2 px | 3.1x |
+| stalker | 16.4 px | 44.7 px | 2.7x |
+| cultist | 22.6 px | 53.6 px | 2.4x |
+| the_warden | 54.1 px | 98.3 px | 1.8x |
+
+**The overshoot is worst on the smallest units**, which are the ones a player can
+least identify. A goblin is a 15 px body wearing a 90 px health bar, an 84 px
+badge row and a 49 px impact ring. *"A field of floating coloured dashes with
+insects underneath them"* is this table.
+
+**The goblin is not drawn wrong.** It is a small hunched creature and 0.56 is
+what that shape is; widening it would make it not a goblin. The mismatch is that
+decoration is scaled from a collision radius rather than from the drawing, and
+that is not a change I can make inside `Scripts/Art/**`.
+
+## 7. The impact flash is coloured by a fact about a different unit
+
+PLAYTEST-FRESH-2 lists two symbols it could not interpret:
+
+> *"The dark grey circle outline that briefly rings a unit. Impact flash? A taunt?
+> A guard?"*
+>
+> *"The concentric purple rings around the Priest. Something firing, but purple
+> reads as Profane, which is the Abomination's damage type, not the Priest's."*
+
+**These are the same mechanism, and the reader could not tell.** Both are
+`AttackFX.draw_impact_flash`. It is drawn on the unit that was **hit** and
+coloured by the damage type of whoever **hit it** — so the purple ring on the
+Priest is a Cultist's Dark Bolt landing (verified: `cultist_bolt` and every
+`abomination_*` action are PROFANE; every Priest action is DIVINE).
+
+Two consequences, and the second is the real one:
+
+1. One mechanism wearing seven colours never becomes learnable. Grey and purple
+   read as two different events.
+2. **A ring centred on a unit reads as that unit acting.** Every other mark on a
+   unit describes that unit; this one describes its attacker. The reader's
+   instinct — *"something firing"* — is the correct reading of the picture and
+   the wrong reading of the event.
+
+The geometry is mine. Which damage type gets passed is `BattleView`'s. Whether an
+impact should be recoloured, reshaped, or moved to the attacker is a design call
+and is filed, not decided here.
+
 ## What I did not do
 
 - **No drawing changed in this branch.** This is measurement plus the instrument
