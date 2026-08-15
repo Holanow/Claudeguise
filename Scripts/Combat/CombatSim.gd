@@ -1846,9 +1846,17 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	# asking whether its corpses can act would turn a win into a draw. That is
 	# not hypothetical -- it is what the first version of this did, and
 	# `test_an_empty_side_still_loses_immediately` caught it.
+	# Issue 249. The reason is decided here rather than derived later because
+	# here is the only place that still knows it: after the tick, "the last
+	# enemy died" and "the last enemy became furniture" both look like a side
+	# that cannot fight. Taken before `_side_can_fight` can overwrite either
+	# flag, so a side that was already empty is never reported as stranded.
+	var reason := CG.EndReason.NO_SURVIVORS
 	if player_alive and enemy_alive:
 		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
 		enemy_alive = _side_can_fight(state, CG.Team.ENEMY, deps)
+		if not player_alive or not enemy_alive:
+			reason = CG.EndReason.CANNOT_ACT
 
 	var outcome := CombatState.Outcome.UNRESOLVED
 	if player_alive and not enemy_alive:
@@ -1859,10 +1867,28 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 		outcome = CombatState.Outcome.DRAW
 	elif state.tick >= CG.MAX_TICKS:
 		outcome = CombatState.Outcome.DRAW
+		# THE ONE ENDING `CG.EndReason` HAS NO NAME FOR, AND I AM NOT INVENTING
+		# ONE: the enum is Core and Core is rook's. Both sides are alive and
+		# able, and the fight stopped because it ran out of ticks, which is
+		# neither NO_SURVIVORS nor CANNOT_ACT.
+		#
+		# Reachable in code, and **not reached in practice**: 1600 fights over
+		# every encounter x party x 40 seeds produced 1587 PLAYER_WIN, 13
+		# ENEMY_WIN and zero draws of any kind (`Tools/OutcomeTable.gd`).
+		#
+		# This is deliberately left as UNSET rather than mapped onto a reason
+		# that would be a lie. `Tests/test_combat_end_reason.gd` holds both
+		# halves of it: every ending the game actually produces carries a
+		# reason, and the tick cap is still unreachable. The second goes red
+		# the day a fight hits the cap, which is the day the enum needs a
+		# third value -- rather than a comment quietly certifying an absence.
+		reason = CG.EndReason.UNSET
 
 	if outcome != CombatState.Outcome.UNRESOLVED:
 		state.outcome = outcome
-		state.emit(_event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &""))
+		var end_event := _event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &"")
+		end_event.end_reason = reason
+		state.emit(end_event)
 
 ## Issue 233. A side is beaten when it has no living unit left **or** when
 ## every unit it has left can never act again for the rest of the fight.
