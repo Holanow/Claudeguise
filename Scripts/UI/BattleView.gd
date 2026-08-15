@@ -126,9 +126,20 @@ func _build_top_bar() -> void:
 	# Issue 15: "you cannot tell who is winning" without parsing seven small
 	# bars. Two aggregate bars answer that at a glance, colour-coded the same
 	# way a single unit's own hp bar is.
-	var summary := HBoxContainer.new()
-	summary.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	summary.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	# Issue 82: the two bars are stacked, not side by side, and their labels are
+	# one fixed width.
+	#
+	# A fresh reader measured them as "teal ~117px, red ~133px at full" and
+	# concluded the comparison was meaningless. The troughs were always the same
+	# width -- what differed was where each one *started*, because "Party" and
+	# "Enemies" are different lengths and each bar sat in its own row after its
+	# own label. **Two bars you are meant to compare must share a left edge**,
+	# or the eye is comparing right-hand ends that begin in different places.
+	# The one question a spectator has is *am I ahead*, and this is the control
+	# that answers it.
+	var summary := VBoxContainer.new()
+	summary.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	summary.add_theme_constant_override("separation", int(Palette.SPACE_XS))
 	summary.offset_left = Palette.SPACE_M
 	summary.offset_top = _SUMMARY_ROW_TOP
 	hud.add_child(summary)
@@ -324,13 +335,19 @@ const _SUMMARY_BAR_WIDTH := 120.0
 
 ## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
 ## Returns the fill rect so _update_team_summary can resize it later.
-func _build_summary_bar(parent: HBoxContainer, label_text: String, color: Color) -> ColorRect:
+## One fixed label width so both troughs begin at the same x. Issue 82: without
+## it the two bars start in different places and cannot be compared by eye,
+## which is the only thing they exist for.
+const _SUMMARY_LABEL_WIDTH := 64.0
+
+func _build_summary_bar(parent: Container, label_text: String, color: Color) -> ColorRect:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	parent.add_child(row)
 
 	var label := Label.new()
 	label.text = label_text
+	label.custom_minimum_size = Vector2(_SUMMARY_LABEL_WIDTH, 0.0)
 	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	row.add_child(label)

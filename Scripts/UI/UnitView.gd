@@ -4,6 +4,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
@@ -27,6 +28,25 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const BAR_WIDTH := 60.0
 const BAR_HEIGHT := 7.0
 const BAR_GAP := 3.0
+
+## Issue 82 / the first fresh-eyes playtest: **"a green bar is roughly 70px
+## wide. The figure it belongs to is roughly 8px tall... often nearer to a
+## different figure than its own."**
+##
+## `BAR_WIDTH * DISPLAY_SCALE` is 90 for every unit in the game, while a goblin
+## is 33 across and a party pawn 66. A bar nearly three times the width of the
+## body under it does not read as that body's health; it reads as a floating
+## object that happens to be nearby, which is exactly what a reader with no
+## prior knowledge reported. **Tying the bar to the body is what makes it
+## legible as belonging to one**, and it matters more now that names default
+## off and cannot disambiguate.
+##
+## Floored so a small unit's chrome stays usable -- the wind-up block below
+## shares this width and has a fixed-size icon to fit inside it.
+const MIN_BAR_WIDTH := 44.0
+
+static func bar_width(radius: float) -> float:
+	return clampf(radius * 2.0, MIN_BAR_WIDTH, BAR_WIDTH * DISPLAY_SCALE)
 
 ## Issue 31: units read too small, worse now that sable's real art carries
 ## detail invisible at the old size (a real rendered fight: ten units in
@@ -198,27 +218,53 @@ func _draw() -> void:
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	# name. draw_string's position is a baseline, not a top-left corner, so the
 	# label sits an extra font-height above where the last bar was drawn.
-	var bar_width := BAR_WIDTH * DISPLAY_SCALE
+	var width := bar_width(radius)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
 	var bar_gap := BAR_GAP * DISPLAY_SCALE
 	var y := -radius - bar_gap
 
 	if u.resource_max > 0:
 		y -= bar_height
-		var res_pos := Vector2(-bar_width * 0.5, y)
+		var res_pos := Vector2(-width * 0.5, y)
 		var res_fraction := float(u.resource) / float(u.resource_max)
-		draw_rect(Rect2(res_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
-		draw_rect(Rect2(res_pos, Vector2(bar_width * res_fraction, bar_height)), Palette.resource_color(u.resource_kind))
+		draw_rect(Rect2(res_pos, Vector2(width, bar_height)), Palette.HP_BACK)
+		draw_rect(Rect2(res_pos, Vector2(width * res_fraction, bar_height)), Palette.resource_color(u.resource_kind))
 		y -= bar_gap
 
 	y -= bar_height
-	var hp_pos := Vector2(-bar_width * 0.5, y)
-	draw_rect(Rect2(hp_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
-	draw_rect(Rect2(hp_pos, Vector2(bar_width * u.hp_fraction(), bar_height)), Palette.hp_color(u.hp_fraction()))
+	var hp_pos := Vector2(-width * 0.5, y)
+	draw_rect(Rect2(hp_pos, Vector2(width, bar_height)), Palette.HP_BACK)
+	draw_rect(Rect2(hp_pos, Vector2(width * u.hp_fraction(), bar_height)), hp_fill_color(u))
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	if _label_visible(u):
+	# Issue 82: name plates are a toggle now, defaulting off, and this is the
+	# only gate on them. `_label_visible` -- the focused-or-winding-up trigger
+	# plus its hold, which exists because the trigger flickers several times a
+	# second -- is deliberately left intact underneath: that flicker rule is a
+	# third state somebody may want, and deleting it to implement "off" would
+	# throw away the harder half.
+	if DisplayOptions.enabled(&"name_plates") and _label_visible(u):
 		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
+
+## Issue 82, and the finding that forced it: **`Palette.HP_LOW` and
+## `Palette.TEAM_ENEMY` are the same colour, `e0705f`.** So every unit's bar ran
+## the same red-to-green ramp regardless of side, a hurt party pawn was drawn in
+## the enemy's own colour, and a fresh reader reported the field as "green
+## dashes" that never answered *am I ahead* -- the first question a spectator
+## has.
+##
+## The fill is the unit's **team** colour, and damage is carried by the bar's
+## length and by the fill darkening toward the trough. Team identity therefore
+## survives at every health level, where before it was never present at all.
+## Two channels, the same rule sable's badges follow.
+##
+## Not put in `Palette.hp_color`: that is `Scripts/Core`, rook's, and this needs
+## no new shared function -- `team_color` and `HP_BACK` already exist.
+static func hp_fill_color(u: CombatUnit) -> Color:
+	var team := Palette.team_color(u.team)
+	# Floored well above zero so a nearly-dead unit is still legibly its own
+	# side rather than fading into the trough it sits in.
+	return Palette.HP_BACK.lerp(team, clampf(0.45 + u.hp_fraction() * 0.55, 0.0, 1.0))
 
 ## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
 ## with the arena (InspectPanel's attribute chips, PartySelect), so it is
@@ -379,8 +425,10 @@ const WIND_UP_ICON_SIZE := 16.0 * DISPLAY_SCALE
 const WIND_UP_TOP_GAP := 4.0 * DISPLAY_SCALE
 const WIND_UP_ICON_GAP := 3.0 * DISPLAY_SCALE
 
-static func wind_up_bar_width() -> float:
-	return BAR_WIDTH * DISPLAY_SCALE - WIND_UP_ICON_SIZE - WIND_UP_ICON_GAP
+## Takes a radius since issue 82: the whole block is still exactly as wide as
+## the hp bar above it, but that width now depends on the body.
+static func wind_up_bar_width(radius: float) -> float:
+	return bar_width(radius) - WIND_UP_ICON_SIZE - WIND_UP_ICON_GAP
 
 ## How full the bar is, 0..1. Its own function so it can be checked without a
 ## canvas, same split as wind_up_elapsed_ticks. A total of 0 means the action
@@ -409,9 +457,9 @@ func _draw_wind_up(u: CombatUnit, radius: float) -> float:
 	if u.action_ticks_left <= 0 or u.current_action == &"":
 		return 0.0
 
-	var bar_width := wind_up_bar_width()
+	var width := wind_up_bar_width(radius)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
-	var block_left := -(BAR_WIDTH * DISPLAY_SCALE) * 0.5
+	var block_left := -bar_width(radius) * 0.5
 	var top := radius + WIND_UP_TOP_GAP
 	var damage_type := _wind_up_damage_type(u)
 
@@ -419,12 +467,12 @@ func _draw_wind_up(u: CombatUnit, radius: float) -> float:
 	# the two and the pair has to read as one object.
 	var bar_top := top + (WIND_UP_ICON_SIZE - bar_height) * 0.5
 	var bar_pos := Vector2(block_left, bar_top)
-	draw_rect(Rect2(bar_pos, Vector2(bar_width, bar_height)), Palette.HP_BACK)
-	draw_rect(Rect2(bar_pos, Vector2(bar_width * wind_up_fraction(u), bar_height)),
+	draw_rect(Rect2(bar_pos, Vector2(width, bar_height)), Palette.HP_BACK)
+	draw_rect(Rect2(bar_pos, Vector2(width * wind_up_fraction(u), bar_height)),
 		Palette.damage_color(damage_type))
 
 	ActionIcons.draw_action(self, u.current_action, damage_type,
-		Rect2(Vector2(block_left + bar_width + WIND_UP_ICON_GAP, top),
+		Rect2(Vector2(block_left + width + WIND_UP_ICON_GAP, top),
 			Vector2(WIND_UP_ICON_SIZE, WIND_UP_ICON_SIZE)))
 	return WIND_UP_TOP_GAP + WIND_UP_ICON_SIZE
 
