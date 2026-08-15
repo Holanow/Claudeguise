@@ -117,22 +117,42 @@ func test_no_action_returns_more_resource_than_it_costs() -> void:
 # what is NOT wired yet, asserted rather than commented
 # ---------------------------------------------------------------------------
 
-## **Delete this test when it fails.** `CombatSim.build` still opens every unit at
-## `resource = resource_max`, so `Balance.starting_resource` is called by nothing
-## and every number above is a declaration. swift owns the two wiring lines.
-func test_the_opening_pool_is_still_unwired() -> void:
-	var state := _fresh_state(&"warrior")
-	var unit = _pawn_unit(state)
-	assert_not_null(unit, "no Warrior was built")
-	# Without this the assertion below reads 0 == 0 on a pawn with no pool and
-	# passes whatever CombatSim does -- rule 2, and this file is about detectors.
-	assert_true(unit.resource_max > 0,
-		"a Warrior with no Rage pool at all makes the next assertion vacuous")
-	assert_eq(unit.resource, unit.resource_max,
-		("A Warrior no longer opens at full Rage, so CombatSim is calling starting_resource. "
-		+ "Good -- now delete this test and assert the real thing: a Warrior opens at 0 Rage, "
-		+ "an Abomination too, and a Priest at full Mana. See also "
-		+ "test_content_equipment_grants.gd, whose abomination_claw exception this closes."))
+## Wired at issue 164. This replaces `test_the_opening_pool_is_still_unwired`,
+## whose own instruction was to delete it and assert the real thing the day it
+## went red -- which it did the moment `CombatSim.build` started calling
+## `Balance.starting_resource`.
+func test_a_rage_pawn_opens_empty_and_a_mana_pawn_opens_full() -> void:
+	for class_id in [&"warrior", &"abomination"]:
+		var unit = _pawn_unit(_fresh_state(class_id))
+		assert_not_null(unit, "no %s was built" % class_id)
+		assert_true(unit.resource_max > 0,
+			"a %s with no pool at all makes the next assertion vacuous" % class_id)
+		assert_eq(unit.resource, 0, "%s must open with no Rage to spend" % class_id)
+
+	var priest = _pawn_unit(_fresh_state(&"priest"))
+	assert_not_null(priest, "no Priest was built")
+	assert_true(priest.resource_max > 0, "a Priest with no Mana pool makes this vacuous")
+	assert_eq(priest.resource, priest.resource_max,
+		"a caster that cannot cast on tick one is not playing the first half of the fight")
+
+## The enemy branch deliberately did NOT move, per rook: the ruling was about
+## mana classes, and changing `_build_enemy_unit` because it is the same shape
+## would be an unasked balance change while balance is frozen.
+##
+## **That decision cannot be observed in a fight today**, because no enemy in the
+## game has a resource pool at all -- a test reading a spawned enemy's `resource`
+## would compare 0 to 0 and pass whatever `CombatSim` did. So this asserts the
+## reason instead, and goes red the day an enemy gets a pool, which is exactly
+## when the ruling becomes checkable and someone should write the real assertion.
+func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() -> void:
+	var with_pools: Array[StringName] = []
+	for enemy_id in Registry.all_enemy_ids():
+		var e = Registry.get_enemy(enemy_id)
+		if e != null and e.resource_max > 0:
+			with_pools.append(enemy_id)
+	assert_eq(with_pools, [] as Array[StringName],
+		("An enemy has a resource pool now, so rook's ruling that enemies still open FULL "
+		+ "is finally observable. Delete this test and assert it directly on a spawned unit."))
 
 ## **Delete this test when it fails.** Nothing reads `restores_resource`:
 ## `CombatSim._on_hit_landed` returns early for anything that is not a RAGE pawn,

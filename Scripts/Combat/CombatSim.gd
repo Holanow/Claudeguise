@@ -110,8 +110,20 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 	u.hp_max = int(deps.max_hp.call(pawn))
 	u.hp = u.hp_max
 	u.resource_max = int(deps.max_resource.call(pawn))
-	u.resource = u.resource_max
 	u.resource_kind = pawn.pawn_class.resource_kind if pawn.pawn_class != null else CG.ResourceKind.ENERGY
+	## Issue 164. Mana opens full, Rage and Energy at zero -- a caster that cannot
+	## cast on tick one is not playing the first half of the fight, and a Rage
+	## class that opens full never has to earn its finisher.
+	##
+	## Set after `resource_kind` on purpose: it is the input. This was
+	## `u.resource = u.resource_max` immediately after `resource_max`, so moving
+	## the assignment down is load-bearing rather than tidying.
+	##
+	## THE ENEMY BRANCH DELIBERATELY DOES NOT CHANGE. rook's ruling: the player's
+	## paragraph is about mana classes, and changing `_build_enemy_unit` because
+	## it is the same line would be an unasked balance change while balance is
+	## frozen.
+	u.resource = int(deps.starting_resource.call(u.resource_kind, u.resource_max))
 	u.move_speed = float(deps.move_speed.call(pawn))
 	u.actions = _collect_player_actions(pawn)
 	return u

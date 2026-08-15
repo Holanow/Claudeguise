@@ -58,6 +58,14 @@ var default_decide: Callable = DefaultBehavior.decide
 ## same as `plan_decide` and `default_decide` above.
 var default_attack_action: Callable = DefaultBehavior.default_attack_action
 
+## What a pawn's pool opens at, given its kind and its maximum. Issue 164.
+##
+## Pawns only -- `_build_enemy_unit` still opens every enemy at full, which is
+## rook's ruling rather than an oversight: the player's direction was about mana
+## classes, and moving the enemy line because it looks the same would be a
+## balance change nobody asked for.
+var starting_resource: Callable = Balance.starting_resource
+
 ## Resource per tick, before the ceiling. Never consulted for a RAGE unit —
 ## CombatSim enforces that structurally rather than trusting every possible
 ## rate function to return 0 for it.

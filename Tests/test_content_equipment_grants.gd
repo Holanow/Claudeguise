@@ -336,7 +336,7 @@ func _basic_attack_fires(strip_weapons: bool) -> Dictionary:
 ##
 ##     warrior_strike     81      priest_bolt         11
 ##     geyser_spout       35      siege_master_shot   16
-##     abomination_claw    0   <- see ABOMINATION_CLAW_IS_DEAD below
+##     abomination_claw    0   <- and 12 once issue 164 wired starting_resource
 ##
 ## The floors are set at roughly a third of each, which is announcement rule 4
 ## applied to my own detector: `> 0` on an emergent count cannot warn, only fail,
@@ -349,28 +349,14 @@ const MIN_FIRES := {
 	&"priest_bolt": 3,
 	&"geyser_spout": 10,
 	&"siege_master_shot": 5,
+	## Issue 164 opened this gate. It fired 0 times in every encounter in the
+	## game until `CombatSim.build` started calling `Balance.starting_resource`;
+	## at 0 Rage the Abomination's first act has to be the Sickle's free Claw.
+	## Measured at 12 on the run that wired it, floored at 8 -- an exact
+	## measurement pinned as its own floor turns the next content change into a
+	## failure for whoever touched it last.
+	&"abomination_claw": 8,
 }
-
-## **`abomination_claw` fires zero times in every encounter in the game, and it
-## did so before this issue as well.** Measured on trunk and on this branch, both
-## with the Sickle granting it and with it sitting in the class's own list: all
-## seven encounters, and a mono-Abomination party at 12 seeds produced 237 hooks,
-## 93 grapples and not one claw.
-##
-## The mechanism is not the weapon. `CombatSim.build` starts every unit at
-## `resource = resource_max`, so an Abomination begins the fight with full Rage,
-## and Hook and Grapple both land hits that refill it -- its two preset plans
-## cover every tick and the fallback is never consulted. This is the
-## `geyser_scald` shape from issue 79: an action behind a gate that cannot open.
-##
-## **Issue 132 is what fixes it** -- "resource defaults per fight: mana full,
-## energy and rage zero". At 0 Rage the Abomination's first act must be the free
-## attack, which is precisely the design the Sickle now expresses.
-##
-## Asserted as still-true rather than left as a comment, because a comment
-## explaining a gap rots the day the gap closes and nobody deletes it. When issue
-## 132 lands this goes red, and the message says what to do.
-const ABOMINATION_CLAW_IS_DEAD := true
 
 func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 	var counts := _basic_attack_fires(false)
@@ -382,15 +368,6 @@ func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 		assert_true(int(counts.get(granted, 0)) >= int(MIN_FIRES[granted]),
 			"%s's %s grants %s and it fired %d times in %d real fights, under its floor of %d" % [
 				cid, pawn.weapon.id, granted, int(counts.get(granted, 0)), FIGHT_SEEDS, int(MIN_FIRES[granted])])
-
-## The exception, kept honest. If the Abomination ever starts a fight short of
-## Rage, its Claw becomes reachable and this test tells whoever did it to fold
-## the Sickle back into the table above.
-func test_the_sickles_claw_is_still_the_one_that_cannot_fire() -> void:
-	assert_true(ABOMINATION_CLAW_IS_DEAD, "delete this test rather than flipping the constant")
-	var counts := _basic_attack_fires(false)
-	assert_eq(int(counts.get(&"abomination_claw", 0)), 0,
-		"abomination_claw fires now -- issue 132 has presumably landed. Add it to MIN_FIRES with its measured floor and delete this test.")
 
 ## And the half that proves the Sickle itself works, which the fight cannot show
 ## while the Abomination never runs out of Rage. One decision, Rage drained, no
