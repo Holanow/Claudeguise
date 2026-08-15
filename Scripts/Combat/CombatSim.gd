@@ -110,8 +110,20 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 	u.hp_max = int(deps.max_hp.call(pawn))
 	u.hp = u.hp_max
 	u.resource_max = int(deps.max_resource.call(pawn))
-	u.resource = u.resource_max
 	u.resource_kind = pawn.pawn_class.resource_kind if pawn.pawn_class != null else CG.ResourceKind.ENERGY
+	## Issue 164. Mana opens full, Rage and Energy at zero -- a caster that cannot
+	## cast on tick one is not playing the first half of the fight, and a Rage
+	## class that opens full never has to earn its finisher.
+	##
+	## Set after `resource_kind` on purpose: it is the input. This was
+	## `u.resource = u.resource_max` immediately after `resource_max`, so moving
+	## the assignment down is load-bearing rather than tidying.
+	##
+	## THE ENEMY BRANCH DELIBERATELY DOES NOT CHANGE. rook's ruling: the player's
+	## paragraph is about mana classes, and changing `_build_enemy_unit` because
+	## it is the same line would be an unasked balance change while balance is
+	## frozen.
+	u.resource = int(deps.starting_resource.call(u.resource_kind, u.resource_max))
 	u.move_speed = float(deps.move_speed.call(pawn))
 	u.actions = _collect_player_actions(pawn)
 	return u
@@ -1035,6 +1047,38 @@ static func _on_hit_landed(state: CombatState, source: CombatUnit, deps: SimDeps
 	if gained > 0:
 		source.resource = clampi(source.resource + gained, 0, source.resource_max)
 
+## Issue 174: Rage also fills from being HIT, not only from hitting.
+##
+## `_on_hit_landed` pays the attacker and nothing has ever paid the victim, so a
+## Rage class opening at 0 (issue 164) had exactly one way to earn its first
+## ability: land hits with a free basic attack while being focused. Measured, it
+## did not get there -- the Abomination died in 19 of 20 fights and peak Rage
+## fell 82 -> 29.
+##
+## **The gap is the opening, not the ceiling**, which is why this is the fix
+## rather than a higher starting pool or a stronger Claw. A starting pool
+## contradicts the player's ruling outright, and a stronger Claw makes the ramp
+## survivable by making it pointless. Filling from damage taken preserves the
+## ramp and gives it a second source that a 12-CON class which closes and holds
+## is uniquely placed to use -- the Abomination earns rage by doing its job.
+##
+## Only on damage that actually landed, and only on a survivor: a killing blow
+## pays nothing, the same way `_on_hit_landed` refuses to pay for a miss.
+##
+## Placed inside the damage branch rather than beside `_apply_action_effect`'s
+## exit, so a heal can never reach it and neither can a status application.
+## DOTs and hazards deliberately do not pay: a burn ticking on a corpse-to-be is
+## not somebody hitting you, and paying per tick would make standing in fire the
+## cheapest way to fill a Rage bar in the game.
+static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: int, deps: SimDeps) -> void:
+	if applied <= 0 or not target.alive:
+		return
+	if target.resource_kind != CG.ResourceKind.RAGE:
+		return
+	var gained := _stochastic_round(state, deps.rage_gain_on_damage_taken.call(target, applied))
+	if gained > 0:
+		target.resource = clampi(target.resource + gained, 0, target.resource_max)
+
 ## Issue 12: the one place `state.units` grows after `build()`. Appends only --
 ## never inserts, never reorders -- so a new unit's id is `state.units.size()`
 ## at the moment it is appended, which is exactly the index `state.unit(id)`
@@ -1143,6 +1187,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		e.amount_before_mitigation = int(round(raw))
 		e.damage_type = action.damage_type
 		state.emit(e)
+		_on_damage_taken(state, target, applied, deps)
 
 	if action.applies_status_enabled:
 		_apply_status(state, unit, target, action, dealt)

@@ -263,7 +263,10 @@ func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 			var total_hp := 0.0
 			var max_hp := 0.0
 			for u in state.units:
-				if u.team == CG.Team.PLAYER:
+				# Pawns only. `u.pawn == null` is a summon; see the ratchet note
+				# above `WARDEN_MAX_HEALTH_LEFT` for what counting siege engines
+				# as party health did to a whole table of thresholds.
+				if u.team == CG.Team.PLAYER and u.pawn != null:
 					max_hp += float(u.hp_max)
 					total_hp += float(maxi(0, u.hp))
 			costs.append(total_hp / max_hp * 100.0)
@@ -435,7 +438,13 @@ func _median_win_cost_without(missing: StringName, seeds: int) -> float:
 		var hp := 0.0
 		var hp_max := 0.0
 		for u in state.units:
-			if u.team == CG.Team.PLAYER:
+			# Pawns only, same correction and same reason as
+			# `_wins_and_health_left`. It matters more here than anywhere: the
+			# no-Siege-Master party is the one row of the five that fields no
+			# summons, so a spread measured with engines in it is partly a
+			# spread between having engines and not having them, which is not
+			# what this test claims to see.
+			if u.team == CG.Team.PLAYER and u.pawn != null:
 				hp_max += float(u.hp_max)
 				hp += float(maxi(0, u.hp))
 		costs.append(hp / hp_max * 100.0)
@@ -789,41 +798,136 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 ## finishes healthier. Sixth widening in this table and still no cap has ever
 ## narrowed; the ratchet is named at the top of this file and it has not gone
 ## away because the freeze lifted.
+##
+## **Issue 164 was going to be the seventh notch and instead it is the first
+## narrowing, because the column was measuring the wrong thing and I checked
+## before I moved it.** swift wired `starting_resource`, the no-Siege-Master row
+## went 70 -> 73.4, and the obvious move was to widen it a seventh time. Two
+## things came out of measuring instead, and both of them are about the
+## instrument rather than about the Abomination:
+##
+## **1. `u.team == CG.Team.PLAYER` counts summoned siege engines as the party's
+## own health, and the Siege Master builds two of them in the median win.** Every
+## row containing a Siege Master was reporting a boss that asked less than it
+## did. Same five parties, same 20 seeds, `floor1_warden`, median health left:
+##
+##     party (leaving out)   with summons   pawns only   old cap
+##     no_abomination             33.4          0.0        100
+##     no_geysermancer            82.7         75.6         85
+##     no_priest                  78.1         69.0         85
+##     no_siege_master            73.4         73.4         70   <- the red
+##     no_warrior                 68.2         51.1         75
+##
+## **The failing row is the only party in the table with no Siege Master, and
+## therefore the only number in the column that was ever honest.** Read that way
+## it is not an outlier at all: 73.4 sits between its two neighbours' true 75.6
+## and 69.0. Three of the six historical widenings were widenings of a number
+## inflated by a surviving summon.
+##
+## **2. The column is health LEFT and every message in it called that "cost",
+## which is its inverse.** That is how six reductions of what the boss is
+## required to ask got recorded as "widening a cap" -- the words made each one
+## sound like slack being granted to a measurement rather than a demand being
+## lowered. The column, the constant and the message all say `health_left` now.
+##
+## **So the per-row caps are retired.** They were never designed; they are a
+## fossil record of six ad-hoc adjustments, three taken through the summon
+## distortion. What replaces them is the claim the test's own name makes, once,
+## for every row: **no real party beats The Warden with more than
+## `WARDEN_MAX_HEALTH_LEFT` of its own pawns still standing.** There is no
+## per-row notch left to loosen, which is the point.
+##
+## 80.0 against a measured worst of 75.6. Not pinned at the measurement, and not
+## an `> 0`-style cliff either (announcement rule 4): every row has 4 to 29
+## points of headroom, and the ceiling is proved to bite by the control below
+## rather than by being tight.
+##
+## **Not carried over, and it is a finding rather than a threshold: the
+## no-Abomination row wins 7 of 20 with all four of its pawns dead in the median
+## win.** The surviving siege engines finish the fight. The old measure scored
+## that 33.4% against a cap of 100.0, so the table said nothing about it. It
+## reads 0.0% now and passes the ceiling honestly, but whether a party with no
+## living member should be holding a PLAYER_WIN is a question about
+## `Scripts/Combat`, not about this file. Filed for rook.
+const WARDEN_MAX_HEALTH_LEFT := 80.0
+
+## Runs `ids` against `enc` over 20 seeds. Returns `[wins, median percent of the
+## party's own health still standing on a win]`, or a median of -1.0 if it never
+## won.
+##
+## **Pawns only.** `u.pawn == null` is a summon, and a summoned siege engine is
+## not the party's health: it is built to be destroyed, and counting it meant a
+## fight scored as cheaper precisely when the engine survived. See the ratchet
+## note above for what that did to three rows of this table.
+func _wins_and_health_left(enc: Encounter, ids: Array) -> Array:
+	var wins := 0
+	var left: Array[float] = []
+	for seed in 20:
+		var party: Array[PawnData] = []
+		for i in ids.size():
+			party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
+		var state := CombatSim.build(party, enc, seed)
+		if CombatSim.run(state) != CombatState.Outcome.PLAYER_WIN:
+			continue
+		wins += 1
+		var hp := 0.0
+		var hp_max := 0.0
+		for u in state.units:
+			if u.team != CG.Team.PLAYER or u.pawn == null:
+				continue
+			hp_max += float(u.hp_max)
+			hp += float(maxi(0, u.hp))
+		left.append(hp / hp_max * 100.0)
+	left.sort()
+	return [wins, left[left.size() / 2] if not left.is_empty() else -1.0]
+
+## The five real leave-one-out parties, and the minimum wins each owes. The
+## health ceiling is shared and lives in `WARDEN_MAX_HEALTH_LEFT`.
+const WARDEN_PARTIES := [
+	[[&"geysermancer", &"priest", &"siege_master", &"warrior"], 0],
+	[[&"abomination", &"priest", &"siege_master", &"warrior"], 15],
+	[[&"abomination", &"geysermancer", &"siege_master", &"warrior"], 15],
+	[[&"abomination", &"geysermancer", &"priest", &"warrior"], 15],
+	[[&"abomination", &"geysermancer", &"priest", &"siege_master"], 0],
+]
+
 func test_the_warden_asks_something_of_every_real_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_warden")
 	assert_not_null(enc)
-	# ids, minimum wins out of 20, maximum median cost on a win (percent)
-	var parties := [
-		[[&"geysermancer", &"priest", &"siege_master", &"warrior"], 0, 100.0],
-		[[&"abomination", &"priest", &"siege_master", &"warrior"], 15, 85.0],
-		[[&"abomination", &"geysermancer", &"siege_master", &"warrior"], 15, 85.0],
-		[[&"abomination", &"geysermancer", &"priest", &"warrior"], 15, 70.0],
-		[[&"abomination", &"geysermancer", &"priest", &"siege_master"], 0, 75.0],
-	]
-	for row in parties:
+	for row in WARDEN_PARTIES:
 		var ids: Array = row[0]
 		var min_wins: int = row[1]
-		var max_cost: float = row[2]
-		var wins := 0
-		var costs: Array[float] = []
-		for seed in 20:
-			var party: Array[PawnData] = []
-			for i in ids.size():
-				party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
-			var state := CombatSim.build(party, enc, seed)
-			var outcome := CombatSim.run(state)
-			if outcome == CombatState.Outcome.PLAYER_WIN:
-				wins += 1
-				var hp := 0.0
-				var hp_max := 0.0
-				for u in state.units:
-					if u.team == CG.Team.PLAYER:
-						hp_max += float(u.hp_max)
-						hp += float(maxi(0, u.hp))
-				costs.append(hp / hp_max * 100.0)
-		costs.sort()
-		var median_cost := costs[costs.size() / 2] if not costs.is_empty() else -1.0
-		print("floor1_warden, missing one of %s: %d/20, median cost on a win %.1f%%" % [ids, wins, median_cost])
+		var result := _wins_and_health_left(enc, ids)
+		var wins: int = result[0]
+		var health_left: float = result[1]
+		print("floor1_warden, missing one of %s: %d/20, median health left on a win %.1f%%" % [ids, wins, health_left])
 		assert_true(wins >= min_wins, "%s should win at least %d/20 against The Warden, got %d/20" % [ids, min_wins, wins])
 		if wins > 0:
-			assert_true(median_cost <= max_cost, "%s's wins should cost at most %.0f%% against a boss, median was %.1f%%" % [ids, max_cost, median_cost])
+			assert_true(health_left <= WARDEN_MAX_HEALTH_LEFT,
+				"%s beat The Warden with %.1f%% of its own health still standing, over the %.0f%% a boss is allowed to leave" % [ids, health_left, WARDEN_MAX_HEALTH_LEFT])
+
+## **The control, and the ceiling above is worth nothing without it.** A number
+## every party passes is not a demand on the boss unless something fails it when
+## the boss is absent, which is heron's colonnade lesson: a table cannot see a
+## dead mechanic.
+##
+## Same chamber, same party spawns, same seeds -- one Goblin standing where The
+## Warden stood. If `WARDEN_MAX_HEALTH_LEFT` were slack rather than a demand,
+## these rows would pass it too. They must not.
+func test_the_health_ceiling_fails_when_the_warden_is_not_in_the_room() -> void:
+	var warden := Registry.get_encounter(&"floor1_warden")
+	assert_not_null(warden)
+	var control := Encounter.new()
+	control.id = &"control_the_wardens_chamber_with_a_goblin_in_it"
+	control.display_name = "Control: no Warden"
+	control.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(200.0, 0.0)}]
+	control.party_spawns = warden.party_spawns
+	for row in WARDEN_PARTIES:
+		var ids: Array = row[0]
+		var result := _wins_and_health_left(control, ids)
+		var wins: int = result[0]
+		var health_left: float = result[1]
+		print("control (no Warden), %s: %d/20, median health left on a win %.1f%%" % [ids, wins, health_left])
+		assert_true(wins == 20, "%s should beat one Goblin on every seed, got %d/20" % [ids, wins])
+		assert_true(health_left > WARDEN_MAX_HEALTH_LEFT,
+			"%s finished a Wardenless room on %.1f%% health, inside the %.0f%% ceiling the boss test asserts -- that ceiling is not measuring the boss" % [ids, health_left, WARDEN_MAX_HEALTH_LEFT])
