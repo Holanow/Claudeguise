@@ -82,8 +82,11 @@ func _draw() -> void:
 		draw_string(font, Vector2(ICON_SIZE + TEXT_GAP, baseline), text,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, text_color)
 
+## Issue 245: the hover box gets the same title the pinned copy gets, so the two
+## surfaces name the thing once each rather than the body carrying a name the
+## popout then repeats above it.
 func _make_custom_tooltip(for_text: String) -> Object:
-	return GlossaryTooltip.build(for_text)
+	return GlossaryTooltip.build(for_text, pin_title)
 
 ## Issue 112's gesture, unchanged. The title is what the chip says where it says
 ## anything and the icon's own name otherwise, because a pinned popout with no

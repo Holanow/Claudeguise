@@ -97,6 +97,34 @@ static func _style() -> StyleBoxFlat:
 	style.set_content_margin_all(Palette.SPACE_S)
 	return style
 
+## The control this popout was pinned from, so the text can be kept true.
+##
+## Issue 245. A pinned popout used to be a snapshot: `PopoutHost` copied
+## `tooltip_text` into a Label and nothing ever wrote to it again. That was
+## harmless while every popout described a constant -- what STR does, what
+## Poison does in general -- and it stops being harmless the moment a popout
+## carries a live number. A pinned box reading *"3 stacks, 4.2s left"* four
+## seconds later is not stale, it is **wrong**, and the player asked for the
+## live numbers specifically.
+##
+## Weak rather than strong: the host is a chip on a panel that rebuilds rows as
+## units die, so a popout must not keep a freed control alive, and `refresh`
+## must not assume it is still there.
+var source: WeakRef = null
+
+## Re-read the body from whatever pinned this. Silent when there is no source or
+## it is gone -- a popout pinned from a control that has since been freed keeps
+## the last thing it truthfully said rather than blanking.
+func refresh() -> void:
+	if source == null:
+		return
+	var host = source.get_ref()
+	if host == null or not is_instance_valid(host):
+		return
+	for node in _descendants(self):
+		if node is Label and node.name == "Body" and node.text != host.tooltip_text:
+			node.text = host.tooltip_text
+
 func title_text() -> String:
 	return _find_label("Title")
 

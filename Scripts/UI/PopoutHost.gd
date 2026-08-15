@@ -49,4 +49,7 @@ static func pin_from(host: Control, title: String, body: String) -> Control:
 	if layer == null:
 		return null
 	var at: Vector2 = host.global_position - layer.global_position + Vector2(0.0, host.size.y)
-	return layer.pin(title if title != "" else "Detail", body, at)
+	# Issue 245: the host goes with it, so a popout carrying a live number can be
+	# re-read from the control it describes instead of freezing at the tick it was
+	# pinned on.
+	return layer.pin(title if title != "" else "Detail", body, at, host)
