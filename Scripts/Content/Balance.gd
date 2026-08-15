@@ -199,6 +199,34 @@ static func scale_action_ticks(base_ticks: int, pawn: PawnData) -> int:
 	var scale := clampf(attribute(pawn, CG.Attribute.AGI) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
 	return maxi(1, int(round(float(base_ticks) * (1.0 - scale))))
 
+## What a pawn's resource pool holds at the moment a fight starts.
+##
+## Issue 132, the player's own words: *"Resource should return to some kind of
+## default state per room, mana would be full while energy and rage would be 0."*
+##
+## **Scope, because the issue names a tension and it is easy to overshoot:** "per
+## room" is a run concept and runs are parked, so this is the state a *fight*
+## starts in and nothing about carrying anything between rooms. rook confirmed.
+##
+## **Pawns only. Enemies keep full pools** and `CombatSim` calls this on the pawn
+## branch alone -- rook's ruling on my question. The player's paragraph is about
+## mana classes, their default attacks and a mana-restoring ability; nothing in it
+## is about goblins, and changing the enemy branch because it happens to be the
+## same line would move every measurement in the project a second time in a week.
+##
+## The asymmetry it creates is deliberate: Rage and Energy are meant to be
+## *earned* within a fight, which is what makes a free basic attack the thing that
+## funds a finisher (issue 129) rather than a fallback nobody needs. Mana is full
+## because a caster that cannot cast on tick one is not playing the first half of
+## the fight -- the exact defect issue 62 fixed once already.
+static func starting_resource(kind: CG.ResourceKind, max_resource: int) -> int:
+	match kind:
+		CG.ResourceKind.MANA:
+			return max_resource
+		CG.ResourceKind.ENERGY, CG.ResourceKind.RAGE:
+			return 0
+	return max_resource
+
 ## Resource regenerated per tick, before rounding. Rage returns 0.0: it never
 ## rises on a timer, only from rage_gain_per_attack.
 static func resource_regen_per_tick(unit: CombatUnit) -> float:

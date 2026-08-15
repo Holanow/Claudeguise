@@ -11,11 +11,23 @@ const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 ## Tools/IconsInFight.gd. A preview harness, not the shipped placement -- the
 ## header of that file says so at length and it is the important caveat.
 ##
-## Reads `Scripts/UI/UnitView.gd` for two constants so the badges sit where the
+## Reads `Scripts/UI/UnitView.gd` for its constants so the badges sit where the
 ## real ones would rather than where I guessed. Reading is not editing.
+##
+## **That claim used to be false about SIZE and it mattered.** `BADGE` and `ICON`
+## were hardcoded at 14.0 and 16.0 raw screen pixels, while the shipped ones are
+## world-space values scaled by the arena fit -- 17.4 px and 19.9 px at 1280x720.
+## So this harness drew every badge about 20% SMALLER than the game does, and
+## every judgement anyone made about these badges, including a fresh-eyes
+## playtest that called them "invisible at 1x", was made on the wrong number.
+##
+## The comment two lines up was already there and already said the right
+## intention. The intention was not derived, which is this project's most
+## expensive recurring failure: a measurement aimed one degree off.
+##
+## They are functions now rather than constants, because the answer depends on
+## the arena's scale and a constant cannot.
 
-const BADGE := 14.0
-const ICON := 16.0
 const BAR_W := 34.0
 const BAR_H := 5.0
 
@@ -63,8 +75,9 @@ func _draw_badges(u, cx: float, y: float) -> void:
 	# Harmful first so a fight full of buffs never pushes the thing that is
 	# killing you off the end of the row.
 	list.sort_custom(func(a, b): return CG.is_harmful(a) and not CG.is_harmful(b))
-	var width := StatusIcons.row_width(list.size(), BADGE)
-	var rects := StatusIcons.layout_row(Vector2(cx - width * 0.5, y), list.size(), BADGE)
+	var badge := badge_px(arena.transform.get_scale().x)
+	var width := StatusIcons.row_width(list.size(), badge)
+	var rects := StatusIcons.layout_row(Vector2(cx - width * 0.5, y), list.size(), badge)
 	for i in list.size():
 		StatusIcons.draw_status(self, list[i], rects[i])
 
@@ -75,9 +88,18 @@ func _draw_wind_up(u, cx: float, y: float) -> void:
 	if action == null:
 		return
 	var progress := clampf(float(u.action_ticks_total - u.action_ticks_left) / float(u.action_ticks_total), 0.0, 1.0)
-	var total := BAR_W + 4.0 + ICON
+	var icon := icon_px(arena.transform.get_scale().x)
+	var total := BAR_W + 4.0 + icon
 	var x := cx - total * 0.5
 	var color := Palette.damage_color(action.damage_type)
 	draw_rect(Rect2(x, y - BAR_H, BAR_W, BAR_H), Palette.HP_BACK)
 	draw_rect(Rect2(x, y - BAR_H, BAR_W * progress, BAR_H), color)
-	ActionIcons.draw_action(self, u.current_action, action.damage_type, Rect2(x + BAR_W + 4.0, y - ICON, ICON, ICON))
+	ActionIcons.draw_action(self, u.current_action, action.damage_type, Rect2(x + BAR_W + 4.0, y - icon, icon, icon))
+
+## The size the SHIPPED badge occupies on screen, given the arena's scale.
+## Static so a test can check the harness against the game without a live scene.
+static func badge_px(arena_scale: float) -> float:
+	return UnitViewScript.STATUS_BADGE_SIZE * arena_scale
+
+static func icon_px(arena_scale: float) -> float:
+	return UnitViewScript.WIND_UP_ICON_SIZE * arena_scale

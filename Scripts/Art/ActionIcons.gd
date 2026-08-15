@@ -313,6 +313,28 @@ const _PENNANT := [
 	{"poly": [[-0.12, -0.86], [0.86, -0.44], [-0.12, -0.02]]},
 ]
 
+## The Rat's Bite: two jaws closing, teeth interleaved.
+##
+## heron measured `rat_bite` at a 7-tick cycle -- under half a Goblin's -- so
+## **this glyph will be on screen more than almost any other**, on several units
+## at once. That ruled the first idea out: three teeth per jaw was busier than
+## anything else in the file, and a mark that fires constantly has to be calm or
+## it becomes the texture the fresh playtest complained about. Two teeth above,
+## three below, and nothing else.
+##
+## The teeth INTERLEAVE rather than meeting tip to tip. Aligned tips leave a
+## straight slot down the middle and a straight slot reads as a bracket; a zigzag
+## gap reads as a mouth. That is the whole difference between this and a pair of
+## bars.
+##
+## Against `_DART`, which it stands beside in `floor1_cover` -- heron put a rat
+## and a Stalker in the same room: the dart is one thin diagonal, this is two
+## heavy horizontal bands. No shared axis, no shared weight.
+const _BITE := [
+	{"poly": [[-0.88, -0.90], [0.88, -0.90], [0.88, -0.46], [0.34, -0.02], [0.0, -0.46], [-0.34, -0.02], [-0.88, -0.46]]},
+	{"poly": [[-0.88, 0.90], [0.88, 0.90], [0.88, 0.46], [0.68, 0.02], [0.34, 0.46], [0.0, 0.02], [-0.34, 0.46], [-0.68, 0.02], [-0.88, 0.46]]},
+]
+
 ## The Stalker's Dart: a needle, pointed at both ends.
 ##
 ## `_ARROW` is a shaft with a head and two fletches and `_BOLT_HEAVY` and
@@ -413,6 +435,9 @@ const GLYPHS := {
 	&"brute_slam": _SLAM,
 	&"stalker_mark": _PENNANT,
 	&"stalker_dart": _DART,
+
+	# The Rat, floor 1's BLEED source (issue 130, heron).
+	&"rat_bite": _BITE,
 }
 
 ## Drawn when an id has no entry. Never reached today and asserted against, but
