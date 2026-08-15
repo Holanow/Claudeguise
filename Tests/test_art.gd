@@ -753,6 +753,9 @@ func test_every_reachable_action_has_an_icon() -> void:
 const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #162. Delete this one the same time that branch merges.
 	# heron's #148. Delete these three the same time that branch merges.
+	# heron's #192, the Rat King. Delete this line when that branch merges --
+	# the test below names it for you.
+	&"rat_king_lash": "heron's #192, fielding the Rat King",
 }
 
 
