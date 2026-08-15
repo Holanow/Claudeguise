@@ -222,36 +222,92 @@ func _aspect(id: StringName) -> float:
 
 
 ## Fraction of its own nominal box a shape's drawn width actually covers.
-## Everything a unit wears -- health bar, badge row, impact ring, name plate --
-## is sized from `u.radius * DISPLAY_SCALE` and not from this, so a shape drawn
-## small inside its own footprint gets full-size decoration around a body that
-## is not there.
+##
+## **This used to read `Silhouettes.build_parts` and it was measuring the wrong
+## thing.** Ten shapes have real PNGs in `Assets/Units/`, and for those the
+## polygons in `Silhouettes` are dead code the game never renders -- so the
+## number this produced was a fact about art nobody sees. It goes through
+## `Silhouettes.fill_ratio`, which takes the same two paths `draw_unit` does, in
+## the same order. See the correction note in `BADGE-LEGIBILITY.md`.
 func _fill_fraction(id: StringName) -> float:
-	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	return Silhouettes.fill_ratio(id, CG.Team.ENEMY).x
+
+
+func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
+	# Measured for PLAYTEST-FRESH-2, whose headline is that units are too small
+	# to identify. The floor fails nothing today and fires on a shape drawn
+	# smaller than any that has ever shipped.
+	#
+	# This is NOT a claim that any shape should be wider. A goblin is a small
+	# hunched creature and that is what the shape is. It is a claim that nobody
+	# should add a shape that occupies a third of the space the game reserves for
+	# it, because the decoration around it is sized from the reservation.
+	#
+	# The floor stays at 0.5 across the correction from polygons to real art, and
+	# that is a coincidence worth writing down rather than a threshold left
+	# alone: the polygon path's worst was the goblin at 0.56, the real art's
+	# worst is `priest.png` at exactly 0.50 -- twelve opaque columns of a
+	# twenty-four wide file. It sits ON the floor, so the next shape drawn any
+	# narrower goes red immediately.
+	for id in CLASS_SHAPES + UNUSED_SHAPES + AHEAD_OF_CONTENT_SHAPES + [&"goblin", &"goblin_archer", &"ghoul", &"the_warden", &"cultist"]:
+		var fill := _fill_fraction(id)
+		assert_true(fill >= 0.5,
+			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
+
+
+func test_fill_ratio_reads_the_real_art_and_not_the_dead_polygons() -> void:
+	# The regression guard for the defect above, and the reason it is possible to
+	# state as an assertion: for a shape with a PNG, the two paths disagree.
+	# `warrior` has `Assets/Units/warrior.png`, so `draw_unit` draws the texture
+	# and `build_parts` is never reached.
+	#
+	# If somebody deletes the PNGs this goes red rather than silently passing --
+	# which is correct: the whole point is that the measurement follows the art.
+	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER),
+		"this test measures the texture path; without a PNG for warrior it measures nothing")
+
+	var from_art := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
+	var parts := Silhouettes.build_parts(&"warrior", 100.0, CG.Team.PLAYER, CG.DamageType.PHYSICAL)
 	var lo := INF
 	var hi := -INF
 	for part in parts:
 		for p in part["points"]:
 			lo = minf(lo, p.x)
 			hi = maxf(hi, p.x)
-	return (hi - lo) / 200.0
+	var from_polygons := (hi - lo) / 200.0
+	assert_true(absf(from_art.x - from_polygons) > 0.05,
+		"fill_ratio returned the polygon width (%.2f) for a shape that draws a texture" % from_polygons)
 
 
-func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
-	# Measured for PLAYTEST-FRESH-2, whose headline is that units are too small
-	# to identify. The floor is real and it was measured, not chosen: the goblin
-	# is the worst shape in the game at 0.56, and every other shape is 0.66 or
-	# better. 0.5 therefore fails nothing today and fires on a shape drawn
-	# smaller than any that has ever shipped.
-	#
-	# This is NOT a claim that the goblin should be wider. It is a small hunched
-	# creature and that is what the shape is. It is a claim that nobody should
-	# add a shape that occupies a third of the space the game reserves for it,
-	# because the decoration around it is sized from the reservation.
-	for id in CLASS_SHAPES + UNUSED_SHAPES + AHEAD_OF_CONTENT_SHAPES + [&"goblin", &"goblin_archer", &"ghoul", &"the_warden", &"cultist"]:
-		var fill := _fill_fraction(id)
-		assert_true(fill >= 0.5,
-			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
+func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
+	# The trap this exists to close, and the reason `opaque_rect` scans pixels
+	# instead of reading `get_width`. Pixel art carries margin: `siege_master.png`
+	# is a 24x14 file with only 20x8 of it opaque. A caller that moved off the
+	# collision radius and onto the file dimensions would fix part of #190 and
+	# look like it had fixed all of it.
+	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
+		"this test measures the texture path; without a PNG for siege_master it measures nothing")
+	var tex := UnitArt.texture_for(&"siege_master", CG.Team.PLAYER)
+	var file_fraction := Vector2(tex.get_width(), tex.get_height()) / maxf(tex.get_width(), tex.get_height())
+	var opaque := UnitArt.opaque_fraction(tex)
+	assert_true(opaque.y < file_fraction.y - 0.1,
+		"opaque_fraction returned the file's height (%.2f), margin included" % file_fraction.y)
+	# And the extent must agree with the fraction, or the two answers drift.
+	var extent := Silhouettes.drawn_extent(&"siege_master", 100.0, CG.Team.PLAYER)
+	assert_true(absf(extent.size.y / 200.0 - opaque.y) < 0.01,
+		"drawn_extent and opaque_fraction disagree about the same sprite")
+
+
+func test_a_fully_transparent_sprite_does_not_collapse_to_nothing() -> void:
+	# The negative case, and it is not hypothetical: the drop-in pipeline takes
+	# whatever PNG is on disk. A zero-size extent would make every bar sized from
+	# it vanish, which reads as the UI being broken rather than as the art being
+	# blank. The fallback is the whole file.
+	var image := Image.create(8, 4, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var tex := ImageTexture.create_from_image(image)
+	assert_eq(UnitArt.opaque_fraction(tex), Vector2(1.0, 0.5),
+		"a blank sprite must fall back to its file box, not to a zero-size extent")
 
 
 func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:

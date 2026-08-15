@@ -106,3 +106,62 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	if facing_left:
 		drawn.x = -drawn.x
 	canvas.draw_texture_rect(tex, Rect2(center - drawn * 0.5, drawn), false)
+
+## The rectangle `draw` above actually puts ink in, in the same local space it
+## draws into: the texture's **opaque** pixels, not its file dimensions.
+##
+## Why the distinction is the whole point of this function. `Silhouettes` sizes
+## nothing from it, but everything a unit *wears* -- health bar, badge row,
+## impact ring, name plate -- is currently sized from the simulation's collision
+## radius, which is neither of these. Issue #190. A caller moving off the
+## collision radius must not land on the file dimensions instead: pixel art
+## carries transparent margin, and `Assets/Units/siege_master.png` is 24x14 with
+## only 20x8 of that opaque. Sizing a bar from 24x14 would fix a third of the
+## error and look like it had fixed all of it.
+##
+## `facing_left` is deliberately not a parameter. A mirrored sprite covers the
+## same box, and the one thing a caller would do with a signed width is
+## accidentally compute a negative bar width.
+static func opaque_rect(canvas_radius: float, tex: Texture2D, center: Vector2 = Vector2.ZERO) -> Rect2:
+	var size := Vector2(tex.get_width(), tex.get_height())
+	if size.x <= 0.0 or size.y <= 0.0:
+		return Rect2(center, Vector2.ZERO)
+	var used := _used_rect(tex)
+	# Same scale `draw` uses: longest side of the FILE spans the diameter.
+	var scale := (canvas_radius * 2.0) / maxf(size.x, size.y)
+	# `used` is in texture pixels from the file's top-left; `draw` centres the
+	# whole file on `center`, so shift by half the file before scaling.
+	var origin := (Vector2(used.position) - size * 0.5) * scale
+	return Rect2(origin + center, Vector2(used.size) * scale)
+
+## `opaque_rect` as a fraction of the footprint the unit is drawn into, per axis.
+##
+## Computed from the integer pixel counts rather than by scaling and dividing
+## back, so a sprite whose art is exactly half its file -- `priest.png` is 12
+## opaque columns of 24 -- reports exactly 0.5 instead of 0.49999999999999994.
+## A floor test on this value sits right on that boundary today.
+static func opaque_fraction(tex: Texture2D) -> Vector2:
+	var longest := maxf(tex.get_width(), tex.get_height())
+	if longest <= 0.0:
+		return Vector2.ZERO
+	return Vector2(_used_rect(tex).size) / longest
+
+## Opaque bounds per texture, cached beside the textures themselves. `get_image`
+## copies the whole image out of the texture, so calling this per unit per frame
+## would be the same mistake `_cache` above exists to avoid, one level down.
+static var _used_cache: Dictionary = {}
+
+static func _used_rect(tex: Texture2D) -> Rect2i:
+	var key := tex.get_instance_id()
+	if _used_cache.has(key):
+		return _used_cache[key]
+	var image := tex.get_image()
+	# A fully transparent image has no used rect at all. Fall back to the whole
+	# file rather than to nothing: a zero-size extent would silently collapse
+	# every bar sized from it, which is a far more confusing failure than a
+	# slightly generous box around art that draws nothing.
+	var used := image.get_used_rect() if image != null else Rect2i()
+	if used.size.x <= 0 or used.size.y <= 0:
+		used = Rect2i(0, 0, tex.get_width(), tex.get_height())
+	_used_cache[key] = used
+	return used
