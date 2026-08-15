@@ -280,3 +280,60 @@ func test_the_replacement_instructions_name_every_event_kind() -> void:
 			"event kind %s exists but Assets/Audio/README.md does not list event/%s.ogg" % [name, name])
 	assert_true(readme.contains("event/damage_over_time.ogg"),
 		"the damage-over-time name is not in the instructions, and it is the one that needs a warning")
+
+
+const _VOICED_HEADING := "### With a placeholder today"
+const _SILENT_HEADING := "### Silent until you drop a file in"
+
+func test_the_instructions_say_which_kinds_are_voiced() -> void:
+	# The test above only asks that a kind is NAMED somewhere in the README, and
+	# that is one degree off the question a player asks. They ask "does this one
+	# make a noise today", and the README answers it with two tables.
+	#
+	# It was wrong. `event/interrupted` sat in the table headed "the six with a
+	# placeholder today" -- a table of seven rows -- and INTERRUPTED has never
+	# been in `PLACEHOLDER_VOICES`. A player replacing that blip would have been
+	# adding the first sound that kind ever made, which is a different operation
+	# with a different result, and nothing went red.
+	#
+	# So this splits the README where the player's eye splits it and checks each
+	# side against the real dictionary. Both directions: a voiced kind under the
+	# silent heading fails too.
+	var readme := FileAccess.get_file_as_string("res://Assets/Audio/README.md")
+	assert_ne(readme, "", "Assets/Audio/README.md is missing")
+	var voiced_at := readme.find(_VOICED_HEADING)
+	var silent_at := readme.find(_SILENT_HEADING)
+	assert_true(voiced_at >= 0, "Assets/Audio/README.md has no '%s' heading" % _VOICED_HEADING)
+	assert_true(silent_at > voiced_at, "'%s' must come after '%s'" % [_SILENT_HEADING, _VOICED_HEADING])
+	var voiced_section := readme.substr(voiced_at, silent_at - voiced_at)
+	# Bounded at the next top-level heading rather than running to the end of the
+	# file. Read to the end it swept up "Turning a sound off", which names
+	# `event/action_fire.ogg` as the example of a kind you silence with a quiet
+	# file -- and this test failed on its first run saying action_fire was listed
+	# as silent. The prose was right and the slice was wrong.
+	var silent_end := readme.find("\n## ", silent_at)
+	assert_true(silent_end > silent_at, "no heading closes the silent table; the slice would run to EOF")
+	var silent_section := readme.substr(silent_at, silent_end - silent_at)
+	for kind in CG.EventKind.values():
+		var name := String(CG.EventKind.keys()[kind]).to_lower()
+		var row := "`event/%s.ogg`" % name
+		# Asked of the function that decides it, not of the dictionary behind it.
+		# A test pinned to a constant only holds while the constant is still the
+		# answer, and that has cost this project three instruments.
+		var is_voiced := SoundBank.placeholder_for(kind) != null
+		if is_voiced:
+			assert_true(voiced_section.contains(row),
+				"%s has a placeholder but is not in the README's voiced table" % name)
+			assert_false(silent_section.contains(row),
+				"%s has a placeholder and the README lists it as silent" % name)
+		else:
+			assert_true(silent_section.contains(row),
+				"%s has no placeholder but is not in the README's silent table" % name)
+			assert_false(voiced_section.contains(row),
+				"%s has no placeholder and the README promises the player a blip to replace" % name)
+	# No count is asserted here and neither document states one any more. A
+	# hand-typed total is the thing that went stale -- "fourteen kinds" in
+	# SoundBank's header, "the six" over a table of seven rows -- and the tables
+	# above say the same thing without anybody having to keep a number current.
+	assert_false(voiced_section.contains("damage_over_time"),
+		"damage_over_time is a name, not a voiced kind, and must not sit in the voiced table")
