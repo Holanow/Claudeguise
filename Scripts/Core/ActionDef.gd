@@ -164,6 +164,19 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## as before. Do not move it.
 @export var max_active_summons: int = 0
 
+## How many units one cast of this action summons. One for every action that
+## existed before the Rat King.
+##
+## heron measured why this is needed rather than assuming it. The Rat King's
+## swarm never exceeds the four rats a room starts with, and **the kite band was
+## not the cause**: deleting it entirely buys one extra lash and peak alive stays
+## exactly 4 in 60 of 60 fights. One rat per lash on a 42-tick cycle against a
+## 46-62 tick rat lifetime is a steady state of about one, at any band setting.
+##
+## So the swarm is a rate problem and the rate is here. **Do not spend a
+## behaviour fix on it expecting the swarm to appear.**
+@export var summon_count: int = 1
+
 ## This action may only be used against a target carrying `CG.Status.MARKED`.
 ## False for every action that existed before the Siege Engine.
 ##
