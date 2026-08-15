@@ -87,8 +87,33 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## margin this fixture had when the detector was written, restored rather than
 ## approximated. It costs twice the fights this file used to run, and that is the
 ## price of a fixture that is not about to rot again.
+##
+## **Fourth movement, and the detector fired again: `floor1_cover` collapsed
+## 10 -> 2 under issue 132's taunt compulsion.** Re-measured all seven rooms
+## with `Tools/CleanseFixture.gd` on swift's branch, `on_ally` at 24 seeds:
+##
+##     floor1_room1        7      floor1_chokepoint   3
+##     floor1_cover        2      the other four      0 (no poison source)
+##
+## **The geometry finding is what moved, and in the direction it predicts.** A
+## compelled pawn walks to its taunter, so the party bunches differently, and
+## `floor1_cover` -- which had the most poison in the game at 498 poisonings --
+## now puts the afflicted ally out of the cleanse's 200 units almost every time.
+## Supply went *up* and ally cleanses went *down*, which is the same dissociation
+## this header has recorded twice.
+##
+## `floor1_room1` measured 7 both before and after the compulsion, so it is the
+## stable one as well as the best one. Back to it, seeds unchanged at 24.
+##
+## **Said plainly: the margin is now 3 over a floor of 4, and no room in the game
+## does better.** This fixture has moved four times in a fortnight and every move
+## has been a real content change rather than carelessness. It is running out of
+## room, and the underlying reason is the one I reported on #91 -- Scour is a weak
+## ability whose supply nobody is designing for. If it moves a fifth time the
+## question is whether the ability wants a source of its own, not where to point
+## the test next.
 const SEEDS := 24
-const ENCOUNTER := &"floor1_cover"
+const ENCOUNTER := &"floor1_room1"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
 ## below the measured 10 so ordinary content tuning does not trip it, and well
