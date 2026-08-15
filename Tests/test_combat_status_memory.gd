@@ -518,22 +518,26 @@ func test_a_live_magnitude_rate_does_consume_the_rng() -> void:
 
 	assert_ne(live.rng.randf(), inert.rng.randf(), "so the test above is not inert")
 
-## No authored action stacks, burns off a hit, or consumes anything yet. This is
-## what fails on the day content wires any of it, which is exactly when the
-## balance table needs re-measuring -- rather than a comment that rots.
+## No authored action consumes a status yet. This is what fails on the day
+## content wires it, which is exactly when the balance table needs re-measuring
+## -- rather than a comment that rots.
+##
+## **The stacking half of this fired and is gone, on #130.** It read
+## "nothing applies BLEED yet, so nothing stacks in a real fight", and
+## `rat_bite` in `floor1_enemies.gd` is what made it false. That is the
+## assertion doing its job, not breaking: it named the moment and the
+## re-measurement is in that pull request. Deleted rather than loosened, and
+## only that one -- the consume half is finch's BURN/Blast combo and is still
+## true.
 func test_no_authored_action_uses_any_of_this_yet() -> void:
-	var stacking := 0
 	var consuming := 0
 	for id in Registry.all_action_ids():
 		var a: ActionDef = Registry.get_action(id)
 		if a == null:
 			continue
-		if a.applies_status_enabled and a.applies_status == CG.Status.BLEED:
-			stacking += 1
 		if a.consumes_status_enabled:
 			consuming += 1
-	assert_eq(stacking, 0, "nothing applies BLEED yet, so nothing stacks in a real fight")
-	assert_eq(consuming, 0, "and nothing consumes a status yet")
+	assert_eq(consuming, 0, "nothing consumes a status yet")
 
 # ---------------------------------------------------------------------------
 # determinism

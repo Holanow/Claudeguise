@@ -203,6 +203,49 @@ func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
 
 
+## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
+##
+## `test_combat_bleed_is_live.gd::test_no_authored_action_applies_bleed_yet`
+## asserted that nothing in the game applied BLEED and said the day it failed
+## was the day to re-measure. `rat_bite` failed it. That file builds arenas by
+## hand and cannot run a room, so the replacement lives here: real fights, real
+## rats, counted out of `state.events`.
+##
+## **Stacks, not applications, is the whole point of the check.** A bleed that
+## refreshed instead of stacking would emit exactly the same number of
+## `STATUS_APPLIED` events and be a completely different mechanic, so counting
+## applications would pass against the thing #130 exists to rule out. The stack
+## count rides on `STATUS_APPLIED.amount`, and what this asserts is that a
+## single pawn is seen carrying **several at once**.
+##
+## Measured floors, not aspirational ones: the peak stack on one pawn across
+## these fights is in the doc of the pull request, and the floor here is 3 --
+## enough that a refresh-only mechanic cannot reach it, with margin, per board
+## rule 4.
+func test_the_rats_bleed_stacks_on_a_real_pawn() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var rats := 0
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"rat":
+			rats += 1
+	assert_eq(rats, 2, "floor1_cover should field the two rats this test measures")
+
+	var peak := 0
+	var applications := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.action_id == &"rat_bite":
+					applications += 1
+					peak = maxi(peak, e.amount)
+	print("floor1_cover over %d fights: rat_bite landed %d times, peak stack on one pawn %d" % [fights, applications, peak])
+	assert_true(applications >= 20, "the rats should bite repeatedly across %d fights, landed %d" % [fights, applications])
+	assert_true(peak >= 3, "BLEED should stack rather than refresh; the most any pawn carried at once was %d" % peak)
+
+
 ## **Issue #121's Stalker, and the honest half of it.**
 ##
 ## What is asserted is that the mark reaches the game at all. What is *not*
@@ -329,16 +372,69 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 ## it would have passed against a colonnade made of paint.
 ##
 ## Measured direction, and it is the opposite of the room's original premise:
-## the pillars **help the party**, three of five buildable parties finishing
-## 12 to 18 points healthier with them than without. Sight is worth more to
-## whoever is closing than to whoever is standing still. Asserted loosely --
-## three of five, five points -- because the size of the effect is a tuning
-## number and its existence is the invariant.
+## the pillars **help the party**. Sight is worth more to whoever is closing
+## than to whoever is standing still.
+##
+## ---
+##
+## **The assertion counted parties and it should never have.** It required
+## three of the five buildable parties to move by five points or more, and
+## swift's taunt compulsion (#132) took it to two without a pillar moving.
+## swift left it red rather than editing my number, which was right, and rook
+## asked me to re-measure rather than re-baseline. Re-measured on the trunk at
+## `2606190` and on swift's branch at `96d9d37`, same seeds, same rooms:
+##
+##     party              trunk   with the compulsion
+##     no_abomination         5                     2
+##     no_geysermancer       11                     4
+##     no_priest             17                    16
+##     no_siege_master       22                    22
+##     no_warrior             1                     4
+##     parties over 5         4                     2
+##     largest effect        22                    22
+##     total of all five     56                    48
+##
+## **The pillars did not get weaker. Two borderline parties crossed a line.**
+## The largest effect is identical at 22, the party that carries it is
+## unmoved, and the total fell by 8 points out of 56. What actually happened is
+## that `no_abomination` sat at **exactly 5** against a `>= 5` test and
+## `no_geysermancer` at 11, and the compulsion pushed both under.
+##
+## That is board rule 4 arriving in the one place I did not look for it. I have
+## twice written that an `> 0` assertion on an emergent count is a cliff-edge
+## detector. **A count-of-parties-over-a-threshold is two cliffs stacked**: a
+## per-party one at 5 points, and a population one at three of five. A party
+## resting on the first tips the second, and the failure then names whoever
+## touched behaviour next rather than anything about the pillars.
+##
+## **A smaller correction to what I first wrote here, and I am leaving it
+## visible because it nearly became the finding.** My first reading of these
+## two columns was that the three parties carrying both the Priest and the
+## Siege Master were the three that went small, which would have been a clean
+## mechanism -- the Siege Engine is the one unit with `spawn_taunt_radius` and
+## a compulsion would drag the fight onto it. The trunk column kills it:
+## `no_warrior` carries both and was already at 1 before the compulsion, and it
+## went **up**, not down. Two parties moved and the rest did not. There is no
+## clean split here, and I checked before posting it to swift rather than
+## after.
+##
+## So the assertion is now on **size**, which is what "not decoration" means,
+## and on two numbers rather than one so neither is a cliff:
+##
+##   - the largest single effect, floor 10 against a measured 22 on both
+##   - the total across all five, floor 25 against a measured 56 and 48
+##
+## Both are **zero** against a colonnade of paint, which is the case this test
+## exists for and the case it nearly failed to catch. Both pass with wide
+## margin before *and* after the compulsion, so this lands on the trunk on its
+## own rather than riding in swift's branch -- it does not encode a claim about
+## which behaviour is live.
 func test_the_colonnades_pillars_are_not_decoration() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var bare := _without_terrain(enc)
 	var seeds := 4
-	var helped := 0
+	var largest := 0
+	var total := 0
 	for ids in _buildable_parties():
 		var with_hp := 0
 		var bare_hp := 0
@@ -347,9 +443,11 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 			bare_hp += _party_hp_percent(_run(_pawns(ids, seed), bare, seed))
 		var delta := (with_hp - bare_hp) / seeds
 		print("floor1_cover, %s: %d%% health with the pillars, %d%% without, delta %d" % [ids, with_hp / seeds, bare_hp / seeds, delta])
-		if absi(delta) >= 5:
-			helped += 1
-	assert_true(helped >= 3, "the pillars should change the outcome for at least three of the five buildable parties, changed %d" % helped)
+		largest = maxi(largest, absi(delta))
+		total += absi(delta)
+	print("floor1_cover: largest single effect %d points, total across five parties %d" % [largest, total])
+	assert_true(largest >= 10, "the pillars should change at least one party's fight substantially, largest effect was %d points" % largest)
+	assert_true(total >= 25, "the pillars should move the five buildable parties by %d points in total or more, moved %d" % [25, total])
 
 
 ## **The fire has to change the fight, and the control is the same roster with

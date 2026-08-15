@@ -112,6 +112,32 @@ static func actions() -> Array[ActionDef]:
 		## cannot mark at would spend the fight out of position for its own
 		## specialty.
 		_projectile(_action(&"stalker_dart", "Dart", "A light ranged dart at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 6, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
+
+		## **Issue #130's BLEED source, and the fastest action in the game.**
+		## 3 ticks of wind-up and 4 of recovery is a bite every 7 ticks, under
+		## half the Goblin's 12. The player asked for *"something small that
+		## hits fast"* and for a status that *"does damage less often but
+		## stacks infinitely"* -- so the enemy is the delivery rate and the
+		## status is the payload, and neither is dangerous alone.
+		##
+		## **A stack is worth more than the bite that carries it, and that is
+		## the whole design.** At the live placeholders in `SimDeps` -- 1 per
+		## stack per tick on a 5-tick rhythm -- one stack is 3 damage a second
+		## against a 3-damage bite landing every half second, so a rat that
+		## keeps biting overtakes its own direct damage inside two seconds and
+		## keeps going. Four rats on one pawn is the shape #130 is about.
+		##
+		## **45 ticks of duration against a 30-tick per-stack decay, both
+		## deliberate.** `CombatSim._tick_statuses` drops one stack on expiry
+		## and re-arms for the decay window, so a pawn that breaks away from a
+		## rat reads down 3, 2, 1, gone over about six seconds rather than
+		## having nine stacks vanish on one tick. 45 is longer than the decay
+		## so a bite always extends the bleed it lands on; shorter than twice
+		## it so walking away is a real escape rather than a formality.
+		##
+		## power_scale 1.0 on `attack_power` 3. There is no hidden multiplier
+		## here: the bite is meant to be beneath notice.
+		_action_status(&"rat_bite", "Bite", "A fast melee bite at up to 40 units that adds a stack of Bleed.", CG.DamageType.PHYSICAL, 40.0, 3, 4, 1.0, 0, CG.Status.BLEED, 45),
 	]
 
 static func enemies() -> Array[EnemyDef]:
@@ -207,9 +233,14 @@ static func enemies() -> Array[EnemyDef]:
 		## distant target spends the fight walking.
 		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam"], ["Melee", "Tough", "Stun"], 0.0),
 
-		## **Issue #121's anti-support specialist, and it is deliberately the
-		## squishiest thing in the game: 30 hp, under the Goblin Archer's 28
-		## by two.** It deals 5 damage. It is a threat because of what it
+		## **Issue #121's anti-support specialist. Deliberately fragile at 30
+		## hp, and my own comment here was wrong when I wrote it** -- it said
+		## "the squishiest thing in the game, under the Goblin Archer's 28 by
+		## two", and 30 is above 28, not under it. The Goblin Archer was
+		## already the squishiest thing in the game and still is until the Rat
+		## below at 20. Corrected rather than quietly dropped: it was the kind
+		## of claim a reader would take on trust and nothing would ever check.
+		## It deals 5 damage. It is a threat because of what it
 		## enables, not what it deals, and I would rather ship it visibly weak
 		## and say so than pad its damage until it looks useful.
 		##
@@ -231,6 +262,38 @@ static func enemies() -> Array[EnemyDef]:
 		## interesting until then: this enemy has one action and it is the
 		## mark.
 		_enemy(&"stalker", "Stalker", 30, 0, CG.ResourceKind.ENERGY, 3.8, 10.0, {CG.DamageType.PHYSICAL: 5}, 0.0, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
+
+		## **Issue #130's BLEED source. The player's words are "something small
+		## that hits fast", and every number here is that sentence and nothing
+		## else.**
+		##
+		## 20 hp, the least in the game, below the Goblin Archer's 28.
+		## move_speed 5.0, the most in the game, above the Goblin's 4.0.
+		## 3 damage a bite, the least in the game. `radius` 8.0, the smallest
+		## body in the game. **A rat loses every exchange it is in.** What it
+		## has instead is `rat_bite`'s 7-tick cycle and a status that does not
+		## reset.
+		##
+		## **A rat rather than an invention, and the art was already there.**
+		## `Silhouettes.gd` has carried a `rat` shape in `UNUSED_SHAPES` since
+		## before any content existed, and README's floor-1 miniboss is the Rat
+		## King -- *"all attacks leave behind rats which are close range melee
+		## attackers"* -- so this is the thing that miniboss is made of rather
+		## than a one-off. That is the second time sable's ahead-of-content art
+		## has met the content it was drawn for, after the Brute.
+		##
+		## focus_bias 0.8, the highest in the game, above the Goblin's 0.7.
+		## This is the one number that is about the status rather than about
+		## the body: BLEED is the first thing in this game where **hitting the
+		## same target twice is worth more than hitting two targets once**, so
+		## a swarm that splits its bites across four pawns wastes the mechanic
+		## it exists to carry. A high bias is what makes a rat pack read as a
+		## pack.
+		##
+		## Issue 12's rule that any two enemies differ by 2x on some axis: hp
+		## 20 against the Goblin's 35 is 1.75x, but damage 3 against 9 is 3x
+		## and against the Brute's 24 is 8x.
+		_enemy(&"rat", "Rat", 20, 0, CG.ResourceKind.ENERGY, 5.0, 8.0, {CG.DamageType.PHYSICAL: 3}, 0.0, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
 	]
 
 static func encounters() -> Array[Encounter]:

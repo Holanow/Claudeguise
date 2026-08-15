@@ -167,18 +167,21 @@ func test_a_burn_carrying_a_magnitude_still_deals_only_its_base_rate() -> void:
 		"a stored burn magnitude pays nothing until finch moves BURN's number")
 	assert_eq(plain.rng.randf(), loaded.rng.randf(), "and draws nothing extra from the rng")
 
-## The reason the BLEED placeholder is safe to ship live while BURN's is not:
-## nothing applies BLEED, so no unit in a real fight carries a magnitude for it.
-## This fails on the day heron's bleeder lands, which is exactly when the
-## balance table needs re-measuring -- rather than a comment that rots.
-func test_no_authored_action_applies_bleed_yet() -> void:
-	var appliers: Array[StringName] = []
-	for id in Registry.all_action_ids():
-		var a: ActionDef = Registry.get_action(id)
-		if a != null and a.applies_status_enabled and a.applies_status == CG.Status.BLEED:
-			appliers.append(id)
-	assert_eq(appliers, [] as Array[StringName],
-		"when this fails, BLEED is live in real fights and the table moved: re-measure")
+## **`test_no_authored_action_applies_bleed_yet` fired on #130 and is gone.**
+##
+## It asserted that nothing applied BLEED, and said in its own message that the
+## day it failed was the day to re-measure. `rat_bite` is what failed it. The
+## re-measurement is in that pull request; the assertion is deleted rather than
+## loosened, because it was a statement about a moment and the moment passed.
+##
+## What replaces it is not another structural read. It is
+## `test_content_rooms.gd::test_the_rats_bleed_stacks_on_a_real_pawn`, which
+## runs real fights in `floor1_hazard` and counts stacks out of `state.events`
+## -- the thing this file could not do, since nothing here builds a room.
+##
+## Two expiring assertions in two files fired on the same commit, both written
+## by swift, both naming the next action instead of rotting into a comment.
+## Worth recording that the pattern works.
 
 func test_two_runs_from_one_seed_bleed_identically() -> void:
 	var a := _arena()
