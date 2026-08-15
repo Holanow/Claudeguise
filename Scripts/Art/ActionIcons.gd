@@ -188,9 +188,28 @@ const _HEX := [
 ## A column of light widening as it comes down, onto a struck plate. The first
 ## version tapered the wrong way and put three separate strokes under it, which
 ## rendered as a figure with legs.
+## Smite: a shaft of light widening as it falls, and something struck under it.
+##
+## **This was the single most confusing object on screen and a fresh player said
+## so.** PLAYTEST-FRESH-1, from someone who had never seen the game: "a lone
+## cream bar with a pen-nib icon floating at the bottom-left attached to
+## nothing." The bar is a wind-up progress bar and the cream is DIVINE's damage
+## colour -- but the pen nib was this glyph, and they were right. The old shape
+## narrowed DOWNWARD to a rounded end and sat on a full-width horizontal base
+## bar, which is a nib and a nib-holder, drawn in ink-bottle cream.
+##
+## Two cues did it and both are gone: it now widens downward instead of
+## narrowing, and the base bar is replaced by two chips thrown out sideways with
+## a gap under the beam. Nothing that widens as it descends, over open space, can
+## be read as a pen.
+##
+## Told apart from `_SLAM` -- the other glyph that strikes something -- by having
+## no ground line at all. Slam is a mass on a bowed bar; this is light in mid-air
+## with the struck thing implied.
 const _BEAM := [
-	{"poly": [[-0.26, -0.95], [0.26, -0.95], [0.5, 0.34], [-0.5, 0.34]]},
-	{"poly": [[-0.75, 0.5], [0.75, 0.5], [0.75, 0.78], [-0.75, 0.78]]},
+	{"poly": [[-0.15, -0.95], [0.15, -0.95], [0.60, 0.40], [-0.60, 0.40]]},
+	{"poly": [[-0.62, 0.60], [-0.95, 0.86], [-0.48, 0.84]]},
+	{"poly": [[0.62, 0.60], [0.95, 0.86], [0.48, 0.84]]},
 ]
 
 ## A fountain crown: a narrow base flaring into a spray. The first version was a
@@ -216,7 +235,8 @@ const _JET := [
 ## repointing (TEAM_LOG.md, finch), which is what this is.
 ## The first version drew a wave with a scalloped top and a flat bottom, and it
 ## rendered as a mountain range with two ski tracks on it -- which is the exact
-## defect `StatusIcons`' ENRAGE already documented and fixed, and I walked into
+## defect `StatusIcons`' TAUNTED glyph (drawn while it was named ENRAGE)
+## already documented and fixed, and I walked into
 ## it again. A flat bottom edge is what makes a jagged top edge read as
 ## landscape. There is no baseline here at all.
 const _RINSE := [
@@ -262,6 +282,99 @@ const _ENGINE := [
 	{"poly": [[-0.78, 0.9], [0.78, 0.9], [0.5, 0.35], [-0.5, 0.35]]},
 	{"poly": [[-0.32, 0.42], [-0.06, 0.2], [0.62, -0.68], [0.36, -0.88]]},
 	{"dot": [0.52, -0.72, 0.26]},
+]
+
+## The Brute's Slam: a heavy mass landing, and the ground splitting under it.
+##
+## Deliberately NOT another weapon. `_CLUB`, `_HAMMER`, `_AXE`, `_SWORD` and
+## `_SWORD_DOWN` are five held objects already and a sixth would be a sixth
+## vertical shaft in a set where the outline is the whole read at 16px. What is
+## distinctive about a slam is not the limb, it is the ground -- so this is the
+## only glyph in the file with a horizontal baseline, which is what tells it
+## apart at a glance rather than on inspection.
+##
+## It also has to say STUN without borrowing STUN's badge, because a slam is not
+## a pure-status action: it lands 16-18 damage as well.
+##
+## Redrawn once after rendering it. The first cut was a wide flat mass sitting
+## just above a straight bar, and at 40px it read as a TABLE -- two horizontal
+## slabs of similar width with a thin gap, which is furniture, not violence.
+## Three changes fixed it and all three are about the ground rather than the
+## mass: the bar now BOWS under the impact instead of staying straight, the mass
+## is narrower than the bar so it reads as landing ON it rather than as a second
+## shelf, and two chips fly out sideways. A straight line is a surface; a bent
+## one is a surface being hit.
+const _SLAM := [
+	{"poly": [[-0.44, -0.94], [0.44, -0.94], [0.52, -0.30], [-0.52, -0.30]]},
+	{"poly": [[-0.95, 0.10], [0.0, 0.36], [0.95, 0.10], [0.95, 0.38], [0.0, 0.64], [-0.95, 0.38]]},
+	{"poly": [[-0.62, -0.16], [-0.94, -0.34], [-0.86, 0.0]]},
+	{"poly": [[0.62, -0.16], [0.94, -0.34], [0.86, 0.0]]},
+]
+
+## The Stalker's Mark: a pennant on a staff.
+##
+## **This is the one glyph in the file that breaks rule 2 on purpose, so the
+## reason is here rather than in a commit.** Rule 2 says an action whose effect
+## is a status draws that status's glyph, and Mark's status is MARKED, whose
+## glyph is a crosshair. `spotter_mark` already draws it -- correctly, it is the
+## Siege Master's and it obeys the rule.
+##
+## But `stalker_mark` is an ENEMY action in `floor1_cover`, and a party with a
+## Siege Master fights that room. Both would be winding up at once, on two bars,
+## drawing one icon -- which is exactly the case rule 4 exists to prevent and
+## exactly the defect that shipped when `siege_master_shot` and
+## `siege_engine_bolt` shared `_BOLT_HEAVY` beside a unit and its own summon.
+##
+## A flag is the other way a thing gets designated, it is the only flag in the
+## file, and a triangle on a stick survives 16px better than a crosshair does.
+const _PENNANT := [
+	{"poly": [[-0.30, -0.92], [-0.12, -0.92], [-0.12, 0.92], [-0.30, 0.92]]},
+	{"poly": [[-0.12, -0.86], [0.86, -0.44], [-0.12, -0.02]]},
+]
+
+## The Rat's Bite: two jaws closing, teeth interleaved.
+##
+## heron measured `rat_bite` at a 7-tick cycle -- under half a Goblin's -- so
+## **this glyph will be on screen more than almost any other**, on several units
+## at once. That ruled the first idea out: three teeth per jaw was busier than
+## anything else in the file, and a mark that fires constantly has to be calm or
+## it becomes the texture the fresh playtest complained about. Two teeth above,
+## three below, and nothing else.
+##
+## The teeth INTERLEAVE rather than meeting tip to tip. Aligned tips leave a
+## straight slot down the middle and a straight slot reads as a bracket; a zigzag
+## gap reads as a mouth. That is the whole difference between this and a pair of
+## bars.
+##
+## Against `_DART`, which it stands beside in `floor1_cover` -- heron put a rat
+## and a Stalker in the same room: the dart is one thin diagonal, this is two
+## heavy horizontal bands. No shared axis, no shared weight.
+const _BITE := [
+	{"poly": [[-0.88, -0.90], [0.88, -0.90], [0.88, -0.46], [0.34, -0.02], [0.0, -0.46], [-0.34, -0.02], [-0.88, -0.46]]},
+	{"poly": [[-0.88, 0.90], [0.88, 0.90], [0.88, 0.46], [0.68, 0.02], [0.34, 0.46], [0.0, 0.02], [-0.34, 0.46], [-0.68, 0.02], [-0.88, 0.46]]},
+]
+
+## The Stalker's Dart: a needle, pointed at both ends.
+##
+## `_ARROW` is a shaft with a head and two fletches and `_BOLT_HEAVY` and
+## `_BOLT_LOBBED` are already the heavy ranged shapes, so the read here is
+## *light*: no fletching, no shaft, nothing but the point. Nothing else in this
+## file tapers at both ends, and that is the whole distinction -- an arrow has a
+## back and this does not.
+##
+## Redrawn once after rendering it. The first cut was a needle tapered at both
+## ends, which was a lovely idea and drew a SCRATCH: at 16px a shape with no
+## width anywhere is a stroke of dirt on the plate.
+##
+## `goblin_arrow` is in the same room as this -- the Stalker takes the fourth
+## archer's place in `floor1_cover` -- so the two have to be tellable apart on
+## sight. The difference that survives 16px is not fletching, it is ANGLE: the
+## arrow is horizontal, this is steeply diagonal, and orientation reads at any
+## size. The fat head is what stops it being a line.
+const _DART := [
+	{"poly": [[0.94, -0.60], [0.46, -0.52], [0.26, -0.02], [0.74, -0.10]]},
+	{"line": [[0.58, -0.32], [-0.60, 0.42]], "w": 0.18},
+	{"poly": [[-0.50, 0.24], [-0.88, 0.32], [-0.64, 0.66]]},
 ]
 
 ## Every action id in the content registry. `Tests/test_art.gd` asserts this
@@ -334,6 +447,16 @@ const GLYPHS := {
 	&"abomination_grapple": CG.Status.SLOWED,
 	&"warden_axe": _AXE,
 	&"warden_chain_toss": _CHAIN,
+
+	# The Brute and the Stalker, floor 1's first stun source and first mark
+	# source (issue 121, heron). `stalker_mark` does not draw the MARKED
+	# crosshair and `_PENNANT` says why.
+	&"brute_slam": _SLAM,
+	&"stalker_mark": _PENNANT,
+	&"stalker_dart": _DART,
+
+	# The Rat, floor 1's BLEED source (issue 130, heron).
+	&"rat_bite": _BITE,
 }
 
 ## Drawn when an id has no entry. Never reached today and asserted against, but

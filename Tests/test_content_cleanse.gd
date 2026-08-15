@@ -62,11 +62,61 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## failure. `test_the_ally_cleanse_fixture_still_has_headroom` below asserts the
 ## margin itself, so the slide is what goes red, with instructions, rather than
 ## the cliff.
-const SEEDS := 12
+##
+## **The detector did its job, and this is the second move. Issue 129 (the basic
+## attack comes from the weapon, and every starter pawn is armed) took
+## `floor1_room1` from 9 ally cleanses to 3** -- still above zero, so the
+## assertion it guards was still green and would have told nobody. The headroom
+## test is what went red, which is the whole reason it exists.
+##
+## Re-measured with `Tools/CleanseFixture.gd` on the issue-129 branch, `on_ally`:
+##
+##                        6 seeds  12 seeds  24 seeds
+##     floor1_chokepoint      0        2         4
+##     floor1_cover           4        6        10
+##     floor1_room1           2        3         7
+##     (the other four rooms field no poison source at all: 0 everywhere)
+##
+## **The geometry finding above still holds and the ranking has swapped anyway.**
+## Room1 still cleanses allies at the best *rate*, but an armed party kills the
+## cultist far sooner, so there is much less poison to strip: 65 poisonings over
+## 12 seeds where `floor1_cover` has 211. Supply, not reach, is now the binding
+## constraint in the room that used to be the roomy one.
+##
+## So `ENCOUNTER` is `floor1_cover` and `SEEDS` is 24, measuring **10** -- the
+## margin this fixture had when the detector was written, restored rather than
+## approximated. It costs twice the fights this file used to run, and that is the
+## price of a fixture that is not about to rot again.
+##
+## **Fourth movement, and the detector fired again: `floor1_cover` collapsed
+## 10 -> 2 under issue 132's taunt compulsion.** Re-measured all seven rooms
+## with `Tools/CleanseFixture.gd` on swift's branch, `on_ally` at 24 seeds:
+##
+##     floor1_room1        7      floor1_chokepoint   3
+##     floor1_cover        2      the other four      0 (no poison source)
+##
+## **The geometry finding is what moved, and in the direction it predicts.** A
+## compelled pawn walks to its taunter, so the party bunches differently, and
+## `floor1_cover` -- which had the most poison in the game at 498 poisonings --
+## now puts the afflicted ally out of the cleanse's 200 units almost every time.
+## Supply went *up* and ally cleanses went *down*, which is the same dissociation
+## this header has recorded twice.
+##
+## `floor1_room1` measured 7 both before and after the compulsion, so it is the
+## stable one as well as the best one. Back to it, seeds unchanged at 24.
+##
+## **Said plainly: the margin is now 3 over a floor of 4, and no room in the game
+## does better.** This fixture has moved four times in a fortnight and every move
+## has been a real content change rather than carelessness. It is running out of
+## room, and the underlying reason is the one I reported on #91 -- Scour is a weak
+## ability whose supply nobody is designing for. If it moves a fifth time the
+## question is whether the ability wants a source of its own, not where to point
+## the test next.
+const SEEDS := 24
 const ENCOUNTER := &"floor1_room1"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
-## below the measured 9 so ordinary content tuning does not trip it, and well
+## below the measured 10 so ordinary content tuning does not trip it, and well
 ## above 0 so the slide is caught long before the assertion it protects.
 const MIN_ALLY_CLEANSES := 4
 
@@ -96,17 +146,38 @@ func _run(fight_seed: int) -> CombatState:
 	return state
 
 
+## **This assertion used to name POISON, and issue 121 is the change that made
+## that wrong.** It read `assert_eq(e.status, CG.Status.POISON)` with the reason
+## *"POISON is the only harmful status anything applies to a player unit today"*,
+## which was true when it was written and was a statement about the whole game
+## rather than about this ability. heron's Stalker marks a pawn, so a Scour now
+## legitimately strips MARKED and the fixture called it a defect.
+##
+## **The third movement of this fixture, and the first that is a design change
+## rather than drift.** The first two were content quietly sliding the `ON_ALLY`
+## count (6 -> 2 -> 3 -> 1, then 9 -> 3) and the answer was to re-point the
+## fixture. This one is not drift: the game now has more than one harmful status
+## on purpose, which is issue 121's entire point, and no fixture change makes the
+## old assertion true again.
+##
+## So it asserts the ability's real contract -- **a cleanse strips something
+## harmful and never strips a buff** -- which no amount of new content can
+## falsify. Supply is asserted separately below, because "there was something to
+## strip" is the thing this fixture actually depends on and it deserves to be
+## said out loud rather than to hide inside an equality on a status id.
 func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> void:
 	var strips := 0
 	var on_an_ally := 0
+	var by_status := {}
 	for s in SEEDS:
 		var state := _run(s)
 		for e in _cleanse_events(state):
 			strips += 1
+			by_status[e.status] = int(by_status.get(e.status, 0)) + 1
 			assert_eq(e.action_id, &"geyser_cleanse",
 				"the only action in the game that strips a status is the Geysermancer's")
-			assert_eq(e.status, CG.Status.POISON,
-				"POISON is the only harmful status anything applies to a player unit today -- issue 90")
+			assert_true(CG.is_harmful(e.status),
+				"Scour stripped %s, which CG.is_harmful says is not a harmful status. A cleanse that removes a buff is the ability doing the opposite of its job." % _status_name(e.status))
 			var caster := state.unit(e.source_id)
 			assert_eq(caster.pawn.pawn_class.id, &"geysermancer")
 			var target := state.unit(e.target_id)
@@ -115,6 +186,28 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 				on_an_ally += 1
 	assert_true(strips > 0, "the cleanse stripped nothing in %d real fights" % SEEDS)
 	assert_true(on_an_ally > 0, "the cleanse only ever scrubbed its own caster; the ability is for the party")
+	# **The supply, said plainly, because it is what the fixture rests on.** Every
+	# other assertion in this file is worthless if nothing in the room ever
+	# afflicts a pawn -- four of the seven encounters field no poison source at
+	# all and would pass every "never strips a buff" check by stripping nothing.
+	# The old POISON equality was guarding this by accident; now it is guarded on
+	# purpose, and it names the room rather than the whole game.
+	assert_true(int(by_status.get(CG.Status.POISON, 0)) > 0,
+		("no POISON was stripped in %d fights of %s, so this fixture's affliction supply has gone. "
+		+ "It is not enough that SOMETHING was stripped: this room was chosen for its poison. "
+		+ "Re-measure with Tools/CleanseFixture.gd and re-point ENCOUNTER, and do NOT edit a "
+		+ "room's roster to feed this test. Stripped instead: %s") % [SEEDS, ENCOUNTER, _describe(by_status)])
+
+func _status_name(status: CG.Status) -> String:
+	return String(CG.Status.keys()[status]).capitalize()
+
+func _describe(by_status: Dictionary) -> String:
+	if by_status.is_empty():
+		return "nothing at all"
+	var parts: Array[String] = []
+	for k in by_status.keys():
+		parts.append("%s x%d" % [_status_name(k), int(by_status[k])])
+	return ", ".join(parts)
 
 
 ## **The margin, not the cliff.** This is the test that should have existed
@@ -212,7 +305,13 @@ func test_the_combat_log_reports_the_cleanse() -> void:
 				assert_true(line.contains("Scour"), "the cast should name the ability, got '%s'" % line)
 				saw_the_cast = true
 			elif e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1:
-				assert_true(line.contains("Poison"), "the strip should name the status, got '%s'" % line)
+				# Issue 121: the status the event actually carries, not the word
+				# "Poison". This hardcoded the one status that existed when it was
+				# written, so heron's Stalker made it report `warrior's Marked
+				# fades` as a defect -- a correct line, failing a test that was
+				# checking the content rather than the log.
+				assert_true(line.contains(_status_name(e.status)),
+					"the strip should name the status it removed (%s), got '%s'" % [_status_name(e.status), line])
 				saw_the_strip = true
 	log_view.free()
 	assert_true(saw_the_cast and saw_the_strip)

@@ -46,6 +46,8 @@ const _ACCENT := {
 	&"siege_master": CG.DamageType.RAW,
 	&"abomination": CG.DamageType.PROFANE,
 	&"rat": CG.DamageType.PHYSICAL,
+	&"rat_king": CG.DamageType.PHYSICAL,
+	&"stalker": CG.DamageType.PHYSICAL,
 	&"grub": CG.DamageType.PROFANE,
 	&"brute": CG.DamageType.EARTH,
 	&"goblin": CG.DamageType.PHYSICAL,
@@ -55,7 +57,7 @@ const _ACCENT := {
 }
 
 const _ENEMY_SHAPES := [
-	&"rat", &"grub", &"brute",
+	&"rat_king", &"rat", &"grub", &"brute", &"stalker",
 	&"goblin", &"goblin_archer", &"ghoul", &"cultist",
 	&"dungeon_grunt", &"dungeon_archer", &"dungeon_cultist",
 ]

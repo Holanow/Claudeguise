@@ -9,6 +9,8 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
+const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
@@ -43,6 +45,7 @@ var _party_label: Label = null
 var _encounter_label: Label = null
 var _seed_label: Label = null
 var _outcome_label: Label = null
+var _display_options: Control = null
 var _pause_button: Button = null
 
 var _party_summary_fill: ColorRect = null
@@ -123,9 +126,20 @@ func _build_top_bar() -> void:
 	# Issue 15: "you cannot tell who is winning" without parsing seven small
 	# bars. Two aggregate bars answer that at a glance, colour-coded the same
 	# way a single unit's own hp bar is.
-	var summary := HBoxContainer.new()
-	summary.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	summary.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	# Issue 82: the two bars are stacked, not side by side, and their labels are
+	# one fixed width.
+	#
+	# A fresh reader measured them as "teal ~117px, red ~133px at full" and
+	# concluded the comparison was meaningless. The troughs were always the same
+	# width -- what differed was where each one *started*, because "Party" and
+	# "Enemies" are different lengths and each bar sat in its own row after its
+	# own label. **Two bars you are meant to compare must share a left edge**,
+	# or the eye is comparing right-hand ends that begin in different places.
+	# The one question a spectator has is *am I ahead*, and this is the control
+	# that answers it.
+	var summary := VBoxContainer.new()
+	summary.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	summary.add_theme_constant_override("separation", int(Palette.SPACE_XS))
 	summary.offset_left = Palette.SPACE_M
 	summary.offset_top = _SUMMARY_ROW_TOP
 	hud.add_child(summary)
@@ -180,6 +194,25 @@ func _build_top_bar() -> void:
 	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	back_button.pressed.connect(func(): back_requested.emit())
 	controls.add_child(back_button)
+
+	# Issue 136. On the control row beside Pause, because the point of turning
+	# the numbers off is to change what you are looking at while you are looking
+	# at it -- a display toggle on a menu screen would be the wrong control
+	# however tidy it looked there.
+	var view_button := Button.new()
+	view_button.text = "What to show"
+	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+	view_button.pressed.connect(func(): _display_options.toggle_visible())
+	controls.add_child(view_button)
+
+	_display_options = Control.new()
+	_display_options.set_script(DisplayOptionsPanelScript)
+	hud.add_child(_display_options)
+	if not _display_options.is_inside_tree():
+		_display_options._ready()
+	# Under the control row it belongs to. Issue 145 taught me to add_child
+	# before any manual _ready(), or the engine runs a second one.
+	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
 
 ## Issue 19: the outcome is the payoff of the whole fight and used to show as
 ## a small toolbar label — same weight as "Seed 0000002A". This is the
@@ -302,13 +335,19 @@ const _SUMMARY_BAR_WIDTH := 120.0
 
 ## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
 ## Returns the fill rect so _update_team_summary can resize it later.
-func _build_summary_bar(parent: HBoxContainer, label_text: String, color: Color) -> ColorRect:
+## One fixed label width so both troughs begin at the same x. Issue 82: without
+## it the two bars start in different places and cannot be compared by eye,
+## which is the only thing they exist for.
+const _SUMMARY_LABEL_WIDTH := 64.0
+
+func _build_summary_bar(parent: Container, label_text: String, color: Color) -> ColorRect:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	parent.add_child(row)
 
 	var label := Label.new()
 	label.text = label_text
+	label.custom_minimum_size = Vector2(_SUMMARY_LABEL_WIDTH, 0.0)
 	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	row.add_child(label)
@@ -623,7 +662,21 @@ func _floater_stagger_offset(base_position: Vector2) -> Vector2:
 	var step := float((count + 1) / 2) * _FLOATER_STAGGER_STEP
 	return Vector2(side * step, 0.0)
 
+## Issue 136: off by default, and the guard is here rather than at the call site
+## so nothing can spawn a damage number without passing it.
+##
+## **This is the first thing anyone has proposed removing from this screen.**
+## swift measured 861 of 1556 damage events in a real fight as damage-over-time
+## ticks -- a drain rather than a happening -- so most floaters were never hits
+## at all, and the log already carries every one with source, target, type and
+## mitigated-versus-raw. Nothing is lost by the default.
+##
+## Death markers, miss markers and impact flashes are deliberately NOT behind
+## this. They mark events a player has no other way to see at the moment they
+## happen; a damage number duplicates a log line.
 func _spawn_floater(e: CombatEvent) -> void:
+	if not DisplayOptions.enabled(&"damage_numbers"):
+		return
 	var target := state.unit(e.target_id)
 	if target == null:
 		return

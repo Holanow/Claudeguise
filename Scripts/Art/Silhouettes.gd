@@ -197,16 +197,116 @@ const _PARTS := {
 		{"tint": Tint.ACCENT, "poly": [[-0.3, -0.06], [-0.6, 0.08], [-0.52, 0.32], [-0.26, 0.2]]},
 	],
 
-	# --- unused so far: kept for later floors -------------------------------
-	# Rat: a low horizontal profile, nose down at the front, tail curling off
-	# the back. Nothing else here is this long and this flat.
+	# --- the Rat King fight (floor 1 miniboss) ------------------------------
+	#
+	# README: "Big collection of rats joined at the tail. Ranged attacker, all
+	# attacks leave behind rats which are close range melee attackers."
+	#
+	# So this is TWO shapes and one relationship, and the relationship is the
+	# hard part: the miniboss has to read as a pile of the very thing it keeps
+	# spawning. They are drawn as a pair on purpose and should be edited as one.
+	#
+	# Rat: redrawn. The first version was a mound with a spike, and rendered
+	# beside `grub` and `brute` it was a third mound -- the exact "squint and two
+	# are the same blob" failure this file warns about, sitting in the file
+	# underneath the warning. It is now the longest and lowest outline in the
+	# game, which is a silhouette nothing else here competes for: snout forward
+	# and clear, one ear breaking the skull line, tail lifted off the ground with
+	# real space under it. A tail lying along the floor merges into the shadow
+	# and stops being a tail.
 	&"rat": [
-		{"tint": Tint.ACCENT, "poly": [[-0.62, 0.1], [-0.86, -0.14], [-1.0, -0.5], [-0.86, -0.44], [-0.74, -0.14], [-0.54, 0.02]]},
-		{"tint": Tint.TEAM_DARK, "poly": [[-0.74, 1.0], [-0.5, 0.42], [0.66, 0.42], [0.92, 1.0], [0.1, 0.9]]},
-		{"tint": Tint.TEAM, "poly": [[-0.66, 0.46], [-0.5, -0.1], [-0.1, -0.4], [0.34, -0.42], [0.66, -0.2], [0.74, 0.46]]},
-		{"tint": Tint.TEAM, "poly": [[0.42, -0.36], [0.64, -0.62], [0.94, -0.5], [0.98, -0.16], [0.72, -0.1]]},
-		{"tint": Tint.ACCENT, "poly": [[0.5, -0.56], [0.56, -0.92], [0.76, -0.6]]},
-		{"tint": Tint.ACCENT, "poly": [[0.86, -0.42], [1.0, -0.32], [0.88, -0.24]]},
+		# Tail: long, thick at the root, sweeping up and back well clear of the
+		# body. Drawn in TEAM rather than ACCENT and that is deliberate -- ACCENT
+		# is near-white and the first version put the loudest colour in the game
+		# on a thin curl, which rendered as a bright hook stuck to a mound.
+		{"tint": Tint.TEAM, "poly": [[-0.56, 0.34], [-0.80, 0.16], [-0.96, -0.30], [-0.78, -0.36], [-0.66, 0.02], [-0.46, 0.16]]},
+		# Ground shadow. Narrower than the body on purpose: the first pass had it
+		# as wide as the animal and the two merged into one blob.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.62, 1.00], [-0.50, 0.66], [0.62, 0.66], [0.74, 1.00], [0.06, 0.94]]},
+		# Back: LOW. This is the whole identity -- the longest, flattest outline
+		# in the game, against a roster of mounds and spires. The peak is barely
+		# above the shoulder and the line runs almost flat to the hips.
+		{"tint": Tint.TEAM, "poly": [[-0.62, 0.70], [-0.60, 0.10], [-0.34, -0.14], [0.16, -0.20], [0.40, -0.10], [0.46, 0.70]]},
+		# Head and snout: one wedge tapering to a point on the right edge, well
+		# outside the body outline so the animal has a front end.
+		{"tint": Tint.TEAM, "poly": [[0.30, -0.16], [0.56, -0.20], [1.00, 0.24], [0.62, 0.46], [0.34, 0.36]]},
+		# Ear, standing clear above the skull line and reading against the sky.
+		{"tint": Tint.TEAM_DARK, "poly": [[0.34, -0.18], [0.34, -0.62], [0.64, -0.30], [0.58, -0.14]]},
+		# Foot, so the body is not resting flat on its own shadow.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.30, 0.62], [-0.16, 0.62], [-0.12, 0.86], [-0.30, 0.86]]},
+		# Eye. The only ACCENT on the shape, and it is two pixels at true size --
+		# which is correct: at 22 across, the outline is the whole read.
+		{"tint": Tint.ACCENT, "poly": [[0.62, 0.06], [0.74, 0.12], [0.62, 0.18]]},
+	],
+	# The Rat King. Everything else in this game reads as ONE creature; this has
+	# to read as MANY, and that is its whole visual identity rather than being
+	# large. A miniboss that arrives as a big goblin is a reskin.
+	#
+	# Three devices carry it, and they are listed in the order they survive
+	# shrinking, because at 55 pixels across only the first two do any work:
+	#
+	#   1. A SCALLOPED top edge. Three overlapping backs, not one dome. A dome is
+	#      one animal at any size.
+	#   2. Heads pointing three DIFFERENT WAYS, each with clear space around it.
+	#      One creature cannot look left and right at once, so this is the cue
+	#      that does not need resolution to land.
+	#   3. The tail knot, which is the literal reading of "joined at the tail"
+	#      and the one detail no other silhouette in the game carries -- the same
+	#      job the Warden's chain does. It is the identity at inspect size and it
+	#      is mostly gone at true size, which is the right way round.
+	&"rat_king": [
+		# THE KNOT, and it is drawn in TEAM_DARK rather than ACCENT after looking
+		# at it. Five near-white strands radiating from one point did not read as
+		# tails: it read as a crown, or an explosion, and at true size it was a
+		# white starburst sitting on top of the fight -- the loudest thing on the
+		# screen spent on the detail that matters least at that size. Three short
+		# HOOKED strands in the body's own dark now, so it reads as matted tails
+		# from close up and quietly disappears into the mass from far away.
+		# In TEAM, not TEAM_DARK: the strands rise ABOVE the pile and are read
+		# against the background, and the dark version was invisible there. Thin
+		# enough that they are two or three pixels at true size, which is the
+		# right way round -- this detail is for the inspect panel.
+		{"tint": Tint.TEAM, "poly": [[-0.12, -0.40], [-0.34, -0.68], [-0.54, -0.74], [-0.50, -0.62], [-0.30, -0.56], [-0.16, -0.34]]},
+		{"tint": Tint.TEAM, "poly": [[-0.04, -0.46], [-0.10, -0.76], [0.04, -0.94], [0.14, -0.84], [0.04, -0.70], [0.08, -0.44]]},
+		{"tint": Tint.TEAM, "poly": [[0.12, -0.38], [0.36, -0.62], [0.56, -0.64], [0.52, -0.50], [0.32, -0.48], [0.18, -0.30]]},
+		# The braid itself, where the three meet: dark, so the strands read as
+		# separate above it and matted together at the root.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.16, -0.34], [0.0, -0.48], [0.18, -0.34], [0.08, -0.14], [-0.10, -0.16]]},
+
+		# Ground shadow, the widest in the game. This is a pile, not a body.
+		{"tint": Tint.TEAM_DARK, "poly": [[-1.00, 1.00], [-0.88, 0.56], [0.88, 0.56], [1.00, 1.00], [0.0, 0.90]]},
+
+		# THREE BACKS WITH REAL VALLEYS BETWEEN THEM, and every one of them
+		# ROUNDED. Two passes were needed and both failures are worth keeping:
+		# the first overlapped the humps so heavily they fused into one dome,
+		# which is one animal at any size; the second separated them but left
+		# them as five-point wedges, and three sharp peaks over a dark base read
+		# as a MOUNTAIN RANGE, which is the third time a shape of mine has come
+		# out as a picture of something else. A back is a dome. The extra
+		# vertices are what make the valleys U-shaped instead of V-shaped, and a
+		# V-notch is what makes a row of humps look like terrain.
+		{"tint": Tint.TEAM, "poly": [[-0.96, 0.62], [-0.94, 0.16], [-0.86, -0.08], [-0.70, -0.24], [-0.52, -0.22], [-0.40, -0.02], [-0.36, 0.20], [-0.34, 0.62]]},
+		{"tint": Tint.TEAM, "poly": [[-0.32, 0.62], [-0.30, 0.14], [-0.22, -0.18], [-0.08, -0.40], [0.08, -0.40], [0.22, -0.18], [0.30, 0.14], [0.32, 0.62]]},
+		{"tint": Tint.TEAM, "poly": [[0.34, 0.62], [0.36, 0.20], [0.40, -0.02], [0.52, -0.22], [0.70, -0.24], [0.86, -0.08], [0.94, 0.16], [0.96, 0.62]]},
+
+		# THREE HEADS, THREE DIRECTIONS. One creature cannot look left and right
+		# at once, so this is the cue that needs no resolution to land. Each is a
+		# wedge tapering to a snout OUTSIDE the pile's outline, with an ear above
+		# it -- the first pass kept them inside the mass and they read as
+		# arrowheads stuck to the sides.
+		# Left, looking out and slightly down.
+		{"tint": Tint.TEAM, "poly": [[-0.44, 0.12], [-0.64, 0.0], [-0.86, 0.16], [-1.00, 0.40], [-0.80, 0.52], [-0.56, 0.48], [-0.44, 0.32]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.70, 0.02], [-0.78, -0.26], [-0.54, -0.14], [-0.56, 0.04]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.74, 0.24], [-0.80, 0.26], [-0.80, 0.32], [-0.74, 0.30]]},
+		# Right, looking out and slightly down.
+		{"tint": Tint.TEAM, "poly": [[0.44, 0.12], [0.64, 0.0], [0.86, 0.16], [1.00, 0.40], [0.80, 0.52], [0.56, 0.48], [0.44, 0.32]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.70, 0.02], [0.78, -0.26], [0.54, -0.14], [0.56, 0.04]]},
+		{"tint": Tint.ACCENT, "poly": [[0.74, 0.24], [0.80, 0.26], [0.80, 0.32], [0.74, 0.30]]},
+		# Front and low, over the shadow, so the BOTTOM edge is broken too. A
+		# pile with a clean floor line still reads as one object sitting down.
+		{"tint": Tint.TEAM, "poly": [[0.06, 0.44], [-0.16, 0.46], [-0.34, 0.62], [-0.36, 0.86], [-0.14, 0.96], [0.06, 0.86], [0.14, 0.64]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.02, 0.44], [0.14, 0.22], [0.24, 0.44], [0.14, 0.54]]},
+		{"tint": Tint.ACCENT, "poly": [[-0.18, 0.66], [-0.24, 0.70], [-0.22, 0.76], [-0.16, 0.72]]},
 	],
 	# Grub: one soft segmented arc, no limbs and no weapon. The only shape here
 	# with no straight vertical edge at all.
@@ -220,6 +320,50 @@ const _PARTS := {
 	],
 	# Brute: the largest outline of all, hunched forward, tiny head set low
 	# between the shoulders, club head heavier than the arm holding it.
+	# The Stalker (issue 121, heron). 30 hp, radius 10 -- the smallest thing in
+	# the game, smaller than a goblin -- and it is a threat only through what it
+	# enables: it marks a pawn and the mark strips that pawn's armour.
+	#
+	# **The brief is a contradiction and the contradiction is the design: it has
+	# to look negligible and be the reason a party dies.** Those pull opposite
+	# ways in a silhouette, so they are split across two channels rather than
+	# averaged into something middling.
+	#
+	#   NEGLIGIBLE is carried by MASS. It is a stalk. It does not fill its
+	#   radius, it has no bulk anywhere, and it is the only unit here with a
+	#   ground shadow narrower than its own body. Beside a Brute it should look
+	#   like something you would not bother with.
+	#
+	#   DANGEROUS is carried by AIM. It is the only silhouette in the game that
+	#   POINTS -- a straight needle held level, extending past the body with a
+	#   gap under it. The goblin archer's bow is a curve and reads as a tool; a
+	#   straight line leaving a small body reads as being aimed at you.
+	#
+	# Against the goblin archer specifically, because they share `floor1_cover`
+	# and the Stalker literally takes the fourth archer's place: the archer is a
+	# hunched mound with a curve, this is an upright stalk with a straight line.
+	# Nothing about the two outlines is the same.
+	&"stalker": [
+		# The dart, held out and level. ACCENT is near-white and this is the one
+		# place on the shape it is spent: the pointing is the whole read.
+		{"tint": Tint.ACCENT, "poly": [[0.32, -0.20], [1.00, -0.30], [1.00, -0.16], [0.32, -0.06]]},
+		# Ground shadow. The smallest in the game and deliberately narrower than
+		# the stance, so the unit does not sit on a slab that gives it mass.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.30, 1.00], [-0.22, 0.74], [0.26, 0.74], [0.34, 1.00], [0.02, 0.94]]},
+		# Legs: thin, set apart, crouched. Gaps between them and the body.
+		{"tint": Tint.TEAM_DARK, "poly": [[-0.32, 0.78], [-0.18, 0.26], [-0.04, 0.30], [-0.14, 0.80]]},
+		{"tint": Tint.TEAM_DARK, "poly": [[0.32, 0.78], [0.18, 0.26], [0.06, 0.30], [0.16, 0.80]]},
+		# Body: a narrow stalk. This is the "negligible" read and it is the
+		# thinnest torso in the file by a long way.
+		{"tint": Tint.TEAM, "poly": [[-0.19, 0.36], [-0.15, -0.38], [0.15, -0.38], [0.19, 0.36]]},
+		# The arm, level with the dart, with real space beneath it.
+		{"tint": Tint.TEAM, "poly": [[0.10, -0.36], [0.38, -0.28], [0.36, -0.12], [0.08, -0.18]]},
+		# Head: small, low and thrust forward off the front of the shoulders,
+		# which is what makes a thin thing read as predatory rather than frail.
+		{"tint": Tint.TEAM, "poly": [[-0.08, -0.40], [0.20, -0.52], [0.34, -0.70], [0.10, -0.82], [-0.16, -0.68]]},
+		# Eye.
+		{"tint": Tint.ACCENT, "poly": [[0.14, -0.68], [0.26, -0.64], [0.15, -0.57]]},
+	],
 	&"brute": [
 		{"tint": Tint.ACCENT, "poly": [[0.44, -0.36], [0.66, -0.98], [0.98, -0.86], [0.9, -0.28], [0.6, -0.14]]},
 		{"tint": Tint.ACCENT, "poly": [[0.34, 0.28], [0.5, -0.28], [0.68, -0.22], [0.52, 0.34]]},
@@ -229,11 +373,6 @@ const _PARTS := {
 		{"tint": Tint.ACCENT, "poly": [[-0.16, -0.8], [-0.06, -0.86], [-0.02, -0.74]]},
 		{"tint": Tint.ACCENT, "poly": [[0.02, -0.82], [0.12, -0.86], [0.14, -0.72]]},
 	],
-	# Floor 1's boss. Built to read as a boss at a glance and at phone size:
-	# it fills more of its radius than anything else here, stands squarer, and
-	# carries the one silhouette detail no other unit has -- a chain, for the
-	# 270-range toss that stops a party declining the fight from out of reach.
-	# Bosses should be recognisable before the health bar is read.
 	# Siege engine: the Siege Master's summon. Built to read as a machine rather
 	# than a creature -- a wide low frame on legs with a long throwing arm held
 	# clear of the body, following sable's rule that a feature only counts if
@@ -256,6 +395,11 @@ const _PARTS := {
 		# Bolt already nocked, pointing left, clear of the frame.
 		{"tint": Tint.ACCENT, "poly": [[-0.98, -0.12], [-0.60, -0.20], [-0.58, -0.06], [-0.96, 0.02]]},
 	],
+	# Floor 1's boss. Built to read as a boss at a glance and at phone size:
+	# it fills more of its radius than anything else here, stands squarer, and
+	# carries the one silhouette detail no other unit has -- a chain, for the
+	# 270-range toss that stops a party declining the fight from out of reach.
+	# Bosses should be recognisable before the health bar is read.
 	&"the_warden": [
 		# Chain, trailing to the unit's left, drawn first so the body sits on it.
 		{"tint": Tint.ACCENT, "poly": [[-1.0, 0.18], [-0.82, 0.06], [-0.72, 0.2], [-0.9, 0.32]]},

@@ -102,9 +102,9 @@ static func attribute_text(a: CG.Attribute) -> String:
 ## Statuses are drawn in the battle arena (UnitView's status tags, phase 2 of
 ## the hover system); this is the data half, written now so phase 2 wires a
 ## mechanism against text that already exists rather than writing both at
-## once. Every status with a Balance-owned number reads it; BLEED, ENRAGE,
+## once. Every status with a Balance-owned number reads it; BLEED, TAUNTED,
 ## STUN, TAUNTING and SHIELDING have no single tunable number to duplicate
-## (BLEED/ENRAGE/SHIELDING's magnitude and duration are per-action data on
+## (BLEED/TAUNTED/SHIELDING's magnitude and duration are per-action data on
 ## whichever ActionDef grants them, not a shared Balance constant; TAUNTING
 ## reads EnemyDef.spawn_taunt_radius per-caster) -- their sentence names the
 ## mechanism rather than inventing one number that would be wrong for most
@@ -117,8 +117,8 @@ static func status_text(s: CG.Status) -> String:
 			return "Reduces incoming damage by %d%% while it lasts." % int(round(Balance.STATUS_BLOCK_REDUCTION * 100.0))
 		CG.Status.BLEED:
 			return "Deals damage each tick for a fixed duration."
-		CG.Status.ENRAGE:
-			return "Increases damage dealt while it lasts."
+		CG.Status.TAUNTED:
+			return "Forced to attack whoever taunted this unit until it wears off or is cleansed."
 		CG.Status.BURN:
 			return "Deals %.2f%% of max hp each tick for a fixed duration." % Balance.BURN_DAMAGE_PERCENT_PER_TICK
 		CG.Status.POISON:
@@ -135,5 +135,15 @@ static func status_text(s: CG.Status) -> String:
 			return "Forces nearby enemies to target this unit while it lasts."
 		CG.Status.SHIELDING:
 			return "Stops an incoming ranged shot aimed at an ally standing behind this unit, while it lasts."
+		## Issue 61. No number, and for a different reason from the others above:
+		## this status has no magnitude of its own at all. What it costs and what
+		## it reaches are per-action data on whichever ActionDef is being held,
+		## so a shared constant here would be wrong for every caster but one.
+		##
+		## **swift wrote this, in wren's file.** `test_ui_glossary.gd` refuses a
+		## CG.Status with no text, which is the guard working -- the sentence is
+		## one line and is meant to be rewritten by whoever owns the copy.
+		CG.Status.SUSTAINING:
+			return "This unit is holding an action open. It pays that action's cost every tick, and stops when its plan chooses something else or it can no longer pay."
 		_:
 			return ""

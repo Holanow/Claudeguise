@@ -15,7 +15,7 @@ it in front of you in a state where the answer means something.
 ## Run it
 
 ```
-"D:\Projects\Claudeguise-team\tools\godot\Godot_v4.7.1-stable_win64.exe" --path D:\Projects\Claudeguise
+"D:/Projects/Claudeguise-team/tools/godot/Godot_v4.7.1-stable_win64.exe" --path D:/Projects/Claudeguise
 ```
 
 That is the standalone Godot fetched from the GitHub release, kept outside the

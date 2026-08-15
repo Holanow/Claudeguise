@@ -43,6 +43,27 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 ## rate is measured in issue 93's PR rather than corrected for by moving damage.
 const RANGED_PROJECTILE_SPEED := 32.5
 
+## Issue 132: *"The default attack of any magic class should restore a small
+## amount of mana."*
+##
+## **Derived from a stated ratio rather than tuned to an outcome, which matters
+## while balance is frozen: five basic attacks buy one spell.** Smite costs 15,
+## so 3 per landed Bolt is five Bolts per Smite. Blast costs 20, so it is closer
+## to seven per Blast. Nothing here was chosen by running a win table, and no
+## existing number moved.
+##
+## For scale: a Priest holds about 100 Mana, a bolt occupies 18 ticks (1.2s), and
+## `MANA_REGEN_PERCENT_PER_SECOND` is 4.0, so passive regen is about 4 Mana a
+## second. Attacking therefore roughly doubles a caster's income instead of
+## replacing it, which is the point -- **a caster that stands still should still
+## be the one that runs dry.**
+##
+## **Only the two MAGICAL basic attacks carry it.** `siege_master_shot` does not:
+## the Siege Master is a Mana class but a MARTIAL one, and the player said "any
+## magic class". That distinction is the whole reason this is a per-action field
+## rather than a per-resource-kind rule -- see `ActionDef.restores_resource`.
+const MAGIC_BASIC_ATTACK_MANA := 3
+
 ## "Reaches anywhere in the room", expressed as a real number.
 ##
 ## Issue 93, the player's spec for the Siege Engine: unlimited range. A literal
@@ -190,7 +211,7 @@ static func actions() -> Array[ActionDef]:
 		# DefaultBehavior's fallback (the first non-heal action in the class's
 		# own list, see starting_classes.gd) would keep ordering an unaffordable
 		# Smite forever rather than actually landing a hit.
-		_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED),
+		_restores(_projectile(_action(&"priest_bolt", "Bolt", "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.DIVINE, 220.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
 		_projectile(_action(&"priest_smite", "Smite", "A ranged bolt of divine light dealing damage at up to 220 units.", CG.DamageType.DIVINE, 220.0, 10, 10, 0.9, 15, 0, true), RANGED_PROJECTILE_SPEED),
 		# The Priest's two buff spells, per the player's own direction ("one
 		# for speed, one for resistance") -- both target an ally within 220
@@ -229,11 +250,15 @@ static func actions() -> Array[ActionDef]:
 		# moment Mana allows it -- the same relationship priest_bolt (0.5)
 		# has to priest_smite (0.9). WATER rather than FIRE: that is this
 		# class's primary damage type per its own ClassDef, and Scald is
-		# already the fire one. Placed first in starting_classes.gd's own
-		# action list, since `DefaultBehavior._first_non_heal` falls back to
-		# whichever action sits first whenever no plan fires -- existence is
-		# not enough, order is what makes it the fallback.
-		_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED),
+		# already the fire one.
+		#
+		# Issue 129: this action is granted by the Orb rather than owned by
+		# the class, and the paragraph that used to sit here explaining that
+		# it had to be *placed first* in `starting_actions` is gone with the
+		# rule it described. `DefaultBehavior` now falls back to the cheapest
+		# action that can damage, so what makes this the fallback is that it
+		# is free, not where it sits in a list.
+		_restores(_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
 		_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED),
 		# Issue 79: numbers unchanged. This action also fired zero times in 210
 		# real fights, and nothing about the action itself was the cause --
@@ -543,6 +568,13 @@ static func _action_status(id: StringName, display_name: String, description: St
 ## `RANGED_PROJECTILE_SPEED` at the top of this file.
 static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
+	return a
+
+## Issue 132: the mana a magic class's default attack returns when it lands.
+## Same inert-by-default shape as `_projectile` and `_marked_only` -- the field
+## is 0 on every other action.
+static func _restores(a: ActionDef, amount: int) -> ActionDef:
+	a.restores_resource = amount
 	return a
 
 ## Issue 93: wraps an ActionDef so it may only be aimed at an enemy carrying

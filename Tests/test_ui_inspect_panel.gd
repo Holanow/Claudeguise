@@ -398,8 +398,12 @@ func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 	panel._ready()
 	panel.open([pawn])
 
+	# Issue 129: the chips are built from `_available_actions`, which is
+	# `Registry.actions_for_pawn` -- class actions plus equipment grants. Walking
+	# `starting_actions` instead checked a different list than the one on screen,
+	# and it stopped agreeing the moment the Priest's Bolt moved onto the Staff.
 	var checked := 0
-	for action_id in pawn.pawn_class.starting_actions:
+	for action_id in Registry.actions_for_pawn(pawn):
 		var action = Registry.get_action(action_id)
 		assert_not_null(action, "fixture depends on real registered actions")
 		var chip: Label = panel._action_chip(action_id)
@@ -415,7 +419,8 @@ func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 		assert_eq(chip.get_script(), GlossaryLabelScript)
 		chip.free()
 		checked += 1
-	assert_true(checked >= 5, "the Priest ships five actions; checked %d" % checked)
+	assert_true(checked >= 5,
+		"the Priest ships four actions of its own and a Staff granting a fifth; checked %d" % checked)
 	panel.free()
 
 ## The skill chip inside a plan row is the other place an action is named, and
@@ -940,7 +945,14 @@ func test_the_default_row_names_the_action_default_behavior_really_picks() -> vo
 		for distance in [30.0, 400.0]:
 			var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 			unit.pawn = pawn
-			unit.actions = pawn.pawn_class.starting_actions
+			# Issue 129: `Registry.actions_for_pawn`, which is what
+			# `CombatSim._collect_player_actions` builds a real unit from. This
+			# read `pawn.pawn_class.starting_actions`, which was the same list
+			# while a class owned its own basic attack and became a pawn holding
+			# *nothing* once the attack moved onto the main-hand weapon. The row
+			# under test was already right; the fixture was comparing it against
+			# a unit the game never builds.
+			unit.actions = Registry.actions_for_pawn(pawn)
 			var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(distance, 0))
 			var state := _state_with(unit, enemy)
 			var intent = DefaultBehavior.decide(state, unit)

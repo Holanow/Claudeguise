@@ -156,7 +156,30 @@ enum Role { DPS, SUPPORT, ANTI_SUPPORT, TANK, HEALER }
 enum Status {
 	SHIELD,
 	BLEED,
-	ENRAGE,
+	## The victim side of a taunt: this unit is COMPELLED to move into range of
+	## whoever taunted it and use its default attack on that unit, in place of
+	## whatever its plan or the fallback would otherwise have chosen.
+	##
+	## **This was ENRAGE, renamed in place rather than deleted.** #130 asked for
+	## ENRAGE to go, on the player's own reading that *"ENRAGE and TAUNTED are
+	## the same status with different names as of right now"*, and named the
+	## hazard in the same breath: these values are written into
+	## `CombatEvent.status`, so removing one from the middle of the enum
+	## renumbers everything after it and silently relabels every status in a
+	## saved event stream. Renaming keeps every ordinal exactly where it is,
+	## and the badge and the glossary entry already drawn for ENRAGE are about
+	## this concept, so nothing is orphaned.
+	##
+	## `status_magnitude` holds **the taunter's unit id**, which is what makes
+	## the compulsion point at somebody rather than at the nearest enemy. That
+	## reuses the one "a status remembers something" mechanism rather than
+	## adding a second.
+	##
+	## HARMFUL, so a cleanse is the counter, per the player. And it carries a
+	## real duration, which is what stops a taunt from permanently locking a
+	## pawn -- the taunting unit's own TAUNTING may outlive the fight without
+	## any pawn being held for more than one broadcast's worth of ticks.
+	TAUNTED,
 	BURN,
 	HASTE,
 	STUN,
@@ -192,6 +215,23 @@ enum Status {
 	## the same way Terrain.line_is_blocked already stops a shot at a wall. That
 	## is the fallback, not the design.
 	SHIELDING,
+	## This unit is holding a sustained action: an effect that ticks every tick
+	## and charges it resource every tick, for as long as its plan keeps
+	## choosing it. Issue 61.
+	##
+	## Appended, never inserted, same rule the rest of this enum carries.
+	##
+	## Not harmful, so a cleanse never strips a pawn's own channel.
+	##
+	## It exists so the *middle* of a channel is visible, not only its two ends.
+	## SUSTAIN_START and SUSTAIN_END below mark the boundaries in the log; this
+	## is what puts a badge on the unit for every tick in between. An effect that
+	## ticks invisibly is the failure this project keeps repeating, and it is
+	## what made the Warrior's block unevaluable for weeks.
+	##
+	## Carries a magnitude on the unit the way TAUNTING does: `CombatUnit.taunt_radius`
+	## for that one, `CombatUnit.sustaining` (which action) for this one.
+	SUSTAINING,
 }
 
 ## Whether a status is something a unit would want removed. Cleanse needs this
@@ -204,7 +244,7 @@ enum Status {
 ## would be actively hostile to the ally it targeted.
 static func is_harmful(s: Status) -> bool:
 	match s:
-		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED:
+		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED, Status.TAUNTED:
 			return true
 	return false
 
@@ -260,6 +300,56 @@ enum EventKind {
 	## opportunities. An ability whose entire effect is invisible cannot be
 	## evaluated by a player or by us, and this one was not, for weeks.
 	BLOCKED,
+	## A unit began holding a sustained action. Issue 61.
+	##
+	## Appended, never inserted, same rule as BLOCKED above.
+	##
+	## `source_id` is the caster, `action_id` is the action, `target_id` is -1 --
+	## a channel is aimed at an area around its caster rather than at a unit.
+	## Emitted from `_fire_action`, immediately after ACTION_FIRE, so the pair
+	## reads "the Abomination ignites" and then "and is now burning".
+	SUSTAIN_START,
+	## A unit stopped holding a sustained action, whatever ended it: its plan
+	## chose something else, its resource ran out, it was stunned, or it died.
+	##
+	## `amount` is how many ticks it was held for. That number is not recoverable
+	## from the event stream otherwise, and it is the one thing a player wants to
+	## know about a channel after it is over.
+	##
+	## **The end *reason* is deliberately not encoded**, and that is a decision
+	## rather than an oversight -- it would want another field on CombatEvent, and
+	## whether a player needs to tell "I ran out of rage" from "my plan switched"
+	## apart is a question about the plan editor, not about the simulation. Say
+	## the word and it is one more field.
+	SUSTAIN_END,
+	## A committed action was cancelled before it fired. Today that is STUN
+	## landing on a unit mid-wind-up; the mechanism itself is not stun-specific.
+	##
+	## Appended, never inserted, same rule the rest of this enum carries. Exact
+	## lines posted to TEAM_LOG.md before they were written, per this file's own
+	## intake instruction, so wren could build the log line and the flash against
+	## a signature rather than a description.
+	##
+	## `source_id` is the unit whose action was lost and `action_id` is the
+	## action it lost -- NOT the interrupter. The pair reads the same way it does
+	## on ACTION_START, which is the event this one cancels: a log that has
+	## already printed "the Geysermancer begins Blast" needs the same subject to
+	## print "and loses it". `target_id` is -1, because what interrupted it is
+	## already in the STATUS_APPLIED event on the same tick.
+	##
+	## `amount` is the ticks of wind-up already invested and thereby thrown away.
+	## Not recoverable after the fact -- HASTE scales the real count at commit,
+	## so the number on the ActionDef is not it, which is the same reason
+	## CombatUnit.action_ticks_total had to exist.
+	##
+	## THE RESOURCE IS NOT REFUNDED, the player's ruling. RESOURCE_SPENT already
+	## fired at commit and nothing reverses it; there is no negative event.
+	##
+	## The player asked for this to be visible twice over -- the badge says what
+	## happened, the flash says it happened now. Losing a wind-up with no refund
+	## is the most punishing thing that can happen to a pawn, so it is exactly
+	## the event that must not be missable.
+	INTERRUPTED,
 }
 
 static func attribute_name(a: Attribute) -> String:

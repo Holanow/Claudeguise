@@ -17,6 +17,20 @@ const CLASS_SHAPES := [&"warrior", &"priest", &"geysermancer", &"siege_master", 
 ## nothing and later floors will want them.
 const UNUSED_SHAPES := [&"rat", &"grub", &"brute"]
 
+## Shapes that exist ahead of the content that will spawn them, named here
+## because **no other test in this file can see them.**
+##
+## `test_every_registered_class_and_enemy_has_a_shape` walks encounter spawn
+## lists, and a unit nothing spawns appears in none. That is exactly how the
+## Siege Master's engine shipped invisible for weeks -- it was drawing the
+## unknown-shape fallback in real fights and the art suite was green throughout,
+## because a summoned unit is in no spawn list either.
+##
+## So anything drawn before its content exists goes here and gets checked like
+## content. The Rat King is floor 1's miniboss and the rat is what its attacks
+## leave behind; neither is in an encounter yet.
+const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine", &"stalker"]
+
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# The check that was missing, and the reason it was missing is instructive:
@@ -100,6 +114,122 @@ func test_every_class_in_the_readme_has_a_shape() -> void:
 func test_the_unused_shapes_are_still_there() -> void:
 	for id in UNUSED_SHAPES:
 		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
+
+
+func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
+	# Not just `has_shape`: the failure being guarded against is a unit drawing
+	# the unknown-shape fallback in a real fight, and `has_shape` is exactly the
+	# thing that would have been false while nobody looked. So this asserts the
+	# shape is present AND that what it builds is not the fallback.
+	var unknown := Silhouettes.build_parts(&"not_a_real_shape", 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	for id in AHEAD_OF_CONTENT_SHAPES:
+		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
+		var parts := Silhouettes.build_parts(id, 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+		assert_true(parts.size() > unknown.size(),
+			"'%s' builds %d polygons, the unknown fallback builds %d -- it is drawing the fallback" % [
+				id, parts.size(), unknown.size()])
+
+
+func test_the_rat_king_reads_as_more_than_one_animal() -> void:
+	# THE DESIGN RULE, ASSERTED AS GEOMETRY, and it is a stand-in so it says what
+	# it stands for: every other unit in this game reads as ONE creature and the
+	# Rat King has to read as MANY -- "a big collection of rats joined at the
+	# tail". The cue that survives being shrunk to 50 pixels is a SCALLOPED top
+	# edge: several rounded backs with real sky between them. One dome is one
+	# animal at any size.
+	#
+	# So: sample the top of the silhouette across its width and count the peaks.
+	# Two passes of this shape failed for opposite reasons -- humps overlapped
+	# into a single dome, then humps sharpened into a mountain range -- and this
+	# catches the first. It cannot catch the second; only looking can, which is
+	# why Tools/RatKingSheet.tscn exists and why the sheet is committed.
+	# **What this measures, stated exactly, because it is not quite what the
+	# design claim says.** It counts peaks in the whole outline, and the tail
+	# strands are part of that outline, so a Rat King with flattened backs but
+	# intact strands would still pass. It is a guard against the shape collapsing
+	# into a dome, not proof that the humps specifically are doing the work.
+	# Measured: rat_king 8, the_warden 1, ghoul 1, brute 1, grub 0.
+	var peaks := _peaks(&"rat_king")
+	assert_true(peaks >= 2,
+		"the Rat King's outline has %d peaks; it reads as one animal, not a pile" % peaks)
+
+	# The negative half, and it is what makes the number above mean anything: a
+	# single-creature silhouette must NOT pass this. Without it, a sampling bug
+	# that found peaks everywhere would look exactly like success.
+	for one_animal in [&"the_warden", &"ghoul", &"brute"]:
+		assert_true(_peaks(one_animal) < peaks,
+			"'%s' scores %d peaks against the Rat King's %d -- this is not measuring 'many'" % [
+				one_animal, _peaks(one_animal), peaks])
+
+
+func test_the_rat_king_outline_keeps_headroom_over_a_single_creature() -> void:
+	# The margin, guarded separately, per this project's own rule: a floor of
+	# `>= 2` reads identically at 8 and at 2 and speaks only on the build that
+	# breaks it, which lands on whoever touched the file next rather than
+	# whoever caused the drift. Measured at 8 against a single-creature baseline
+	# of 1. This fires while the shape is still passing.
+	assert_true(_peaks(&"rat_king") >= 4,
+		"the Rat King is down to %d peaks from a measured 8; the pile is flattening out" % _peaks(&"rat_king"))
+
+
+func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void:
+	# The rat's identity, checked rather than asserted in a comment. The first
+	# version WAS a third mound, indistinguishable from `grub` and `brute` at a
+	# glance -- the failure the top of Silhouettes.gd warns about, sitting in the
+	# file underneath the warning.
+	#
+	# Deliberately NOT "flattest of every shape in the game". It is, at 1.21
+	# against grub's 1.15, and asserting a superlative on a six-percent margin
+	# would hand a failure to whoever next edits an unrelated shape. The design
+	# requirement is that it is not mistakable for the mounds, and that is what
+	# is checked.
+	var ratio := _aspect(&"rat")
+	for id in [&"grub", &"brute", &"ghoul", &"goblin", &"rat_king"]:
+		assert_true(ratio > _aspect(id),
+			"'%s' is %.2f wide-to-tall and the rat is only %.2f; the rat must read as the long low one" % [
+				id, _aspect(id), ratio])
+
+
+func _peaks(id: StringName) -> int:
+	var radius := 200.0
+	var bins := 40
+	var top := []
+	top.resize(bins)
+	top.fill(INF)
+	for part in Silhouettes.build_parts(id, radius, CG.Team.ENEMY, CG.DamageType.PHYSICAL):
+		for p in part["points"]:
+			var bin := clampi(int((p.x + radius) / (radius * 2.0) * float(bins)), 0, bins - 1)
+			top[bin] = minf(top[bin], p.y)
+	var margin := radius * 0.08
+	var peaks := 0
+	for i in range(1, bins - 1):
+		if top[i] == INF or top[i - 1] == INF or top[i + 1] == INF:
+			continue
+		if top[i] < top[i - 1] - margin and top[i] < top[i + 1] - margin:
+			peaks += 1
+	return peaks
+
+
+func _aspect(id: StringName) -> float:
+	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for part in parts:
+		for p in part["points"]:
+			lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+			hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
+
+
+func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
+	# They are a pair and they are meant to be related, which is precisely the
+	# condition under which two shapes drift into being one. The miniboss and its
+	# chaff appear on screen together and constantly.
+	var king := Silhouettes.build_parts(&"rat_king", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	var rat := Silhouettes.build_parts(&"rat", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	assert_ne(king.size(), rat.size(), "the Rat King and the rat build identical polygon counts")
+	assert_true(_aspect(&"rat") > _aspect(&"rat_king"),
+		"the rat must be the flatter of the two: the pile is tall because it is a pile")
 
 
 func test_an_unknown_shape_is_reported_as_unknown() -> void:
@@ -409,11 +539,136 @@ func test_harmful_and_beneficial_rims_differ() -> void:
 func test_no_two_statuses_share_a_glyph() -> void:
 	# The whole job of these badges is telling one status from another. Two
 	# entries pointing at the same shape would pass every other check here.
+	#
+	# **This test is necessary and it is nowhere near sufficient, which is worth
+	# stating where the next person reads it.** It compares the arrays for
+	# equality, so it only ever catches a copy-paste. bleed and burn passed it
+	# for months while sharing 98% of their pixels, because a droplet and a
+	# flame are different arrays and the same picture. The test below is the one
+	# that would have caught that.
 	var seen: Array = []
 	for s in _every_status():
 		var g: Array = StatusIcons.GLYPHS[s]
 		assert_false(seen.has(g), "CG.Status.%s reuses another status's glyph" % CG.Status.keys()[s])
 		seen.append(g)
+
+
+## How much of a glyph's own box each of two glyphs covers differently, sampled
+## on a grid. A poor man's rasteriser, in pure GDScript, so the property can be a
+## test rather than a tool somebody remembers to run.
+##
+## `Geometry2D.is_point_in_polygon` does the real work for filled parts; dots and
+## strokes are distance tests. It is coarse on purpose -- badges are 17 pixels,
+## so a 24x24 sample is finer than the thing it models.
+func _glyph_coverage(glyph: Array, grid: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(grid * grid)
+	for gy in grid:
+		for gx in grid:
+			var p := Vector2(
+				(float(gx) + 0.5) / float(grid) * 2.0 - 1.0,
+				(float(gy) + 0.5) / float(grid) * 2.0 - 1.0)
+			var hit := 0
+			for part in glyph:
+				var rot := float(part.get("rot", 0.0))
+				var q := p.rotated(-rot)
+				if part.has("poly"):
+					var poly := PackedVector2Array()
+					for v in part["poly"]:
+						poly.append(Vector2(v[0], v[1]))
+					if Geometry2D.is_point_in_polygon(q, poly):
+						hit = 1
+				elif part.has("dot"):
+					var d: Array = part["dot"]
+					if q.distance_to(Vector2(d[0], d[1])) <= float(d[2]):
+						hit = 1
+				elif part.has("arc"):
+					var a: Array = part["arc"]
+					var w: float = float(part.get("w", 0.18)) * 0.5
+					if absf(q.distance_to(Vector2(a[0], a[1])) - float(a[2])) <= w:
+						hit = 1
+				elif part.has("line"):
+					var pts: Array = part["line"]
+					var w2: float = float(part.get("w", 0.18)) * 0.5
+					for i in range(pts.size() - 1):
+						var s := Vector2(pts[i][0], pts[i][1])
+						var e := Vector2(pts[i + 1][0], pts[i + 1][1])
+						if Geometry2D.get_closest_point_to_segment(q, s, e).distance_to(q) <= w2:
+							hit = 1
+				if hit == 1:
+					break
+			out[gy * grid + gx] = hit
+	return out
+
+
+func _glyph_difference(a: PackedByteArray, b: PackedByteArray) -> float:
+	var differing := 0
+	for i in a.size():
+		if a[i] != b[i]:
+			differing += 1
+	return float(differing) / float(a.size())
+
+
+func test_no_two_status_glyphs_are_the_same_picture() -> void:
+	# THE TEST THAT WOULD HAVE CAUGHT BLEED AND BURN, and the reason it exists is
+	# that the header of StatusIcons.gd asserted "no two share an outline" for
+	# months and it was false. A droplet and a flame are different arrays and the
+	# same picture; measured on screen they disagreed on 2.1% of their pixels,
+	# flat from 12px to 32px.
+	#
+	# The full measurement is `Tools/BadgeLegibility.tscn`, which renders and
+	# compares real pixels. This is its cheap shadow: a grid sample of the glyph
+	# alone, no plate, no rim, no rendering. It cannot replace the tool -- it
+	# knows nothing about how much of the badge the glyph occupies -- but it
+	# guards the one thing the tool found, and it runs in the gate.
+	#
+	# Only same-category pairs are checked, because rim colour and plate
+	# direction already separate harmful from helpful and no glyph has to.
+	var grid := 24
+	var coverage := {}
+	for s in _every_status():
+		coverage[s] = _glyph_coverage(StatusIcons.GLYPHS[s], grid)
+
+	var worst := 1.0
+	var worst_pair := ""
+	for a in _every_status():
+		for b in _every_status():
+			if a >= b or CG.is_harmful(a) != CG.is_harmful(b):
+				continue
+			var d := _glyph_difference(coverage[a], coverage[b])
+			if d < worst:
+				worst = d
+				worst_pair = "%s/%s" % [CG.Status.keys()[a], CG.Status.keys()[b]]
+	# Measured after the #130 rework: the closest same-category glyph pair
+	# differs on about a quarter of its own box. The floor is set well under
+	# that so ordinary redrawing does not trip it, and well over the 6% the old
+	# droplet-and-flame pair scored on this same measure.
+	assert_true(worst > 0.12,
+		("the closest same-category glyph pair is %s at %.1f%% of their own box. "
+		+ "Two badges that similar are one badge on a 17px unit -- redraw one, "
+		+ "and re-run Tools/BadgeLegibility.tscn for the on-screen number.") % [
+			worst_pair, worst * 100.0])
+
+
+func test_the_glyph_similarity_detector_actually_fires() -> void:
+	# A detector shipped without this is the failure mode this project has
+	# written down: sixteen tests asserting a warning is well-formed when it
+	# fires, none asserting it fires at all. Feed it the exact pair that started
+	# this -- a droplet and the flame it was indistinguishable from -- and assert
+	# it would have caught them.
+	var droplet := [{"poly": [
+		[0.0, -0.8], [0.42, -0.05], [0.42, 0.3], [0.18, 0.65],
+		[-0.18, 0.65], [-0.42, 0.3], [-0.42, -0.05]]}]
+	var flame: Array = StatusIcons.GLYPHS[CG.Status.BURN]
+	var d := _glyph_difference(_glyph_coverage(droplet, 24), _glyph_coverage(flame, 24))
+	assert_true(d <= 0.12,
+		"the old droplet scores %.1f%% against the flame, above the floor -- this detector is inert" % [d * 100.0])
+	# And the negative half: the shape that REPLACED it must clear the floor, or
+	# the detector is simply rejecting everything.
+	var slash: Array = StatusIcons.GLYPHS[CG.Status.BLEED]
+	var d2 := _glyph_difference(_glyph_coverage(slash, 24), _glyph_coverage(flame, 24))
+	assert_true(d2 > 0.12,
+		"the replacement slash scores %.1f%% against the flame, so it is no better" % [d2 * 100.0])
 
 
 func test_every_reachable_action_has_an_icon() -> void:
@@ -426,11 +681,65 @@ func test_every_reachable_action_has_an_icon() -> void:
 		assert_true(ActionIcons.has_glyph(id), "action %s has no icon in ActionIcons.GLYPHS" % id)
 
 
+## Icons drawn before the content that will use them exists.
+##
+## **This list breaks a genuine deadlock rather than excusing a mistake.** Art
+## and content for one enemy are two commits in two files owned by two sessions,
+## and each is red without the other: an icon with no action fails the test
+## below, and an action with no icon fails `test_every_reachable_action_has_an
+## _icon`. Whichever merges first turns the trunk red for the other. heron put
+## it exactly right on #148 -- *"you cannot add an enemy to this game without one
+## commit in `Scripts/Art`"* -- and that coupling is fine as long as it does not
+## also mean the trunk cannot be green until both land in the same minute.
+##
+## **Every entry here is temporary and this list deletes itself.** The check
+## below asserts the reason for each entry is STILL TRUE, so the moment the
+## action reaches the registry the entry is stale and the gate says so, naming
+## the line to remove. A comment saying "remove this later" rots; an assertion
+## that the excuse still applies cannot.
+const _ICONS_AHEAD_OF_CONTENT := {
+	# heron's #162. Delete this one the same time that branch merges.
+	# heron's #148. Delete these three the same time that branch merges.
+}
+
+
 func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> void:
 	# The other direction: an icon left behind after content deletes an action
 	# is dead weight and, worse, evidence that the two have drifted.
 	for id in ActionIcons.GLYPHS.keys():
+		if _ICONS_AHEAD_OF_CONTENT.has(id):
+			continue
 		assert_not_null(Registry.get_action(id), "ActionIcons has an icon for %s, which the registry does not define" % id)
+
+
+func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
+	# The expiry date on the list above. Without this the exemption outlives its
+	# reason, and the next icon left behind by deleted content hides inside it.
+	#
+	# **Collected and asserted once rather than asserted inside the loop, and
+	# that is not a style choice.** The loop version made zero assertions when
+	# the list was empty, and this project's gate correctly fails a test that
+	# records none -- so emptying the list, which is the SUCCESSFUL end state
+	# this whole mechanism exists to reach, turned the trunk red with the
+	# message "it crashed part-way, or it asserts nothing". Whoever deleted the
+	# last three lines would have been told they had broken something.
+	#
+	# Found by doing it: merging heron's branch in a scratch worktree, deleting
+	# the three lines and running the gate. Reading this test would never have
+	# shown it, because the bug is in the case where the loop does not run.
+	var stale: Array[String] = []
+	var described_nothing: Array[String] = []
+	for id in _ICONS_AHEAD_OF_CONTENT:
+		if not ActionIcons.GLYPHS.has(id):
+			described_nothing.append(String(id))
+		if Registry.get_action(id) != null:
+			stale.append("%s (%s)" % [id, _ICONS_AHEAD_OF_CONTENT[id]])
+	assert_eq(described_nothing, [] as Array[String],
+		"_ICONS_AHEAD_OF_CONTENT names ids with no icon at all, so those entries describe nothing")
+	assert_eq(stale, [] as Array[String],
+		("the registry now defines these, so their icons are no longer ahead of content. "
+		+ "DELETE their lines from _ICONS_AHEAD_OF_CONTENT in this file -- that is the whole fix, "
+		+ "and an empty list is the correct end state rather than a problem."))
 
 
 func test_status_backed_action_icons_resolve_to_the_status_glyph() -> void:
@@ -591,6 +900,133 @@ func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 	DirAccess.remove_absolute(path)
 	UIArt.clear_cache()
 	assert_eq(UIArt.texture_for(art_name), null, "the override survived its own deletion")
+
+
+# ---------------------------------------------------------------------------
+# BLEED stack count (#130). The player: "Bleed should differentiate itself from
+# poison in that it does damage less often but stacks infinitely", and the issue
+# is explicit that a badge identical at one stack and at nine fails their own
+# definition of done.
+#
+# Geometry only. Whether a five-pixel digit is legible is not testable and was
+# not guessed at: Tools/StackBadgeSheet.tscn renders it at the real 17.4px and
+# at 4x, and the screenshots are committed.
+# ---------------------------------------------------------------------------
+
+const _BADGE := Rect2(Vector2(10.0, 20.0), Vector2(17.4, 17.4))
+
+
+func test_one_stack_draws_no_count_at_all() -> void:
+	# The property that made it safe to add an argument to `draw_status` rather
+	# than to write a second function: every existing call site keeps its old
+	# behaviour without being edited. Eleven statuses cannot stack and a badge
+	# that always carried "1" would be noise on all of them.
+	assert_false(StatusIcons.shows_stack_count(1))
+	assert_false(StatusIcons.shows_stack_count(0))
+	assert_false(StatusIcons.shows_stack_count(-3))
+	assert_true(StatusIcons.shows_stack_count(2))
+	assert_true(StatusIcons.shows_stack_count(140))
+
+
+func test_the_count_is_capped_at_two_digits_and_says_so() -> void:
+	# The tab is about ten pixels wide on screen. A third digit is not a number,
+	# it is a smudge. The cap loses real information -- BLEED stacks infinitely --
+	# so it shows "99+" rather than a wrong number.
+	assert_eq(StatusIcons.stack_text(2), "2")
+	assert_eq(StatusIcons.stack_text(9), "9")
+	assert_eq(StatusIcons.stack_text(10), "10")
+	assert_eq(StatusIcons.stack_text(99), "99")
+	assert_eq(StatusIcons.stack_text(100), "99+")
+	assert_eq(StatusIcons.stack_text(140), "99+")
+
+
+func test_the_count_never_reaches_into_the_next_badge() -> void:
+	# Found by rendering a row of four: a tab overhanging to the right landed on
+	# top of the neighbouring status's badge. `layout_row` uses a three pixel
+	# gap, so the only safe rule is that the tab never exceeds the badge's own
+	# width -- it grows upward or downward, never outward.
+	for stacks in [2, 9, 10, 99, 140]:
+		for size in [12.0, 17.4, 40.0, 78.0]:
+			var rect := Rect2(Vector2(5.0, 5.0), Vector2(size, size))
+			var tab := StatusIcons.stack_count_rect(CG.Status.BLEED, rect, stacks)
+			assert_true(tab.size.x <= rect.size.x + 0.01,
+				"at %d stacks and size %.1f the tab is %.1f wide against a %.1f badge" % [
+					stacks, size, tab.size.x, rect.size.x])
+			assert_true(tab.end.x <= rect.end.x + 0.01,
+				"the tab's right edge is outside the badge at %d stacks" % stacks)
+
+
+func test_the_count_never_covers_the_plate_point() -> void:
+	# THE ONE THAT MATTERS, and the first version failed it.
+	#
+	# These plates point DOWN when harmful and UP when helpful, and
+	# Assets/UI/README.md promises the player that the direction carries the same
+	# information as the colour, "so it still works for a player who cannot
+	# separate red from green". A tab in the bottom-right corner sits exactly on
+	# a harmful plate's point and rubs it out. That is a picture replacing
+	# information, it is this project's house rule, and no test or screenshot
+	# review would have caught it -- I caught it by looking at the render.
+	#
+	# So: the tab must stay in the half of the badge AWAY from the point.
+	for stacks in [2, 27, 140]:
+		var harmful := StatusIcons.stack_count_rect(CG.Status.BLEED, _BADGE, stacks)
+		assert_true(harmful.end.y <= _BADGE.position.y + _BADGE.size.y * 0.5,
+			"a harmful badge points down and its %d-stack tab reaches y=%.1f, into the point" % [
+				stacks, harmful.end.y])
+		var helpful := StatusIcons.stack_count_rect(CG.Status.SHIELD, _BADGE, stacks)
+		assert_true(helpful.position.y >= _BADGE.position.y + _BADGE.size.y * 0.5,
+			"a helpful badge points up and its %d-stack tab reaches y=%.1f, into the point" % [
+				stacks, helpful.position.y])
+
+
+func test_the_count_sits_on_opposite_edges_for_harmful_and_helpful() -> void:
+	# The negative half of the test above. Without it, a `stack_count_rect` that
+	# always returned a tab in the middle would satisfy both assertions there for
+	# neither of the right reasons.
+	var harmful := StatusIcons.stack_count_rect(CG.Status.BLEED, _BADGE, 5)
+	var helpful := StatusIcons.stack_count_rect(CG.Status.SHIELD, _BADGE, 5)
+	assert_true(harmful.position.y < helpful.position.y,
+		"harmful and helpful tabs sit at the same height; the plate direction is not being read")
+	# And each overhangs its own flat edge rather than sitting wholly inside,
+	# which is what keeps the glyph full size on a stacking badge.
+	assert_true(harmful.position.y < _BADGE.position.y,
+		"the harmful tab does not overhang the top edge, so it is eating the glyph")
+	assert_true(helpful.end.y > _BADGE.end.y,
+		"the helpful tab does not overhang the bottom edge, so it is eating the glyph")
+
+
+func test_the_count_grows_with_the_badge() -> void:
+	# A hover panel draws these much larger than a unit does. A tab sized in
+	# absolute pixels would be invisible there and enormous here.
+	var small := StatusIcons.stack_count_rect(CG.Status.BLEED, Rect2(Vector2.ZERO, Vector2(16.0, 16.0)), 7)
+	var large := StatusIcons.stack_count_rect(CG.Status.BLEED, Rect2(Vector2.ZERO, Vector2(80.0, 80.0)), 7)
+	assert_true(large.size.y > small.size.y * 4.0,
+		"the tab does not scale with the badge: %.1f at 16px and %.1f at 80px" % [small.size.y, large.size.y])
+
+
+const IconsOverlay := preload("res://Tools/IconsOverlay.gd")
+const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
+const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
+
+
+func test_the_diagnostic_harness_draws_badges_at_the_size_the_game_does() -> void:
+	# Tools/IconsOverlay.gd is the harness every judgement about these badges has
+	# been made on, including a fresh-eyes playtest that called them "invisible
+	# at 1x". It hardcoded 14.0 and 16.0 raw pixels while the game draws 17.4 and
+	# 19.9 -- so it understated them by about 20% and nobody could tell, because
+	# a preview that is wrong in one direction still looks like a preview.
+	#
+	# An instrument that disagrees with the thing it measures is worse than no
+	# instrument. This is the guard that stops the two drifting again.
+	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
+	assert_almost_eq(IconsOverlay.badge_px(scale), UnitViewScript.STATUS_BADGE_SIZE * scale, 0.001,
+		"the harness draws badges at a different size from UnitView")
+	assert_almost_eq(IconsOverlay.icon_px(scale), UnitViewScript.WIND_UP_ICON_SIZE * scale, 0.001,
+		"the harness draws wind-up icons at a different size from UnitView")
+	# The negative half: these must actually differ from the old hardcoded
+	# numbers, or the test passes while proving nothing was fixed.
+	assert_true(absf(IconsOverlay.badge_px(scale) - 14.0) > 1.0,
+		"badge_px is back at the old hardcoded 14.0")
 
 
 func test_status_row_layout_is_evenly_spaced_and_measurable() -> void:

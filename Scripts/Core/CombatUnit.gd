@@ -78,6 +78,22 @@ var facing: Vector2 = Vector2.ZERO
 ## rest of the derived-at-apply-time state on this shape.
 var taunt_radius: float = 0.0
 
+## Issue 61. The sustained action this unit is currently holding, or &"" when it
+## is holding nothing -- which is every unit in every fight until content
+## authors an action with `sustain_cost_per_tick > 0`.
+##
+## Stored here rather than derived, on exactly the `taunt_radius` precedent: a
+## status the rest of the game can see (CG.Status.SUSTAINING) with its magnitude
+## -- here, *which* action -- kept on the unit beside it. CombatSim is the only
+## writer and sets both in the same two places, so the pair cannot drift.
+var sustaining: StringName = &""
+
+## The tick the current channel began, or -1 when nothing is held. Carried into
+## SUSTAIN_END.amount so a log line can say how long a pawn held it, which is
+## otherwise unrecoverable after the fact for the same reason
+## `action_ticks_total` had to exist.
+var sustain_started_tick: int = -1
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""
@@ -103,6 +119,40 @@ var cooldowns: Dictionary = {}
 
 ## Keyed by CG.Status, value is the tick the status expires.
 var statuses: Dictionary = {}
+
+## What each status is carrying BEYOND its expiry tick, keyed by CG.Status.
+## Absent means 0.0, which is every status that existed before this field and
+## every status that does not store anything.
+##
+## **A status used to be a duration and nothing else**, and two of the player's
+## rulings need it to remember one more number. The unit that number is in is
+## decided per status, in one table in `CombatSim`, and there are exactly two
+## kinds today:
+##
+##   - **BLEED: a stack count.** Applying it again adds one. Damage per tick is
+##     per stack, so bleed punishes being hit *often*.
+##   - **BURN: the damage of the hit that applied it.** Damage per tick scales
+##     off that, so burn punishes being hit *hard* -- and an action that
+##     consumes the burn gets a bonus scaled by the same number, so how hard
+##     Scald landed decides how much Blast gets back.
+##
+## (POISON stores nothing and scales off the target's max health, so the three
+## damage-over-time statuses have three different scaling rules on purpose.)
+##
+## ONE Dictionary rather than one per meaning, and beside `statuses` rather than
+## inside it: that Dictionary's value is the expiry tick, and packing a second
+## number into it is how two quantities start disagreeing. Two separate fields
+## for "stacks" and "magnitude" would be the same mistake one level up -- a
+## status remembering a thing is one mechanism, not two.
+##
+## CombatSim is the only writer, and every path that erases a status erases the
+## magnitude with it (`CombatSim._remove_status`), so the pair cannot drift --
+## the `taunt_radius`/`sustaining` precedent.
+##
+## Read by the badges: sable draws BLEED's as a count and BURN's as a strength.
+## A badge identical at one stack and at nine, or on a burn worth 2 and one
+## worth 40, fails the player's own definition of done.
+var status_magnitude: Dictionary = {}
 
 ## Action ids available to this unit, from class, equipment and enemy
 ## definition combined at build time.

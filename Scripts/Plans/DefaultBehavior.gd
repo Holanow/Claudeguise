@@ -195,9 +195,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 ## and an ally is never a marked-target candidate.
 static func _all_attacks_require_a_mark(actions: Array[ActionDef]) -> bool:
 	var found := false
-	for a in actions:
-		if a.heals:
-			continue
+	for a in _attack_candidates(actions):
 		if not a.requires_marked_target:
 			return false
 		found = true
@@ -259,33 +257,86 @@ static func _heal_candidates(state: CombatState, unit: CombatUnit, heal_action: 
 		out.append(unit)
 	return out
 
-static func _first_non_heal(actions: Array[ActionDef]) -> ActionDef:
+## Issue 129: an action a unit attacks *with*. Not a heal, and able to do damage
+## at all.
+##
+## `power_scale > 0.0` is the same rule `_first_heal` above already applies in
+## the other direction, and it is what makes the choice below independent of
+## list order. Guard, Taunt, Directional Block, Haste, Ward and Build Siege
+## Engine all deal no damage: each is a real action, none of them is a way to
+## attack somebody, and a unit that "attacked" with one would stand in place
+## casting a self-buff at an enemy forever.
+##
+## Inert on the content that existed before issue 129, checked action by action:
+## every unit's first non-heal entry already had power_scale > 0.0, so the same
+## action is chosen. It stops being inert the moment a class's free attack comes
+## off its list and onto its weapon, which is exactly when a zero-power action
+## would otherwise have inherited the fallback.
+static func _attack_candidates(actions: Array[ActionDef]) -> Array[ActionDef]:
+	var out: Array[ActionDef] = []
 	for a in actions:
-		if not a.heals:
-			return a
-	return null
-
-## Issue 62: among a unit's non-heal actions, prefers whichever one's own
-## melee-vs-ranged shape matches the target's current distance -- melee if
-## already (or almost) in a melee action's own commit range, ranged
-## otherwise. Falls back to `_first_non_heal`'s exact behaviour (the first
-## non-heal action, in list order) whenever there is nothing to choose
-## between: no candidates, only one, or every candidate on the same side of
-## MELEE_RANGE_THRESHOLD. That covers every unit in the game today except
-## The Warden, the only one carrying both a melee and a ranged action.
-static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, target: CombatUnit) -> ActionDef:
-	var melee: ActionDef = null
-	var ranged: ActionDef = null
-	for a in actions:
-		if a.heals:
+		if a.heals or a.power_scale <= 0.0:
 			continue
-		if a.range_units > MELEE_RANGE_THRESHOLD:
-			if ranged == null:
-				ranged = a
-		elif melee == null:
-			melee = a
-	if melee == null or ranged == null:
-		return _first_non_heal(actions)
+		out.append(a)
+	return out
+
+## The cheapest of `actions`, ties broken by list order. Null on an empty array.
+##
+## **This is the rule that replaces "whatever is first in the list", and that
+## rule is why three sessions lost time.** `geyser_spout` had to be *placed
+## first* to work; `warden_chain_toss` never fired for the same reason; every
+## class comment in `starting_classes.gd` used to carry a paragraph explaining
+## the ordering. None of it survives a basic attack that arrives from an item,
+## because `Registry.actions_for_pawn` appends equipment grants last and
+## `CombatSim` builds the same union the same way.
+##
+## Cost, not position, because in this game a basic attack *is* the free one:
+## `resource_cost == 0` is what every one of Strike, Bolt, Spout, Shot and Claw
+## has in common, and what Execute, Smite, Blast, Hook and Spotter's Mark do
+## not. A pawn falls back to the thing it can always pay for and reaches the
+## expensive ability through a plan, which is where the player can see it.
+##
+## Behaviour-identical on today's content: in every bucket where a unit has more
+## than one attack, the free one already sat first. The Warden's two actions are
+## both free and in different buckets, so it is untouched.
+static func _cheapest(actions: Array[ActionDef]) -> ActionDef:
+	var best: ActionDef = null
+	for a in actions:
+		if best == null or a.resource_cost < best.resource_cost:
+			best = a
+	return best
+
+## The attack this fallback would reach for on one side of
+## `MELEE_RANGE_THRESHOLD`, or null when it owns none on that side.
+##
+## **Public on purpose, and it is the fix for a drift that has already happened
+## twice on this project.** `Scripts/UI/InspectPanel.gd` draws the immutable
+## "default row" that tells a player what a pawn does when no plan fires -- issue
+## 98's principle in its most direct form -- and it did that by keeping its own
+## copy of this rule, written as "the first non-heal action on the requested
+## side, in list order". A copy of a rule is a copy that goes stale: the same
+## shape put `starting_actions` in the plan editor and `starting_actions plus
+## equipment` in the fight (issue 100), and this is the one shared function that
+## made those two agree again. One definition, two callers.
+static func default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
+	var side: Array[ActionDef] = []
+	for a in _attack_candidates(actions):
+		if (a.range_units > MELEE_RANGE_THRESHOLD) == want_ranged:
+			side.append(a)
+	return _cheapest(side)
+
+## Issue 62: among a unit's attacks, prefers whichever one's own melee-vs-ranged
+## shape matches the target's current distance -- melee if already (or almost)
+## in a melee action's own commit range, ranged otherwise. With only one side
+## present it uses that side. The Warden is still the only unit in the game
+## carrying both a melee and a ranged attack.
+static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, target: CombatUnit) -> ActionDef:
+	var melee := default_attack_action(actions, false)
+	var ranged := default_attack_action(actions, true)
+	if melee == null:
+		return ranged
+	if ranged == null:
+		return melee
 	var dist := unit.position.distance_to(target.position)
 	if dist <= melee.range_units * MELEE_COMMIT_FRACTION:
 		return melee
@@ -326,6 +377,33 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 		return nearest
 	return focused if state.rng.randf() < enemy_def.focus_bias else nearest
 
+## **Issue 132 asked whether this should go, now that `CombatSim._decide_phase`
+## compels a TAUNTED unit outright. It stays, and the reason is a real
+## behavioural gap rather than caution.**
+##
+## The two are keyed on different things. The compulsion reads **TAUNTED**, which
+## `_apply_taunt` stamps on everyone inside the radius **at the moment the taunt
+## is cast**. This reads **TAUNTING**, which sits on the taunter for the whole
+## duration. So a unit that walks *into* the radius after the cast is never
+## TAUNTED and the compulsion does not see it at all; this is the only thing that
+## makes it prefer the taunter.
+##
+## That is a seam, not a duplicate: the hard mechanism covers who was there when
+## the shout went up, the soft one covers who arrives during it. **swift: if you
+## want the compulsion to own both, it needs to re-stamp TAUNTED per tick on
+## radius membership -- the shape `_tick_hazards` already uses -- and then this
+## can go. That is your call and a behaviour change, so I have not made it.**
+##
+## Also checked rather than assumed, and it is the more interesting half:
+## `EnemyDef.spawn_taunt_radius` -- the permanent aura this function was
+## originally written for -- **is set by no enemy in the game.** `_enemy()` in
+## `core_actions.gd` does not even take the parameter. So that field and the
+## `CombatSim` branch that reads it are a matched unreachable pair, and heron's
+## Brute comment explains why nobody wants it: at `CG.MAX_TICKS` it is exactly
+## the permanent lock the player's #58 ruling forbids. rook, that is worth an
+## issue -- a Core field, a sim branch and a doc comment describing a mechanism
+## no content can reach.
+##
 ## The nearest living, opposing candidate carrying TAUNTING whose own
 ## taunt_radius reaches `unit` -- null when nobody taunting is in range,
 ## the natural "taunt does not apply" case. Deterministic: iterates the same

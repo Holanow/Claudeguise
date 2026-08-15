@@ -16,6 +16,36 @@ super satisfying and fun — I should be eager to try out every team
 combination."* And, ruling out the rest: *"This should really be one room,
 nothing else. For now at least."*
 
+**And it now has a finish line, in the player's words:**
+
+> "Single room combat is done when I can watch a fight **without pausing** and
+> broadly follow what happened **and why**, and when that process is
+> interesting and engaging enough to get me to want to do it again."
+
+Read that against any change you are about to make. It is not "the fight is
+balanced" and it is not "every feature is built" — it is **legible without
+pausing, and worth repeating**. The "and why" is the demanding half: a player
+who can see *that* a pawn retreated but not *why* has not met it, which is the
+same thing the pawn-behaviour principle below is about.
+
+The player is playing a cut of it periodically and leaving specific notes.
+Those notes are the measurement.
+
+**The order the game gets built in**, in the player's words:
+
+> "we're building out so a solid 1 room combat, then a solid 1st floor, then the
+> rest"
+
+So the parked work below is **next, not indefinite** — floor 1 follows this, and
+floors 2 to 7 are far enough away that designing for them is waste. `README.md`
+has a full bestiary of seven bosses and seven mini-bosses; **only The Warden and
+the Rat King are floor 1**, and the other twelve are not worth anyone's time
+yet. Same for shops, the ascent, and the Gate Guardian.
+
+This is a reason to keep parked issues parked rather than a reason to start
+them. It is written down so nobody reads "one room, nothing else" as "floors are
+cancelled", and nobody reads the bestiary as a work queue.
+
 Floors, runs, room sequencing, shops and between-floor economy are **parked**,
 and their issues carry the `parked-not-single-room` label. Do not work them, and
 do not use a floor-run measurement as evidence for a single-room decision.

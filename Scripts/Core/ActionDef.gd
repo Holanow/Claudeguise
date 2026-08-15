@@ -79,6 +79,41 @@ const CG := preload("res://Scripts/Core/CG.gd")
 @export var applies_status_enabled: bool = false
 @export var status_duration_ticks: int = 0
 
+## A status this action strips off its target for a bonus, scaled by what that
+## status was carrying. Disabled on every action that exists today.
+##
+## `consumes_status_enabled` rather than a NONE sentinel because
+## `CG.Status.SHIELD` is 0 -- the same reason `applies_status_enabled` sits
+## beside `applies_status` directly above.
+##
+## THE FIRST COMBO IN THE GAME. The player's design: Scald applies BURN and
+## Blast consumes it. Nothing in `CombatSim` has ever had one action read and
+## clear a status another action applied, and it is what gives the Geysermancer's
+## two damage actions a reason to be used in an order rather than a list to pick
+## the best entry from.
+##
+## `consumed_power_scale` is a **multiplier on the consumed status's own stored
+## magnitude** (`CombatUnit.status_magnitude`), not a flat bonus. That is the
+## player's rule and it is deliberately about every future consume rather than
+## about Blast: *"the geysermancer damage boost on burn consume will also change
+## based on the damage of the burn it's consuming. This will be the norm for burn
+## consume effects."* Any action that later eats a burn inherits the behaviour by
+## setting this field, instead of somebody reimplementing the idea and getting it
+## subtly different.
+##
+## So the same stored number is read at both ends: it sets how hard the burn
+## ticks, and it sets what consuming the burn pays. A burn from a big hit is
+## worth more on both counts, which is why re-application takes the max rather
+## than overwriting -- a weak follow-up hit must not quietly devalue a combo the
+## player has already planned around.
+##
+## 0.0 means the consume is free of bonus, which is what every action gets until
+## content sets a number, so this lands inert exactly like `pull_distance` and
+## `projectile_speed` before it.
+@export var consumes_status: CG.Status = CG.Status.SHIELD
+@export var consumes_status_enabled: bool = false
+@export var consumed_power_scale: float = 0.0
+
 ## An `EnemyDef` id this action builds, on the caster's own team. Empty means
 ## the action summons nothing, which is every action that exists today, so
 ## adding this changes no behaviour and invalidates no measurement.
@@ -143,6 +178,24 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## above for why the cap, not the mark action, is what made it viable.
 @export var requires_marked_target: bool = false
 
+## Resource this action's wielder gains when it lands. Zero for every action
+## that existed before it, so nothing changes until content sets it.
+##
+## The player: *"The default attack of any magic class should restore a small
+## amount of mana."* That cannot be content-only -- `CombatSim._on_hit_landed`
+## returns early unless the resource kind is RAGE, so nothing in the game can
+## gain resource from a landed hit except a Rage pawn.
+##
+## A field on the action rather than widening that branch to "any landed hit",
+## deliberately: the symmetric version would make Smite and Blast fund
+## themselves, which is not what was asked for and is a much larger balance
+## change than a basic attack paying for itself.
+##
+## Both actions this is wanted on are **projectiles**, so the projectile
+## resolution path is the one that has to carry it -- `_on_hit_landed` does not
+## currently take the action. finch found that; it is the part that will bite.
+@export var restores_resource: int = 0
+
 ## How far this action drags its target toward the caster, in arena units. Zero
 ## means it does not pull, which is every action that exists today.
 ##
@@ -200,3 +253,31 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## nothing prefers a summon over the nearest pawn, which makes a summoner just a
 ## fragile damage dealer. One mechanism, two classes.
 @export var taunt_radius: float = 0.0
+
+## Issue 61. Resource charged to the caster on every tick this action is held.
+## 0 means the action is not sustained, which is every action that exists today,
+## so adding this changes no behaviour and invalidates no measurement -- the same
+## inert-by-default pattern as pull_distance, summons_unit_id and
+## projectile_speed before it.
+##
+## **This is the first action in the game that is not a point in time.**
+## Everything else resolves as wind-up, fire, recover. A sustained action fires
+## once and is then *held*: it deals its effect and charges this cost on every
+## tick, for as long as the pawn's plan keeps choosing it.
+##
+## The player's direction for the Abomination's Immolate: "damage to enemies
+## nearby that costs rage per tick". Immolate is retired from the game entirely
+## today because this mechanism did not exist.
+##
+## `resource_cost` is unchanged and still charged once, at commit. The two are
+## different things: what it costs to light, and what it costs to keep burning.
+@export var sustain_cost_per_tick: int = 0
+
+## World units around the caster a held effect reaches on each tick. Every
+## living enemy inside it takes the action's effect, the same
+## membership-per-tick shape `_tick_hazards` already uses for standing in fire.
+##
+## A nonzero `sustain_cost_per_tick` with this left at 0 is a channel that
+## charges the caster and reaches nothing. `Tests/test_combat_sustain.gd`
+## asserts content never authors that pair.
+@export var sustain_radius: float = 0.0

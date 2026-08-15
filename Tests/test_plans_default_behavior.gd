@@ -10,6 +10,7 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## DefaultBehavior tested two ways: direct decide() calls for the precise,
 ## single-decision cases (heals fire only when needed), and a real
@@ -316,3 +317,105 @@ func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> voi
 		"DefaultBehavior picked the cleanse; its only route into a fight is its own preset plan")
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
 	assert_eq(intent.target_id, enemy.id, "with no real heal in the kit it should be attacking")
+
+# ---------------------------------------------------------------------------
+# Issue 129: the fallback picks the cheapest action that can deal damage,
+# not the first non-heal entry in the list.
+#
+# **This replaces a rule that cost three sessions time.** `geyser_spout` had to
+# be *placed first* in `starting_actions` to be used at all; `warden_chain_toss`
+# never fired once because the axe sat in front of it; every class in
+# `starting_classes.gd` carried a comment explaining the ordering. None of that
+# could survive the basic attack arriving from a weapon, because
+# `Registry.actions_for_pawn` and `CombatSim._collect_player_actions` both
+# append equipment grants *after* the class's own actions.
+#
+# Each case below is a decision the old rule got wrong, run through `decide()`
+# rather than through the private helper, so it fails if the rule is right and
+# unreachable.
+# ---------------------------------------------------------------------------
+
+func _pawn_unit_with(actions: Array[StringName], resource: int) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = 0
+	u.team = CG.Team.PLAYER
+	u.position = Vector2.ZERO
+	u.hp_max = 100
+	u.hp = 100
+	u.move_speed = 3.0
+	u.resource_kind = CG.ResourceKind.RAGE
+	u.resource_max = 100
+	u.resource = resource
+	u.actions = actions
+	return u
+
+func _decide_against_a_dummy(unit: CombatUnit, enemy_at: float) -> Intent:
+	var enemy := _immobile_dummy(1, CG.Team.ENEMY, Vector2(enemy_at, 0.0))
+	var state := CombatState.new(0)
+	state.units.append(unit)
+	state.units.append(enemy)
+	return DefaultBehavior.decide(state, unit)
+
+## The exact case the equipment grant creates: a class action first, the
+## weapon's attack last. Under the old first-in-list rule this Warrior would
+## have "attacked" with Guard -- a self-buff with no damage in it -- and stood
+## there recasting it.
+func test_the_fallback_skips_an_action_that_cannot_damage_anything() -> void:
+	var unit := _pawn_unit_with([&"warrior_guard", &"warrior_taunt", &"warrior_strike"], 100)
+	var intent := _decide_against_a_dummy(unit, 20.0)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.action_id, &"warrior_strike",
+		"Guard and Taunt deal no damage; neither is a way to attack somebody")
+
+## Free beats cheap beats first. Strike sits last and still wins, which is the
+## whole claim: order no longer decides anything.
+func test_the_fallback_takes_the_cheapest_attack_not_the_first_one() -> void:
+	var unit := _pawn_unit_with([&"warrior_execute", &"warrior_strike"], 100)
+	var intent := _decide_against_a_dummy(unit, 20.0)
+	assert_eq(intent.action_id, &"warrior_strike",
+		"Execute costs 20 Rage and Strike costs nothing; the fallback is what a pawn can always pay for")
+
+## The positive half of the pair, and the one that would catch a filter so
+## strict it lets nothing through. A Warrior with its weapon taken away still
+## has Execute, and must reach for it rather than idling -- a free zero-power
+## Taunt is present and must not be mistaken for the cheapest attack.
+func test_a_pawn_with_only_an_expensive_attack_still_uses_it() -> void:
+	var unit := _pawn_unit_with([&"warrior_taunt", &"warrior_execute"], 100)
+	var intent := _decide_against_a_dummy(unit, 20.0)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.action_id, &"warrior_execute",
+		"the only damaging action it owns, whatever it costs")
+
+## And the end-to-end version through the real builder, because every case above
+## hands `decide()` a list this test does not. `CombatSim.build` is what puts a
+## weapon's grant into `unit.actions`, and the two are separate code paths.
+func test_a_real_built_warrior_falls_back_to_the_attack_its_sword_grants() -> void:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w0", "Warrior")]
+	party[0].plans = []
+	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 0)
+	var warrior: CombatUnit = null
+	for u in state.units:
+		if u.pawn != null:
+			warrior = u
+	assert_not_null(warrior, "no Warrior was built")
+	assert_true(warrior.actions.has(&"warrior_strike"),
+		"the Sword's grant did not reach the fight")
+	var intent := DefaultBehavior.decide(state, warrior)
+	assert_true(intent != null and (intent.kind != CG.IntentKind.USE_ACTION or intent.action_id == &"warrior_strike"),
+		"a built Warrior should approach or Strike, never cast something it cannot pay for")
+
+## The Warden is the one unit carrying both a melee and a ranged attack, and it
+## is why the melee-versus-ranged split exists at all (issue 62). Both of its
+## actions are free, so the cheapest rule must not collapse the choice back to
+## one of them: near, the axe; far, the chain.
+func test_the_wardens_two_attacks_both_still_get_used() -> void:
+	# On the PLAYER side only because `_decide_against_a_dummy` puts its dummy on
+	# the ENEMY one. DefaultBehavior reads `unit.team` to find its foes and
+	# nothing else about the side, which is what makes it drive both.
+	var near := _unit(0, CG.Team.PLAYER, &"the_warden", Vector2.ZERO)
+	var near_intent := _decide_against_a_dummy(near, 15.0)
+	assert_eq(near_intent.action_id, &"warden_axe", "in its face, the axe")
+	var far := _unit(2, CG.Team.PLAYER, &"the_warden", Vector2.ZERO)
+	var far_intent := _decide_against_a_dummy(far, 190.0)
+	assert_eq(far_intent.action_id, &"warden_chain_toss",
+		"out of axe reach, the chain -- the thing that never fired before issue 62")

@@ -151,6 +151,140 @@ func _kinds(enc: Encounter) -> Array:
 	return out
 
 
+## **Issue #121, and board rule 1 is the whole reason this test exists: a win
+## table cannot see a dead mechanic.**
+##
+## The Brute's before/after win table on `floor1_hazard` is nearly flat, and if
+## that were all I had looked at I would have concluded the stun was doing
+## nothing. Read from `state.events` instead, it fires 50 times in 60 fights
+## and cancels a committed wind-up 8 times. Both numbers are the deliverable of
+## this enemy: it is the first STUN source in the game, and `INTERRUPTED` is
+## the mechanism swift shipped when the player overturned issue 10.
+##
+## **Counted from `state.events`, not from `unit.statuses`, per board rule 2.**
+## A status set snapshotted after `run()` says only what happened to survive to
+## the last tick, and an 8-tick stun on a fight that ends 200 ticks later never
+## survives anything. `STATUS_APPLIED` is emitted at the moment it lands.
+##
+## The thresholds have margin on purpose, per board rule 4: `> 0` on an
+## emergent count reads identically at 17 and at 1 and only ever speaks on the
+## build that hits zero, which is whoever touched content next rather than
+## whoever caused the drift. Measured 17 stuns and 2-3 interrupts per 20
+## fights; the floors are 8 and 1.
+##
+## **The interrupt floor of 1 is a cliff and I am naming it rather than
+## dressing it up.** An interrupt needs the slam to land on a pawn during a
+## wind-up, which is a narrow window, and there is no larger sample available
+## that does not cost the gate real time. If it drifts to 1 it will fail on the
+## next unrelated change; that is worse than a false green here, because a
+## silent zero means the mechanism that justifies this enemy stopped working.
+func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
+	var enc := Registry.get_encounter(&"floor1_hazard")
+	var has_brute := false
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"brute":
+			has_brute = true
+	assert_true(has_brute, "floor1_hazard should field the Brute -- this test measures nothing without it")
+
+	var stuns := 0
+	var interrupts := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.STUN and e.action_id == &"brute_slam":
+					stuns += 1
+				if e.kind == CG.EventKind.INTERRUPTED:
+					interrupts += 1
+	print("floor1_hazard over %d fights: brute_slam stunned %d times, INTERRUPTED %d casts" % [fights, stuns, interrupts])
+	assert_true(stuns >= 8, "the Brute's stun should land repeatedly across %d fights, landed %d" % [fights, stuns])
+	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
+
+
+## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
+##
+## `test_combat_bleed_is_live.gd::test_no_authored_action_applies_bleed_yet`
+## asserted that nothing in the game applied BLEED and said the day it failed
+## was the day to re-measure. `rat_bite` failed it. That file builds arenas by
+## hand and cannot run a room, so the replacement lives here: real fights, real
+## rats, counted out of `state.events`.
+##
+## **Stacks, not applications, is the whole point of the check.** A bleed that
+## refreshed instead of stacking would emit exactly the same number of
+## `STATUS_APPLIED` events and be a completely different mechanic, so counting
+## applications would pass against the thing #130 exists to rule out. The stack
+## count rides on `STATUS_APPLIED.amount`, and what this asserts is that a
+## single pawn is seen carrying **several at once**.
+##
+## Measured floors, not aspirational ones: the peak stack on one pawn across
+## these fights is in the doc of the pull request, and the floor here is 3 --
+## enough that a refresh-only mechanic cannot reach it, with margin, per board
+## rule 4.
+func test_the_rats_bleed_stacks_on_a_real_pawn() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var rats := 0
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"rat":
+			rats += 1
+	assert_eq(rats, 2, "floor1_cover should field the two rats this test measures")
+
+	var peak := 0
+	var applications := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.action_id == &"rat_bite":
+					applications += 1
+					peak = maxi(peak, e.amount)
+	print("floor1_cover over %d fights: rat_bite landed %d times, peak stack on one pawn %d" % [fights, applications, peak])
+	assert_true(applications >= 20, "the rats should bite repeatedly across %d fights, landed %d" % [fights, applications])
+	assert_true(peak >= 3, "BLEED should stack rather than refresh; the most any pawn carried at once was %d" % peak)
+
+
+## **Issue #121's Stalker, and the honest half of it.**
+##
+## What is asserted is that the mark reaches the game at all. What is *not*
+## asserted, because it does not exist yet, is the half the player asked for:
+## *"it just causes ranged enemies to focus their fire on a specific target."*
+## `DefaultBehavior` has a marked-only **restriction** and no marked
+## **preference**, so the three cultists and three archers standing beside this
+## thing still shoot whoever is nearest. That tie-break is one filter in a file
+## I do not own.
+##
+## **The mark is not inert in the meantime, and I checked rather than assumed
+## it either way.** MARKED subtracts `Balance.MARKED_VULNERABILITY_BONUS` from
+## the target's damage reduction, which strips a pawn's CON-derived natural
+## armour. Measured with a temporary edit disabling only this action's status,
+## same room, same seeds, 12 seeds x 5 buildable parties: four of the five
+## parties finish worse with the mark than without it, by 3, 4, 11 and 12
+## points of health, and one is unchanged. That control is not in the gate --
+## it needs an edit to content to run -- so this asserts the reachable half and
+## the number lives in the pull request.
+##
+## The floor is 25 against a measured 46 in 20 fights. It was 229 before the
+## mark got a cooldown -- eleven applications per fight and eleven log lines
+## from one 30hp enemy -- and why that was worth fixing is written beside the
+## cooldown in `floor1_enemies.gd`.
+func test_the_stalkers_mark_lands_on_the_colonnade() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var marks := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.action_id == &"stalker_mark":
+					marks += 1
+	print("floor1_cover over %d fights: stalker_mark landed %d times" % [fights, marks])
+	assert_true(marks >= 25, "the Stalker's mark should land throughout the fight, landed %d in %d fights" % [marks, fights])
+
+
 ## **The #78 regression guard, and the reason this file exists.**
 ##
 ## #78: three fights in 700 never resolved on `floor1_chokepoint` and reported
@@ -218,6 +352,48 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 	assert_true(differs, "the pits should change the fight, or they are decoration")
 
 
+## **Issue #121 item 7, the tar pit, and this test is red until swift wires
+## `CombatSim._tick_hazards`.**
+##
+## The field pair landed in `Scripts/Core/Terrain.gd` -- `applies_status`,
+## `applies_status_enabled`, `status_duration_ticks` -- and **nothing reads
+## it**. `_tick_hazards` loops `Terrain.hazards_at` and consults
+## `damage_per_tick` and nothing else, so a feature whose whole effect is a
+## status does nothing at all. Worse for this feature in particular: the
+## loop's first line is `if hazard.damage_per_tick <= 0: continue`, so a tar
+## pit that deals no damage is skipped before anything could look at its
+## status.
+##
+## This asserts the outcome rather than the field, which is the difference
+## between "content set a flag" and "a pawn was slowed". Counted out of
+## `state.events`: a terrain status arrives as `STATUS_APPLIED` with no action
+## id, the same shape hazard damage already uses, so it is distinguishable
+## from a status an ability applied without needing a second mechanism.
+##
+## **Left red on purpose rather than deleted or skipped.** A skip reads as a
+## pass in the summary line, and the point of writing it now is that whoever
+## next opens `_tick_hazards` is told what is waiting on it.
+func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
+	var enc := Registry.get_encounter(&"floor1_chokepoint")
+	var tar := 0
+	for f in enc.terrain:
+		if f.kind == Terrain.Kind.HAZARD and f.applies_status_enabled and f.applies_status == CG.Status.SLOWED:
+			tar += 1
+	assert_eq(tar, 1, "floor1_chokepoint should carry one tar pit -- this test measures nothing without it")
+
+	var slows := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.SLOWED and e.action_id == &"":
+					slows += 1
+	print("floor1_chokepoint over %d fights: the tar pit slowed something %d times" % [fights, slows])
+	assert_true(slows >= 20, "the tar pit lies across the only land bridge, so every unit should cross it; slowed %d times in %d fights" % [slows, fights])
+
+
 ## **The colonnade has to be a colonnade, and this is the check that nearly
 ## did not get written.**
 ##
@@ -238,16 +414,69 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 ## it would have passed against a colonnade made of paint.
 ##
 ## Measured direction, and it is the opposite of the room's original premise:
-## the pillars **help the party**, three of five buildable parties finishing
-## 12 to 18 points healthier with them than without. Sight is worth more to
-## whoever is closing than to whoever is standing still. Asserted loosely --
-## three of five, five points -- because the size of the effect is a tuning
-## number and its existence is the invariant.
+## the pillars **help the party**. Sight is worth more to whoever is closing
+## than to whoever is standing still.
+##
+## ---
+##
+## **The assertion counted parties and it should never have.** It required
+## three of the five buildable parties to move by five points or more, and
+## swift's taunt compulsion (#132) took it to two without a pillar moving.
+## swift left it red rather than editing my number, which was right, and rook
+## asked me to re-measure rather than re-baseline. Re-measured on the trunk at
+## `2606190` and on swift's branch at `96d9d37`, same seeds, same rooms:
+##
+##     party              trunk   with the compulsion
+##     no_abomination         5                     2
+##     no_geysermancer       11                     4
+##     no_priest             17                    16
+##     no_siege_master       22                    22
+##     no_warrior             1                     4
+##     parties over 5         4                     2
+##     largest effect        22                    22
+##     total of all five     56                    48
+##
+## **The pillars did not get weaker. Two borderline parties crossed a line.**
+## The largest effect is identical at 22, the party that carries it is
+## unmoved, and the total fell by 8 points out of 56. What actually happened is
+## that `no_abomination` sat at **exactly 5** against a `>= 5` test and
+## `no_geysermancer` at 11, and the compulsion pushed both under.
+##
+## That is board rule 4 arriving in the one place I did not look for it. I have
+## twice written that an `> 0` assertion on an emergent count is a cliff-edge
+## detector. **A count-of-parties-over-a-threshold is two cliffs stacked**: a
+## per-party one at 5 points, and a population one at three of five. A party
+## resting on the first tips the second, and the failure then names whoever
+## touched behaviour next rather than anything about the pillars.
+##
+## **A smaller correction to what I first wrote here, and I am leaving it
+## visible because it nearly became the finding.** My first reading of these
+## two columns was that the three parties carrying both the Priest and the
+## Siege Master were the three that went small, which would have been a clean
+## mechanism -- the Siege Engine is the one unit with `spawn_taunt_radius` and
+## a compulsion would drag the fight onto it. The trunk column kills it:
+## `no_warrior` carries both and was already at 1 before the compulsion, and it
+## went **up**, not down. Two parties moved and the rest did not. There is no
+## clean split here, and I checked before posting it to swift rather than
+## after.
+##
+## So the assertion is now on **size**, which is what "not decoration" means,
+## and on two numbers rather than one so neither is a cliff:
+##
+##   - the largest single effect, floor 10 against a measured 22 on both
+##   - the total across all five, floor 25 against a measured 56 and 48
+##
+## Both are **zero** against a colonnade of paint, which is the case this test
+## exists for and the case it nearly failed to catch. Both pass with wide
+## margin before *and* after the compulsion, so this lands on the trunk on its
+## own rather than riding in swift's branch -- it does not encode a claim about
+## which behaviour is live.
 func test_the_colonnades_pillars_are_not_decoration() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var bare := _without_terrain(enc)
 	var seeds := 4
-	var helped := 0
+	var largest := 0
+	var total := 0
 	for ids in _buildable_parties():
 		var with_hp := 0
 		var bare_hp := 0
@@ -256,9 +485,11 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 			bare_hp += _party_hp_percent(_run(_pawns(ids, seed), bare, seed))
 		var delta := (with_hp - bare_hp) / seeds
 		print("floor1_cover, %s: %d%% health with the pillars, %d%% without, delta %d" % [ids, with_hp / seeds, bare_hp / seeds, delta])
-		if absi(delta) >= 5:
-			helped += 1
-	assert_true(helped >= 3, "the pillars should change the outcome for at least three of the five buildable parties, changed %d" % helped)
+		largest = maxi(largest, absi(delta))
+		total += absi(delta)
+	print("floor1_cover: largest single effect %d points, total across five parties %d" % [largest, total])
+	assert_true(largest >= 10, "the pillars should change at least one party's fight substantially, largest effect was %d points" % largest)
+	assert_true(total >= 25, "the pillars should move the five buildable parties by %d points in total or more, moved %d" % [25, total])
 
 
 ## **The fire has to change the fight, and the control is the same roster with

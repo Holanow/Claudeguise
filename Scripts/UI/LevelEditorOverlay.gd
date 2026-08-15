@@ -31,13 +31,33 @@ func _draw() -> void:
 	if canvas == null:
 		return
 	_draw_deploy_zone()
-	for p in canvas.party_spawns:
-		draw_circle(p, 6.0, Palette.TEAM_PLAYER)
+	for i in canvas.party_spawns.size():
+		_draw_party_spawn(i, canvas.party_spawns[i])
 	for spawn in canvas.enemy_spawns:
 		_draw_enemy(spawn)
 	if canvas._dragging and canvas.mode == LevelEditorCanvasScript.Mode.PLACE_TERRAIN:
 		var rect: Rect2 = LevelEditorCanvasScript._rect_from_corners(canvas._drag_start_world, canvas._drag_current_world)
 		draw_rect(rect, Palette.TEXT_DIM, false, 2.0)
+
+## Issue 145. The level editor passes no labels and keeps `party_radius` at 6.0,
+## so it draws exactly the pin it always drew. The deploy screen passes the real
+## unit radius and the pawns' names, which is what turns four identical dots
+## into a decision -- the held one is outlined so the player can see what they
+## have picked up.
+func _draw_party_spawn(index: int, at: Vector2) -> void:
+	var radius: float = canvas.party_radius
+	draw_circle(at, radius, Palette.TEAM_PLAYER)
+	if index == canvas.held_party_spawn():
+		draw_arc(at, radius + 2.0, 0.0, TAU, 24, Palette.TEXT, 2.0, true)
+	if index >= canvas.party_labels.size():
+		return
+	var text: String = canvas.party_labels[index]
+	if text == "":
+		return
+	var font := ThemeDB.fallback_font
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL)
+	draw_string(font, at + Vector2(-text_size.x * 0.5, -radius - 4.0), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT)
 
 func _draw_deploy_zone() -> void:
 	var top_left := Vector2(-CG.ARENA_HALF_WIDTH, -CG.ARENA_HALF_HEIGHT)

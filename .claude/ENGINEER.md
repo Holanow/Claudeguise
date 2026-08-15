@@ -217,13 +217,15 @@ Kill the specific process id you started, or let whatever started it stop it. If
 you cannot tell which is yours, leave it running and say so in `TEAM_LOG.md`.
 Someone else's twenty-minute job is not worth your tidy shell.
 
-**Use `Toolseap.ps1` instead.** This rule was broken twice in one day, by two
+**Use `Tools
+eap.ps1` instead.** This rule was broken twice in one day, by two
 different sessions, and both times the person was blocked by a hung headless
 Godot and reached for `taskkill` because **the rule said what not to do without
 offering an alternative.** That was a gap in this document, not a discipline
 failure.
 
-    powershell -NoProfile -ExecutionPolicy Bypass -File Toolseap.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File Tools
+eap.ps1
     ... -WhatIf      # list what it would kill, kill nothing
     ... -Minutes 5   # more aggressive than the 15-minute default
 
@@ -526,3 +528,21 @@ for something to do, because the free-looking work is free precisely because it
 sits in files somebody else has open. But say it as a question to the manager,
 not as a state you settle into: an empty queue is the manager's bug, not yours,
 and they would rather be told within a minute than find out in an hour.
+
+## Write short
+
+The player, to rook, and it applies to every report you make:
+
+> "use the fewest words to get the idea across, my feelings won't be hurt and
+> every word you type to me costs as much as a line of code"
+
+**Lead with the outcome.** A number, a name, a verdict. Cut every sentence whose
+only job is to introduce another sentence, and never restate the brief back.
+
+This does **not** mean report less. It means put the detail where it belongs:
+**issues, commit messages and code comments**, which can be read on demand.
+Those should stay as thorough as they are -- that habit has caught real defects
+here. A status report is not the place for reasoning you can link to.
+
+Findings, corrections and disclosures still get stated plainly. Just shorter.
+

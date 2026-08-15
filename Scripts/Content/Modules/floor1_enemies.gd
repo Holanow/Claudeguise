@@ -19,8 +19,126 @@ const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 static func classes() -> Array[ClassDef]:
 	return []
 
+## Ranged projectile speed. Duplicated from `core_actions.gd` rather than
+## reached into: that file's copy is a `const` on another session's module and
+## reading a neighbour's private constant is how two numbers start disagreeing
+## silently. If issue 93's speed moves again, this moves with it, and the
+## reason it is worth having twice is that a mark with no travel time cannot be
+## shielded, dodged or seen coming.
+const RANGED_PROJECTILE_SPEED := 32.5
+
+## **Issue #121's enemy actions live here, not in `core_actions.gd`, and I was
+## wrong about that for two days.**
+##
+## `Registry.gd`'s module contract gives *every* module its own `actions()`, and
+## this one has always returned `[]`. I posted these three definitions on the
+## board asking finch to apply them to `core_actions.gd`, blocked myself on a
+## file another session had three branches open in, and never read the eleven
+## lines that said I did not need it. A floor-1-enemy-only action belongs in
+## the floor-1 enemy module beside the enemy that carries it.
+##
+## The pre-existing enemy actions (`goblin_stab`, `ghoul_maul`,
+## `warden_axe` ...) are left where they are. Moving them would be a rename
+## across an ownership boundary for tidiness, which is exactly the churn
+## `ENGINEER.md` says not to create.
 static func actions() -> Array[ActionDef]:
-	return []
+	return [
+		## **The first STUN source in the game**, and it only became worth
+		## authoring on 2026-08-14. STUN existed and worked -- a stunned unit
+		## is skipped in `_decide_phase` -- but it could not interrupt a
+		## committed wind-up, which was issue 10's deliberate decision. I
+		## refused to write this enemy against that, because "a big heavy guy
+		## that stuns units" whose stun cannot stop a cast is a much smaller
+		## thing than the words promise. The player overturned issue 10 and
+		## swift shipped `CG.EventKind.INTERRUPTED`; this is what that was for.
+		##
+		## 8 ticks, not 7. The player asked for 0.5 seconds and
+		## `CG.TICKS_PER_SECOND` is 15, so 0.5s is 7.5 ticks. Rounding down
+		## gives a stun one tick shorter than this action's own 16-tick
+		## wind-up rhythm and, more to the point, `_tick_statuses` checks
+		## expiry against `state.tick + duration`, so a stun that rounds down
+		## is a stun that can end before the victim's next decide phase and do
+		## nothing at all. Rounded up on purpose.
+		##
+		## power_scale 2.0 against `attack_power` 24 makes this a real blow
+		## rather than a stun stapled to a tap: an enemy whose whole identity
+		## is "slow, tough, hits once and it hurts" has to hurt.
+		_action_status(&"brute_slam", "Slam", "A heavy melee blow at up to 50 units that stuns for 0.5 seconds, cancelling whatever the target was casting.", CG.DamageType.PHYSICAL, 50.0, 16, 18, 2.0, 0, CG.Status.STUN, 8),
+
+		## The Stalker's whole arsenal. MARKED for 6 seconds at 220 units,
+		## with a projectile so it is a thing in flight the player can watch
+		## rather than a status that appears from nowhere.
+		##
+		## 4/5 ticks of wind-up and recovery is the fastest cadence in the
+		## bestiary, because a marker that has to survive a cast is a marker
+		## that never marks anything: this enemy has 30 hp.
+		##
+		## **The 60-tick cooldown is a legibility fix and I measured the
+		## problem before writing it.** `core_actions.gd`'s `_action_status`
+		## hardcodes `cooldown_ticks` to 0, so the first cut of this fired
+		## every 9 ticks against a 90-tick mark -- **229 applications across 20
+		## fights, eleven per fight from one enemy**, each one emitting its own
+		## `STATUS_APPLIED` and its own "is afflicted with Marked" line in the
+		## combat log. Against the player's stated finish line, *"watch a fight
+		## without pausing and broadly follow what happened and why"*, eleven
+		## identical lines from a single 30hp enemy is the warning-becomes-
+		## furniture failure: the player learns to skip Marked, and the one
+		## application that mattered goes past unread.
+		##
+		## 60 rather than 90 so a Stalker that keeps line of sight can still
+		## keep a target marked without a gap, which is the behaviour the enemy
+		## is for. This moves numbers and I am reporting the movement rather
+		## than choosing the cooldown to hit one.
+		_projectile(_action_status_cd(&"stalker_mark", "Mark", "Marks a target within 220 units for 6 seconds, stripping its natural armour.", CG.DamageType.PHYSICAL, 220.0, 4, 5, 1.0, 0, CG.Status.MARKED, 90, 60, true), RANGED_PROJECTILE_SPEED),
+
+		## **The Stalker's second action exists because the cooldown above
+		## needs it to, and I found that by running it rather than by reading
+		## it.** `DefaultBehavior.decide` builds its candidate list from
+		## `_usable_actions` and returns `Intent.idle()` when that list is
+		## empty, so a one-action enemy whose only action is on cooldown does
+		## not kite, does not reposition and does not retreat -- it stands
+		## still. Putting a 60-tick cooldown on a lone action would have made
+		## this enemy inert for five sixths of every fight, which is a worse
+		## outcome than the log spam the cooldown fixes.
+		##
+		## The rotation works the way The Warden's does, through list order:
+		## `_choose_attack_action` finds no melee action here, falls back to
+		## `_first_non_heal` over the *usable* candidates, and `stalker_mark`
+		## is first -- so the Stalker marks whenever it can and plinks with
+		## this the rest of the time.
+		##
+		## 200 units rather than 220 on purpose, so the dart never reaches
+		## something the mark could not: an enemy that plinks at a range it
+		## cannot mark at would spend the fight out of position for its own
+		## specialty.
+		_projectile(_action(&"stalker_dart", "Dart", "A light ranged dart at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 6, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
+
+		## **Issue #130's BLEED source, and the fastest action in the game.**
+		## 3 ticks of wind-up and 4 of recovery is a bite every 7 ticks, under
+		## half the Goblin's 12. The player asked for *"something small that
+		## hits fast"* and for a status that *"does damage less often but
+		## stacks infinitely"* -- so the enemy is the delivery rate and the
+		## status is the payload, and neither is dangerous alone.
+		##
+		## **A stack is worth more than the bite that carries it, and that is
+		## the whole design.** At the live placeholders in `SimDeps` -- 1 per
+		## stack per tick on a 5-tick rhythm -- one stack is 3 damage a second
+		## against a 3-damage bite landing every half second, so a rat that
+		## keeps biting overtakes its own direct damage inside two seconds and
+		## keeps going. Four rats on one pawn is the shape #130 is about.
+		##
+		## **45 ticks of duration against a 30-tick per-stack decay, both
+		## deliberate.** `CombatSim._tick_statuses` drops one stack on expiry
+		## and re-arms for the decay window, so a pawn that breaks away from a
+		## rat reads down 3, 2, 1, gone over about six seconds rather than
+		## having nine stacks vanish on one tick. 45 is longer than the decay
+		## so a bite always extends the bleed it lands on; shorter than twice
+		## it so walking away is a real escape rather than a formality.
+		##
+		## power_scale 1.0 on `attack_power` 3. There is no hidden multiplier
+		## here: the bite is meant to be beneath notice.
+		_action_status(&"rat_bite", "Bite", "A fast melee bite at up to 40 units that adds a stack of Bleed.", CG.DamageType.PHYSICAL, 40.0, 3, 4, 1.0, 0, CG.Status.BLEED, 45),
+	]
 
 static func enemies() -> Array[EnemyDef]:
 	return [
@@ -70,6 +188,112 @@ static func enemies() -> Array[EnemyDef]:
 		# Disclosed in `Tests/test_content_encounter.gd` rather than chased
 		# further; see that file's header for the finding reported to rook.
 		_enemy(&"the_warden", "The Warden", 1000, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
+
+		## **Issue #121, the player's "big heavy guy that stuns units and
+		## taunts". It stuns. It does not taunt, and the reason is a gap in
+		## `Scripts/Plans/DefaultBehavior.gd`, not a decision of mine.**
+		##
+		## A self-buff is unreachable to any enemy in this game. `decide()`
+		## always picks a target from the *opposing* team and then compares
+		## `dist` against the chosen action's `range_units`, so a
+		## self-targeted action at range 0.0 makes its owner walk toward a foe
+		## forever and never fire -- there is no self-target branch, and
+		## `PlanInterpreter`'s `target_self` is the only thing in the game
+		## that provides one. Aiming a taunt at a foe instead is worse than
+		## useless: `_apply_action_effect` applies the status to the *target*,
+		## so a `brute_roar` pointed at a pawn would make the Brute's allies
+		## pile onto that pawn, which is a focus-fire mechanic wearing a
+		## taunt's name.
+		##
+		## `EnemyDef.spawn_taunt_radius` is the one existing way an enemy can
+		## taunt, and I deliberately did not use it. It applies TAUNTING at
+		## `CG.MAX_TICKS`, an aura that outlives the fight, and a pawn inside
+		## it is forced to select the Brute and then forced to approach it
+		## every tick after. That is precisely the *permanent lock* the
+		## player's #58 ruling forbids ("taunts must not permanently lock a
+		## pawn"), and reaching for it would have shipped the letter of the
+		## ask against the ruling that governs it.
+		##
+		## So the Brute ships as a heavy with a stun, `brute_roar` is not in
+		## this file at all rather than sitting here unreachable, and the
+		## finite-duration taunt is one branch in a file that is not mine.
+		## Reported on the board with the exact shape.
+		##
+		## Numbers: hp 320 is second only to The Warden and 1.6x the Ghoul,
+		## move_speed 1.8 is the second slowest thing that moves, and
+		## `damage_reduction` 0.15 is the highest in the bestiary. Issue 12's
+		## rule that any two enemies differ by 2x on some axis holds against
+		## every one of them -- against the Ghoul, its nearest neighbour, hp
+		## is 320 vs 200 and reduction 0.15 vs 0.10, but `brute_slam`'s
+		## power_scale 2.0 against 24 base is 48 to the Ghoul's 20, which is
+		## 2.4x.
+		##
+		## focus_bias 0.0: a Brute walks at whoever is closest and does not
+		## care what its allies are doing. A slow enemy that piles onto a
+		## distant target spends the fight walking.
+		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam"], ["Melee", "Tough", "Stun"], 0.0),
+
+		## **Issue #121's anti-support specialist. Deliberately fragile at 30
+		## hp, and my own comment here was wrong when I wrote it** -- it said
+		## "the squishiest thing in the game, under the Goblin Archer's 28 by
+		## two", and 30 is above 28, not under it. The Goblin Archer was
+		## already the squishiest thing in the game and still is until the Rat
+		## below at 20. Corrected rather than quietly dropped: it was the kind
+		## of claim a reader would take on trust and nothing would ever check.
+		## It deals 5 damage. It is a threat because of what it
+		## enables, not what it deals, and I would rather ship it visibly weak
+		## and say so than pad its damage until it looks useful.
+		##
+		## **What its mark actually does today, measured rather than assumed,
+		## because half of it is missing.** MARKED subtracts
+		## `Balance.MARKED_VULNERABILITY_BONUS` (0.25) from the target's
+		## damage reduction, so against a pawn it strips all of that pawn's
+		## CON-derived natural armour -- real, and small, and it will get much
+		## larger the day #100 lets a pawn wear plate. What does *not* exist is
+		## the half the player actually asked for: *"it just causes ranged
+		## enemies to focus their fire on a specific target."* Enemy target
+		## selection has a marked-only **restriction**
+		## (`_all_attacks_require_a_mark`, generic on both teams) and no
+		## marked **preference**, so the Goblin Archers standing beside this
+		## thing still shoot whoever is nearest. That tie-break is one filter
+		## in `DefaultBehavior._choose_target` and it is not my file.
+		##
+		## focus_bias 0.5 is set for the day that lands, and does nothing
+		## interesting until then: this enemy has one action and it is the
+		## mark.
+		_enemy(&"stalker", "Stalker", 30, 0, CG.ResourceKind.ENERGY, 3.8, 10.0, {CG.DamageType.PHYSICAL: 5}, 0.0, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
+
+		## **Issue #130's BLEED source. The player's words are "something small
+		## that hits fast", and every number here is that sentence and nothing
+		## else.**
+		##
+		## 20 hp, the least in the game, below the Goblin Archer's 28.
+		## move_speed 5.0, the most in the game, above the Goblin's 4.0.
+		## 3 damage a bite, the least in the game. `radius` 8.0, the smallest
+		## body in the game. **A rat loses every exchange it is in.** What it
+		## has instead is `rat_bite`'s 7-tick cycle and a status that does not
+		## reset.
+		##
+		## **A rat rather than an invention, and the art was already there.**
+		## `Silhouettes.gd` has carried a `rat` shape in `UNUSED_SHAPES` since
+		## before any content existed, and README's floor-1 miniboss is the Rat
+		## King -- *"all attacks leave behind rats which are close range melee
+		## attackers"* -- so this is the thing that miniboss is made of rather
+		## than a one-off. That is the second time sable's ahead-of-content art
+		## has met the content it was drawn for, after the Brute.
+		##
+		## focus_bias 0.8, the highest in the game, above the Goblin's 0.7.
+		## This is the one number that is about the status rather than about
+		## the body: BLEED is the first thing in this game where **hitting the
+		## same target twice is worth more than hitting two targets once**, so
+		## a swarm that splits its bites across four pawns wastes the mechanic
+		## it exists to carry. A high bias is what makes a rat pack read as a
+		## pack.
+		##
+		## Issue 12's rule that any two enemies differ by 2x on some axis: hp
+		## 20 against the Goblin's 35 is 1.75x, but damage 3 against 9 is 3x
+		## and against the Brute's 24 is 8x.
+		_enemy(&"rat", "Rat", 20, 0, CG.ResourceKind.ENERGY, 5.0, 8.0, {CG.DamageType.PHYSICAL: 3}, 0.0, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
 	]
 
 static func encounters() -> Array[Encounter]:
@@ -77,6 +301,49 @@ static func encounters() -> Array[Encounter]:
 
 static func items() -> Array[EquipmentDef]:
 	return []
+
+## The two action helpers this module needs, and they are copies of
+## `core_actions.gd`'s rather than calls into it. Those are `static func _`
+## names -- private by this project's own convention -- on a module another
+## session owns, and a cross-module call to one would make every signature
+## change in that file a break in this one. Two small constructors are cheaper
+## than that coupling, and `Registry` composes modules precisely so a module
+## can be read on its own.
+static func _action(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	a.display_name = display_name
+	a.description = description
+	a.damage_type = damage_type
+	a.range_units = range_units
+	a.wind_up_ticks = wind_up
+	a.recover_ticks = recover
+	a.power_scale = power_scale
+	a.resource_cost = resource_cost
+	a.cooldown_ticks = cooldown_ticks
+	a.requires_line_of_sight = requires_los
+	return a
+
+static func _action_status(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, status: CG.Status, duration_ticks: int, requires_los: bool = false) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, range_units, wind_up, recover, power_scale, resource_cost, 0, requires_los)
+	a.applies_status_enabled = true
+	a.applies_status = status
+	a.status_duration_ticks = duration_ticks
+	return a
+
+## `_action_status` with a real cooldown. `core_actions.gd`'s version hardcodes
+## `cooldown_ticks` to 0 and its own comment says so twice, which is right for
+## every caller it has -- a damage-dealing status application whose rate is
+## already limited by its wind-up. It is wrong for an action whose entire
+## effect is a status that already lasts 90 ticks.
+static func _action_status_cd(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, status: CG.Status, duration_ticks: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:
+	var a := _action_status(id, display_name, description, damage_type, range_units, wind_up, recover, power_scale, resource_cost, status, duration_ticks, requires_los)
+	a.cooldown_ticks = cooldown_ticks
+	return a
+
+static func _projectile(a: ActionDef, speed: float) -> ActionDef:
+	a.projectile_speed = speed
+	return a
 
 static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
 	var e := EnemyDef.new()
