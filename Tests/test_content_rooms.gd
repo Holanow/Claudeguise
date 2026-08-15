@@ -554,14 +554,86 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 ## produce, and tuning until the average went one way would have been tuning
 ## away the point.
 ##
-## What is true of every party is that the fire ends the fight much sooner:
-## 171-244 ticks against 426-735. That is the honest invariant, it is what a
-## decorative hazard would fail, and the per-party health spread is printed
-## rather than asserted so the pull request can report it.
+## What is true of every party is that the fire ends the fight much sooner.
+## That is the honest invariant, it is what a decorative hazard would fail, and
+## the per-party health spread is printed rather than asserted so the pull
+## request can report it.
+##
+## ---
+##
+## **The invariant survived hazard avoidance (#163). The threshold did not.**
+##
+## swift's #178 teaches movement to step around fire, and it turned this red
+## for one party at 401 ticks against 521 -- a ratio of 0.77 against a `* 4 <
+## * 3` test, which is 0.75. Measured on both sides, same seeds, same room:
+##
+##     party              trunk   with avoidance
+##     no_abomination      0.35            0.73
+##     no_geysermancer     0.56            0.75
+##     no_priest           0.43            0.77
+##     no_siege_master     0.41            0.55
+##     no_warrior          0.49            0.56
+##     mean                0.45            0.67
+##
+## **The fire still ends every fight sooner. It just ends it less sooner**, as
+## it must: a hazard units step around changes the fight less than one they
+## walk into, and swift said so before I measured it. Nothing here is a
+## regression and nothing needs tuning.
+##
+## So the assertion moves off the cliff and onto the effect, exactly as
+## `test_the_colonnades_pillars_are_not_decoration` did two days ago when a
+## party sat at exactly 5 against a `>= 5` test. **This is the same mistake in
+## a second file by the same author.** A hard per-party ratio is a cliff, and
+## a member near the line tips it on somebody else's commit.
+##
+##   - per party, the ratio must be under 0.95, against a measured worst of
+##     0.77 and a paint hazard's 1.00
+##   - across the five, the mean must be under 0.85, measured 0.45 and 0.67
+##
+## Both pass before and after avoidance, so this lands on the trunk on its own
+## and takes #178 green rather than riding in it. Both are 1.00 against a
+## hazard of paint.
+##
+## **THE HEALTH STORY IS THE FINDING, AND IT IS BIG. Reported, not acted on.**
+## Health with the fire against the same roster on bare ground:
+##
+##     party              trunk        with avoidance
+##     no_abomination      +1            +8
+##     no_geysermancer    -11           +23
+##     no_priest           -1            +9
+##     no_siege_master    -21           +37
+##     no_warrior         +26           +34
+##
+## **Avoidance flipped the sign for every party.** Two of five used to finish a
+## burning room healthier than a bare one; now five of five do, by 8 to 37
+## points. The room's own cost model was units crossing fire, and the side that
+## crossed it most was the party -- it advances, and the enemy back rank stands
+## still. Stop the party walking into fire and the fire's cost lands on almost
+## nobody: `no_siege_master` goes from 14% health to 72%, `no_geysermancer`
+## from 51% to 85%.
+##
+## That is a large easing of one of the four rooms and **it is exactly the kind
+## of movement the balance freeze exists to keep un-tuned.** It is also why
+## health is still not asserted here: it was inconsistent in sign before and
+## consistent now, and a sign that has already flipped once is not an
+## invariant.
+##
+## **I was asked whether the lanes now want reshaping, and my answer is not
+## yet, for a reason that is not caution.** Nobody can reach this room. Issue
+## #176 -- `PartySelect` hardcodes `CG.DEFAULT_ENCOUNTER` and there is no
+## picker, so `floor1_hazard` has never been seen by a player or by me in a
+## running game. Reshaping geometry to make a skip tempting, while blind, to
+## move numbers that #172's rage ruling will move again, is churn with three
+## unknowns in it. The lanes are also **usable for the first time**: before
+## #163 nothing routed around fire, so two authored 50-unit gaps were content
+## the game could not use. The room just got better at being what it was
+## designed to be. Look at it first.
 func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_hazard")
 	var bare := _without_terrain(enc)
 	var seeds := 4
+	var ratio_total := 0.0
+	var parties := 0
 	for ids in _buildable_parties():
 		var burnt_hp := 0
 		var bare_hp := 0
@@ -574,10 +646,17 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 			bare_hp += _party_hp_percent(b)
 			burnt_ticks += a.tick
 			bare_ticks += b.tick
-		print("floor1_hazard, %s: fire %d%% health / %d ticks   bare %d%% health / %d ticks" % [
+		var ratio := float(burnt_ticks) / float(maxi(1, bare_ticks))
+		ratio_total += ratio
+		parties += 1
+		print("floor1_hazard, %s: fire %d%% health / %d ticks   bare %d%% health / %d ticks   ratio %.2f, health delta %+d" % [
 			ids, burnt_hp / seeds, burnt_ticks / seeds, bare_hp / seeds, bare_ticks / seeds,
+			ratio, (burnt_hp - bare_hp) / seeds,
 		])
-		assert_true(burnt_ticks * 4 < bare_ticks * 3, "the fire should end the fight materially sooner for %s, got %d ticks against %d" % [ids, burnt_ticks / seeds, bare_ticks / seeds])
+		assert_true(ratio < 0.95, "the fire should end the fight sooner for %s, got %d ticks against %d (ratio %.2f)" % [ids, burnt_ticks / seeds, bare_ticks / seeds, ratio])
+	var mean_ratio := ratio_total / float(maxi(1, parties))
+	print("floor1_hazard: mean fire/bare tick ratio across %d parties %.2f" % [parties, mean_ratio])
+	assert_true(mean_ratio < 0.85, "the fire should end fights materially sooner across the five buildable parties, mean ratio %.2f" % mean_ratio)
 
 
 func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
