@@ -5,6 +5,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
@@ -262,11 +263,15 @@ func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 ##
 ## **The peak is printed and deliberately not asserted, and it is the finding.**
 ## The swarm never exceeds the four rats the room starts with, in any party, on
-## any seed, while 8 to 58 rats are shed over a fight. A 20 hp rat dies faster
-## than the king's 42-tick lash cycle replaces it, so "big collection of rats"
-## is a trickle rather than a collection. That is a design question about the
-## mechanism -- one rat per attack, or a rat that survives its walk -- and
-## balance is frozen, so it is measured and reported rather than tuned.
+## any seed.
+##
+## **THE CAUSE THIS COMMENT USED TO GIVE WAS WRONG.** It said "a 20 hp rat dies
+## faster than the king's 42-tick lash cycle replaces it", i.e. a balance
+## statement about the rat. Measured per tick with `Tools/SwarmProbe.gd`: the
+## median rat lives 60-96 ticks and **the lash fires a median of once per
+## fight**, in fights of ~250 ticks that afford six cycles. The rats are not
+## dying too fast; the king is barely ever allowed to lash. The mechanism is in
+## `test_the_rat_king_is_almost_never_allowed_to_lash` below.
 func test_the_rat_king_leaves_rats_behind() -> void:
 	var enc := Registry.get_encounter(&"floor1_rat_king")
 	assert_not_null(enc, "floor1_rat_king should be registered")
@@ -298,6 +303,87 @@ func test_the_rat_king_leaves_rats_behind() -> void:
 			fights += 1
 	print("floor1_rat_king over %d fights: %d rats shed by the lash, most alive at once %d (the room starts with %d)" % [fights, shed, peak, start_rats])
 	assert_true(shed >= 10, "every attack should leave a rat behind; the lash shed %d rats across %d fights" % [shed, fights])
+
+
+## **A RECORD OF A DEFECT, WRITTEN SO IT FAILS ON THE DAY THE DEFECT IS FIXED.**
+##
+## `ENGINEER.md`: when a check cannot pass yet, assert that the reason is still
+## true rather than leaving a comment to rot. The reason here is that the Rat
+## King's one mechanic almost never runs, and the day somebody fixes it this
+## test goes red and points at the paragraph that says what to do about it.
+##
+## **What is broken.** `DefaultBehavior.decide` lets a ranged unit fire only
+## between `range * KITE_RANGE_FRACTION` (0.6) and `range * RANGED_COMMIT_FRACTION`
+## (0.85). For the lash's 200 range that is the 50 units from 120 to 170.
+## Closer than 120 the unit retreats; further than 170 it approaches. Measured
+## over 12 seeds x 5 buildable parties with `Tools/SwarmProbe.gd`, the king
+## spends **3-6% of its life inside that band**, 32-52% backing away and 43-59%
+## walking forward, and it moves on essentially every tick it is alive.
+##
+## **Why the king and not every ranged enemy.** `goblin_arrow` has the same 200
+## range and fires 5.72 times per 100 ticks against the lash's 0.10. The
+## difference is move_speed: an Archer at 3.2 re-establishes the band after a
+## pawn closes on it, and the King at 1.2, the slowest unit in the game, never
+## does. So this is an interaction between the kite band and the slow end of the
+## bestiary, not a blanket ranged defect, and a test that asserted "ranged
+## enemies cannot fire" would be measuring something false.
+##
+## **It is a defect and not a balance number**, which is why it is recorded
+## while the rest of this file avoids tuning: a miniboss whose defining
+## mechanic runs once per fight is a mechanism that does nothing, and no value
+## in `floor1_enemies.gd` reaches it -- the band is a fraction of whatever range
+## is written, so widening the range widens the band with it. CLAUDE.md's
+## pawn-behaviour principle and issue #97 both name the automatic kiting branch
+## as the thing to remove.
+##
+## **When it fails:** delete this test, and put the real assertion in its place
+## -- that the lash fires several times per fight and the swarm exceeds its
+## starting four.
+func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
+	var enc := Registry.get_encounter(&"floor1_rat_king")
+	assert_not_null(enc, "floor1_rat_king should be registered")
+
+	var fires := 0
+	var fights := 0
+	var alive_ticks := 0
+	var in_band := 0
+	for ids in _buildable_parties():
+		for seed in 3:
+			var state := CombatSim.build(_pawns(ids, seed), enc, seed)
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				var king: CombatUnit = null
+				for u in state.units:
+					if u.enemy_id == &"rat_king":
+						king = u
+				if king == null or not king.alive:
+					break
+				var gap := INF
+				for u in state.units:
+					if u.team == CG.Team.PLAYER and u.alive:
+						gap = minf(gap, king.position.distance_to(u.position))
+				if gap == INF:
+					break
+				alive_ticks += 1
+				if gap >= 120.0 and gap <= 170.0:
+					in_band += 1
+				CombatSim.step(state)
+			for e in state.events:
+				if e.kind == CG.EventKind.ACTION_FIRE and e.action_id == &"rat_king_lash":
+					fires += 1
+			fights += 1
+
+	var band_percent := 100.0 * float(in_band) / float(maxi(1, alive_ticks))
+	var per_fight := float(fires) / float(maxi(1, fights))
+	print("floor1_rat_king: the lash fired %.2f times per fight over %d fights; the king was inside its 120-170 firing band for %.1f%% of the ticks it was alive" % [per_fight, fights, band_percent])
+
+	# Both sides asserted on purpose. The first says the mechanic is still
+	# broken; the second says the cause is still the band, so that a fix
+	# elsewhere -- a faster king, a shorter cycle -- cannot quietly satisfy this
+	# test while the hidden kiting stays in.
+	assert_true(per_fight < 3.0,
+		"the lash now fires %.2f times a fight. If that is a fix, delete this test and assert the swarm instead (issue #97)" % per_fight)
+	assert_true(band_percent < 20.0,
+		"the king now spends %.1f%% of its life in its firing band. The kite band was the cause; re-measure before trusting the paragraph above" % band_percent)
 
 
 ## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
