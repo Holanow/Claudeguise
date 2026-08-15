@@ -309,6 +309,48 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 	assert_true(differs, "the pits should change the fight, or they are decoration")
 
 
+## **Issue #121 item 7, the tar pit, and this test is red until swift wires
+## `CombatSim._tick_hazards`.**
+##
+## The field pair landed in `Scripts/Core/Terrain.gd` -- `applies_status`,
+## `applies_status_enabled`, `status_duration_ticks` -- and **nothing reads
+## it**. `_tick_hazards` loops `Terrain.hazards_at` and consults
+## `damage_per_tick` and nothing else, so a feature whose whole effect is a
+## status does nothing at all. Worse for this feature in particular: the
+## loop's first line is `if hazard.damage_per_tick <= 0: continue`, so a tar
+## pit that deals no damage is skipped before anything could look at its
+## status.
+##
+## This asserts the outcome rather than the field, which is the difference
+## between "content set a flag" and "a pawn was slowed". Counted out of
+## `state.events`: a terrain status arrives as `STATUS_APPLIED` with no action
+## id, the same shape hazard damage already uses, so it is distinguishable
+## from a status an ability applied without needing a second mechanism.
+##
+## **Left red on purpose rather than deleted or skipped.** A skip reads as a
+## pass in the summary line, and the point of writing it now is that whoever
+## next opens `_tick_hazards` is told what is waiting on it.
+func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
+	var enc := Registry.get_encounter(&"floor1_chokepoint")
+	var tar := 0
+	for f in enc.terrain:
+		if f.kind == Terrain.Kind.HAZARD and f.applies_status_enabled and f.applies_status == CG.Status.SLOWED:
+			tar += 1
+	assert_eq(tar, 1, "floor1_chokepoint should carry one tar pit -- this test measures nothing without it")
+
+	var slows := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.SLOWED and e.action_id == &"":
+					slows += 1
+	print("floor1_chokepoint over %d fights: the tar pit slowed something %d times" % [fights, slows])
+	assert_true(slows >= 20, "the tar pit lies across the only land bridge, so every unit should cross it; slowed %d times in %d fights" % [slows, fights])
+
+
 ## **The colonnade has to be a colonnade, and this is the check that nearly
 ## did not get written.**
 ##

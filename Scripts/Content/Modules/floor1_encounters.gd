@@ -22,7 +22,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ##   floor1_room1       open ground, no terrain      the baseline
 ##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker
 ##   floor1_hazard      three burn bands, two lanes  ghouls, goblins, a Brute
-##   floor1_chokepoint  pits, one land bridge        room1's exact roster
+##   floor1_chokepoint  pits, one land bridge, tar    room1's exact roster
 ##
 ## **All four field exactly ten enemies.** That is a rule, not a coincidence.
 ## The retrospective records a terrain conclusion that was wrong because it
@@ -45,6 +45,21 @@ const _PARTY_SPAWNS: Array[Vector2] = [
 	Vector2(-350.0, 65.0),
 	Vector2(-350.0, 195.0),
 ]
+
+## A HAZARD whose whole effect is a status. `Terrain.hazard()` takes a damage
+## number and no status, and I did not ask rook for a second constructor:
+## `Feature`'s fields are public and content already builds every other part of
+## an `Encounter` by assignment, so a constructor here would be one more thing
+## to keep in step for no reader's benefit.
+##
+## `damage_per_tick` stays 0, deliberately. A tar pit that also hurt would be a
+## burn pit with extra steps, and the burn pit already exists two rooms over.
+static func _status_hazard(rect: Rect2, status: CG.Status, ticks: int) -> Terrain.Feature:
+	var f := Terrain.make(Terrain.Kind.HAZARD, rect)
+	f.applies_status_enabled = true
+	f.applies_status = status
+	f.status_duration_ticks = ticks
+	return f
 
 static func classes() -> Array[ClassDef]:
 	return []
@@ -206,6 +221,35 @@ static func _the_chokepoint() -> Encounter:
 	e.terrain = [
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, -270.0, 60.0, 210.0)),
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, 60.0, 60.0, 210.0)),
+		## **Issue #121 item 7, the player's tar pit: terrain that slows
+		## instead of hurting.** `damage_per_tick` is 0 and the whole effect is
+		## SLOWED, which is the first feature in the game to have no damage at
+		## all -- and it is why `CombatSim._tick_hazards`' `damage_per_tick <= 0`
+		## early-out has to move before this does anything. Noted here because
+		## a reader of this line will otherwise assume it works.
+		##
+		## **In the gap and nowhere else, and that is the whole design.** The
+		## two pits leave one 120-unit land bridge at y = -60..60, and every
+		## unit on either side funnels through it -- that is what makes this
+		## room a chokepoint rather than a wall. A hazard laid over the bridge
+		## is therefore the one piece of terrain in the game that **every**
+		## unit in the fight must cross, which is what makes it worth watching
+		## rather than a patch to walk around. It also costs the room nothing
+		## in reachability: SLOWED is a movement multiplier, so a slow crossing
+		## is still a crossing, where damage on the bridge would have made the
+		## room a toll gate that kills whoever is poorest.
+		##
+		## 45 ticks, three seconds, refreshed every tick a unit stands in it.
+		## Longer than the crossing takes, so it is felt on the far side rather
+		## than only inside the pit -- a slow you have already finished paying
+		## by the time you arrive is a slow nobody can see. Shorter than a
+		## fight, so it is a cost and not a state.
+		##
+		## This does not touch `_ROOM1_ENEMY_SPAWNS`. The chokepoint and
+		## `floor1_room1` deliberately share a roster so terrain is the only
+		## variable between them (13b criterion 1), and a terrain-only addition
+		## is exactly what that comparison is built to measure.
+		_status_hazard(Rect2(-20.0, -60.0, 60.0, 120.0), CG.Status.SLOWED, 45),
 	]
 	return e
 
