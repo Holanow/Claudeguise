@@ -428,6 +428,40 @@ const _DART := [
 	{"poly": [[-0.50, 0.24], [-0.88, 0.32], [-0.64, 0.66]]},
 ]
 
+## Immolate: the first and only SUSTAINED action in the game (finch, #219). The
+## Abomination lights itself and holds it, spending Rage every tick, hurting
+## everything inside 90 units until it stops.
+##
+## **The one design decision here is that it must not read as another hit.**
+## Every other glyph in this table is a thing thrown, swung, fired or reached
+## with -- twenty-odd held objects and directed strokes, all of which say "this
+## lands, once". A channel is the opposite: nothing leaves the unit, nothing
+## arrives, and the only interesting fact is that it is *still going*.
+##
+## So this is the only CLOSED RING in the ability set, and the ring is doing the
+## work at 16px, where rule 4 says the outline is all that survives. A ring has
+## no direction and no travel, and it is the shape of the thing the action
+## actually is: a radius around the caster.
+##
+## The flame inside is for the inspect panel and the plan editor, where there is
+## resolution for it. It is deliberately NOT `StatusIcons.GLYPHS[BURN]` scaled
+## down, which was the obvious move and would have been wrong: **Immolate
+## applies no status at all.** It is direct damage each tick, so wearing BURN's
+## flame would promise a badge that never appears -- the same defect
+## `geyser_cleanse` had when it drew Scald's steam.
+##
+## Against `CG.Status.MARKED`, the only other ring in either system: that one is
+## an arc at 0.48 with four crosshair ticks reaching out to the box edge, and it
+## is a wedge badge rather than a square plate (rule 3). This is a wider ring
+## with a solid mass at its centre and nothing crossing it.
+const _AURA_FLAME := [
+	{"arc": [0.0, 0.0, 0.84], "w": 0.15},
+	{"poly": [
+		[0.0, -0.60], [0.20, -0.30], [0.30, 0.04], [0.20, 0.36], [-0.06, 0.48],
+		[-0.30, 0.34], [-0.34, 0.04], [-0.16, -0.06], [-0.14, -0.34],
+	]},
+]
+
 ## Every action id in the content registry. `Tests/test_art.gd` asserts this
 ## covers the registry exactly, so an action added in `Scripts/Content` fails
 ## the gate here rather than shipping with no icon and nobody noticing -- which
@@ -496,6 +530,10 @@ const GLYPHS := {
 	&"abomination_claw": _CLAWS,
 	&"abomination_hook": _HOOK,
 	&"abomination_grapple": CG.Status.SLOWED,
+	# finch's #219, the first sustained action in the game. Ahead of content --
+	# see `_ICONS_AHEAD_OF_CONTENT` in Tests/test_art.gd, which names the line to
+	# delete the moment PR #252 merges.
+	&"abomination_immolate": _AURA_FLAME,
 	&"warden_axe": _AXE,
 	&"warden_chain_toss": _CHAIN,
 
