@@ -188,11 +188,23 @@ func test_second_wind_is_self_only_and_gated() -> void:
 ## The whole-fight half. A green declaration test above cannot tell whether the
 ## ability is ever cast, which is exactly how warrior_execute sat unreachable
 ## for its entire existence.
+##
+## **Issue 206: `floor1_warden` -> `floor1_room1`, and the reason is a finding
+## rather than a fixture wobble.** The Abomination's new poison-spreading plan
+## shortens the Warden fight for every party carrying one -- mean **225 -> 185
+## ticks** -- and the Warrior only ever drops under this plan's 35% threshold at
+## the very end. Measured: Second Wind **STARTs 9 times and FIREs 0**, because the
+## fight ends inside its own 15-tick wind-up. Not an unreachable ability and not
+## a rage problem (it holds 16 Rage against a cost of 15) -- the party simply wins
+## before it needs healing.
+##
+## `floor1_room1` fires it 22 times in 24 seeds, so it is the encounter where this
+## ability actually has a life. Checked before repointing rather than after.
 func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 	var fires := 0
 	var heals := 0
 	for s in SEEDS:
-		var state := CombatSim.build(_party(), Registry.get_encounter(&"floor1_warden"), s)
+		var state := CombatSim.build(_party(), Registry.get_encounter(&"floor1_room1"), s)
 		CombatSim.run(state)
 		for e in state.events:
 			if e.action_id != &"warrior_second_wind":
@@ -336,7 +348,7 @@ func _basic_attack_fires(strip_weapons: bool) -> Dictionary:
 ##
 ##     warrior_strike     81      priest_bolt         11
 ##     geyser_spout       35      siege_master_shot   16
-##     abomination_claw    0   <- see ABOMINATION_CLAW_IS_DEAD below
+##     abomination_claw   34   <- zero until issue 206 gave it a plan row
 ##
 ## The floors are set at roughly a third of each, which is announcement rule 4
 ## applied to my own detector: `> 0` on an emergent count cannot warn, only fail,
@@ -349,29 +361,19 @@ const MIN_FIRES := {
 	&"priest_bolt": 3,
 	&"geyser_spout": 10,
 	&"siege_master_shot": 5,
+	# Issue 206: measured 34 in this fixture once the Abomination gained a plan
+	# row telling it when to Claw. Floor at roughly a third, same as its
+	# siblings.
+	&"abomination_claw": 10,
 }
 
-## **`abomination_claw` fires zero times in every encounter in the game, and it
-## did so before this issue as well.** Measured on trunk and on this branch, both
-## with the Sickle granting it and with it sitting in the class's own list: all
-## seven encounters, and a mono-Abomination party at 12 seeds produced 237 hooks,
-## 93 grapples and not one claw.
-##
-## The mechanism is not the weapon. `CombatSim.build` starts every unit at
-## `resource = resource_max`, so an Abomination begins the fight with full Rage,
-## and Hook and Grapple both land hits that refill it -- its two preset plans
-## cover every tick and the fallback is never consulted. This is the
-## `geyser_scald` shape from issue 79: an action behind a gate that cannot open.
-##
-## **Issue 132 is what fixes it** -- "resource defaults per fight: mana full,
-## energy and rage zero". At 0 Rage the Abomination's first act must be the free
-## attack, which is precisely the design the Sickle now expresses.
-##
-## Asserted as still-true rather than left as a comment, because a comment
-## explaining a gap rots the day the gap closes and nobody deletes it. When issue
-## 132 lands this goes red, and the message says what to do.
-const ABOMINATION_CLAW_IS_DEAD := true
-
+## **`abomination_claw` fired zero times in every encounter in the game, and
+## issue 206 is where that ended.** The cause was never the weapon: it was that
+## the Abomination had no plan row saying when to use a free attack, and its two
+## paid rows covered every tick. `ABOMINATION_CLAW_IS_DEAD` and the test guarding
+## it are **deleted rather than loosened** -- they were a statement about a moment
+## and the moment passed, which is exactly what they were written to announce.
+## Claw joins the table above with its own measured floor.
 func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 	var counts := _basic_attack_fires(false)
 	for cid in Registry.all_class_ids():
@@ -383,18 +385,10 @@ func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 			"%s's %s grants %s and it fired %d times in %d real fights, under its floor of %d" % [
 				cid, pawn.weapon.id, granted, int(counts.get(granted, 0)), FIGHT_SEEDS, int(MIN_FIRES[granted])])
 
-## The exception, kept honest. If the Abomination ever starts a fight short of
-## Rage, its Claw becomes reachable and this test tells whoever did it to fold
-## the Sickle back into the table above.
-func test_the_sickles_claw_is_still_the_one_that_cannot_fire() -> void:
-	assert_true(ABOMINATION_CLAW_IS_DEAD, "delete this test rather than flipping the constant")
-	var counts := _basic_attack_fires(false)
-	assert_eq(int(counts.get(&"abomination_claw", 0)), 0,
-		"abomination_claw fires now -- issue 132 has presumably landed. Add it to MIN_FIRES with its measured floor and delete this test.")
-
-## And the half that proves the Sickle itself works, which the fight cannot show
-## while the Abomination never runs out of Rage. One decision, Rage drained, no
-## plans: it must reach for the weapon's Claw and not stand there.
+## The unit-level half, kept now that the fight-level half passes too: with Rage
+## drained and no plans, the Abomination must reach for the weapon's Claw rather
+## than stand there. This is what proves the *grant* works independently of the
+## plan row that makes it reachable in a real fight.
 func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
 	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a0", "Abomination")
