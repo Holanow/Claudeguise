@@ -23,6 +23,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker, rats
 ##   floor1_hazard      three burn bands, two lanes  ghouls, goblins, a Brute
 ##   floor1_chokepoint  pits, one land bridge, tar    room1's exact roster
+##   floor1_rat_king    bare, measured that way      the miniboss, not one of the four
 ##
 ## **All four field exactly ten enemies.** That is a rule, not a coincidence.
 ## The retrospective records a terrain conclusion that was wrong because it
@@ -88,7 +89,7 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 ]
 
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_warden_room()]
+	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_warden_room(), _the_rat_king_room()]
 
 ## Issue 44: floor 1's real boss room, replacing `floor1_chokepoint` as
 ## `FloorFightRunner`'s BOSS placeholder. The wall was a wall built to test a
@@ -104,6 +105,51 @@ static func _the_warden_room() -> Encounter:
 	e.display_name = "Floor 1, The Warden's Chamber"
 	e.enemy_spawns = [
 		{"enemy_id": &"the_warden", "position": Vector2(200.0, 0.0)},
+	]
+	e.party_spawns = _PARTY_SPAWNS
+	return e
+
+## **Floor 1's miniboss room. README's own pairing: The Warden is the boss and
+## the Rat King is the miniboss, and this is deliberately the opposite fight.**
+##
+## The Warden's room is one body on bare ground. This is one body that will not
+## come to you, four rats that will, and a colonnade between the two.
+##
+## **THE PILLARS ARE GONE AND THIS ROOM IS BARE, because I built them and
+## measured them and they did nothing.** Three pillars, argued for on the
+## reasoning that sight-blocking is the only thing that makes an enemy standing
+## off pay for it. Measured with and without them, room held fixed, six seeds x
+## five parties: **four of the five parties are bit-identical in both arms** --
+## same wins, same health, same tick count -- and the fifth moves 712 ticks to
+## 694 and 47% health to 49%.
+##
+## That is announcement rule 1, which exists because I nearly shipped a
+## colonnade of paint on #94: a win table cannot see a dead mechanic and only a
+## with-and-without column can. Nothing here is tuned away; a piece of terrain
+## that changes nothing is removed, and `floor1_warden` already sets the
+## precedent that a boss room is one body on bare ground.
+##
+## **Four rats at the start, not none and not ten.** None and the room is a
+## slow archer alone until the first lash lands, which is twenty ticks of
+## nothing. Ten and the swarm the king is supposed to *build* is simply issued
+## at spawn, and the mechanic the miniboss exists to show never gets to happen.
+## Four is roughly what one lash cycle produces, so the fight starts at the
+## rate it continues at.
+##
+## Headcount is five and that is not the ten-per-room rule breaking. That rule
+## is #94's, it exists so the four **pickable** rooms are comparable to each
+## other, and a miniboss room is not one of the four -- the same reason
+## `floor1_warden` fields one enemy.
+static func _the_rat_king_room() -> Encounter:
+	var e := Encounter.new()
+	e.id = &"floor1_rat_king"
+	e.display_name = "Floor 1, The Nest"
+	e.enemy_spawns = [
+		{"enemy_id": &"rat_king", "position": Vector2(330.0, 0.0)},
+		{"enemy_id": &"rat", "position": Vector2(150.0, -140.0)},
+		{"enemy_id": &"rat", "position": Vector2(160.0, -50.0)},
+		{"enemy_id": &"rat", "position": Vector2(160.0, 50.0)},
+		{"enemy_id": &"rat", "position": Vector2(150.0, 140.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
 	return e
