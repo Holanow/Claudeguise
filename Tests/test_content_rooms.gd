@@ -116,43 +116,27 @@ func _without_terrain(enc: Encounter) -> Encounter:
 ## `Scripts/UI` or `Scenes`, so `floor1_cover`, `floor1_hazard` and
 ## `floor1_chokepoint` -- the Stalker, the Rats and BLEED, the Brute and the
 ## game's only STUN source, and the tar pit that is the game's only terrain
-## status -- cannot be selected in any session.
+## `test_only_one_pickable_room_can_actually_be_reached` WAS HERE AND IS DELETED,
+## which is what it asked for rather than being loosened.
 ##
-## **This drives the real screen rather than reading the source**, which is the
-## entire point: the defect is invisible to every other test here precisely
-## because they all fetch an `Encounter` from the `Registry` and hand it to
-## `CombatSim`. "Does this room work" and "can anyone reach this room" are
-## different questions and only the first was ever asked. I wrote most of those
-## tests and named their constant `PICKABLE`.
+## It asserted the defect -- three of four pickable rooms unreachable -- and was
+## built to go red the day a picker landed. Issue #176 landed it, and the
+## verification it demanded was done through the controls rather than through
+## `current_config()` in isolation: `Tools/RoomPickerShot.gd` drives the real
+## picker on the real screen into a real fight for each of the four rooms and
+## compares the built `CombatState`'s terrain count and enemy count against the
+## room that was chosen. All four pass.
 ##
-## **It asserts the defect, and it is built to fail the day the defect is
-## fixed.** That is deliberate and it is the pattern swift used on me twice in
-## #130, both times correctly: an assertion that names the next action beats a
-## comment that rots. When a picker lands this goes red, and whoever is holding
-## it then has to come back to this file and check that all four rooms really
-## do reach a fight -- through the controls, not through `current_config()` in
-## isolation.
-##
-## **Delete it when that happens. Do not loosen it.**
-func test_only_one_pickable_room_can_actually_be_reached() -> void:
-	var screen := PartySelect.new()
-	var reachable := {}
-	# The screen is the producer of every RunConfig the game ever fights. Party
-	# and seed do not affect which room it names, so an empty party is enough
-	# and keeps this out of Registry content.
-	reachable[screen.current_config().encounter_id] = true
-	screen.free()
+## **One correction to the record, because the test would not in fact have gone
+## red on its own.** It built a bare `PartySelect` and read `current_config()`,
+## and a bare screen has no picker, so it would have kept reporting three
+## unreachable rooms while a player could reach all four -- passing forever,
+## measuring nothing, exactly the failure mode announcement rule 2 describes. It
+## still did its job: it is the reason this file was re-read at all. The guard
+## that replaces it is `test_every_registered_room_is_either_offered_or_explicitly_not`
+## in `Tests/test_ui_room_picker.gd`, which fails on a room nobody classified
+## rather than on a count somebody has to remember to update.
 
-	var unreachable: Array[StringName] = []
-	for id in PICKABLE:
-		if not reachable.has(id):
-			unreachable.append(id)
-	print("pickable rooms a player can actually select: %s; unreachable: %s" % [reachable.keys(), unreachable])
-
-	assert_eq(unreachable.size(), 3,
-		"ISSUE #176. If this is 0 a room picker exists: verify all four rooms reach a real fight through the controls, then DELETE this test rather than loosening it. If it is 1 or 2 something partial shipped. If it grew past 3, PICKABLE gained a room with no way to reach it.")
-	assert_true(reachable.has(CG.DEFAULT_ENCOUNTER),
-		"the one room a player can reach should be the default one, not whatever sorts first -- issue 32")
 
 
 ## **The headcount rule, and it is the reason any other number in this file
