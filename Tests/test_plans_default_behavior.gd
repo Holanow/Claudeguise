@@ -335,8 +335,22 @@ func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> voi
 # unreachable.
 # ---------------------------------------------------------------------------
 
+## **Issue 150: this helper is called `_pawn_unit_with` and did not make a pawn.**
+## `u.pawn` was never set, so every unit it built read as an enemy to the two
+## places in `DefaultBehavior` that ask -- `_choose_target`'s focus-bias branch
+## then, and the self-targeted branch now. It was invisible before because the
+## enemy path in `_choose_target` falls through to `_nearest` for a unit with no
+## `enemy_id` either, so both branches returned the same answer.
+##
+## It stopped being invisible the moment a branch behaved differently for the two,
+## and these tests then asserted the *enemy* fallback while their names and their
+## comments described a pawn's. Fixed here rather than by narrowing the new
+## branch: the tests were right about what they meant and wrong about what they
+## built. A bare `PawnData` is enough -- nothing in this file reads a pawn's
+## contents, only whether there is one.
 func _pawn_unit_with(actions: Array[StringName], resource: int) -> CombatUnit:
 	var u := CombatUnit.new()
+	u.pawn = PawnData.new()
 	u.id = 0
 	u.team = CG.Team.PLAYER
 	u.position = Vector2.ZERO

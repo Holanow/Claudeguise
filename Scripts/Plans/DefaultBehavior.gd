@@ -101,6 +101,32 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 				return Intent.use_action(heal_action.id, neediest.id)
 			return Intent.move_to(neediest.position)
 
+	## **Issue 150: the branch that lets a self-targeted action be cast at all.**
+	##
+	## Everything below this point picks a target from the *opposing* team and
+	## measures the chosen action's range against it, so an action aimed at its
+	## own caster has never had a path through this file. `PlanInterpreter` has
+	## one -- a `target_self` block -- and **the units that need this have no
+	## plans at all.** That is why the Brute ships with a stun and no roar, and
+	## why any future enemy rally, shield or self-heal would have hit the same
+	## wall.
+	##
+	## **Pawns are excluded, and the exclusion is the design rather than caution.**
+	## A pawn self-buffing from the fallback layer is a pawn doing something
+	## written in no plan, on a screen with nowhere to change it -- CLAUDE.md's
+	## binding principle, and the same reason `_attack_candidates` refuses a
+	## sustained action. `unit.pawn == null` is the split this file already uses
+	## for exactly this distinction (see `_actions_that_can_fire_now`).
+	##
+	## Not gated on `range_units == 0.0`: `_action_summon` and `_action_self_heal`
+	## are both zero-range and want opposite things from it, and
+	## `_heal_candidates` already reads that zero for its own meaning. See
+	## `ActionDef.targets_self`.
+	if unit.pawn == null:
+		var self_action := _self_targeted_to_cast(state, unit, enemies)
+		if self_action != null:
+			return Intent.use_action(self_action.id, unit.id)
+
 	var target := _choose_target(state, unit, enemies)
 	if target == null:
 		return Intent.idle()
@@ -316,6 +342,67 @@ static func _heal_candidates(state: CombatState, unit: CombatUnit, heal_action: 
 	if unit.alive:
 		out.append(unit)
 	return out
+
+## Issue 150: the first self-targeted action this unit could usefully cast right
+## now, or null.
+##
+## Three exclusions, each of them a rule that already exists somewhere else:
+##
+##   - **`heals`** is `_first_heal`'s, above. It already restricts a zero-range
+##     heal to the caster through `_heal_candidates`, and two paths deciding when
+##     a unit heals itself is how they come to disagree.
+##   - **`sustain_cost_per_tick`** is #219's. A channel lit by the fallback layer
+##     is held by it forever, because this function re-picks the same action
+##     every tick and nothing here can decide to stop.
+##   - **`summons_unit_id`** is deliberate and it is the one I would revisit
+##     first. Nothing in the bestiary summons, so it changes no behaviour today;
+##     it is excluded because a summoner with no plan would build without limit
+##     while `PlanInterpreter._summon_slot_free` -- the only thing enforcing
+##     `max_active_summons` -- is on the plan path and would never see it. heron
+##     measured that gap on the Rat King. **Lifting this exclusion means moving
+##     the cap first.**
+##
+## Cost and cooldown are `can_afford`'s, not repeated here: `_action_self_buff`
+## and `_action_taunt` both set `cooldown_ticks` to their own duration, so "do
+## not re-cast a buff that is still up" is already true by construction and a
+## second check would only be able to disagree with it.
+static func _self_targeted_to_cast(state: CombatState, unit: CombatUnit, enemies: Array[CombatUnit]) -> ActionDef:
+	for a in _all_actions(unit):
+		if not a.targets_self:
+			continue
+		if a.heals or a.sustain_cost_per_tick > 0 or a.summons_unit_id != &"":
+			continue
+		if not PlanInterpreter.can_afford(state, unit, a.id):
+			continue
+		if _nearest_distance(unit, enemies) > _self_targeted_reach(unit, a):
+			continue
+		return a
+	return null
+
+## How close the fight has to be before a self-buff is worth spending a cast on.
+##
+## **An action that states its own reach uses it.** `taunt_radius` is the only
+## such field today and it is exactly right for a taunt: a roar that reaches 350
+## units should go up while the party is still 300 away, which is the whole point
+## of a taunt and the opposite of what a melee range would say.
+##
+## Anything else braces when the fight is inside the unit's own longest reach --
+## it has no radius of its own, so the honest question is whether it is about to
+## be in a fight. A unit with no attack at all has nothing to measure against and
+## no better moment, so it casts on sight.
+static func _self_targeted_reach(unit: CombatUnit, action: ActionDef) -> float:
+	if action.taunt_radius > 0.0:
+		return action.taunt_radius
+	var longest := -1.0
+	for a in _attack_candidates(_all_actions(unit)):
+		longest = maxf(longest, a.range_units)
+	return longest if longest >= 0.0 else INF
+
+static func _nearest_distance(unit: CombatUnit, enemies: Array[CombatUnit]) -> float:
+	var best := INF
+	for e in enemies:
+		best = minf(best, unit.position.distance_to(e.position))
+	return best
 
 ## Issue 129: an action a unit attacks *with*. Not a heal, and able to do damage
 ## at all.
