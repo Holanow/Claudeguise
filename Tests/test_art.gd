@@ -592,13 +592,31 @@ func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> vo
 func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 	# The expiry date on the list above. Without this the exemption outlives its
 	# reason, and the next icon left behind by deleted content hides inside it.
+	#
+	# **Collected and asserted once rather than asserted inside the loop, and
+	# that is not a style choice.** The loop version made zero assertions when
+	# the list was empty, and this project's gate correctly fails a test that
+	# records none -- so emptying the list, which is the SUCCESSFUL end state
+	# this whole mechanism exists to reach, turned the trunk red with the
+	# message "it crashed part-way, or it asserts nothing". Whoever deleted the
+	# last three lines would have been told they had broken something.
+	#
+	# Found by doing it: merging heron's branch in a scratch worktree, deleting
+	# the three lines and running the gate. Reading this test would never have
+	# shown it, because the bug is in the case where the loop does not run.
+	var stale: Array[String] = []
+	var described_nothing: Array[String] = []
 	for id in _ICONS_AHEAD_OF_CONTENT:
-		assert_true(ActionIcons.GLYPHS.has(id),
-			"_ICONS_AHEAD_OF_CONTENT names %s, which has no icon -- the entry describes nothing" % id)
-		assert_eq(Registry.get_action(id), null,
-			("the registry now defines %s (%s), so its icon is no longer ahead of content. "
-			+ "DELETE the '%s' line from _ICONS_AHEAD_OF_CONTENT in this file -- that is the whole fix.") % [
-				id, _ICONS_AHEAD_OF_CONTENT[id], id])
+		if not ActionIcons.GLYPHS.has(id):
+			described_nothing.append(String(id))
+		if Registry.get_action(id) != null:
+			stale.append("%s (%s)" % [id, _ICONS_AHEAD_OF_CONTENT[id]])
+	assert_eq(described_nothing, [] as Array[String],
+		"_ICONS_AHEAD_OF_CONTENT names ids with no icon at all, so those entries describe nothing")
+	assert_eq(stale, [] as Array[String],
+		("the registry now defines these, so their icons are no longer ahead of content. "
+		+ "DELETE their lines from _ICONS_AHEAD_OF_CONTENT in this file -- that is the whole fix, "
+		+ "and an empty list is the correct end state rather than a problem."))
 
 
 func test_status_backed_action_icons_resolve_to_the_status_glyph() -> void:
