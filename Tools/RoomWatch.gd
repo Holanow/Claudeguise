@@ -81,8 +81,16 @@ func _fresh() -> void:
 
 func _run() -> void:
 	var offered = PartySelect.offered_rooms()
+	# `--room chokepoint` watches one room instead of five. Ninety seconds
+	# instead of eight minutes when only one number is being re-taken.
+	var only := ""
+	var args := OS.get_cmdline_user_args()
+	for i in args.size():
+		if args[i] == "--room" and i + 1 < args.size():
+			only = args[i + 1]
 	print("RoomWatch: rooms %s" % str(offered))
 	for room_id in offered:
+		if only != "" and not String(room_id).ends_with(only): continue
 		await _watch(room_id)
 
 func _watch(room_id: StringName) -> void:
@@ -112,7 +120,10 @@ func _watch(room_id: StringName) -> void:
 
 	var frames := 0
 	var next := 0
-	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < 60 * 400:
+	# 90 seconds of real time per room. This runs at the speed a player watches
+	# it at -- the point is the picture, and an unresolved fight still produces
+	# every frame the shots need. The tick reached is printed either way.
+	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < 60 * 90:
 		await get_tree().process_frame
 		frames += 1
 		probe.sample(battle.state)
@@ -188,7 +199,8 @@ class _Probe extends RefCounted:
 		if not tar.is_empty():
 			for u in alive:
 				for f in tar:
-					if f.contains_point(u.position): crossed[u.id] = true
+					if f.contains_point(u.position):
+						crossed[u.id] = u.team == CG.Team.PLAYER
 				if u.statuses.has(CG.Status.SLOWED): slowed_ticks += 1
 		# The Nest: how big does the swarm ever get.
 		if room == "rat_king":
@@ -208,8 +220,11 @@ class _Probe extends RefCounted:
 			print("  BURN: %d unit-ticks standing in fire, %d in the clear lanes, %d distinct units burned" % [
 				fire_ticks, lane_ticks, burned.size()])
 		if not tar.is_empty():
-			print("  TAR: %d distinct units set foot on the bridge, %d unit-ticks SLOWED" % [
-				crossed.size(), slowed_ticks])
+			var party := 0
+			for k in crossed:
+				if crossed[k]: party += 1
+			print("  TAR: %d of 14 units set foot on the bridge (%d party, %d enemy), %d unit-ticks SLOWED" % [
+				crossed.size(), party, crossed.size() - party, slowed_ticks])
 		if room == "rat_king":
 			print("  NEST: peak %d rats alive at once, %d distinct rats ever existed" % [
 				rat_peak, rats_seen.size()])
