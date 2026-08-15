@@ -54,6 +54,32 @@ keep is the contradiction. Its only heavy cue is that it *points* — a straight
 needle held level, clear of the body. It is the one unit in the game aiming at
 you, and everything else about it is slight.
 
+**The Warden has to read as a creature and it has to point.** Issue #241, from
+the player watching it at true size: *"It reads as an object, not a creature —
+horizontal axis, squat mass with a lintel, looks like furniture beside the
+pawns."* Two things fixed that and both are worth keeping in a replacement.
+**The head is a lobe of its own, standing above the shoulder line and forward**,
+with open space between it and the hunched back; inlaid flush in the top edge it
+was a moulding, not a head. And **four cues agree on which way it faces** — helm
+forward, visor slit breaking the front edge, back hunched behind, front foot
+ahead of the rear one — because facing is information the simulation really
+keeps (`CombatUnit.facing` gates the Warrior's guard) and one detail carrying it
+is one detail a player can miss.
+
+**Its box is square, and that is where its size comes from.** The Warden's
+collision radius is 22, exactly a pawn's, so nothing about the fight makes it
+big; the only mass available to it is the box, and the file's *longest* side is
+what spans the unit's diameter. The old file was 24x19 and threw away a fifth of
+the height it was allowed. Replace it with a square one.
+
+**The chain is gone from the sprite and that is a deliberate loss.** It was the
+one silhouette detail no other unit had, for the 270-range chain toss. At 24
+pixels every version of it came out as two or three cream pixels beside the body
+that read as dirt, and in this palette pale is the loudest colour on the unit. It
+survives where there is resolution for it: the action icon, the projectile, and
+the polygon fallback in `Scripts/Art/Silhouettes.gd`. If you redraw the Warden at
+a size that can carry a chain, put it back.
+
 **The Rat King and the rat are a pair and should be replaced as one.** The
 README describes the miniboss as *"a big collection of rats joined at the tail"*
 whose attacks *"leave behind rats"*, so the fight is a pile of the very thing it

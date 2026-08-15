@@ -5,10 +5,16 @@ extends SceneTree
 ##
 ##     godot --headless --path . --script res://Tools/BurnPitSize.gd
 ##
-## `test_the_burn_pit_changes_the_fight_for_every_buildable_party` asserts two
+## `test_the_burn_pit_changes_the_fight_for_every_buildable_party` asserted two
 ## aggregates over **4 seeds**: the largest single party's health delta between
 ## the room with its fire and the same room bare, floor 20, and the total of the
-## five, floor 55. On finch's #214 the total reads 52.
+## five, floor 55. On finch's #214 the total read 52.
+##
+## **This tool is the reason the total floor no longer exists.** It was deleted
+## rather than lowered at #229, before #224 merged; the test asserts `largest`
+## and the fire's own output instead. `total` is still printed here because the
+## curve is what shows why. `Tools/BurnPitDrift.gd` runs the same comparison
+## across builds rather than across sample sizes.
 ##
 ## Four seeds is the same order of sample that made `4 of 8` a coin-flip
 ## detector, and the colonnade's health aggregate turned out to be noise at
