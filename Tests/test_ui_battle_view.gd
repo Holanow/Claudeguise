@@ -98,3 +98,75 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 	DisplayOptions.reset()
 	view._arena.free()
 	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 187: the death and miss text.
+#
+# A cold reader called the death text "looks like an error message"; a second,
+# independently, found it and "Miss" overlapping each other in large type over
+# live units.
+# ---------------------------------------------------------------------------
+
+const Palette := preload("res://Scripts/Core/Palette.gd")
+const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
+const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+
+func _view_with_arena() -> BattleView:
+	var view := BattleView.new()
+	view.state = _make_state_with_units()
+	view.event_cursor = 0
+	view._arena = Node2D.new()
+	return view
+
+func _last_marker(view) -> Node2D:
+	var children: Array = view._arena.get_children()
+	return children[children.size() - 1]
+
+func _death_marker_for(view, unit_id: int) -> Node2D:
+	var e := CombatEvent.make(CG.EventKind.DEATH, 1)
+	e.target_id = unit_id
+	view.state.emit(e)
+	view.consume_events()
+	return _last_marker(view)
+
+## **A defect, not a taste call.** Every death was announced in
+## `Palette.TEAM_ENEMY` regardless of who died, so **losing your own pawn was
+## drawn in the enemy's colour** -- the same class of mistake as `HP_LOW` and
+## `TEAM_ENEMY` being the same value on the health bars. Both sides asserted,
+## because a single-sided check passes if every death is drawn in one colour.
+func test_a_death_is_announced_in_the_colour_of_whoever_died() -> void:
+	var view := _view_with_arena()
+	var mine := _death_marker_for(view, 0)
+	assert_eq(mine._color, Palette.TEAM_PLAYER, "a party pawn's death must not read as an enemy event")
+	var theirs := _death_marker_for(view, 1)
+	assert_eq(theirs._color, Palette.TEAM_ENEMY)
+	assert_ne(mine._color, theirs._color, "the two sides' deaths must be distinguishable")
+	view._arena.free()
+	view.free()
+
+## `Miss` was drawn at `FONT_SIZE_FLOATER` -- 34 before the display scale, so 51
+## pixels across the arena, the same size as a damage number. A miss is the
+## smallest event in the game and should be the quietest mark on the screen.
+func test_miss_and_death_text_are_no_longer_damage_number_sized() -> void:
+	var view := _view_with_arena()
+	var floater_size := int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE))
+
+	var miss := CombatEvent.make(CG.EventKind.MISS, 1)
+	miss.target_id = 1
+	view.state.emit(miss)
+	view.consume_events()
+	var miss_marker := _last_marker(view)
+	assert_true(miss_marker._font_size < floater_size,
+		"Miss is drawn at %d, the damage-number size" % miss_marker._font_size)
+
+	var death := _death_marker_for(view, 1)
+	assert_true(death._font_size < floater_size,
+		"death text is drawn at %d, the damage-number size" % death._font_size)
+
+	# The text itself must survive being shrunk -- a mark nobody can read is not
+	# an improvement on one that is too loud.
+	assert_true(miss_marker._font_size >= Palette.FONT_SIZE_SMALL,
+		"shrunk past legibility at %d" % miss_marker._font_size)
+	assert_true(death._text.contains("Rat"), "a death still has to say who died")
+	view._arena.free()
+	view.free()
