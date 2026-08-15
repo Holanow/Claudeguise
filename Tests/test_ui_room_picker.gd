@@ -56,17 +56,27 @@ func test_the_offered_list_and_the_excluded_list_do_not_disagree() -> void:
 	for id in PartySelect.offered_rooms():
 		assert_false(PartySelect.NOT_OFFERED.has(id),
 			"'%s' is both offered and excluded" % id)
-	for id in PartySelect.ROOM_ORDER:
+	# Only what the picker actually shows has to exist. `ROOM_ORDER` may name a
+	# room whose content is still on somebody's branch; `offered_rooms()` skips
+	# it, which is what keeps a classification and its content mergeable in
+	# either order.
+	for id in PartySelect.offered_rooms():
 		assert_not_null(Registry.get_encounter(id),
-			"the picker names '%s' and no such room is registered" % id)
+			"the picker offers '%s' and no such room is registered" % id)
 
-func test_the_picker_offers_the_four_rooms_in_authored_order() -> void:
+## Compared against `offered_rooms()` rather than `ROOM_ORDER` directly: the
+## list may name a room whose content has not landed yet, and the picker shows
+## what exists. Asserting the raw constant would go red on the trunk in the
+## window between a classification and its content.
+func test_the_picker_offers_every_offered_room_in_authored_order() -> void:
 	var screen := _screen()
 	var picker: OptionButton = screen._room_picker
 	assert_true(picker != null, "the screen must carry a room picker")
-	assert_eq(picker.item_count, PartySelect.ROOM_ORDER.size())
-	for i in PartySelect.ROOM_ORDER.size():
-		assert_eq(picker.get_item_metadata(i), PartySelect.ROOM_ORDER[i],
+	var offered := PartySelect.offered_rooms()
+	assert_true(offered.size() >= 4, "got %d" % offered.size())
+	assert_eq(picker.item_count, offered.size())
+	for i in offered.size():
+		assert_eq(picker.get_item_metadata(i), offered[i],
 			"order must be authored, not sorted -- StringName sorts by interned pointer")
 	screen.free()
 

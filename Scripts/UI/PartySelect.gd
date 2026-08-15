@@ -104,18 +104,44 @@ func _build_roster() -> void:
 ## Authored order, not sorted: `Array[StringName].sort()` compares interned
 ## pointers rather than text, so a sorted list would present rooms in an order
 ## that depends on process history.
+## **`ROOM_ORDER` is not #94's "four comparable rooms" and the two must not be
+## confused, because they answer different questions.** `PICKABLE` in
+## `test_content_rooms.gd` is the set that has to field the same headcount so
+## layout and roster stay comparable; this is the set a player can select. The
+## Rat King is in the second and deliberately not the first -- heron's own
+## reasoning, and the same reason `floor1_warden` fields one enemy.
 const ROOM_ORDER: Array[StringName] = [
 	&"floor1_room1",
 	&"floor1_cover",
 	&"floor1_hazard",
 	&"floor1_chokepoint",
+	&"floor1_rat_king",
 ]
 
 ## Registered encounters the picker deliberately does not offer, with the
-## reason. `floor1_warden` is the boss room; the other two are fixtures the
-## tools and tests fight directly.
+## reason.
+##
+## **THE RULE, written down because the next boss hits the same fork.** Offer any
+## room whose point is a fight and which nothing else can reach. Exclude tuning
+## fixtures, which the tools fight directly and a player has no reason to meet.
+## Exclude the floor's terminal boss, whose point is *arrival* rather than the
+## fight itself.
+##
+## The Rat King is offered on that rule: **nothing about runs exists yet**, so
+## "a single fight you can pick" and "a miniboss you progress to" are not two
+## different things in the game, only in intent -- and excluding it would ship
+## the King, the rats, BLEED stacking and sable's silhouette unreachable, which
+## is the exact failure #176 existed to end.
+##
+## **`floor1_warden` is the one deliberate inconsistency and I am naming it
+## rather than letting it read as an oversight.** It is unreachable too, for the
+## same missing run structure. It stays excluded because it is the only content
+## on the floor whose whole meaning is that you got there, and offering it off a
+## menu spends that once and for free. **rook: if you would rather the rule were
+## simply "everything reachable", say so and it is one line** -- I would rather
+## be told than decide the boss's meaning on my own.
 const NOT_OFFERED := {
-	&"floor1_warden": "the boss room -- not something a player picks off a menu",
+	&"floor1_warden": "the floor boss, whose point is arriving at it -- revisit when runs exist",
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
 }

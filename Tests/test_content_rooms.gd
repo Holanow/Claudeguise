@@ -244,6 +244,62 @@ func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
 
 
+## **The Rat King's lash really does leave rats behind, and the swarm really
+## does not accumulate. Both halves are asserted or printed on purpose.**
+##
+## README: *"Big collection of rats joined at the tail. Ranged attacker, all
+## attacks leave behind rats which are close range melee attackers."* The first
+## clause is the one this checks, because a summoner that summons nothing is
+## the exact shape of dead mechanic announcement rule 1 exists for and a win
+## table cannot see it.
+##
+## **Counted by watching `state.units` grow, not from an event, because there
+## is no event.** `CombatSim._spawn_summon` appends a unit and emits nothing at
+## all -- no `EventKind` for a summon exists. So a mid-fight spawn is invisible
+## to the combat log and to anything else reading the stream; wren draws the
+## body (#75) so a player sees a rat appear, but nothing says where it came
+## from. Reported, not mine to fix.
+##
+## **The peak is printed and deliberately not asserted, and it is the finding.**
+## The swarm never exceeds the four rats the room starts with, in any party, on
+## any seed, while 8 to 58 rats are shed over a fight. A 20 hp rat dies faster
+## than the king's 42-tick lash cycle replaces it, so "big collection of rats"
+## is a trickle rather than a collection. That is a design question about the
+## mechanism -- one rat per attack, or a rat that survives its walk -- and
+## balance is frozen, so it is measured and reported rather than tuned.
+func test_the_rat_king_leaves_rats_behind() -> void:
+	var enc := Registry.get_encounter(&"floor1_rat_king")
+	assert_not_null(enc, "floor1_rat_king should be registered")
+	var kings := 0
+	var start_rats := 0
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"rat_king":
+			kings += 1
+		if spawn.get("enemy_id", &"") == &"rat":
+			start_rats += 1
+	assert_eq(kings, 1, "the nest should field one Rat King")
+
+	var shed := 0
+	var peak := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 3:
+			var party := _pawns(ids, seed)
+			var state := CombatSim.build(party, enc, seed)
+			var start_units := state.units.size()
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				CombatSim.step(state)
+				var live := 0
+				for u in state.units:
+					if u.enemy_id == &"rat" and u.alive:
+						live += 1
+				peak = maxi(peak, live)
+			shed += state.units.size() - start_units
+			fights += 1
+	print("floor1_rat_king over %d fights: %d rats shed by the lash, most alive at once %d (the room starts with %d)" % [fights, shed, peak, start_rats])
+	assert_true(shed >= 10, "every attack should leave a rat behind; the lash shed %d rats across %d fights" % [shed, fights])
+
+
 ## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
 ##
 ## `test_combat_bleed_is_live.gd::test_no_authored_action_applies_bleed_yet`

@@ -81,7 +81,9 @@ func _fresh() -> void:
 func _run() -> void:
 	var offered = PartySelect.offered_rooms()
 	print("RoomPickerShot: picker offers %s" % str(offered))
-	_check(offered.size() == 4, "the picker offers four rooms")
+	# Not hardcoded to four: the Rat King joined the picker on #192 and the next
+	# room should not require editing this line to be checked.
+	_check(offered.size() >= 4, "the picker offers %d rooms" % offered.size())
 
 	var reached := {}
 	for room_id in offered:
