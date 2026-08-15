@@ -1383,6 +1383,66 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	# a hazard doing damage that nothing routes around would pass this and fail
 	# the ratios, and a terrain change that shuffled the fight without burning
 	# anybody would pass the ratios and fail this.
+	#
+	# **#225 SAYS THE BURN PIT IS ERODING ACROSS THREE MERGES. IT IS NOT. ONE
+	# MERGE TOOK ALL OF IT, THE FIRE ITSELF NEVER ERODED, AND THE STEP THAT
+	# SHOWS AS THE BIGGEST GAIN IS THE ONE THAT CUT THE BURNING BY 84%.**
+	#
+	# #225 reads the series 117 -> 90 -> 52 off this header and asks whether
+	# that is three changes each taking a bite or one taking most of it. Every
+	# one of those three numbers was taken at **4 seeds**, and the block above
+	# has already shown `total` carries an eighteen-point spread at samples up
+	# to 80. So the series was re-taken at a fixed 40 seeds on the five
+	# builds themselves, `Tools/BurnPitDrift.gd` copied into a detached
+	# checkout of each. Same tool, same sample, same room:
+	#
+	#     build                          total  largest   fire dealt per fight     ticks
+	#                                                     party  enemy   both   fire  bare
+	#     5a37a6a  before #163              82      42    368.7  754.6 1123.3    238   555
+	#     14085bb  #163 step around fire   123      46     25.4  157.5  182.8    378   555
+	#     75df176  #172 rage starts at 0    73      40     50.0  259.8  309.8    466   478
+	#     b20284e  #222, twelve merges on   73      40     49.4  259.5  308.9    462   473
+	#     beabec6  #214 usable actions      54      27     52.4  139.3  191.7    377   432
+	#     0fcfaf8  trunk today              67      30     93.3  183.5  276.8    386   423
+	#
+	# **The fire's own output does not fall across the series and today it is
+	# 51% higher than on the build that scored the record `total`.** 183 at
+	# #163, 277 now. `total` and the fire disagree about direction at three of
+	# the five steps, which is the same verdict the deletion block above
+	# reached, arrived at from the other end.
+	#
+	# **#163 is the largest single move in this table and it moved both numbers
+	# the wrong way round.** Teaching movement to step around fire cut the
+	# burning from 1123 to 183 per fight, a sixfold drop and by far the biggest
+	# thing that has ever happened to this room -- and `total` **rose**, 82 to
+	# 123. It rose because the bare arm did not move (555 ticks both sides)
+	# while the fire arm stopped being a massacre, so the difference between
+	# the arms grew as the fire shrank. A number that goes up when the mechanic
+	# it measures loses five sixths of its output is not measuring the mechanic.
+	#
+	# **The twelve merges between #172 and #222 took nothing: 73 and 73,
+	# 259.8 and 259.5.** There is no erosion in that span to find, which is the
+	# half of #225's question that has a clean answer.
+	#
+	# **#214 is the one real bite, and it is one change, not three.** total 73
+	# -> 54, largest 40 -> 27, fire on the enemy 260 -> 139. Fights got 18%
+	# shorter in the fire arm (462 -> 377) and the burning fell 46%, so length
+	# is most of it but not all, and the direction is the honest one finch
+	# already reported.
+	#
+	# **And since #214 it has come back, which no reading of "eroding" allows
+	# for.** 54 -> 67, 27 -> 30, 192 -> 277 over the twenty merges to trunk.
+	#
+	# The one number worth watching is not `total`. It is the enemy column
+	# against the floor on the next line: it touched **139 at beabec6** against
+	# a floor of 100, the narrowest margin this assertion has had, and is 184
+	# today. If the burn pit ever does become decoration, that is where it will
+	# show, and it is the only number here that no change to how good the party
+	# is can move.
+	#
+	# Nothing tuned, no floor moved, no content touched. #225's premise that
+	# the trunk asserts a floor of 55 is also stale -- #229 deleted it before
+	# #224 merged, and the red finch reported came from a branch cut before it.
 	assert_true(enemy_fire / maxi(1, fights) >= 100,
 		"the fire should burn the enemy back rank crossing it; it dealt %d health per fight over %d fights, against 0 for a hazard of paint" % [enemy_fire / maxi(1, fights), fights])
 
