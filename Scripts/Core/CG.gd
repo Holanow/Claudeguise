@@ -350,6 +350,26 @@ enum EventKind {
 	## is the most punishing thing that can happen to a pawn, so it is exactly
 	## the event that must not be missable.
 	INTERRUPTED,
+	## A unit was built onto the field mid-fight. Issue 193.
+	##
+	## Appended, never inserted, same rule the rest of this enum carries.
+	##
+	## `source_id` is the summoner, `target_id` is the **new unit's id**, and
+	## `action_id` is the action that built it. target_id is the summon rather
+	## than a foe because this event is about a unit arriving; the pair reads
+	## "the Rat King sheds a rat", and the id is what lets a reader name it.
+	##
+	## **THIS SHOULD HAVE EXISTED SINCE ISSUE 12 AND ITS ABSENCE IS MINE.** I
+	## argued then that no event was needed because the view already holds the
+	## whole CombatState and can diff `units.size()`. That is exactly what heron
+	## then had to do to count the Rat King's rats -- there was no other way --
+	## and it is the reason a player watching a rat appear is told nothing about
+	## where it came from.
+	##
+	## The general shape of the mistake: "the screen can derive it" is not the
+	## same claim as "the log can explain it", and the second is the one the
+	## finish line is written against.
+	SUMMONED,
 }
 
 static func attribute_name(a: Attribute) -> String:

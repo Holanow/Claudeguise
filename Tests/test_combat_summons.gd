@@ -270,3 +270,64 @@ func test_unknown_summon_id_still_appends_a_unit_rather_than_crashing() -> void:
 	assert_eq(state.units.size(), 2, "an unknown id must not silently drop the summon")
 	assert_eq(state.units[1].team, CG.Team.PLAYER, "even the fallback unit takes the caster's team")
 	assert_eq(state.units[1].hp_max, 1, "same fallback shape build() already uses for an unknown enemy id")
+
+# ---------------------------------------------------------------------------
+# issue 193: the summon says so
+# ---------------------------------------------------------------------------
+#
+# `_spawn_summon` appended a unit and emitted nothing, so the only way to know a
+# summon had happened was to watch `state.units` grow -- which is exactly what
+# heron had to do to count the Rat King's rats.
+#
+# This is a step further back than an event that renders as an empty line:
+# wren's EventKind guard checks that every declared kind renders, and it cannot
+# check for a kind nobody declared.
+
+## Builds `count` summons from one caster and returns the finished state.
+func _summon_fight(count: int, summons: StringName = &"engine") -> CombatState:
+	var build := _build_action(&"build", summons)
+	var engine_def := _engine_def(&"engine", 5)
+	var deps := _deps({build.id: build}, {&"engine": engine_def})
+
+	var state := CombatState.new(7)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2(30, 40), [build.id])
+	state.units.append(caster)
+	state.units.append(_unit(1, CG.Team.ENEMY, 10, Vector2(1000, 0), []))
+
+	for _i in count:
+		caster.intent = Intent.use_action(build.id, caster.id)
+		CombatSim.step(state, deps)
+		# recover_ticks is 1, so one idle tick between builds.
+		CombatSim.step(state, deps)
+	return state
+
+func _summoned_events(state: CombatState) -> Array:
+	var out: Array = []
+	for e in state.events:
+		if e.kind == CG.EventKind.SUMMONED:
+			out.append(e)
+	return out
+
+func test_a_summon_emits_SUMMONED_naming_the_summoner_and_the_new_unit() -> void:
+	var state := _summon_fight(1)
+	var found := _summoned_events(state)
+	assert_eq(found.size(), 1, "one summon, one event")
+	assert_eq(found[0].source_id, 0, "the summoner")
+	assert_eq(found[0].action_id, &"build", "and the action that built it")
+	var summoned = state.unit(found[0].target_id)
+	assert_not_null(summoned, "target_id must resolve to a real unit")
+	assert_eq(summoned.enemy_id, &"engine", "and it must be the unit that was just built")
+	assert_eq(summoned.team, CG.Team.PLAYER, "on the summoner's own side")
+
+## One per unit built, so a boss shedding a rat per attack produces a countable
+## stream rather than one line for the first.
+func test_every_summon_emits_its_own_event() -> void:
+	var state := _summon_fight(3)
+	assert_eq(_summoned_events(state).size(), 3, "three units built, three events")
+	assert_eq(state.units.size(), 5, "and the field really did grow by three")
+
+## The negative half. A fight in which nothing summons must never emit one.
+func test_a_fight_with_no_summon_emits_no_SUMMONED() -> void:
+	var state := _summon_fight(2, &"")
+	assert_eq(_summoned_events(state).size(), 0, "nothing was built, so nothing may claim it was")
+	assert_eq(state.units.size(), 2, "sanity: the field did not grow")

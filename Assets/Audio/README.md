@@ -66,6 +66,7 @@ one, which is the same one-file operation as replacing a blip.
 | `event/fight_end.ogg` | The fight ends. |
 | `event/sustain_start.ogg` | A unit begins holding a channelled ability. |
 | `event/sustain_end.ogg` | A unit stops holding one. |
+| `event/summoned.ogg` | A unit is built onto the field mid-fight: a siege engine, or one of the Rat King's rats. Measured at 53 across 15 fights, so treat it as frequent rather than a set piece. |
 
 ## Abilities
 
