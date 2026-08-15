@@ -39,6 +39,7 @@ const CONDITION_OPS := [
 	&"self_resource_at_least",
 	&"enemy_in_range",
 	&"ally_has_harmful_status",
+	&"enemy_has_status",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
@@ -46,6 +47,7 @@ const TARGETING_OPS := [
 	&"target_lowest_hp_fraction_enemy",
 	&"target_self",
 	&"target_ally_with_harmful_status",
+	&"target_enemy_with_status",
 ]
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
@@ -100,6 +102,7 @@ const CONDITION_ARG_SHAPE := {
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
 	&"ally_has_harmful_status": {"kind": "none"},
+	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -389,6 +392,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return unit.position.distance_to(nearest.position) <= range_units
 		&"ally_has_harmful_status":
 			return _nearest_afflicted_ally(state, unit) != null
+		&"enemy_has_status":
+			return _nearest_enemy_with_status(state, unit, _status_arg(block)) != null
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -410,6 +415,9 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 		&"target_ally_with_harmful_status":
 			var afflicted := _nearest_afflicted_ally(state, unit)
 			return afflicted.id if afflicted != null else -1
+		&"target_enemy_with_status":
+			var marked := _nearest_enemy_with_status(state, unit, _status_arg(block))
+			return marked.id if marked != null else -1
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
@@ -432,6 +440,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "an enemy within %d units" % int(args.get("range", 0.0))
 		&"ally_has_harmful_status":
 			return "an ally has a harmful status"
+		&"enemy_has_status":
+			return "an enemy is %s" % _status_word(int(args.get("status", 0)))
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
@@ -442,6 +452,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "self"
 		&"target_ally_with_harmful_status":
 			return "the nearest ally with a harmful status"
+		&"target_enemy_with_status":
+			return "the nearest %s enemy" % _status_word(int(args.get("status", 0)))
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
@@ -491,6 +503,42 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 ##
 ## Nearest wins, ties broken by iteration order over `state.living`, which is
 ## `state.units` order and therefore fixed for a seed. No rng.
+## Issue 181: the nearest living enemy carrying `status`, or null.
+##
+## **Backs BOTH `enemy_has_status` and `target_enemy_with_status`, from one
+## function, for the reason `_nearest_afflicted_ally` records below and paid for
+## on #87: if the condition can hold on a unit the targeting op then declines,
+## `_run_blocks` leaves `focus_id` at whatever the previous tick set** -- which
+## for this class is another enemy from `geyser_blast_cluster` -- **and the plan
+## fires at the wrong target.** Two similar functions are how that comes back.
+##
+## Nearest wins, ties by iteration order over `state.living`, which is fixed for
+## a seed. No rng.
+static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := INF
+	for foe in state.living(_enemy_team(unit.team)):
+		if not foe.has_status(status):
+			continue
+		var d := unit.position.distance_to(foe.position)
+		if d < best_dist:
+			best_dist = d
+			best = foe
+	return best
+
+## The status a block names. Defaults to `CG.Status.SHIELD` (0) rather than
+## erroring, matching how every other arg here reads a missing key -- and a plan
+## asking about SHIELD on an enemy simply never holds, which is a visible no-op
+## rather than a crash.
+static func _status_arg(block: PlanBlock) -> CG.Status:
+	return int(block.args.get("status", 0)) as CG.Status
+
+## Player-facing word for a status, for the plan sentences. `CG.Status.keys()`
+## is the same source `CombatLogView._status_name` uses, so the plan editor and
+## the log cannot call the same status two different things.
+static func _status_word(status: int) -> String:
+	return String(CG.Status.keys()[status]).to_lower()
+
 static func _nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF

@@ -131,10 +131,19 @@ func _party() -> Array[PawnData]:
 ## Every STATUS_EXPIRED naming a caster and an action -- the shape only a
 ## cleanse produces. A status running out on its own carries source_id -1 and no
 ## action id (swift's signature note, and `CombatSim._tick_statuses`).
+## Issue 121: **`action_id` as well as a caster, and the narrowing is load-bearing
+## rather than tidying.** "STATUS_EXPIRED carrying a source" used to mean exactly
+## one thing, because a cleanse was the only way a status ended early. Blast now
+## *consumes* a burn and emits the same shape deliberately -- swift's
+## `_consume_status` mirrors `_cleanse_harmful` so a log can tell "Blast ate the
+## burn" from "the burn ran out". So this file started counting the combo as
+## cleanses and asserting a Geysermancer had scoured an enemy.
+##
+## The fix is to say which action, not to loosen the assertions that caught it.
 func _cleanse_events(state: CombatState) -> Array:
 	var out := []
 	for e in state.events:
-		if e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1:
+		if e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1 and e.action_id == &"geyser_cleanse":
 			out.append(e)
 	return out
 
