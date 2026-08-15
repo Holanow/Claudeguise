@@ -1143,9 +1143,49 @@ func _party_hp_percent(state: CombatState) -> int:
 ## **The coin flip itself is reported and not tuned.** `no_geysermancer` on the
 ## chokepoint is the one party that finds that room hard, it is the only such
 ## cell in the game, and per the header above that is what four rooms are for.
+##
+## ---
+##
+## **AND THE CLAIM SIXTEEN LINES ABOVE -- "against a genuine wall at 5%, it
+## fires essentially always" -- WAS REASONING, NOT A MEASUREMENT.** It is my
+## sentence. No room known to be unwinnable had ever been put through this
+## assertion, by this version or by the `4 of 8` it replaced, so nothing
+## established that either shape detects a wall at all. **A floor nobody has
+## crossed is a detector nobody has fired**, which is announcement rule 2 and
+## the thing that kept `4 of 8` alive for weeks.
+##
+## `test_the_detector_fires_on_a_room_that_really_is_a_wall` below is the
+## measurement, and it is in the gate rather than in a header because a claim in
+## a header cannot go red. The two together bracket the floor: raise it far
+## enough and the test above fails, lower it to nothing and the control below
+## fails.
+const WALL_SEEDS := 20
+const WALL_FLOOR := 5
+
+
+## The same room with every enemy spawned twice, the second copy offset so the
+## pair does not start inside itself. Terrain, roster and party spawns are
+## untouched: the only variable is how many bodies the party has to get through.
+##
+## The negative control for the wall detector, and the sibling of
+## `_without_terrain` above.
+func _doubled_roster(enc: Encounter) -> Encounter:
+	var e := Encounter.new()
+	e.id = enc.id
+	e.display_name = enc.display_name
+	e.party_spawns = enc.party_spawns
+	e.terrain = enc.terrain
+	var spawns: Array[Dictionary] = []
+	for s in enc.enemy_spawns:
+		spawns.append(s)
+		spawns.append({"enemy_id": s["enemy_id"], "position": (s["position"] as Vector2) + Vector2(70.0, 0.0)})
+	e.enemy_spawns = spawns
+	return e
+
+
 func test_no_pickable_room_is_a_wall_for_any_buildable_party() -> void:
-	var seeds := 20
-	var floor_wins := 5
+	var seeds := WALL_SEEDS
+	var floor_wins := WALL_FLOOR
 	var worst := seeds + 1
 	var worst_cell := ""
 	for id in PICKABLE:
@@ -1162,3 +1202,37 @@ func test_no_pickable_room_is_a_wall_for_any_buildable_party() -> void:
 			assert_true(wins >= floor_wins,
 				"%s should not be a wall for %s: won %d/%d, floor %d" % [id, ids, wins, seeds, floor_wins])
 	print("no_pickable_room_is_a_wall: worst cell %s at %d/%d, floor %d" % [worst_cell, worst, seeds, floor_wins])
+
+
+## **The detector, run against a room that really is a wall.**
+##
+## `floor1_chokepoint` with twenty enemies instead of ten. Measured at
+## **0/40 for all five buildable parties** by `Tools/WallProbe.gd`; the gate
+## runs the same seeds and the same floor constant as the assertion above, so a
+## floor moved later is re-checked here without anybody remembering to.
+##
+## **Verified to fire rather than assumed to**, by pointing it at the
+## undoubled chokepoint: every party reaches the floor and all five assertions
+## go red. It is not passing because it cannot fail.
+##
+## The chokepoint rather than one of the other three, and the reason is a
+## finding rather than a preference. Doubling each room's roster walls 18 of the
+## 20 cells at 0/40. The exception is `floor1_hazard`, where
+## `[abomination, geysermancer, siege_master, warrior]` still wins **32/40**
+## while the other four parties fall to 3, 1, 0 and 0: twenty enemies crossing a
+## burn pit burn twice as much, so past some headcount the fire wins the room
+## for whoever can hold the far side of it. Reported to rook and not acted on --
+## it is a fact about the burn pit, not about this test. All five doubled
+## chokepoint cells are 0, so that is the honest control.
+func test_the_detector_fires_on_a_room_that_really_is_a_wall() -> void:
+	var wall := _doubled_roster(Registry.get_encounter(&"floor1_chokepoint"))
+	for ids in _buildable_parties():
+		var wins := 0
+		for seed in WALL_SEEDS:
+			if _run(_pawns(ids, seed), wall, seed).outcome == CombatState.Outcome.PLAYER_WIN:
+				wins += 1
+				if wins >= WALL_FLOOR:
+					break
+		print("wall control: %s won %d/%d, floor %d" % [ids, wins, WALL_SEEDS, WALL_FLOOR])
+		assert_true(wins < WALL_FLOOR,
+			"the doubled chokepoint is a wall and the detector should say so, but %s won %d/%d against a floor of %d" % [ids, wins, WALL_SEEDS, WALL_FLOOR])
