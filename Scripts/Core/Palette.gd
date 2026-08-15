@@ -17,6 +17,28 @@ const TEAM_PLAYER := Color("6fd3c7")
 const TEAM_ENEMY := Color("e0705f")
 
 const HP_FULL := Color("7cc46b")
+
+## **`HP_LOW` is byte-identical to `TEAM_ENEMY`, and that aliasing has caused
+## three separate defects.** Read this before using either.
+##
+## "This unit is nearly dead" and "this unit is an enemy" are different facts
+## sharing one value, so anything drawn in it says both and means one:
+##
+## - **Health bars** drew a badly hurt *party* pawn in the enemy's colour, at the
+##   moment the field most needs reading. Fixed by giving bars team colour.
+## - **Death text** announced every death in the enemy's colour regardless of who
+##   died, so losing your own pawn read as killing theirs. Not an omission —
+##   actively wrong. Fixed in #191.
+## - **The concentration badge** is a 33px filled circle in this colour on
+##   *player* pawns, and both fresh-eyes playtesters named it the most prominent
+##   thing on the field they could not interpret. Open as #198.
+##
+## The fourth instance is the one to prevent. **If you are about to draw
+## something in `HP_LOW` that is not a health level, you want a different
+## colour** — and if it is on a unit, you are about to say "enemy" to a reader.
+##
+## Not split into two values here on purpose: that changes every screen at once,
+## and the three fixes above each chose a colour that suited their own use.
 const HP_LOW := Color("e0705f")
 const HP_BACK := Color("2a2733")
 
