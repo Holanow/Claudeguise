@@ -104,7 +104,17 @@ const CONDITION_ARG_SHAPE := {
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"self_resource_below": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
-	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
+	## **`step` 5, not 10, and a rendered screen is what found it.** A `SpinBox`
+	## snaps whatever it is given to its own step, so `abomination_grapple_close`
+	## -- 45 units, the Abomination's real melee reach -- drew as **50** in the
+	## plan editor, one control away from the chip beside it reading "An enemy
+	## within 45 units". The plan still held 45; only the player was told
+	## otherwise. Same defect as an ability description stating half its own
+	## duration, in the screen the pawn-behaviour principle exists to protect.
+	## `Tests/test_plans_condition_args.gd` asserts every authored condition
+	## argument lands on its own step, so a future range of 47 is red instead of
+	## silently drawn as 45.
+	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 100.0},
 	&"ally_has_harmful_status": {"kind": "none"},
 	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
 	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
