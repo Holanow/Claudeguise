@@ -199,13 +199,30 @@ const GLYPHS := {
 		{"line": [[-0.95, 0.0], [-0.62, 0.0]], "w": 0.18},
 		{"line": [[0.62, 0.0], [0.95, 0.0]], "w": 0.18},
 	],
-	# A weight on a handle. Heavy, therefore slow and held -- and unlike HASTE's
-	# chevrons in outline rather than merely reversed, so the two cannot be
-	# confused when only one of them is on screen. Flat-bottomed and wide, which
-	# is the difference between reading as a weight and reading as a bucket.
+	# A weight on a post: one thick vertical spine standing on a wide flat foot.
+	#
+	# **This was a weight on a handle -- a wide trapezoid low in the box with a
+	# small arc above it -- and it became the closest pair in the system.**
+	# Measured against POISON it disagreed on only 13.6% of pixels, taking the
+	# place bleed/burn and then taunted/burn had each held. Nothing about the two
+	# pictures is alike as drawings, and that is exactly the trap: POISON is three
+	# dots, one high and two low, and the old SLOWED was a blob low with a mark
+	# high. **Same mass in the same places.** At badge size that is the entire
+	# read, which is this file's own rule -- the read is mass, not taper, and it
+	# applies to where the mass SITS as much as to its edges.
+	#
+	# So the fix is not a better weight, it is a different distribution: a tall
+	# centre column is the one arrangement no other harmful glyph has. BLEED is a
+	# diagonal bar, BURN a flame, POISON scattered dots, STUN and MARKED thin
+	# radiating strokes, TAUNTED a curl. None has a vertical spine.
+	#
+	# Deliberately NOT a downward wedge, which was the first idea and is the
+	# obvious "dragged down" picture: PLATE_BAD is itself a downward-pointing
+	# pentagon, so a wedge glyph would echo the plate it sits in and lose against
+	# every other harmful badge at once.
 	CG.Status.SLOWED: [
-		{"arc": [0.0, -0.34, 0.28, PI, TAU], "w": 0.16},
-		{"poly": [[-0.5, 0.04], [0.5, 0.04], [0.72, 0.82], [-0.72, 0.82]]},
+		{"poly": [[-0.20, -0.80], [0.20, -0.80], [0.20, 0.34], [-0.20, 0.34]]},
+		{"poly": [[-0.80, 0.34], [0.80, 0.34], [0.80, 0.80], [-0.80, 0.80]]},
 	],
 }
 
