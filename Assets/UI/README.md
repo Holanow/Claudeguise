@@ -160,16 +160,27 @@ nobody could guess.
 
 ### Not wired up yet
 
-**The whole of this section is unreachable today, and so is `background.png`.**
-The lookup is built and tested; no screen calls it. Drop any background in and
-nothing happens. Borders are the exception and do work: `panel_border.png`
-re-skins every border in the game right now, including the arena frame and the
-party cards.
+**Backgrounds and borders now work.** `background.png` re-skins every screen,
+each screen's own file overrides it, and `panel_border.png` and `border/arena.png`
+do the same for borders. Drop a file in and the game changes.
 
-<!-- pending: arena, deploy, floor_map, inspect, level_editor, party_select -->
+**`panel.png` does nothing, and neither does `panel/inspect.png`.** No panel in
+the game asks for a style through this pipeline yet, so the row in the table
+above claiming `panel.png` re-skins every panel, card, tooltip and chip is a
+promise the game does not keep. Every one of those panels still builds its own
+style in code.
 
-Tracked as issue #237. When it lands this section goes away and the names above
-start working; the test that keeps the list honest fails until both happen.
+<!-- pending: inspect -->
+
+This is a smaller gap than it reads as: panels are flat colour and a one-pixel
+border today, so there is not much for a file to replace. It is being fixed
+separately from the backgrounds because those panels carry rounded corners that
+the drop-in path cannot express yet, and swapping them over as they stand would
+change how every panel in the game looks with no file present at all.
+
+The test that keeps this list honest reads it against the real call sites, so
+this section cannot rot: wire the last name and the test fails until the section
+is deleted.
 
 A border and a panel are **nine-sliced**: the corners are drawn at their own
 size and the edges stretch between them, so one file works for a small tooltip

@@ -7,6 +7,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
@@ -160,10 +161,13 @@ const TERRAIN_WORDS := {
 }
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Palette.BACKGROUND
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# Issue 237. One line instead of three, and the point is not the two lines:
+	# `Assets/UI/README.md` promises the player that dropping in
+	# `background/party_select.png` (or `background.png` for every screen at once)
+	# re-skins this screen, and until this call existed it did nothing at all.
+	# With no file present `background_node` returns exactly the ColorRect this
+	# replaced, in exactly this colour, so nothing shipped changes.
+	add_child(UIArt.background_node(&"party_select", Palette.BACKGROUND))
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
