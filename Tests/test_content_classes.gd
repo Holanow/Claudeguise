@@ -98,11 +98,20 @@ func test_every_starting_action_resolves() -> void:
 ## WIS-8 budget. WIS 8 -> 10, the same pure-capacity raise this class's own entry
 ## records at 4 -> 6 and 6 -> 8, and `Balance.plan_block_budget` is still the only
 ## reader of WIS anywhere in `Scripts/`.
+##
+## Issue 219: Abomination ships four. `abomination_immolate` is the only
+## sustained action in the game, so it is the only thing that can produce a
+## `SUSTAIN_START` or a `SUSTAIN_END` -- two event kinds that had rendered
+## correct log lines and fired zero times in 100 fights since #61. It cannot
+## arrive through `DefaultBehavior`: that layer is deliberately blind to
+## sustained actions now (see `_attack_candidates`), because a channel lit by the
+## fallback is a pawn holding an aura for a reason written in no plan. WIS 6 -> 8,
+## the same pure-capacity raise this class's own 4 -> 6 entry records.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 5,
 	&"priest": 4,
 	&"geysermancer": 3,
-	&"abomination": 3,
+	&"abomination": 4,
 }
 
 func test_every_class_ships_its_expected_preset_plans_within_its_wis_budget() -> void:

@@ -171,6 +171,49 @@ func _run(class_id: StringName, seed: int) -> Dictionary:
 	var outcome := CombatSim.run(state)
 	return {"outcome": outcome, "ticks": state.tick}
 
+## **AUDITED ON #260 AND IT SURVIVES, BUT IT MEANS LESS THAN ITS NAME SAYS.
+## Reported, not acted on -- no seed moved and no threshold changed.**
+##
+## Three tests are named "X and Y fight differently" and rest on this. It
+## returns true when outcomes disagree **or** ticks differ by 20%, and the same
+## file asserts, in `test_seed_changes_the_fight`, that the tick spread from the
+## **seed alone** is at least 15% of the median. Those two sit close enough
+## together to be worth a control, and the control had never been run: the same
+## class against itself on two different seeds.
+##
+## `Tools/EncounterAudit.gd`, 5 classes x 16 seeds, every pair:
+##
+##     two classes, same seed :  153 of 160 pairs differ  (96%)
+##     SAME class, two seeds  :  207 of 600 pairs differ  (35%)   <- the control
+##
+## **96 against 35 is a real gap, so this is not a seed detector wearing a class
+## detector's name.** That is the acquittal and it is the main result.
+##
+## **The half that is not reassuring is per class:**
+##
+##     abomination      3 of 120   (3%)
+##     siege_master     0 of 120   (0%)
+##     warrior         26 of 120  (22%)
+##     geysermancer    88 of 120  (73%)
+##     priest          90 of 120  (75%)
+##
+## **All three assertions use `geysermancer` as one arm, and it is the class that
+## differs from itself on 73% of seed pairs.** So a large part of each pair's 96%
+## is a Geysermancer being seed-sensitive rather than a Geysermancer being
+## unlike a Warrior. That is not a defect in the predicate, it is a limit on
+## what a single-seed pair can claim -- and it is the mechanism behind the three
+## re-baselines this file already records above, none of which named a cause.
+## A Warrior change re-rolls the pair because the *other* arm is noisy.
+##
+## **`siege_master` at 0 of 120 is a finding in its own right**: an entire class
+## whose fight is tick-identical on every seed sampled. Not chased here.
+##
+## The header above already says the honest fix, if this rots a fourth time, is
+## to decide whether the requirement still stands rather than pick a fifth seed.
+## This is the evidence for that sentence. **One number in it has moved and I am
+## correcting it rather than leaving it: the header says geysermancer/warrior
+## differ on 9 of 16 seeds; today it is 11 of 16.** The other two pairs read 15
+## of 16.
 func _differs(a: Dictionary, b: Dictionary) -> bool:
 	if a["outcome"] != b["outcome"]:
 		return true
@@ -641,6 +684,38 @@ func test_cover_changes_the_fight_for_the_parties_that_close() -> void:
 ## blocked, not just a movement fix for the corner it walks around). Checked
 ## directly rather than inferred from a win/loss count: most seeds should
 ## finish well under the tick cap.
+##
+## **AND IT COUNTED A VALUE THAT CANNOT OCCUR. #260, found by audit, and it had
+## never been able to fail.**
+##
+## It counted `Outcome.UNRESOLVED`. `CombatSim.run` loops
+## `while outcome == UNRESOLVED and tick < MAX_TICKS`, and `step` finishes with
+## `_check_outcome`, which maps a fight sitting on the cap to **`DRAW`**. So the
+## capping tick's own `_check_outcome` resolves the fight before the loop
+## re-tests, and **`state.outcome` is never `UNRESOLVED` after `run()` returns.**
+## The counter was pinned at zero and `draws <= 2` has read as a pass since
+## issue 34 regardless of what the room did.
+##
+## Measured, not only read (`Tools/EncounterAudit.gd`):
+##
+##   - `floor1_chokepoint`, siege_master x4, 40 seeds: 40 PLAYER_WIN, and no
+##     other value of any kind. The healthy arm says nothing on its own.
+##   - **A real stall, which is the input a stall detector has to be fed:**
+##     `floor1_cover` with the no-Abomination party stalls 2 fights in 6000, and
+##     both come out **`DRAW`**. Not `UNRESOLVED`, twice.
+##
+## The sibling guard in `test_content_rooms.gd`,
+## `test_no_pickable_room_stalls_for_any_buildable_party`, has always tested
+## "neither side won" and its header records #78 reporting stalls as
+## `Outcome.DRAW` in as many words. **Two tests, one claim, one repo: one
+## written against the value the game produces and one against a value it
+## cannot.** Nothing flagged it because a dead detector and a healthy room look
+## identical from a pass.
+##
+## Fixed by taking the sibling's predicate. The tick is printed so the two
+## causes of `DRAW` stay distinguishable -- a mutual wipe is a resolution and a
+## fight sitting on the cap is not -- and `test_the_stall_detector_can_see_a_real_stall`
+## below is the known-bad input that proves the counter moves.
 func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
 	assert_not_null(chokepoint)
@@ -648,9 +723,53 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	for seed in 10:
 		var state := CombatSim.build(_party_of(&"siege_master", 4), chokepoint, seed)
 		CombatSim.run(state)
-		if state.outcome == CombatState.Outcome.UNRESOLVED:
+		if state.outcome != CombatState.Outcome.PLAYER_WIN and state.outcome != CombatState.Outcome.ENEMY_WIN:
 			draws += 1
+			print("floor1_chokepoint seed %d did not resolve: %s at tick %d of %d" % [
+				seed, CombatState.Outcome.keys()[state.outcome], state.tick, CG.MAX_TICKS,
+			])
 	assert_true(draws <= 2, "expected floor1_chokepoint to resolve most fights, got %d/10 draws" % draws)
+
+
+## **The known-bad input, without which the test above is still only a claim.**
+##
+## `ENGINEER.md`: a detector nobody feeds known-good input to is the
+## sixteen-passing-tests failure. The mirror of it applies here -- the guard
+## above ran on a room that resolves 40 of 40, so a counter pinned at zero and a
+## healthy room produce the same pass, which is exactly how it stayed broken.
+## This runs the one fight in this repository that is known to stall and asserts
+## the counter registers it.
+##
+## `floor1_cover`, `[geysermancer, priest, siege_master, warrior]`, **seed 364**.
+## finch found it on #252 and measured it at about 1 in 5,000; I swept 6,000 on
+## `bb2c277` and found 2, of which this is the first. It is a real defect --
+## `CombatSim._resolve_move` slides one axis at a time and units settle inside a
+## pillar with sight blocked both ways -- and it is **not this test's job to fix
+## it**. Neither file is mine and finch has already said it wants its own issue.
+##
+## **So this test is written to fail when the defect is fixed, and to say so.**
+## Same shape as the expiring-skip pattern in `ENGINEER.md`: it asserts that the
+## reason for a fixture is still true, fires the day it stops being true, and
+## names the next action rather than rotting into a comment nobody re-reads.
+## One fight, so it costs the gate nothing.
+func test_the_stall_detector_can_see_a_real_stall() -> void:
+	var cover := Registry.get_encounter(&"floor1_cover")
+	assert_not_null(cover)
+	var party: Array[PawnData] = []
+	var ids: Array[StringName] = [&"geysermancer", &"priest", &"siege_master", &"warrior"]
+	for i in ids.size():
+		party.append(PawnFactory.make_starter_pawn(ids[i], &"%s_364_%d" % [ids[i], i], String(ids[i])))
+	var state := CombatSim.build(party, cover, 364)
+	CombatSim.run(state)
+	print("floor1_cover seed 364: %s at tick %d" % [CombatState.Outcome.keys()[state.outcome], state.tick])
+
+	assert_eq(state.tick, CG.MAX_TICKS,
+		"floor1_cover seed 364 was the known stall and it now ends at tick %d. If somebody fixed _resolve_move, THAT IS GOOD NEWS: delete this test, say so in the pull request, and find the guard above a new known-bad input." % state.tick)
+	# The whole point. The old predicate reads false here; the new one reads true.
+	assert_true(state.outcome != CombatState.Outcome.PLAYER_WIN and state.outcome != CombatState.Outcome.ENEMY_WIN,
+		"a fight sitting on the tick cap must count as unresolved, and this one reported %s" % CombatState.Outcome.keys()[state.outcome])
+	assert_eq(state.outcome, CombatState.Outcome.DRAW,
+		"a stall reports DRAW, not UNRESOLVED -- if this ever changes, the predicate above has to change with it")
 
 
 ## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`

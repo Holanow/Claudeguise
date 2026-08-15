@@ -7,6 +7,19 @@ const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
+## **A DURATION IN A DESCRIPTION IS PLAYER-FACING COPY AND IT IS DERIVED FROM A
+## TICK COUNT. Ten of them said exactly half the truth for sixty-odd merges.**
+## Issue 77 halved `CG.TICKS_PER_SECOND` from 30 to 15 and deliberately left
+## every tick count in this file alone, which is what preserved the relative
+## timing of everything against everything else. The prose was not part of that
+## decision and nobody re-read it: "for 3 seconds" beside 90 ticks was true at 30
+## a second and has been wrong since. The game already printed the other number
+## on the team panel and in the combat log, both derived from `CG.TICK_SECONDS`,
+## so a Warrior's Taunt read 16.0s in one place and "8 seconds" in another.
+## `Tests/test_content_descriptions.gd` now derives the expected seconds from
+## each action's own ticks and refuses a phrasing it does not recognise. **If you
+## change a tick count here, the sentence beside it is part of the change.**
+
 ## Every ActionDef in the slice: the five classes' actions and the enemies'.
 ## Kept in one module rather than split per class because Registry only cares
 ## about ids, and a reviewer checking "what can this class actually do" reads
@@ -82,6 +95,35 @@ const MAGIC_BASIC_ATTACK_MANA := 3
 ## giving artillery a range that no longer covers the room.
 const ARENA_SPAN := 1200.0
 
+## `abomination_grapple`'s own three numbers, named because
+## `IMMOLATE_TICK_POWER_SCALE` below is derived from them and a literal repeated
+## in two places is a literal that drifts.
+const GRAPPLE_POWER_SCALE := 2.8
+const GRAPPLE_WIND_UP := 8
+const GRAPPLE_RECOVER := 10
+
+## Issue 219: what one tick of `abomination_immolate` does to one enemy.
+##
+## **Derived: a tick of channel is worth a tick of Grapple.** Grapple is the most
+## expensive thing the Abomination does -- `power_scale` 2.8 across an 18-tick
+## cycle, 0.156 a tick -- and it is what the channel actually gives up. Holding
+## the aura is not "instead of a Claw", it is instead of *acting at all*: the
+## unit neither attacks nor moves while it burns.
+##
+## **So one enemy inside the radius is exactly a wash, and two is the reason to
+## hold it.** That is the whole card, and it is stated as a division rather than
+## as 0.156 so it cannot drift away from the action it is derived from.
+##
+## **What I measured, and the honest order of it: I derived 1/TICKS_PER_SECOND
+## first ("a second held equals one Claw"), shipped it into the tool, and the
+## Abomination got worse** -- 41,049 damage to 38,314 across 120 fights, with
+## Grapple down from 2.95 casts a fight to 2.23. Sweeping 1x, 2x and 3x of that
+## recovered it monotonically (38,314 / 39,627 / 40,086), which is exactly the
+## shape that tempts somebody to pick the biggest number. The value below is not
+## the sweep's winner; it is Grapple's own rate, which sits between the 2x and 3x
+## rows. The sweep is the check on the derivation, not its source.
+const IMMOLATE_TICK_POWER_SCALE := GRAPPLE_POWER_SCALE / float(GRAPPLE_WIND_UP + GRAPPLE_RECOVER)
+
 static func classes() -> Array[ClassDef]:
 	return []
 
@@ -97,7 +139,7 @@ static func classes() -> Array[ClassDef]:
 static func actions() -> Array[ActionDef]:
 	return [
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
-		_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 3 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
+		_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
 		# Issue 79: cost 60 -> 25. This action fired zero times across 210
 		# real fights, and the cause was not tuning or plan priority: the
 		# Warrior's Rage pool has a *maximum* of 40. `Balance.max_resource`
@@ -148,7 +190,7 @@ static func actions() -> Array[ActionDef]:
 		# Rage on purpose -- a shout should not compete with Execute for
 		# the same resource, and it needs to be castable turn one before
 		# any Rage has built at all.
-		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 8 seconds.", 6, 10, 350.0, 240),
+		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 16 seconds.", 6, 10, 350.0, 240),
 		# Issue 52: the directional block the player asked for and found
 		# missing -- SHIELDING existed in the simulation (PR #33) since
 		# before shots could travel, and had nothing to intercept until
@@ -167,7 +209,7 @@ static func actions() -> Array[ActionDef]:
 		# fell through to warrior_strike at all, in every real party the
 		# gate measured. Costs no Rage, same reasoning as taunt: it should
 		# not compete with Execute for the same pool.
-		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 5 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
+		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 10 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
 		# Issue 99: the Warrior's self-sustain, replacing Directional Block in
 		# this class's kit. The player's own call -- "Something like the
@@ -230,11 +272,11 @@ static func actions() -> Array[ActionDef]:
 		# wind-up and recovery through the SimDeps seam -- this is the first
 		# thing in the game to grant it. 5s duration/cooldown, matching every
 		# other timed status in the bestiary (MARKED, SLOWED).
-		_action_ally_buff(&"priest_haste", "Haste", "Speeds up an ally's actions by 30% for 5 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.HASTE, 150),
+		_action_ally_buff(&"priest_haste", "Haste", "Speeds up an ally's actions by 30% for 10 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.HASTE, 150),
 		# priest_ward: SHIELD, Balance.damage_reduction already reads it
 		# (STATUS_SHIELD_REDUCTION, 25%) -- content-inert until now, the same
 		# state SHIELDING was in before issue 52 gave it a real grantor.
-		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 5 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
+		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 10 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
 
 		# Issue 79: the Geysermancer's no-cost basic attack, the third and last
 		# class to get one. The player's standing instruction, said twice --
@@ -329,7 +371,7 @@ static func actions() -> Array[ActionDef]:
 		# real party carrying it lost every floor room. Raised to 1.0, in
 		# line with a normal single-target hit: the debuff is still the
 		# point, but the hit landing it should not be a rounding error.
-		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 5 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 10 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), RANGED_PROJECTILE_SPEED),
 		# build_siege_engine: self-targeted (range 0, no line-of-sight
 		# needed), deals no damage of its own -- power_scale 0.0, the
 		# summon is the whole effect. wind_up 90 ticks (3s) is the "takes a
@@ -357,7 +399,7 @@ static func actions() -> Array[ActionDef]:
 		# *chosen* (PlanInterpreter/DefaultBehavior) rather than where the summon
 		# spawns: refusing at spawn time would still burn 20 Mana and a 90-tick
 		# wind-up, making marking rarer instead of more frequent.
-		_summon_cap(_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 3 seconds building a Siege Engine with 140 health. It cannot move and only fires at enemies you have marked. Two at most. Costs 20 Mana.", 90, 20, 20, &"siege_engine"), 2),
+		_summon_cap(_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 6 seconds building a Siege Engine with 140 health. It cannot move and only fires at enemies you have marked. Two at most. Costs 20 Mana.", 90, 20, 20, &"siege_engine"), 2),
 
 		# Issue 62: abomination_claw, restored. The player's own direction --
 		# "Restore abomination_claw" -- reversing issue 52's retirement of it.
@@ -369,7 +411,7 @@ static func actions() -> Array[ActionDef]:
 		# first in starting_classes.gd's own action list so DefaultBehavior's
 		# fallback picks this rather than an unaffordable hook, mirroring
 		# warrior_strike's own position for the same reason.
-		_action_status(&"abomination_claw", "Claw", "A melee strike that poisons the target for 9% of its max health per second, for 3 seconds. Costs nothing.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
+		_action_status(&"abomination_claw", "Claw", "A melee strike that poisons the target for 4.5% of its max health per second, for 6 seconds. Costs nothing.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
 		# Issue 52: the Abomination's hook and grapple, per the player's own
 		# spec -- "a mid-range hook that drags enemies in" plus a follow-up
 		# so a hooked target cannot just walk back out. Both already deal
@@ -397,13 +439,55 @@ static func actions() -> Array[ActionDef]:
 		# (5s), the same length as spotter_mark's MARKED -- long enough to
 		# matter across several of the Abomination's own attacks, not so
 		# long it never falls off between engagements.
-		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 5 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, 8, 10, 2.8, 20, CG.Status.SLOWED, 150),
+		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 10 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, GRAPPLE_WIND_UP, GRAPPLE_RECOVER, GRAPPLE_POWER_SCALE, 20, CG.Status.SLOWED, 150),
+		# Issue 219: Immolate, restored, and it is the ONLY thing in the game
+		# that holds a channel. Issue 61 built the mechanism and deliberately
+		# left every action's `sustain_cost_per_tick` at 0, so SUSTAIN_START and
+		# SUSTAIN_END rendered correct log lines and fired zero times in 100
+		# fights. This is the content that makes them happen.
+		#
+		# The player's words: *"damage to enemies nearby that costs rage per
+		# tick"*. Every number is derived from something already in the file:
+		#
+		#   radius 90 -- twice the Abomination's own melee reach (Claw and
+		#     Grapple are both 45), and well inside Hook's 140. That band is
+		#     also what its plan is for: close enough to burn, too far to grip.
+		#     See `abomination_immolate_dump` in PresetPlans.gd.
+		#   power IMMOLATE_TICK_POWER_SCALE -- a tick of channel is worth a tick
+		#     of Grapple, so ONE enemy in the radius is a wash and TWO is the
+		#     reason to hold it. Its own constant, with the measurement that
+		#     corrected my first derivation.
+		#   sustain_cost_per_tick 1 -- Grapple costs 20 Rage across 18 ticks, so
+		#     the kit's most expensive action already spends about 1.1 Rage a
+		#     tick. Burning costs what grappling costs.
+		#   resource_cost 1 -- one tick's worth to light it. It is also the
+		#     affordability gate: `PlanInterpreter.can_afford` refuses the action
+		#     at 0 Rage, so a plan a player writes with an `always` condition
+		#     cannot re-ignite a channel it has no Rage to hold, one
+		#     SUSTAIN_START/SUSTAIN_END pair per tick, forever.
+		#   wind_up 15 -- one second, longer than anything else in the kit
+		#     (Grapple 8, Hook 10). Lighting yourself is the commitment; the
+		#     holding is free to abandon on any tick.
+		#   recover 0 -- a channel is renewed by deciding, and recovery ticks are
+		#     ticks the unit is not asked. There is nothing to recover from
+		#     either: the ignition lands no hit.
+		#
+		# FIRE, the Abomination's second declared damage type
+		# (starting_classes.gd) with nothing in its kit using it -- Claw, Hook
+		# and Grapple are all PROFANE.
+		#
+		# **Rage is the thing to understand before changing any of this.**
+		# `_tick_sustain` does not call `_on_hit_landed`, and a Rage pawn refills
+		# only from landed hits, so a channel is a pure dump that can never pay
+		# for itself (swift's #61 finding). It also stops the unit MOVING, which
+		# is what the plan's own comment measures the price of.
+		_sustained(&"abomination_immolate", "Immolate", "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking a Grapple's worth of damage each second. Costs 1 Rage to light and 15 Rage a second to hold.", CG.DamageType.FIRE, 15, IMMOLATE_TICK_POWER_SCALE, 1, 1, 90.0),
 
 		_action(&"goblin_stab", "Stab", "A melee jab dealing damage at up to 40 units.", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
 		_projectile(_action(&"goblin_arrow", "Arrow", "A ranged shot dealing damage at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 		_action(&"ghoul_maul", "Maul", "A melee blow at up to 45 units, with a 0.5-second wind-up.", CG.DamageType.PHYSICAL, 45.0, 14, 14, 1.0, 0, 0),
 		# Issue 23: the bestiary's status user. Profane -> POISON per README.md.
-		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt at up to 200 units that poisons the target for 9% of its max health per second, for 3 seconds.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action_status(&"cultist_bolt", "Dark Bolt", "A ranged bolt at up to 200 units that poisons the target for 4.5% of its max health per second, for 6 seconds.", CG.DamageType.PROFANE, 200.0, 10, 10, 0.7, 0, CG.Status.POISON, 90, true), RANGED_PROJECTILE_SPEED),
 
 		# Issue 44: The Warden, floor 1's boss (README's own name and flavour
 		# -- "big, slow, scary, wields an executioner's axe that can do a ton
@@ -638,6 +722,24 @@ static func _marked_only(a: ActionDef) -> ActionDef:
 ## 0 means uncapped, which is every other action, so this is additive.
 static func _summon_cap(a: ActionDef, cap: int) -> ActionDef:
 	a.max_active_summons = cap
+	return a
+
+## Issue 219: the first authored channel. Self-targeted (range 0.0, no
+## line-of-sight of its own -- the aura checks it per target inside
+## `CombatSim._sustain_targets`), no cooldown, and both halves of the price
+## stated: `resource_cost` to light it, `sustain_cost_per_tick` to hold it.
+##
+## **`cooldown_ticks` is 0 and must stay 0, and that is a property of the
+## mechanism rather than a preference.** `PlanInterpreter.can_afford` refuses an
+## action on cooldown, so a cooldown on a channel would stop the plan re-choosing
+## it and the channel would end itself on its second tick. `CombatSim`'s own
+## re-affirmation branch says so, and `Tests/test_combat_sustain.gd` asserts no
+## authored action carries the pair -- which is why this helper does not take a
+## cooldown parameter at all rather than taking one and passing 0.
+static func _sustained(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, tick_power_scale: float, resource_cost: int, sustain_cost_per_tick: int, sustain_radius: float) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, 0, tick_power_scale, resource_cost, 0)
+	a.sustain_cost_per_tick = sustain_cost_per_tick
+	a.sustain_radius = sustain_radius
 	return a
 
 ## Issue 52/14: wraps an ActionDef with a real pull, same "the mechanism was
