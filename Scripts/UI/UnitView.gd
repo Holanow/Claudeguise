@@ -222,6 +222,7 @@ func _draw() -> void:
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
 	var bar_gap := BAR_GAP * DISPLAY_SCALE
 	var y := -radius - bar_gap
+	var stack_bottom := y
 
 	if u.resource_max > 0:
 		y -= bar_height
@@ -235,6 +236,7 @@ func _draw() -> void:
 	var hp_pos := Vector2(-width * 0.5, y)
 	draw_rect(Rect2(hp_pos, Vector2(width, bar_height)), Palette.HP_BACK)
 	draw_rect(Rect2(hp_pos, Vector2(width * u.hp_fraction(), bar_height)), hp_fill_color(u))
+	_draw_bar_tether(u, stack_bottom)
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
 	# Issue 82: name plates are a toggle now, defaulting off, and this is the
@@ -245,6 +247,39 @@ func _draw() -> void:
 	# throw away the harder half.
 	if DisplayOptions.enabled(&"name_plates") and _label_visible(u):
 		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
+
+## Issue 187, and TWO independent cold readers reported it before it was filed:
+## *"twenty floating dashes with insects underneath"*, and *"nothing tying a bar
+## to a body"*. In a crowd one unit's bar sits directly over another's body.
+##
+## **The distance itself is not mine to close and I want that on the record
+## rather than implied.** The bars are anchored to `CombatUnit.radius`, which is
+## the unit's real footprint -- the same number the simulation collides with --
+## so they sit just clear of the space a unit occupies, which is correct. What a
+## reader compares them against is the **ink**, and the art does not fill its
+## canvas: a ~66px footprint carrying ~14px of drawn pixels leaves a ~30px empty
+## band that reads as the bar floating. sable has that half. Anchoring to a
+## guess at the ink instead would collide with the art the moment they fix it.
+##
+## So this is the half that works either way: **a tether.** A thin line from the
+## bar stack down to the body says which body, at any gap, and it keeps saying
+## it when the gap closes. It is drawn in the unit's team colour so a bar, its
+## tether and its body are one object in one colour, which is what "belongs to"
+## has to look like when twenty of them overlap.
+##
+## Deliberately thin and low-alpha: it is a relationship, not a thing. A solid
+## line would become the twenty-first mark on a screen two readers have now
+## asked to have marks REMOVED from.
+const TETHER_WIDTH := 1.0 * DISPLAY_SCALE
+const TETHER_ALPHA := 0.55
+
+func _draw_bar_tether(u: CombatUnit, stack_bottom: float) -> void:
+	var color := Palette.team_color(u.team)
+	color.a = TETHER_ALPHA
+	# Stops at the body's centre rather than its edge: the ink is somewhere
+	# inside the footprint and nobody knows where, so ending at the centre
+	# guarantees the line reaches whatever is actually drawn.
+	draw_line(Vector2(0.0, stack_bottom), Vector2.ZERO, color, TETHER_WIDTH)
 
 ## Issue 82, and the finding that forced it: **`Palette.HP_LOW` and
 ## `Palette.TEAM_ENEMY` are the same colour, `e0705f`.** So every unit's bar ran
