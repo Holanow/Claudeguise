@@ -25,11 +25,25 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]
 ## The Brute's stun is the only thing in the game that cancels a cast, and it
-## stands in the Burn Pit.
-const ROOM := &"floor1_hazard"
-const WANTED := CG.EventKind.INTERRUPTED
+## stands in the Burn Pit. Both are overridable, because the aiming problem is
+## not specific to interrupts: any event rare enough to matter is too rare to
+## catch on a fixed tick.
+##
+##   godot --path . --resolution 1280x720 res://Tools/InterruptShot.tscn -- ##       --kind STATUS_EXPIRED --room floor1_room1 --name burn_consume
+##
+## `--kind` takes a CG.EventKind name.
+const DEFAULT_ROOM := &"floor1_hazard"
+const DEFAULT_KIND := CG.EventKind.INTERRUPTED
 
 var _main: Node
+var _room: StringName = DEFAULT_ROOM
+var _wanted: int = DEFAULT_KIND
+var _name := "interrupt"
+## Optional: also require the event to carry this action id. STATUS_EXPIRED
+## fires for a natural expiry, a cleanse and a consume alike, and the consume is
+## the one worth a picture -- without this the tool photographs whichever comes
+## first, which is almost always the dull one.
+var _action := &""
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -79,12 +93,29 @@ func _fresh() -> void:
 	await _settle()
 
 func _run() -> void:
-	# An interrupt is not guaranteed in any one fight, so try seeds until one
+	var args := OS.get_cmdline_user_args()
+	for i in args.size():
+		if i + 1 >= args.size():
+			continue
+		if args[i] == "--room":
+			_room = StringName(args[i + 1])
+		elif args[i] == "--name":
+			_name = args[i + 1]
+		elif args[i] == "--action":
+			_action = StringName(args[i + 1])
+		elif args[i] == "--kind":
+			var found := CG.EventKind.keys().find(args[i + 1])
+			if found < 0:
+				printerr("InterruptShot: no such CG.EventKind '%s'" % args[i + 1])
+				return
+			_wanted = found
+
+	# The event is not guaranteed in any one fight, so try seeds until one
 	# lands rather than reporting a miss as a result.
 	for attempt in 8:
 		if await _try_once(attempt):
 			return
-	print("InterruptShot: no INTERRUPTED in 8 fights")
+	print("InterruptShot: no %s in 8 fights" % CG.EventKind.keys()[_wanted])
 
 func _try_once(attempt: int) -> bool:
 	await _fresh()
@@ -92,10 +123,10 @@ func _try_once(attempt: int) -> bool:
 	var picker: OptionButton = select._room_picker
 	var found := -1
 	for i in picker.item_count:
-		if picker.get_item_metadata(i) == ROOM:
+		if picker.get_item_metadata(i) == _room:
 			found = i
 	if found < 0:
-		print("InterruptShot: %s not offered" % ROOM); return false
+		print("InterruptShot: %s not offered" % _room); return false
 	picker.selected = found
 	picker.item_selected.emit(found)
 	await _settle()
@@ -116,17 +147,20 @@ func _try_once(attempt: int) -> bool:
 		while seen < battle.state.events.size():
 			var e = battle.state.events[seen]
 			seen += 1
-			if e.kind != WANTED:
+			if e.kind != _wanted:
+				continue
+			if _action != &"" and e.action_id != _action:
 				continue
 			# The log line is already appended and the flash node already
 			# spawned by the time this frame ends: BattleView.consume_events
 			# runs on the same frame the tick is stepped.
-			await _shot("interrupt_now")
+			await _shot("%s_now" % _name)
 			await _settle(4)
-			await _shot("interrupt_after")
+			await _shot("%s_after" % _name)
 			var who = battle.state.unit(e.source_id)
-			print("InterruptShot: tick %d, %s lost %s (%d ticks of wind-up), attempt %d" % [
-				e.tick, who.display_name if who != null else "?", e.action_id, e.amount, attempt])
+			print("InterruptShot: %s at tick %d, source %s, action %s, amount %d, attempt %d" % [
+				CG.EventKind.keys()[e.kind], e.tick,
+				who.display_name if who != null else "?", e.action_id, e.amount, attempt])
 			return true
-	print("InterruptShot: attempt %d finished with no interrupt (tick %d)" % [attempt, battle.state.tick])
+	print("InterruptShot: attempt %d finished with no such event (tick %d)" % [attempt, battle.state.tick])
 	return false
