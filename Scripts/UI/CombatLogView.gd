@@ -6,7 +6,7 @@ const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+const Glossary := preload("res://Scripts/UI/Glossary.gd")
 
 ## The scrolling record of the fight, in words. One line per CombatEvent worth
 ## showing.
@@ -375,14 +375,15 @@ const SILENT_KINDS := [
 ## "print amount when non-zero" would have published a unit id to the player as
 ## if it were a strength. That is the trap this shape avoids, and it is the
 ## reason the sets are read from where they are defined.
+##
+## Issue 245: the wording moved to `Glossary.status_magnitude_text` and this
+## calls it. The status popup on the team panel has to say the same thing about
+## the same badge, and this rule -- which statuses may show a number at all, and
+## in which of two units -- is the part that must not exist twice. The output is
+## unchanged; only the parentheses are still this function's.
 func _magnitude_text(e: CombatEvent) -> String:
-	if e.amount <= 0:
-		return ""
-	if CombatSim._STACKING_STATUSES.has(e.status):
-		return " (%d stack%s)" % [e.amount, "" if e.amount == 1 else "s"]
-	if CombatSim._HIT_SCALED_STATUSES.has(e.status):
-		return " (strength %d)" % e.amount
-	return ""
+	var text := Glossary.status_magnitude_text(e.status, e.amount)
+	return "" if text == "" else " (%s)" % text
 
 ## Issue 155. The half of "what happened **and why**" the log has never had.
 ##

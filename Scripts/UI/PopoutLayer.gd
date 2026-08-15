@@ -77,11 +77,33 @@ static func of(node: Node) -> Control:
 	return layer
 
 ## Pin one. Returns the popout so a caller can position or test it.
-func pin(title: String, body: String, at: Vector2) -> Control:
+##
+## `source` is the control it was pinned from, kept weakly so `refresh` can
+## re-read a body that changes while the popout is open. Optional, and null is
+## the old behaviour exactly: a popout describing something constant has nothing
+## to re-read.
+func pin(title: String, body: String, at: Vector2, source: Control = null) -> Control:
 	var popout := PopoutScript.build(title, body)
+	if source != null:
+		popout.source = weakref(source)
 	add_child(popout)
 	popout.move_to(at + OFFSET + STAGGER * float(get_child_count() - 1))
 	return popout
+
+## Re-read every pinned popout from whatever pinned it.
+##
+## Issue 245. Called once per sync from the screen that owns live text, not from
+## a timer: the panel already knows when its numbers moved, and a popout that
+## updated on its own clock could show a different tick from the chip two
+## centimetres above it.
+##
+## Every popout, not only the ones the caller cares about, because the layer is
+## the only thing that knows what is pinned and a popout with no source ignores
+## this.
+func refresh() -> void:
+	for child in get_children():
+		if child.has_method("refresh"):
+			child.refresh()
 
 func pinned() -> Array[Node]:
 	return get_children()

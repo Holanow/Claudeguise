@@ -9,6 +9,7 @@ const UnitView := preload("res://Scripts/UI/UnitView.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryLabel := preload("res://Scripts/UI/GlossaryLabel.gd")
 const IconChip := preload("res://Scripts/UI/IconChip.gd")
+const PopoutLayer := preload("res://Scripts/UI/PopoutLayer.gd")
 
 ## Issue 113: the player's whole team, in one place that does not move.
 ##
@@ -280,6 +281,15 @@ func sync(state: CombatState) -> void:
 	# log may not move.
 	offset_bottom = offset_top + panel_height()
 
+	# Issue 245. The status popups now carry a stack count and a countdown, so a
+	# popout pinned off one of these chips has to be re-read or it says something
+	# that was true four seconds ago. Driven from here rather than from a timer
+	# because this is the function that knows the numbers moved, and a popout on
+	# its own clock could show a different tick from the chip above it.
+	var layer := PopoutLayer.of(self)
+	if layer != null:
+		layer.refresh()
+
 ## What the panel is tall right now, summed off the rows that exist rather than
 ## computed from constants describing them. `state` is unused and kept because
 ## every caller has one and a height that silently stopped following the fight
@@ -453,14 +463,27 @@ func _update_row(row: Control, state: CombatState, u: CombatUnit) -> void:
 
 	_set_bar(row.get_meta("resource_fill"), _fraction(u.resource, u.resource_max),
 		Palette.resource_color(u.resource_kind))
-	_update_status_chips(row, u)
+	_update_status_chips(row, state, u)
 	_update_cooldown_chips(row, state, u)
 
 ## The same two badges the unit itself carries, from the same ordering, so a
 ## player looking from the panel to the pawn is not shown two different answers.
 ## `UnitView.status_badges` and `hidden_status_count` are read rather than
 ## reimplemented for exactly that reason.
-func _update_status_chips(row: Control, u: CombatUnit) -> void:
+##
+## Issue 245, the player: *"I should be able to mouse over a status icon in the
+## party overview and get a more indepth description of the status."*
+##
+## The hover and the pin were already here from #113 and so was the sentence.
+## **What was missing is the half that makes it an explanation rather than a
+## glossary: what this badge is carrying right now.** A Warrior at three stacks
+## of BLEED and a Warrior at one showed the same words, and the number the fight
+## is actually running on was on the unit the whole time.
+##
+## `Glossary.status_popup_text` owns both halves so the log and this cannot
+## describe one badge two ways, and it takes the tick because a duration is only
+## meaningful against a clock.
+func _update_status_chips(row: Control, state: CombatState, u: CombatUnit) -> void:
 	var badges := UnitView.status_badges(u)
 	var chips: Array = row.get_meta("status_chips")
 	for i in chips.size():
@@ -474,7 +497,7 @@ func _update_status_chips(row: Control, u: CombatUnit) -> void:
 		chip.text = ""
 		chip.sweep = -1.0
 		chip.pin_title = status_name(status)
-		chip.tooltip_text = "%s. %s" % [status_name(status), Glossary.status_text(status)]
+		chip.tooltip_text = Glossary.status_popup_text(u, status, state.tick)
 		chip.custom_minimum_size = Vector2(chip.measured_width(), IconChip.ICON_SIZE)
 		chip.visible = true
 		chip.queue_redraw()
@@ -487,7 +510,7 @@ func _update_status_chips(row: Control, u: CombatUnit) -> void:
 ## all read, and this is the fourth reader. Four screens calling one status three
 ## different names is the failure this avoids.
 static func status_name(status: CG.Status) -> String:
-	return String(CG.Status.keys()[status]).capitalize()
+	return Glossary.status_name(status)
 
 func _update_cooldown_chips(row: Control, state: CombatState, u: CombatUnit) -> void:
 	var running := cooldowns_for(state, u)
