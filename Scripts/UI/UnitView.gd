@@ -516,6 +516,17 @@ const MAX_STATUS_BADGES := 4
 ## could read. CG.is_harmful() is the only thing consulted for the split,
 ## the same single source of truth StatusIcons uses for the plate direction.
 static func status_badges(u: CombatUnit) -> Array:
+	var all := ordered_statuses(u)
+	if all.size() <= MAX_STATUS_BADGES:
+		return all
+	# One slot is given up to the "+N" chip, so the row still occupies at most
+	# MAX_STATUS_BADGES slots and never grows wider than the unit.
+	return all.slice(0, MAX_STATUS_BADGES - 1)
+
+## Every status on the unit, in draw order, with nothing dropped. Split out so
+## the overflow count is derived from the same ordering the drawn badges are --
+## two independent orderings would let the "+N" disagree with what is shown.
+static func ordered_statuses(u: CombatUnit) -> Array:
 	var harmful: Array = []
 	var beneficial: Array = []
 	for s in CG.Status.values():
@@ -525,19 +536,49 @@ static func status_badges(u: CombatUnit) -> Array:
 			harmful.append(s)
 		else:
 			beneficial.append(s)
-	var all := harmful + beneficial
-	return all.slice(0, MAX_STATUS_BADGES)
+	return harmful + beneficial
+
+## Issue 161, sable's measurement: `MAX_STATUS_BADGES` is 4 and **a fifth status
+## was dropped with nothing on screen saying so.** With bleed stacking and burn,
+## five is reachable now.
+##
+## A silently truncated row is worse than a short one: the player reads four
+## badges as "this unit has four statuses", which is a statement the game is
+## making and it is false. `+2` is not as good as showing them, but it is true,
+## and it tells the player there is something they are not being shown.
+static func hidden_status_count(u: CombatUnit) -> int:
+	var total := ordered_statuses(u).size()
+	if total <= MAX_STATUS_BADGES:
+		return 0
+	return total - (MAX_STATUS_BADGES - 1)
 
 func _draw_status_badges(u: CombatUnit, radius: float, below: float) -> float:
 	var badges := status_badges(u)
-	if badges.is_empty():
+	var hidden := hidden_status_count(u)
+	if badges.is_empty() and hidden == 0:
 		return 0.0
+	var slots := badges.size() + (1 if hidden > 0 else 0)
 	var top := radius + below + STATUS_BADGE_TOP_GAP
-	var width := StatusIcons.row_width(badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
-	var rects := StatusIcons.layout_row(Vector2(-width * 0.5, top), badges.size(), STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	var width := StatusIcons.row_width(slots, STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
+	var rects := StatusIcons.layout_row(Vector2(-width * 0.5, top), slots, STATUS_BADGE_SIZE, STATUS_BADGE_GAP)
 	for i in badges.size():
 		StatusIcons.draw_status(self, badges[i], rects[i])
+	if hidden > 0:
+		_draw_overflow_chip(rects[slots - 1], hidden)
 	return STATUS_BADGE_TOP_GAP + STATUS_BADGE_SIZE
+
+## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
+## status is on this unit", and a plate meaning "there are more" would be the
+## first one that is not a status -- exactly the ambiguity sable measured, where
+## badges in a category already share ~84% of their pixels. Text cannot be
+## mistaken for a status.
+func _draw_overflow_chip(rect: Rect2, count: int) -> void:
+	var font := ThemeDB.fallback_font
+	var text := "+%d" % count
+	var size := int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
+	var measured := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	var at := rect.get_center() + Vector2(-measured.x * 0.5, measured.y * 0.35)
+	draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Palette.TEXT_DIM)
 
 ## Out-of-resource looks identical to "idle" on the arena otherwise: the unit
 ## just doesn't do anything, and a viewer with no access to CombatUnit cannot
