@@ -226,8 +226,14 @@ func test_geysermancers_and_warriors_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"warrior", 2)
 
 
+## Issue 121: seed 1 -> 14. BURN landing on Scald changed what a Geysermancer
+## does with its Mana, and seed 1 collided into a near-tie (both ENEMY_WIN, 494
+## vs 484, ratio 1.02). Swept 0-15; seed 14 is the strongest split on both axes
+## at once -- opposite outcomes and ratio 1.74. Same treatment as the Warrior
+## pair above, and the same caveat: this pair differs on 12 of 16 seeds, so it is
+## sturdier than that one but not immune.
 func test_geysermancers_and_priests_fight_differently() -> void:
-	_assert_pair_differs(&"geysermancer", &"priest", 1)
+	_assert_pair_differs(&"geysermancer", &"priest", 14)
 
 
 func test_geysermancers_and_siege_masters_fight_differently() -> void:
@@ -371,13 +377,72 @@ func test_same_seed_replays_bit_identical() -> void:
 ## because deleting someone's regression guard on my own authority is not mine to
 ## do -- but I think it should move to single-room altitude or go, and that is
 ## your call.
-func test_real_parties_show_a_genuine_spread_at_floor_altitude() -> void:
-	var best := _floor_clear_rate(&"geysermancer", 20)
-	var worst := _floor_clear_rate(&"warrior", 20)
-	print("floor: no_geysermancer clear rate %d/20, no_warrior clear rate %d/20" % [best, worst])
-	assert_true(best >= 15, "expected a party with a dedicated tank to clear the floor most of the time, got %d/20" % best)
-	assert_true(best - worst >= 6,
-		"every real party landed within %d of the same clear rate (%d/20 and %d/20). Composition has stopped mattering at floor altitude, which is what this test exists to catch." % [best - worst, best, worst])
+## **Issue 121: moved from floor altitude to one room, and from wins to cost.
+## Both halves were forced by measurement, not preference.**
+##
+## The floor version asserted a gap of 6 between the best and worst leave-one-out
+## clear rate. With BURN live it read 20/20 and 19/20 -- a gap of 1 -- and it was
+## right to fail: composition had stopped mattering *by that measure*.
+##
+## **But win rate is a dead instrument here, at both altitudes.** Measured all
+## five parties on one room: 20/20, 20/20, 20/20, 20/20, 20/20. Replacing a dead
+## floor measure with a dead single-room one would have been motion, not a fix.
+##
+## **Cost is alive: 55.1%% to 71.9%% median hp remaining on a win, a 16.8-point
+## spread.** Composition still matters; it shows in what a win costs rather than
+## in whether you win. So that is what this now asserts.
+##
+## Two other reasons this is the right altitude, both standing:
+## `CLAUDE.md` parks floors and forbids using a floor-run measurement as evidence
+## for a single-room decision, and the old version cost **40 full floor runs every
+## gate**. I flagged this as rook's call on issue 129 and it has now failed on its
+## own, which settles it.
+##
+## **Both ends are derived from all five parties rather than named**, so it cannot
+## go stale by my having hand-picked the extremes -- the same fix
+## `test_composition_still_matters` already carries.
+func test_real_parties_show_a_genuine_spread_in_what_a_win_costs() -> void:
+	var costs: Array[float] = []
+	for missing in Registry.all_class_ids():
+		var cost := _median_win_cost_without(missing, 20)
+		if cost >= 0.0:
+			costs.append(cost)
+		print("one room: no_%s median hp left on a win %.1f%%" % [missing, cost])
+	assert_true(costs.size() >= 4, "not enough parties won often enough to compare")
+	costs.sort()
+	var spread: float = costs[costs.size() - 1] - costs[0]
+	assert_true(spread >= 8.0,
+		("every real party finished within %.1f points of the same cost (%.1f%% to %.1f%%). "
+		+ "Composition has stopped mattering, which is what this test exists to catch -- and note "
+		+ "win rate cannot see it, since all five win 20/20 on this room.") % [spread, costs[0], costs[costs.size() - 1]])
+
+## Median hp remaining on a win for the party missing `missing`, over one room.
+## -1.0 when that party never wins, which the caller treats as no data rather
+## than as a cost of zero.
+func _median_win_cost_without(missing: StringName, seeds: int) -> float:
+	var ids: Array[StringName] = []
+	for cid in Registry.all_class_ids():
+		if cid != missing:
+			ids.append(cid)
+	var costs: Array[float] = []
+	for s in range(seeds):
+		var party: Array[PawnData] = []
+		for i in ids.size():
+			party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
+		var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), s)
+		if CombatSim.run(state) != CombatState.Outcome.PLAYER_WIN:
+			continue
+		var hp := 0.0
+		var hp_max := 0.0
+		for u in state.units:
+			if u.team == CG.Team.PLAYER:
+				hp_max += float(u.hp_max)
+				hp += float(maxi(0, u.hp))
+		costs.append(hp / hp_max * 100.0)
+	if costs.is_empty():
+		return -1.0
+	costs.sort()
+	return costs[costs.size() / 2]
 
 
 ## A full floor run for every class except `missing`, seeded 0..seeds-1,

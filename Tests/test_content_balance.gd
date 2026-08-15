@@ -2,6 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const Balance := preload("res://Scripts/Content/Balance.gd")
+const CoreActions := preload("res://Scripts/Content/Modules/core_actions.gd")
 const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
@@ -215,13 +216,27 @@ func test_attack_power_variance_is_reproducible_from_the_same_seed() -> void:
 		)
 
 
-func test_status_damage_per_tick_only_applies_to_burn_and_poison() -> void:
+## Issue 121: **BURN left this function and the removal is the point.** Its rate
+## is a fraction of the hit that lit it, which is the magnitude term, and leaving
+## a percent-of-max-health rate here as well would make burn do both at once.
+func test_status_damage_per_tick_applies_to_poison_and_nothing_else() -> void:
 	var u := CombatUnit.new()
 	u.hp_max = 100
-	assert_true(Balance.status_damage_per_tick(u, CG.Status.BURN) > 0.0)
 	assert_true(Balance.status_damage_per_tick(u, CG.Status.POISON) > 0.0)
-	for other in [CG.Status.SHIELD, CG.Status.BLEED, CG.Status.STUN, CG.Status.HASTE, CG.Status.MARKED]:
-		assert_almost_eq(Balance.status_damage_per_tick(u, other), 0.0, 0.0001, "%s should deal no tick damage" % other)
+	for other in [CG.Status.SHIELD, CG.Status.BLEED, CG.Status.STUN, CG.Status.HASTE, CG.Status.MARKED, CG.Status.BURN]:
+		assert_almost_eq(Balance.status_damage_per_tick(u, other), 0.0, 0.0001, "%s should deal no flat tick damage" % other)
+
+## The other half, so "burn was removed" cannot be satisfied by burn doing
+## nothing at all -- which is exactly what a half-landed version of this change
+## looks like.
+func test_burn_gets_its_rate_from_the_hit_that_applied_it_instead() -> void:
+	var u := CombatUnit.new()
+	u.hp_max = 100
+	assert_true(Balance.status_damage_per_magnitude(u, CG.Status.BURN) > 0.0,
+		"burn came off the flat rate and got nothing back; it now deals nothing at all")
+	for other in [CG.Status.SHIELD, CG.Status.POISON, CG.Status.STUN, CG.Status.HASTE, CG.Status.MARKED]:
+		assert_almost_eq(Balance.status_damage_per_magnitude(u, other), 0.0, 0.0001,
+			"%s should draw nothing from a stored magnitude" % other)
 
 
 func test_status_damage_per_tick_scales_with_victim_max_hp() -> void:
@@ -230,24 +245,36 @@ func test_status_damage_per_tick_scales_with_victim_max_hp() -> void:
 	var large := CombatUnit.new()
 	large.hp_max = 500
 	# Proportional, not flat: a bigger unit takes a bigger raw number so the
-	# same status is equally scary as a fraction of hp for everyone.
+	# same status is equally scary as a fraction of hp for everyone. POISON
+	# rather than BURN since issue 121 -- burn scales with the hit that lit it
+	# instead, which is a different and deliberate rule.
 	assert_almost_eq(
-		Balance.status_damage_per_tick(large, CG.Status.BURN),
-		Balance.status_damage_per_tick(small, CG.Status.BURN) * 10.0,
+		Balance.status_damage_per_tick(large, CG.Status.POISON),
+		Balance.status_damage_per_tick(small, CG.Status.POISON) * 10.0,
 		0.01
 	)
 
 
-func test_a_long_enough_burn_would_kill() -> void:
-	# Not tied to any in-game status_duration_ticks: proves the rate itself is
-	# large enough to matter, independent of how long any one action's status
-	# lasts. 100 hp / (0.5% per tick) = 200 ticks to zero.
-	var u := CombatUnit.new()
-	u.hp_max = 100
-	var per_tick := Balance.status_damage_per_tick(u, CG.Status.BURN)
-	var ticks_to_kill := ceili(float(u.hp_max) / per_tick)
-	assert_true(ticks_to_kill <= CG.MAX_TICKS, "burn should be able to kill within a fight's tick budget")
-	assert_true(ticks_to_kill > CG.TICKS_PER_SECOND, "burn should not kill in under a second, or it dominates rather than pressures")
+## Issue 121: **the pair, not either number.** Burn's whole output is
+## `BURN_FRACTION_OF_HIT_PER_TICK * BURN_DURATION_TICKS * the applying hit`, so
+## halving one constant and doubling the other is the same burn. Asserting the
+## product is the only version of this that a single-constant edit cannot slip
+## past -- and it is where the trap swift warned about lands: per *tick* means
+## the honest denominator is the duration, not the fraction that looks small.
+func test_a_burn_is_worth_about_half_the_hit_that_lit_it() -> void:
+	var share := Balance.BURN_FRACTION_OF_HIT_PER_TICK * float(CoreActions.BURN_DURATION_TICKS)
+	assert_true(share >= 0.35 and share <= 0.7,
+		("a burn now returns %.2f of the hit that lit it over its life. Under a third and nobody "
+		+ "notices it; over about two thirds and Scald is two hits for the price of one, and the "
+		+ "Blast combo stops being the reason to care.") % share)
+
+## And the consume, expressed the same way: cashing a burn in early should beat
+## letting it tick, or the combo is a trap the plan editor recommends.
+func test_eating_a_burn_beats_letting_it_tick() -> void:
+	var ticked := Balance.BURN_FRACTION_OF_HIT_PER_TICK * float(CoreActions.BURN_DURATION_TICKS)
+	assert_true(CoreActions.BURN_CONSUME_POWER_SCALE > ticked,
+		("eating a burn returns %.2f of the applying hit and letting it tick returns %.2f, so the "
+		+ "combo is worse than doing nothing") % [CoreActions.BURN_CONSUME_POWER_SCALE, ticked])
 
 
 func test_haste_tick_scale_speeds_up_and_never_reaches_zero() -> void:

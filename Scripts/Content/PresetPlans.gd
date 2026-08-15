@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CG := preload("res://Scripts/Core/CG.gd")
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
@@ -268,9 +269,34 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
 					_condition(&"ally_has_harmful_status", {}),
 					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
-				_plan(&"geyser_blast_cluster", "Blast a cluster",
-					_condition(&"self_resource_at_least", {"amount": 60}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"geyser_blast")]),
+				## Issue 181: **Blast is now the payoff of a combo rather than a
+				## high-Mana opener, and the order is the whole fix.**
+				##
+				## Measured before changing anything: Blast consumed a burn **0
+				## times in 117 applications**. The old pair read "Blast when
+				## Mana >= 60" then "Scald otherwise", so Blast only ever fired
+				## while Mana was high and Scald only after it fell -- **Blast
+				## could never follow a Scald.** The first combo in the game was
+				## structurally impossible, not rare. Same shape as issue 79's
+				## `geyser_scald`, except the gate was plan *order* rather than a
+				## condition.
+				##
+				## Read top down it is now a sentence: **burn something, then eat
+				## the burn.** Nothing fires it but these two rows, so a player
+				## can see the combo in the plan editor and re-order it away.
+				##
+				## **Replaced rather than added, deliberately.** A fourth plan
+				## costs 2 blocks against a WIS-6 budget of 6, and raising WIS is
+				## a balance change while balance is frozen -- the Warrior's and
+				## Priest's own raises are precedent I am not taking here.
+				##
+				## Blast keeps its splash: eating a burn off the nearest burning
+				## enemy still catches whatever stands beside it. If Mana cannot
+				## cover 20, `_can_afford` falls through to Scald and the burn
+				## simply keeps ticking, which is the honest fallback.
+				_plan(&"geyser_blast_the_burning", "Blast the burning",
+					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
+					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
 					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
