@@ -247,13 +247,24 @@ static func classes() -> Array[ClassDef]:
 			# and the Priest's 5->8. The third plan is
 			# `abomination_claw_when_poor`, which is what makes the Sickle's
 			# granted Claw reachable at all; see PresetPlans.gd.
-			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 6},
+			# Issue 219: WIS 6 -> 8, for `abomination_immolate_dump` and nothing
+			# else. Pure capacity again -- WIS's only reader in `Scripts/` is
+			# `Balance.plan_block_budget`, so this buys two plan blocks and
+			# moves no combat number. Same reasoning and same size as the
+			# Warrior's 6 -> 8 in #160 and the Priest's 5 -> 8 in #66.
+			{CG.Attribute.STR: 5, CG.Attribute.DEX: 1, CG.Attribute.AGI: 8, CG.Attribute.CON: 12, CG.Attribute.INT: 12, CG.Attribute.ATN: 3, CG.Attribute.WIS: 8},
 			# Issue 129: abomination_claw leaves this list for the Sickle. Rage
 			# only fills from a landed hit and both actions left here cost
 			# Rage, so this is the class the weapon matters most to: an unarmed
 			# Abomination lands nothing, therefore generates nothing, therefore
 			# lands nothing. It starts with a Sickle for exactly that reason.
-			[&"abomination_hook", &"abomination_grapple"]
+			# Issue 219: `abomination_immolate` joins the list. It is NOT placed
+			# first: `DefaultBehavior` falls back to the first affordable entry,
+			# and a fallback that lights a channel is a pawn holding an aura for
+			# a reason written in no plan, which is the one thing CLAUDE.md's
+			# pawn-behaviour principle forbids. Held only by
+			# `abomination_immolate_dump`, which the player can read and edit.
+			[&"abomination_hook", &"abomination_grapple", &"abomination_immolate"]
 		),
 	]
 

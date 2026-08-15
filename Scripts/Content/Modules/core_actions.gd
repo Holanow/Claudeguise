@@ -82,6 +82,35 @@ const MAGIC_BASIC_ATTACK_MANA := 3
 ## giving artillery a range that no longer covers the room.
 const ARENA_SPAN := 1200.0
 
+## `abomination_grapple`'s own three numbers, named because
+## `IMMOLATE_TICK_POWER_SCALE` below is derived from them and a literal repeated
+## in two places is a literal that drifts.
+const GRAPPLE_POWER_SCALE := 2.8
+const GRAPPLE_WIND_UP := 8
+const GRAPPLE_RECOVER := 10
+
+## Issue 219: what one tick of `abomination_immolate` does to one enemy.
+##
+## **Derived: a tick of channel is worth a tick of Grapple.** Grapple is the most
+## expensive thing the Abomination does -- `power_scale` 2.8 across an 18-tick
+## cycle, 0.156 a tick -- and it is what the channel actually gives up. Holding
+## the aura is not "instead of a Claw", it is instead of *acting at all*: the
+## unit neither attacks nor moves while it burns.
+##
+## **So one enemy inside the radius is exactly a wash, and two is the reason to
+## hold it.** That is the whole card, and it is stated as a division rather than
+## as 0.156 so it cannot drift away from the action it is derived from.
+##
+## **What I measured, and the honest order of it: I derived 1/TICKS_PER_SECOND
+## first ("a second held equals one Claw"), shipped it into the tool, and the
+## Abomination got worse** -- 41,049 damage to 38,314 across 120 fights, with
+## Grapple down from 2.95 casts a fight to 2.23. Sweeping 1x, 2x and 3x of that
+## recovered it monotonically (38,314 / 39,627 / 40,086), which is exactly the
+## shape that tempts somebody to pick the biggest number. The value below is not
+## the sweep's winner; it is Grapple's own rate, which sits between the 2x and 3x
+## rows. The sweep is the check on the derivation, not its source.
+const IMMOLATE_TICK_POWER_SCALE := GRAPPLE_POWER_SCALE / float(GRAPPLE_WIND_UP + GRAPPLE_RECOVER)
+
 static func classes() -> Array[ClassDef]:
 	return []
 
@@ -397,7 +426,49 @@ static func actions() -> Array[ActionDef]:
 		# (5s), the same length as spotter_mark's MARKED -- long enough to
 		# matter across several of the Abomination's own attacks, not so
 		# long it never falls off between engagements.
-		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 5 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, 8, 10, 2.8, 20, CG.Status.SLOWED, 150),
+		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 5 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, GRAPPLE_WIND_UP, GRAPPLE_RECOVER, GRAPPLE_POWER_SCALE, 20, CG.Status.SLOWED, 150),
+		# Issue 219: Immolate, restored, and it is the ONLY thing in the game
+		# that holds a channel. Issue 61 built the mechanism and deliberately
+		# left every action's `sustain_cost_per_tick` at 0, so SUSTAIN_START and
+		# SUSTAIN_END rendered correct log lines and fired zero times in 100
+		# fights. This is the content that makes them happen.
+		#
+		# The player's words: *"damage to enemies nearby that costs rage per
+		# tick"*. Every number is derived from something already in the file:
+		#
+		#   radius 90 -- twice the Abomination's own melee reach (Claw and
+		#     Grapple are both 45), and well inside Hook's 140. That band is
+		#     also what its plan is for: close enough to burn, too far to grip.
+		#     See `abomination_immolate_dump` in PresetPlans.gd.
+		#   power IMMOLATE_TICK_POWER_SCALE -- a tick of channel is worth a tick
+		#     of Grapple, so ONE enemy in the radius is a wash and TWO is the
+		#     reason to hold it. Its own constant, with the measurement that
+		#     corrected my first derivation.
+		#   sustain_cost_per_tick 1 -- Grapple costs 20 Rage across 18 ticks, so
+		#     the kit's most expensive action already spends about 1.1 Rage a
+		#     tick. Burning costs what grappling costs.
+		#   resource_cost 1 -- one tick's worth to light it. It is also the
+		#     affordability gate: `PlanInterpreter.can_afford` refuses the action
+		#     at 0 Rage, so a plan a player writes with an `always` condition
+		#     cannot re-ignite a channel it has no Rage to hold, one
+		#     SUSTAIN_START/SUSTAIN_END pair per tick, forever.
+		#   wind_up 15 -- one second, longer than anything else in the kit
+		#     (Grapple 8, Hook 10). Lighting yourself is the commitment; the
+		#     holding is free to abandon on any tick.
+		#   recover 0 -- a channel is renewed by deciding, and recovery ticks are
+		#     ticks the unit is not asked. There is nothing to recover from
+		#     either: the ignition lands no hit.
+		#
+		# FIRE, the Abomination's second declared damage type
+		# (starting_classes.gd) with nothing in its kit using it -- Claw, Hook
+		# and Grapple are all PROFANE.
+		#
+		# **Rage is the thing to understand before changing any of this.**
+		# `_tick_sustain` does not call `_on_hit_landed`, and a Rage pawn refills
+		# only from landed hits, so a channel is a pure dump that can never pay
+		# for itself (swift's #61 finding). It also stops the unit MOVING, which
+		# is what the plan's own comment measures the price of.
+		_sustained(&"abomination_immolate", "Immolate", "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking a Grapple's worth of damage each second. Costs 1 Rage to light and 15 Rage a second to hold.", CG.DamageType.FIRE, 15, IMMOLATE_TICK_POWER_SCALE, 1, 1, 90.0),
 
 		_action(&"goblin_stab", "Stab", "A melee jab dealing damage at up to 40 units.", CG.DamageType.PHYSICAL, 40.0, 6, 6, 1.0, 0, 0),
 		_projectile(_action(&"goblin_arrow", "Arrow", "A ranged shot dealing damage at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 8, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
@@ -638,6 +709,24 @@ static func _marked_only(a: ActionDef) -> ActionDef:
 ## 0 means uncapped, which is every other action, so this is additive.
 static func _summon_cap(a: ActionDef, cap: int) -> ActionDef:
 	a.max_active_summons = cap
+	return a
+
+## Issue 219: the first authored channel. Self-targeted (range 0.0, no
+## line-of-sight of its own -- the aura checks it per target inside
+## `CombatSim._sustain_targets`), no cooldown, and both halves of the price
+## stated: `resource_cost` to light it, `sustain_cost_per_tick` to hold it.
+##
+## **`cooldown_ticks` is 0 and must stay 0, and that is a property of the
+## mechanism rather than a preference.** `PlanInterpreter.can_afford` refuses an
+## action on cooldown, so a cooldown on a channel would stop the plan re-choosing
+## it and the channel would end itself on its second tick. `CombatSim`'s own
+## re-affirmation branch says so, and `Tests/test_combat_sustain.gd` asserts no
+## authored action carries the pair -- which is why this helper does not take a
+## cooldown parameter at all rather than taking one and passing 0.
+static func _sustained(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, tick_power_scale: float, resource_cost: int, sustain_cost_per_tick: int, sustain_radius: float) -> ActionDef:
+	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, 0, tick_power_scale, resource_cost, 0)
+	a.sustain_cost_per_tick = sustain_cost_per_tick
+	a.sustain_radius = sustain_radius
 	return a
 
 ## Issue 52/14: wraps an ActionDef with a real pull, same "the mechanism was

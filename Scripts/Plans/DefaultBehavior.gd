@@ -332,10 +332,24 @@ static func _heal_candidates(state: CombatState, unit: CombatUnit, heal_action: 
 ## action is chosen. It stops being inert the moment a class's free attack comes
 ## off its list and onto its weapon, which is exactly when a zero-power action
 ## would otherwise have inherited the fallback.
+## Issue 219: a sustained action is excluded too, and it is the same rule as the
+## two above rather than a new one -- "a way to attack somebody" is a thing that
+## resolves, and a channel is a thing that is *held*.
+##
+## It is CLAUDE.md's pawn-behaviour principle, at the one place that can violate
+## it. `_cheapest` picks by cost, `abomination_immolate` costs 1 Rage to light
+## and Hook and Grapple cost 15 and 20, so an Abomination whose Sickle came off
+## would fall back to lighting a channel -- for a reason written in no plan, on a
+## screen with nowhere to change it, burning the Rage its own kit runs on. The
+## fallback layer also has no way to *stop* one deliberately: it re-picks the
+## cheapest attack every tick, so it would re-affirm the channel forever.
+##
+## Inert on every action that existed before this one: `sustain_cost_per_tick` is
+## 0 on all of them, which is what issue 61 built it as.
 static func _attack_candidates(actions: Array[ActionDef]) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for a in actions:
-		if a.heals or a.power_scale <= 0.0:
+		if a.heals or a.power_scale <= 0.0 or a.sustain_cost_per_tick > 0:
 			continue
 		out.append(a)
 	return out
