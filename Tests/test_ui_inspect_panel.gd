@@ -1139,11 +1139,11 @@ func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() 
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn], state)
-	var text := _all_label_text(panel._detail_box)
-	assert_true(text.contains(InspectPanel.VERDICT_ACTING), "the row that acted is not marked: %s" % text)
-	assert_true(text.contains(InspectPanel.VERDICT_WAITING),
-		"a row whose condition is false is not marked waiting: %s" % text)
-
+	## Asserted per row rather than over the whole panel. **The whole-panel
+	## version was written first and it was vacuous:** the sentence explaining
+	## the verdicts contains every one of these words, so `text.contains("acting")`
+	## passes on a panel that marks nothing at all. Caught by the sibling test
+	## below going red for exactly that reason.
 	var rows := _plan_rows(panel)
 	assert_true(_all_label_text(rows[0]).contains(InspectPanel.VERDICT_WAITING), "row 1 is the one waiting")
 	assert_true(_all_label_text(rows[1]).contains(InspectPanel.VERDICT_ACTING), "row 2 is the one that acted")
@@ -1165,11 +1165,24 @@ func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> 
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn], state)
-	var text := _all_label_text(panel._detail_box)
-	assert_true(text.contains(InspectPanel.VERDICT_TAUNTED), text)
-	assert_false(text.contains(InspectPanel.VERDICT_ACTING),
-		"a compulsion is not the fallback deciding: %s" % text)
+	var fallback := _all_label_text(_fallback_header(panel))
+	assert_true(fallback.contains(InspectPanel.VERDICT_TAUNTED), fallback)
+	assert_false(fallback.contains(InspectPanel.VERDICT_ACTING),
+		"a compulsion is not the fallback deciding: %s" % fallback)
 	panel.free()
+
+	## And the case the compulsion has to be told apart FROM, in the same state
+	## with one field changed. Without this pair, "taunted" could be the only
+	## word the fallback row ever prints and both assertions above would still
+	## pass. 19.0% of everything a player's pawns do lands here.
+	compelled.source_plan = &""
+	var second := InspectPanel.new()
+	second._ready()
+	second.open([pawn], state)
+	var fell_through := _all_label_text(_fallback_header(second))
+	assert_true(fell_through.contains(InspectPanel.VERDICT_ACTING), fell_through)
+	assert_false(fell_through.contains(InspectPanel.VERDICT_TAUNTED), fell_through)
+	second.free()
 
 ## The quiet case. Opened between fights -- which is how `PartySelect` opens it,
 ## and how it has always been opened -- there is nothing live to report and the
@@ -1198,6 +1211,14 @@ func _plan_rows(panel) -> Array:
 				out.append(child)
 				break
 	return out
+
+## The row carrying the "Fallback, always last..." label, which is where the
+## fallback's own verdict hangs.
+func _fallback_header(panel) -> Node:
+	for child in panel._detail_box.get_children():
+		if _all_label_text(child).contains("Fallback, always last"):
+			return child
+	return null
 
 func _spin_boxes_in(node: Node) -> Array:
 	var out := []
