@@ -131,8 +131,44 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## moment `geyser_blast` began consuming BURN through the same event. It reported
 ## room1 at 66 ally cleanses where this test sees 0. Fixed in the same commit;
 ## I nearly picked a fixture off the wrong number.
+## **Sixth movement, issue 214, and I am keeping the promise the paragraph above
+## made rather than moving it quietly again.** Filtering unstartable actions out
+## of `DefaultBehavior` changed how every fight in the game runs; `floor1_cover`
+## fell to **2** ally cleanses and tripped the headroom detector, which is that
+## detector doing exactly its job.
+##
+## **The detector's first suggestion is dead, and measurement is what killed it.**
+## "Raise SEEDS" cannot work here: cover measures 2 at 6 seeds, 2 at 12, 2 at 24
+## and **2 at 48**. It is not a sampling problem.
+##
+## `Tools/CleanseFixture.gd`, all eight encounters, seed counts 6/12/24/48
+## (48 added for this question):
+##
+##     encounter          seeds  casts  strips  on_ally  poisonings
+##     floor1_room1          24     51      51       10         126
+##     floor1_chokepoint     24     27      25       13          93
+##     floor1_cover          24     28      33        2         365
+##     floor1_rat_king       24     87      87       86           0
+##     floor1_rat_king       48    175     173      170           0
+##
+## Back to `floor1_room1` at 24 seeds: 10 ally cleanses against a floor of 4, and
+## 126 poisonings, so both this file's supply assertions still hold. Third
+## room1/cover swap, and **the floor of 4 has not moved and is not going to** --
+## the fixture room is what the detector's own message says to change.
+##
+## **THE STRUCTURAL ANSWER IS IN THE TABLE AND IT IS NOT MINE TO TAKE.**
+## `floor1_rat_king` scores **86 ally cleanses at 24 seeds and 170 at 48**, an
+## order of magnitude past anything poison has ever supplied, and it is stable
+## because a swarm of rats bleeds a bunched party continuously rather than by
+## geometric accident. It cannot be used today for one reason: this file asserts
+## POISON specifically, and the Rat King's room has none. Since #141 the ability's
+## contract is *strips something harmful*, so that POISON clause is the last thing
+## pinning a general ability to the one status whose supply nobody designs -- the
+## #91 finding, showing up as test maintenance for the sixth time. **Filed as an
+## issue for rook rather than decided here**, because dropping it weakens a real
+## claim (that Scour is exercised against poison) and that is a design call.
 const SEEDS := 24
-const ENCOUNTER := &"floor1_cover"
+const ENCOUNTER := &"floor1_room1"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
 ## below the measured 10 so ordinary content tuning does not trip it, and well

@@ -76,7 +76,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		## why moving it costs this class no plan blocks.)
 		## `always` as the condition, not a self-missing-status check --
 		## warrior_taunt's own cooldown_ticks equals its duration_ticks,
-		## so `_can_afford` (cooldown gate) already makes this fall
+		## so `can_afford` (cooldown gate) already makes this fall
 		## through to DefaultBehavior for every tick it is still active,
 		## with no new condition op needed.
 		## Issue 30, second pass: warrior_guard_when_hurt's own threshold,
@@ -292,7 +292,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				##
 				## Blast keeps its splash: eating a burn off the nearest burning
 				## enemy still catches whatever stands beside it. If Mana cannot
-				## cover 20, `_can_afford` falls through to Scald and the burn
+				## cover 20, `can_afford` falls through to Scald and the burn
 				## simply keeps ticking, which is the honest fallback.
 				_plan(&"geyser_blast_the_burning", "Blast the burning",
 					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),

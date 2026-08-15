@@ -175,7 +175,7 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return null
 	if not _target_in_los(state, unit, action_id):
 		return null
-	if not _can_afford(state, unit, action_id):
+	if not can_afford(state, unit, action_id):
 		return null
 	if not _summon_slot_free(state, unit, action_id):
 		return null
@@ -242,7 +242,7 @@ static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: St
 	return _unit_has_action(unit, action_id) \
 		and _target_in_range(state, unit, action_id) \
 		and _target_in_los(state, unit, action_id) \
-		and _can_afford(state, unit, action_id) \
+		and can_afford(state, unit, action_id) \
 		and _summon_slot_free(state, unit, action_id) \
 		and _target_is_marked(state, unit, action_id)
 
@@ -319,7 +319,14 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 ## burning the tick. Falls through to the next plan (or DefaultBehavior)
 ## exactly like an out-of-range shot does, rather than special-casing Rage or
 ## rewriting the plan's own condition to route around the gap.
-static func _can_afford(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+## **Public since issue 214, on `DefaultBehavior.default_attack_action`'s
+## precedent: one definition, two callers.** `DefaultBehavior` needs exactly this
+## question and did not ask it, which is how `stalker_dart` reached the trunk
+## having never fired once -- `stalker_mark` was chosen on all 60 ticks of its own
+## cooldown and `CombatSim` spent the tick refusing it. A second copy of a
+## four-line gate is how the plan path and the fallback path drift into
+## disagreeing about what a unit can do.
+static func can_afford(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null:
 		return true
@@ -330,7 +337,7 @@ static func _can_afford(state: CombatState, unit: CombatUnit, action_id: StringN
 	return true
 
 ## Issue 93: the summon cap, and it is a gate on *choosing* the action rather
-## than a refusal at spawn time. Same shape and same reasoning as `_can_afford`
+## than a refusal at spawn time. Same shape and same reasoning as `can_afford`
 ## directly above -- a plan whose action cannot do anything right now must fall
 ## through to the next plan instead of committing the unit to a wasted tick.
 ##
