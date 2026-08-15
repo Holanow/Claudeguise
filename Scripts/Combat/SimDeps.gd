@@ -75,6 +75,19 @@ var resource_regen_per_tick: Callable = _default_resource_regen_per_tick
 ## a miss). Only consulted for a RAGE unit.
 var rage_gain_on_attack: Callable = _default_rage_gain_on_attack
 
+## Issue 174. Rage gained by the VICTIM of a landed hit, given the unit and the
+## damage that actually got through. Only consulted for a RAGE unit.
+##
+## `(unit: CombatUnit, damage: int) -> float`. Takes the damage because a tank
+## that soaks a big hit should be paid more for it than one chipped by a rat,
+## which is the difference between this and `rage_gain_on_attack` above.
+##
+## Local default rather than a Balance call, on the `slowed_speed_scale`
+## precedent: `Balance.rage_gain_on_damage_taken` does not exist, and a call to
+## a Balance method that is not there is a **parse-time** failure in every script
+## that transitively preloads this one. One line here when finch adds it.
+var rage_gain_on_damage_taken: Callable = _default_rage_gain_on_damage_taken
+
 ## Issue 132. How many times the ordinary regeneration rate a unit recovers on
 ## a tick it spends idle -- neither moving nor acting. 1.0 means "no faster
 ## than any other tick", which is exactly the behaviour every fight measured
@@ -247,6 +260,18 @@ static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
 
 static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
 	return Balance.rage_gain_per_attack(unit)
+
+## Percent of the victim's own max Rage per point of damage taken, so a big hit
+## pays more than a small one and a large pool does not fill faster than a small
+## one for the same beating.
+##
+## The number is measured, not guessed -- the sweep is in the pull request for
+## issue 174. It is a placeholder only in the sense that it lives here rather
+## than in `Balance`; the value is the one that made the class work.
+const _RAGE_PERCENT_PER_DAMAGE_TAKEN := 0.9
+
+static func _default_rage_gain_on_damage_taken(unit: CombatUnit, damage: int) -> float:
+	return float(unit.resource_max) * (_RAGE_PERCENT_PER_DAMAGE_TAKEN / 100.0) * float(damage)
 
 static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
 	return Balance.status_damage_per_tick(unit, status)
