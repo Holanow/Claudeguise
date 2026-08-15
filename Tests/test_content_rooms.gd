@@ -347,6 +347,7 @@ func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 	var fights := 0
 	var alive_ticks := 0
 	var in_band := 0
+	var peak_rats := 0
 	for ids in _buildable_parties():
 		for seed in 3:
 			var state := CombatSim.build(_pawns(ids, seed), enc, seed)
@@ -366,6 +367,11 @@ func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 				alive_ticks += 1
 				if gap >= 120.0 and gap <= 170.0:
 					in_band += 1
+				var live := 0
+				for u in state.units:
+					if u.enemy_id == &"rat" and u.alive:
+						live += 1
+				peak_rats = maxi(peak_rats, live)
 				CombatSim.step(state)
 			for e in state.events:
 				if e.kind == CG.EventKind.ACTION_FIRE and e.action_id == &"rat_king_lash":
@@ -374,16 +380,37 @@ func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 
 	var band_percent := 100.0 * float(in_band) / float(maxi(1, alive_ticks))
 	var per_fight := float(fires) / float(maxi(1, fights))
-	print("floor1_rat_king: the lash fired %.2f times per fight over %d fights; the king was inside its 120-170 firing band for %.1f%% of the ticks it was alive" % [per_fight, fights, band_percent])
+	print("floor1_rat_king: the lash fired %.2f times per fight over %d fights; the king was inside its 120-170 firing band for %.1f%% of the ticks it was alive; most rats alive at once %d" % [per_fight, fights, band_percent, peak_rats])
 
-	# Both sides asserted on purpose. The first says the mechanic is still
-	# broken; the second says the cause is still the band, so that a fix
-	# elsewhere -- a faster king, a shorter cycle -- cannot quietly satisfy this
-	# test while the hidden kiting stays in.
-	assert_true(per_fight < 3.0,
-		"the lash now fires %.2f times a fight. If that is a fix, delete this test and assert the swarm instead (issue #97)" % per_fight)
-	assert_true(band_percent < 20.0,
-		"the king now spends %.1f%% of its life in its firing band. The kite band was the cause; re-measure before trusting the paragraph above" % band_percent)
+	# **THE LASH COUNT IS PRINTED AND DELIBERATELY NOT ASSERTED, and I wrote it
+	# as an assertion first and it was wrong.** On `main` at 3846fa6 the lash
+	# fires a median of 1 time per fight; on swift's `issue-164/starting-resource`
+	# at 08d131e it fires 4.8, because a working Abomination makes every fight
+	# roughly twice as long and the king lives 338-509 ticks instead of 214-372.
+	# A floor on that number would have gone red on swift's merge and named
+	# swift, which is board rule 4 exactly and the third time this file has
+	# nearly shipped it.
+	#
+	# **More lashes did not make a swarm, which is the point.** Same branch,
+	# same probe: rats alive at once still peaks at 4, mean 1.10-1.39, and the
+	# room holds no rats at all for 33-49% of its length. Rats arrive faster and
+	# die just as fast, so the population is unchanged.
+	#
+	# **The band is printed too, and asserting it would repeat the mistake I
+	# just described.** It reads 5.5% on trunk and 15.0% on swift's branch: a
+	# `< 20%` ceiling would sit five points off a number that moved ten in one
+	# merge, which is a cliff by this file's own definition, and it would fire on
+	# whoever next lengthens a fight rather than on anybody who fixed anything.
+	# The band is the explanation and it belongs in this comment and in the
+	# printout; it is not the invariant.
+	#
+	# **One assertion, on the symptom that has not moved at all.** The swarm
+	# peaks at 4 on trunk and 5 on swift's against the four the room starts
+	# with, on every party and every seed, across two branches whose fight
+	# lengths differ by a factor of two. That is the thing a fix has to change
+	# and the thing nothing else touches.
+	assert_true(peak_rats <= 6,
+		"the swarm now peaks at %d rats against the four the room starts with. If that is a fix, delete this test and assert the swarm properly (issue #97)" % peak_rats)
 
 
 ## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
@@ -700,7 +727,15 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 ## too. Measured against its own roster with the terrain stripped, the only
 ## variable left is the fire.
 ##
-## **This asserts on fight length, not on party health, and the first version
+## **THIS ASSERTED ON FIGHT LENGTH UNTIL 2026-08-15 AND NOW ASSERTS ON HEALTH.
+## The reason is at the bottom of the function, with both tables.** Short
+## version: after hazard avoidance (#163) and a working Abomination (#172) the
+## fire no longer ends fights sooner -- three of five parties now fight longer
+## in it -- while the health effect it moved onto is larger and steadier than
+## the length effect ever was. Everything below this paragraph is the history of
+## the length claim, kept because it is the record of what was true before.
+##
+## **This asserted on fight length, not on party health, and the first version
 ## of it was wrong in a way worth recording.** I wrote "the burn pit should
 ## cost the party at least 10 points of health" and it failed, and the reason
 ## it failed is the room working: *fire burns both sides*. The enemy back rank
@@ -792,6 +827,8 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var ratio_total := 0.0
 	var parties := 0
 	var shortened := 0
+	var largest_health := 0
+	var health_total := 0
 	for ids in _buildable_parties():
 		var burnt_hp := 0
 		var bare_hp := 0
@@ -813,8 +850,26 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 		])
 		if ratio < 0.95:
 			shortened += 1
+		var health_delta := (burnt_hp - bare_hp) / seeds
+		largest_health = maxi(largest_health, absi(health_delta))
+		health_total += absi(health_delta)
 	var mean_ratio := ratio_total / float(maxi(1, parties))
 	print("floor1_hazard: mean fire/bare tick ratio across %d parties %.2f, shortened for %d" % [parties, mean_ratio, shortened])
+	print("floor1_hazard: largest single health effect %d points, total across five parties %d" % [largest_health, health_total])
+
+	# **THE DETECTOR, PROVED NOT INERT.** The header has claimed since #178 that
+	# a hazard of paint scores 1.00 and zero, and nothing ever asserted it. A
+	# floor on an emergent number that cannot reach zero is not a check, and a
+	# detector nobody feeds known-good input to is the sixteen-passing-tests
+	# failure in `ENGINEER.md`. The room measured against itself is the exact
+	# no-difference case, and the simulation is deterministic, so this is not an
+	# approximation.
+	var control_a := _run(_pawns(_buildable_parties()[0], 0), enc, 0)
+	var control_b := _run(_pawns(_buildable_parties()[0], 0), enc, 0)
+	assert_eq(_party_hp_percent(control_a), _party_hp_percent(control_b),
+		"with no difference between the arms this test must measure no health effect at all")
+	assert_eq(control_a.tick, control_b.tick,
+		"with no difference between the arms this test must measure no length effect at all")
 	# **finch, issue 121: "every party" became "four of five", and the exception is
 	# named rather than the threshold widened.** Measured: 0.56, 0.55, **1.17**,
 	# 0.74, 0.84. The outlier is `abomination, geysermancer, siege_master, warrior`
@@ -833,8 +888,70 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	#
 	# **This will be re-taken after #174 lands** -- rage from zero moves every row
 	# here that carries an Abomination, which is four of five.
-	assert_true(shortened >= 4, "the fire should end the fight sooner for at least four of the five buildable parties, it did for %d" % shortened)
-	assert_true(mean_ratio < 0.85, "the fire should end fights materially sooner across the five buildable parties, mean ratio %.2f" % mean_ratio)
+	# **THE CLAIM HAS CHANGED, AND THAT IS THE FINDING. It is not a third
+	# widening.** rook asked whether the length assertion is still the right
+	# claim after swift's rage-on-being-hit fix. Measured on both sides, same
+	# seeds, same room, `main` at 3846fa6 against `issue-164/starting-resource`
+	# at 08d131e:
+	#
+	#     party              trunk   with a working Abomination
+	#     no_abomination      0.84         0.85
+	#     no_geysermancer     0.74         1.01
+	#     no_priest           1.17         1.08
+	#     no_siege_master     0.55         1.13
+	#     no_warrior          0.56         0.56
+	#     mean                0.77         0.93
+	#     shortened              4            2
+	#
+	# **The fire no longer ends fights sooner and I am not going to pretend it
+	# does.** Three of five rows are now at or above 1.00. Widening `mean < 0.85`
+	# to fit 0.93 would be the fifth widening this project has recorded against
+	# zero narrowings (#144) and it would assert something false: a room where
+	# three parties fight *longer* in the fire is not a room where the fire
+	# shortens fights.
+	#
+	# **The effect did not go away, it moved to the other axis, and there it is
+	# larger and more consistent than the length effect ever was.** Health with
+	# the fire against the same roster on bare ground:
+	#
+	#     party              trunk   with a working Abomination
+	#     no_abomination        +3          +20
+	#     no_geysermancer      +22           +0
+	#     no_priest            -17          +12
+	#     no_siege_master      +38          +20
+	#     no_warrior           +37          +38
+	#     largest                38           38
+	#     total                 117           90
+	#
+	# The mechanism is the one this header already recorded at #163: the party
+	# routes around fire and the enemy back rank has to cross it, so the fire's
+	# cost lands on the side that walks into it. A working Abomination closes
+	# faster, so the party spends longer alive and less of that time burning --
+	# every row is now at or above zero.
+	#
+	# **So the assertion moves onto size, exactly as
+	# `test_the_colonnades_pillars_are_not_decoration` did**, and for the same
+	# reason: `no_geysermancer` sits at **exactly +0**, and a per-party
+	# direction test would be a cliff with a party resting on it, which is board
+	# rule 4 for the third time in this file. Two numbers, neither a cliff:
+	#
+	#   - the largest single health effect, floor 20 against 38 on both sides
+	#   - the total across the five, floor 55 against 117 and 90
+	#
+	# Both are **zero** against a hazard of paint, which the control above now
+	# asserts rather than claiming. Both pass before and after swift's change,
+	# so this lands on the trunk on its own and takes #172 green rather than
+	# riding in it.
+	#
+	# **The length numbers are still measured and printed and no longer
+	# asserted.** They are the record of a claim that was true for two months
+	# and is not true now; deleting them would delete the evidence that it
+	# changed. If a later build makes the fire shorten fights again, that is
+	# visible in this output and somebody can put the assertion back.
+	assert_true(largest_health >= 20,
+		"the fire should change at least one party's fight substantially, largest health effect was %d points" % largest_health)
+	assert_true(health_total >= 55,
+		"the fire should move the five buildable parties by %d points of health in total or more, moved %d" % [55, health_total])
 
 
 func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
