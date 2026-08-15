@@ -65,15 +65,27 @@ func test_every_starting_action_fires_in_a_real_fight() -> void:
 ## A class whose actions all cost resource, in a party that cannot generate
 ## it, stands still. The player hit this twice -- the Abomination, then the
 ## Priest and Siege Master -- and both times the class looked complete.
-func test_every_class_has_an_action_it_can_always_afford() -> void:
+## A pawn that cannot afford anything stands still.
+##
+## **This asked about the class and had to be rewritten**, because issue 129
+## moved the basic attack onto the main-hand weapon. A *class* no longer owns a
+## free action and a *pawn* does -- so the old assertion started failing on four
+## classes the moment weapons started granting attacks, reporting a working
+## feature as broken. finch's change is what made it wrong, and the test was
+## right to notice.
+##
+## Asks about the pawn `PawnFactory` actually builds, which is the only version
+## of the question that was ever meaningful.
+func test_every_starting_pawn_has_an_action_it_can_always_afford() -> void:
 	for cid in CLASSES:
-		var def := Registry.get_class_def(StringName(cid))
+		var c := StringName(cid)
+		var pawn := PawnFactory.make_starter_pawn(c, c, String(cid))
 		var free_actions: Array[StringName] = []
-		for action_id in def.starting_actions:
+		for action_id in Registry.actions_for_pawn(pawn):
 			if Registry.get_action(action_id).resource_cost <= 0:
 				free_actions.append(action_id)
 		assert_true(free_actions.size() > 0,
-			"%s has no action costing zero resource. A pawn that cannot afford anything stands still." % cid)
+			"a starting %s has no action costing zero resource, counting what it is equipped with" % cid)
 
 # ---------------------------------------------------------------------------
 # A mechanism nothing invokes is dead code wearing a feature's clothes.
@@ -131,7 +143,24 @@ func test_every_declared_status_can_actually_be_inflicted() -> void:
 		if a.applies_status_enabled:
 			appliable[a.applies_status] = action_id
 
+	## Statuses no *action* applies because a **mechanism** does. Each needs a
+	## named reason, and the reason has to say what applies it.
+	##
+	## This list exists because the check cried wolf twice. SHIELDING went
+	## "impossible" the moment Directional Block moved onto plate armour, while
+	## being reachable through the equip screen the whole time. TAUNTED and
+	## SUSTAINING are the same shape: applied by `CombatSim`, not by an
+	## `applies_status` field. **A checker that reports working features as
+	## broken gets deleted by the next person**, so the allowlist is the price
+	## of the check surviving.
+	var applied_by_mechanism := {
+		CG.Status.TAUNTED: "CombatSim stamps it when a taunt lands; the compulsion reads it, no action sets it",
+		CG.Status.SUSTAINING: "CombatSim holds it for the duration of a sustained action",
+	}
+
 	for status in CG.Status.values():
+		if applied_by_mechanism.has(status):
+			continue
 		assert_true(appliable.has(status),
 			"CG.Status.%s is applied by no action any class or enemy can use. It has a badge and a glossary entry for something that cannot happen."
 				% CG.Status.keys()[status])
