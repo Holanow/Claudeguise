@@ -216,7 +216,8 @@ const _JET := [
 ## repointing (TEAM_LOG.md, finch), which is what this is.
 ## The first version drew a wave with a scalloped top and a flat bottom, and it
 ## rendered as a mountain range with two ski tracks on it -- which is the exact
-## defect `StatusIcons`' ENRAGE already documented and fixed, and I walked into
+## defect `StatusIcons`' TAUNTED glyph (drawn while it was named ENRAGE)
+## already documented and fixed, and I walked into
 ## it again. A flat bottom edge is what makes a jagged top edge read as
 ## landscape. There is no baseline here at all.
 const _RINSE := [
