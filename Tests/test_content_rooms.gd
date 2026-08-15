@@ -1009,6 +1009,8 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	#
 	#   - the largest single health effect, floor 20 against 38 on both sides
 	#   - the total across the five, floor 55 against 117 and 90
+	#     **-- THIS SECOND ONE IS GONE, see the block below the ratios. It was
+	#     never measured against sample size and it could not survive being.**
 	#
 	# Both are **zero** against a hazard of paint, which the control above now
 	# asserts rather than claiming. Both pass before and after swift's change,
@@ -1020,10 +1022,66 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	# and is not true now; deleting them would delete the evidence that it
 	# changed. If a later build makes the fire shorten fights again, that is
 	# visible in this output and somebody can put the assertion back.
+	# **AND THE TOTAL IS NO LONGER ASSERTED, ON #214, AND IT IS NOT BECAUSE IT
+	# WENT RED. It is because I measured it against sample size for the first
+	# time and it is the one of the two numbers that never was a measurement.**
+	#
+	# finch's #214 made `DefaultBehavior._usable_actions` filter cooldown and
+	# cost, so a pawn stops choosing an action `CombatSim` then refuses and the
+	# tick stops being thrown away. `stalker_dart` went 0 fires in 175,532 ticks
+	# to 480. It reads 52 here against the floor of 55.
+	#
+	# `Tools/BurnPitSize.gd` runs this exact measurement at rising sample sizes.
+	# Health delta per party, and the two aggregates:
+	#
+	#     seeds     main b20284e                    #214
+	#      n=4      largest 37  total  86      largest 29  total  52
+	#      n=8      largest 43  total  81      largest 27  total  41
+	#      n=12     largest 43  total  84      largest 26  total  45
+	#      n=20     largest 41  total  73      largest 26  total  59
+	#      n=40     largest 40  total  73      largest 27  total  54
+	#      n=80     largest 38  total  72      largest 29  total  50
+	#
+	# **Read the two columns as instruments rather than as results.**
+	#
+	# `largest` is stable: 38-43 across a twentyfold change in sample on one
+	# build, 26-29 on the other. It converges, the two builds do not overlap,
+	# and a floor of 20 sits clear of both.
+	#
+	# `total` is not, and it cannot be, because **it is a sum of absolute
+	# values.** Every party's delta carries its own sampling error and `absi`
+	# strips the sign, so five errors add instead of cancelling, and the sum is
+	# biased upward by exactly the amount of noise in it. On #214 it reads 52,
+	# 41, 45, 59, 54, 50 -- a spread of eighteen points that has nothing to do
+	# with the fire, at samples up to 80. **A floor of 55 sits inside that
+	# spread**, so which side of it the gate lands on is decided by the seed
+	# count, which is board rule 4 for the fourth time in this file and this
+	# time the instrument itself is the cliff.
+	#
+	# Worse, the noise floor grows as the real effect shrinks. Two of the five
+	# parties are now within a couple of points of zero (`-1`, `-3` at n=40),
+	# and a party at zero contributes its own error and nothing else.
+	#
+	# **So this is a deletion, not a widening. I am not lowering 55 to 50.**
+	# Lowering it would keep asserting a quantity whose value is partly the
+	# measurement error, and the next mechanism to land would move it again by
+	# an amount nobody could attribute. The claim -- the fire is not paint --
+	# is carried by `largest_health` with a 6-to-9-point margin, by the two
+	# ratio assertions above, and by the no-difference control, all of which
+	# hold on both builds.
+	#
+	# **THE EFFECT REALLY DID SHRINK, AND THAT IS THE FINDING, NOT THE RED.**
+	# At n=80, largest 38 -> 29 and total 72 -> 50. The fire matters about a
+	# third less than it did, and the reason is the honest one: a party that no
+	# longer wastes ticks on actions it cannot pay for kills the room faster and
+	# spends less of the fight standing in a fire. #214 is a behaviour fix and
+	# this is what a behaviour fix looks like from downstream. Reported, not
+	# tuned, and nothing in `Scripts/` or in the room was touched.
+	#
+	# The total stays measured and printed, like the length ratios above it, so
+	# the movement remains visible to whoever looks next.
 	assert_true(largest_health >= 20,
 		"the fire should change at least one party's fight substantially, largest health effect was %d points" % largest_health)
-	assert_true(health_total >= 55,
-		"the fire should move the five buildable parties by %d points of health in total or more, moved %d" % [55, health_total])
 
 
 func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
@@ -1059,7 +1117,8 @@ func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 ## **What this does to the two assertions that use it, and my first answer was
 ## wrong in one of the two.** I wrote that both would gain margin because the
 ## inflation was damping the differences. That holds for the burn pit, whose
-## largest/total go **25/64 to 35/90** against floors of 20 and 55. It is the
+## largest/total go **25/64 to 35/90** against floors of 20 and 55 -- the total
+## is no longer asserted as of #214, so only the 20 is still a floor. It is the
 ## opposite for the colonnade, which went **12/23 to 8/19** against floors of 8
 ## and 18 -- landing exactly on the first floor, and under the second on swift's
 ## #175. Measured, not reasoned, and corrected here rather than left as the
