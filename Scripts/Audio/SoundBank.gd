@@ -64,11 +64,23 @@ static var _cache: Dictionary = {}
 ## WHICH EVENTS MAKE A NOISE BY DEFAULT, AND WHY MOST DO NOT
 ##
 ## `PLACEHOLDER_VOICES` below is the whole answer: a kind in it has a default
-## sound, a kind absent from it is silent until a file is dropped in for it. Six
-## of the fourteen kinds are voiced. The other eight are silent by decision
-## rather than by omission, and there is deliberately no second list saying so --
-## a set and a list of the same set drift apart, and this project has already
-## paid for two tables that had to agree.
+## sound, a kind absent from it is silent until a file is dropped in for it. A
+## minority are voiced and the rest are silent by decision rather than by
+## omission, and there is deliberately no second list saying so -- a set and a
+## list of the same set drift apart, and this project has already paid for two
+## tables that had to agree. No total is written down anywhere, here or in the
+## README, for the same reason.
+##
+## That drift happened anyway, in the one place a set could not stop it.
+## `Assets/Audio/README.md` is prose and it had `event/interrupted` in the table
+## headed "the six with a placeholder today", where it had never been -- so the
+## player was told a blip existed that they could replace, and replacing it would
+## have been the first sound that kind ever made. INTERRUPTED and SUMMONED were
+## both appended to `CG.EventKind` after this file was written, and the header
+## here still said "fourteen kinds" as a result. `test_the_instructions_say_
+## which_kinds_are_voiced` now splits the README at its two headings and checks
+## each side against this dictionary, so the next appended kind lands on one side
+## or goes red.
 ##
 ## A fight emits a great many events. This project has already written down what
 ## happens to a signal that fires constantly: it becomes furniture, a player
