@@ -7,6 +7,7 @@ const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")
@@ -36,6 +37,8 @@ var _selected: Array[PawnData] = []
 var _cards: Dictionary = {}
 
 var _status_label: Label = null
+var _room_picker: OptionButton = null
+var _room_summary: Label = null
 var _start_button: Button = null
 var _start_run_button: Button = null
 var _seed_edit: LineEdit = null
@@ -87,6 +90,69 @@ func _build_roster() -> void:
 ## The cost of the constant was the player's complaint: five classes, room for
 ## all five, showing two, in the left quarter of a 1280-wide screen, clipped
 ## mid-row inside a scroll box.
+## Issue 176 -- THE FOUR ROOMS THE PICKER OFFERS, and why this list lives here.
+##
+## The four are named in prose in `floor1_encounters.gd` and in a `PICKABLE`
+## constant inside a test, and nowhere a program can read. Rather than add a
+## third hand-written copy that can quietly disagree with the other two,
+## `test_ui_room_picker.gd` asserts that **every registered encounter is either
+## offered here or listed in `NOT_OFFERED` with a reason.** A new room therefore
+## cannot appear without somebody deciding which it is -- which is exactly the
+## failure this issue is: three rooms, four days of enemies and terrain, and
+## nothing anywhere noticed they were unreachable.
+##
+## Authored order, not sorted: `Array[StringName].sort()` compares interned
+## pointers rather than text, so a sorted list would present rooms in an order
+## that depends on process history.
+## **`ROOM_ORDER` is not #94's "four comparable rooms" and the two must not be
+## confused, because they answer different questions.** `PICKABLE` in
+## `test_content_rooms.gd` is the set that has to field the same headcount so
+## layout and roster stay comparable; this is the set a player can select. The
+## Rat King is in the second and deliberately not the first -- heron's own
+## reasoning, and the same reason `floor1_warden` fields one enemy.
+const ROOM_ORDER: Array[StringName] = [
+	&"floor1_room1",
+	&"floor1_cover",
+	&"floor1_hazard",
+	&"floor1_chokepoint",
+	&"floor1_rat_king",
+]
+
+## Registered encounters the picker deliberately does not offer, with the
+## reason.
+##
+## **THE RULE, written down because the next boss hits the same fork.** Offer any
+## room whose point is a fight and which nothing else can reach. Exclude tuning
+## fixtures, which the tools fight directly and a player has no reason to meet.
+## Exclude the floor's terminal boss, whose point is *arrival* rather than the
+## fight itself.
+##
+## The Rat King is offered on that rule: **nothing about runs exists yet**, so
+## "a single fight you can pick" and "a miniboss you progress to" are not two
+## different things in the game, only in intent -- and excluding it would ship
+## the King, the rats, BLEED stacking and sable's silhouette unreachable, which
+## is the exact failure #176 existed to end.
+##
+## **`floor1_warden` is the one deliberate inconsistency and I am naming it
+## rather than letting it read as an oversight.** It is unreachable too, for the
+## same missing run structure. It stays excluded because it is the only content
+## on the floor whose whole meaning is that you got there, and offering it off a
+## menu spends that once and for free. **rook: if you would rather the rule were
+## simply "everything reachable", say so and it is one line** -- I would rather
+## be told than decide the boss's meaning on my own.
+const NOT_OFFERED := {
+	&"floor1_warden": "the floor boss, whose point is arriving at it -- revisit when runs exist",
+	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
+	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
+}
+
+const TERRAIN_WORDS := {
+	Terrain.Kind.WALL: ["wall", "walls"],
+	Terrain.Kind.PILLAR: ["pillar", "pillars"],
+	Terrain.Kind.HAZARD: ["burn band", "burn bands"],
+	Terrain.Kind.PIT: ["pit", "pits"],
+}
+
 func _build_ui() -> void:
 	var bg := ColorRect.new()
 	bg.color = Palette.BACKGROUND
@@ -163,6 +229,42 @@ func _build_ui() -> void:
 			card.toggled.connect(_on_card_toggled.bind(pawn))
 			_roster_box.add_child(card)
 			_cards[pawn.id] = card
+
+	# Issue 176: the room picker. Above the seed, because which room you fight is
+	# a bigger decision than which seed you fight it on.
+	var room_row := HBoxContainer.new()
+	room_row.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	column.add_child(room_row)
+
+	var room_label := Label.new()
+	room_label.text = "Room"
+	room_label.custom_minimum_size = Vector2(48.0, 0.0)
+	room_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	room_label.add_theme_color_override("font_color", Palette.TEXT)
+	room_row.add_child(room_label)
+
+	_room_picker = OptionButton.new()
+	_room_picker.custom_minimum_size = Vector2(320.0, Palette.TOUCH_TARGET_MIN)
+	_room_picker.fit_to_longest_item = false
+	_room_picker.clip_text = true
+	_room_picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	for id in offered_rooms():
+		var room = Registry.get_encounter(id)
+		_room_picker.add_item(room.display_name if room.display_name != "" else String(id))
+		_room_picker.set_item_metadata(_room_picker.item_count - 1, id)
+		if id == CG.DEFAULT_ENCOUNTER:
+			_room_picker.selected = _room_picker.item_count - 1
+	_room_picker.item_selected.connect(func(_i: int): _refresh_room_summary())
+	room_row.add_child(_room_picker)
+
+	# What the room is, derived from the room rather than authored beside it, so
+	# it cannot drift from what the fight actually contains. The playtest found
+	# that nothing anywhere explains anything; a name alone would repeat that.
+	_room_summary = Label.new()
+	_room_summary.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_room_summary.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	room_row.add_child(_room_summary)
+	_refresh_room_summary()
 
 	var seed_row := HBoxContainer.new()
 	seed_row.add_theme_constant_override("separation", int(Palette.SPACE_S))
@@ -370,13 +472,64 @@ func _on_equip_pressed() -> void:
 ## missed. floor1_ghoul_den sorts before floor1_room1, so every real
 ## playthrough since encounters plural existed has fought the wrong room —
 ## wren measured 0 losses in 1000 samples on it.
+## Issue 176: the room the player picked, defaulting to `CG.DEFAULT_ENCOUNTER`.
+##
+## **The issue-32 protection above is kept, not replaced.** That fix was correct
+## and it also became a lid: it pinned the game to one room and nobody re-read
+## it when three more arrived, so four days of enemies and terrain shipped
+## unreachable. The rule it encodes -- never pick an encounter by index, because
+## `Array[StringName].sort()` orders by interned pointer and `floor1_ghoul_den`
+## sorts before `floor1_room1` -- is still live and still right. It now applies
+## to the *fallback* rather than to every case.
 func current_config() -> RunConfig:
 	var config := RunConfig.new()
 	config.party = _selected.duplicate()
-	var encounters := Registry.all_encounter_ids()
-	if encounters.has(CG.DEFAULT_ENCOUNTER):
-		config.encounter_id = CG.DEFAULT_ENCOUNTER
-	else:
-		config.encounter_id = encounters[0] if not encounters.is_empty() else &""
+	config.encounter_id = selected_room()
 	config.seed = RunConfig.parse_seed(_seed_edit.text) if _seed_edit != null else 0
 	return config
+
+## The picker's current room, or the default when there is no picker yet (a test
+## calling `current_config()` on a bare screen) or the metadata is missing.
+## Never `all_encounter_ids()[0]` -- see the note above.
+func selected_room() -> StringName:
+	if _room_picker != null and _room_picker.selected >= 0:
+		var id = _room_picker.get_item_metadata(_room_picker.selected)
+		if id != null and id != &"":
+			return id
+	var encounters := Registry.all_encounter_ids()
+	if encounters.has(CG.DEFAULT_ENCOUNTER):
+		return CG.DEFAULT_ENCOUNTER
+	return encounters[0] if not encounters.is_empty() else &""
+
+## Rooms the picker offers, in a fixed authored order rather than sorted --
+## `Array[StringName].sort()` is not alphabetical and the order a player reads
+## should not depend on which StringNames the process interned first.
+static func offered_rooms() -> Array[StringName]:
+	var out: Array[StringName] = []
+	for id in ROOM_ORDER:
+		if Registry.get_encounter(id) != null:
+			out.append(id)
+	return out
+
+func _refresh_room_summary() -> void:
+	if _room_summary == null:
+		return
+	_room_summary.text = room_summary(selected_room())
+
+## Derived from the `Encounter`, never authored beside it. A hand-written blurb
+## is a second artifact that goes quietly false the day somebody moves a pillar;
+## this cannot, because it is counting the real thing the fight will use.
+static func room_summary(id: StringName) -> String:
+	var room = Registry.get_encounter(id)
+	if room == null:
+		return ""
+	var parts: Array[String] = ["%d enemies" % room.enemy_spawns.size()]
+	var counts := {}
+	for feature in room.terrain:
+		counts[feature.kind] = int(counts.get(feature.kind, 0)) + 1
+	for kind in [Terrain.Kind.WALL, Terrain.Kind.PILLAR, Terrain.Kind.HAZARD, Terrain.Kind.PIT]:
+		if counts.has(kind):
+			parts.append("%d %s" % [counts[kind], TERRAIN_WORDS[kind][0 if counts[kind] == 1 else 1]])
+	if parts.size() == 1:
+		parts.append("open ground")
+	return " · ".join(parts)
