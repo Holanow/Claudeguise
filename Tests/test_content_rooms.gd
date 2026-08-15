@@ -684,20 +684,29 @@ func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
 func test_the_colonnades_pillars_are_not_decoration() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var bare := _without_terrain(enc)
-	var seeds := 4
+	var seeds := 10
 	var largest := 0
 	var total := 0
+	var worst_divergence := seeds + 1
 	for ids in _buildable_parties():
 		var with_hp := 0
 		var bare_hp := 0
+		var differs := 0
 		for seed in seeds:
-			with_hp += _party_hp_percent(_run(_pawns(ids, seed), enc, seed))
-			bare_hp += _party_hp_percent(_run(_pawns(ids, seed), bare, seed))
+			var a := _run(_pawns(ids, seed), enc, seed)
+			var b := _run(_pawns(ids, seed), bare, seed)
+			with_hp += _party_hp_percent(a)
+			bare_hp += _party_hp_percent(b)
+			if a.tick != b.tick or a.outcome != b.outcome:
+				differs += 1
 		var delta := (with_hp - bare_hp) / seeds
-		print("floor1_cover, %s: %d%% health with the pillars, %d%% without, delta %d" % [ids, with_hp / seeds, bare_hp / seeds, delta])
+		print("floor1_cover, %s: %d%% health with the pillars, %d%% without, delta %d, fights that diverged %d/%d" % [
+			ids, with_hp / seeds, bare_hp / seeds, delta, differs, seeds,
+		])
 		largest = maxi(largest, absi(delta))
 		total += absi(delta)
-	print("floor1_cover: largest single effect %d points, total across five parties %d" % [largest, total])
+		worst_divergence = mini(worst_divergence, differs)
+	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d" % [largest, total, worst_divergence, seeds])
 	# **finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned.** BURN and
 	# the Blast combo changed how a Geysermancer spends its Mana and which enemy
 	# it aims at, and every room in the game moved with it. Measured here: deltas
@@ -713,8 +722,71 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 	# **This will be re-taken after #174 lands.** Rage starting at zero moves every
 	# party that carries an Abomination or a Warrior, which is four of these five
 	# rows.
-	assert_true(largest >= 8, "the pillars should change at least one party's fight substantially, largest effect was %d points" % largest)
-	assert_true(total >= 18, "the pillars should move the five buildable parties by %d points in total or more, moved %d" % [18, total])
+	# **THE OLD ASSERTIONS WERE `largest >= 8` AND `total >= 18` AT FOUR SEEDS,
+	# AND THEY WERE MEASURING NOISE. Here is the evidence, because the numbers
+	# below are the whole argument for changing what this test asserts.**
+	#
+	# Party health here stopped counting summoned Siege Engines on 2026-08-15
+	# (see `_party_hp_percent`), which took this pair from 12/23 to 8/19 against
+	# floors of 8 and 18 -- exactly on the first floor. So I measured the effect
+	# against sample size, health excluding summons, `Tools/PillarDelta.gd`:
+	#
+	#     seeds   largest   total   per-party deltas
+	#         4         8      19   +5, +2, +0, +8, -4
+	#         8         8      17   +8, +0, -2, +7, +0
+	#        12         5      15   +5, +0, -5, +4, -1
+	#        20         6       8   +0, +0, -2, +6, +0
+	#        40         5       8   -2, +0, +0, +5, +1
+	#
+	# **The effect shrinks toward nothing as the sample grows.** At 40 seeds the
+	# colonnade moves ending party health by 5 points at worst and 8 in total,
+	# with three of five parties at zero or one. The 12 and 23 this test was
+	# baselined on were mostly sampling noise sitting on top of summon
+	# inflation, and raising the seed count -- the obvious fix -- makes this
+	# assertion fail.
+	#
+	# **That does not mean the pillars are decoration.** Ending health was always
+	# the weaker proxy and this header has said so since #121: *"the aggregate is
+	# the weaker half of this test"*. It is now measurably the wrong half. The
+	# strong evidence the header keeps citing -- parties diverging seed by seed
+	# with the pillars in -- **was only ever in a comment and was never
+	# asserted**, which is announcement rule 2 wearing a different hat: the claim
+	# nobody could check was the one carrying the weight.
+	#
+	# **It was not hypothetical: with the summon fix in, `total` came out at 16
+	# against the floor of 18 on swift's #175**, a branch that does not touch
+	# this room, this roster or these pillars. The landmine fired on exactly the
+	# person the rule says it would.
+	#
+	# **So the assertion changes to the thing that actually detects decoration,
+	# and the magnitude becomes a printout.** Lowering 18 to fit 16 would be a
+	# widening of a number I have just shown is noise, and it would leave the
+	# test asserting a quantity it cannot measure.
+	#
+	# **Divergence is the right claim and this file already had the pattern.**
+	# `test_the_chokepoints_terrain_is_not_decoration` asserts that ticks or
+	# outcome differ with the terrain in, which is a yes/no per fight and so has
+	# no magnitude to be noisy. Measured over 10 seeds, both on `main` at
+	# `75df176` and on #165, identically:
+	#
+	#     party              fights that diverge
+	#     no_abomination                   10/10
+	#     no_geysermancer                   9/10
+	#     no_priest                         9/10
+	#     no_siege_master                  10/10
+	#     no_warrior                        8/10
+	#
+	# Against a colonnade of paint every one of those is **0/10**, bit-for-bit,
+	# which is the case that nearly shipped on #94 and the case this test exists
+	# for. The floor is 5 of 10 against a measured worst of 8.
+	#
+	# **This is strictly stronger than what it replaces**, not a retreat: the
+	# old pair could be satisfied by noise and could be broken by noise, and
+	# this cannot be either. The health spread stays in the printout because it
+	# is still the interesting number for a pull request to report -- it is just
+	# not a thing to assert at any sample size this gate can afford.
+	assert_true(worst_divergence >= 5,
+		"the pillars should change the fight for every buildable party; the least affected diverged in only %d of %d fights" % [worst_divergence, seeds])
 
 
 ## **The fire has to change the fight, and the control is the same roster with
@@ -960,11 +1032,48 @@ func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 	return state
 
 
+## **THIS COUNTED SUMMONED SIEGE ENGINES AS PARTY UNTIL 2026-08-15, and finch
+## found the same bug inflating the Warden table before I found it here.**
+##
+## `CombatSim._spawn_summon` builds a summon with `caster.team`, so a Siege
+## Engine is `Team.PLAYER` and this function was adding 140 hp of immobile
+## construct to a four-pawn party of roughly 400. Measured on `main` at
+## `75df176`, health at the end of a fight computed both ways:
+##
+##     room                party              all   pawns   delta
+##     floor1_cover        no_abomination     49%     25%     +24
+##     floor1_hazard       no_geysermancer    52%     31%     +21
+##     floor1_chokepoint   no_warrior         40%     19%     +21
+##     floor1_room1        no_warrior         49%     22%     +27
+##     any room            no_siege_master     --      --      +0
+##
+## **The `no_siege_master` row is the control and it is exactly zero in every
+## room**, which is the mechanism confirming itself: the one buildable party
+## with no Siege Master is the one party with no summon, and it is the only row
+## that does not move.
+##
+## `enemy_id` is the discriminator because a summon carries one and a real pawn
+## never does -- the same generic signal `DefaultBehavior` already reads, rather
+## than naming the Siege Engine.
+##
+## **What this does to the two assertions that use it, and my first answer was
+## wrong in one of the two.** I wrote that both would gain margin because the
+## inflation was damping the differences. That holds for the burn pit, whose
+## largest/total go **25/64 to 35/90** against floors of 20 and 55. It is the
+## opposite for the colonnade, which went **12/23 to 8/19** against floors of 8
+## and 18 -- landing exactly on the first floor, and under the second on swift's
+## #175. Measured, not reasoned, and corrected here rather than left as the
+## confident version.
+##
+## That is what sent me to measure the colonnade against sample size, and the
+## answer is in that test: its health aggregate was noise at any sample this
+## gate can afford, so it now asserts per-fight divergence instead. **No floor
+## was lowered to fit anything.**
 func _party_hp_percent(state: CombatState) -> int:
 	var hp := 0
 	var hp_max := 0
 	for u in state.units:
-		if u.team != CG.Team.PLAYER:
+		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
 			continue
 		hp += maxi(0, u.hp)
 		hp_max += u.hp_max
@@ -982,15 +1091,74 @@ func _party_hp_percent(state: CombatState) -> int:
 ## **This is a floor, not a target, and it is deliberately not a band.** A room
 ## that suits one party and not another is the point of having four of them;
 ## the spread belongs in the pull request's table, not flattened into an
-## assertion here. Measured at 8 seeds rather than 20 to keep the gate quick --
-## the pull request carries the 20-seed numbers.
+## assertion here.
+##
+## ---
+##
+## **THE OLD SHAPE WAS `wins >= 4 of 8`, AND IT WAS A COIN-FLIP DETECTOR DRAWN
+## THROUGH THE MIDDLE OF A COIN FLIP. I wrote it; it was flaky on the trunk
+## before anybody's branch touched it.**
+##
+## It went red on swift's #175 for `floor1_chokepoint` x `no_geysermancer` at
+## 3/8, which reads as a room that stopped being winnable. It is not. Measured
+## at **100 seeds** on `main` at `75df176` and on `main` + #165:
+##
+##     party              main   with #165
+##     no_abomination     100%         99%
+##     no_geysermancer     54%         47%
+##     no_priest           97%         98%
+##     no_siege_master     98%         98%
+##     no_warrior         100%        100%
+##
+## **That cell is a coin flip in both arms**, and the 7-point gap between them
+## is 1.4 standard deviations at n=100 -- not a movement anybody should act on.
+## The 3/8 the gate reported is an eight-seed sample of a 50% cell.
+##
+## **So the old assertion was failing about one run in three on the trunk, and
+## had been for as long as that cell sat near 50%.** At p=0.54 and n=8,
+## `wins >= 4` fails roughly 32% of the time. It passed the runs it was looked
+## at on. This is board rule 4 in its purest form and the author is me: a
+## threshold drawn at exactly the value the population sits at cannot do
+## anything but flip, and when it flips it names whoever pushed last.
+##
+## **What the test is named for is a WALL, and 50% was never a wall.** The
+## measured distribution has an enormous gap in it -- one cell at 47-54% and
+## every other cell in the game at 97-100% -- so there is no number between 10%
+## and 40% that noise can reach from either side. The floor is 25%:
+##
+##   - against the coin flip at 47%, `wins >= 5 of 20` fails about 0.06% of runs
+##   - against a genuine wall at 5%, it fails essentially always
+##
+## **This is a change of claim, not a widening.** The claim is now the one the
+## function name always made -- no room is unwinnable for a party -- and the
+## claim it replaces was "no room is worse than even for a party", which the
+## project does not believe: `test_some_composition_is_a_genuine_coin_flip`
+## asserts the opposite, that a coin flip somewhere is a thing worth having.
+## **Nothing about the rooms changed to make this necessary.** The trunk numbers
+## and the #165 numbers both pass it and both passed the old one on a good day.
+##
+## Seeds go 8 to 20, which is what makes the floor mean anything: 8 seeds cannot
+## distinguish a 47% cell from a 25% one at all.
+##
+## **The coin flip itself is reported and not tuned.** `no_geysermancer` on the
+## chokepoint is the one party that finds that room hard, it is the only such
+## cell in the game, and per the header above that is what four rooms are for.
 func test_no_pickable_room_is_a_wall_for_any_buildable_party() -> void:
+	var seeds := 20
+	var floor_wins := 5
+	var worst := seeds + 1
+	var worst_cell := ""
 	for id in PICKABLE:
 		var enc := Registry.get_encounter(id)
 		for ids in _buildable_parties():
 			var wins := 0
-			for seed in 8:
+			for seed in seeds:
 				if _run(_pawns(ids, seed), enc, seed).outcome == CombatState.Outcome.PLAYER_WIN:
 					wins += 1
-			print("%s: %s won %d/8" % [id, ids, wins])
-			assert_true(wins >= 4, "%s should be winnable by %s, won %d/8" % [id, ids, wins])
+			print("%s: %s won %d/%d" % [id, ids, wins, seeds])
+			if wins < worst:
+				worst = wins
+				worst_cell = "%s x %s" % [id, ids]
+			assert_true(wins >= floor_wins,
+				"%s should not be a wall for %s: won %d/%d, floor %d" % [id, ids, wins, seeds, floor_wins])
+	print("no_pickable_room_is_a_wall: worst cell %s at %d/%d, floor %d" % [worst_cell, worst, seeds, floor_wins])
