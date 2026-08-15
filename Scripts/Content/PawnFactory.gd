@@ -67,6 +67,30 @@ const STARTING_WEAPON := {
 	&"abomination": &"sickle",
 }
 
+## The armour a class starts wearing, and **it has exactly one entry on
+## purpose.**
+##
+## **Issue 160: a starter pawn wearing nothing made every measurement tool in
+## this repo blind to any armour-granted ability**, and there is exactly one of
+## those -- `plate_mail` grants `warrior_block`, which fired zero times across 40
+## seeds of 7 encounters against 9,000+ enemy shots. Arming the Warrior closes
+## the whole of that gap today.
+##
+## **The other four are left bare deliberately, and it is a deferral rather than
+## an answer.** `silk_wraps`, `robes`, `gown` and `scrubs` grant no action; they
+## are stat sticks, so dressing a Priest is five separate design calls about
+## which stat suits which class, and every one of them moves the whole balance
+## table the way issue 129's weapons did. Nothing is blocked on it: no ability
+## anywhere becomes reachable. Filed as its own question rather than smuggled in
+## behind a defect fix.
+##
+## Armour carries no `allowed_methods`, unlike the weapons above, so `allows()`
+## is vacuously true for every pawn and there is nothing here to keep in step
+## with a class's method.
+const STARTING_ARMOR := {
+	&"warrior": &"plate_mail",
+}
+
 static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display_name: String) -> PawnData:
 	var pawn := PawnData.new()
 	pawn.id = pawn_id
@@ -75,4 +99,6 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 	pawn.plans = PresetPlans.for_class(class_id)
 	if STARTING_WEAPON.has(class_id):
 		pawn.weapon = Registry.get_equipment(STARTING_WEAPON[class_id])
+	if STARTING_ARMOR.has(class_id):
+		pawn.armor = Registry.get_equipment(STARTING_ARMOR[class_id])
 	return pawn

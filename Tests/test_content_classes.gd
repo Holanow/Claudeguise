@@ -88,8 +88,18 @@ func test_every_starting_action_resolves() -> void:
 ## class sits under Hook's cost for 0.2% of its alive ticks; "Claw whoever is not
 ## poisoned" fires 260. WIS 4 -> 6 for the third plan, the same pure-capacity
 ## raise the Warrior and Priest entries above record.
+##
+## Issue 160: Warrior ships five. `warrior_block` has now been rescued from
+## unreachability three times -- issue 52 filed it existing and never firing,
+## issue 99 moved it onto `plate_mail` and deleted its plan in the same commit,
+## and swift then measured 0 SHIELDING and 0 BLOCKED across 40 seeds of 7
+## encounters. `DefaultBehavior` cannot reach a zero-power self-buff, so a preset
+## plan is the only path, and four plans at 2 blocks each sat exactly at the
+## WIS-8 budget. WIS 8 -> 10, the same pure-capacity raise this class's own entry
+## records at 4 -> 6 and 6 -> 8, and `Balance.plan_block_budget` is still the only
+## reader of WIS anywhere in `Scripts/`.
 const _EXPECTED_PLAN_COUNT := {
-	&"warrior": 4,
+	&"warrior": 5,
 	&"priest": 4,
 	&"geysermancer": 3,
 	&"abomination": 3,

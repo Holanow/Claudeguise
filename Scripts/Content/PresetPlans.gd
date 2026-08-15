@@ -160,6 +160,31 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				# usually not the one the Warrior is standing next to, so
 				# targeting it would fail `_target_in_range` and fall through
 				# every time.
+				# **Issue 160: `warrior_block_default` is back, and this is the
+				# third time this ability has had to be rescued from being
+				# unreachable.** Issue 52 filed it existing and never firing;
+				# issue 99 moved it onto `plate_mail` and deleted this plan in
+				# the same commit, and nothing replaced it; swift then measured
+				# 0 SHIELDING ticks and 0 BLOCKED across 40 seeds of 7
+				# encounters against 9,000+ enemy shots. `DefaultBehavior`
+				# cannot reach it -- a zero-power self-buff is excluded by
+				# `_attack_candidates` and invisible to `_first_heal` -- so a
+				# plan is the only path there is.
+				#
+				# `always` as the condition, and the precedent is
+				# `warrior_taunt_default` three rows up: `warrior_block`'s
+				# cooldown equals its 150-tick duration, so `can_afford`'s
+				# cooldown gate already makes this fall through to the next
+				# plan for every tick the shield is still up. No new condition
+				# op, and no spam.
+				#
+				# **Above Execute and below Taunt.** It costs nothing, so it can
+				# never starve the plans under it; but Taunt is what decides who
+				# the enemy shoots at, and a shield raised before anything is
+				# aimed at you protects nobody.
+				_plan(&"warrior_block_default", "Directional Block",
+					_condition(&"always", {}),
+					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 				_plan(&"warrior_execute_finisher", "Execute",
 					_condition(&"self_resource_at_least", {"amount": 40}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"warrior_execute")]),
