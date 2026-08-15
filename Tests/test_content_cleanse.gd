@@ -112,8 +112,27 @@ const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 ## ability whose supply nobody is designing for. If it moves a fifth time the
 ## question is whether the ability wants a source of its own, not where to point
 ## the test next.
+##
+## **Fifth movement, issue 121, and back to `floor1_cover`.** Burn made fights in
+## `floor1_room1` short enough that its poison supply collapsed -- 57 poisonings
+## across 24 seeds against `floor1_cover`'s 399 -- and ally cleanses there went to
+## **0**. Cover measures **20**, the widest margin this fixture has ever had.
+##
+## **The ping-pong is the finding, and I am naming it rather than moving the
+## fixture a sixth time in silence.** Room1 and cover have now swapped places
+## twice, each time because a real mechanic landed: the taunt compulsion bunched
+## parties and starved cover, then burn shortened fights and starved room1. The
+## fixture is not fragile because it was chosen badly. It is fragile because
+## **Scour's supply is nobody's design** -- the #91 finding, unaddressed, showing
+## up as test maintenance. A sixth move should be a decision about the ability.
+##
+## **And the instrument had drifted with it.** `Tools/CleanseFixture.gd` counted
+## "STATUS_EXPIRED carrying a source", which stopped meaning "a cleanse" the
+## moment `geyser_blast` began consuming BURN through the same event. It reported
+## room1 at 66 ally cleanses where this test sees 0. Fixed in the same commit;
+## I nearly picked a fixture off the wrong number.
 const SEEDS := 24
-const ENCOUNTER := &"floor1_room1"
+const ENCOUNTER := &"floor1_cover"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
 ## below the measured 10 so ordinary content tuning does not trip it, and well

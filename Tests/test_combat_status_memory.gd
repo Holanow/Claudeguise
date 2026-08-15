@@ -455,36 +455,61 @@ func test_status_applied_carries_the_resulting_magnitude() -> void:
 ## content can actually reach are untouched, so no fight in the game moves.
 ## `Tests/test_combat_bleed_is_live.gd` asserts the BLEED side, including that
 ## the placeholder reaches no other status.
+## **BURN left this list on issue 121.** finch, rewritten rather than loosened:
+## POISON is still the whole point -- it is reachable, it stores no magnitude, and
+## a rate that moved for it would move every fight in the game. BURN is now live
+## and is asserted so in `test_a_burn_pays_from_the_hit_that_lit_it` below.
 func test_the_seams_stay_inert_for_every_status_content_can_reach() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO)
-	for status in [CG.Status.BURN, CG.Status.POISON]:
+	assert_true(float(deps.status_damage_per_magnitude.call(unit, CG.Status.BURN)) > 0.0,
+		"BURN should now draw from the hit that lit it")
+	for status in [CG.Status.POISON]:
 		assert_almost_eq(float(deps.status_damage_per_magnitude.call(unit, status)), 0.0,
 			0.0001, "magnitude contributes no damage")
 		assert_eq(int(deps.status_tick_interval.call(status)), 1, "still ticks every tick")
 		assert_eq(int(deps.status_stack_decay_ticks.call(status)), 0, "and does not linger")
 
-## A burn under the shipped defaults deals exactly what it dealt before this
-## existed: the base rate and nothing else, whatever the hit was worth.
-func test_a_burn_under_the_default_seams_deals_only_its_base_rate() -> void:
+## **Inverted on issue 121.** swift wrote this as "the magnitude is stored, it
+## simply does not pay yet". It pays now, so the same fixture proves the other
+## direction: two burns identical except for the hit that lit them must not deal
+## the same damage. finch, rewritten rather than loosened.
+##
+## Compared against a second arena rather than against an arithmetic expectation
+## typed here, because the rate runs through `_stochastic_round` and a hand-
+## computed number would only ever agree with my own reading of the rounding.
+func test_a_burn_pays_from_the_hit_that_lit_it() -> void:
 	var scald := _hit(&"scald", CG.Status.BURN, 999, 4.0)
-	var state := _arena()
-	var deps := _deps([scald])
-	deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 3.0
+	var small := _arena()
+	var big := _arena()
+	var small_deps := _deps([scald])
+	var big_deps := _deps([scald])
+	small_deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
+	big_deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
+	small_deps.status_damage_per_magnitude = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
+	big_deps.status_damage_per_magnitude = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.02
 
-	_strike(state, deps, scald)
-	assert_eq(state.unit(1).hp, 200 - 40 - 3, "40 from the hit, 3 from the burn")
-	assert_eq(state.unit(1).status_magnitude.get(CG.Status.BURN, 0.0), 40.0,
-		"the magnitude is stored, it simply does not pay yet")
+	_strike(small, small_deps, scald)
+	_strike(big, big_deps, scald)
+	assert_eq(small.unit(1).status_magnitude.get(CG.Status.BURN, 0.0), 40.0,
+		"the hit's mitigated damage is what gets stored")
 
-	CombatSim.step(state, deps)
-	assert_eq(state.unit(1).hp, 200 - 40 - 3 - 3, "still 3, not 3 plus a fraction of 40")
+	for _i in 40:
+		CombatSim.step(small, small_deps)
+		CombatSim.step(big, big_deps)
+	assert_true(big.unit(1).hp < small.unit(1).hp,
+		"a live per-magnitude rate must actually cost the burning unit health")
 
 ## The rng check, and the reason it is not paranoia: the damage rate feeds
 ## `_stochastic_round`, so a rate that moved by any amount at all would consume
 ## the shared stream differently and change every fight in the game.
+## finch, issue 121: **the subject moved from BURN to POISON and the claim is
+## unchanged.** This asserts that a status which stores no magnitude draws nothing
+## extra from the shared stream. BURN was the right subject while its magnitude
+## was inert; POISON is the one that is still reachable and still stores nothing,
+## so it is now what protects every fight in the game from this seam.
 func test_the_default_seams_consume_the_rng_exactly_as_before() -> void:
-	var scald := _hit(&"scald", CG.Status.BURN, 999, 4.0)
+	var scald := _hit(&"scald", CG.Status.POISON, 999, 4.0)
 	var state := _arena()
 	var deps := _deps([scald])
 	deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
@@ -496,7 +521,7 @@ func test_the_default_seams_consume_the_rng_exactly_as_before() -> void:
 	var fresh := RandomNumberGenerator.new()
 	fresh.seed = _SEED
 	assert_eq(state.rng.randf(), fresh.randf(),
-		"a burn carrying a magnitude drew nothing extra from the fight's rng")
+		"a poison, which stores no magnitude, drew nothing extra from the fight's rng")
 
 ## And the proof that check can fail: a live per-magnitude rate on a fractional
 ## amount does reach `_stochastic_round`, and the streams come apart.
@@ -506,6 +531,10 @@ func test_a_live_magnitude_rate_does_consume_the_rng() -> void:
 	var live := _arena()
 	var inert_deps := _deps([scald])
 	inert_deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
+	# finch, issue 121: the inert arm now has to say so explicitly. BURN's default
+	# magnitude rate is live, so without this override both arms are live, the two
+	# streams match, and this test quietly stops proving anything.
+	inert_deps.status_damage_per_magnitude = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
 	var live_deps := _deps([scald])
 	live_deps.status_damage_per_tick = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.0
 	live_deps.status_damage_per_magnitude = func(_u: CombatUnit, _s: CG.Status) -> float: return 0.011
@@ -529,15 +558,26 @@ func test_a_live_magnitude_rate_does_consume_the_rng() -> void:
 ## re-measurement is in that pull request. Deleted rather than loosened, and
 ## only that one -- the consume half is finch's BURN/Blast combo and is still
 ## true.
-func test_no_authored_action_uses_any_of_this_yet() -> void:
-	var consuming := 0
+## **The consume half fired on issue 121 and is inverted, as its own message
+## asked for: "this is what fails on the day content wires it, which is exactly
+## when the balance table needs re-measuring".** `geyser_blast` is what failed it,
+## and the re-measurement is in that pull request -- the combo goes from 0 to 52
+## consumes in 127 burns.
+##
+## Kept rather than deleted, pointing the other way: **exactly one action consumes
+## a status.** A second one appearing is the next moment the table needs
+## re-measuring, and this is the assertion that will say so.
+func test_exactly_one_authored_action_consumes_a_status() -> void:
+	var consuming: Array[StringName] = []
 	for id in Registry.all_action_ids():
 		var a: ActionDef = Registry.get_action(id)
 		if a == null:
 			continue
 		if a.consumes_status_enabled:
-			consuming += 1
-	assert_eq(consuming, 0, "nothing consumes a status yet")
+			consuming.append(id)
+	assert_eq(consuming.size(), 1,
+		"expected only geyser_blast to consume a status, got %s -- if that is deliberate, re-measure the balance table and update this count" % str(consuming))
+	assert_true(consuming.has(&"geyser_blast"), "the consumer should be Blast, got %s" % str(consuming))
 
 # ---------------------------------------------------------------------------
 # determinism

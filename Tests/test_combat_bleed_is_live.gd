@@ -137,35 +137,49 @@ func test_a_bleed_tick_emits_a_damage_event_carrying_the_status() -> void:
 # and nothing else moved
 # ---------------------------------------------------------------------------
 
-## The placeholder is BLEED-only. BURN and POISON must return exactly what they
-## returned before, because both are reachable from content and either would
-## move every fight in the game through the shared rng.
-func test_the_placeholder_touches_no_status_but_bleed() -> void:
+## **BURN left this list on issue 121, and that is the assertion doing its job.**
+## swift wrote it as "the placeholder is BLEED-only, and BURN and POISON must
+## return exactly what they returned before" -- true while BURN's rate was a
+## percent of max health, and false the moment BURN's rate became a fraction of
+## the hit that lit it. Only BURN moved; every status below is untouched, which
+## is the half that still protects every fight in the game through the shared
+## rng. Rewritten by finch, not loosened: BURN is asserted live in
+## `test_a_burn_carrying_a_magnitude_pays_for_it` below.
+func test_the_placeholder_touches_no_status_but_bleed_and_burn() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
-	for status in [CG.Status.BURN, CG.Status.POISON, CG.Status.STUN, CG.Status.SLOWED,
+	for status in [CG.Status.POISON, CG.Status.STUN, CG.Status.SLOWED,
 			CG.Status.MARKED, CG.Status.TAUNTING, CG.Status.SHIELDING, CG.Status.HASTE]:
 		assert_almost_eq(float(deps.status_damage_per_magnitude.call(unit, status)), 0.0,
 			0.0001, "no magnitude damage for %d" % status)
 		assert_eq(int(deps.status_tick_interval.call(status)), 1, "still every tick for %d" % status)
 		assert_eq(int(deps.status_stack_decay_ticks.call(status)), 0, "no decay window for %d" % status)
 
-## A burning unit under the real defaults takes its base rate and nothing more,
-## even while carrying a magnitude from the hit that applied it.
-func test_a_burn_carrying_a_magnitude_still_deals_only_its_base_rate() -> void:
+## **Inverted on issue 121, which is the commit swift's own message named:** "a
+## stored burn magnitude pays nothing **until finch moves BURN's number**". It is
+## moved. The same two arenas now prove the opposite, which is the whole point of
+## having written it this way -- a burn from a big hit must hurt more than a burn
+## from nothing.
+##
+## The rng half is kept and inverted too. It is not paranoia: the rate feeds
+## `_stochastic_round` off the fight's shared stream, so "the magnitude changed
+## the damage" and "the magnitude changed the stream" are two different claims
+## and the second is what makes a burn re-order every fight it touches.
+func test_a_burn_carrying_a_magnitude_pays_for_it() -> void:
 	var plain := _arena()
 	plain.unit(1).statuses[CG.Status.BURN] = 999
 
 	var loaded := _arena()
 	loaded.unit(1).statuses[CG.Status.BURN] = 999
-	loaded.unit(1).status_magnitude[CG.Status.BURN] = 40.0
+	loaded.unit(1).status_magnitude[CG.Status.BURN] = 400.0
 
 	_run(plain, _real_deps(), 20)
 	_run(loaded, _real_deps(), 20)
 
-	assert_eq(plain.unit(1).hp, loaded.unit(1).hp,
-		"a stored burn magnitude pays nothing until finch moves BURN's number")
-	assert_eq(plain.rng.randf(), loaded.rng.randf(), "and draws nothing extra from the rng")
+	assert_true(loaded.unit(1).hp < plain.unit(1).hp,
+		"a burn carrying the damage of the hit that lit it must hurt more than one carrying nothing")
+	assert_ne(plain.rng.randf(), loaded.rng.randf(),
+		"and it draws from the shared rng, which is why it re-orders the fights it touches")
 
 ## **`test_no_authored_action_applies_bleed_yet` fired on #130 and is gone.**
 ##
