@@ -717,7 +717,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	## Checked before the affordability and cooldown gates below on purpose: a
 	## cooldown on a sustained action must not be able to interrupt one already
 	## running. (Content should not put a cooldown on one at all --
-	## `PlanInterpreter._can_afford` would refuse to re-choose it and the channel
+	## `PlanInterpreter.can_afford` would refuse to re-choose it and the channel
 	## would end itself on the next free tick. `Tests/test_combat_sustain.gd`
 	## asserts no authored action does.)
 	if action.sustain_cost_per_tick > 0 and unit.sustaining == action.id:
