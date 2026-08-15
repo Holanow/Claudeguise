@@ -419,3 +419,68 @@ func test_the_wardens_two_attacks_both_still_get_used() -> void:
 	var far_intent := _decide_against_a_dummy(far, 190.0)
 	assert_eq(far_intent.action_id, &"warden_chain_toss",
 		"out of axe reach, the chain -- the thing that never fired before issue 62")
+
+# ---------------------------------------------------------------------------
+# Issue 214: "usable" has to mean usable.
+#
+# `_usable_actions` returned every action a unit carried and filtered neither
+# cooldown nor resource cost, so a unit chose an action `CombatSim` then refused
+# at the cost/cooldown gate and **the tick was spent**. That is issue 22's
+# fall-through bug on the enemy side of the game: `PlanInterpreter` has refused
+# an unstartable action since issue 22, and a plan therefore falls through to the
+# next one, but no enemy has plans and nothing did the same job here.
+#
+# Measured before the fix, 480 fights over every encounter, all five buildable
+# parties, 12 seeds -- `Tools/SwarmProbe.gd`'s question asked over the whole
+# bestiary: **`stalker_dart` fired 0 times in 175,532 ticks.** After: 480.
+# ---------------------------------------------------------------------------
+
+## The reproduction, at the smallest scale that can show it. The Stalker carries
+## Mark (60-tick cooldown, first in its list) and Dart (free, no cooldown). With
+## Mark cooling, the old code returned Mark anyway and the tick died.
+func test_a_cooling_action_falls_through_to_the_one_underneath_it() -> void:
+	var stalker := _unit(0, CG.Team.PLAYER, &"stalker", Vector2.ZERO)
+	stalker.cooldowns[&"stalker_mark"] = 30
+	var intent := _decide_against_a_dummy(stalker, 150.0)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.action_id, &"stalker_dart",
+		"Mark is on cooldown, so the Stalker should reach for the Dart underneath it")
+
+## The other half of the pair, and the one that catches a filter written the
+## wrong way round: off cooldown, the Stalker must still prefer Mark. A fix that
+## made it dart forever would pass the test above on its own.
+func test_the_same_stalker_still_marks_when_the_cooldown_is_clear() -> void:
+	var stalker := _unit(0, CG.Team.PLAYER, &"stalker", Vector2.ZERO)
+	var intent := _decide_against_a_dummy(stalker, 150.0)
+	assert_eq(intent.action_id, &"stalker_mark",
+		"nothing is cooling, so the specialty comes first")
+
+## **The branch the fix could regress, and nothing in a real fight exercises it.**
+## Filtering alone would empty the candidate list for a unit whose only action is
+## cooling, and `decide` idles on an empty list -- so a one-action enemy would
+## stop kiting, approaching and retreating for the whole cooldown. heron's own
+## content comment on `stalker_dart` names that as the reason the Stalker got a
+## second action at all.
+##
+## Measured over 636,899 decisions in 480 fights: the filter emptied the list
+## **zero** times, because every unit in the game today carries something free
+## and uncooled. A branch nobody crosses is a branch nobody has tested, so this
+## crosses it deliberately: a Goblin owns exactly one action, and with that on
+## cooldown it must still walk toward the enemy.
+func test_a_unit_whose_only_action_is_cooling_still_approaches() -> void:
+	var goblin := _unit(0, CG.Team.PLAYER, &"goblin", Vector2.ZERO)
+	goblin.cooldowns[&"goblin_stab"] = 30
+	var intent := _decide_against_a_dummy(goblin, 400.0)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
+		"a unit on cooldown keeps closing; it does not stand still for 60 ticks")
+
+## And the same unit in range: it commits to the cooling action exactly as it did
+## before, because there is nothing else to reach for. The sim refuses it and the
+## tick is spent -- unchanged, deliberately. Making that case idle instead would
+## be a second behaviour change with no content asking for it.
+func test_a_unit_whose_only_action_is_cooling_does_not_idle_in_range() -> void:
+	var goblin := _unit(0, CG.Team.PLAYER, &"goblin", Vector2.ZERO)
+	goblin.cooldowns[&"goblin_stab"] = 30
+	var intent := _decide_against_a_dummy(goblin, 15.0)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
+		"unchanged from before issue 214: with nothing usable, behaviour is what it was")

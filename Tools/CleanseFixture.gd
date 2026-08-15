@@ -37,7 +37,7 @@ func _init() -> void:
 	print("")
 	print("%-22s %6s %8s %8s %9s %9s" % ["encounter", "seeds", "casts", "strips", "on_ally", "poisonings"])
 	for encounter_id in Registry.all_encounter_ids():
-		for seeds in [6, 12, 24]:
+		for seeds in [6, 12, 24, 48]:
 			var casts := 0
 			var strips := 0
 			var on_ally := 0

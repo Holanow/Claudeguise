@@ -8,6 +8,7 @@ const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
 const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
+const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 
 ## What a unit does when no plan fires. Every unit has this, including enemies,
 ## which have no plans at all in this slice.
@@ -55,7 +56,16 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if enemies.is_empty():
 		return Intent.idle()
 
-	var candidates := _usable_actions(unit)
+	var candidates := _actions_that_can_fire_now(state, unit)
+	## Issue 214: nothing this unit carries can fire this tick, so fall back to
+	## the whole list rather than idling. **The fallback is the half that keeps
+	## this from being a regression**, and heron's own content comment on
+	## `stalker_dart` is why it is here: a one-action enemy whose only action is
+	## on cooldown must still kite, approach and retreat, and every one of those
+	## branches below is reached through a chosen action. Filtering without this
+	## would freeze it instead, which is a worse bug than the one being fixed.
+	if candidates.is_empty():
+		candidates = _all_actions(unit)
 	if candidates.is_empty():
 		return Intent.idle()
 
@@ -208,11 +218,61 @@ static func _only_marked(enemies: Array[CombatUnit]) -> Array[CombatUnit]:
 			out.append(e)
 	return out
 
-static func _usable_actions(unit: CombatUnit) -> Array[ActionDef]:
+## Every action the unit carries. **This used to be called `_usable_actions` and
+## the name was a claim it did not make**, which is heron's finding in #214 and
+## it cost content real work: they wrote `stalker_dart` as the Stalker's
+## off-cooldown filler, relied on the word *usable*, and the dart fired zero
+## times in 480 fights.
+static func _all_actions(unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for id in unit.actions:
 		var a: ActionDef = Registry.get_action(id)
 		if a != null:
+			out.append(a)
+	return out
+
+## The actions `CombatSim._resolve_use_action` would actually let this unit
+## start on this tick: affordable, and off cooldown.
+##
+## **Issue 214, and it is issue 22's fall-through bug on the enemy side.**
+## `PlanInterpreter` has refused an unaffordable or cooling action since issue 22,
+## so a *pawn's* plan falls through to the next one. Nothing did that here, so a
+## unit with no plans -- every enemy in the game -- chose its first attack whether
+## or not it could be started, `CombatSim` refused it at the cost/cooldown gate,
+## and **the tick was spent**. `stalker_mark` carries a 60-tick cooldown and sits
+## first in the Stalker's list, so `stalker_dart` underneath it was never
+## consulted once.
+##
+## The predicate is `PlanInterpreter.can_afford` rather than a copy of its four
+## lines: two copies of one gate is how the plan path and the fallback path drift
+## into disagreeing about what a unit may do, which is the same argument
+## `default_attack_action` below is public for.
+##
+## **#214's premise is right about the cause and wrong about who pays, and the
+## correction is the larger half.** It reads *"issue 22's bug on the enemy side"*,
+## and the Stalker is where it was found -- but counted over 480 fights, every
+## encounter, all five buildable parties, this filter changes what gets chosen on
+## **1,376 of 498,449 non-pawn decisions (0.3%)** and on **63,335 of 138,450 pawn
+## decisions.** The player's own pawns were the main victim by a factor of forty.
+##
+##     what changed              pawns    non-pawns
+##     the heal chosen          35,933            0
+##     the attack chosen        27,402        1,376   <- the Stalker
+##     decisions in total      138,450      498,449
+##
+## **The heal column is the one to read, and it is a worse bug than the dart.**
+## `_first_heal` picks by list order and asked nothing about cost, so a Priest
+## with too little Mana answered a hurt ally by committing to a heal `CombatSim`
+## then refused -- or, when the ally was out of reach, by **walking toward it to
+## cast a spell it could not pay for**, every tick, instead of fighting. Both
+## columns exclude any decision the plan layer handled: pawns reach this file only
+## when no plan fires.
+##
+## Non-pawn covers summons as well as enemies; `unit.pawn == null` is the split.
+static func _actions_that_can_fire_now(state: CombatState, unit: CombatUnit) -> Array[ActionDef]:
+	var out: Array[ActionDef] = []
+	for a in _all_actions(unit):
+		if PlanInterpreter.can_afford(state, unit, a.id):
 			out.append(a)
 	return out
 

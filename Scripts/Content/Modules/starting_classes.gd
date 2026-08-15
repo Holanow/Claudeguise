@@ -90,7 +90,28 @@ static func classes() -> Array[ClassDef]:
 			# `30 + ATN*8 + INT*2`), but by inflating what every Rage cost
 			# means at once; the cost came down instead. See
 			# warrior_execute's own comment in core_actions.gd.
-			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 8},
+			# Issue 160: WIS 8->10, and it is the same move a third time for the
+			# same ability the first one was for. `warrior_block` has fired
+			# ZERO times since issue 99 moved it onto `plate_mail`: swift
+			# measured 40 seeds x 7 encounters, 0 SHIELDING ticks and 0
+			# BLOCKED against 9,000+ enemy shots. Three layers had to be
+			# wrong at once and each was defensible alone -- the action left
+			# `starting_actions` (99), no starter wears armour so nothing
+			# grants it, and `warrior_block_default` was deleted in the same
+			# issue and nothing replaced it. `DefaultBehavior` cannot reach
+			# it either: it is a zero-power self-buff, so `_attack_candidates`
+			# excludes it and `_first_heal` never sees it. A preset plan is
+			# the only path from the game to this ability, and four plans at
+			# 2 blocks each sat exactly at the WIS-8 budget.
+			#
+			# **WIS still has no combat-stat side effect and I checked rather
+			# than repeating it: `Balance.plan_block_budget` is the ONLY
+			# reader of `CG.Attribute.WIS` in `Scripts/`** -- everything else
+			# that names it is a label in `EquipPanel`, `InspectPanel` or the
+			# Glossary. So this changes no damage, health, cost, cooldown or
+			# range. It is capacity, not power, which is what made the same
+			# raise legal at 4->6 and 6->8.
+			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 10},
 			# Issue 99: warrior_block left this list for `plate_mail`, where
 			# README's own armor table always had it, and warrior_second_wind
 			# took its place.

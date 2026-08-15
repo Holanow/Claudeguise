@@ -78,8 +78,12 @@ func test_every_granted_action_resolves() -> void:
 
 ## `Registry.actions_for_pawn` is what the plan editor and the fight must both
 ## read, so that what a player can plan and what a pawn can do cannot diverge.
+## Issue 160: `armor = null` is explicit here for the same reason as in
+## `test_a_warrior_without_plate_cannot_block` below -- a starter Warrior wears
+## plate now, so "bare" has to be stated rather than defaulted to.
 func test_equipping_plate_adds_block_to_what_the_pawn_can_do() -> void:
 	var pawn := _warrior()
+	pawn.armor = null
 	assert_false(Registry.actions_for_pawn(pawn).has(&"warrior_block"),
 		"a bare Warrior should not have Block -- issue 99 took it off the class")
 	pawn.armor = Registry.get_equipment(&"plate_mail")
@@ -118,8 +122,16 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 ## Before issue 100 nothing checked action ownership anywhere: `PlanInterpreter`
 ## resolved straight out of `Registry`, so this plan fired happily on a pawn
 ## wearing nothing, and equipping the item changed precisely nothing observable.
+## **Issue 160: the armour is stripped explicitly now, and it used not to need
+## to be.** This test rested on "a starter pawn wears nothing", which stopped
+## being true the day `PawnFactory` started issuing `plate_mail` -- the same
+## issue that made Block reachable at all. The pair is unchanged in what it
+## claims; only the "without" half now has to say what it means instead of
+## relying on a default.
 func test_a_warrior_without_plate_cannot_block() -> void:
-	var intent := _decide_with_block_plan(_warrior())
+	var bare := _warrior()
+	bare.armor = null
+	var intent := _decide_with_block_plan(bare)
 	assert_true(intent == null,
 		"a Warrior owning no Block still fired one, so equipping plate means nothing")
 
@@ -455,3 +467,86 @@ func _block_of(kind: PlanBlock.Kind, op: StringName, args: Dictionary) -> PlanBl
 	b.op = op
 	b.args = args
 	return b
+
+# ---------------------------------------------------------------------------
+# Issue 160: the Directional Block reaches a real fight.
+#
+# **Three layers had to be right at once and each was defensible alone**, which
+# is why this went unnoticed through two previous rescues of the same ability:
+#
+#   1. `warrior_block` left `starting_actions` for `plate_mail` (issue 99).
+#   2. `PawnFactory` equipped a weapon and no armour, so every measurement tool
+#      in the repo built a Warrior that could not block.
+#   3. `warrior_block_default` was deleted in the same commit as (1) and nothing
+#      replaced it -- and `DefaultBehavior` cannot reach the action either, since
+#      a zero-power self-buff is excluded by `_attack_candidates` and invisible
+#      to `_first_heal`.
+#
+# swift measured the result: 40 seeds x 7 encounters, **0 SHIELDING ticks and 0
+# BLOCKED against 9,000+ enemy shots**, and correctly refused to tune
+# `SHIELD_WIDTH` against a build the game did not have.
+#
+# Measured on this branch, 384 fights over every encounter: **800 casts, 800
+# SHIELDING, 4,111 BLOCKED.**
+#
+# The tests above already prove the *item* grants the action. These prove the
+# whole path: worn by default, cast by a plan, and stopping real shots.
+# ---------------------------------------------------------------------------
+
+const BLOCK_SEEDS := 6
+const BLOCK_ROOM := &"floor1_chokepoint"
+
+## Floors at roughly a third of the measured counts on this room, which is
+## announcement rule 4: an `> 0` on an emergent count cannot warn, only fail.
+const MIN_BLOCK_CASTS := 10
+const MIN_BLOCKED := 100
+
+func _block_counts(strip_armor: bool) -> Dictionary:
+	var casts := 0
+	var shieldings := 0
+	var blocked := 0
+	for s in BLOCK_SEEDS:
+		var party: Array[PawnData] = []
+		for cid in Registry.all_class_ids():
+			var p := PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
+			if strip_armor:
+				p.armor = null
+			party.append(p)
+		var state := CombatSim.build(party, Registry.get_encounter(BLOCK_ROOM), s)
+		CombatSim.run(state)
+		for e in state.events:
+			if e.kind == CG.EventKind.ACTION_FIRE and e.action_id == &"warrior_block":
+				casts += 1
+			elif e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.SHIELDING:
+				shieldings += 1
+			elif e.kind == CG.EventKind.BLOCKED:
+				blocked += 1
+	return {"casts": casts, "shieldings": shieldings, "blocked": blocked}
+
+func test_the_warrior_starts_wearing_the_plate_that_teaches_the_block() -> void:
+	var w := _warrior()
+	assert_not_null(w.armor, "a starter Warrior wears no armour, so nothing can grant it Block")
+	assert_eq(w.armor.id, &"plate_mail")
+	assert_true(w.armor.granted_actions.has(&"warrior_block"))
+
+func test_the_block_is_cast_and_stops_real_shots_in_a_real_fight() -> void:
+	var c := _block_counts(false)
+	print("%s over %d seeds: block casts %d, SHIELDING %d, BLOCKED %d" % [
+		BLOCK_ROOM, BLOCK_SEEDS, c["casts"], c["shieldings"], c["blocked"]])
+	assert_true(int(c["casts"]) >= MIN_BLOCK_CASTS,
+		"warrior_block fired %d times in %d fights, under its floor of %d" % [int(c["casts"]), BLOCK_SEEDS, MIN_BLOCK_CASTS])
+	assert_true(int(c["blocked"]) >= MIN_BLOCKED,
+		("the shield caught %d shots in %d fights, under its floor of %d. Casting is not the same as "
+		+ "blocking: SHIELDING existed in the simulation for months with nothing ever passing through it.")
+		% [int(c["blocked"]), BLOCK_SEEDS, MIN_BLOCKED])
+
+## **The control, and the counts above are worth nothing without it.** Strip the
+## armour and the same party in the same room on the same seeds must produce
+## none of it -- otherwise the numbers prove only that Block exists somewhere,
+## not that wearing plate is what put it in the fight. Same pairing as
+## `test_stripping_the_weapons_stops_every_one_of_those_attacks` above.
+func test_an_unarmoured_party_never_blocks_anything() -> void:
+	var c := _block_counts(true)
+	assert_eq(int(c["casts"]), 0, "an unarmoured Warrior still cast Block, so the plate is not what grants it")
+	assert_eq(int(c["shieldings"]), 0, "SHIELDING was applied with no plate in the party")
+	assert_eq(int(c["blocked"]), 0, "a shot was blocked with nobody wearing a shield")

@@ -420,7 +420,7 @@ func test_no_authored_action_is_sustained_yet() -> void:
 func test_a_sustained_action_is_authored_with_a_reach_and_without_a_cooldown() -> void:
 	# Two ways to author one that quietly does nothing:
 	#   - a cost with no radius: charges the caster and reaches nobody.
-	#   - a cooldown: `PlanInterpreter._can_afford` refuses to re-choose it, so
+	#   - a cooldown: `PlanInterpreter.can_afford` refuses to re-choose it, so
 	#     the channel ends itself on the first free tick after ignition.
 	# Vacuously true today, and it is the guard that catches either one the
 	# first time content writes it. The registry assertion is not decoration:

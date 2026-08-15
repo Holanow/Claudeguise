@@ -39,8 +39,9 @@ complete sound design for every attack in the game.
 
 ## Events
 
-These are the six with a placeholder today. Drop a file on any of them and it
-replaces the blip.
+### With a placeholder today
+
+Drop a file on any of these and it replaces the blip.
 
 | File | When it plays |
 | --- | --- |
@@ -50,15 +51,18 @@ replaces the blip.
 | `event/death.ogg` | A unit dies. |
 | `event/miss.ogg` | An ability went off and reached nothing. |
 | `event/blocked.ogg` | A shielding unit stepped in front of a shot and took it. |
-| `event/interrupted.ogg` | A stun landed mid-cast. The wind-up is lost and the resource is not refunded, so this is the harshest thing that happens to a pawn and the strongest case in this table for a sound. |
 
-These have **no sound at all** today. Drop a file on any of them and it gets
+### Silent until you drop a file in
+
+Everything else, plus `damage_over_time`, which is a name rather than a kind of
+its own. These have **no sound at all** today. Drop a file on any of them and it gets
 one, which is the same one-file operation as replacing a blip.
 
 | File | When it would play, and why it is quiet |
 | --- | --- |
+| `event/interrupted.ogg` | A stun landed mid-cast. The wind-up is lost and the resource is not refunded, so this is the harshest thing that happens to a pawn and the strongest case in this table for a sound. It is silent only because it arrives in the same tick as the stun that caused it, which is the `event/status_applied` question below in a second place. |
 | `event/damage_over_time.ogg` | Every tick of a burn, poison or bleed. **Read the warning below before you fill this one in.** |
-| `event/status_applied.ogg` | A status lands: a stun, a taunt, a mark. The strongest candidate of these eight, and the note below says why it is not on. |
+| `event/status_applied.ogg` | A status lands: a stun, a taunt, a mark. The strongest candidate in this table, and the note below says why it is not on. |
 | `event/action_start.ogg` | A wind-up begins. Every one of these is followed by an `action_fire`. |
 | `event/status_expired.ogg` | A status runs out. |
 | `event/resource_spent.ogg` | A unit pays for an ability. Happens inside a hit you can already hear. |
