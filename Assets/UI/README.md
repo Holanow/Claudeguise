@@ -128,7 +128,7 @@ of an ability-granting item fairly plain and the badge will sit on it cleanly.
 | --- | --- |
 | `panel.png` | Every panel, card, tooltip and chip in the game |
 | `panel_border.png` | Every border |
-| `background.png` | Every screen background, including the main menu |
+| `background.png` | Every screen background |
 
 **One file changes everything of that kind.** Drop in `panel.png` and every
 panel in the game is re-skinned at once. That is deliberate: a theme you have to
@@ -139,14 +139,37 @@ finishes.
 look different from the rest, add it under a folder named after the kind:
 
 ```
-Assets/UI/panel/inspect.png        just the inspect panel
-Assets/UI/border/arena.png         just the arena frame
-Assets/UI/background/menu.png      just the main menu
+Assets/UI/background/party_select.png   just the party select screen
+Assets/UI/background/deploy.png         just the deploy screen
+Assets/UI/background/floor_map.png      just the floor map
+Assets/UI/background/level_editor.png   just the level editor
+Assets/UI/background/arena.png          just the floor inside the arena
+Assets/UI/border/arena.png              just the frame around the arena
+Assets/UI/panel/inspect.png             just the inspect panel
 ```
 
 The specific file wins for that element, the general one keeps covering
 everything else, and neither step is a code change. Delete either and the game
 falls back a level.
+
+**That is the complete list of names.** A name that is not on it resolves to
+nothing, silently, forever — the file sits on disk looking correct and the game
+never reads it. This list is checked by a test, the same way the ability and
+item lists above are, so a screen added later cannot quietly acquire a name
+nobody could guess.
+
+### Not wired up yet
+
+**The whole of this section is unreachable today, and so is `background.png`.**
+The lookup is built and tested; no screen calls it. Drop any background in and
+nothing happens. Borders are the exception and do work: `panel_border.png`
+re-skins every border in the game right now, including the arena frame and the
+party cards.
+
+<!-- pending: arena, deploy, floor_map, inspect, level_editor, party_select -->
+
+Tracked as issue #237. When it lands this section goes away and the names above
+start working; the test that keeps the list honest fails until both happen.
 
 A border and a panel are **nine-sliced**: the corners are drawn at their own
 size and the edges stretch between them, so one file works for a small tooltip
