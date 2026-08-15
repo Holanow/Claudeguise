@@ -134,6 +134,35 @@ static func opaque_rect(canvas_radius: float, tex: Texture2D, center: Vector2 = 
 	var origin := (Vector2(used.position) - size * 0.5) * scale
 	return Rect2(origin + center, Vector2(used.size) * scale)
 
+## The topmost opaque pixel of each texture column, in texture rows from the
+## file's top. `INF` for a column with no opaque pixel at all.
+##
+## Exists so a caller can measure the shape of the **top edge** of the art the
+## game really draws, rather than the top edge of polygons it does not. See
+## `Silhouettes.top_profile`, which is the only caller and which explains why
+## that distinction cost this project a passing test that measured nothing.
+##
+## Cached beside the textures for the reason `_used_rect` is: `get_image` copies
+## the whole image out of the texture.
+static var _top_cache: Dictionary = {}
+
+static func column_tops(tex: Texture2D) -> PackedFloat32Array:
+	var key := tex.get_instance_id()
+	if _top_cache.has(key):
+		return _top_cache[key]
+	var out := PackedFloat32Array()
+	out.resize(tex.get_width())
+	out.fill(INF)
+	var image := tex.get_image()
+	if image != null:
+		for x in tex.get_width():
+			for y in tex.get_height():
+				if image.get_pixel(x, y).a > 0.0:
+					out[x] = float(y)
+					break
+	_top_cache[key] = out
+	return out
+
 ## `opaque_rect` as a fraction of the footprint the unit is drawn into, per axis.
 ##
 ## Computed from the integer pixel counts rather than by scaling and dividing

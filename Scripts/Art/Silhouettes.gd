@@ -254,6 +254,19 @@ const _PARTS := {
 	#      and the one detail no other silhouette in the game carries -- the same
 	#      job the Warden's chain does. It is the identity at inspect size and it
 	#      is mostly gone at true size, which is the right way round.
+	#
+	# **`Assets/Units/rat_king.png` exists now, so everything below this line is
+	# the fallback and not what the game draws.** The sprite keeps devices 1 and
+	# 2 and drops device 3: three attempts at a tail knot at 26 px came out as
+	# antlers, as debris floating over the unit, and as a spike that turned the
+	# pile into a leaf. The knot lives here, at a resolution that can hold it.
+	#
+	# It also carries a correction. The three backs below are near-equal and the
+	# two outer heads mirror each other, and at the 48 px this is actually drawn
+	# at that read as one bilateral object -- a shrub, or a pair of lungs. Every
+	# crest in the sprite is a different height AND width, and no two of its
+	# heads point anywhere near opposite each other. If you ever delete the PNG,
+	# fix that here before trusting these polygons in a fight.
 	&"rat_king": [
 		# THE KNOT, and it is drawn in TEAM_DARK rather than ACCENT after looking
 		# at it. Five near-white strands radiating from one point did not read as
@@ -549,6 +562,77 @@ static func drawn_extent(
 	if lo.x > hi.x:
 		return Rect2(center, Vector2.ZERO)
 	return Rect2(lo, hi - lo)
+
+## The top edge of the drawing, sampled into `columns` bins across the unit's
+## footprint, in the same local space `draw_unit` draws into. `INF` for a bin
+## with no ink in it.
+##
+## **This is here because a test that counts the humps on the Rat King's back
+## was counting them on art the game does not draw.** Ten shapes have PNGs in
+## `Assets/Units/`, and for those the polygons are dead code -- the same defect
+## the correction note in `BADGE-LEGIBILITY.md` records for `fill_ratio`, in the
+## same file, found again a month later in a different function. `fill_ratio`
+## and `drawn_extent` were fixed then and this one was not, because nobody
+## looked for a second instance of it.
+##
+## So it goes through the same two paths `draw_unit` does, in the same order.
+##
+## The two paths sample differently and that is deliberate rather than sloppy:
+## the texture path reads **every pixel column** it covers, and the polygon path
+## reads **polygon vertices**, which is all a polygon has. A vertex-sampled
+## profile leaves empty bins between vertices; a caller must skip `INF` rather
+## than treat it as a floor.
+static func top_profile(
+	shape_id: StringName,
+	radius: float,
+	team: CG.Team,
+	columns: int = 40,
+	accent: CG.DamageType = CG.DamageType.PHYSICAL
+) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(columns)
+	out.fill(INF)
+	if columns <= 0 or radius <= 0.0:
+		return out
+
+	var tex := UnitArt.texture_for(shape_id, team)
+	if tex != null:
+		var size := Vector2(tex.get_width(), tex.get_height())
+		if size.x <= 0.0 or size.y <= 0.0:
+			return out
+		var scale := (radius * 2.0) / maxf(size.x, size.y)
+		var tops := UnitArt.column_tops(tex)
+		# Walk bins rather than columns: a sprite narrower than the bin count
+		# would otherwise leave gaps that look like holes in the silhouette.
+		for i in columns:
+			var lo_x := -radius + (float(i) / float(columns)) * radius * 2.0
+			var hi_x := -radius + (float(i + 1) / float(columns)) * radius * 2.0
+			var lo := int(floor((lo_x / scale) + size.x * 0.5))
+			var hi := int(ceil((hi_x / scale) + size.x * 0.5)) - 1
+			var best := INF
+			for x in range(maxi(lo, 0), mini(hi, int(size.x) - 1) + 1):
+				if tops[x] < best:
+					best = tops[x]
+			if best < INF:
+				out[i] = (best - size.y * 0.5) * scale
+		return out
+
+	# Polygons are sampled along their EDGES, not at their vertices. Vertices
+	# alone leave empty bins wherever an edge spans more than one bin, and a
+	# profile full of holes is not comparable with a sprite's, which has none --
+	# the two would need different thresholds and a caller could not use one
+	# number for both.
+	for part in build_parts(shape_id, radius, team, accent):
+		var points: PackedVector2Array = part["points"]
+		for i in points.size():
+			var a := points[i]
+			var b := points[(i + 1) % points.size()]
+			var steps := maxi(2, int(absf(b.x - a.x) / (radius * 2.0) * float(columns)) * 2 + 2)
+			for s in steps + 1:
+				var p := a.lerp(b, float(s) / float(steps))
+				var bin := clampi(int((p.x + radius) / (radius * 2.0) * float(columns)), 0, columns - 1)
+				out[bin] = minf(out[bin], p.y)
+	return out
 
 ## `drawn_extent` as a fraction of the footprint the game reserves for the unit,
 ## per axis. 1.0 means the drawing fills its nominal box on that axis.
