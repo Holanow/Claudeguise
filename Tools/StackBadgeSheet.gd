@@ -72,10 +72,24 @@ func _write_stand_in_art() -> void:
 		printerr("StackBadgeSheet: %s already exists; not touching the player's file" % _STAND_IN)
 		return
 	DirAccess.make_dir_recursive_absolute("res://Assets/UI/status")
-	# Deliberately garish and obviously not final, the same way the unit-art
-	# drop-in was proved: if this square appears, the file path is live.
+	# **This was a FLAT magenta fill and that was a defect in the instrument.**
+	#
+	# The old comment here said it was "deliberately garish and obviously not
+	# final". It was garish; it was not obviously a stand-in. PLAYTEST-FRESH-2,
+	# reading this sheet cold, listed "a solid magenta square used as one of the
+	# status badges" as something it could not interpret, and said: *"In every
+	# engine I have ever seen, a flat magenta square is a missing texture. If it
+	# is deliberate it looks exactly like a bug."*
+	#
+	# That is the whole point. Flat magenta is the industry's missing-texture
+	# colour, so the one thing this square must not be is flat. Two tones on a
+	# diagonal cannot be a failed lookup: a missing texture is never patterned.
+	# The sheet also says in words what it is now, which the old one did not.
 	var image := Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0.85, 0.2, 0.75, 1.0))
+	for y in 16:
+		for x in 16:
+			var light := ((x + y) / 4) % 2 == 0
+			image.set_pixel(x, y, Color(0.85, 0.2, 0.75) if light else Color(0.45, 0.1, 0.40))
 	image.save_png(_STAND_IN)
 	UIArt.clear_cache()
 
@@ -134,7 +148,9 @@ func _draw() -> void:
 	# A dropped-in PNG must not delete the count. This draws the same badge with
 	# a stand-in "player art" square behind it so the overlay is visible even
 	# when nothing has been dropped in.
-	_label(Vector2(700.0, 400.0), "Other statuses, one stack. BURN is a dropped-in PNG:",
+	_label(Vector2(700.0, 400.0), "Other statuses, one stack. The striped pink square is NOT game art:",
+		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	_label(Vector2(700.0, 416.0), "it is a stand-in PNG this tool writes and deletes, standing in for player art.",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	x = 700.0
 	for s in [CG.Status.BLEED, CG.Status.BURN, CG.Status.POISON, CG.Status.STUN, CG.Status.SHIELD, CG.Status.HASTE]:
@@ -145,7 +161,12 @@ func _draw() -> void:
 	# The magenta square is a file on disk, not a generated badge. If the number
 	# is missing from it, art has deleted information and the screenshot is the
 	# only place that shows it.
-	_label(Vector2(700.0, 570.0), "A dropped-in PNG MUST still carry its count:",
+	# Two lines, not one. The single-line version ran off the right edge of the
+	# 1280 viewport and lost its last word -- caught on the sheet, which is the
+	# fifteenth time rendering has found something reading did not.
+	_label(Vector2(700.0, 562.0), "That same stand-in, carrying counts.",
+		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	_label(Vector2(700.0, 578.0), "A picture MUST NOT delete the number:",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	x = 700.0
 	for n in [1, 4, 27]:
