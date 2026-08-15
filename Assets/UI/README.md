@@ -32,15 +32,19 @@ generated ones are built around a shape you can still tell apart at that size.
 | `status/shield.png` | Shield — absorbs damage |
 | `status/block.png` | Block — reduces damage taken |
 | `status/shielding.png` | Directional Block — stops shots crossing the front |
+| `status/sustaining.png` | Sustaining — holding an action open, paying for it every tick |
 | `status/haste.png` | Haste — acts faster |
-| `status/enrage.png` | Enrage — deals more damage |
-| `status/taunting.png` | Taunting — forces enemies to attack this unit |
+| `status/taunting.png` | Taunting — forces nearby enemies to attack this unit |
 | `status/bleed.png` | Bleed |
 | `status/burn.png` | Burn |
 | `status/poison.png` | Poison |
 | `status/stun.png` | Stun |
 | `status/marked.png` | Marked — takes more damage |
 | `status/slowed.png` | Slowed — moves slower |
+| `status/taunted.png` | Taunted — forced to attack whoever taunted it |
+
+The first six are helpful and the last seven are harmful, which is the split the
+plate direction and rim colour below are drawn from.
 
 **The generated ones follow a rule, and a replacement should keep it.** Helpful
 statuses sit on a plate that points **up** with a **green** rim. Harmful ones sit
@@ -56,16 +60,19 @@ is coming rather than only that something is.
 
 `action/warrior_strike.png`, `action/warrior_guard.png`,
 `action/warrior_execute.png`, `action/warrior_taunt.png`,
-`action/warrior_block.png`, `action/priest_heal.png`, `action/priest_bolt.png`,
-`action/priest_smite.png`, `action/priest_haste.png`, `action/priest_ward.png`,
+`action/warrior_block.png`, `action/warrior_second_wind.png`,
+`action/priest_heal.png`, `action/priest_bolt.png`, `action/priest_smite.png`,
+`action/priest_haste.png`, `action/priest_ward.png`,
+`action/geyser_blast.png`, `action/geyser_scald.png`,
+`action/geyser_spout.png`, `action/geyser_cleanse.png`,
+`action/siege_master_shot.png`, `action/siege_engine_bolt.png`,
+`action/build_siege_engine.png`, `action/abomination_claw.png`,
+`action/abomination_hook.png`, `action/abomination_grapple.png`,
 `action/goblin_stab.png`, `action/goblin_arrow.png`, `action/archer_shot.png`,
 `action/ghoul_maul.png`, `action/grunt_smash.png`, `action/cultist_bolt.png`,
-`action/geyser_blast.png`, `action/geyser_scald.png`,
-`action/siege_master_shot.png`, `action/siege_engine_bolt.png`,
-`action/build_siege_engine.png`, `action/spotter_mark.png`,
-`action/abomination_claw.png`, `action/abomination_hook.png`,
-`action/abomination_grapple.png`, `action/warden_axe.png`,
-`action/warden_chain_toss.png`
+`action/spotter_mark.png`, `action/brute_slam.png`, `action/rat_bite.png`,
+`action/stalker_dart.png`, `action/stalker_mark.png`,
+`action/warden_axe.png`, `action/warden_chain_toss.png`
 
 The filename is the action's id. **This list is checked by a test.**
 `Tests/test_art.gd` walks the real content registry and fails if an action ships
