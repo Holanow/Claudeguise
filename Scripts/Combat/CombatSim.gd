@@ -74,7 +74,7 @@ static func step(state: CombatState, deps: SimDeps = null) -> void:
 	_resolve_phase(state, deps)
 	_tick_phase(state, deps)
 	_tick_projectiles(state, deps)
-	_check_outcome(state)
+	_check_outcome(state, deps)
 
 ## Runs to completion. Used by tests and by the headless balance checks; the
 ## battle view calls step() itself so it can draw between ticks.
@@ -1836,9 +1836,11 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 # outcome
 # ---------------------------------------------------------------------------
 
-static func _check_outcome(state: CombatState) -> void:
-	var player_alive := not state.living(CG.Team.PLAYER).is_empty()
-	var enemy_alive := not state.living(CG.Team.ENEMY).is_empty()
+static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
+	if deps == null:
+		deps = SimDeps.new()
+	var player_alive := _side_can_fight(state, CG.Team.PLAYER, deps)
+	var enemy_alive := _side_can_fight(state, CG.Team.ENEMY, deps)
 
 	var outcome := CombatState.Outcome.UNRESOLVED
 	if player_alive and not enemy_alive:
@@ -1853,6 +1855,76 @@ static func _check_outcome(state: CombatState) -> void:
 	if outcome != CombatState.Outcome.UNRESOLVED:
 		state.outcome = outcome
 		state.emit(_event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &""))
+
+## Issue 233. A side is beaten when it has no living unit left **or** when
+## every unit it has left can never act again for the rest of the fight.
+##
+## The second half exists because of one measured event, not a hypothetical.
+## `floor1_warden` with the four-class party: 22 of 40 seeds outlive the whole
+## party because two Siege Engines are still standing. Eleven of those are wins
+## the engines land within 4 seconds. **The other eleven are 25.9-second
+## defeats, of which 21.8 to 25.9 seconds contain nothing the player's side
+## does at all** -- measured event by event with `Tools/TailAnatomy.gd`, and
+## watched on screen with `Tools/TailWatch.gd`, where the arena is visually
+## frozen and the combat log's last line is twelve seconds old.
+##
+## The cause is not a slow tail, which is why "speed the tail up" is not the
+## fix. `siege_engine_bolt` is `requires_marked_target`, the engines have
+## `move_speed` 0, and the only unit in the game that applies MARKED is the
+## Siege Master. The tick their mark fades, two engines become furniture with
+## no action they can ever satisfy, and the Warden spends 25 seconds
+## demolishing them. **The fight is decided; only the announcement is late.**
+##
+## It is deliberately not "end the fight when the last pawn dies": that throws
+## away the eleven wins the engines earn, and they earn them in under four
+## seconds.
+static func _side_can_fight(state: CombatState, team: CG.Team, deps: SimDeps) -> bool:
+	var living := state.living(team)
+	if living.is_empty():
+		return false
+	for unit in living:
+		if _unit_can_fight(state, unit, deps):
+			return true
+	return false
+
+## Narrow on purpose. The only permanent gate in the game is
+## `requires_marked_target`: a cooldown ticks down, a resource regenerates and a
+## target walks back into range, so none of those may end a fight. A mark is the
+## one precondition a unit cannot restore for itself, and only a living ally
+## that applies MARKED can restore it.
+##
+## Anything not covered by that reasoning returns true, so this cannot end a
+## fight the old rule would have kept running for any other reason.
+static func _unit_can_fight(state: CombatState, unit: CombatUnit, deps: SimDeps) -> bool:
+	if unit.move_speed > 0.0:
+		return true
+	# Mid wind-up, mid channel, or a shot still in the air: the fight is not
+	# over while a unit's last decision is still resolving. Ending it here
+	# would cancel a bolt that may be about to win.
+	if unit.current_action != &"" or unit.sustaining != &"":
+		return true
+	for p in state.projectiles:
+		if not p.resolved and p.source_id == unit.id:
+			return true
+	var marked_only := false
+	for id in unit.actions:
+		var a: ActionDef = deps.action_lookup.call(id)
+		if a == null:
+			continue
+		if not a.requires_marked_target:
+			return true
+		marked_only = true
+	if not marked_only:
+		return true
+	for foe in state.living(_enemy_team(unit.team)):
+		if foe.has_status(CG.Status.MARKED):
+			return true
+	for ally in state.living(unit.team):
+		for id in ally.actions:
+			var a: ActionDef = deps.action_lookup.call(id)
+			if a != null and a.applies_status_enabled and a.applies_status == CG.Status.MARKED:
+				return true
+	return false
 
 # ---------------------------------------------------------------------------
 
