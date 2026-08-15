@@ -539,11 +539,136 @@ func test_harmful_and_beneficial_rims_differ() -> void:
 func test_no_two_statuses_share_a_glyph() -> void:
 	# The whole job of these badges is telling one status from another. Two
 	# entries pointing at the same shape would pass every other check here.
+	#
+	# **This test is necessary and it is nowhere near sufficient, which is worth
+	# stating where the next person reads it.** It compares the arrays for
+	# equality, so it only ever catches a copy-paste. bleed and burn passed it
+	# for months while sharing 98% of their pixels, because a droplet and a
+	# flame are different arrays and the same picture. The test below is the one
+	# that would have caught that.
 	var seen: Array = []
 	for s in _every_status():
 		var g: Array = StatusIcons.GLYPHS[s]
 		assert_false(seen.has(g), "CG.Status.%s reuses another status's glyph" % CG.Status.keys()[s])
 		seen.append(g)
+
+
+## How much of a glyph's own box each of two glyphs covers differently, sampled
+## on a grid. A poor man's rasteriser, in pure GDScript, so the property can be a
+## test rather than a tool somebody remembers to run.
+##
+## `Geometry2D.is_point_in_polygon` does the real work for filled parts; dots and
+## strokes are distance tests. It is coarse on purpose -- badges are 17 pixels,
+## so a 24x24 sample is finer than the thing it models.
+func _glyph_coverage(glyph: Array, grid: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(grid * grid)
+	for gy in grid:
+		for gx in grid:
+			var p := Vector2(
+				(float(gx) + 0.5) / float(grid) * 2.0 - 1.0,
+				(float(gy) + 0.5) / float(grid) * 2.0 - 1.0)
+			var hit := 0
+			for part in glyph:
+				var rot := float(part.get("rot", 0.0))
+				var q := p.rotated(-rot)
+				if part.has("poly"):
+					var poly := PackedVector2Array()
+					for v in part["poly"]:
+						poly.append(Vector2(v[0], v[1]))
+					if Geometry2D.is_point_in_polygon(q, poly):
+						hit = 1
+				elif part.has("dot"):
+					var d: Array = part["dot"]
+					if q.distance_to(Vector2(d[0], d[1])) <= float(d[2]):
+						hit = 1
+				elif part.has("arc"):
+					var a: Array = part["arc"]
+					var w: float = float(part.get("w", 0.18)) * 0.5
+					if absf(q.distance_to(Vector2(a[0], a[1])) - float(a[2])) <= w:
+						hit = 1
+				elif part.has("line"):
+					var pts: Array = part["line"]
+					var w2: float = float(part.get("w", 0.18)) * 0.5
+					for i in range(pts.size() - 1):
+						var s := Vector2(pts[i][0], pts[i][1])
+						var e := Vector2(pts[i + 1][0], pts[i + 1][1])
+						if Geometry2D.get_closest_point_to_segment(q, s, e).distance_to(q) <= w2:
+							hit = 1
+				if hit == 1:
+					break
+			out[gy * grid + gx] = hit
+	return out
+
+
+func _glyph_difference(a: PackedByteArray, b: PackedByteArray) -> float:
+	var differing := 0
+	for i in a.size():
+		if a[i] != b[i]:
+			differing += 1
+	return float(differing) / float(a.size())
+
+
+func test_no_two_status_glyphs_are_the_same_picture() -> void:
+	# THE TEST THAT WOULD HAVE CAUGHT BLEED AND BURN, and the reason it exists is
+	# that the header of StatusIcons.gd asserted "no two share an outline" for
+	# months and it was false. A droplet and a flame are different arrays and the
+	# same picture; measured on screen they disagreed on 2.1% of their pixels,
+	# flat from 12px to 32px.
+	#
+	# The full measurement is `Tools/BadgeLegibility.tscn`, which renders and
+	# compares real pixels. This is its cheap shadow: a grid sample of the glyph
+	# alone, no plate, no rim, no rendering. It cannot replace the tool -- it
+	# knows nothing about how much of the badge the glyph occupies -- but it
+	# guards the one thing the tool found, and it runs in the gate.
+	#
+	# Only same-category pairs are checked, because rim colour and plate
+	# direction already separate harmful from helpful and no glyph has to.
+	var grid := 24
+	var coverage := {}
+	for s in _every_status():
+		coverage[s] = _glyph_coverage(StatusIcons.GLYPHS[s], grid)
+
+	var worst := 1.0
+	var worst_pair := ""
+	for a in _every_status():
+		for b in _every_status():
+			if a >= b or CG.is_harmful(a) != CG.is_harmful(b):
+				continue
+			var d := _glyph_difference(coverage[a], coverage[b])
+			if d < worst:
+				worst = d
+				worst_pair = "%s/%s" % [CG.Status.keys()[a], CG.Status.keys()[b]]
+	# Measured after the #130 rework: the closest same-category glyph pair
+	# differs on about a quarter of its own box. The floor is set well under
+	# that so ordinary redrawing does not trip it, and well over the 6% the old
+	# droplet-and-flame pair scored on this same measure.
+	assert_true(worst > 0.12,
+		("the closest same-category glyph pair is %s at %.1f%% of their own box. "
+		+ "Two badges that similar are one badge on a 17px unit -- redraw one, "
+		+ "and re-run Tools/BadgeLegibility.tscn for the on-screen number.") % [
+			worst_pair, worst * 100.0])
+
+
+func test_the_glyph_similarity_detector_actually_fires() -> void:
+	# A detector shipped without this is the failure mode this project has
+	# written down: sixteen tests asserting a warning is well-formed when it
+	# fires, none asserting it fires at all. Feed it the exact pair that started
+	# this -- a droplet and the flame it was indistinguishable from -- and assert
+	# it would have caught them.
+	var droplet := [{"poly": [
+		[0.0, -0.8], [0.42, -0.05], [0.42, 0.3], [0.18, 0.65],
+		[-0.18, 0.65], [-0.42, 0.3], [-0.42, -0.05]]}]
+	var flame: Array = StatusIcons.GLYPHS[CG.Status.BURN]
+	var d := _glyph_difference(_glyph_coverage(droplet, 24), _glyph_coverage(flame, 24))
+	assert_true(d <= 0.12,
+		"the old droplet scores %.1f%% against the flame, above the floor -- this detector is inert" % [d * 100.0])
+	# And the negative half: the shape that REPLACED it must clear the floor, or
+	# the detector is simply rejecting everything.
+	var slash: Array = StatusIcons.GLYPHS[CG.Status.BLEED]
+	var d2 := _glyph_difference(_glyph_coverage(slash, 24), _glyph_coverage(flame, 24))
+	assert_true(d2 > 0.12,
+		"the replacement slash scores %.1f%% against the flame, so it is no better" % [d2 * 100.0])
 
 
 func test_every_reachable_action_has_an_icon() -> void:

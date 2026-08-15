@@ -55,11 +55,17 @@ const PLATE_BAD := [[0.0, 1.0], [0.9, 0.35], [0.9, -1.0], [-0.9, -1.0], [-0.9, 0
 ## Glyphs, in `UIArt.draw_glyph`'s -1..1 part format. Each is kept inside about
 ## 0.8 of the box so it never touches the plate's own rim.
 ##
-## Chosen for shape family first, meaning first: droplet, flame, three dots,
-## asterisk, crosshair, weight | shield, wall, shield-and-arc, chevrons, spikes,
-## horn. No two share an outline, which is what has to hold at 12px -- the same
-## finding as the unit roster, where interior detail vanished and silhouette did
-## not.
+## Chosen for shape family first, meaning first: slash, flame, three dots,
+## asterisk, crosshair, weight, turning-arrow | shield, wall, shield-and-arc,
+## chevrons, hourglass, horn. No two share an outline, which is what has to hold
+## at 12px -- the same finding as the unit roster, where interior detail vanished
+## and silhouette did not.
+##
+## **"No two share an outline" was an assertion for months and it was false.**
+## `Tools/BadgeLegibility.tscn` measures how many pixels two badges actually
+## disagree on. It found bleed and burn at 2.1% -- the same badge -- and later
+## found taunted and burn at 9.3% after an enum rename moved taunted from one
+## category to the other. Re-run it after touching anything here.
 const GLYPHS := {
 	# --- beneficial ---------------------------------------------------------
 	# Heater shield. The plainest "protected" read there is.
@@ -111,15 +117,6 @@ const GLYPHS := {
 		{"poly": [[-0.7, -0.6], [-0.2, 0.0], [-0.7, 0.6], [-0.95, 0.6], [-0.45, 0.0], [-0.95, -0.6]]},
 		{"poly": [[0.0, -0.6], [0.5, 0.0], [0.0, 0.6], [-0.25, 0.6], [0.25, 0.0], [-0.25, -0.6]]},
 	],
-	# Three rising spikes, tallest in the middle. Separate triangles, not one
-	# zigzag on a shared baseline: the shared baseline version rendered as a
-	# mountain range on the first sheet, because a flat bottom edge is what
-	# makes a jagged top edge read as landscape.
-	CG.Status.TAUNTED: [
-		{"poly": [[-0.78, 0.6], [-0.46, -0.3], [-0.14, 0.6]]},
-		{"poly": [[-0.32, 0.7], [0.0, -0.92], [0.32, 0.7]]},
-		{"poly": [[0.14, 0.6], [0.46, -0.3], [0.78, 0.6]]},
-	],
 	# A horn with two sound arcs. Forcing attention, not receiving it.
 	CG.Status.TAUNTING: [
 		{"poly": [[-0.75, -0.42], [-0.12, -0.75], [-0.12, 0.75], [-0.75, 0.42]]},
@@ -128,7 +125,25 @@ const GLYPHS := {
 	],
 
 	# --- harmful ------------------------------------------------------------
-	# Droplet: point up, heavy round bottom.
+	# A pull: an arc turning back on itself with a head on the end. You are not
+	# choosing your target any more.
+	#
+	# **This was three rising spikes, and it was fine until the enum moved.**
+	# ENRAGE was renamed TAUNTED in place -- correct, it duplicated TAUNTING --
+	# and that quietly moved the badge from the HELPFUL category to the HARMFUL
+	# one. Three spikes among green badges was distinct. Beside a red flame it
+	# was not: measured at the shipped size it became the closest pair in the
+	# whole system at 9.3%, taking the place bleed/burn had just vacated.
+	#
+	# **Nobody could have seen that from the rename.** The diff was one enum
+	# value and a comment; the art consequence was in a file it did not touch,
+	# in a comparison that did not exist before. It surfaced because the
+	# measurement got re-run, which is the argument for the measurement being a
+	# committed tool rather than a thing I did once.
+	CG.Status.TAUNTED: [
+		{"arc": [0.0, 0.12, 0.60, PI * 0.78, PI * 1.92], "w": 0.26},
+		{"poly": [[0.20, -0.86], [0.86, -0.62], [0.36, -0.16]]},
+	],
 	# A GASH, not a droplet, and the reason is a measurement rather than taste.
 	#
 	# This was a droplet. BURN is a flame, and a flame is a droplet with a notch
