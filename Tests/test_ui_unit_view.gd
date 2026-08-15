@@ -143,13 +143,71 @@ func test_badge_order_does_not_depend_on_which_status_landed_first() -> void:
 	b.statuses[CG.Status.BURN] = 100
 	assert_eq(UnitView.status_badges(a), UnitView.status_badges(b))
 
+## Issue 161: the cap is unchanged as a ROW WIDTH rule -- the row still occupies
+## at most `MAX_STATUS_BADGES` slots -- but the last slot is now a "+N" chip
+## rather than a fourth badge whenever something would otherwise be dropped.
+## Asserted as slots, which is the property that actually mattered; the old
+## `size() == MAX` was a proxy that stopped being true when the chip arrived.
 func test_a_badge_row_is_capped_so_it_never_grows_wider_than_the_unit() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	for s in CG.Status.values():
 		u.statuses[s] = 100
-	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES)
-	for s in UnitView.status_badges(u):
+	var badges := UnitView.status_badges(u)
+	var slots: int = badges.size() + (1 if UnitView.hidden_status_count(u) > 0 else 0)
+	assert_eq(slots, UnitView.MAX_STATUS_BADGES, "the row must still be exactly the capped width")
+	for s in badges:
 		assert_true(CG.is_harmful(s), "the capped row must keep what is being done to the unit")
+
+## **The defect sable measured: a fifth status was dropped with nothing saying
+## so.** Four badges read as "this unit has four statuses", which is a statement
+## the game makes and it was false.
+func test_a_fifth_status_is_counted_rather_than_silently_dropped() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	var applied: Array = []
+	for s in CG.Status.values():
+		if applied.size() >= UnitView.MAX_STATUS_BADGES + 1:
+			break
+		u.statuses[s] = 100
+		applied.append(s)
+	assert_eq(applied.size(), UnitView.MAX_STATUS_BADGES + 1, "the fixture must actually overflow")
+	var shown := UnitView.status_badges(u).size()
+	var hidden := UnitView.hidden_status_count(u)
+	assert_true(hidden > 0, "with %d statuses on the unit nothing reports the overflow" % applied.size())
+	assert_eq(shown + hidden, applied.size(),
+		"every status must be either drawn or counted -- %d drawn + %d counted != %d on the unit" % [shown, hidden, applied.size()])
+
+## The negative half, and the one that stops the chip becoming furniture: at or
+## under the cap nothing is hidden and no "+0" may appear. A detector that
+## always fires is one a player learns to ignore in minutes.
+func test_nothing_is_reported_hidden_while_everything_fits() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	var count := 0
+	for s in CG.Status.values():
+		if count >= UnitView.MAX_STATUS_BADGES:
+			break
+		u.statuses[s] = 100
+		count += 1
+	assert_eq(UnitView.hidden_status_count(u), 0, "a full-but-fitting row hides nothing")
+	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES,
+		"and all four are drawn, with no slot given up to a chip")
+
+	# And the empty case, since `hidden_status_count` is consulted before the
+	# early return in the drawing.
+	var bare := _make_unit(1, Vector2.ZERO)
+	assert_eq(UnitView.hidden_status_count(bare), 0)
+	assert_true(UnitView.status_badges(bare).is_empty())
+
+## The count must be derived from the same ordering the badges are, or the chip
+## can disagree with the row it sits in.
+func test_the_hidden_count_agrees_with_what_is_drawn() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	for s in CG.Status.values():
+		u.statuses[s] = 100
+	var ordered := UnitView.ordered_statuses(u)
+	var badges := UnitView.status_badges(u)
+	assert_eq(badges.size() + UnitView.hidden_status_count(u), ordered.size())
+	for i in badges.size():
+		assert_eq(badges[i], ordered[i], "the drawn badges must be the first of the same ordering")
 
 ## Every badge this view can ask for has to have a glyph on the other side of
 ## the boundary. A status added to CG.Status with no entry in StatusIcons
