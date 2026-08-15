@@ -7,6 +7,8 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const Intent := preload("res://Scripts/Core/Intent.gd")
+const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## Issue 132's content half: what a fight starts with, and the magic default
 ## attack that returns mana.
@@ -154,30 +156,78 @@ func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() 
 		("An enemy has a resource pool now, so rook's ruling that enemies still open FULL "
 		+ "is finally observable. Delete this test and assert it directly on a spawned unit."))
 
-## **Delete this test when it fails.** Nothing reads `restores_resource`:
-## `CombatSim._on_hit_landed` returns early for anything that is not a RAGE pawn,
-## and both actions carrying the field are projectiles, so the projectile path is
-## the one that must carry it.
+## Wired at issue 165, replacing `test_the_mana_return_is_still_unwired`.
 ##
-## **Structural, and the first version of this test was not, which is why this
-## comment exists.** I wrote it as "drain a Priest, step, and see whether Mana
-## climbs faster than regen explains". It passed, and it was worthless: mana regen
-## alone raises the pool on the very first tick, so the loop's own exit condition
-## fired immediately and the assertion never reached a state that could
-## distinguish a restore from regen. Announcement rule 2 is mine and it caught me
-## with the same shape a second time -- "X does not happen" passed by "X cannot
-## be observed."
+## That test read this file's source for the field name, because until it was
+## wired there was no runtime observation separating a restore from mana regen.
+## There is now, so these run a real fight instead -- and they turn off regen so
+## the only thing that can move the pool is the Bolt.
 ##
-## There is no way to observe the absence of this wiring at runtime, because the
-## quantity it would move is the quantity regen already moves. So this reads the
-## simulation's own source for the field name. It stands for exactly one claim --
-## **no code in `CombatSim` mentions `restores_resource`** -- and it cannot be
-## vacuous, because the negative half below proves the file was really read.
-func test_the_mana_return_is_still_unwired() -> void:
-	var source := FileAccess.get_file_as_string("res://Scripts/Combat/CombatSim.gd")
-	assert_true(source.contains("_on_hit_landed"),
-		"could not read CombatSim.gd, so this check proves nothing about it")
-	assert_false(source.contains("restores_resource"),
-		("CombatSim now mentions restores_resource, so swift has wired it. Delete this test and "
-		+ "assert the real thing through a fight: a landed Bolt returns exactly %d Mana, a Bolt "
-		+ "that MISSES returns none, and the pool never passes its maximum.") % Registry.get_action(&"priest_bolt").restores_resource)
+## `priest_bolt` is a PROJECTILE, which is the whole point of issue 165: a
+## restore wired into `_fire_action` rather than into the landing would pass a
+## hand-written test and return nothing here.
+func test_a_landed_bolt_returns_mana_and_a_miss_returns_none() -> void:
+	var bolt = Registry.get_action(&"priest_bolt")
+	assert_true(bolt.restores_resource > 0, "no restore authored, so this proves nothing")
+	assert_true(bolt.projectile_speed > 0.0,
+		"priest_bolt stopped being a projectile, so this no longer covers the landing path")
+
+	var deps := _bolt_deps()
+
+	var hit := _bolt_state()
+	var caster = hit.unit(0)
+	caster.resource = 0
+	caster.focus_id = 1
+	caster.intent = Intent.use_action(bolt.id, 1)
+	for _i in 90:
+		CombatSim.step(hit, deps)
+		if caster.resource > 0:
+			break
+	assert_eq(caster.resource, bolt.restores_resource,
+		"a landed Bolt returns exactly what it says it does")
+
+	var missed := _bolt_state()
+	var m = missed.unit(0)
+	m.resource = 0
+	m.focus_id = 1
+	m.intent = Intent.use_action(bolt.id, 1)
+	CombatSim.step(missed, deps)
+	missed.unit(1).position = Vector2(9000.0, 9000.0)
+	for _i in 90:
+		CombatSim.step(missed, deps)
+	assert_eq(m.resource, 0, "a Bolt that MISSES returns nothing")
+
+func test_the_restore_never_passes_the_maximum() -> void:
+	var bolt = Registry.get_action(&"priest_bolt")
+	var deps := _bolt_deps()
+	var state := _bolt_state()
+	var caster = state.unit(0)
+	caster.resource = caster.resource_max
+	caster.focus_id = 1
+	caster.intent = Intent.use_action(bolt.id, 1)
+	for _i in 90:
+		CombatSim.step(state, deps)
+	assert_eq(caster.resource, caster.resource_max, "clamped, never over")
+
+## Regen off, and the decision layer pinned to idle: the only thing that may
+## move this pool is the hand-placed Bolt. Without the pin the Priest goes on
+## casting Smite and Ward for the rest of the loop, and the clamp assertion
+## measured its own spending instead of the restore.
+func _bolt_deps() -> SimDeps:
+	var deps := SimDeps.new()
+	deps.resource_regen_per_tick = func(_u) -> float: return 0.0
+	deps.plan_decide = func(_s, _u): return null
+	deps.default_decide = func(_s, _u): return Intent.idle()
+	return deps
+
+## A Priest and exactly one living, distant target, so the only thing that can
+## move the Priest's Mana is its own Bolt.
+func _bolt_state() -> CombatState:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")]
+	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 4)
+	for u in state.units:
+		if u.pawn == null:
+			u.alive = u.id == 1
+			u.position = Vector2(180.0, 0.0)
+	state.units[0].position = Vector2.ZERO
+	return state
