@@ -354,6 +354,57 @@ const _BITE := [
 	{"poly": [[-0.88, 0.90], [0.88, 0.90], [0.88, 0.46], [0.68, 0.02], [0.34, 0.46], [0.0, 0.02], [-0.34, 0.46], [-0.68, 0.02], [-0.88, 0.46]]},
 ]
 
+## The Rat King's Tail Lash: a heavy tail curling out, and one piece of it
+## already come off.
+##
+## **One action that damages AND spawns**, because README's *"all attacks leave
+## behind rats"* is what the Rat King's attacks ARE rather than an ability it
+## chooses. So this is neither a summon icon nor a plain attack, and the shape
+## has to carry both without becoming two drawings.
+##
+## THE TWO SHAPES IT HAD TO AVOID, and it began as both:
+##
+##   - `_CHAIN` is a straight line with a ball on the end. "A tail with a rat on
+##     the end" is that drawing with a bend in it, and at 16px a bend is not a
+##     difference: a shallow curve rasterises straight.
+##   - `_HOOK` is a straight line into an open arc. Same family, same problem.
+##
+## Both are "a stick that reaches out", which is also what a lash is, so the
+## reach cannot be the read. The TAPER is: a crescent thick at the root coming
+## to a point is a mass, not a stroke. Nothing else here is a tapering curve --
+## `_CLAWS` is three parallel strokes of even weight, `_DART` is a needle,
+## `_BITE` is two heavy bands.
+##
+## The second shape is the rat, and it is **the same shape again, small.** That
+## is not decoration: the Rat King's whole mechanic is that it sheds copies of
+## itself, so a big taper and a little taper in the same attitude says spawning
+## with one vocabulary instead of bolting a creature icon onto an attack icon.
+##
+## **The first version of both halves failed on the sheet and neither failure
+## was visible in the coordinates.** The tail was drawn as a near-closed curl of
+## roughly even width and rendered as a fat crescent -- a letter C -- because
+## outer and inner edges that stay parallel have no taper to see, and 270
+## degrees of sweep is a ring rather than a lash. And the rat was a small
+## rounded lump, which is `_CHAIN`'s ball on the end of a curve: the exact
+## drawing this comment already said it was avoiding, arrived at anyway. Sweep
+## cut to a gentle bow, width now falls monotonically from root to point, and
+## the lump became a wedge.
+## **And the second version failed too, at the size that decides it.** A gentle
+## taper is a taper at 96px and a plain diagonal dash at 9px, where it was not
+## separable from `_DART` -- one thin stroke, same angle, same length. Checked
+## on the true-size row, which is the only row that settles anything: this file
+## says these draw at 16px and the arena draws them smaller still.
+##
+## So the read is MASS, not taper. The root is now nearly half the box wide and
+## the tail is shorter, which makes the silhouette a wedge rather than a bar,
+## and a wedge is not a needle at any size. The rat grew for the same reason:
+## two wedges, one large and one small, still read as two things at 9px, where a
+## fleck read as nothing.
+const _LASH := [
+	{"poly": [[-0.92, 0.29], [0.03, -0.04], [0.80, -0.72], [0.33, 0.28], [-0.28, 0.95]]},
+	{"poly": [[0.28, 0.73], [0.95, 0.34], [0.56, 0.99]]},
+]
+
 ## The Stalker's Dart: a needle, pointed at both ends.
 ##
 ## `_ARROW` is a shaft with a head and two fletches and `_BOLT_HEAVY` and
@@ -457,6 +508,10 @@ const GLYPHS := {
 
 	# The Rat, floor 1's BLEED source (issue 130, heron).
 	&"rat_bite": _BITE,
+
+	# The Rat King, floor 1's miniboss (issue 192, heron). Ahead of content --
+	# see `_ICONS_AHEAD_OF_CONTENT` in Tests/test_art.gd.
+	&"rat_king_lash": _LASH,
 }
 
 ## Drawn when an id has no entry. Never reached today and asserted against, but
