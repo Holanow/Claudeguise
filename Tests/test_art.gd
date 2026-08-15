@@ -878,6 +878,31 @@ func test_the_count_grows_with_the_badge() -> void:
 		"the tab does not scale with the badge: %.1f at 16px and %.1f at 80px" % [small.size.y, large.size.y])
 
 
+const IconsOverlay := preload("res://Tools/IconsOverlay.gd")
+const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
+const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
+
+
+func test_the_diagnostic_harness_draws_badges_at_the_size_the_game_does() -> void:
+	# Tools/IconsOverlay.gd is the harness every judgement about these badges has
+	# been made on, including a fresh-eyes playtest that called them "invisible
+	# at 1x". It hardcoded 14.0 and 16.0 raw pixels while the game draws 17.4 and
+	# 19.9 -- so it understated them by about 20% and nobody could tell, because
+	# a preview that is wrong in one direction still looks like a preview.
+	#
+	# An instrument that disagrees with the thing it measures is worse than no
+	# instrument. This is the guard that stops the two drifting again.
+	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
+	assert_almost_eq(IconsOverlay.badge_px(scale), UnitViewScript.STATUS_BADGE_SIZE * scale, 0.001,
+		"the harness draws badges at a different size from UnitView")
+	assert_almost_eq(IconsOverlay.icon_px(scale), UnitViewScript.WIND_UP_ICON_SIZE * scale, 0.001,
+		"the harness draws wind-up icons at a different size from UnitView")
+	# The negative half: these must actually differ from the old hardcoded
+	# numbers, or the test passes while proving nothing was fixed.
+	assert_true(absf(IconsOverlay.badge_px(scale) - 14.0) > 1.0,
+		"badge_px is back at the old hardcoded 14.0")
+
+
 func test_status_row_layout_is_evenly_spaced_and_measurable() -> void:
 	var rects := StatusIcons.layout_row(Vector2(10.0, 5.0), 3, 14.0, 4.0)
 	assert_eq(rects.size(), 3)
