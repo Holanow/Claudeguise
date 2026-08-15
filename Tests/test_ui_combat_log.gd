@@ -6,6 +6,7 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## CombatLogView.line_for_event is pure formatting split out of the Control so
 ## it can be checked without a live RichTextLabel. This is the half of issue 3
@@ -542,4 +543,118 @@ func test_a_summon_names_the_summoner_and_the_unit_that_arrived() -> void:
 	var line := view.line_for_event(state, e)
 	assert_true(line.contains("Warrior"), line)
 	assert_true(line.contains("Rat"), line)
+	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 186: a consumed burn, a cleansed one and one that simply ran out were
+# three different events printing one sentence.
+# ---------------------------------------------------------------------------
+
+## The defect. `CombatSim._consume_status` carries the caster and the consuming
+## action on its STATUS_EXPIRED for exactly this reason -- its own comment calls
+## that pair "the only thing separating 'Blast ate the burn' from 'the burn ran
+## out'" -- and the log read neither field.
+func test_a_consumed_burn_reads_differently_from_one_that_ran_out() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var ran_out := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 40)
+	ran_out.source_id = -1
+	ran_out.target_id = 1
+	ran_out.status = CG.Status.BURN
+
+	var eaten := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 40)
+	eaten.source_id = 0
+	eaten.target_id = 1
+	eaten.action_id = &"geyser_blast"
+	eaten.status = CG.Status.BURN
+
+	var ran_out_line := view.line_for_event(state, ran_out)
+	var eaten_line := view.line_for_event(state, eaten)
+	assert_ne(ran_out_line, eaten_line, "the log cannot tell the player Blast did it")
+	assert_true(ran_out_line.contains("fades"), ran_out_line)
+	assert_true(eaten_line.contains("Warrior"), "the consumer must be named: " + eaten_line)
+	assert_true(eaten_line.to_lower().contains("consume"), eaten_line)
+	view.free()
+
+## The real action, not a synthetic id: `geyser_blast` is the one that eats a
+## burn, and the branch keys off `ActionDef.consumes_status`, so a fixture id
+## would prove the formatting and not the lookup.
+func test_the_real_blast_is_recognised_as_a_consume() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var blast = Registry.get_action(&"geyser_blast")
+	assert_true(blast != null, "geyser_blast is missing from the registry")
+	assert_true(blast.consumes_status_enabled, "geyser_blast no longer consumes anything; this test is measuring nothing")
+
+	var e := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 40)
+	e.source_id = 0
+	e.target_id = 1
+	e.action_id = &"geyser_blast"
+	e.status = blast.consumes_status
+	var line := view.line_for_event(state, e)
+	assert_true(line.to_lower().contains("consume"), line)
+	assert_true(line.contains(blast.display_name), line)
+	view.free()
+
+## A cleanse also carries a caster and an action, so it must not be mistaken for
+## a consume. The two are told apart by asking the ActionDef what it eats.
+func test_a_cleanse_lifts_rather_than_consumes() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_EXPIRED, 40)
+	e.source_id = 0
+	e.target_id = 1
+	e.action_id = &"priest_cleanse"
+	e.status = CG.Status.POISON
+	var line := view.line_for_event(state, e)
+	assert_false(line.to_lower().contains("consume"), "a cleanse is not a consume: " + line)
+	assert_true(line.contains("Warrior"), line)
+	assert_true(line.contains("Rat"), line)
+	view.free()
+
+## The other half of #186: the strength is stored, drives the payoff, and
+## appeared nowhere in words. STATUS_APPLIED.amount already carries it.
+func test_a_burn_says_how_strong_it_is_and_a_bleed_says_how_many_stacks() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var burn := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 10)
+	burn.target_id = 1
+	burn.status = CG.Status.BURN
+	burn.amount = 18
+	var burn_line := view.line_for_event(state, burn)
+	assert_true(burn_line.contains("18"), burn_line)
+	assert_false(burn_line.contains("stack"), "a burn's magnitude is a strength, not a count: " + burn_line)
+
+	var bleed := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 10)
+	bleed.target_id = 1
+	bleed.status = CG.Status.BLEED
+	bleed.amount = 3
+	var bleed_line := view.line_for_event(state, bleed)
+	assert_true(bleed_line.contains("3 stacks"), bleed_line)
+
+	var one := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 10)
+	one.target_id = 1
+	one.status = CG.Status.BLEED
+	one.amount = 1
+	assert_true(view.line_for_event(state, one).contains("1 stack)"), "singular")
+	view.free()
+
+## THE TRAP THIS SHAPE AVOIDS, and the reason the two sets are read from
+## CombatSim rather than typed here. TAUNTED stores the TAUNTER'S UNIT ID in
+## `status_magnitude`, and SUSTAINING stores an action. A generic "print amount
+## when it is non-zero" would have published a unit id to the player as a
+## strength.
+func test_a_status_whose_magnitude_is_not_a_strength_prints_no_number() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	for status in [CG.Status.TAUNTED, CG.Status.SUSTAINING, CG.Status.STUN, CG.Status.SHIELD]:
+		var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 10)
+		e.target_id = 1
+		e.status = status
+		e.amount = 7
+		var line := view.line_for_event(state, e)
+		assert_false(line.contains("7"),
+			"%s's magnitude is not a strength and must not be printed as one: %s" % [CG.Status.keys()[status], line])
 	view.free()

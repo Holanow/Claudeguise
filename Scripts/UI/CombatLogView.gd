@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## The scrolling record of the fight, in words. One line per CombatEvent worth
 ## showing.
@@ -231,10 +232,38 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# player's own unit. CG.is_harmful already classifies exactly
 			# this -- built for Cleanse, per its own doc comment -- and the
 			# log never asked it.
+			var strength := _magnitude_text(e)
 			if CG.is_harmful(e.status):
-				return "%s is afflicted with %s" % [target_name, _status_name(e.status)]
-			return "%s gains %s" % [target_name, _status_name(e.status)]
+				return "%s is afflicted with %s%s" % [target_name, _status_name(e.status), strength]
+			return "%s gains %s%s" % [target_name, _status_name(e.status), strength]
 		CG.EventKind.STATUS_EXPIRED:
+			# Issue 186: three different things end a status and all three used
+			# to print the same sentence. The simulation has always told them
+			# apart and the log never asked -- a natural expiry carries no
+			# source (`_tick_statuses`), while a consume and a cleanse both
+			# carry the caster and the action that did it, exactly so this line
+			# could separate them (`_consume_status`'s own comment says it is
+			# "the only thing separating 'Blast ate the burn' from 'the burn
+			# ran out'").
+			#
+			# It matters most for the consume, because the payoff is invisible
+			# otherwise: the bonus scales off the eaten burn's own strength, so
+			# "Scald hard, then Blast" is a sequence the player is meant to
+			# discover, and until now the eating was not even reported. The
+			# DAMAGE line lands on the next line and this is its cause.
+			if e.source_id != -1:
+				var action := Registry.get_action(e.action_id)
+				if action != null and action.consumes_status_enabled and action.consumes_status == e.status:
+					return "[color=%s]%s's %s consumes %s's %s[/color]" % [
+						Palette.damage_color(CG.DamageType.FIRE).to_html(),
+						source_name, _action_name(e.action_id), target_name, _status_name(e.status)
+					]
+				# The other sourced ending is a cleanse (`_cleanse_harmful`), and
+				# it is one of the few things a support pawn does that has never
+				# been visible as an action rather than as an absence.
+				return "%s's %s lifts %s's %s" % [
+					source_name, _action_name(e.action_id), target_name, _status_name(e.status)
+				]
 			if CG.is_harmful(e.status):
 				return "%s's %s fades" % [target_name, _status_name(e.status)]
 			return "%s's %s ends" % [target_name, _status_name(e.status)]
@@ -324,6 +353,35 @@ const SILENT_KINDS := [
 	# the least informative.
 	CG.EventKind.RESOURCE_SPENT,
 ]
+
+## Issue 186. A burn's strength and a bleed's stack count are stored on the unit
+## and, until this, appeared nowhere in words -- so the payoff of eating a burn
+## varied from fight to fight for a reason the player could not see. The whole
+## design only works if it can be learned: hit hard, get a big burn, eat it for
+## a big Blast.
+##
+## `STATUS_APPLIED.amount` already carries the resulting magnitude
+## (`CombatSim._apply_status` sets it for exactly this), so nothing new is read.
+##
+## THE NUMBER MEANS TWO DIFFERENT THINGS AND IS THEREFORE WORDED TWO DIFFERENT
+## WAYS. A stacking status counts applications; a hit-scaled one carries the
+## damage of the hit that set it. Printing a bare "(3)" for both would invite
+## reading a burn's strength as a stack count.
+##
+## And it is silent for every other status ON PURPOSE, by walking CombatSim's
+## own two sets rather than a list typed here. TAUNTED stores **the taunter's
+## unit id** in the same field, and SUSTAINING stores an action -- a generic
+## "print amount when non-zero" would have published a unit id to the player as
+## if it were a strength. That is the trap this shape avoids, and it is the
+## reason the sets are read from where they are defined.
+func _magnitude_text(e: CombatEvent) -> String:
+	if e.amount <= 0:
+		return ""
+	if CombatSim._STACKING_STATUSES.has(e.status):
+		return " (%d stack%s)" % [e.amount, "" if e.amount == 1 else "s"]
+	if CombatSim._HIT_SCALED_STATUSES.has(e.status):
+		return " (strength %d)" % e.amount
+	return ""
 
 ## Ticks as the seconds a player reads off the clock, matching BattleView's own
 ## elapsed display, so a duration in the log and a duration on the HUD are the
