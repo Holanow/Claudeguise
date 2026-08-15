@@ -497,6 +497,31 @@ static func _the_cover_room() -> Encounter:
 	## shooters.** The same ten-enemy roster on bare ground wins 14-20 of 20;
 	## with the colonnade it wins 19-20. A colonnade is cover for whoever is
 	## walking through it.
+	##
+	## **Issue #234 asked why, and the answer is what this room is.**
+	## `Tools/ColonnadeReach.gd`, 20 seeds x 5 buildable parties: a pillar
+	## takes about as many shots off the party as off the enemy (1819 against
+	## 2373 for one party, 1391 against 44 for another), and party damage moves
+	## by at most 3.2 of ~348 dealt while enemy damage falls by up to 71.1 of
+	## 203.9. **The geometry is even-handed and the outcome is not.**
+	##
+	## `DefaultBehavior` answers a blocked line-of-sight shot with
+	## `Intent.move_to(target.position)`. A party that is closing wanted that
+	## step; an enemy holding a standoff line is giving up the thing keeping it
+	## alive. So this is **a room that punishes standing still at range**, and
+	## today only the enemy stands still at range. That is the room's identity,
+	## stated rather than tuned: it is not an enemy-advantage room, and moving
+	## the pillars or the spawns cannot change it, because the asymmetry is in
+	## the behaviour and not in the geometry. Same ranged band as #213,
+	## `Scripts/Plans/`, not this file.
+	##
+	## **The party it does nothing for is a composition, not a place.**
+	## `[geysermancer, priest, siege_master, warrior]` denies 0 shots, is
+	## denied 0, and moves 0.0 damage on both sides: with no Abomination the
+	## fight settles at a median deepest x of -126 against a band starting at
+	## x 20, and one fight in twenty reaches the band at all. **A party with no
+	## closer never meets the cover.** Whether that is a good room is a design
+	## call and it is rook's; it is not a defect and it is not fixable here.
 	## **Square, and that is a correctness fix rather than taste.**
 	## `ArenaFloor._draw_feature` draws a PILLAR as "a circle inscribed in its
 	## rect", with `radius = min(width, height) * 0.5`. That reads truthfully
