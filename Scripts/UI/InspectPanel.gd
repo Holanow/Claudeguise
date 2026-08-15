@@ -441,7 +441,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## fights every verdict would be blank and the sentence would explain nothing.
 	if _live_unit(pawn) != null:
 		out.append(_line(
-			"Right now: %s is the row that chose what this pawn last did. %s means the row's condition is true this instant. A %s row that is not %s was beaten by a row above it, or its skill could not fire (nothing in range, or not enough resource)." % [
+			"Right now: %s chose what this pawn last did, %s means the row's condition is true. A %s row that is not %s lost to a row above it, or its skill could not fire." % [
 				VERDICT_ACTING, VERDICT_READY, VERDICT_READY, VERDICT_ACTING],
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 

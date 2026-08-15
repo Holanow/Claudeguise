@@ -1100,14 +1100,14 @@ func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() ->
 	var panel := InspectPanel.new()
 	panel._ready()
 	panel.open([pawn])
-	var row := _plan_rows(panel)[0]
+	var row: Control = _plan_rows(panel)[0]
 	var pickers := _find_option_buttons(row)
 	var status_picker: OptionButton = null
 	for p in pickers:
 		if p.selected >= 0 and p.get_item_text(p.selected) == "Burn":
 			status_picker = p
 	assert_true(status_picker != null,
-		"the status editor must show the status the plan is actually on, found: %s" % _selected_option_text(row))
+		"the status editor must show the status the plan is actually on, found: %s" % _selected_chip_text(row))
 
 	panel._set_condition_arg(condition, "status", CG.Status.POISON)
 	assert_true(PlanInterpreter.condition_holds(state, watcher, plan),
