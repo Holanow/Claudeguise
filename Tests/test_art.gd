@@ -698,6 +698,7 @@ func test_every_reachable_action_has_an_icon() -> void:
 ## the line to remove. A comment saying "remove this later" rots; an assertion
 ## that the excuse still applies cannot.
 const _ICONS_AHEAD_OF_CONTENT := {
+	# heron's #162. Delete this one the same time that branch merges.
 	# heron's #148. Delete these three the same time that branch merges.
 }
 

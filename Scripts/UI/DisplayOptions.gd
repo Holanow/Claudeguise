@@ -37,6 +37,12 @@ const OPTIONS := [
 		"help": "Numbers over each hit. Off by default: most of them are poison and burn ticking rather than hits, and the combat log already carries every one with more detail.",
 		"default": false,
 	},
+	{
+		"id": &"name_plates",
+		"label": "Name plates on units",
+		"help": "The name above each unit. Off by default: with eight units in one scrum the plates collide and the top one wins, so \"Siege Engine\" lands over \"Siege Engine\" over \"Siege Master\". Team colour carries which side a unit is on.",
+		"default": false,
+	},
 ]
 
 static var _values := {}

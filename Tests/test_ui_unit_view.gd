@@ -7,6 +7,7 @@ const UnitView := preload("res://Scripts/UI/UnitView.gd")
 const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const Palette := preload("res://Scripts/Core/Palette.gd")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
 ## this; only "things that happened" must come from events). These tests check
@@ -219,11 +220,29 @@ func test_an_action_with_no_wind_up_reads_as_full() -> void:
 ## Bar plus icon plus their gap is exactly the hp bar's width. A unit's chrome
 ## must not get wider at the moment the arena is most crowded -- that is issue
 ## #82's own failure mode.
+## Issue 82 made the bar width depend on the body, so the invariant is checked
+## across the real range of radii rather than at one number: a goblin (11) and a
+## party pawn (22), plus the extremes of the clamp. It is a stronger test than
+## the fixed-width version it replaces, which could only ever hold for one size.
 func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
-	assert_almost_eq(
-		UnitView.wind_up_bar_width() + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
-		UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE, 0.001)
-	assert_true(UnitView.wind_up_bar_width() > 0.0, "the bar must survive the icon taking its share")
+	for radius in [4.0, 11.0, 16.5, 22.0, 33.0, 200.0]:
+		var display_radius: float = radius * UnitView.DISPLAY_SCALE
+		assert_almost_eq(
+			UnitView.wind_up_bar_width(display_radius) + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
+			UnitView.bar_width(display_radius), 0.001,
+			"the block must match the hp bar at radius %.1f" % radius)
+		assert_true(UnitView.wind_up_bar_width(display_radius) > 0.0,
+			"the bar must survive the icon taking its share at radius %.1f" % radius)
+
+## The point of issue 82's change: a bar belongs to a body. A goblin's bar must
+## be narrower than a party pawn's, and neither may exceed the old fixed width.
+func test_a_smaller_unit_gets_a_narrower_bar() -> void:
+	var goblin := UnitView.bar_width(11.0 * UnitView.DISPLAY_SCALE)
+	var pawn := UnitView.bar_width(22.0 * UnitView.DISPLAY_SCALE)
+	assert_true(goblin < pawn, "a goblin's bar must be narrower than a pawn's (%.1f vs %.1f)" % [goblin, pawn])
+	assert_true(pawn <= UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE,
+		"no bar may be wider than the old fixed one")
+	assert_true(goblin >= UnitView.MIN_BAR_WIDTH, "and none may collapse below the floor")
 
 ## The telegraph is coloured by the ACTION's damage type, not by the class
 ## accent. A Priest's class accent is Divine and priest_bolt is not, so a
@@ -523,3 +542,56 @@ func test_has_active_projectile_ignores_another_units_shot() -> void:
 	view.bind(state, 0)
 	assert_false(view._has_active_projectile(u))
 	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 82: the bars have to answer "am I ahead".
+#
+# The fresh-eyes playtest: "Every bar is the same green whether it belongs to me
+# or the enemy, so the field reads as green dashes and nothing else. The one
+# thing I need in an autobattler -- is my side ahead -- is exactly the thing the
+# bars refuse to tell me."
+# ---------------------------------------------------------------------------
+
+func _unit_at(team: CG.Team, fraction: float) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.team = team
+	u.hp_max = 100
+	u.hp = int(round(fraction * 100.0))
+	return u
+
+static func _distance(a: Color, b: Color) -> float:
+	return Vector3(a.r, a.g, a.b).distance_to(Vector3(b.r, b.g, b.b))
+
+## At the same health, the two sides must not draw the same colour. This is the
+## whole complaint, so it is asserted at several healths rather than one -- a
+## ramp that happens to diverge at full and converge at 20% would pass a single
+## check while failing the player exactly when the fight is decided.
+func test_the_two_sides_bars_are_never_the_same_colour() -> void:
+	for fraction in [1.0, 0.75, 0.5, 0.25, 0.05]:
+		var mine := UnitView.hp_fill_color(_unit_at(CG.Team.PLAYER, fraction))
+		var theirs := UnitView.hp_fill_color(_unit_at(CG.Team.ENEMY, fraction))
+		assert_true(_distance(mine, theirs) > 0.15,
+			"at %.0f%% health both sides draw nearly the same colour (%s vs %s)" % [fraction * 100.0, mine, theirs])
+
+## `Palette.HP_LOW` and `Palette.TEAM_ENEMY` are both `e0705f` -- the same value.
+## So the old red-to-green ramp drew a badly hurt PARTY pawn in the enemy's own
+## colour, which is worse than not colouring by team at all: it is colouring by
+## team wrongly, at the moment the player most needs to read the field.
+func test_a_badly_hurt_party_pawn_is_not_drawn_in_the_enemys_colour() -> void:
+	var hurt := UnitView.hp_fill_color(_unit_at(CG.Team.PLAYER, 0.1))
+	assert_true(_distance(hurt, Palette.TEAM_PLAYER) < _distance(hurt, Palette.TEAM_ENEMY),
+		"a party pawn at 10%% reads as the enemy colour (%s)" % hurt)
+	var hurt_enemy := UnitView.hp_fill_color(_unit_at(CG.Team.ENEMY, 0.1))
+	assert_true(_distance(hurt_enemy, Palette.TEAM_ENEMY) < _distance(hurt_enemy, Palette.TEAM_PLAYER),
+		"an enemy at 10%% reads as the party colour (%s)" % hurt_enemy)
+
+## Damage still has to be visible in the fill itself, not only in the length --
+## a colour that never changes would pass both tests above while losing the
+## "this one is nearly dead" read the old ramp did give.
+func test_damage_still_darkens_the_fill() -> void:
+	var full := UnitView.hp_fill_color(_unit_at(CG.Team.PLAYER, 1.0))
+	var nearly_dead := UnitView.hp_fill_color(_unit_at(CG.Team.PLAYER, 0.05))
+	assert_true(_distance(full, nearly_dead) > 0.1,
+		"a full and a nearly-dead bar look the same (%s vs %s)" % [full, nearly_dead])
+	assert_true(_distance(nearly_dead, Palette.HP_BACK) < _distance(full, Palette.HP_BACK),
+		"damage must move the fill toward the trough, not away from it")
