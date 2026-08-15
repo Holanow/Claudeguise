@@ -949,6 +949,11 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 ## #163 nothing routed around fire, so two authored 50-unit gaps were content
 ## the game could not use. The room just got better at being what it was
 ## designed to be. Look at it first.
+##
+## **And "nothing routed around fire" is the claim I have since had to correct.
+## The party still does not route around it -- see `Tools/WhoBurns.gd` and the
+## block inside this function: 73% of the party's burning ticks are spent
+## standing still.** The lanes remain content the game barely uses.
 func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_hazard")
 	var bare := _without_terrain(enc)
@@ -1057,6 +1062,34 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	# cost lands on the side that walks into it. A working Abomination closes
 	# faster, so the party spends longer alive and less of that time burning --
 	# every row is now at or above zero.
+	#
+	# **CORRECTION, AND IT IS HALF WRONG: THE PARTY DOES NOT ROUTE AROUND THE
+	# FIRE, IT STANDS IN IT AND FIGHTS.** I wrote the sentence above and
+	# finch's #214 is what made me doubt it -- `_usable_actions` filtered
+	# neither cooldown nor cost, so a player pawn spent 46% of its decisions
+	# choosing something it could not pay for and doing nothing, and a pawn
+	# deciding nothing does not move. I could not tell how much of "the party
+	# walks into it" was really "the party stands in it", so I measured it
+	# rather than leaving the header to rot. `Tools/WhoBurns.gd`, on the trunk
+	# with #214 already in, 20 seeds x 5 parties, every tick a unit's centre is
+	# inside a burn band, split by whether that unit moved on that tick:
+	#
+	#     side      moving   still   total
+	#     party        706    1963    2669
+	#     enemy       5851    1087    6938
+	#
+	#   - **The enemy half of the claim holds and is the larger half.** The
+	#     enemy takes 73% of all burning ticks and 84% of its own are spent
+	#     moving. The back rank really does have to cross.
+	#   - **The party half does not.** Of the party's burning ticks, **73% are
+	#     spent standing still.** The party is not routing around the fire and
+	#     paying a detour; it is stopping inside a burn band and fighting there.
+	#
+	# So the direction of the effect is unchanged and its cause is not: it is
+	# not "whoever walks into it pays", it is **whoever has to cross pays, and
+	# whoever stops in it pays too**. Nothing here is a defect and nothing was
+	# tuned -- the standing is a pawn in contact, not the #214 stall, which is
+	# fixed on this build.
 	#
 	# **So the assertion moves onto size, exactly as
 	# `test_the_colonnades_pillars_are_not_decoration` did**, and for the same
