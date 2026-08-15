@@ -8,6 +8,7 @@ const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
+const PawnDataScript := preload("res://Scripts/Core/PawnData.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
 
@@ -782,3 +783,74 @@ func test_the_badge_cap_is_two_and_a_third_status_is_counted_not_dropped() -> vo
 	u.statuses[CG.Status.POISON] = 100
 	assert_eq(UnitView.status_badges(u).size(), 1, "a third status gives its slot up to the chip")
 	assert_eq(UnitView.hidden_status_count(u), 2, "and the chip must count both, not just the third")
+
+# ---------------------------------------------------------------------------
+# Issue 256: the body is drawn facing where the unit is looking
+# ---------------------------------------------------------------------------
+
+## `UnitView` drew `facing_left = (team == ENEMY)`, so every enemy was
+## permanently mirrored and no unit was ever drawn facing where it was looking.
+##
+## **That is not cosmetic.** `CombatSim._shot_is_blocked` reads `facing` to
+## decide whether the Warrior's guard stops an attack, so the game decided an
+## outcome on a fact it then refused to draw, and a player watching the guard
+## fail could not see why.
+func test_the_body_is_drawn_from_the_facing_the_simulation_uses() -> void:
+	var enemy := CombatUnit.new()
+	enemy.team = CG.Team.ENEMY
+	enemy.facing = Vector2(1.0, 0.0)
+	assert_false(UnitView.facing_left(enemy),
+		"an enemy that turned to look right is still drawn mirrored")
+
+	var pawn := CombatUnit.new()
+	pawn.team = CG.Team.PLAYER
+	pawn.facing = Vector2(-1.0, 0.0)
+	assert_true(UnitView.facing_left(pawn),
+		"a pawn that turned to look left is still drawn facing right")
+
+	# Diagonals are the ordinary case: nothing in this game moves on an axis.
+	pawn.facing = Vector2(-0.6, 0.8)
+	assert_true(UnitView.facing_left(pawn))
+	pawn.facing = Vector2(0.6, -0.8)
+	assert_false(UnitView.facing_left(pawn))
+
+## `Vector2.ZERO` is "no facing yet" per the field's own doc comment, and it is
+## every unit on the first tick of every fight -- `Tools/FacingLoad.gd` counts
+## 4,350 such unit-ticks in ten fights on `floor1_room1` alone. The team pose is
+## kept for exactly that case, where it is a fair starting pose rather than a
+## lie: the party deploys on the left looking right, the room is on the right
+## looking back.
+func test_a_unit_that_has_not_looked_anywhere_yet_keeps_its_starting_pose() -> void:
+	var enemy := CombatUnit.new()
+	enemy.team = CG.Team.ENEMY
+	assert_eq(enemy.facing, Vector2.ZERO, "the fixture is wrong, not the rule")
+	assert_true(UnitView.facing_left(enemy))
+	var pawn := CombatUnit.new()
+	pawn.team = CG.Team.PLAYER
+	assert_false(UnitView.facing_left(pawn))
+
+## A real fight, because the assertions above are about a function and this is
+## about whether the fight ever disagrees with the old rule at all. If it never
+## did, the change would be untestable churn and worth saying so.
+func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> void:
+	var CombatSim := load("res://Scripts/Combat/CombatSim.gd")
+	var Registry := load("res://Scripts/Content/Registry.gd")
+	var PawnFactory := load("res://Scripts/Content/PawnFactory.gd")
+	var party: Array[PawnDataScript] = []
+	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
+		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
+	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 3)
+	var disagreed := 0
+	var looked := 0
+	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:
+		CombatSim.step(state)
+		for u in state.units:
+			if not u.alive or u.facing == Vector2.ZERO:
+				continue
+			looked += 1
+			if UnitView.facing_left(u) != (u.team == CG.Team.ENEMY):
+				disagreed += 1
+	assert_true(looked > 0, "no unit in the whole fight ever acquired a facing, so this saw nothing")
+	assert_true(disagreed > 0,
+		("in %d unit-ticks with a real facing, none disagreed with the team rule -- " +
+		"either the fight stopped turning units or this is measuring the wrong thing") % looked)

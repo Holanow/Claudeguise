@@ -244,6 +244,41 @@ static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
 	return push.limit_length(u_radius * 1.5)
 
+## Which way the body is drawn, from `CombatUnit.facing` -- the same quantity the
+## simulation uses to decide whether the Warrior's guard stops a shot.
+##
+## Issue 256. This used to be `u.team == CG.Team.ENEMY`, so **every enemy was
+## permanently mirrored and no unit was ever drawn facing where it was looking.**
+## That is not a cosmetic gap: `_shot_is_blocked` reads `facing` to decide
+## whether an attack gets through, so the game was deciding an outcome on a fact
+## it then refused to draw, and a player watching the guard fail could not see
+## why. `CombatSim` maintains `facing` from movement and from target commitment.
+##
+## **Zero means "no facing yet"**, per the field's own doc comment, and it is
+## every unit before anything moves -- the whole first tick of every fight. The
+## team guess is kept for exactly that case, where it is a fair starting pose
+## rather than a lie: the party deploys on the left and looks right, the room is
+## on the right and looks back.
+##
+## A facing with no horizontal component says nothing about which way to mirror,
+## and falls back to the same team pose. **I wrote state into this view to hold
+## the previous pose across that case, then measured it and deleted it:
+## `Tools/FacingLoad.gd`, 99,285 living unit-ticks over three rooms and thirty
+## fights, found it exactly 0 times.** A unit is committed to something beside it
+## or walking toward it; landing on a facing of exactly zero x is possible and
+## does not happen. Static, and no memory.
+##
+## **What the same measurement says about this change, because it is smaller than
+## it sounds: the team rule was already right 98.1% of the time** -- 735 of
+## 42,398 unit-ticks wrong on `floor1_room1`, 587 of 30,840 on `floor1_cover`, 20
+## of 26,047 on `floor1_warden`. Units mostly do face the way their side started.
+## The 1.7% is the whole of the turning, which is the part a player is trying to
+## read, and it is the part the Warrior's guard is decided on.
+static func facing_left(u: CombatUnit) -> bool:
+	if u.facing.x != 0.0:
+		return u.facing.x < 0.0
+	return u.team == CG.Team.ENEMY
+
 func _unit() -> CombatUnit:
 	if _state == null:
 		return null
@@ -274,7 +309,7 @@ func _draw() -> void:
 
 	_draw_targeting_line(u)
 
-	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), u.team == CG.Team.ENEMY)
+	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
 
 	_draw_concentration_badge(u, radius)
 
