@@ -1023,7 +1023,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		else:
 			for target in targets:
 				_apply_action_effect(state, unit, target, action, deps)
-			_on_hit_landed(state, unit, deps)
+			_on_hit_landed(state, unit, action, deps)
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
@@ -1034,13 +1034,35 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
 
+## Everything a source gains from a hit that actually connected: Rage, and issue
+## 165's `ActionDef.restores_resource`.
+##
 ## Rage gains only from a landed hit, not from committing or from a miss: a
 ## Rage pawn swinging at nothing (out of range at landing) must not fill, per
 ## issue 4's own acceptance criterion for it. Issue 18 split this out of
 ## `_fire_action` because "landed" now happens at two different moments: the
 ## same tick as firing for an instant action, or a later tick at projectile
 ## impact -- `_advance_projectile` calls this too, once it resolves a hit.
-static func _on_hit_landed(state: CombatState, source: CombatUnit, deps: SimDeps) -> void:
+##
+## **THAT SPLIT IS WHY `restores_resource` IS WIRED HERE AND NOWHERE ELSE, and it
+## is the trap issue 165 was filed around.** Both actions carrying the field
+## today -- `priest_bolt` and `geyser_spout` -- are projectiles, so a version
+## wired into `_fire_action` would look right, pass a hand-written test, and
+## return nothing in a real fight. Every caller of this function is a connection
+## and none of the MISS paths call it, which is what makes "does not pay out on a
+## miss" a property of where the code sits rather than a condition it has to
+## check.
+##
+## `action` is threaded in for the same reason: this used to need only the
+## source, and the restore is per action.
+##
+## The restore is a flat int, so no stochastic rounding -- unlike Rage, which is
+## a rate. It is clamped at `resource_max` the same way, and it is not restricted
+## by resource kind: a Rage class that ever carries the field gains Rage from it,
+## which is a content decision rather than one for this file.
+static func _on_hit_landed(state: CombatState, source: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	if action != null and action.restores_resource > 0:
+		source.resource = clampi(source.resource + action.restores_resource, 0, source.resource_max)
 	if source.resource_kind != CG.ResourceKind.RAGE:
 		return
 	var gained := _stochastic_round(state, deps.rage_gain_on_attack.call(source))
@@ -1693,7 +1715,7 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 			state.emit(_event(CG.EventKind.BLOCKED, state.tick, p.source_id, shielder.id, p.action_id))
 			for t in _splash_targets(state, shielder, action):
 				_apply_action_effect(state, source, t, action, deps)
-			_on_hit_landed(state, source, deps)
+			_on_hit_landed(state, source, action, deps)
 			return
 
 		if target.alive:
@@ -1704,7 +1726,7 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 				p.resolved = true
 				for t in _splash_targets(state, target, action):
 					_apply_action_effect(state, source, t, action, deps)
-				_on_hit_landed(state, source, deps)
+				_on_hit_landed(state, source, action, deps)
 				return
 
 	if p.position == p.aim_point:
