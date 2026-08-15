@@ -1095,6 +1095,7 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var health_total := 0
 	var enemy_fire := 0
 	var party_fire := 0
+	var fire_kills := 0
 	var fights := 0
 	for ids in _buildable_parties():
 		var burnt_hp := 0
@@ -1111,6 +1112,7 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 			var burned := _hazard_damage_by_team(a)
 			party_fire += burned[0]
 			enemy_fire += burned[1]
+			fire_kills += _killed_by_the_fire(a)
 			fights += 1
 		var ratio := float(burnt_ticks) / float(maxi(1, bare_ticks))
 		ratio_total += ratio
@@ -1131,6 +1133,9 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	print("floor1_hazard: largest single health effect %d points, carried by %s; total across five parties %d" % [largest_health, largest_carrier, health_total])
 	print("floor1_hazard: the fire itself dealt %d health per fight to the enemy and %d to the party, over %d fights" % [
 		enemy_fire / maxi(1, fights), party_fire / maxi(1, fights), fights,
+	])
+	print("floor1_hazard: the fire landed the killing blow on %.2f enemies per fight" % [
+		float(fire_kills) / float(maxi(1, fights)),
 	])
 
 	# **THE DETECTOR, PROVED NOT INERT.** The header has claimed since #178 that
@@ -1320,8 +1325,52 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	#
 	# The total stays measured and printed, like the length ratios above it, so
 	# the movement remains visible to whoever looks next.
-	assert_true(largest_health >= 20,
-		"the fire should change at least one party's fight substantially, largest health effect was %d points" % largest_health)
+	#
+	# **AND NOW `largest_health` IS GONE TOO, ON #252, FOR THE REASON #250
+	# ESTABLISHED RATHER THAN BECAUSE IT WENT RED. It is the maximum of the same
+	# five absolute deltas the total was the sum of, so it was never a different
+	# instrument -- only a less noisy reading of the same broken one.**
+	#
+	# #250 bisected this room across six builds and found the disqualifying
+	# case: at #163, teaching movement to step around fire cut the fire's own
+	# output from 1123 to 183 health per fight, sixfold, and `largest` went
+	# **up**, 42 to 46. It rose because the *bare* arm did not move while the
+	# fire arm stopped being a massacre. A number that rises when the mechanic
+	# loses five sixths of its output is not measuring the mechanic. The header
+	# below already called it "a magnitude-of-anything detector"; #250 is where
+	# that stopped being a caveat and became the verdict.
+	#
+	# **finch's #252 is the case that makes the difference matter, and their
+	# control is clean -- this is not a sample-size story.** Immolate is content
+	# for the Abomination, and `largest` moved 30 -> 16. Re-taken at rising
+	# sample on both builds, `Tools/BurnPitInstrument.gd`, the differential
+	# instrument beside the non-differential candidates:
+	#
+	#     n     largest        fire dealt per fight     fire's share    enemies the
+	#           main  #252     enemy: main  #252        of all damage   fire killed
+	#      4      30    16          187.9  161.7        22.9%  17.5%    2.50  2.15
+	#     20      29    15          184.0  163.3        21.1%  16.9%    2.26  1.96
+	#     40      30    16          183.5  167.2        20.7%  17.5%    2.22  2.08
+	#
+	# **`largest` fell 47%. The fire's own work fell between 6% and 9%.** Both
+	# converge, so neither number is noise and the disagreement is real: what
+	# changed is the party, not the fire. The carrier row shows it directly --
+	# `[abomination, priest, siege_master, warrior]` takes 266.6 health of fire
+	# a fight on `main` and 135.0 on #252, because an Abomination holding a
+	# channel fights the room differently. **A guard that reads "the fire got
+	# weaker" off a party learning to eat less of it is reporting the wrong
+	# subject**, and this is the third mechanism in a row it has done that to.
+	#
+	# **So: deleted, and replaced below rather than merely dropped.** The claim
+	# this assertion carried -- the fire changes the fight, it is not paint --
+	# now sits on two quantities that are read off the fire's own events and are
+	# zero against a hazard of paint by construction, not by baseline: the
+	# health it deals, which was already here from #239, and the kills it lands,
+	# which is new and is the more legible half.
+	#
+	# **finch did the right thing and I want it in this file rather than only in
+	# a pull request: they left the threshold alone and said so.** #144 records
+	# five widenings of one cap against zero narrowings. This is neither.
 
 	# **EVERY ASSERTION ABOVE IS A DIFFERENCE OF TWO ARMS, AND NOTHING HERE
 	# ASSERTED THAT THE FIRE HAS EVER DEALT A POINT OF DAMAGE.** Both tick
@@ -1446,6 +1495,44 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	assert_true(enemy_fire / maxi(1, fights) >= 100,
 		"the fire should burn the enemy back rank crossing it; it dealt %d health per fight over %d fights, against 0 for a hazard of paint" % [enemy_fire / maxi(1, fights), fights])
 
+	# **AND THE HALF THAT REPLACES `largest_health`: THE FIRE FINISHES PEOPLE.**
+	#
+	# Damage is the fire working; a kill is the fire deciding something. This is
+	# the claim the deleted assertion was reaching for -- "the fire changes the
+	# fight" -- stated about the fire instead of about a difference between two
+	# parties, and it is the version a watcher can confirm without a spreadsheet:
+	# an enemy walks into the burn band and does not walk out.
+	#
+	# Measured (`Tools/BurnPitInstrument.gd`), enemies whose killing blow was a
+	# hazard tick, per fight:
+	#
+	#     n      main   #252 immolate
+	#      4     2.50       2.15
+	#     20     2.26       1.96
+	#     40     2.22       2.08
+	#
+	# **The floor is 1.00 against a measured 1.96-2.50**, deliberately near half
+	# for board rule 4: a floor set just under today's number fires on whoever
+	# touches behaviour next. Both builds clear it by more than double, and it
+	# converges across a tenfold change in sample on both.
+	#
+	# **The weakness, named rather than left for the next person to find: this
+	# one is not fully party-proof and the health floor above it is.** A party
+	# that killed the room faster could take these kills away without the fire
+	# weakening at all, which is the exact failure mode that disqualified
+	# `largest_health`. It is here because it is far less sensitive to that than
+	# a difference of two arms -- it fell 6% where `largest` fell 47% across the
+	# same change -- and because the pair covers what neither covers alone. If
+	# it ever goes red while `enemy_fire` stays comfortable, **that is a finding
+	# about the party and not about the room**, and this paragraph is where to
+	# start.
+	#
+	# Zero against a hazard of paint, asserted below rather than claimed.
+	assert_true(fire_kills >= fights,
+		"the fire should land the killing blow on about two enemies a fight; it landed %d over %d fights, against 0 for a hazard of paint" % [fire_kills, fights])
+	assert_eq(_killed_by_the_fire(control_bare), 0,
+		"with the terrain stripped the fire can kill nobody, and it killed %d" % _killed_by_the_fire(control_bare))
+
 
 func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 	var state := CombatSim.build(party, enc, seed)
@@ -1465,6 +1552,37 @@ func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 ##
 ## Read from `state.events` rather than from anything inside a `step()`,
 ## announcement rule 2.
+## Enemies whose killing blow was a hazard tick.
+##
+## **The killing blow is read as "the last DAMAGE event this unit ever took",
+## which is a proxy, and here is why it is a sound one.** A dead unit takes no
+## further damage, so the last event on a corpse is the one that killed it; the
+## only way this could over-count is a unit that finishes on zero or less from
+## something other than damage, and nothing in `CombatSim` reduces `hp` except
+## a DAMAGE event. It is checked in the direction that matters rather than
+## argued: with the terrain stripped it returns 0, asserted above.
+##
+## Same SHIELD discriminator as `_hazard_damage_by_team`, for the same reason:
+## a BURN tick from a unit that walked out of the fire is not the fire.
+##
+## Enemies only. A pawn killed by the fire is the room punishing the player,
+## which is a fine thing for it to do and a different claim; counting both
+## together would let one substitute for the other.
+func _killed_by_the_fire(state: CombatState) -> int:
+	var by_fire := {}
+	for e in state.events:
+		if e.kind != CG.EventKind.DAMAGE:
+			continue
+		by_fire[e.target_id] = e.source_id == -1 and e.action_id == &"" and e.status == CG.Status.SHIELD
+	var killed := 0
+	for u in state.units:
+		if u.hp > 0 or u.team == CG.Team.PLAYER:
+			continue
+		if by_fire.get(u.id, false):
+			killed += 1
+	return killed
+
+
 func _hazard_damage_by_team(state: CombatState) -> Array:
 	var mine := 0
 	var theirs := 0
