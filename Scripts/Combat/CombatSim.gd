@@ -835,6 +835,38 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 			state.emit(_event(CG.EventKind.DEATH, state.tick, -1, unit.id, &""))
 			return
 
+## A tar pit: terrain that applies a status rather than dealing damage.
+##
+## Called BEFORE the `damage_per_tick <= 0` early-out above, and that ordering is
+## the entire fix. A feature whose whole effect is a status has no damage, so it
+## was skipped before anything ever looked at `applies_status` -- heron measured
+## the pit slowing something 0 times in 20 fights.
+##
+## THE EXPIRY IS REFRESHED EVERY TICK THE UNIT IS INSIDE, so walking out is what
+## ends it, not a clock that started when it walked in. That is the same
+## membership-per-tick shape the damage loop above already uses, and it is what
+## makes a pit read as a place rather than as a trap that fires once.
+##
+## THE EVENT FIRES ON ENTRY ONLY, and only on entry. A refresh is silent. Per
+## tick would be 45 log lines for one unit crossing one pit, which is the
+## `stalker_mark` flood again -- and a player does not need to be told forty-five
+## times that a rat is still in the tar. The badge is what says "still slowed";
+## the event says "became slowed".
+##
+## Deliberately does not use `_apply_status`: that one reads an `ActionDef` and
+## carries the stacking and hit-scaling rules, none of which a patch of ground
+## has. A pit refreshes, it does not stack, and nothing about it is a hit.
+static func _apply_hazard_status(state: CombatState, unit: CombatUnit, hazard) -> void:
+	if not hazard.applies_status_enabled or hazard.status_duration_ticks <= 0:
+		return
+	var status: CG.Status = hazard.applies_status
+	var entering := not unit.has_status(status)
+	unit.statuses[status] = state.tick + hazard.status_duration_ticks
+	if entering:
+		var e := _event(CG.EventKind.STATUS_APPLIED, state.tick, -1, unit.id, &"")
+		e.status = status
+		state.emit(e)
+
 ## A unit standing in a HAZARD takes its damage every tick it is inside, with
 ## an event per hit so the log and floaters see it, and stops the tick after
 ## it leaves -- membership is just re-checked each tick, no decay to track.
@@ -842,6 +874,7 @@ static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
 	if state.terrain.is_empty():
 		return
 	for hazard in Terrain.hazards_at(state.terrain, unit.position):
+		_apply_hazard_status(state, unit, hazard)
 		if hazard.damage_per_tick <= 0:
 			continue
 		var before := unit.hp
