@@ -178,6 +178,24 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## above for why the cap, not the mark action, is what made it viable.
 @export var requires_marked_target: bool = false
 
+## Resource this action's wielder gains when it lands. Zero for every action
+## that existed before it, so nothing changes until content sets it.
+##
+## The player: *"The default attack of any magic class should restore a small
+## amount of mana."* That cannot be content-only -- `CombatSim._on_hit_landed`
+## returns early unless the resource kind is RAGE, so nothing in the game can
+## gain resource from a landed hit except a Rage pawn.
+##
+## A field on the action rather than widening that branch to "any landed hit",
+## deliberately: the symmetric version would make Smite and Blast fund
+## themselves, which is not what was asked for and is a much larger balance
+## change than a basic attack paying for itself.
+##
+## Both actions this is wanted on are **projectiles**, so the projectile
+## resolution path is the one that has to carry it -- `_on_hit_landed` does not
+## currently take the action. finch found that; it is the part that will bite.
+@export var restores_resource: int = 0
+
 ## How far this action drags its target toward the caster, in arena units. Zero
 ## means it does not pull, which is every action that exists today.
 ##
