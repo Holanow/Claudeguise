@@ -1,0 +1,523 @@
+extends Control
+
+const CG := preload("res://Scripts/Core/CG.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+const Palette := preload("res://Scripts/Core/Palette.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const UnitView := preload("res://Scripts/UI/UnitView.gd")
+const Glossary := preload("res://Scripts/UI/Glossary.gd")
+const GlossaryLabel := preload("res://Scripts/UI/GlossaryLabel.gd")
+const IconChip := preload("res://Scripts/UI/IconChip.gd")
+
+## Issue 113: the player's whole team, in one place that does not move.
+##
+## OWNER: wren.
+##
+## > "I also need a live full team status view somewhere that shows health,
+## > resource, status effects, and cooldowns. It can be mostly icons and bars as
+## > long as definitions are clear"
+##
+## Health, resource and statuses are all drawn already -- on the unit, in a
+## moving fight, at the size the arena happens to be. This is the same four
+## facts in a fixed column, which is what makes comparing two party compositions
+## possible at all.
+##
+## **Cooldowns are new. Nothing in this game has ever drawn one**, and the design
+## of that quarter came out of a measurement rather than a guess. `Tools
+## /CooldownLoad.gd`, five rooms by ten seeds by two parties, sampled every tick:
+##
+##   Warrior       97.96% of its living ticks with something on cooldown, 2 at once
+##   Priest        71.71%                                                  2
+##   Geysermancer  29.13%                                                  1
+##   Abomination    0.00%                                                  0
+##   Siege Master   0.00%                                                  0
+##
+## Three things follow, and all three are load-bearing here:
+##
+## 1. **Two slots, not one per action.** Nothing ever held more than two.
+## 2. **Two of the five classes own no action with a cooldown at all**, so their
+##    row says so in words. An empty pair of boxes on the Abomination would read
+##    as the panel being broken, every fight, for the life of the feature.
+## 3. **A lamp reading "something is on cooldown" would be lit 98% of the time
+##    for a Warrior.** That is a detector that always fires, which this project's
+##    own board says becomes furniture within minutes. So the chip names the
+##    action and says how many seconds are left.
+##
+## **How many rows**, from `Tools/TeamPanelLoad.gd`, the same 100 fights: the
+## player's side held **5 or 6 living units in every single fight**, never four,
+## because the Siege Master's engines are player-team units. A panel sized to
+## the four pawns would have been wrong on 100 fights out of 100.
+
+## Party pawns keep their row after they die -- losing one is the most important
+## thing that can happen to your team and the row going blank would delete it.
+## A summon's row exists only while the summon does: it was temporary, and a
+## fight that builds and loses six engines must not grow a six-row graveyard.
+const MAX_PAWN_ROWS := 4
+const MAX_SUMMON_ROWS := 2
+const MAX_ROWS := MAX_PAWN_ROWS + MAX_SUMMON_ROWS
+
+## From the measurement above. A third slot has never been earned.
+const MAX_COOLDOWN_CHIPS := 2
+
+const BAR_WIDTH := 244.0
+const PANEL_WIDTH := BAR_WIDTH + Palette.SPACE_S * 2.0
+const HP_BAR_HEIGHT := 8.0
+const RESOURCE_BAR_HEIGHT := 6.0
+const LINE_SEPARATION := 2.0
+const ROW_SEPARATION := 6.0
+
+## **A summon gets one line, a pawn gets four, and that asymmetry is the only
+## reason this panel fits beside the log at 1280x720.**
+##
+## It is also true rather than convenient. A siege engine has no resource, no
+## plans, and no action carrying a cooldown -- three of a pawn row's four lines
+## would be permanently empty on it. What a player needs to know about a summon
+## is that it is there and how much of it is left, which is a name and a health
+## bar.
+##
+## **What the panel is at its tallest: four pawns, two summons and the overflow
+## line.** `BattleView` insets the combat log by this rather than by the current
+## height, so the log does not jump down the screen every time an engine is built
+## and back up when it dies.
+##
+## **This is a measured number, not an arithmetic one, and the difference cost me
+## a wrong screenshot.** The first version computed the height from its own
+## constants and put a text line at 18 px because an `IconChip` is 18 px square.
+## A `Label` at `FONT_SIZE_SMALL` will not go below 23, so every pawn row was
+## really 72 rather than 66, the panel ran 36 px past the inset the log had been
+## given, and two rows drew underneath the log's text. Nineteen tests were green
+## through all of it, because not one of them asked Godot how tall a label is.
+##
+## So `panel_height` sums what the nodes report, and this constant is checked
+## against that measurement by `test_ui_team_status.gd` -- both that it is not
+## exceeded and that it is not slack by more than a row. A pure-arithmetic
+## version could not have had that test: both sides of it would have been mine.
+const MAX_PANEL_HEIGHT := 438.0
+
+var _rows: VBoxContainer = null
+var _backdrop: ColorRect = null
+var _row_by_id: Dictionary = {}
+var _overflow_label: Label = null
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
+
+	_backdrop = ColorRect.new()
+	_backdrop.color = Palette.BACKGROUND
+	_backdrop.color.a = 0.72
+	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_backdrop)
+
+	_rows = VBoxContainer.new()
+	_rows.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_rows.offset_left = Palette.SPACE_S
+	_rows.offset_right = -Palette.SPACE_S
+	_rows.offset_top = Palette.SPACE_S
+	_rows.offset_bottom = -Palette.SPACE_S
+	_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rows.add_theme_constant_override("separation", int(ROW_SEPARATION))
+	add_child(_rows)
+
+	var heading := Label.new()
+	heading.text = "Your team"
+	heading.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	heading.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_rows.add_child(heading)
+
+	_overflow_label = Label.new()
+	_overflow_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_overflow_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_overflow_label.visible = false
+	_rows.add_child(_overflow_label)
+
+# --- what goes in it -------------------------------------------------------
+#
+# Every question the panel answers is a static function taking the state, so a
+# test can ask it without a viewport. The board's rule 2 is the reason: a thing
+# that can only be reached through `_draw()` is a thing no assertion can see,
+# and this project has shipped twelve features that were unreachable.
+
+## The units that get a row, in the order they get one: the player's pawns in
+## party order first, then whatever they have summoned that is still alive.
+##
+## A pawn is `u.pawn != null`; a player-team unit built from an `EnemyDef` has
+## `enemy_id != &""` and is a summon. `BattleView._cost_summary` already
+## separates the two the same way, and #75 is what happens when a view forgets
+## the second kind exists.
+static func rows_for(state: CombatState) -> Array:
+	var pawns := _player_pawns(state)
+	var summons := _live_summons(state)
+	return pawns.slice(0, mini(pawns.size(), MAX_PAWN_ROWS)) \
+		+ summons.slice(0, mini(summons.size(), MAX_SUMMON_ROWS))
+
+## Counted per kind, not off one total, because the two caps are separate. A
+## fifth pawn and a third engine are both hidden and one total would be able to
+## report zero while a row was missing.
+static func hidden_row_count(state: CombatState) -> int:
+	return maxi(0, _player_pawns(state).size() - MAX_PAWN_ROWS) \
+		+ maxi(0, _live_summons(state).size() - MAX_SUMMON_ROWS)
+
+static func is_summon(u: CombatUnit) -> bool:
+	return u.team == CG.Team.PLAYER and u.pawn == null
+
+static func _player_pawns(state: CombatState) -> Array:
+	var out: Array = []
+	for u in state.units:
+		if u.team == CG.Team.PLAYER and u.pawn != null:
+			out.append(u)
+	return out
+
+static func _live_summons(state: CombatState) -> Array:
+	var out: Array = []
+	for u in state.units:
+		if is_summon(u) and u.alive:
+			out.append(u)
+	return out
+
+## Whether this unit owns any action that is gated by a cooldown at all.
+##
+## The reason the panel has a third state rather than two. False for the
+## Abomination and the Siege Master on every tick of every fight measured, and
+## an empty slot cannot say "there is nothing to show here" -- it says "the
+## thing that should be here is missing".
+static func has_cooldown_actions(u: CombatUnit) -> bool:
+	for action_id in u.actions:
+		var a = Registry.get_action(action_id)
+		if a != null and a.cooldown_ticks > 0:
+			return true
+	return false
+
+## The cooldowns actually running on this unit right now, soonest ready first,
+## capped at MAX_COOLDOWN_CHIPS.
+##
+## Soonest first because the question a player has while watching is "when does
+## it get its move back", and the answer to that is the smallest number.
+##
+## `ticks_left` is `cooldowns[id] - state.tick`, which is how `CombatSim` itself
+## gates the action (`state.tick < int(unit.cooldowns[action.id])`) -- read from
+## the same expression rather than a second copy of the rule.
+static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
+	var running: Array = []
+	for action_id in u.actions:
+		var a = Registry.get_action(action_id)
+		if a == null or a.cooldown_ticks <= 0:
+			continue
+		if not u.cooldowns.has(action_id):
+			continue
+		var left: int = int(u.cooldowns[action_id]) - state.tick
+		if left <= 0:
+			continue
+		running.append({
+			"action_id": action_id,
+			"ticks_left": left,
+			"fraction": clampf(float(left) / float(a.cooldown_ticks), 0.0, 1.0),
+			"damage_type": a.damage_type,
+			"display_name": a.display_name if a.display_name != "" else String(action_id).capitalize(),
+			"cooldown_ticks": a.cooldown_ticks,
+		})
+	running.sort_custom(func(x, y): return int(x["ticks_left"]) < int(y["ticks_left"]))
+	if running.size() <= MAX_COOLDOWN_CHIPS:
+		return running
+	return running.slice(0, MAX_COOLDOWN_CHIPS)
+
+## What the cooldown line says when there are no chips to draw on it. Empty
+## string means chips are being drawn and this is not used.
+##
+## Three states, not two, and the third is the measured one:
+##   "No cooldowns"  -- this class has no gated action. Abomination, Siege Master.
+##   "All ready"     -- it has them and none is running.
+##   ""              -- chips.
+static func cooldown_summary(state: CombatState, u: CombatUnit) -> String:
+	if not cooldowns_for(state, u).is_empty():
+		return ""
+	if not has_cooldown_actions(u):
+		return "No cooldowns"
+	return "All ready"
+
+static func seconds_text(ticks: int) -> String:
+	return "%.1fs" % (float(ticks) / float(CG.TICKS_PER_SECOND))
+
+# --- drawing it ------------------------------------------------------------
+
+## Called every stepped tick from `BattleView._process`. Rows are added and
+## removed only when the set of units changes; everything else is written into
+## nodes that already exist.
+##
+## Not a rebuild per tick, for the reason `_ensure_unit_views` is not: a chip is
+## a `Control` a player can hover and pin, and a node replaced every tick can be
+## neither. It would also throw away the hover the moment the pointer settled on
+## it, 30 times a second.
+func sync(state: CombatState) -> void:
+	if state == null or _rows == null:
+		return
+	var units := rows_for(state)
+	var wanted := {}
+	for u in units:
+		wanted[u.id] = true
+	for id in _row_by_id.keys():
+		if not wanted.has(id):
+			_rows.remove_child(_row_by_id[id])
+			_row_by_id[id].queue_free()
+			_row_by_id.erase(id)
+	for i in units.size():
+		var u: CombatUnit = units[i]
+		if not _row_by_id.has(u.id):
+			_row_by_id[u.id] = _build_row(u)
+			_rows.add_child(_row_by_id[u.id])
+		# +1 for the heading, which is always child 0.
+		_rows.move_child(_row_by_id[u.id], i + 1)
+		_update_row(_row_by_id[u.id], state, u)
+	_rows.move_child(_overflow_label, _rows.get_child_count() - 1)
+	var hidden := hidden_row_count(state)
+	_overflow_label.visible = hidden > 0
+	_overflow_label.text = "+%d more" % hidden
+	# The backdrop is drawn to the rows it actually has, so a fight with no
+	# summons does not show two empty slots waiting for one. The log's inset does
+	# NOT follow this (see MAX_PANEL_HEIGHT) -- the panel may grow and shrink, the
+	# log may not move.
+	offset_bottom = offset_top + panel_height()
+
+## What the panel is tall right now, summed off the rows that exist rather than
+## computed from constants describing them. `state` is unused and kept because
+## every caller has one and a height that silently stopped following the fight
+## would be the hard kind of wrong.
+##
+## `_rows.get_combined_minimum_size()` is NOT used: a `Container` outside the
+## scene tree reports zero, which is exactly where the tests run.
+func panel_height(_state: CombatState = null) -> float:
+	var total := Palette.SPACE_S * 2.0
+	var shown := 0
+	for child in _rows.get_children():
+		if not child.visible:
+			continue
+		total += child.get_combined_minimum_size().y
+		shown += 1
+	return total + float(maxi(shown - 1, 0)) * ROW_SEPARATION
+
+func row_count() -> int:
+	return _row_by_id.size()
+
+## One row's nodes, built once. Every chip slot is created here and shown or
+## hidden later rather than created on demand, so a chip the player is hovering
+## survives the status it names being reapplied.
+##
+## A summon gets the short shape: one line, a name and a health bar. See
+## `MAX_PANEL_HEIGHT` for why that is honest rather than a saving.
+func _build_row(u: CombatUnit) -> Control:
+	if is_summon(u):
+		return _build_summon_row(u)
+	return _build_pawn_row(u)
+
+func _build_summon_row(u: CombatUnit) -> Control:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	row.custom_minimum_size = Vector2(0.0, IconChip.ICON_SIZE)
+	row.set_meta("summon", true)
+
+	var name_label := Label.new()
+	name_label.set_script(GlossaryLabel)
+	name_label.text = u.display_name
+	name_label.tooltip_text = _unit_tooltip(u)
+	name_label.add_theme_color_override("font_color", Palette.TEXT)
+	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	if not name_label.is_inside_tree():
+		name_label._ready()
+	row.add_child(name_label)
+	row.set_meta("name_label", name_label)
+	row.set_meta("hp_fill", _build_bar(row, HP_BAR_HEIGHT, SUMMON_BAR_WIDTH))
+	return row
+
+func _build_pawn_row(u: CombatUnit) -> Control:
+	var row := VBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", int(LINE_SEPARATION))
+	row.set_meta("summon", false)
+
+	var head := HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+	head.custom_minimum_size = Vector2(0.0, IconChip.ICON_SIZE)
+	row.add_child(head)
+
+	var name_label := Label.new()
+	name_label.set_script(GlossaryLabel)
+	name_label.text = u.display_name
+	name_label.tooltip_text = _unit_tooltip(u)
+	name_label.add_theme_color_override("font_color", Palette.TEXT)
+	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	if not name_label.is_inside_tree():
+		name_label._ready()
+	head.add_child(name_label)
+	row.set_meta("name_label", name_label)
+
+	var status_chips: Array[Control] = []
+	for i in UnitView.MAX_STATUS_BADGES:
+		var chip := _new_chip()
+		head.add_child(chip)
+		status_chips.append(chip)
+	row.set_meta("status_chips", status_chips)
+
+	var overflow := Label.new()
+	overflow.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	overflow.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	overflow.visible = false
+	head.add_child(overflow)
+	row.set_meta("status_overflow", overflow)
+
+	row.set_meta("hp_fill", _build_bar(row, HP_BAR_HEIGHT))
+	row.set_meta("resource_fill", _build_bar(row, RESOURCE_BAR_HEIGHT))
+
+	var cd_line := HBoxContainer.new()
+	cd_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cd_line.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	cd_line.custom_minimum_size = Vector2(0.0, IconChip.ICON_SIZE)
+	row.add_child(cd_line)
+
+	var cd_chips: Array[Control] = []
+	for i in MAX_COOLDOWN_CHIPS:
+		var chip := _new_chip()
+		cd_line.add_child(chip)
+		cd_chips.append(chip)
+	row.set_meta("cooldown_chips", cd_chips)
+
+	var cd_note := Label.new()
+	cd_note.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	cd_note.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	cd_note.visible = false
+	cd_line.add_child(cd_note)
+	row.set_meta("cooldown_note", cd_note)
+
+	return row
+
+func _new_chip() -> Control:
+	var chip := Control.new()
+	chip.set_script(IconChip)
+	chip.visible = false
+	if not chip.is_inside_tree():
+		chip._ready()
+	return chip
+
+## A trough and a fill, the same two-rect language the unit bars and the two
+## team summary bars already use. Fixed width rather than the container's, so
+## the fill can be resized before the container has ever been laid out -- which
+## is every test and the first frame.
+func _build_bar(parent: Control, height: float, width: float = BAR_WIDTH) -> ColorRect:
+	var back := ColorRect.new()
+	back.color = Palette.HP_BACK
+	back.custom_minimum_size = Vector2(width, height)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.set_meta("bar_width", width)
+	parent.add_child(back)
+
+	var fill := ColorRect.new()
+	fill.position = Vector2.ZERO
+	fill.size = Vector2(width, height)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.add_child(fill)
+	return fill
+
+## A summon's bar is short and sits beside its name rather than under it. Its
+## own trough carries its width so the fill is not scaled against the pawn
+## rows' 244.
+const SUMMON_BAR_WIDTH := 96.0
+
+static func _set_bar(fill: ColorRect, fraction: float, color: Color) -> void:
+	var width: float = fill.get_parent().get_meta("bar_width")
+	fill.size.x = width * clampf(fraction, 0.0, 1.0)
+	fill.color = color
+
+static func _fraction(current: int, total: int) -> float:
+	if total <= 0:
+		return 0.0
+	return clampf(float(maxi(current, 0)) / float(total), 0.0, 1.0)
+
+func _update_row(row: Control, state: CombatState, u: CombatUnit) -> void:
+	var name_label: Label = row.get_meta("name_label")
+	name_label.text = u.display_name
+	# A dead pawn keeps its row and stops shouting from it. The name is the only
+	# thing left that can carry "this one is gone" once both bars read zero.
+	name_label.add_theme_color_override("font_color", Palette.TEXT if u.alive else Palette.TEXT_DIM)
+
+	var hp_fraction := _fraction(u.hp, u.hp_max)
+	_set_bar(row.get_meta("hp_fill"), hp_fraction, Palette.hp_color(hp_fraction))
+	if bool(row.get_meta("summon")):
+		return
+
+	_set_bar(row.get_meta("resource_fill"), _fraction(u.resource, u.resource_max),
+		Palette.resource_color(u.resource_kind))
+	_update_status_chips(row, u)
+	_update_cooldown_chips(row, state, u)
+
+## The same two badges the unit itself carries, from the same ordering, so a
+## player looking from the panel to the pawn is not shown two different answers.
+## `UnitView.status_badges` and `hidden_status_count` are read rather than
+## reimplemented for exactly that reason.
+func _update_status_chips(row: Control, u: CombatUnit) -> void:
+	var badges := UnitView.status_badges(u)
+	var chips: Array = row.get_meta("status_chips")
+	for i in chips.size():
+		var chip: Control = chips[i]
+		if i >= badges.size():
+			chip.visible = false
+			continue
+		var status: CG.Status = badges[i]
+		chip.kind = IconChip.Kind.STATUS
+		chip.status = status
+		chip.text = ""
+		chip.sweep = -1.0
+		chip.pin_title = status_name(status)
+		chip.tooltip_text = "%s. %s" % [status_name(status), Glossary.status_text(status)]
+		chip.custom_minimum_size = Vector2(chip.measured_width(), IconChip.ICON_SIZE)
+		chip.visible = true
+		chip.queue_redraw()
+	var overflow: Label = row.get_meta("status_overflow")
+	var hidden := UnitView.hidden_status_count(u)
+	overflow.visible = hidden > 0
+	overflow.text = "+%d" % hidden
+
+## `CG.Status.keys()` is what the log, the plan sentence and the condition editor
+## all read, and this is the fourth reader. Four screens calling one status three
+## different names is the failure this avoids.
+static func status_name(status: CG.Status) -> String:
+	return String(CG.Status.keys()[status]).capitalize()
+
+func _update_cooldown_chips(row: Control, state: CombatState, u: CombatUnit) -> void:
+	var running := cooldowns_for(state, u)
+	var chips: Array = row.get_meta("cooldown_chips")
+	for i in chips.size():
+		var chip: Control = chips[i]
+		if i >= running.size():
+			chip.visible = false
+			continue
+		var entry: Dictionary = running[i]
+		chip.kind = IconChip.Kind.ACTION
+		chip.action_id = entry["action_id"]
+		chip.damage_type = entry["damage_type"]
+		chip.sweep = entry["fraction"]
+		chip.text = seconds_text(int(entry["ticks_left"]))
+		chip.pin_title = entry["display_name"]
+		chip.tooltip_text = "%s is on cooldown for another %s of %s." % [
+			entry["display_name"],
+			seconds_text(int(entry["ticks_left"])),
+			seconds_text(int(entry["cooldown_ticks"])),
+		]
+		chip.custom_minimum_size = Vector2(chip.measured_width(), IconChip.ICON_SIZE)
+		chip.visible = true
+		chip.queue_redraw()
+	var note: Label = row.get_meta("cooldown_note")
+	var summary := cooldown_summary(state, u)
+	note.visible = summary != ""
+	note.text = summary
+
+func _unit_tooltip(u: CombatUnit) -> String:
+	if u.pawn != null:
+		return "%s. Health, then resource, then anything this pawn is waiting on." % u.display_name
+	return "%s. Summoned into this fight; its row goes when it does." % u.display_name
