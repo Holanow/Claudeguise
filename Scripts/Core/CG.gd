@@ -156,7 +156,30 @@ enum Role { DPS, SUPPORT, ANTI_SUPPORT, TANK, HEALER }
 enum Status {
 	SHIELD,
 	BLEED,
-	ENRAGE,
+	## The victim side of a taunt: this unit is COMPELLED to move into range of
+	## whoever taunted it and use its default attack on that unit, in place of
+	## whatever its plan or the fallback would otherwise have chosen.
+	##
+	## **This was ENRAGE, renamed in place rather than deleted.** #130 asked for
+	## ENRAGE to go, on the player's own reading that *"ENRAGE and TAUNTED are
+	## the same status with different names as of right now"*, and named the
+	## hazard in the same breath: these values are written into
+	## `CombatEvent.status`, so removing one from the middle of the enum
+	## renumbers everything after it and silently relabels every status in a
+	## saved event stream. Renaming keeps every ordinal exactly where it is,
+	## and the badge and the glossary entry already drawn for ENRAGE are about
+	## this concept, so nothing is orphaned.
+	##
+	## `status_magnitude` holds **the taunter's unit id**, which is what makes
+	## the compulsion point at somebody rather than at the nearest enemy. That
+	## reuses the one "a status remembers something" mechanism rather than
+	## adding a second.
+	##
+	## HARMFUL, so a cleanse is the counter, per the player. And it carries a
+	## real duration, which is what stops a taunt from permanently locking a
+	## pawn -- the taunting unit's own TAUNTING may outlive the fight without
+	## any pawn being held for more than one broadcast's worth of ticks.
+	TAUNTED,
 	BURN,
 	HASTE,
 	STUN,
@@ -221,7 +244,7 @@ enum Status {
 ## would be actively hostile to the ally it targeted.
 static func is_harmful(s: Status) -> bool:
 	match s:
-		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED:
+		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED, Status.TAUNTED:
 			return true
 	return false
 

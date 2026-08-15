@@ -181,6 +181,13 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 			continue
 		if unit.intent != null or unit.is_busy():
 			continue
+		## THE COMPULSION, and it sits here rather than in the decision layer
+		## for one reason: it has to beat a stated plan. See `_compelling_taunter`.
+		var taunter := _compelling_taunter(state, unit)
+		if taunter != null:
+			unit.intent = _compelled_intent(unit, taunter, deps)
+			_reaffirm_sustain(state, unit, unit.intent)
+			continue
 		var intent: Intent = null
 		if unit.pawn != null:
 			intent = deps.plan_decide.call(state, unit)
@@ -256,6 +263,125 @@ static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
 		unit.action_ticks_left = 0
 		unit.action_ticks_total = 0
 	_end_sustain(state, unit)
+
+# ---------------------------------------------------------------------------
+# taunt as a compulsion (issues 58, 121, 132)
+# ---------------------------------------------------------------------------
+#
+# The player: *"Taunted pawns should be forced to move into range and use their
+# default attack on the enemy that taunted them."*
+#
+# WHY THIS IS IN THE SIMULATION AND NOT IN THE DECISION LAYER. Taunt already
+# influenced targeting, in `DefaultBehavior._choose_target`, under an earlier
+# ruling of rook's: *taunt overrides the default fallback, never a stated plan*.
+# That is enforced by construction, because `DefaultBehavior` never runs when a
+# plan fired -- and it is exactly why the Brute's roar was decorative. **Every
+# player pawn has a plan.** A taunt that only moves unplanned units taunts
+# nobody the player controls, in the one situation the ability exists for.
+#
+# rook's ruling was made before the player stated theirs and has been withdrawn
+# in favour of it. A compulsion that must beat a plan cannot live in the thing
+# that only runs when no plan fired, so it lives here, next to STUN -- which is
+# the same shape already: a status that overrides whatever the decision layer
+# would have said. One rule covers planned pawns and unplanned enemies rather
+# than two that can disagree.
+#
+# THIS IS NOT A HIDDEN RULE, which is the CLAUDE.md principle it has to answer
+# to. A compelled unit carries a TAUNTED badge for exactly as long as it is
+# compelled, and a STATUS_APPLIED event names who taunted it and when. The pawn
+# is visibly not following its plan, and the reason is on the pawn. That is the
+# difference between a compulsion and the automatic kiting branch this project
+# deleted: one is a legible status a player can counter, the other was an
+# unwritten rule nobody could see or change.
+
+## Who this unit is compelled by, or null.
+##
+## The taunter's id is kept in `status_magnitude[TAUNTED]`, which is the
+## "a status remembers something" mechanism from #130 doing a second job rather
+## than a second mechanism being built beside it.
+##
+## A DEAD TAUNTER FREES ITS VICTIMS IMMEDIATELY, and says so with a
+## STATUS_EXPIRED rather than leaving a badge on a pawn that is no longer
+## compelled. Killing the Brute is the other counter to its roar, and a player
+## who cannot see that it worked has not been given the counter.
+static func _compelling_taunter(state: CombatState, unit: CombatUnit) -> CombatUnit:
+	if not unit.has_status(CG.Status.TAUNTED):
+		return null
+	var taunter := state.unit(int(unit.status_magnitude.get(CG.Status.TAUNTED, -1.0)))
+	if taunter != null and taunter.alive:
+		return taunter
+	_remove_status(unit, CG.Status.TAUNTED)
+	var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
+	e.status = CG.Status.TAUNTED
+	state.emit(e)
+	return null
+
+## Move into range, then use the default attack on the taunter. Exactly the
+## player's sentence, and nothing else -- a compelled unit is not made to stop
+## healing itself or to walk into a pit, it is made to pick one target.
+##
+## `deps.default_attack_action` is `DefaultBehavior.default_attack_action`, which
+## is public for precisely this reason: its own doc comment records that a
+## *copy* of "which attack does this unit fall back to" has already gone stale
+## twice on this project, and that one shared definition is the fix. This is now
+## its third caller and it does not get a fourth copy of the rule.
+##
+## Which SIDE (melee or ranged) is decided here by whether the melee option can
+## actually reach, which is a simpler rule than `_choose_attack_action`'s commit
+## fraction and is stated rather than borrowed. A unit with one attack -- every
+## unit in the game but The Warden -- takes the same branch either way.
+##
+## A unit with no attack at all is still dragged into range. It has been taunted;
+## it just has nothing to answer with.
+static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDeps) -> Intent:
+	var defs: Array[ActionDef] = []
+	for id in unit.actions:
+		var a: ActionDef = deps.action_lookup.call(id)
+		if a != null:
+			defs.append(a)
+	var dist := unit.position.distance_to(taunter.position)
+	var melee: ActionDef = deps.default_attack_action.call(defs, false)
+	var ranged: ActionDef = deps.default_attack_action.call(defs, true)
+	var chosen: ActionDef = melee
+	if melee == null or dist > melee.range_units:
+		chosen = ranged if ranged != null else melee
+	if chosen == null or dist > chosen.range_units:
+		return Intent.move_to(taunter.position)
+	return Intent.use_action(chosen.id, taunter.id)
+
+## Puts TAUNTED on everyone the taunt reaches, at the moment it is applied.
+##
+## A ONE-SHOT BROADCAST, not a membership test re-run every tick. That is what
+## makes the player's two other rulings true at once: the status carries a real
+## duration, so nothing is locked permanently, and **a cleanse actually frees the
+## pawn** instead of being overwritten again on the following tick. A
+## per-tick-membership taunt (the shape `_tick_hazards` uses for standing in
+## fire) would make cleansing it pointless, which would contradict the ruling
+## that cleansing is the counter.
+##
+## ENEMIES MUST NOT DOUBLE-TAUNT, per the player, and it is enforced here as a
+## property of the mechanism rather than as cleverness in enemy targeting: a unit
+## already compelled by a **living** taunter is skipped, so a second roar cannot
+## steal it and cannot refresh it. Two Brutes therefore split a party instead of
+## piling onto one pawn, without either of them having to know the other exists.
+## (The other half -- an enemy not *wasting* the cast in the first place -- is a
+## decision, and lives in `Scripts/Plans`.)
+##
+## `state.living` order is `state.units` order, so two runs from one seed taunt
+## the same units in the same order. Nothing random is consulted.
+static func _broadcast_taunt(state: CombatState, taunter: CombatUnit, ticks: int) -> void:
+	if taunter.taunt_radius <= 0.0 or ticks <= 0:
+		return
+	for victim in state.living(_enemy_team(taunter.team)):
+		if taunter.position.distance_to(victim.position) > taunter.taunt_radius:
+			continue
+		if _compelling_taunter(state, victim) != null:
+			continue
+		victim.statuses[CG.Status.TAUNTED] = state.tick + ticks
+		victim.status_magnitude[CG.Status.TAUNTED] = float(taunter.id)
+		var e := _event(CG.EventKind.STATUS_APPLIED, state.tick, taunter.id, victim.id, &"")
+		e.status = CG.Status.TAUNTED
+		state.emit(e)
 
 # ---------------------------------------------------------------------------
 # resolve
@@ -995,6 +1121,13 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	## reapplying any other status already overwrites its expiry tick.
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = action.taunt_radius
+		## The taunt lands on its victims here, in the same breath as the status
+		## that makes this unit a taunter, so the two cannot get out of step.
+		## `status_duration_ticks` is shared deliberately: the roar's advertised
+		## duration and how long anyone is actually held by it are the same
+		## number, and a player reading "for 3 seconds" on the action should not
+		## have to learn that it means something else.
+		_broadcast_taunt(state, target, action.status_duration_ticks)
 
 	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
 	se.status = status

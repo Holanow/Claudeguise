@@ -102,9 +102,9 @@ static func attribute_text(a: CG.Attribute) -> String:
 ## Statuses are drawn in the battle arena (UnitView's status tags, phase 2 of
 ## the hover system); this is the data half, written now so phase 2 wires a
 ## mechanism against text that already exists rather than writing both at
-## once. Every status with a Balance-owned number reads it; BLEED, ENRAGE,
+## once. Every status with a Balance-owned number reads it; BLEED, TAUNTED,
 ## STUN, TAUNTING and SHIELDING have no single tunable number to duplicate
-## (BLEED/ENRAGE/SHIELDING's magnitude and duration are per-action data on
+## (BLEED/TAUNTED/SHIELDING's magnitude and duration are per-action data on
 ## whichever ActionDef grants them, not a shared Balance constant; TAUNTING
 ## reads EnemyDef.spawn_taunt_radius per-caster) -- their sentence names the
 ## mechanism rather than inventing one number that would be wrong for most
@@ -117,8 +117,8 @@ static func status_text(s: CG.Status) -> String:
 			return "Reduces incoming damage by %d%% while it lasts." % int(round(Balance.STATUS_BLOCK_REDUCTION * 100.0))
 		CG.Status.BLEED:
 			return "Deals damage each tick for a fixed duration."
-		CG.Status.ENRAGE:
-			return "Increases damage dealt while it lasts."
+		CG.Status.TAUNTED:
+			return "Forced to attack whoever taunted this unit until it wears off or is cleansed."
 		CG.Status.BURN:
 			return "Deals %.2f%% of max hp each tick for a fixed duration." % Balance.BURN_DAMAGE_PERCENT_PER_TICK
 		CG.Status.POISON:

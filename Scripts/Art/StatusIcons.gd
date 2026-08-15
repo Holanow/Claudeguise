@@ -115,7 +115,7 @@ const GLYPHS := {
 	# zigzag on a shared baseline: the shared baseline version rendered as a
 	# mountain range on the first sheet, because a flat bottom edge is what
 	# makes a jagged top edge read as landscape.
-	CG.Status.ENRAGE: [
+	CG.Status.TAUNTED: [
 		{"poly": [[-0.78, 0.6], [-0.46, -0.3], [-0.14, 0.6]]},
 		{"poly": [[-0.32, 0.7], [0.0, -0.92], [0.32, 0.7]]},
 		{"poly": [[0.14, 0.6], [0.46, -0.3], [0.78, 0.6]]},

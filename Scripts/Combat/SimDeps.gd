@@ -43,6 +43,21 @@ var recover_ticks: Callable = _default_recover_ticks
 var plan_decide: Callable = PlanInterpreter.decide
 var default_decide: Callable = DefaultBehavior.decide
 
+## Which attack a unit falls back to on one side of the melee/ranged split.
+## `(actions: Array[ActionDef], want_ranged: bool) -> ActionDef`.
+##
+## Used by the taunt compulsion, which has to pick a unit's *default* attack
+## without going through the decision layer at all -- a compulsion overrides the
+## decision layer by definition, so it cannot ask it what to do.
+##
+## Wired to `DefaultBehavior.default_attack_action`, which is public for exactly
+## this reason: its own doc comment records that a private *copy* of "which
+## attack does this unit fall back to" has already drifted twice on this project,
+## and that one shared definition is the fix. Reaching it through a seam rather
+## than naming DefaultBehavior in CombatSim keeps this file the only bridge, the
+## same as `plan_decide` and `default_decide` above.
+var default_attack_action: Callable = DefaultBehavior.default_attack_action
+
 ## Resource per tick, before the ceiling. Never consulted for a RAGE unit —
 ## CombatSim enforces that structurally rather than trusting every possible
 ## rate function to return 0 for it.
