@@ -121,17 +121,38 @@ func _run(fight_seed: int) -> CombatState:
 	return state
 
 
+## **This assertion used to name POISON, and issue 121 is the change that made
+## that wrong.** It read `assert_eq(e.status, CG.Status.POISON)` with the reason
+## *"POISON is the only harmful status anything applies to a player unit today"*,
+## which was true when it was written and was a statement about the whole game
+## rather than about this ability. heron's Stalker marks a pawn, so a Scour now
+## legitimately strips MARKED and the fixture called it a defect.
+##
+## **The third movement of this fixture, and the first that is a design change
+## rather than drift.** The first two were content quietly sliding the `ON_ALLY`
+## count (6 -> 2 -> 3 -> 1, then 9 -> 3) and the answer was to re-point the
+## fixture. This one is not drift: the game now has more than one harmful status
+## on purpose, which is issue 121's entire point, and no fixture change makes the
+## old assertion true again.
+##
+## So it asserts the ability's real contract -- **a cleanse strips something
+## harmful and never strips a buff** -- which no amount of new content can
+## falsify. Supply is asserted separately below, because "there was something to
+## strip" is the thing this fixture actually depends on and it deserves to be
+## said out loud rather than to hide inside an equality on a status id.
 func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> void:
 	var strips := 0
 	var on_an_ally := 0
+	var by_status := {}
 	for s in SEEDS:
 		var state := _run(s)
 		for e in _cleanse_events(state):
 			strips += 1
+			by_status[e.status] = int(by_status.get(e.status, 0)) + 1
 			assert_eq(e.action_id, &"geyser_cleanse",
 				"the only action in the game that strips a status is the Geysermancer's")
-			assert_eq(e.status, CG.Status.POISON,
-				"POISON is the only harmful status anything applies to a player unit today -- issue 90")
+			assert_true(CG.is_harmful(e.status),
+				"Scour stripped %s, which CG.is_harmful says is not a harmful status. A cleanse that removes a buff is the ability doing the opposite of its job." % _status_name(e.status))
 			var caster := state.unit(e.source_id)
 			assert_eq(caster.pawn.pawn_class.id, &"geysermancer")
 			var target := state.unit(e.target_id)
@@ -140,6 +161,28 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 				on_an_ally += 1
 	assert_true(strips > 0, "the cleanse stripped nothing in %d real fights" % SEEDS)
 	assert_true(on_an_ally > 0, "the cleanse only ever scrubbed its own caster; the ability is for the party")
+	# **The supply, said plainly, because it is what the fixture rests on.** Every
+	# other assertion in this file is worthless if nothing in the room ever
+	# afflicts a pawn -- four of the seven encounters field no poison source at
+	# all and would pass every "never strips a buff" check by stripping nothing.
+	# The old POISON equality was guarding this by accident; now it is guarded on
+	# purpose, and it names the room rather than the whole game.
+	assert_true(int(by_status.get(CG.Status.POISON, 0)) > 0,
+		("no POISON was stripped in %d fights of %s, so this fixture's affliction supply has gone. "
+		+ "It is not enough that SOMETHING was stripped: this room was chosen for its poison. "
+		+ "Re-measure with Tools/CleanseFixture.gd and re-point ENCOUNTER, and do NOT edit a "
+		+ "room's roster to feed this test. Stripped instead: %s") % [SEEDS, ENCOUNTER, _describe(by_status)])
+
+func _status_name(status: CG.Status) -> String:
+	return String(CG.Status.keys()[status]).capitalize()
+
+func _describe(by_status: Dictionary) -> String:
+	if by_status.is_empty():
+		return "nothing at all"
+	var parts: Array[String] = []
+	for k in by_status.keys():
+		parts.append("%s x%d" % [_status_name(k), int(by_status[k])])
+	return ", ".join(parts)
 
 
 ## **The margin, not the cliff.** This is the test that should have existed
@@ -237,7 +280,13 @@ func test_the_combat_log_reports_the_cleanse() -> void:
 				assert_true(line.contains("Scour"), "the cast should name the ability, got '%s'" % line)
 				saw_the_cast = true
 			elif e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1:
-				assert_true(line.contains("Poison"), "the strip should name the status, got '%s'" % line)
+				# Issue 121: the status the event actually carries, not the word
+				# "Poison". This hardcoded the one status that existed when it was
+				# written, so heron's Stalker made it report `warrior's Marked
+				# fades` as a defect -- a correct line, failing a test that was
+				# checking the content rather than the log.
+				assert_true(line.contains(_status_name(e.status)),
+					"the strip should name the status it removed (%s), got '%s'" % [_status_name(e.status), line])
 				saw_the_strip = true
 	log_view.free()
 	assert_true(saw_the_cast and saw_the_strip)
