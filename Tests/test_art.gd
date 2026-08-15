@@ -1543,3 +1543,83 @@ func test_the_theming_instructions_name_every_file_the_code_looks_for() -> void:
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	for name in ["panel.png", "panel_border.png", "background.png"]:
 		assert_true(readme.contains(name), "Assets/UI/README.md does not mention %s" % name)
+
+
+## The other direction, and it is the one this project has already paid for
+## twice. The test above asks whether the README mentions the names the code
+## reads. It cannot see the opposite mistake: a name the README *prints* that no
+## call site ever asks for. A file dropped in under such a name does nothing,
+## silently, and looks perfectly correct sitting on disk. `status/enrage.png`
+## was exactly this after the ENRAGE -> TAUNTED rename, and `background/menu.png`
+## was exactly this until now -- it named a main menu the game does not have.
+##
+## Reproduced by rendering before this was written, not by reading: a real
+## yellow-cornered `Assets/UI/border/arena.png` was dropped in and the arena
+## frame kept the green corners of the general `panel_border.png`, because
+## `ArenaFloor` passes no element name. `Screenshots/theme_dropin_*.png`.
+##
+## So the README carries a machine-checked list of which of its own names are
+## not wired up yet, and this compares that list against the call sites. It goes
+## red the moment issue #237 wires one, naming the line to delete.
+func test_no_specific_theme_name_the_readme_prints_is_a_name_nothing_asks_for() -> void:
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	var documented := _readme_specific_theme_elements(readme)
+	assert_true(documented.size() >= 3,
+		"Assets/UI/README.md stopped naming specific theme files; this check now measures nothing")
+	var live := _element_names_call_sites_ask_for(documented)
+	var pending: Array[String] = []
+	for name in documented:
+		if not live.has(name):
+			pending.append(name)
+	pending.sort()
+	assert_eq(_readme_pending_note(readme), ", ".join(pending),
+		("Assets/UI/README.md's pending list and Scripts/UI's real call sites disagree. " +
+		"Every name the README prints under `Assets/UI/<kind>/<name>.png` must either be " +
+		"passed as an element name by a screen, or be listed in the README's pending " +
+		"comment. Issue #237 is the wiring."))
+	if pending.is_empty():
+		assert_false(readme.contains("Not wired up yet"),
+			"every theme name resolves now, so the README's 'Not wired up yet' section is a lie in the other direction")
+
+
+## Every `Assets/UI/<panel|border|background>/<name>.png` the README prints, as
+## element names. Parsed rather than typed: a hand-typed copy of a list in
+## another file is two artifacts by one author, which is how a test ends up
+## agreeing with the mistake it exists to catch.
+func _readme_specific_theme_elements(readme: String) -> Array[String]:
+	var out: Array[String] = []
+	var re := RegEx.create_from_string("Assets/UI/(?:panel|border|background)/([a-z_]+)\\.png")
+	for m in re.search_all(readme):
+		var name := m.get_string(1)
+		if not out.has(name):
+			out.append(name)
+	out.sort()
+	return out
+
+
+## Which of `candidates` a screen really asks for. A `.gd` under `Scripts/UI`
+## that both imports `UIArt` and contains the literal `&"<name>"` is asking for
+## it; nothing else in this game has a reason to hold these strings, checked by
+## grep before this was written.
+func _element_names_call_sites_ask_for(candidates: Array[String]) -> Dictionary:
+	var live := {}
+	var dir := DirAccess.open("res://Scripts/UI")
+	assert_true(dir != null, "Scripts/UI is unreadable, so this test can only report a false pass")
+	for file in dir.get_files():
+		if not file.ends_with(".gd"):
+			continue
+		var text := FileAccess.get_file_as_string("res://Scripts/UI/%s" % file)
+		if not text.contains("UIArt."):
+			continue
+		for name in candidates:
+			if text.contains('&"%s"' % name):
+				live[name] = true
+	return live
+
+
+## The README's own statement of which of its names do not work yet, or "" when
+## it makes no such claim.
+func _readme_pending_note(readme: String) -> String:
+	var re := RegEx.create_from_string("<!-- pending: ([^>]*) -->")
+	var m := re.search(readme)
+	return "" if m == null else m.get_string(1).strip_edges()
