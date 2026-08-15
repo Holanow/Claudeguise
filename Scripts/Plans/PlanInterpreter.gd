@@ -461,9 +461,9 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 		&"ally_has_harmful_status":
 			return "an ally has a harmful status"
 		&"enemy_has_status":
-			return "an enemy is %s" % _status_word(int(args.get("status", 0)))
+			return "an enemy has %s" % _status_word(int(args.get("status", 0)))
 		&"enemy_lacks_status":
-			return "an enemy is not %s" % _status_word(int(args.get("status", 0)))
+			return "an enemy has no %s" % _status_word(int(args.get("status", 0)))
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
@@ -475,9 +475,9 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 		&"target_ally_with_harmful_status":
 			return "the nearest ally with a harmful status"
 		&"target_enemy_with_status":
-			return "the nearest %s enemy" % _status_word(int(args.get("status", 0)))
+			return "the nearest enemy with %s" % _status_word(int(args.get("status", 0)))
 		&"target_enemy_without_status":
-			return "the nearest enemy that is not %s" % _status_word(int(args.get("status", 0)))
+			return "the nearest enemy without %s" % _status_word(int(args.get("status", 0)))
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
@@ -572,11 +572,19 @@ static func _nearest_enemy_without_status(state: CombatState, unit: CombatUnit, 
 static func _status_arg(block: PlanBlock) -> CG.Status:
 	return int(block.args.get("status", 0)) as CG.Status
 
-## Player-facing word for a status, for the plan sentences. `CG.Status.keys()`
-## is the same source `CombatLogView._status_name` uses, so the plan editor and
-## the log cannot call the same status two different things.
+## Player-facing name for a status, for the plan sentences.
+##
+## **Capitalised as a noun, and the first version was lowercase because I wrote
+## the sentence without reading it on the screen.** The plan editor rendered *"An
+## enemy is not poison"*, which is not English. Read as a noun -- "an enemy has
+## no Poison", "the nearest enemy without Poison" -- it needs no adjective table
+## and it matches what the badge and the glossary call the same thing.
+##
+## `CG.Status.keys()` is the same source `CombatLogView._status_name` uses, so
+## the plan editor and the combat log cannot call one status two different
+## things.
 static func _status_word(status: int) -> String:
-	return String(CG.Status.keys()[status]).to_lower()
+	return String(CG.Status.keys()[status]).capitalize()
 
 static func _nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	var best: CombatUnit = null
