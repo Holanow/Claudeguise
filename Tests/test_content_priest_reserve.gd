@@ -1,0 +1,150 @@
+extends "res://Tests/TestCase.gd"
+
+const CG := preload("res://Scripts/Core/CG.gd")
+const Registry := preload("res://Scripts/Content/Registry.gd")
+const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
+const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
+const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
+const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
+const CombatState := preload("res://Scripts/Core/CombatState.gd")
+const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
+const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
+
+## Issue 138. The Priest's heal was not being out-prioritised, it was being
+## **out-spent**: on `main`, across 192 real fights, an ally sat at or below the
+## heal threshold and inside Heal's reach on 2,132 Priest-ticks, and the Priest
+## could pay for the heal on 119 of them. The other 2,013 were Mana, none were
+## cooldown. Priority decides who gets a tick; it decides nothing about who gets
+## the Mana, and the three plans *below* the heal had already spent it.
+##
+## So the ladder now carries a reserve, and this file is what stops that reserve
+## from being quietly removed or outgrown.
+##
+## **Two assertions, deliberately of different kinds, because either one alone
+## passes while the fix is broken:**
+##
+##  - The structural one compares `PRIEST_SPENDER_RESERVE` against the real
+##    `ActionDef` costs. It goes red if anyone reprices Heal, Ward, Haste or
+##    Smite and leaves the reserve behind -- the drift a comment cannot catch.
+##  - The behavioural one runs real fights and asserts no Priest ever *commits*
+##    to a lower spender while holding less than the reserve. That is the
+##    property the numbers above are about, and it cannot be satisfied by a
+##    constant that is merely arithmetically correct.
+##
+## Neither is a band on an emergent count. Both are invariants: a healthier
+## build cannot drift out of them and a broken one cannot pass by luck.
+
+const HEAL_ID := &"priest_heal"
+const HEAL_PLAN := &"priest_heal_hurt_ally"
+
+## The plans below the heal, and the one thing they have in common is that each
+## spends the same pool the heal spends.
+const SPENDER_PLANS := {
+	&"priest_ward_default": &"priest_ward",
+	&"priest_haste_default": &"priest_haste",
+	&"priest_smite_nearest": &"priest_smite",
+}
+
+# ---------------------------------------------------------------------------
+# the reserve is the right number
+# ---------------------------------------------------------------------------
+
+## Derived from the registry rather than retyped: two independent artifacts,
+## which is the only version of this check that can fail.
+func test_the_reserve_covers_the_heal_plus_the_spender() -> void:
+	var heal_cost: int = Registry.get_action(HEAL_ID).resource_cost
+	assert_true(heal_cost > 0, "a free heal would make this whole issue moot")
+	for plan_id in SPENDER_PLANS:
+		var action_id: StringName = SPENDER_PLANS[plan_id]
+		var cost: int = Registry.get_action(action_id).resource_cost
+		assert_true(PresetPlans.PRIEST_SPENDER_RESERVE >= heal_cost + cost,
+			"%s costs %d and priest_heal costs %d, so a Priest may cast it only from %d Mana or more, not %d" % [
+				action_id, cost, heal_cost, heal_cost + cost, PresetPlans.PRIEST_SPENDER_RESERVE
+			])
+
+## The heal must stay above the reserved plans, or the reserve is protecting
+## nothing: a plan that never gets a tick does not need the Mana kept for it.
+func test_the_heal_is_still_first_and_every_plan_under_it_reserves() -> void:
+	var plans := PresetPlans.for_class(&"priest")
+	assert_true(plans.size() > 0, "the Priest ships preset plans")
+	assert_eq(plans[0].id, HEAL_PLAN, "the heal is the first plan the Priest consults")
+	var seen := 0
+	for i in range(1, plans.size()):
+		var plan = plans[i]
+		var action_id := _action_of(plan)
+		if action_id == &"" or Registry.get_action(action_id) == null:
+			continue
+		if Registry.get_action(action_id).resource_cost <= 0:
+			continue
+		seen += 1
+		assert_eq(plan.condition.op, &"self_resource_at_least",
+			"%s sits under the heal and spends the heal's Mana, so its condition must state a reserve" % plan.id)
+		assert_true(int(plan.condition.args.get("amount", 0)) >= PresetPlans.PRIEST_SPENDER_RESERVE,
+			"%s reserves %s, less than PRIEST_SPENDER_RESERVE" % [plan.id, plan.condition.args.get("amount", 0)])
+	assert_eq(seen, SPENDER_PLANS.size(),
+		"a Mana-spending plan was added or removed under the heal without this file being told")
+
+# ---------------------------------------------------------------------------
+# and the fight obeys it
+# ---------------------------------------------------------------------------
+
+## Runs real fights and watches what a Priest commits to. **A structural check
+## cannot replace this**: `PlanInterpreter` could stop reading conditions, or a
+## fall-through could route a lower spender through `DefaultBehavior` instead,
+## and every assertion above would still pass.
+##
+## Reads RESOURCE_SPENT rather than ACTION_START, because the reserve is a claim
+## about Mana leaving the pool and that event carries the amount. `amount` is
+## what was paid, so the pool before the cast is `resource_after + amount` --
+## except the sim does not publish `resource_after`, so the check runs the other
+## way round: a spender may only be *started* on a tick the Priest held the
+## reserve, which is read from the unit before the step that decides.
+func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
+	var spender_actions := {}
+	for plan_id in SPENDER_PLANS:
+		spender_actions[SPENDER_PLANS[plan_id]] = true
+
+	var violations := 0
+	var starts := 0
+	var fights := 0
+	for encounter_id in [&"floor1_room1", &"floor1_horde", &"floor1_ghoul_den"]:
+		if Registry.get_encounter(encounter_id) == null:
+			continue
+		for fight_seed in 4:
+			fights += 1
+			var party: Array[PawnData] = []
+			for cid in [&"priest", &"warrior", &"abomination", &"geysermancer"]:
+				party.append(PawnFactory.make_starter_pawn(cid, StringName("p%d" % party.size()), String(cid)))
+			var deps := SimDeps.new()
+			var state := CombatSim.build(party, Registry.get_encounter(encounter_id), fight_seed, deps)
+			var mana_before := {}
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				for u in state.units:
+					if u.alive and u.actions.has(HEAL_ID):
+						mana_before[[state.tick + 1, u.id]] = u.resource
+				CombatSim.step(state, deps)
+			for e in state.events:
+				if e.kind != CG.EventKind.ACTION_START:
+					continue
+				if not spender_actions.has(e.action_id):
+					continue
+				var key := [e.tick, e.source_id]
+				if not mana_before.has(key):
+					continue
+				starts += 1
+				if int(mana_before[key]) < PresetPlans.PRIEST_SPENDER_RESERVE:
+					violations += 1
+	assert_true(fights > 0, "no encounter to run this against")
+	assert_true(starts > 0,
+		"no Priest cast Ward, Haste or Smite in %d fights -- this check saw nothing and proved nothing" % fights)
+	assert_eq(violations, 0,
+		"%d of %d spender casts started below the %d-Mana reserve" % [
+			violations, starts, PresetPlans.PRIEST_SPENDER_RESERVE
+		])
+
+func _action_of(plan) -> StringName:
+	for b in plan.blocks:
+		if b.kind == PlanBlock.Kind.ACTION:
+			return StringName(b.args.get("action_id", &""))
+	return &""

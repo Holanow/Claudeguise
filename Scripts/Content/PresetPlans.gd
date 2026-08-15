@@ -46,6 +46,17 @@ const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 ##
 ## OWNER: teal.
 
+## Issue 138: the Mana a Priest's lower plans must leave standing, so the heal
+## above them can still be paid for. `priest_heal` costs 25 and Ward, Haste and
+## Smite each cost 15, so 40 is "my own cost, plus the heal's, or I do not cast".
+##
+## A literal rather than a lookup: `Registry` builds the action table and this
+## file is read while a pawn is being built, so asking the registry for a cost
+## from here is a cycle. `Tests/test_content_priest_reserve.gd` closes that by
+## asserting this number against the real `ActionDef` costs, which is the check
+## a lookup would have given and one a stale comment cannot fake.
+const PRIEST_SPENDER_RESERVE := 40
+
 ## Total block count across a class's preset plans. Used by
 ## Tests/test_content_classes.gd to check every class stays within its own
 ## Balance.plan_block_budget.
@@ -207,19 +218,68 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# arbitrarily -- a plan whose action is on cooldown falls through to
 		# the next one exactly like an unaffordable one does, so the loser of
 		# this ordering still fires as soon as the winner is on cooldown.
+		#
+		# ISSUE 138, AND THE ORDER ALONE WAS NOT ENOUGH. Priority decides who
+		# gets a *tick*; it decides nothing about who gets the *Mana*, and the
+		# three plans under the heal were spending the heal's money before the
+		# heal was ever asked for. Measured on `main` over 192 real fights
+		# (`Tools/HealWindow.gd`, firable ticks rather than casts, the same
+		# instrument that made `warrior_execute` and `geyser_scald` legible):
+		#
+		#   Priest-ticks free to act                          13,577
+		#   ...with the neediest ally at or below half health   2,846
+		#   ......and that ally inside Heal's 220 reach         2,132
+		#   .........and the Priest able to pay for it            119   <- 5.6%
+		#             blocked by Mana                           2,013
+		#             blocked by cooldown                           0
+		#
+		#   Where the Mana went: Smite 21,330, Ward 4,950, Heal 2,950.
+		#   Mana held on a blocked heal tick: 11.0 of a 104 pool.
+		#
+		# **The heal is not being out-prioritised, it is being out-spent.** On
+		# the 119 ticks it could pay, it fired on 118 -- so nothing about the
+		# selection is wrong, and "healing is genuinely rare" (candidate 3 in
+		# the issue) is false: the window opens 2,132 times and Mana closes 94%
+		# of it.
+		#
+		# The fix is a reserve, stated where the player can read it: every plan
+		# below the heal now needs 40 Mana, which is Heal's 25 plus its own 15.
+		# All three spenders cost 15, so one number covers them. Under 40 the
+		# Priest falls through to Bolt, which is free and returns Mana, so it
+		# refills toward the heal instead of away from it.
+		#
+		# Smite loses `enemy_in_range: 220` to say this, and loses nothing by
+		# it: `PlanInterpreter._target_in_range` already declines a plan whose
+		# focus is out of the action's own reach, so the range gate was
+		# restating a check that runs anyway. Same argument the Scald ladder
+		# below rests on.
+		#
+		# Same 192 fights, all three gated:
+		#
+		#                        before   after
+		#   priest_heal casts       114     371
+		#   health restored       7,474  13,482
+		#   firable ticks           119     399
+		#   fights with a heal   128/192 144/192
+		#   player pawns lost       107      90
+		#   player wins          191/192 192/192
+		#
+		# Reported rather than aimed at: the win column is a point, which is
+		# what a fix that is not a tuning pass should look like. The healing
+		# column is the one this issue asked about.
 		&"priest":
 			return [
 				_plan(&"priest_heal_hurt_ally", "Heal the hurt",
 					_condition(&"ally_below_hp_fraction", {"fraction": 0.5}),
 					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_heal")]),
 				_plan(&"priest_ward_default", "Ward",
-					_condition(&"always", {}),
+					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
 					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_ward")]),
 				_plan(&"priest_haste_default", "Haste",
-					_condition(&"always", {}),
+					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
 					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_haste")]),
 				_plan(&"priest_smite_nearest", "Smite",
-					_condition(&"enemy_in_range", {"range": 220.0}),
+					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),
 			]
 		# Issue 79: geyser_scald fired zero times in 210 real fights, and the
