@@ -316,6 +316,58 @@ func test_a_channel_does_not_outlive_its_caster() -> void:
 	var ended := _first(state, CG.EventKind.SUSTAIN_END)
 	assert_eq(ended.tick, 2, "on the same tick it died, not the tick after")
 
+## THE FIFTH WAY A CHANNEL ENDS, and the one that used to drop its event: the
+## fight stops while the channel is still lit. finch found it counting event
+## kinds for #219 -- at most one per fight, which is why nothing louder ever
+## noticed. A log that shows a channel starting and never stopping is the same
+## defect class as #249's unnamed ending: the simulation knew and did not say.
+func test_a_channel_lit_when_the_fight_ends_still_reports_its_end() -> void:
+	var action := _aura(1)
+	var state := _arena(action)
+	var deps := _deps(action)
+	CombatSim.step(state, deps)
+	assert_eq(state.unit(0).sustaining, action.id, "holding")
+
+	# Both enemies gone, so the next tick resolves the fight while the caster is
+	# still channelling.
+	state.unit(1).alive = false
+	state.unit(2).alive = false
+	CombatSim.step(state, deps)
+
+	assert_eq(state.outcome, CombatState.Outcome.PLAYER_WIN, "the fight ended")
+	assert_eq(_count(state, CG.EventKind.SUSTAIN_END), 1, "exactly one end, not zero and not two")
+	assert_eq(state.unit(0).sustaining, &"", "and the caster is no longer holding it")
+	var ended := _first(state, CG.EventKind.SUSTAIN_END)
+	assert_eq(ended.tick, 2, "on the tick the fight ended")
+	assert_eq(ended.amount, 1, "held for one tick, the same duration every other end reports")
+
+	# Order matters for a reader: the channel stopped because the fight did.
+	var end_index := -1
+	var fight_end_index := -1
+	for i in state.events.size():
+		if state.events[i].kind == CG.EventKind.SUSTAIN_END:
+			end_index = i
+		elif state.events[i].kind == CG.EventKind.FIGHT_END:
+			fight_end_index = i
+	assert_true(end_index >= 0 and fight_end_index > end_index,
+		"SUSTAIN_END is emitted before FIGHT_END, not after it")
+
+## The negative half. A fight that ends with nobody channelling must still emit
+## no sustain events at all -- otherwise the fix above would be firing on every
+## fight in the game and the assertion in the previous test could not tell.
+func test_a_fight_ending_with_no_channel_lit_emits_no_sustain_events() -> void:
+	var action := _aura(1)
+	var state := _arena(action)
+	var deps := _deps(action)
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
+	state.unit(1).alive = false
+	state.unit(2).alive = false
+	CombatSim.step(state, deps)
+
+	assert_eq(state.outcome, CombatState.Outcome.PLAYER_WIN, "the fight ended")
+	assert_eq(_count(state, CG.EventKind.SUSTAIN_START), 0, "nobody lit anything")
+	assert_eq(_count(state, CG.EventKind.SUSTAIN_END), 0, "so nothing ended")
+
 # ---------------------------------------------------------------------------
 # geometry and generality
 # ---------------------------------------------------------------------------
