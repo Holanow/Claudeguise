@@ -70,8 +70,44 @@ const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 ## ticks for the other. Burn a touch hotter than poison, per README's own
 ## flavour text ("Fire: Enrage, Burn" reads more violent than a lingering
 ## "Water: Cleanse, Soak"-adjacent Profane poison).
-const BURN_DAMAGE_PERCENT_PER_TICK := 0.5
+## **BURN no longer has one, and its removal is half of issue 121's BURN work.**
+## The player's rule is *"BURN damage per tick should be relative to the hit that
+## applied it"*, which is `BURN_FRACTION_OF_HIT_PER_TICK` below. swift's seam adds
+## the two terms together, so leaving a percent-of-max-health rate here would make
+## burn do both at once -- a fixed rate for being on fire plus a rate for the hit.
+## The two are alternative answers to the same question and only one is the
+## player's.
 const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
+
+## **BURN, and this is the number the whole mechanism turns on.** Fraction of the
+## applying hit's *mitigated* damage that burn deals **per tick**, multiplied by
+## `CombatUnit.status_magnitude[BURN]`, which `CombatSim` stores as exactly that
+## damage.
+##
+## **Per tick is the trap, and swift flagged it in advance: the honest denominator
+## is the duration, not the fraction that looks small.** 0.2 here on a 90-tick
+## burn would return eighteen times the original hit. So this is derived from the
+## total, backwards:
+##
+##     total = BURN_FRACTION_OF_HIT_PER_TICK * duration
+##     0.0056 * 90 ticks = 0.5
+##
+## **A burn left alone deals about half the hit that lit it, over six seconds.**
+## That is the ratio the number comes from, not a win rate -- burn is worth
+## noticing and is never a second hit. `BURN_DURATION_TICKS` in `core_actions.gd`
+## is the other half of the pair and the two must move together; there is a test
+## asserting the product rather than either number, so changing one alone fails.
+const BURN_FRACTION_OF_HIT_PER_TICK := 0.0056
+
+## **BLEED is issue 130's, not this issue's, and this value is swift's live
+## placeholder copied across unchanged (`SimDeps._BLEED_DAMAGE_PER_STACK_PER_TICK`
+## = 1.0).** It is here only so that repointing `SimDeps` at `Balance` cannot move
+## a number on the way past. Nothing in the game applies BLEED, so it is inert
+## either way -- but a rate feeds `_stochastic_round`, which draws from the
+## fight's shared rng, so a rate that moved by any amount at all would change the
+## outcome of every fight in the game rather than only the bleeding ones. That is
+## swift's own reasoning and it is why this is a copy rather than a fresh guess.
+const BLEED_DAMAGE_PER_STACK_PER_TICK := 1.0
 
 ## Issue 23: multiplier on wind-up/recovery ticks while HASTE is active.
 ## Below 1.0 speeds a unit up; wren's simulation floors the result at one
@@ -253,10 +289,28 @@ static func rage_gain_per_attack(unit: CombatUnit) -> float:
 ## only would never notice.
 static func status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
 	match status:
-		CG.Status.BURN:
-			return float(unit.hp_max) * (BURN_DAMAGE_PERCENT_PER_TICK / 100.0)
 		CG.Status.POISON:
 			return float(unit.hp_max) * (POISON_DAMAGE_PERCENT_PER_TICK / 100.0)
+	return 0.0
+
+## Damage per tick contributed by each unit of a status's stored magnitude, on
+## top of `status_damage_per_tick`. swift's seam; see `SimDeps` for the whole
+## expression and for why the two terms exist.
+##
+## **BURN only.** POISON stores no magnitude so this term is already zero for it,
+## and BLEED is issue 130's -- **it returns swift's live placeholder value
+## unchanged here rather than 0.0, deliberately.** Repointing `SimDeps` at this
+## function must not change a number on the way past: nothing in the game applies
+## BLEED today, so the value is inert either way, but "inert" is not a reason to
+## let a rate silently move. When #130 authors bleed for real, this is where its
+## number belongs.
+static func status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> float:
+	var _unused := unit
+	match status:
+		CG.Status.BURN:
+			return BURN_FRACTION_OF_HIT_PER_TICK
+		CG.Status.BLEED:
+			return BLEED_DAMAGE_PER_STACK_PER_TICK
 	return 0.0
 
 ## Multiplier on wind-up/recovery ticks for a unit carrying HASTE. `unit` is

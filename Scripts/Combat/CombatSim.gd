@@ -474,7 +474,7 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 
 	var direct := _sweep(state, unit, step)
 	if direct != unit.position:
-		unit.position = direct
+		unit.position = _avoid_hazard(state, unit, to_dest, speed, direct)
 		_update_facing_from_movement(unit, before)
 		return
 
@@ -507,6 +507,89 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 		unit.position = slide_y
 	# else: fully blocked in every direction this tick. Stay put.
 	_update_facing_from_movement(unit, before)
+
+## Issue 163: a step that would end in fire gives way to a clear one, when a
+## clear one exists that still makes progress.
+##
+## `_sweep` has always refused to LAND a unit inside a wall. It never had an
+## opinion about a hazard, because a hazard does not block -- so a unit walked
+## the straight line into fire and stood in it. heron measured the cost: 20hp
+## units dead on tick 48 and tick 68 of EVERY seed in `floor1_hazard`, and the
+## room's two authored safe lanes were content nothing in the game could use.
+##
+## THIS IS NOT PATHFINDING and does not become it. It considers exactly the two
+## axis slides `_resolve_move` already computes for the wall case, and it walks
+## into the fire when neither is better. A unit boxed in by a hazard burns, which
+## is the honest outcome for a room authored that way.
+##
+## THE ANTI-OSCILLATION RULE IS THE LOAD-BEARING PART, and it is here because
+## this project has already paid for the alternative: heron found a two-tick
+## limit cycle in `DefaultBehavior` where an approach branch and a kite branch
+## had no hysteresis between them, and a fight hung for 2400 ticks firing not one
+## shot. **A detour is only taken if it strictly reduces the distance to the
+## destination.** Progress is therefore monotonic and a unit cannot trade places
+## between two steps forever.
+##
+## A unit ALREADY standing in a hazard is not helped by this and should not be:
+## every candidate is measured for where it lands, so a burning unit takes
+## whichever step gets it out, and the straight line out is usually it.
+##
+## NO EVENT. The cause is drawn on the floor -- a unit curving around a lit
+## hazard explains itself in a way a retreat does not -- and this would fire on
+## most ticks of most crossings, which is the flood argument that keeps
+## RESOURCE_SPENT off the log. Posted on the board rather than decided quietly;
+## one event kind if the ruling goes the other way.
+static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2, speed: float, direct: Vector2) -> Vector2:
+	if state.terrain.is_empty() or not _hazard_harms(state, direct):
+		return direct
+	var goal := unit.position + to_dest
+	if to_dest.length() <= 0.0001:
+		return direct
+	var step_direction := to_dest.normalized()
+	var best := direct
+	var best_gap := goal.distance_to(unit.position)
+	## The candidates are the step turned 45 degrees each way, then the two axis
+	## slides `_resolve_move` already computes for the wall case.
+	##
+	## The turned steps are the ones that do the work, and the axis slides alone
+	## could not: `_axis_step` returns zero on an axis with nothing left to close,
+	## so a unit walking due east at a fire dead ahead is offered no lateral
+	## candidate at all. Measured -- it stood in the fire for 8 ticks and took 40
+	## damage with this function already in place.
+	##
+	## 45 rather than 90 because a right-angle sidestep makes no progress toward
+	## the destination and is therefore refused by the monotonic rule below, which
+	## is exactly the rule that keeps this from oscillating. A 45-degree turn
+	## still closes on the goal (by cos 45 of the step) while clearing the
+	## obstacle sideways, so skirting and progress are the same movement rather
+	## than two that have to alternate.
+	var turn := step_direction.rotated(PI / 4.0) * speed
+	var turn_back := step_direction.rotated(-PI / 4.0) * speed
+	for candidate in [
+		_sweep(state, unit, turn),
+		_sweep(state, unit, turn_back),
+		_sweep(state, unit, Vector2(_axis_step(to_dest.x, speed), 0.0)),
+		_sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, speed))),
+	]:
+		if candidate == unit.position or _hazard_harms(state, candidate):
+			continue
+		var gap := goal.distance_to(candidate)
+		if gap < best_gap:
+			best_gap = gap
+			best = candidate
+	return best
+
+## Whether standing at `p` costs a unit anything. Damage or a status -- a tar pit
+## deals no damage at all and is still somewhere a unit should rather not stand,
+## so both count, and a decorative hazard authored with neither is correctly
+## ignored.
+static func _hazard_harms(state: CombatState, p: Vector2) -> bool:
+	for hazard in Terrain.hazards_at(state.terrain, p):
+		if hazard.damage_per_tick > 0:
+			return true
+		if hazard.applies_status_enabled and hazard.status_duration_ticks > 0:
+			return true
+	return false
 
 ## `CombatUnit.facing` only changes when a unit actually displaces this tick --
 ## a blocked or idle unit keeps whatever it last faced rather than snapping to
@@ -988,6 +1071,9 @@ static func _spawn_summon(state: CombatState, caster: CombatUnit, action: Action
 	var new_id := state.units.size()
 	var summon := _build_enemy_unit(new_id, enemy_def, action.summons_unit_id, caster.position, caster.team)
 	state.units.append(summon)
+	## Issue 193. Emitted after the append, so `state.unit(target_id)` already
+	## resolves for anything reading the event on this tick.
+	state.emit(_event(CG.EventKind.SUMMONED, state.tick, caster.id, new_id, action.id))
 
 ## Range and line of sight are both measured here, at the moment the effect
 ## lands, against the target the action committed to -- same reasoning for

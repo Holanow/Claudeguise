@@ -718,7 +718,18 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	marker.show_text("%s dies" % target.display_name, Palette.TEAM_ENEMY, 1.8, int(round(Palette.FONT_SIZE_BODY * UnitViewScript.DISPLAY_SCALE)))
+	# Issue 187. Two changes, and the colour is a defect rather than a taste
+	# call: this was `Palette.TEAM_ENEMY` for EVERY death, so **losing your own
+	# pawn was announced in the enemy's colour.** Same class of mistake as
+	# `HP_LOW` and `TEAM_ENEMY` being the same value on the health bars. The
+	# dying unit's own team colour says whose death it was, which is information
+	# the old version did not merely omit but actively got wrong.
+	#
+	# And smaller: a cold reader called this "looks like an error message", and
+	# a second one found it overlapping the `Miss` text in large type over live
+	# units. It is one event among many, not a banner.
+	marker.show_text("%s dies" % target.display_name, Palette.team_color(target.team), 1.8,
+		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
@@ -734,7 +745,14 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _floater_stagger_offset(target.position)
-	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
+	# Issue 187: was `FONT_SIZE_FLOATER` -- 34 before the display scale, so
+	# **51 pixels of "Miss" across the arena** at the same size as a damage
+	# number, which is exactly why a cold reader read it as another overlapping
+	# number until they squinted. A miss is the smallest event in the game: the
+	# action resolved and connected with nothing. It should be the quietest mark
+	# on the screen, not one of the loudest.
+	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS,
+		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
 func _show_outcome() -> void:
 	var verdict: String

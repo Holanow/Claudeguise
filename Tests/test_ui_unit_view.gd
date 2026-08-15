@@ -5,6 +5,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const UnitView := preload("res://Scripts/UI/UnitView.gd")
 const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
+const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
@@ -143,13 +144,71 @@ func test_badge_order_does_not_depend_on_which_status_landed_first() -> void:
 	b.statuses[CG.Status.BURN] = 100
 	assert_eq(UnitView.status_badges(a), UnitView.status_badges(b))
 
+## Issue 161: the cap is unchanged as a ROW WIDTH rule -- the row still occupies
+## at most `MAX_STATUS_BADGES` slots -- but the last slot is now a "+N" chip
+## rather than a fourth badge whenever something would otherwise be dropped.
+## Asserted as slots, which is the property that actually mattered; the old
+## `size() == MAX` was a proxy that stopped being true when the chip arrived.
 func test_a_badge_row_is_capped_so_it_never_grows_wider_than_the_unit() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	for s in CG.Status.values():
 		u.statuses[s] = 100
-	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES)
-	for s in UnitView.status_badges(u):
+	var badges := UnitView.status_badges(u)
+	var slots: int = badges.size() + (1 if UnitView.hidden_status_count(u) > 0 else 0)
+	assert_eq(slots, UnitView.MAX_STATUS_BADGES, "the row must still be exactly the capped width")
+	for s in badges:
 		assert_true(CG.is_harmful(s), "the capped row must keep what is being done to the unit")
+
+## **The defect sable measured: a fifth status was dropped with nothing saying
+## so.** Four badges read as "this unit has four statuses", which is a statement
+## the game makes and it was false.
+func test_a_fifth_status_is_counted_rather_than_silently_dropped() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	var applied: Array = []
+	for s in CG.Status.values():
+		if applied.size() >= UnitView.MAX_STATUS_BADGES + 1:
+			break
+		u.statuses[s] = 100
+		applied.append(s)
+	assert_eq(applied.size(), UnitView.MAX_STATUS_BADGES + 1, "the fixture must actually overflow")
+	var shown := UnitView.status_badges(u).size()
+	var hidden := UnitView.hidden_status_count(u)
+	assert_true(hidden > 0, "with %d statuses on the unit nothing reports the overflow" % applied.size())
+	assert_eq(shown + hidden, applied.size(),
+		"every status must be either drawn or counted -- %d drawn + %d counted != %d on the unit" % [shown, hidden, applied.size()])
+
+## The negative half, and the one that stops the chip becoming furniture: at or
+## under the cap nothing is hidden and no "+0" may appear. A detector that
+## always fires is one a player learns to ignore in minutes.
+func test_nothing_is_reported_hidden_while_everything_fits() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	var count := 0
+	for s in CG.Status.values():
+		if count >= UnitView.MAX_STATUS_BADGES:
+			break
+		u.statuses[s] = 100
+		count += 1
+	assert_eq(UnitView.hidden_status_count(u), 0, "a full-but-fitting row hides nothing")
+	assert_eq(UnitView.status_badges(u).size(), UnitView.MAX_STATUS_BADGES,
+		"and all four are drawn, with no slot given up to a chip")
+
+	# And the empty case, since `hidden_status_count` is consulted before the
+	# early return in the drawing.
+	var bare := _make_unit(1, Vector2.ZERO)
+	assert_eq(UnitView.hidden_status_count(bare), 0)
+	assert_true(UnitView.status_badges(bare).is_empty())
+
+## The count must be derived from the same ordering the badges are, or the chip
+## can disagree with the row it sits in.
+func test_the_hidden_count_agrees_with_what_is_drawn() -> void:
+	var u := _make_unit(0, Vector2.ZERO)
+	for s in CG.Status.values():
+		u.statuses[s] = 100
+	var ordered := UnitView.ordered_statuses(u)
+	var badges := UnitView.status_badges(u)
+	assert_eq(badges.size() + UnitView.hidden_status_count(u), ordered.size())
+	for i in badges.size():
+		assert_eq(badges[i], ordered[i], "the drawn badges must be the first of the same ordering")
 
 ## Every badge this view can ask for has to have a glyph on the other side of
 ## the boundary. A status added to CG.Status with no entry in StatusIcons
@@ -227,8 +286,14 @@ func test_an_action_with_no_wind_up_reads_as_full() -> void:
 func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
 	for radius in [4.0, 11.0, 16.5, 22.0, 33.0, 200.0]:
 		var display_radius: float = radius * UnitView.DISPLAY_SCALE
+		# Issue 190: the icon scales with the block now, so the invariant sums the
+		# real icon size rather than the constant. The property is unchanged --
+		# bar + gap + icon is exactly the hp bar's width -- and it now has to
+		# hold for a goblin-sized body too, which is where it used to be
+		# impossible: a fixed 24px icon does not fit inside a 20px block.
 		assert_almost_eq(
-			UnitView.wind_up_bar_width(display_radius) + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
+			UnitView.wind_up_bar_width(display_radius) + UnitView.WIND_UP_ICON_GAP
+				+ UnitView.wind_up_icon_size(display_radius),
 			UnitView.bar_width(display_radius), 0.001,
 			"the block must match the hp bar at radius %.1f" % radius)
 		assert_true(UnitView.wind_up_bar_width(display_radius) > 0.0,
@@ -243,6 +308,58 @@ func test_a_smaller_unit_gets_a_narrower_bar() -> void:
 	assert_true(pawn <= UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE,
 		"no bar may be wider than the old fixed one")
 	assert_true(goblin >= UnitView.MIN_BAR_WIDTH, "and none may collapse below the floor")
+
+## Issue 190: the point of the whole change. A goblin's bar must be close to the
+## goblin, not to the space the simulation reserves for it. Measured against the
+## drawn silhouette, which is the thing a player compares the bar against.
+func test_a_bar_is_sized_to_the_drawn_body_not_the_collision_footprint() -> void:
+	var radius := 11.0 * UnitView.DISPLAY_SCALE
+	var drawn := UnitView.drawn_half_width(&"goblin", CG.Team.ENEMY, radius) * 2.0
+	var bar := UnitView.bar_width(radius, &"goblin", CG.Team.ENEMY)
+	assert_true(drawn < radius * 2.0, "fixture check: the goblin must under-fill its footprint")
+	assert_true(bar <= drawn * 1.4,
+		"a goblin's bar is %.1f against a %.1f body -- the decoration outweighs the unit" % [bar, drawn])
+	# And the wind-up block still fits inside that smaller bar.
+	assert_true(UnitView.wind_up_bar_width(radius, &"goblin", CG.Team.ENEMY) > 0.0,
+		"the wind-up bar vanished once the hp bar shrank")
+
+## The invariant, not a shape. **My first version asserted the abomination keeps
+## a full-width bar "because it fills its footprint" -- it does not, it is 0.79,
+## and I had taken that from the same polygon-only measurement that also called
+## the goblin the worst shape in the game.** A test whose premise comes from the
+## bad data cannot catch the bad data.
+##
+## So: for every shipped shape, the bar must track the MEASURED fill, wide
+## shapes getting wide bars and narrow ones narrow. Read from
+## `Silhouettes.fill_ratio`, which is the thing being trusted.
+func test_every_bar_tracks_its_shapes_measured_fill() -> void:
+	var checked := 0
+	for row in [[&"goblin", 11.0, CG.Team.ENEMY], [&"ghoul", 11.0, CG.Team.ENEMY],
+			[&"rat", 9.0, CG.Team.ENEMY], [&"warrior", 22.0, CG.Team.PLAYER],
+			[&"priest", 22.0, CG.Team.PLAYER], [&"siege_master", 22.0, CG.Team.PLAYER],
+			[&"abomination", 22.0, CG.Team.PLAYER]]:
+		var id: StringName = row[0]
+		var radius: float = row[1] * UnitView.DISPLAY_SCALE
+		var team: CG.Team = row[2]
+		var fill: Vector2 = Silhouettes.fill_ratio(id, team)
+		assert_true(fill.x > 0.0, "%s measured as no width at all" % id)
+		var expected: float = clampf(fill.x * radius * 2.0, UnitView.MIN_BAR_WIDTH,
+			UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE)
+		assert_almost_eq(UnitView.bar_width(radius, id, team), expected, 0.5,
+			"%s: bar must follow its measured fill of %.2f" % [id, fill.x])
+		checked += 1
+	assert_true(checked >= 7, "only checked %d shapes" % checked)
+
+## The vertical axis, which was never measured before #200 and is worse than the
+## horizontal. `siege_master` fills 0.33 of its box vertically, so anchoring the
+## bar stack to `radius` put it two thirds of a body above the art.
+func test_the_bar_anchor_follows_art_that_sits_low_in_its_canvas() -> void:
+	var radius := 22.0 * UnitView.DISPLAY_SCALE
+	var fill: Vector2 = Silhouettes.fill_ratio(&"siege_master", CG.Team.PLAYER)
+	assert_true(fill.y < 0.5, "fixture check: siege_master must under-fill vertically, got %.2f" % fill.y)
+	var top := UnitView.drawn_top(&"siege_master", CG.Team.PLAYER, radius)
+	assert_true(top < radius * 0.75,
+		"the stack still anchors to the footprint at %.1f of %.1f" % [top, radius])
 
 ## The telegraph is coloured by the ACTION's damage type, not by the class
 ## accent. A Priest's class accent is Divine and priest_bolt is not, so a

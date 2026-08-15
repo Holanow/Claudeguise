@@ -28,9 +28,29 @@ var pawn: PawnData = null
 var enemy_id: StringName = &""
 
 var position: Vector2 = Vector2.ZERO
-## Drawing only. Verified 2026-08-12: nothing in Scripts/Combat, Scripts/Plans
-## or Scripts/Floor reads this for range, movement or collision, so changing it
-## cannot disturb anyone's tuning. Raised from 12.0 for legibility at phone size.
+## **Not drawing only, and changing it disturbs everyone's tuning.**
+##
+## This said "Drawing only. Verified 2026-08-12: nothing in Scripts/Combat,
+## Scripts/Plans or Scripts/Floor reads this for range, movement or collision."
+## That was true when written and false within days — terrain (13a) and
+## projectiles (18) both landed after it and both read this field:
+##
+## - `_sweep` -> `Terrain.point_is_blocked(..., unit.radius)`, the collision body.
+## - `_advance_projectile` -> `distance_to(target.position) <= target.radius`,
+##   **the hit window for every shot in the game.**
+##
+## swift measured it over 105 fights, changing only the pawn default. Shrinking
+## is nearly free; **growing is not** — at 40 the party loses 11 more fights than
+## at 22, because a bigger pawn is a bigger target.
+##
+## So this is a **balance** number wearing a drawing number's clothes. Anything
+## that wants a unit to *look* different belongs in draw scale, not here: see
+## issue 190, where every mark on a unit sizes from this field while the drawn
+## silhouette fills 0.56 to 1.00 of it.
+##
+## The dated verification is the lesson. **A comment that certifies an absence
+## goes stale silently**, because nothing fails when someone adds the first
+## reader. If an invariant matters, assert it; a note cannot hold it.
 var radius: float = 22.0
 
 var hp: int = 0

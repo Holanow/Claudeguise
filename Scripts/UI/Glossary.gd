@@ -119,8 +119,13 @@ static func status_text(s: CG.Status) -> String:
 			return "Deals damage each tick for a fixed duration."
 		CG.Status.TAUNTED:
 			return "Forced to attack whoever taunted this unit until it wears off or is cleansed."
+		# Issue 121, finch: no number, following BLEED's line above and wren's
+		# own preference. Burn's rate is a fraction of the hit that lit it, so
+		# there is no single percentage to print -- a big hit burns harder. The
+		# second sentence is the combo (#186): a player who cannot see that
+		# Blast eats a burn cannot find the only combo in the game.
 		CG.Status.BURN:
-			return "Deals %.2f%% of max hp each tick for a fixed duration." % Balance.BURN_DAMAGE_PERCENT_PER_TICK
+			return "Burns for a share of the hit that lit it, each tick, until it wears off. A Geyser Blast snuffs it out and hits far harder for doing so."
 		CG.Status.POISON:
 			return "Deals %.2f%% of max hp each tick for a fixed duration." % Balance.POISON_DAMAGE_PERCENT_PER_TICK
 		CG.Status.HASTE:

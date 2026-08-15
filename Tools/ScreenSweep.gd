@@ -165,7 +165,7 @@ func _party_select_full_and_start_fight() -> void:
 	await _shot("sweep_battle_start")
 
 	var frames := 0
-	var max_wait_frames := 60 * 150
+	var max_wait_frames := 60 * 400
 	var mid_shot_taken := false
 	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < max_wait_frames:
 		await get_tree().process_frame
@@ -174,6 +174,23 @@ func _party_select_full_and_start_fight() -> void:
 			mid_shot_taken = true
 			await _shot("sweep_battle_mid")
 
+	## **This used to shoot unconditionally and call the file "end banner".**
+	## A second fresh-eyes playtester got `outcome=UNRESOLVED tick=64` and a
+	## banner-less screenshot named `sweep_battle_end_banner`, and reasonably
+	## reported "I never saw a fight resolve" as a game defect. It is not: the
+	## fight simply had not finished inside the frame budget, and the sweep
+	## named the picture after the screen it wanted rather than the screen it
+	## got.
+	##
+	## Same failure as the deploy-screen one this file already carries: a
+	## harness that gives up and leaves plausible output is indistinguishable
+	## from one that succeeded. Twice now, in the instrument the whole project
+	## reviews itself with.
+	if battle.state.outcome == CombatState.Outcome.UNRESOLVED:
+		printerr("ScreenSweep: fight did not resolve in %d frames (tick %d) at %s --" % [
+			max_wait_frames, battle.state.tick, _res_tag])
+		printerr("  NOT shooting an end banner. There is no banner on screen to shoot.")
+		return
 	await _shot("sweep_battle_end_banner")
 	print("ScreenSweep: fight ended outcome=%s tick=%d at %s" % [
 		CombatState.Outcome.keys()[battle.state.outcome], battle.state.tick, _res_tag
