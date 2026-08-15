@@ -285,8 +285,14 @@ func test_an_action_with_no_wind_up_reads_as_full() -> void:
 func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
 	for radius in [4.0, 11.0, 16.5, 22.0, 33.0, 200.0]:
 		var display_radius: float = radius * UnitView.DISPLAY_SCALE
+		# Issue 190: the icon scales with the block now, so the invariant sums the
+		# real icon size rather than the constant. The property is unchanged --
+		# bar + gap + icon is exactly the hp bar's width -- and it now has to
+		# hold for a goblin-sized body too, which is where it used to be
+		# impossible: a fixed 24px icon does not fit inside a 20px block.
 		assert_almost_eq(
-			UnitView.wind_up_bar_width(display_radius) + UnitView.WIND_UP_ICON_GAP + UnitView.WIND_UP_ICON_SIZE,
+			UnitView.wind_up_bar_width(display_radius) + UnitView.WIND_UP_ICON_GAP
+				+ UnitView.wind_up_icon_size(display_radius),
 			UnitView.bar_width(display_radius), 0.001,
 			"the block must match the hp bar at radius %.1f" % radius)
 		assert_true(UnitView.wind_up_bar_width(display_radius) > 0.0,
@@ -301,6 +307,28 @@ func test_a_smaller_unit_gets_a_narrower_bar() -> void:
 	assert_true(pawn <= UnitView.BAR_WIDTH * UnitView.DISPLAY_SCALE,
 		"no bar may be wider than the old fixed one")
 	assert_true(goblin >= UnitView.MIN_BAR_WIDTH, "and none may collapse below the floor")
+
+## Issue 190: the point of the whole change. A goblin's bar must be close to the
+## goblin, not to the space the simulation reserves for it. Measured against the
+## drawn silhouette, which is the thing a player compares the bar against.
+func test_a_bar_is_sized_to_the_drawn_body_not_the_collision_footprint() -> void:
+	var radius := 11.0 * UnitView.DISPLAY_SCALE
+	var drawn := UnitView.drawn_half_width(&"goblin", radius) * 2.0
+	var bar := UnitView.bar_width(radius, &"goblin")
+	assert_true(drawn < radius * 2.0, "fixture check: the goblin must under-fill its footprint")
+	assert_true(bar <= drawn * 1.4,
+		"a goblin's bar is %.1f against a %.1f body -- the decoration outweighs the unit" % [bar, drawn])
+	# And the wind-up block still fits inside that smaller bar.
+	assert_true(UnitView.wind_up_bar_width(radius, &"goblin") > 0.0,
+		"the wind-up bar vanished once the hp bar shrank")
+
+## A shape that fills its footprint must be unaffected, or this traded one
+## mis-sized case for another.
+func test_a_full_bodied_shape_keeps_the_bar_it_had() -> void:
+	var radius := 22.0 * UnitView.DISPLAY_SCALE
+	var bar := UnitView.bar_width(radius, &"abomination")
+	assert_true(bar >= radius * 2.0 * 0.9,
+		"a shape filling its footprint should keep a full-width bar, got %.1f" % bar)
 
 ## The telegraph is coloured by the ACTION's damage type, not by the class
 ## accent. A Priest's class accent is Divine and priest_bolt is not, so a
