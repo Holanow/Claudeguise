@@ -814,13 +814,22 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 	# problem -- the number this test asserted was 19/20 on the trunk and was
 	# carried by one event.
 	#
-	# **The room is where this actually lives.** The party never enters the
-	# colonnade: the pillars span x 20..260, the party spawns at x -350 and the
-	# fight settles around x -150. The pillars only ever screen enemy shooters,
-	# so whether they matter to a given party depends entirely on where the
-	# contact line stops, and thirty units of it is enough to switch one party
-	# off completely. Filed rather than fixed here, because moving pillars
-	# re-baselines every measurement in this file and would hold up #160.
+	# **The room is where this actually lives**, and it became issue #234.
+	#
+	# **WHAT I WROTE HERE WAS WRONG AND #234 DISPROVED IT.** The paragraph said
+	# the party never enters the colonnade and that the pillars only ever
+	# screen enemy shooters. Measured properly in
+	# `test_the_colonnade_denies_shots_to_both_sides` below: two of the five
+	# parties reach the pillar band in 16 and 10 fights of 20, and the party
+	# has about as many shots taken off it as the enemy does -- 2269 against
+	# 2430 over five parties. The outcome half of the claim survives (the party
+	# loses at most 0.9% of its damage to the pillars and the enemy up to 35%)
+	# and the cause half does not. It is `DefaultBehavior` answering a blocked
+	# shot with an approach, which is free to whoever was closing anyway.
+	#
+	# I generalised one party's zero into a statement about the room, on
+	# geometry I had measured and an effect I had not. The line above about
+	# thirty units of contact line is still true of THIS party and only of it.
 	#
 	# So the assertion becomes the aggregate over all five parties, which is
 	# what a paint detector needs and all it ever needed:
@@ -844,6 +853,126 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 	# overall row, and the row names which one.
 	assert_true(diverging_fights >= 25,
 		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
+
+
+## **Issue #234, and it is the assertion the test above could not make.**
+##
+## Everything the colonnade has ever been measured by is a difference of two
+## arms: health with the pillars against health without, fights that diverge
+## against fights that do not. A difference says the room changed; it never
+## says **who the geometry acted on**, and #234 is entirely a question about
+## who. That is the same hole `test_the_burn_pit_...` had until #239 -- nothing
+## asserted the fire had ever burned anybody.
+##
+## So this counts the pillars' own output and compares it to nothing: a tick in
+## which a unit's line to its focus target is blocked by a pillar **and** that
+## unit carries a line-of-sight action already inside its own reach. A shot it
+## had, and did not get. Zero against a colonnade of paint by construction
+## rather than by baseline -- `Terrain.line_is_blocked` on an empty terrain
+## array cannot return true -- and the control below runs it anyway.
+##
+## **The range clause is the load-bearing half and it is why the count above it
+## is not enough.** A blocked line to a target thirty units past the weapon's
+## reach costs nothing; the pillar is never consulted. That was the whole of
+## #231's 0-of-40: the Stalker at 247 units against a 220 range.
+##
+## **THE MEASUREMENT, AND IT OVERTURNS #234's PREMISE.** `Tools/ColonnadeReach.gd`,
+## 20 seeds x 5 buildable parties, shots denied and damage dealt against the
+## same seeds on bare ground:
+##
+##     party              denied: party / enemy   damage dealt vs bare: party / enemy
+##     no_abomination            0  /     0            +0.0  /   +0.0
+##     no_geysermancer        1819  /  2373            -1.1  /  -71.1
+##     no_priest                50  /    56            +0.0  /   +1.5
+##     no_siege_master        1368  /  1850            -0.5  /  -24.5
+##     no_warrior             1391  /    44            -3.2  /  +13.7
+##
+## **The party's shots are denied about as often as the enemy's, and it costs
+## the party nothing.** Party damage moves by at most 3.2 of ~348 dealt, 0.9%;
+## the enemy loses up to 71.1 of 203.9, 35%. One party denies more shots than
+## it suffers (1391 against 44) and still finishes 3.2 down.
+##
+## **So "the pillars only screen enemy shooters" is right about the outcome and
+## wrong about the cause, and the cause decides the fix.** The geometry is
+## even-handed. What is not even-handed is the rule that answers it:
+## `DefaultBehavior` replies to a blocked line-of-sight shot with
+## `Intent.move_to(target.position)`. The party is closing anyway, so a denied
+## shot buys it a step it wanted. An enemy shooter is holding a standoff line,
+## so the same step is the thing keeping it alive. **Same rule, opposite
+## value** -- which is why moving the pillars or the spawns cannot fix it, and
+## why this room is not the enemy-advantage room #234 offered as its third
+## option. It is a room that punishes standing still at range, and today only
+## the enemy stands still at range.
+##
+## That is the same ranged band as #213 and it lives in `Scripts/Plans/`, which
+## is not this file. Reported, not fixed here.
+##
+## **The party the room really does nothing for is one of the five**, not the
+## room: `[geysermancer, priest, siege_master, warrior]` denies 0 shots, is
+## denied 0, and moves 0.0 damage on both sides. With no Abomination the fight
+## settles at a median deepest x of -126 against a pillar band starting at
+## x 20, and one fight in twenty reaches the band at all. A composition with no
+## closer never meets the geometry. That is what the room is, and it is stated
+## in `floor1_encounters.gd` rather than tuned away.
+##
+## Floors are aggregates over the five parties for the reason the test above
+## records: three of the five sit near zero, so any per-party floor is two
+## cliffs stacked. Measured at the 10 seeds this gate can afford: party 2269,
+## enemy 2430, paint control 0 and 0. Per seed that is 227 and 243 against the
+## tool's 20-seed 231 and 216, so it converges rather than drifting with the
+## sample -- the property `health_total` could not manage and was deleted for.
+## Floors are half, board rule 4, not one point under.
+func test_the_colonnade_denies_shots_to_both_sides() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var seeds := 10
+	var party_denied := 0
+	var enemy_denied := 0
+	for ids in _buildable_parties():
+		var d := _denied_shots(ids, enc, seeds)
+		print("floor1_cover, %s: shots denied by a pillar, party %d, enemy %d" % [ids, d[0], d[1]])
+		party_denied += d[0]
+		enemy_denied += d[1]
+	var control := _denied_shots(_buildable_parties()[1], _without_terrain(enc), seeds)
+	print("floor1_cover: shots denied over five parties, party %d, enemy %d; colonnade of paint control, party %d, enemy %d" % [
+		party_denied, enemy_denied, control[0], control[1],
+	])
+	assert_true(control[0] == 0 and control[1] == 0,
+		"a colonnade of paint must deny nothing; got party %d, enemy %d" % [control[0], control[1]])
+	assert_true(enemy_denied >= 1200,
+		"the pillars should be taking shots off the enemy; only %d denied over five parties" % enemy_denied)
+	assert_true(party_denied >= 1100,
+		"the pillars should be taking shots off the party too, or this is a one-sided room; only %d denied over five parties" % party_denied)
+
+
+## Ticks in which a unit had a line-of-sight shot inside its own reach and a
+## pillar in the way, as `[party, enemy]`.
+func _denied_shots(ids: Array, enc: Encounter, seeds: int) -> Array[int]:
+	var out: Array[int] = [0, 0]
+	for seed in seeds:
+		var state := CombatSim.build(_pawns(ids, seed), enc, seed)
+		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+			CombatSim.step(state)
+			for u in state.units:
+				if not u.alive:
+					continue
+				var t := state.unit(u.focus_id)
+				if t == null or not t.alive:
+					continue
+				if not Terrain.line_is_blocked(state.terrain, u.position, t.position):
+					continue
+				if _has_a_shot_in_reach(u, t):
+					out[0 if u.team == CG.Team.PLAYER else 1] += 1
+	return out
+
+
+func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
+	for id in u.actions:
+		var a := Registry.get_action(id)
+		if a == null or a.heals or not a.requires_line_of_sight:
+			continue
+		if u.position.distance_to(t.position) <= a.range_units:
+			return true
+	return false
 
 
 ## **The fire has to change the fight, and the control is the same roster with

@@ -35,6 +35,23 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 ## thin bottom strip does — confirmed by the regression this file's own
 ## history includes, where applying the side reservation unconditionally
 ## dropped the pinned portrait height fraction under its floor.
+##
+## PLAYTEST-NOTES-2 item 8: *"The log is too large. Move it to a bottom
+## corner, out of the way."* It is one box now, `LOG_WIDTH` x `LOG_HEIGHT`,
+## pinned to the bottom of whichever strip the orientation reserves -- the
+## bottom-right corner in landscape, the bottom band in portrait. It used to
+## run the whole height of the landscape column, and after the team status
+## panel took the top of that column (issue 113) what was left was twelve
+## lines. **The manager's ruling: twelve lines is already more than a player
+## reads mid-fight, so take the shorter log and move it.**
+##
+## The reservation in `BattleView.compute_layout` is unchanged and still the
+## full column, because the panel is in the top of it. **Measured before
+## touching it: at 1280x720 the arena is height-limited -- a 1095x870 fit into
+## a usable 1020x720 is 0.932 by width and 0.828 by height -- so the 260 px
+## column costs the arena nothing at all. Same at 844x390 (0.533 by width,
+## 0.448 by height).** Reclaiming the column would not have grown the arena by
+## a pixel; only the log's own size was ever on the table here.
 const LOG_WIDTH := 260.0
 const LOG_HEIGHT := 200.0
 const LOG_MARGIN := -20.0
@@ -43,25 +60,6 @@ var _label: RichTextLabel = null
 var _backdrop: ColorRect = null
 var _seam: ColorRect = null
 var _landscape := true
-
-## Issue 113: how far down the side strip the log starts, so the team status
-## panel can have the top of it.
-##
-## Landscape only, and the two orientations differ because the strips do: in
-## landscape the log is a full-height column on the right and the panel shares
-## it, in portrait the log is a bottom band and the panel is nowhere near it.
-##
-## Set once from `BattleView` with the panel's **maximum** height rather than
-## its current one. The panel grows a row when an engine is built and loses it
-## when the engine dies, and a log that slid up and down the screen every time
-## that happened would be worse than a shorter one.
-var _top_inset := 0.0
-
-func set_top_inset(px: float) -> void:
-	if is_equal_approx(px, _top_inset):
-		return
-	_top_inset = px
-	_apply_orientation()
 
 func _ready() -> void:
 	_backdrop = ColorRect.new()
@@ -104,43 +102,26 @@ func set_landscape(landscape: bool) -> void:
 	_landscape = landscape
 	_apply_orientation()
 
+## One box, two anchorings. It was two nine-line branches that differed only in
+## which preset and which pair of offsets they set, and the `_top_inset` the
+## landscape branch carried is gone with the full-height column it belonged to:
+## the log is pinned to the bottom now, so nothing has to be told where the team
+## status panel ends.
+##
+## The seam is the box's own top edge in both orientations. That is the edge
+## facing the fight -- the arena is above the log in landscape and in portrait
+## alike -- and it is what says the transition is deliberate rather than the
+## backdrop's translucent edge fading out over the arena's boundary.
 func _apply_orientation() -> void:
-	if _landscape:
-		_backdrop.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-		_backdrop.offset_left = LOG_MARGIN - LOG_WIDTH
-		_backdrop.offset_right = LOG_MARGIN
-		_backdrop.offset_top = _top_inset
-		_backdrop.offset_bottom = 0.0
-
-		_seam.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-		_seam.offset_left = LOG_MARGIN - LOG_WIDTH
-		_seam.offset_right = LOG_MARGIN - LOG_WIDTH + 2.0
-		_seam.offset_top = _top_inset
-		_seam.offset_bottom = 0.0
-
-		_label.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-		_label.offset_left = LOG_MARGIN - LOG_WIDTH
-		_label.offset_right = LOG_MARGIN
-		_label.offset_top = _top_inset
-		_label.offset_bottom = 0.0
-	else:
-		_backdrop.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_backdrop.offset_top = LOG_MARGIN - LOG_HEIGHT
-		_backdrop.offset_bottom = LOG_MARGIN
-		_backdrop.offset_left = 0.0
-		_backdrop.offset_right = 0.0
-
-		_seam.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_seam.offset_top = LOG_MARGIN - LOG_HEIGHT
-		_seam.offset_bottom = LOG_MARGIN - LOG_HEIGHT + 2.0
-		_seam.offset_left = 0.0
-		_seam.offset_right = 0.0
-
-		_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_label.offset_top = LOG_MARGIN - LOG_HEIGHT
-		_label.offset_bottom = LOG_MARGIN
-		_label.offset_left = 0.0
-		_label.offset_right = 0.0
+	var preset := Control.PRESET_BOTTOM_RIGHT if _landscape else Control.PRESET_BOTTOM_WIDE
+	for node in [_backdrop, _seam, _label]:
+		# set_anchors_preset resets the offsets, so they go on afterwards.
+		node.set_anchors_preset(preset)
+		node.offset_top = LOG_MARGIN - LOG_HEIGHT
+		node.offset_bottom = LOG_MARGIN
+		node.offset_left = LOG_MARGIN - LOG_WIDTH if _landscape else 0.0
+		node.offset_right = LOG_MARGIN if _landscape else 0.0
+	_seam.offset_bottom = _seam.offset_top + 2.0
 
 func append_event(state: CombatState, event: CombatEvent) -> void:
 	var line := line_for_event(state, event)

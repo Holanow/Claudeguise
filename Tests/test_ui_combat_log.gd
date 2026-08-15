@@ -18,17 +18,24 @@ const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 ## that proves "a hit landed small because it was mitigated" is readable, not
 ## just "a number changed".
 
-## Issue 29: the log is a side column in landscape and a bottom strip in
+## Issue 29: the log is on the right in landscape and along the bottom in
 ## portrait, matching whichever orientation BattleView.compute_layout fit
 ## the arena against — the same rule (size.x >= size.y), so the reservation
 ## and what's actually drawn never disagree.
-func test_landscape_docks_the_log_to_the_right_edge() -> void:
+##
+## **`anchor_top` was 0.0 here and is 1.0 now, and that is the assertion this
+## test was written to make rather than an incidental one.** It said the log runs
+## the full height of the right-hand column, which was true from issue 29 until
+## PLAYTEST-NOTES-2 item 8 — *"the log is too large, move it to a bottom corner"*
+## — landed. Changed rather than deleted: which edges the log is docked to is
+## still exactly what belongs here, and the corner is two edges instead of three.
+func test_landscape_docks_the_log_to_the_bottom_right_corner() -> void:
 	var view := CombatLogView.new()
 	view._ready()
 	view.set_landscape(true)
 	assert_eq(view._backdrop.anchor_left, 1.0)
 	assert_eq(view._backdrop.anchor_right, 1.0)
-	assert_eq(view._backdrop.anchor_top, 0.0)
+	assert_eq(view._backdrop.anchor_top, 1.0)
 	assert_eq(view._backdrop.anchor_bottom, 1.0)
 	view.free()
 

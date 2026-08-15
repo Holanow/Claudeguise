@@ -277,48 +277,88 @@ func test_a_party_that_summons_nothing_never_grows_a_row() -> void:
 	battle.free()
 
 ## The panel is drawn in the strip the log already reserves, so the arena is not
-## made smaller to describe itself. The consequence is that the log starts
-## further down, and that is asserted rather than assumed: the log's own inset
-## has to equal where the panel ends.
-func test_the_panel_sits_in_the_reserved_strip_and_the_log_starts_below_it() -> void:
+## made smaller to describe itself. Since notes item 8 the log is a fixed box in
+## the bottom corner of that same strip, so the two share a column and must not
+## meet in it -- asserted in real viewport pixels rather than from the constants,
+## because a constant is exactly what was wrong the last time this panel shipped
+## a wrong height into a screenshot.
+func test_the_panel_and_the_log_share_the_column_without_meeting() -> void:
 	var battle := _battle()
 	assert_almost_eq(
 		battle._team_status.offset_right - battle._team_status.offset_left,
 		TeamStatusView.PANEL_WIDTH, 0.5)
 	assert_almost_eq(TeamStatusView.PANEL_WIDTH, CombatLogView.LOG_WIDTH, 0.5,
 		"the panel is the width of the column it shares, or the two edges nearly agree and read as a mistake")
+
+	# The log hangs off the bottom edge, the panel off the top, so what is left of
+	# the column is the gap between them. It holds only while the column is tall
+	# enough, and **the column's height is not a constant** -- it is whatever the
+	# stretch reports for the window the player opened, which is why this walks
+	# real window sizes through the real stretch rule instead of asserting 720.
+	var BattleView := load("res://Scripts/UI/BattleView.gd")
+	var panel_bottom: float = battle._team_status.offset_bottom
+	for window in [Vector2(1280.0, 720.0), Vector2(844.0, 390.0), Vector2(1920.0, 1080.0),
+			Vector2(1000.0, 800.0), Vector2(800.0, 800.0), Vector2(3440.0, 1440.0)]:
+		var view := _viewport_for(window)
+		assert_true(view.x >= view.y, "%.0fx%.0f is not landscape, so this row proves nothing" % [window.x, window.y])
+		var log_top: float = BattleView.log_box_top(view)
+		assert_true(panel_bottom < log_top,
+			"a %.0fx%.0f window is %.0fx%.0f logical: the panel ends at %.0f and the log starts at %.0f" % [
+				window.x, window.y, view.x, view.y, panel_bottom, log_top])
 	battle.free()
 
-## Portrait puts the log along the bottom, where the panel is nowhere near it,
-## so the inset must go back to zero rather than staying set from the last
-## orientation. Landscape and portrait are checked in that order on purpose --
-## the bug this catches is a stale value, which only appears on the second call.
-func test_the_log_inset_is_landscape_only() -> void:
-	var BattleView := load("res://Scripts/UI/BattleView.gd")
-	assert_true(BattleView.log_top_inset(Vector2(1280.0, 720.0)) > TeamStatusView.MAX_PANEL_HEIGHT,
-		"landscape shares the side column, so the log has to start below the panel")
-	assert_almost_eq(BattleView.log_top_inset(Vector2(390.0, 844.0)), 0.0, 0.001,
-		"portrait docks the log along the bottom, where the panel is nowhere near it")
+## The engine's own `canvas_items` + `expand` arithmetic, off the base viewport
+## in `project.godot`: whichever axis has the smaller window/base ratio is pinned
+## to the base and the other expands. Checked against a real launch rather than
+## taken from the documentation -- 844x390 reports 1558x720, and 390x844 reports
+## 1280x2770, both of which this reproduces.
+##
+## It is here rather than in `BattleView` because nothing in the game needs it:
+## Godot answers `get_viewport_rect()` directly. Only a test that wants to know
+## what a window the harness cannot open would have reported needs to derive it.
+func _viewport_for(window: Vector2) -> Vector2:
+	var base := Vector2(
+		float(ProjectSettings.get_setting("display/window/size/viewport_width")),
+		float(ProjectSettings.get_setting("display/window/size/viewport_height")))
+	var scale: float = minf(window.x / base.x, window.y / base.y)
+	return window / scale
 
+## The whole of notes item 8: *"The log is too large. Move it to a bottom
+## corner, out of the way."* A box in a corner, not a column and not a full-width
+## band, and the same box in both orientations -- portrait's band is full width
+## by design, which is the one difference.
+##
+## Landscape and portrait are checked in that order on purpose: the bug this
+## shape of code produces is a stale offset from the previous orientation, and it
+## only ever appears on the second call.
+func test_the_log_is_a_box_in_the_bottom_corner() -> void:
 	var log_view := Control.new()
 	log_view.set_script(CombatLogView)
 	log_view._ready()
 
 	log_view.set_landscape(true)
-	log_view.set_top_inset(300.0)
-	assert_almost_eq(log_view._label.offset_top, 300.0, 0.5)
+	for node in [log_view._backdrop, log_view._label]:
+		assert_almost_eq(node.offset_bottom, CombatLogView.LOG_MARGIN, 0.5,
+			"the log hangs off the bottom edge")
+		assert_almost_eq(node.offset_bottom - node.offset_top, CombatLogView.LOG_HEIGHT, 0.5,
+			"the log is a fixed height, not everything below the panel")
+		assert_almost_eq(node.offset_right - node.offset_left, CombatLogView.LOG_WIDTH, 0.5,
+			"landscape pins it to the right-hand corner, one column wide")
+		assert_eq(node.anchor_top, 1.0, "anchored to the bottom, so the box does not stretch")
+		assert_eq(node.anchor_left, 1.0, "anchored to the right, so the box does not stretch")
 
 	log_view.set_landscape(false)
-	log_view.set_top_inset(0.0)
 	assert_almost_eq(log_view._label.offset_top, CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT, 0.5,
-		"portrait docks the log along the bottom and must not carry a landscape inset into it")
+		"portrait docks the log along the bottom and must not carry a landscape offset into it")
+	assert_eq(log_view._label.anchor_left, 0.0,
+		"portrait's band is full width -- width is the scarce dimension there, not height")
+	assert_almost_eq(log_view._label.offset_left, 0.0, 0.5)
 	log_view.free()
 
 ## The panel is bounded. A fight that puts six units on the player's side must
-## not produce a column taller than the space reserved for it, and the log's own
-## inset is computed from that bound rather than from the current height, so the
-## log cannot slide up and down as engines come and go.
-func test_the_panel_never_exceeds_the_height_the_log_was_inset_by() -> void:
+## not produce a column taller than the space reserved for it, which is what the
+## test above measures the log's clearance against.
+func test_the_panel_never_exceeds_the_height_reserved_for_it() -> void:
 	var battle := _battle()
 	battle.begin(_config([&"siege_master", &"warrior", &"priest", &"geysermancer"], &"floor1_room1", 3))
 	var panel = battle._team_status
@@ -328,13 +368,14 @@ func test_the_panel_never_exceeds_the_height_the_log_was_inset_by() -> void:
 		tallest = maxf(tallest, panel.panel_height())
 	assert_true(tallest > 0.0, "the panel measured zero high, so this assertion saw nothing")
 	assert_true(tallest <= TeamStatusView.MAX_PANEL_HEIGHT,
-		"the panel reached %.0f in a real fight and the log was only moved down %.0f" % [tallest, TeamStatusView.MAX_PANEL_HEIGHT])
+		"the panel reached %.0f in a real fight and only %.0f is reserved for it" % [tallest, TeamStatusView.MAX_PANEL_HEIGHT])
 	battle.free()
 
 ## **The pair of assertions that would have caught the defect this panel already
 ## shipped into a screenshot once.**
 ##
-## `MAX_PANEL_HEIGHT` is the number the combat log is moved down by. The first
+## `MAX_PANEL_HEIGHT` is the height of column the panel is given, and the number
+## the log's own box is sized against (`BattleView.log_box_height`). The first
 ## version derived it from constants, with a text line at 18 px because an
 ## `IconChip` is 18 px square -- and a `Label` at `FONT_SIZE_SMALL` will not go
 ## below 23, so a pawn row was really 72 rather than 66, the panel overran the
