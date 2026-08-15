@@ -42,6 +42,20 @@ class Feature extends RefCounted:
 	var damage_per_tick: int = 0
 	var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
+	## A status applied to a unit standing in this feature. The player's tar
+	## pit: terrain that slows rather than hurts.
+	##
+	## `applies_status_enabled` rather than a sentinel, because `CG.Status.SHIELD`
+	## is 0 and would make "no status" and "shield" the same value. `ActionDef`
+	## already carries the pair for the same reason.
+	##
+	## Off for every feature that exists today, so nothing changes until content
+	## sets it — and the rate feeds the shared rng, so an accidental default
+	## would move every fight rather than only the afflicted ones.
+	var applies_status: CG.Status = CG.Status.SHIELD
+	var applies_status_enabled: bool = false
+	var status_duration_ticks: int = 0
+
 	func blocks_movement() -> bool:
 		return kind == Kind.WALL or kind == Kind.PIT
 
