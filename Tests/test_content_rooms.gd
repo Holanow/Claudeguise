@@ -8,6 +8,7 @@ const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
+const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Issue #94: the four rooms a player picks between, and the properties that
 ## make them four rooms rather than four skins. OWNER: heron.
@@ -21,8 +22,17 @@ const Terrain := preload("res://Scripts/Core/Terrain.gd")
 ## precisely because they cannot be run: "these four rooms are comparable to
 ## each other" is a property of the authoring, not of any one fight.
 
-## The four the picker offers. `floor1_horde`, `floor1_ghoul_den` and
+## The four rooms #94 built. `floor1_horde`, `floor1_ghoul_den` and
 ## `floor1_warden` stay registered and are deliberately not in this list.
+##
+## **This comment used to say "the four the picker offers" and there is no
+## picker.** Issue #176. `PartySelect.current_config()` hardcodes
+## `CG.DEFAULT_ENCOUNTER`, so a player fights `floor1_room1` and only ever
+## `floor1_room1`; the other three, and every specialty enemy and piece of
+## terrain in them, cannot be reached through the game at all. The name of
+## this constant is now a statement of intent rather than of fact, and
+## `test_only_one_pickable_room_can_actually_be_reached` below is what will
+## tell whoever fixes it that this file needs re-reading.
 const PICKABLE: Array[StringName] = [
 	&"floor1_room1",
 	&"floor1_cover",
@@ -96,6 +106,53 @@ func _without_terrain(enc: Encounter) -> Encounter:
 	e.party_spawns = enc.party_spawns
 	e.terrain = []
 	return e
+
+
+## **EVERY OTHER TEST IN THIS FILE MEASURES A ROOM A PLAYER CANNOT REACH, and
+## this is the one that says so out loud. Issue #176.**
+##
+## `PartySelect.current_config()` is the only path from a player to a fight and
+## it hardcodes `CG.DEFAULT_ENCOUNTER`. There is no room picker anywhere in
+## `Scripts/UI` or `Scenes`, so `floor1_cover`, `floor1_hazard` and
+## `floor1_chokepoint` -- the Stalker, the Rats and BLEED, the Brute and the
+## game's only STUN source, and the tar pit that is the game's only terrain
+## status -- cannot be selected in any session.
+##
+## **This drives the real screen rather than reading the source**, which is the
+## entire point: the defect is invisible to every other test here precisely
+## because they all fetch an `Encounter` from the `Registry` and hand it to
+## `CombatSim`. "Does this room work" and "can anyone reach this room" are
+## different questions and only the first was ever asked. I wrote most of those
+## tests and named their constant `PICKABLE`.
+##
+## **It asserts the defect, and it is built to fail the day the defect is
+## fixed.** That is deliberate and it is the pattern swift used on me twice in
+## #130, both times correctly: an assertion that names the next action beats a
+## comment that rots. When a picker lands this goes red, and whoever is holding
+## it then has to come back to this file and check that all four rooms really
+## do reach a fight -- through the controls, not through `current_config()` in
+## isolation.
+##
+## **Delete it when that happens. Do not loosen it.**
+func test_only_one_pickable_room_can_actually_be_reached() -> void:
+	var screen := PartySelect.new()
+	var reachable := {}
+	# The screen is the producer of every RunConfig the game ever fights. Party
+	# and seed do not affect which room it names, so an empty party is enough
+	# and keeps this out of Registry content.
+	reachable[screen.current_config().encounter_id] = true
+	screen.free()
+
+	var unreachable: Array[StringName] = []
+	for id in PICKABLE:
+		if not reachable.has(id):
+			unreachable.append(id)
+	print("pickable rooms a player can actually select: %s; unreachable: %s" % [reachable.keys(), unreachable])
+
+	assert_eq(unreachable.size(), 3,
+		"ISSUE #176. If this is 0 a room picker exists: verify all four rooms reach a real fight through the controls, then DELETE this test rather than loosening it. If it is 1 or 2 something partial shipped. If it grew past 3, PICKABLE gained a room with no way to reach it.")
+	assert_true(reachable.has(CG.DEFAULT_ENCOUNTER),
+		"the one room a player can reach should be the default one, not whatever sorts first -- issue 32")
 
 
 ## **The headcount rule, and it is the reason any other number in this file
