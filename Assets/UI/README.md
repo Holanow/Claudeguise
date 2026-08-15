@@ -71,6 +71,7 @@ is coming rather than only that something is.
 `action/goblin_stab.png`, `action/goblin_arrow.png`, `action/archer_shot.png`,
 `action/ghoul_maul.png`, `action/grunt_smash.png`, `action/cultist_bolt.png`,
 `action/spotter_mark.png`, `action/brute_slam.png`, `action/rat_bite.png`,
+`action/rat_king_lash.png`,
 `action/stalker_dart.png`, `action/stalker_mark.png`,
 `action/warden_axe.png`, `action/warden_chain_toss.png`
 
