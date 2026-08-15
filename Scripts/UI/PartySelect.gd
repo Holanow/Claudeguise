@@ -116,6 +116,7 @@ const ROOM_ORDER: Array[StringName] = [
 	&"floor1_hazard",
 	&"floor1_chokepoint",
 	&"floor1_rat_king",
+	&"floor1_warden",
 ]
 
 ## Registered encounters the picker deliberately does not offer, with the
@@ -124,8 +125,9 @@ const ROOM_ORDER: Array[StringName] = [
 ## **THE RULE, written down because the next boss hits the same fork.** Offer any
 ## room whose point is a fight and which nothing else can reach. Exclude tuning
 ## fixtures, which the tools fight directly and a player has no reason to meet.
-## Exclude the floor's terminal boss, whose point is *arrival* rather than the
-## fight itself.
+## It used to exclude the floor's terminal boss as well, whose point is *arrival*
+## rather than the fight itself; see the ruling below for why that half is
+## suspended and when it comes back.
 ##
 ## The Rat King is offered on that rule: **nothing about runs exists yet**, so
 ## "a single fight you can pick" and "a miniboss you progress to" are not two
@@ -133,15 +135,19 @@ const ROOM_ORDER: Array[StringName] = [
 ## the King, the rats, BLEED stacking and sable's silhouette unreachable, which
 ## is the exact failure #176 existed to end.
 ##
-## **`floor1_warden` is the one deliberate inconsistency and I am naming it
-## rather than letting it read as an oversight.** It is unreachable too, for the
-## same missing run structure. It stays excluded because it is the only content
-## on the floor whose whole meaning is that you got there, and offering it off a
-## menu spends that once and for free. **rook: if you would rather the rule were
-## simply "everything reachable", say so and it is one line** -- I would rather
-## be told than decide the boss's meaning on my own.
+## **The terminal-boss half of the rule is suspended, by the player's ruling on
+## #194: "if the warden is done and ready to go I see no reason not to make it
+## playable".** The reasoning it overrules -- that offering the floor boss off a
+## menu spends its arrival once and for free -- is not wrong; it is beaten by the
+## simpler fact that **there is no floor to arrive at.** The Warden is the
+## most-measured content in this game and no player has ever fought it, which is
+## #176's failure again with a better excuse attached.
+##
+## **The exclusion returns when runs exist.** Keep this paragraph and move
+## `floor1_warden` back into `NOT_OFFERED` on the day a player can reach it by
+## progressing. Until then the rule reads: offer any room whose point is a fight
+## and which nothing else can reach; exclude tuning fixtures only.
 const NOT_OFFERED := {
-	&"floor1_warden": "the floor boss, whose point is arriving at it -- revisit when runs exist",
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
 }
