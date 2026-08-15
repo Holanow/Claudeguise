@@ -20,7 +20,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## different:
 ##
 ##   floor1_room1       open ground, no terrain      the baseline
-##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker
+##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker, rats
 ##   floor1_hazard      three burn bands, two lanes  ghouls, goblins, a Brute
 ##   floor1_chokepoint  pits, one land bridge        room1's exact roster
 ##
@@ -226,8 +226,8 @@ static func _the_chokepoint() -> Encounter:
 ## are the only things that vary and neither is confounded by headcount.
 ##
 ## The roster is the room's other half. Nearly every fight in the game is
-## goblins; this one is a shooting gallery -- three archers, a Stalker and
-## three cultists behind three goblins. **The fourth archer became the Stalker
+## goblins; this one is a shooting gallery -- one archer, a Stalker and
+## three cultists behind three goblins and two rats. **The fourth archer became the Stalker
 ## in issue #121**; every measurement in the table below was taken with four
 ## archers, and the after-column is in that PR rather than rewritten in here,
 ## because a tuning table is a record of what was tried and not a description
@@ -285,11 +285,47 @@ static func _the_cover_room() -> Encounter:
 		## original premise: the pillars **help the party**, by +12 to +18
 		## points of finishing health for three of the five parties. A
 		## colonnade is cover for whoever is walking through it.
+		## **Issue #130: two of the three archers are rats. Headcount stays at
+		## ten (#94), so this is a swap.**
+		##
+		## **Two placements were measured and rejected before this one, and both
+		## failures are the interesting part.**
+		##
+		## `floor1_hazard`'s two clear lanes, on the argument that the fastest
+		## enemy in the game takes the gap the fire leaves. **It does not.**
+		## `DefaultBehavior` has no hazard avoidance, so a rat walks the straight
+		## line like everything else. Both rats died on tick 48 and tick 68 of
+		## every seed, one to the fire with no action id on its death event, and
+		## `rat_bite` fired **once in twenty fights**. 20 hp against 2 damage a
+		## tick is ten ticks of standing in it -- which I had written down as the
+		## reason for the lanes without checking that anything routes around fire.
+		## The burn room cannot hold a 20 hp enemy at all.
+		##
+		## Then this room's goblin rank, which **stalled it**: `no_abomination`
+		## ended unresolved at the 3600-tick cap on 2 of 6 seeds. The three
+		## goblins are load-bearing for more than their damage -- the roster table
+		## below chose them to stop the fight settling back at the colonnade,
+		## where `DefaultBehavior`'s hysteresis-free approach/kite pair cycles
+		## forever. Rats die too fast to replace that pressure.
+		##
+		## So the goblin rank is untouched and the rats take two of the three
+		## archers. Zero stalls in 120 fights across all four pickable rooms.
+		##
+		## **The cost, stated rather than buried: this weakens what the colonnade
+		## is for.** The pillars act on ranged enemies, and this removes two of
+		## them. `test_the_colonnades_pillars_are_not_decoration` measures the
+		## total pillar effect across the five buildable parties at **35 points,
+		## down from 56**, and the largest single effect at 18, down from 22.
+		## Still well clear of a room of paint, which measures 0, and still the
+		## invariant that test guards -- but a room cannot be both the shooting
+		## gallery and the swarm, and I would rather rook ruled on that than have
+		## me quietly spend the room's identity on a bleed source. **Balance is
+		## frozen: this is reported, not tuned.**
 		{"enemy_id": &"goblin", "position": Vector2(110.0, -170.0)},
 		{"enemy_id": &"goblin", "position": Vector2(120.0, 0.0)},
 		{"enemy_id": &"goblin", "position": Vector2(110.0, 170.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(250.0, -225.0)},
-		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, -85.0)},
+		{"enemy_id": &"rat", "position": Vector2(250.0, -225.0)},
+		{"enemy_id": &"rat", "position": Vector2(260.0, -85.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, 85.0)},
 		## **Issue #121: the Stalker takes the fourth archer's place, and the
 		## headcount rule is why it is a swap rather than an addition.** Ten

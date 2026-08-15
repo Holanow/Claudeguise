@@ -574,7 +574,6 @@ func test_every_reachable_action_has_an_icon() -> void:
 ## that the excuse still applies cannot.
 const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #162. Delete this one the same time that branch merges.
-	&"rat_bite": "issue 130, heron, PR #162",
 	# heron's #148. Delete these three the same time that branch merges.
 }
 

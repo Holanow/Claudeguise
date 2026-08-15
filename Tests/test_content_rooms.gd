@@ -203,6 +203,49 @@ func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
 
 
+## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
+##
+## `test_combat_bleed_is_live.gd::test_no_authored_action_applies_bleed_yet`
+## asserted that nothing in the game applied BLEED and said the day it failed
+## was the day to re-measure. `rat_bite` failed it. That file builds arenas by
+## hand and cannot run a room, so the replacement lives here: real fights, real
+## rats, counted out of `state.events`.
+##
+## **Stacks, not applications, is the whole point of the check.** A bleed that
+## refreshed instead of stacking would emit exactly the same number of
+## `STATUS_APPLIED` events and be a completely different mechanic, so counting
+## applications would pass against the thing #130 exists to rule out. The stack
+## count rides on `STATUS_APPLIED.amount`, and what this asserts is that a
+## single pawn is seen carrying **several at once**.
+##
+## Measured floors, not aspirational ones: the peak stack on one pawn across
+## these fights is in the doc of the pull request, and the floor here is 3 --
+## enough that a refresh-only mechanic cannot reach it, with margin, per board
+## rule 4.
+func test_the_rats_bleed_stacks_on_a_real_pawn() -> void:
+	var enc := Registry.get_encounter(&"floor1_cover")
+	var rats := 0
+	for spawn in enc.enemy_spawns:
+		if spawn.get("enemy_id", &"") == &"rat":
+			rats += 1
+	assert_eq(rats, 2, "floor1_cover should field the two rats this test measures")
+
+	var peak := 0
+	var applications := 0
+	var fights := 0
+	for ids in _buildable_parties():
+		for seed in 4:
+			var state := _run(_pawns(ids, seed), enc, seed)
+			fights += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.STATUS_APPLIED and e.action_id == &"rat_bite":
+					applications += 1
+					peak = maxi(peak, e.amount)
+	print("floor1_cover over %d fights: rat_bite landed %d times, peak stack on one pawn %d" % [fights, applications, peak])
+	assert_true(applications >= 20, "the rats should bite repeatedly across %d fights, landed %d" % [fights, applications])
+	assert_true(peak >= 3, "BLEED should stack rather than refresh; the most any pawn carried at once was %d" % peak)
+
+
 ## **Issue #121's Stalker, and the honest half of it.**
 ##
 ## What is asserted is that the mark reaches the game at all. What is *not*
