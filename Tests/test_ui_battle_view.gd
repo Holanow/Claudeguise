@@ -4,6 +4,7 @@ const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
+const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
 const BattleView := preload("res://Scripts/UI/BattleView.gd")
 
 ## BattleView reads CombatEvent, never polls CombatUnit for "what happened".
@@ -72,6 +73,12 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 	view.event_cursor = 0
 	view._arena = Node2D.new()
 
+	# Issue 136 defaults the numbers off. Turned on here because this test is
+	# specifically about a poison tick STILL producing a floater while the log
+	# drops its line -- with them off it would pass by drawing nothing, which is
+	# the opposite of what it was written to catch.
+	DisplayOptions.set_enabled(&"damage_numbers", true)
+
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
 	e.source_id = -1
 	e.target_id = 1
@@ -88,5 +95,6 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 	# but the count itself had to move with the new visual.
 	assert_eq(view._arena.get_child_count(), 2,
 		"a poison tick must still spawn a floating number (plus its impact flash) even though the log line is dropped")
+	DisplayOptions.reset()
 	view._arena.free()
 	view.free()

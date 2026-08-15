@@ -9,6 +9,8 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
+const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
@@ -43,6 +45,7 @@ var _party_label: Label = null
 var _encounter_label: Label = null
 var _seed_label: Label = null
 var _outcome_label: Label = null
+var _display_options: Control = null
 var _pause_button: Button = null
 
 var _party_summary_fill: ColorRect = null
@@ -180,6 +183,25 @@ func _build_top_bar() -> void:
 	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	back_button.pressed.connect(func(): back_requested.emit())
 	controls.add_child(back_button)
+
+	# Issue 136. On the control row beside Pause, because the point of turning
+	# the numbers off is to change what you are looking at while you are looking
+	# at it -- a display toggle on a menu screen would be the wrong control
+	# however tidy it looked there.
+	var view_button := Button.new()
+	view_button.text = "What to show"
+	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+	view_button.pressed.connect(func(): _display_options.toggle_visible())
+	controls.add_child(view_button)
+
+	_display_options = Control.new()
+	_display_options.set_script(DisplayOptionsPanelScript)
+	hud.add_child(_display_options)
+	if not _display_options.is_inside_tree():
+		_display_options._ready()
+	# Under the control row it belongs to. Issue 145 taught me to add_child
+	# before any manual _ready(), or the engine runs a second one.
+	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
 
 ## Issue 19: the outcome is the payoff of the whole fight and used to show as
 ## a small toolbar label — same weight as "Seed 0000002A". This is the
@@ -623,7 +645,21 @@ func _floater_stagger_offset(base_position: Vector2) -> Vector2:
 	var step := float((count + 1) / 2) * _FLOATER_STAGGER_STEP
 	return Vector2(side * step, 0.0)
 
+## Issue 136: off by default, and the guard is here rather than at the call site
+## so nothing can spawn a damage number without passing it.
+##
+## **This is the first thing anyone has proposed removing from this screen.**
+## swift measured 861 of 1556 damage events in a real fight as damage-over-time
+## ticks -- a drain rather than a happening -- so most floaters were never hits
+## at all, and the log already carries every one with source, target, type and
+## mitigated-versus-raw. Nothing is lost by the default.
+##
+## Death markers, miss markers and impact flashes are deliberately NOT behind
+## this. They mark events a player has no other way to see at the moment they
+## happen; a damage number duplicates a log line.
 func _spawn_floater(e: CombatEvent) -> void:
+	if not DisplayOptions.enabled(&"damage_numbers"):
+		return
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
