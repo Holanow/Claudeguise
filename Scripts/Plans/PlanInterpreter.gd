@@ -37,9 +37,11 @@ const CONDITION_OPS := [
 	&"self_hp_below_fraction",
 	&"ally_below_hp_fraction",
 	&"self_resource_at_least",
+	&"self_resource_below",
 	&"enemy_in_range",
 	&"ally_has_harmful_status",
 	&"enemy_has_status",
+	&"enemy_lacks_status",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
@@ -48,6 +50,7 @@ const TARGETING_OPS := [
 	&"target_self",
 	&"target_ally_with_harmful_status",
 	&"target_enemy_with_status",
+	&"target_enemy_without_status",
 ]
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
@@ -100,9 +103,11 @@ const CONDITION_ARG_SHAPE := {
 	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
+	&"self_resource_below": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 10, "default": 100.0},
 	&"ally_has_harmful_status": {"kind": "none"},
 	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
+	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -384,6 +389,14 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return false
 		&"self_resource_at_least":
 			return unit.resource >= int(block.args.get("amount", 0))
+		## Issue 206: the mirror of the op above, and it exists because a Rage
+		## class needs to say "I cannot pay for my real ability yet". Strictly
+		## below, so `self_resource_at_least{n}` and `self_resource_below{n}`
+		## partition every value between them with no tick belonging to both or
+		## to neither -- a pair that overlapped would let two plans fire on the
+		## same tick and read to a player as the top one being ignored.
+		&"self_resource_below":
+			return unit.resource < int(block.args.get("amount", 0))
 		&"enemy_in_range":
 			var range_units := float(block.args.get("range", 0.0))
 			var nearest := _nearest(state, unit, _enemy_team(unit.team))
@@ -394,6 +407,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return _nearest_afflicted_ally(state, unit) != null
 		&"enemy_has_status":
 			return _nearest_enemy_with_status(state, unit, _status_arg(block)) != null
+		&"enemy_lacks_status":
+			return _nearest_enemy_without_status(state, unit, _status_arg(block)) != null
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -418,6 +433,9 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 		&"target_enemy_with_status":
 			var marked := _nearest_enemy_with_status(state, unit, _status_arg(block))
 			return marked.id if marked != null else -1
+		&"target_enemy_without_status":
+			var clean := _nearest_enemy_without_status(state, unit, _status_arg(block))
+			return clean.id if clean != null else -1
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
@@ -436,12 +454,16 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "an ally's hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
 		&"self_resource_at_least":
 			return "self resource at least %d" % int(args.get("amount", 0))
+		&"self_resource_below":
+			return "self resource below %d" % int(args.get("amount", 0))
 		&"enemy_in_range":
 			return "an enemy within %d units" % int(args.get("range", 0.0))
 		&"ally_has_harmful_status":
 			return "an ally has a harmful status"
 		&"enemy_has_status":
 			return "an enemy is %s" % _status_word(int(args.get("status", 0)))
+		&"enemy_lacks_status":
+			return "an enemy is not %s" % _status_word(int(args.get("status", 0)))
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
@@ -454,6 +476,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "the nearest ally with a harmful status"
 		&"target_enemy_with_status":
 			return "the nearest %s enemy" % _status_word(int(args.get("status", 0)))
+		&"target_enemy_without_status":
+			return "the nearest enemy that is not %s" % _status_word(int(args.get("status", 0)))
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
@@ -519,6 +543,21 @@ static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, sta
 	var best_dist := INF
 	for foe in state.living(_enemy_team(unit.team)):
 		if not foe.has_status(status):
+			continue
+		var d := unit.position.distance_to(foe.position)
+		if d < best_dist:
+			best_dist = d
+			best = foe
+	return best
+
+## Issue 206: the complement of `_nearest_enemy_with_status`, and the same
+## condition/targeting pair discipline -- one function so the two ops cannot
+## disagree about which enemy qualifies.
+static func _nearest_enemy_without_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := INF
+	for foe in state.living(_enemy_team(unit.team)):
+		if foe.has_status(status):
 			continue
 		var d := unit.position.distance_to(foe.position)
 		if d < best_dist:
