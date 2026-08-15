@@ -2,6 +2,7 @@ extends Control
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
@@ -66,10 +67,13 @@ const _EQUIP_PANEL_WIDTH := 260.0
 const _EQUIP_PANEL_TOP := 130.0
 
 func _ready() -> void:
-	var bg := ColorRect.new()
-	bg.color = Palette.BACKGROUND
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# Issue 237. One line instead of three, and the point is not the two lines:
+	# `Assets/UI/README.md` promises the player that dropping in
+	# `background/floor_map.png` (or `background.png` for every screen at once)
+	# re-skins this screen, and until this call existed it did nothing at all.
+	# With no file present `background_node` returns exactly the ColorRect this
+	# replaced, in exactly this colour, so nothing shipped changes.
+	add_child(UIArt.background_node(&"floor_map", Palette.BACKGROUND))
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
