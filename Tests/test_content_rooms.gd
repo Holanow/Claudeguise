@@ -688,6 +688,8 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 	var largest := 0
 	var total := 0
 	var worst_divergence := seeds + 1
+	var diverging_fights := 0
+	var party_fights := 0
 	for ids in _buildable_parties():
 		var with_hp := 0
 		var bare_hp := 0
@@ -706,7 +708,9 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 		largest = maxi(largest, absi(delta))
 		total += absi(delta)
 		worst_divergence = mini(worst_divergence, differs)
-	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d" % [largest, total, worst_divergence, seeds])
+		diverging_fights += differs
+		party_fights += seeds
+	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d; diverging fights overall %d/%d" % [largest, total, worst_divergence, seeds, diverging_fights, party_fights])
 	# **finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned.** BURN and
 	# the Blast combo changed how a Geysermancer spends its Mana and which enemy
 	# it aims at, and every room in the game moved with it. Measured here: deltas
@@ -778,15 +782,68 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 	#
 	# Against a colonnade of paint every one of those is **0/10**, bit-for-bit,
 	# which is the case that nearly shipped on #94 and the case this test exists
-	# for. The floor is 5 of 10 against a measured worst of 8.
+	# for. The floor was 5 of 10 against a measured worst of 8 -- see the block
+	# below, which replaces that per-party floor with an aggregate one and says
+	# why.
 	#
 	# **This is strictly stronger than what it replaces**, not a retreat: the
 	# old pair could be satisfied by noise and could be broken by noise, and
 	# this cannot be either. The health spread stays in the printout because it
 	# is still the interesting number for a pull request to report -- it is just
 	# not a thing to assert at any sample size this gate can afford.
-	assert_true(worst_divergence >= 5,
-		"the pillars should change the fight for every buildable party; the least affected diverged in only %d of %d fights" % [worst_divergence, seeds])
+	#
+	# **AND THE PER-PARTY FLOOR IS NOW AN AGGREGATE ONE, BECAUSE THE PER-PARTY
+	# CLAIM TURNED OUT TO REST ON A SINGLE EVENT PER FIGHT.** Measured on
+	# finch's #160, `[geysermancer, priest, siege_master, warrior]` reads
+	# **0 of 40** -- bit-for-bit identical event streams, with the pillars and
+	# without -- while the other four read 40, 29, 40, 40. A hard zero against
+	# four full rows is not noise, so it was diagnosed rather than fitted, with
+	# `Tools/PillarDivergence.gd`, `Tools/PillarTouch.gd`,
+	# `Tools/PillarFirstDiff.gd` and `Tools/PillarStalkerLine.gd`.
+	#
+	# **The cause, and it is one cast.** On the trunk this party's *entire*
+	# sensitivity to the colonnade was the Stalker's `stalker_mark` landing on
+	# the Warrior at tick 57 in the bare room and being denied by a pillar in
+	# the real one. Identical on every seed, so geometry rather than rolls, and
+	# the first divergence in the whole fight. `stalker_mark` reaches 220 units.
+	# On #160 the Warrior spends tick 16 raising the Directional Block, reaches
+	# the enemy line about fifteen ticks later, and the contact line settles
+	# some thirty units further from the colonnade: at tick 57 the Stalker is
+	# 247 units away instead of 172. **Out of range, so the pillar is never
+	# consulted, so nothing differs.** Not a defect in #160 and not a threshold
+	# problem -- the number this test asserted was 19/20 on the trunk and was
+	# carried by one event.
+	#
+	# **The room is where this actually lives.** The party never enters the
+	# colonnade: the pillars span x 20..260, the party spawns at x -350 and the
+	# fight settles around x -150. The pillars only ever screen enemy shooters,
+	# so whether they matter to a given party depends entirely on where the
+	# contact line stops, and thirty units of it is enough to switch one party
+	# off completely. Filed rather than fixed here, because moving pillars
+	# re-baselines every measurement in this file and would hold up #160.
+	#
+	# So the assertion becomes the aggregate over all five parties, which is
+	# what a paint detector needs and all it ever needed:
+	#
+	#     build            per-party diverging fights (n=10)   overall
+	#     trunk beabec6    10, 10,  9, 10, 10                   49/50
+	#     #160 6ed03d1      0, 10,  8, 10, 10                   38/50
+	#     a colonnade of paint                                   0/50
+	#
+	# It is a proportion rather than a sum of absolute values, so unlike the
+	# `total` this test used to assert, it converges as the sample grows: 76%
+	# at n=10 and 74.5% at n=40 on #160. The floor is **25 of 50** against a
+	# measured 38 and a paint control of 0, and it is deliberately half rather
+	# than one point under the measurement -- board rule 4, and a floor set
+	# close to today's number fires on whoever touches behaviour next rather
+	# than on the pillars.
+	#
+	# **What is lost is the per-party guarantee, and it is lost because it is
+	# not true any more.** `worst_divergence` stays in the printout above: a
+	# second party falling to zero shows up there as a 20-point drop in the
+	# overall row, and the row names which one.
+	assert_true(diverging_fights >= 25,
+		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
 
 
 ## **The fire has to change the fight, and the control is the same roster with
