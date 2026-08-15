@@ -454,19 +454,25 @@ func test_a_fight_with_no_sustained_action_emits_no_sustain_events() -> void:
 	assert_eq(state.unit(0).sustaining, &"", "and nothing is held")
 	assert_false(state.unit(0).has_status(CG.Status.SUSTAINING), "and no badge")
 
-func test_no_authored_action_is_sustained_yet() -> void:
-	# The mechanism lands with no content using it, exactly as projectiles,
-	# pulls and summons each did, so the balance movement stays a separate and
-	# attributable step. **When finch's Immolate lands this test fails**, and
-	# that is what it is for: it names the moment the numbers below start moving
-	# and hands it to whoever caused it.
+## **This tripwire fired, as swift built it to.** It used to assert that no
+## authored action was sustained and its own comment named the moment: *"when
+## finch's Immolate lands this test fails, and that is what it is for."* Issue
+## 219 is that moment, so the assertion is replaced with its live form rather
+## than deleted -- the property worth guarding was never "nothing is sustained",
+## it was "we know exactly what is".
+##
+## Exactly one, and it is named. A second sustained action is not forbidden, but
+## it changes what every measurement in the pull request that landed the first
+## one means, so it should arrive with somebody looking at this line.
+func test_immolate_is_the_one_authored_sustained_action() -> void:
 	var sustained: Array[StringName] = []
 	for id in Registry.all_action_ids():
 		if Registry.get_action(id).sustain_cost_per_tick > 0:
 			sustained.append(id)
-	assert_eq(
-		sustained.size(), 0,
-		"sustained actions now exist (%s) -- re-measure the room and update this test" % [sustained]
+	assert_eq(sustained.size(), 1, "sustained actions authored: %s" % [sustained])
+	assert_true(
+		sustained.has(&"abomination_immolate"),
+		"the sustained action should be Immolate, got %s" % [sustained]
 	)
 
 func test_a_sustained_action_is_authored_with_a_reach_and_without_a_cooldown() -> void:

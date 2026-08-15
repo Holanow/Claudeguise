@@ -454,6 +454,57 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"abomination_grapple_close", "Grapple",
 					_condition(&"enemy_in_range", {"range": 45.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_grapple")]),
+				## **Issue 219: Immolate, and this row is the only reason
+				## `SUSTAIN_START` and `SUSTAIN_END` ever happen.** swift built
+				## the channel in #61 and deliberately left every action inert;
+				## the two event kinds had rendered correct log lines and fired
+				## zero times in 100 fights ever since. Measured here, on
+				## `floor1_room1` over 120 seeds with `Tools/ImmolateWindow.gd`:
+				## **3.08 channels a fight, 15.5 ticks held, 8.6% of everything
+				## the party deals.**
+				##
+				## **THIRD, and the position is the whole design. I built it
+				## first and second and both were worse, so the order below is
+				## measured rather than argued.**
+				##
+				##   first, `self_resource_at_least` 35 -- 63.6% of charged aura
+				##     ticks reached NOBODY. A Rage floor does not know where the
+				##     enemy is, so the Abomination stood in the open burning air
+				##     and never closed: Grapple fell from 2.95 casts a fight to
+				##     **0.13**, and its own damage fell 41,049 to 36,579.
+				##   first, `enemy_in_range` 90 -- the waste goes to 11.1% and the
+				##     kit dies instead: Grapple **0.00**, Hook 7.49 -> 3.88, a
+				##     pawn lost every fight, damage 33,554. A channel that holds
+				##     whenever anything is near holds through the whole melee.
+				##   last -- the kit is untouched and the mechanism is not there:
+				##     **0.17 channels a fight**, twenty in a hundred and twenty.
+				##
+				## Third is the one that leaves all four alive: Claw still spreads
+				## poison, Grapple still takes every target inside its own 45, and
+				## Immolate takes the band between 45 and 90 -- close enough to
+				## burn, too far to grip. Claw 4.50, Grapple 2.04, Hook 6.26
+				## against 4.70 / 2.95 / 7.49 with the row removed.
+				##
+				## **What it still costs, stated rather than buried: 25.7% of
+				## charged ticks reach nobody, and the Abomination deals 2.9% less
+				## damage over a 4% longer fight.** A channel is the only thing in
+				## the game that stops a unit acting AND moving, and one condition
+				## per plan cannot say both "something is near" and "I can afford
+				## to stop".
+				##
+				## **And it is SHORT: 5.0 ticks a channel, a third of a second.**
+				## Grapple sits above it and takes the tick the instant anything
+				## reaches 45, so what a player sees is a flicker of the hourglass
+				## and two log lines, not a stance. That is the honest cost of
+				## keeping Grapple alive, and it is the trade to revisit first if
+				## the channel reads as noise on screen: above Grapple it holds
+				## about twice as long and Grapple stops happening.
+				##
+				## The player can move this row or delete it, which is the point of
+				## it being a row rather than a rule.
+				_plan(&"abomination_immolate_dump", "Immolate what is close but not gripped",
+					_condition(&"enemy_in_range", {"range": 90.0}),
+					[_targeting(&"target_self"), _action_block(&"abomination_immolate")]),
 				_plan(&"abomination_hook_far", "Hook",
 					_condition(&"enemy_in_range", {"range": 140.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_hook")]),
