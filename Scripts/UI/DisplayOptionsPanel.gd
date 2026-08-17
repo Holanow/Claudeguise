@@ -2,6 +2,7 @@ extends Control
 
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The one place display toggles are shown, built from `DisplayOptions.OPTIONS`.
 ##
@@ -81,10 +82,16 @@ func toggle_visible() -> void:
 		refresh()
 	visible = not visible
 
-func _panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.BACKGROUND
-	style.border_color = Palette.ARENA_EDGE
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(4)
+## Issue 268. Through `UIArt.panel_style`, so `Assets/UI/panel.png` re-skins
+## this panel the way the README has always claimed it does. With no file
+## present it is the identical `StyleBoxFlat` this built by hand.
+##
+## The rounded corner belongs to the fallback and not to the pipeline: a
+## nine-sliced PNG paints its own corners, and `StyleBoxTexture` has no corner
+## radius to set. Same rule as `PartyCard`'s selection ring -- what the
+## generated default draws is not automatically what a dropped-in picture must.
+func _panel_style() -> StyleBox:
+	var style := UIArt.panel_style(&"", Palette.BACKGROUND, Palette.ARENA_EDGE, 2)
+	if style is StyleBoxFlat:
+		style.set_corner_radius_all(4)
 	return style

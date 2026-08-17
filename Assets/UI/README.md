@@ -159,29 +159,18 @@ never reads it. This list is checked by a test, the same way the ability and
 item lists above are, so a screen added later cannot quietly acquire a name
 nobody could guess.
 
-### Not wired up yet
+<!-- pending:  -->
 
-**Backgrounds and borders now work.** `background.png` re-skins every screen,
-each screen's own file overrides it, and `panel_border.png` and `border/arena.png`
-do the same for borders. Drop a file in and the game changes.
+**Every name above works.** Two tests keep that true rather than a sentence
+doing it: one reads this file's specific names against the real call sites, and
+one reads its general names the same way. A name printed here that nothing asks
+for fails the build, and so does a file that nothing calls.
 
-**`panel.png` does nothing, and neither does `panel/inspect.png`.** No panel in
-the game asks for a style through this pipeline yet, so the row in the table
-above claiming `panel.png` re-skins every panel, card, tooltip and chip is a
-promise the game does not keep. Every one of those panels still builds its own
-style in code.
-
-<!-- pending: inspect -->
-
-This is a smaller gap than it reads as: panels are flat colour and a one-pixel
-border today, so there is not much for a file to replace. It is being fixed
-separately from the backgrounds because those panels carry rounded corners that
-the drop-in path cannot express yet, and swapping them over as they stand would
-change how every panel in the game looks with no file present at all.
-
-The test that keeps this list honest reads it against the real call sites, so
-this section cannot rot: wire the last name and the test fails until the section
-is deleted.
+**One panel is on purpose not in the set: the seed field on the party screen.**
+Its border is what tells you the seed is something you can type in, and a
+picture that made it look like every other panel would take that away. The same
+goes for anything else whose edge is saying more than "here is an edge" — see
+the section below.
 
 A border and a panel are **nine-sliced**: the corners are drawn at their own
 size and the edges stretch between them, so one file works for a small tooltip

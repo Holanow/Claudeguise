@@ -395,6 +395,16 @@ func _build_ui() -> void:
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like
 ## something you can edit".
+##
+## **Deliberately NOT routed through `UIArt.panel_style` by issue 268**, which
+## routed the other four hand-built styles in `Scripts/UI`. The README promises
+## `panel.png` re-skins "every panel, card, tooltip and chip" and this is none
+## of those: it is an input. Its border is carrying information — issue 17's
+## whole point is that it says *you can type here* — and a dropped-in `panel.png`
+## would draw it identically to every static panel on the screen and take that
+## away, which is the `PartyCard` rule and would look perfectly fine in a
+## screenshot. If the seed field is ever meant to be themable it needs its own
+## documented name, not the panel one.
 func _seed_box_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Palette.ARENA_FLOOR
