@@ -101,33 +101,58 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	# draws, so it is safe to set unconditionally: the polygon fallback below
 	# never draws a texture and is untouched by it.
 	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var scale := (radius * 2.0) / maxf(size.x, size.y)
-	var drawn := size * scale
-	# Issue 241. **A negative-width `Rect2` flips the texture but does not
-	# mirror it in place**: `draw_texture_rect` still lays it out rightward from
-	# `position.x`. The previous line was `drawn.x = -drawn.x` before building
-	# the rect, so `center - drawn * 0.5` moved the left edge to
-	# `center.x + width / 2` and the sprite landed **one full drawn width to the
-	# right of the unit**. Enemies face left, so every enemy in the game was
-	# drawn beside itself: measured at +65.5px for the Warden, +32.0 for a
-	# goblin, +49.0 for a mirrored Warrior (its file is 24x30, so a width and
-	# not a diameter is what moves). `Tools/FacingInk.gd` is the instrument and
-	# reports -0.5, -1.0 and +2.5 after this.
-	#
-	# That is what `PLAYTEST-FRESH-1` reported as "a lone cream bar attached to
-	# nothing" and what issue 241 filed as a bar offset. **The bar was never
-	# offset.** Nor was anything else a unit wears -- and nor were the targeting
-	# lines, impact rings, death markers and floaters that spawn at a unit's
-	# position, all of which have been pointing at empty floor beside an enemy.
-	#
-	# Keep the rect where it belongs and negate only the size. **Not
-	# `draw_set_transform`**, which also works and which the doc comment above
-	# rules out: it silently resets a caller's own transform, and `ArtPreview`
-	# rendering blank is how that was found the first time.
+	canvas.draw_texture_rect(tex, signed_rect(tex, radius, facing_left, center), false)
+
+## The rect `draw` hands to `draw_texture_rect`, signed: `size.x` is negative
+## when the sprite is mirrored. Split out of `draw` only so a test can assert
+## the arithmetic without a renderer -- the gate is headless and reads back
+## nothing, so the alternative was no guard at all.
+##
+## Issue 241, and the arithmetic is the whole of that bug. **A negative-width
+## `Rect2` mirrors the texture in place; it does not move it**: the rect still
+## covers `position.x` rightward for `abs(size.x)`. The previous version of
+## `draw` was `drawn.x = -drawn.x` *before* building the rect, so
+## `center - drawn * 0.5` put the left edge at `center.x + width / 2` and the
+## sprite landed **one full drawn width right of the unit**.
+##
+## Measured, and both halves of that sentence separately:
+##
+##   - `Rect2(pos.x=200, size.x=+160)` and `Rect2(pos.x=200, size.x=-160)` ink
+##     exactly the same columns, 200..359, and the second is the first
+##     reversed. So the negation mirrors and does not move.
+##   - `Tools/FacingInk.gd`, old code then new, px from the origin:
+##     the_warden `+65.5 -> -0.5`, goblin `+32.0 -> -1.0`, warrior
+##     `+49.0 -> +2.5`. The displacement is one *drawn width*, not a diameter,
+##     which is why the three numbers differ: `warrior.png` is 17x24, so at
+##     radius 33 its width is 46.75px and its height is the 66px diameter.
+##
+## The residual few px are the sprites' own asymmetry, not a leftover error:
+## mirroring reflects the opaque pixels about the file's centre, and
+## `warrior.png` sits one pixel left of it. Right-facing reads -3.5 and
+## left-facing +2.5 about the same -0.5.
+##
+## What was NOT wrong: the wind-up bar, the hp bar, the badge row, the name.
+## `PLAYTEST-FRESH-1`'s "lone cream bar attached to nothing" and issue 241 as
+## filed both blamed the chrome; every one of those is centred on the unit and
+## always was. Nothing anywhere compensated for the displacement, which is why
+## the one-line fix needed no second edit. The targeting lines, impact rings,
+## death markers and floaters that spawn at a unit's position were pointing at
+## empty floor beside the sprite.
+##
+## Since #256 `facing_left` follows `CombatUnit.facing`, not the team, so this
+## hit **any** unit while it faced left -- usually every enemy, and a player
+## pawn any time it turned around.
+##
+## **Not `draw_set_transform`**, which also works and which `draw`'s own doc
+## comment rules out: it silently resets a caller's established transform, and
+## `ArtPreview` rendering every real-art unit blank is how that was found.
+static func signed_rect(tex: Texture2D, radius: float, facing_left: bool, center: Vector2 = Vector2.ZERO) -> Rect2:
+	var size := Vector2(tex.get_width(), tex.get_height())
+	var drawn := size * ((radius * 2.0) / maxf(size.x, size.y))
 	var rect := Rect2(center - drawn * 0.5, drawn)
 	if facing_left:
 		rect.size.x = -drawn.x
-	canvas.draw_texture_rect(tex, rect, false)
+	return rect
 
 ## The rectangle `draw` above actually puts ink in, in the same local space it
 ## draws into: the texture's **opaque** pixels, not its file dimensions.
@@ -141,9 +166,25 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 ## only 20x8 of that opaque. Sizing a bar from 24x14 would fix a third of the
 ## error and look like it had fixed all of it.
 ##
-## `facing_left` is deliberately not a parameter. A mirrored sprite covers the
-## same box, and the one thing a caller would do with a signed width is
-## accidentally compute a negative bar width.
+## `facing_left` is deliberately not a parameter, and the reason is narrower
+## than the one written here before. A mirrored sprite has the same *size*, so
+## every caller today -- all of them read `size` through
+## `UnitView.drawn_half_width` / `drawn_top` / `drawn_bottom` -- is correct
+## either way, and a signed width is a bar width waiting to go negative.
+##
+## Its **position** does move. Mirroring reflects the opaque pixels about the
+## file's centre, so art whose ink is off-centre in its file shifts by twice
+## that offset: measured in file px, `abomination` +2.5, `cultist` +2.0,
+## `goblin_archer` +2.0, `siege_master` +2.0, `warrior` -1.0, `goblin` +0.5,
+## the other six exactly zero. At radius 33 the abomination's box is therefore
+## ~14px out when it faces left.
+##
+## No shipped code reads `position.x`. Two measurement tools do -- `BarClutter.
+## _body` and `WindUpOffset` -- so their horizontal body edges are off by that
+## much for a left-facing off-centre sprite, and by nothing at all for
+## `the_warden`, which is symmetric. If shipped code ever needs the position,
+## this function takes the parameter; a caller-side fudge would be the third
+## instance of the same error.
 static func opaque_rect(canvas_radius: float, tex: Texture2D, center: Vector2 = Vector2.ZERO) -> Rect2:
 	var size := Vector2(tex.get_width(), tex.get_height())
 	if size.x <= 0.0 or size.y <= 0.0:
