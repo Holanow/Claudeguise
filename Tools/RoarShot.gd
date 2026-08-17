@@ -24,9 +24,9 @@ const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 ## No --headless: `get_viewport().get_texture()` never populates under
 ## --headless on this machine.
 ##
-## **It does not prove the icon is right.** `brute_roar` has no `ActionIcons`
-## glyph yet -- sable's half, and the gate names it -- so whatever the log draws
-## beside the line is a placeholder.
+## **The icon is real now.** sable's `brute_roar` glyph merged into this branch,
+## so the mark beside the Abomination's bar in `finch_150_roar_lands.png` is the
+## TAUNTED arc-and-barb, not the placeholder this comment used to warn about.
 
 const OUT_DIR := "res://Screenshots"
 const SETTLE_FRAMES := 4
