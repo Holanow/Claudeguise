@@ -22,6 +22,12 @@ extends SceneTree
 ## reported floor1_room1 at 66 ally cleanses where the test sees 0. **I nearly
 ## picked a fixture off that number**, which is the "measurement answers a
 ## slightly different question" trap this project keeps paying for.
+##
+## **Issue 223, finch: `harmful` added beside `strips`, and `poisonings` kept.**
+## The supply assertion asks for a harmful status now rather than for POISON, so
+## `poisonings` no longer answers the question the test asks and reading it as if
+## it did is the same trap one paragraph up. `harmful` is that assertion,
+## per encounter: a room reading 0 there is a room the test would fail in.
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
@@ -35,11 +41,12 @@ const MAX_SEEDS := 24
 
 func _init() -> void:
 	print("")
-	print("%-22s %6s %8s %8s %9s %9s" % ["encounter", "seeds", "casts", "strips", "on_ally", "poisonings"])
+	print("%-22s %6s %8s %8s %8s %9s %9s" % ["encounter", "seeds", "casts", "strips", "harmful", "on_ally", "poisonings"])
 	for encounter_id in Registry.all_encounter_ids():
 		for seeds in [6, 12, 24, 48]:
 			var casts := 0
 			var strips := 0
+			var harmful := 0
 			var on_ally := 0
 			var poisonings := 0
 			for s in seeds:
@@ -53,10 +60,13 @@ func _init() -> void:
 							poisonings += 1
 					elif e.kind == CG.EventKind.STATUS_EXPIRED and e.source_id != -1 and e.action_id == &"geyser_cleanse":
 						strips += 1
+						if CG.is_harmful(e.status):
+							harmful += 1
 						if e.target_id != e.source_id:
 							on_ally += 1
-			print("%-22s %6d %8d %8d %9d %9d%s" % [
-				encounter_id, seeds, casts, strips, on_ally, poisonings,
+			print("%-22s %6d %8d %8d %8d %9d %9d%s%s" % [
+				encounter_id, seeds, casts, strips, harmful, on_ally, poisonings,
+				"   <- SUPPLY FAILS" if harmful == 0 else "",
 				"   <- ON_ALLY AT RISK" if on_ally <= 2 else "",
 			])
 	quit(0)

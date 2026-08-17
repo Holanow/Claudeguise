@@ -30,7 +30,7 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 ## single fight going a particular way.
 
 ## **Fixture headroom, and why both constants below moved (heron found this,
-## finch measured and fixed it).** `test_..._stripping_poison_from_an_ally`'s
+## finch measured and fixed it).** `test_..._stripping_harm_from_an_ally`'s
 ## `on_ally` count drifted **6 -> 2 -> 3 -> 1** across four builds with nobody
 ## touching this file, and on merged trunk it sat at **1** against an assertion
 ## needing more than zero. One more content change in any direction and it goes
@@ -209,12 +209,46 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 ## moved to `test_scour_strips_poison_specifically` below -- one hand-built pawn,
 ## one poison, one cast. Deterministic, so it cannot drift with fight geometry,
 ## which is what an emergent count over a room could never promise.
+##
+## **Issue 223: the player ruled on the widening this file already shipped, and
+## the fixture does not move an eighth time.** The ruling, verbatim -- *"The test
+## should accept 'removed any harmful status', there's no need to overcomplicate
+## it"*. That is what the supply assertion below already does, so this issue
+## changes no fixture and no game number. What it changes is the two things that
+## would misdirect the next person: the headroom detector's failure message,
+## which told you to raise SEEDS first, and `Tools/CleanseFixture.gd`, which
+## reported `poisonings` as though poison were still the supply this file asks
+## for.
+##
+## Re-measured on trunk (`d90ce86`), 24 seeds, `strips` / `harmful` / `on_ally`:
+##
+##     floor1_rat_king      70   70   69      floor1_chokepoint    35   35   20
+##     floor1_room1         48   48    0      floor1_cover         32   32    8
+##     floor1_hazard         3    3    3      ghoul_den/horde/warden  0  0  0
+##
+## **Three encounters strip nothing at any seed count, not four** -- I wrote four
+## on #223 and it is wrong; `floor1_hazard` strips 3, from the burn pit rather
+## than from poison. The correction does not change the conclusion: those three
+## fail the supply assertion exactly as they failed the POISON one.
+##
+## **And "raise SEEDS" is dead for a second room.** `floor1_room1` now reads 0
+## ally cleanses at 6, 12, 24 and 48, the same flatness `floor1_cover` showed at
+## 2. Sampling is not what these rooms are short of.
+##
+## **The cost of the ruling, stated once so nobody has to rediscover it:** no
+## fight anywhere exercises Scour against POISON. Only
+## `test_scour_strips_poison_specifically` does, and it is a hand-built two-pawn
+## scenario. That is deliberate -- poison being strippable is not a fact about a
+## room -- but it does mean a regression in poison's *supply* is now invisible to
+## this file.
 const SEEDS := 24
 const ENCOUNTER := &"floor1_rat_king"
 
 ## The margin `test_the_ally_cleanse_fixture_still_has_headroom` guards. Set well
-## below the measured 10 so ordinary content tuning does not trip it, and well
-## above 0 so the slide is caught long before the assertion it protects.
+## below the measured count (69 at issue 223) so ordinary content tuning does not
+## trip it, and well above 0 so the slide is caught long before the assertion it
+## protects. **Not raised to match the new headroom**: the floor asks "is this
+## fixture still measuring anything", which is the same question at 10 as at 69.
 const MIN_ALLY_CLEANSES := 4
 
 func _party() -> Array[PawnData]:
@@ -271,7 +305,7 @@ func _run(fight_seed: int) -> CombatState:
 ## falsify. Supply is asserted separately below, because "there was something to
 ## strip" is the thing this fixture actually depends on and it deserves to be
 ## said out loud rather than to hide inside an equality on a status id.
-func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> void:
+func test_a_real_fight_shows_a_geysermancer_stripping_harm_from_an_ally() -> void:
 	var strips := 0
 	var on_an_ally := 0
 	var by_status := {}
@@ -294,15 +328,19 @@ func test_a_real_fight_shows_a_geysermancer_stripping_poison_from_an_ally() -> v
 	assert_true(on_an_ally > 0, "the cleanse only ever scrubbed its own caster; the ability is for the party")
 	# **The supply, said plainly, because it is what the fixture rests on.** Every
 	# other assertion in this file is worthless if nothing in the room ever
-	# afflicts a pawn -- four of the seven encounters field no poison source at
-	# all and would pass every "never strips a buff" check by stripping nothing.
-	# The old POISON equality was guarding this by accident; now it is guarded on
-	# purpose, and it names the room rather than the whole game.
-	# Issue 160: a harmful status, not POISON specifically. See the header for the
-	# seven movements that forced it and for why this still fails on a room with
-	# nothing harmful in it -- `floor1_ghoul_den` and `floor1_horde` strip nothing
-	# at any seed count. The poison-specific claim lives in
-	# `test_scour_strips_poison_specifically` below, where it is deterministic.
+	# afflicts a pawn -- such a room passes every "never strips a buff" check by
+	# stripping nothing. The old POISON equality was guarding this by accident;
+	# now it is guarded on purpose, and it names the room rather than the whole
+	# game.
+	# Issue 160 widened it to any harmful status; issue 223 is the player's ruling
+	# confirming that ("the test should accept removed any harmful status"). **It
+	# still bites, re-measured on trunk at issue 223:** `floor1_ghoul_den`,
+	# `floor1_horde` and `floor1_warden` field nothing harmful and read 0 casts and
+	# 0 strips at 6, 12, 24 and 48 seeds, so each fails this line exactly as a
+	# poison-free room failed the old one. `Tools/CleanseFixture.gd`'s `harmful`
+	# column is this assertion, per encounter.
+	# The poison-specific claim lives in `test_scour_strips_poison_specifically`
+	# below, where it is deterministic.
 	var harmful := 0
 	for k in by_status.keys():
 		if CG.is_harmful(k):
@@ -349,11 +387,14 @@ func test_the_ally_cleanse_fixture_still_has_headroom() -> void:
 				on_an_ally += 1
 	assert_true(on_an_ally >= MIN_ALLY_CLEANSES,
 		("ally cleanses have fallen to %d over %d seeds of %s (floor %d). The fixture is "
-		+ "about to stop measuring anything. This count is driven by GEOMETRY, not by poison "
-		+ "supply -- the cleanse reaches 200 units and a spread-out party puts the afflicted "
-		+ "ally out of reach, which is why floor1_chokepoint scores 0 of 28 despite 249 "
-		+ "poisonings. Raise SEEDS, or repoint ENCOUNTER at a tighter room and re-measure "
-		+ "with Tools/CleanseFixture.gd. Do NOT edit a room's roster to feed this test.")
+		+ "about to stop measuring anything. DO NOT RAISE SEEDS: this count is driven by "
+		+ "GEOMETRY, not by sampling -- the cleanse reaches 200 units and a spread-out party "
+		+ "puts the afflicted ally out of reach, so a starved room reads the same number at "
+		+ "every seed count (floor1_cover measured 2 at 6, 12, 24 and 48; floor1_room1 now "
+		+ "reads 0 at all four). Repoint ENCOUNTER at a room that bunches the party around a "
+		+ "continuous source of harm, and re-measure with Tools/CleanseFixture.gd -- its "
+		+ "harmful column is this file's supply assertion. Do NOT edit a room's roster to "
+		+ "feed this test.")
 		% [on_an_ally, SEEDS, ENCOUNTER, MIN_ALLY_CLEANSES])
 
 
