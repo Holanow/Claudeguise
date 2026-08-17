@@ -44,7 +44,7 @@ func _init() -> void:
 	var chars_plain := 0
 	var chars_tagged := 0
 
-	for room_id in PartySelect.ROOM_ORDER:
+	for room_id in PartySelect.offered_rooms():
 		var encounter := Registry.get_encounter(room_id)
 		if encounter == null:
 			continue
@@ -73,7 +73,7 @@ func _init() -> void:
 				chars_plain += _plain_length(line) - (tag.length() + 3)
 
 	print("=== issue 155: what the plan tag costs and what it says ===")
-	print("rooms %d x seeds %d" % [PartySelect.ROOM_ORDER.size(), SEEDS])
+	print("rooms %d x seeds %d" % [PartySelect.offered_rooms().size(), SEEDS])
 	print("")
 	print("log lines that reach the screen : %d" % total_lines)
 	print("  of those, tagged              : %d (%.1f%%)" % [

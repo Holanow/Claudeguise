@@ -61,7 +61,7 @@ func _init() -> void:
 	var alive_ticks := {}
 	var blocked_ticks := {}
 	var worst := {}
-	for room_id in PartySelect.ROOM_ORDER:
+	for room_id in PartySelect.offered_rooms():
 		var encounter := Registry.get_encounter(room_id)
 		if encounter == null:
 			continue
@@ -69,7 +69,7 @@ func _init() -> void:
 			for party_ids in parties:
 				_sample(encounter, party_ids, s, alive_ticks, blocked_ticks, worst)
 
-	print("-- per pawn, %d rooms x %d seeds, sampled every tick --" % [PartySelect.ROOM_ORDER.size(), SEEDS])
+	print("-- per pawn, %d rooms x %d seeds, sampled every tick --" % [PartySelect.offered_rooms().size(), SEEDS])
 	var names := alive_ticks.keys()
 	names.sort()
 	for n in names:
