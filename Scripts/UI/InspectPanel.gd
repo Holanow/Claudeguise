@@ -468,14 +468,18 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
 	## Issue 269. Rows are paid for in priority order, so the surplus is always at
-	## the bottom: walk the list adding each row's own cost, and the first row
-	## whose running total passes the budget is where the pawn stops being able to
-	## pay. Every row from there down is inert, and each one says so under itself.
+	## the bottom, and **which rows those are is not decided here.**
+	## `PlanInterpreter.active_plan_count` is the single definition, and the
+	## interpreter's own loop stops at the same index -- so a row this screen draws
+	## as inert is a row the pawn does not run, by construction rather than by two
+	## implementations happening to agree. `spent` below is a display number only:
+	## it is what the note quotes as the WIS the row would need.
+	var active := PlanInterpreter.active_plan_count(pawn)
 	var spent := 0
 	for i in pawn.plans.size():
 		var plan = pawn.plans[i]
 		spent += plan.block_count()
-		var inert := spent > budget
+		var inert := i >= active
 		out.append(_plan_row(plan, pawn, i, inert))
 		if inert:
 			out.append(_inert_note(spent, budget))

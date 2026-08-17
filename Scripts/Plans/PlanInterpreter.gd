@@ -6,6 +6,8 @@ const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const Intent := preload("res://Scripts/Core/Intent.gd")
 const Plan := preload("res://Scripts/Core/Plan.gd")
 const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
+const Balance := preload("res://Scripts/Content/Balance.gd")
+const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const Registry := preload("res://Scripts/Content/Registry.gd")
 const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
@@ -126,11 +128,48 @@ const CONDITION_ARG_SHAPE := {
 ## Cleared at the start of every decide()/condition_holds() call.
 static var last_error: String = ""
 
+## Issue 269: how many of a pawn's plans it can actually pay for, and **the one
+## place that question is answered.**
+##
+## `InspectPanel` dims every row from index `active_plan_count(pawn)` down and
+## writes "Inert" on it; `decide()` below stops iterating at the same index. Two
+## implementations of this rule would drift, and the drift is precisely the
+## defect it was written to fix: a row the screen calls inert that the pawn fires
+## anyway, which is the pawn-behaviour principle inverted -- the player can see
+## the mark and the pawn ignores it.
+##
+## The rule: rows are paid for in priority order, so the surplus is always at the
+## bottom. Walk the list adding each row's own `block_count()`, and the first row
+## whose running total passes `Balance.plan_block_budget` is where the pawn runs
+## out. That row and every row under it is inert. `spent` never decreases, so
+## stopping at the first overrun and marking everything after it inert are the
+## same thing -- a cheap row below an expensive one does not sneak back in.
+##
+## Guarding here rather than in the editor is deliberate. The editor already
+## refuses to *add* a row past the budget, and that was the whole enforcement:
+## the budget can also *shrink* under a plan the player already wrote, by taking
+## WIS armour off mid-floor, and `EquipPanel` offers every registered item today.
+## So the route is reachable now, not hypothetically.
+static func active_plan_count(pawn: PawnData) -> int:
+	if pawn == null:
+		return 0
+	var budget := Balance.plan_block_budget(pawn)
+	var spent := 0
+	var count := 0
+	for plan in pawn.plans:
+		spent += plan.block_count()
+		if spent > budget:
+			break
+		count += 1
+	return count
+
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	last_error = ""
 	if unit.pawn == null:
 		return null
-	for plan in unit.pawn.plans:
+	var active := active_plan_count(unit.pawn)
+	for i in active:
+		var plan: Plan = unit.pawn.plans[i]
 		if not condition_holds(state, unit, plan):
 			continue
 		var intent := _run_blocks(state, unit, plan)
