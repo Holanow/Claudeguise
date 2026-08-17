@@ -890,6 +890,107 @@ func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
 	panel.free()
 
 # ---------------------------------------------------------------------------
+# Issue 269: a plan row the pawn can no longer pay for
+# ---------------------------------------------------------------------------
+#
+# The player ruled that a budget which shrinks under a plan already written does
+# not refuse the unequip -- the surplus rows go inert instead. `CLAUDE.md`'s
+# binding principle is that a pawn never does anything the player cannot see in
+# the plans of action, so an inert row that looks like a live one is the purest
+# violation of it available. These assert the mark, its sentence, and that the
+# controls on the row still work.
+#
+# The fixture shrinks the budget after the plans are written, which is the only
+# way a pawn can be over budget at all: `_add_plan` refuses to put it there.
+# That is also exactly what taking WIS armour off does.
+func _pawn_over_budget() -> PawnData:
+	var pawn := _make_pawn(CG.Role.DPS, 8)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._add_plan(pawn)
+	panel._add_plan(pawn)
+	panel.free()
+	# Two plans, two blocks each, and a budget of 3: the first row is paid for
+	# and the second is one block past the end.
+	pawn.pawn_class.base_attributes = {CG.Attribute.WIS: 3}
+	return pawn
+
+func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> void:
+	var pawn := _pawn_over_budget()
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var paid := panel._plan_row(pawn.plans[0], pawn, 0, false)
+	var inert := panel._plan_row(pawn.plans[1], pawn, 1, true)
+	assert_eq(paid.modulate.a, 1.0, "a row inside the budget must be drawn at full strength")
+	assert_true(inert.modulate.a < 1.0, "a row past the budget must be dimmed")
+	assert_true(inert.modulate.a > 0.0, "and still visible -- dimmed, not hidden")
+	paid.free()
+	inert.free()
+	panel.free()
+
+## The sentence is the half that satisfies the principle. It has to carry why
+## (both numbers, and that the stat is WIS) and what to do about it (both ways
+## out), on the screen, under the row it is about.
+func test_the_inert_row_says_why_and_what_to_do_about_it() -> void:
+	var pawn := _pawn_over_budget()
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var screen := _all_label_text(panel._detail_box)
+	assert_true(screen.contains("needs 4 WIS, this pawn has 3"), "the mark must name both numbers: " + screen)
+	assert_true(screen.contains("Equip WIS gear"), "and the way to raise the budget: " + screen)
+	assert_true(screen.contains("remove a row"), "and the way to lower the cost: " + screen)
+	assert_true(screen.contains("4 of 3 plan blocks used"), "the summary must not report this as 0 free: " + screen)
+	assert_true(screen.contains("1 over"), screen)
+	panel.free()
+
+## The negative, and it is the one that matters most: a pawn inside its budget
+## must carry no mark at all. A mark that is always on is furniture within
+## minutes, and the real one then goes unread.
+func test_a_pawn_inside_its_budget_carries_no_inert_mark() -> void:
+	var pawn := _make_pawn(CG.Role.DPS, 8)
+	pawn.plans = []
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+	panel._add_plan(pawn)
+	panel._build_detail(pawn)
+
+	var screen := _all_label_text(panel._detail_box)
+	assert_false(screen.contains("Inert"), "nothing is inert at 2 of 8 blocks: " + screen)
+	assert_false(screen.contains("are inert"), "and the summary must not warn: " + screen)
+	assert_true(screen.contains("6 free"), screen)
+	var row := panel._plan_row(pawn.plans[0], pawn, 0, false)
+	assert_eq(row.modulate.a, 1.0)
+	row.free()
+	panel.free()
+
+## An inert row is the row the player most needs to delete, so dimming must not
+## take its controls away. `modulate` fades; it does not disable.
+func test_an_inert_row_can_still_be_removed() -> void:
+	var pawn := _pawn_over_budget()
+	var panel := InspectPanel.new()
+	panel._ready()
+	panel.open([pawn])
+
+	var row := panel._plan_row(pawn.plans[1], pawn, 1, true)
+	var remove := _button_named(row, "X")
+	assert_not_null(remove, "the inert row must keep its remove button")
+	assert_false(remove.disabled, "and that button must still work")
+	row.free()
+
+	panel._remove_plan(pawn, 1)
+	assert_eq(pawn.plans.size(), 1, "removing the inert row must bring the pawn back inside its budget")
+	panel._build_detail(pawn)
+	assert_false(_all_label_text(panel._detail_box).contains("Inert"), "and the mark must go with it")
+	panel.free()
+
+# ---------------------------------------------------------------------------
 # Issue 96: the immutable default row
 # ---------------------------------------------------------------------------
 

@@ -34,6 +34,13 @@ const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 ## WIS; Tests/test_content_classes.gd checks this so a future class or plan
 ## addition cannot silently blow the budget.
 ##
+## Issue 269: that budget now counts equipment WIS as well as the class's own,
+## so it is a floor and not a fixed number -- a preset that fits a bare pawn
+## fits every equipped one. It can also fall back to the class's base after the
+## player takes WIS armour off mid-floor, at which point the surplus rows go
+## inert and InspectPanel says so on each of them. Presets are authored against
+## the base, which is the only value a pawn is guaranteed.
+##
 ## Five plans here used to disagree with their own action's range, found by
 ## rook's Tools/PlanRangeAudit.gd and by issue 14's playtest (a Geysermancer
 ## firing six times and connecting once). Two were a plain number mismatch,
@@ -347,7 +354,8 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# same turn.
 		#
 		# Block cost: 2, taking this class from 4 to 6, which is exactly its WIS
-		# budget (`Balance.plan_block_budget` == WIS == 6). No WIS raise, unlike
+		# budget (`Balance.plan_block_budget` == base WIS == 6, before any WIS
+		# equipment, which is the only figure a preset can count on). No WIS raise, unlike
 		# the Warrior's and the Priest's own third and fourth plans.
 		&"geysermancer":
 			return [

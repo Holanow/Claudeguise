@@ -127,6 +127,34 @@ func test_plan_block_budget_tracks_wis() -> void:
 	assert_eq(Balance.plan_block_budget(high), 6)
 
 
+## Issue 269. This was the one formula in the file reading `pawn.attribute()`
+## raw, and since it is the only reader of WIS anywhere in `Scripts/`, WIS on a
+## piece of equipment did nothing at all -- which made `robes` (2 WIS) and
+## `scrubs` (1 WIS) wholly and half inert. Asserted through the real function
+## with real equipment on the pawn, not against `Balance.attribute` restated.
+func test_plan_block_budget_counts_equipment_wis() -> void:
+	var pawn := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.WIS: 6})
+	assert_eq(Balance.plan_block_budget(pawn), 6, "the bare pawn is its class's WIS")
+	var armor := EquipmentDef.new()
+	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.attribute_flat = {CG.Attribute.WIS: 2}
+	pawn.armor = armor
+	assert_eq(Balance.plan_block_budget(pawn), 8, "two points of WIS on armor must buy two blocks")
+	pawn.armor = null
+	assert_eq(Balance.plan_block_budget(pawn), 6, "and taking it off must give them back")
+
+
+## The negative half: equipment carrying no WIS must not move the budget. A
+## reader that returned any equipment total at all would pass the test above.
+func test_plan_block_budget_ignores_equipment_without_wis() -> void:
+	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.WIS: 4})
+	var armor := EquipmentDef.new()
+	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.attribute_flat = {CG.Attribute.CON: 5, CG.Attribute.STR: 5}
+	pawn.armor = armor
+	assert_eq(Balance.plan_block_budget(pawn), 4, "CON and STR buy no plan blocks")
+
+
 func test_plan_block_budget_never_zero() -> void:
 	var no_wis := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {})
 	assert_true(Balance.plan_block_budget(no_wis) >= 1)
