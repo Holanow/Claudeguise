@@ -537,6 +537,36 @@ func test_with_no_art_files_every_shape_falls_back_to_polygons() -> void:
 			assert_true(parts.size() >= 3, "%s lost its placeholder" % id)
 
 
+func test_a_mirrored_sprite_is_drawn_in_the_same_place() -> void:
+	# Issue 241. `UnitArt.draw` mirrored by negating the drawn width *before*
+	# building the rect, which put the left edge at `center.x + width / 2`: every
+	# left-facing unit was drawn one full drawn width beside itself, 65px for the
+	# Warden. A negative-width `Rect2` mirrors in place and does not move, so the
+	# negation belongs on the rect and not on the size that positions it.
+	#
+	# Arithmetic, not pixels, and deliberately: the gate is headless, headless
+	# uses the dummy renderer, and a rasterising check there reads back nothing
+	# and reports a silent skip. `Tools/FacingInk.gd` is the rasterising half and
+	# is run by hand. This half is the one that can fail in CI.
+	for id in Silhouettes.shape_ids():
+		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
+			var tex := UnitArt.texture_for(id, team)
+			if tex == null:
+				continue
+			var right := UnitArt.signed_rect(tex, 33.0, false, Vector2(100.0, 40.0))
+			var left := UnitArt.signed_rect(tex, 33.0, true, Vector2(100.0, 40.0))
+			assert_true(left.size.x < 0.0, "%s is not mirrored when it faces left" % id)
+			# NOT `left.abs()`. `Rect2.abs()` normalises by moving `position`
+			# left by the width; `draw_texture_rect` does not -- it keeps
+			# `position` and inks rightward. The engine's rule is the one that
+			# decides where the pixels land, and it is why this bug existed.
+			assert_eq(left.position, right.position,
+				"%s moves when it is mirrored: %s vs %s" % [id, left.position, right.position])
+			assert_eq(left.size.x, -right.size.x, "%s changes width when mirrored" % id)
+			assert_eq(right.get_center(), Vector2(100.0, 40.0),
+				"%s is not drawn on the centre it was given" % id)
+
+
 func test_a_missing_art_file_is_not_an_error() -> void:
 	# Dropping in art is opt-in per unit, so the absence of a file has to be
 	# silent. If this ever pushed an error, the console would be unreadable and
