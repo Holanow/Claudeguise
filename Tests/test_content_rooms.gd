@@ -220,6 +220,15 @@ func _kinds(enc: Encounter) -> Array:
 ## that does not cost the gate real time. If it drifts to 1 it will fail on the
 ## next unrelated change; that is worse than a false green here, because a
 ## silent zero means the mechanism that justifies this enemy stopped working.
+##
+## **#221: IT IS NOT A CLIFF ANY MORE, AND THAT IS WORTH RECORDING BECAUSE THE
+## PARAGRAPH ABOVE IS THE REASON ANYONE WOULD LEAVE IT ALONE.** Re-measured on
+## trunk `e8de895`, same 20 fights: **45 stuns and 9 interrupts**, against the
+## 17 and 2-3 this comment was written on. The interrupt count has moved from
+## sitting on its floor to nine times it. The floors stay at 8 and 1 -- raising
+## a threshold to match a measurement is the move #221 exists to argue against,
+## in either direction -- but the next person to read this should know the
+## danger it describes is a 2026-07 danger and not today's.
 func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	var enc := Registry.get_encounter(&"floor1_hazard")
 	var has_brute := false
@@ -922,6 +931,32 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 ## tool's 20-seed 231 and 216, so it converges rather than drifting with the
 ## sample -- the property `health_total` could not manage and was deleted for.
 ## Floors are half, board rule 4, not one point under.
+##
+## **#221 RE-MEASURED BOTH NUMBERS AND THE CONVERGENCE CLAIM IS THE PART THAT
+## DID NOT SURVIVE. The floors are untouched; the sentence above them was the
+## wrong part.** Same room, same 10 seeds, trunk `e8de895`:
+##
+##     n      party / enemy      per seed
+##     10      1431 / 2136       143 / 214
+##     40      7428 / 8909       186 / 223
+##
+## The party column has fallen 37% at the gate's own sample (227 -> 143 per
+## seed) and it **rises** with the sample rather than converging, so a
+## per-seed figure from one n is not a prediction of another. The enemy column
+## is the steady one, 214-223. Both floors still clear -- 1431 against 1100 and
+## 2136 against 1200 -- so nothing moved, and this is the announcement-rule-2
+## correction #221 asks for: the prose carried an argument the assertions never
+## ran.
+##
+## **And `_denied_shots` counts a summoned siege engine's denied shot as the
+## party's, which is finch's Warden bug in a different column. Measured, and it
+## does not carry the assertion:** summons are 80 of the 1431 at n=10 (5.6%)
+## and 222 of 7428 at n=40 (3%). Pawns alone read 1351 against a floor of 1100,
+## so the claim stands without them. Left unsplit rather than "fixed" to a
+## number that would not move: a party's summon holding a shot the pillars deny
+## is still the room acting on the player's side of the fight, which is what
+## this assertion claims, and the health sums below are where the distinction
+## actually changed a verdict.
 func test_the_colonnade_denies_shots_to_both_sides() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var seeds := 10
@@ -1624,6 +1659,15 @@ func _hazard_damage_by_team(state: CombatState) -> Array:
 ## `enemy_id` is the discriminator because a summon carries one and a real pawn
 ## never does -- the same generic signal `DefaultBehavior` already reads, rather
 ## than naming the Siege Engine.
+##
+## **#221 checked that against the other spelling and they are the same test.**
+## `test_content_encounter.gd` writes `u.pawn != null` for the same job, and
+## `CombatSim._spawn_summon` calls `_build_enemy_unit(new_id, def,
+## action.summons_unit_id, caster.position, caster.team)` -- so every summon is
+## built on the enemy path with a non-empty `enemy_id` and no `pawn`, whichever
+## team it lands on. Two spellings, one set. Recorded because a fix that reads
+## as a fix and selects a different set is the failure mode #221 is about, and
+## this one does not.
 ##
 ## **What this does to the two assertions that use it, and my first answer was
 ## wrong in one of the two.** I wrote that both would gain margin because the

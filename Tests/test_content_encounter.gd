@@ -608,6 +608,26 @@ func _floor_clear_rate(missing: StringName, seeds: int) -> int:
 ## which is exactly what "does composition matter" needs and what a set of
 ## leave-one-out parties cannot give, since those differ by one member out of
 ## four.
+##
+## **#221: the margin this prints is real but the 20 seeds flatter it, and the
+## gap is where the audit found it, not in the threshold.** Trunk `e8de895`, the
+## same five mono-comps:
+##
+##     class          n=20    n=60    n=60 as a rate out of 20
+##     abomination    20/20   60/60   20.0
+##     geysermancer   10/20   39/60   13.0
+##     priest          5/20   28/60    9.3   <- the worst end
+##     siege_master   20/20   60/60   20.0
+##     warrior        20/20   60/60   20.0
+##
+## So the margin reads **15 at n=20 and 10.7 at n=60** against a floor of 8.
+## Priest x4 is the only end that moves, 25% to 47%, and the gate's first twenty
+## seeds are its unlucky ones. **Still clear of the floor at either sample, so
+## this is not a cliff and nothing is changed** -- but the headroom is 2.7
+## points rather than the 7 the printout implies, and it is the tightest
+## emergent margin in this file after `WARDEN_MAX_HEALTH_LEFT`. Raising the
+## seed count is a gate-cost decision and a re-derivation of what the test
+## claims; both are rook's.
 func test_composition_still_matters() -> void:
 	var best := -1
 	var worst := 999
@@ -1048,6 +1068,43 @@ func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 ## an `> 0`-style cliff either (announcement rule 4): every row has 4 to 29
 ## points of headroom, and the ceiling is proved to bite by the control below
 ## rather than by being tight.
+##
+## **#221 AUDITED THIS AND IT IS NOT A CLIFF -- BUT IT IS THE NARROWEST MARGIN
+## IN THE ENCOUNTER SUITE AND IT HAS MOVED TOWARD THE CEILING. Reported, and
+## nothing moved: widening it would be the seventh notch of the ratchet named
+## above.** A cliff, in #221's sense, is a threshold sitting where the
+## population value sits, and the test is a way to tell them apart: measure at a
+## sample that distinguishes the hypotheses. Trunk `e8de895`, the same five
+## parties, median health left on a win:
+##
+##     party (leaving out)     n=20    n=40    n=60   n=100
+##     no_abomination          16.3    16.3    16.3    16.3
+##     no_geysermancer         76.2    74.7    73.4    74.7   <- the tight row
+##     no_priest               66.4    66.9    66.4    66.3
+##     no_siege_master         74.5    72.8    73.8    74.6
+##     no_warrior              51.1    59.2    59.2    59.2
+##
+## **The asserted statistic is a median and it is stable: 2.8 points of movement
+## across a fivefold change in sample.** So 80.0 is genuinely clear of the
+## distribution rather than drawn through it, and this test cannot flip on
+## whoever pushes last. That is the acquittal.
+##
+## **Two things that are not reassuring and belong to rook rather than to this
+## file.** The margin is **3.8 points** at the gate's own n=20, not the "4 to
+## 29" this comment claimed -- the tight row was 75.6 at #164 and is 76.2 now.
+## And the per-seed maximum already crosses: individual wins reach **81.8%** at
+## n=100. Nothing asserts a maximum, so nothing is red, but a ceiling on a
+## median with single fights over it is one content change from being a demand
+## nobody meets.
+##
+## **The other rows have drifted the other way and nobody has read them.**
+## `no_abomination` carries a `min_wins` of 0 and wins **14 of 20**; `no_warrior`
+## carries 0 and wins **20 of 20**. Both floors were lowered to 0 on the day
+## those parties were walls (see this file's own header), the walls closed, and
+## the floors stayed where they were. Two of the five rows now assert nothing at
+## all. **That is a threshold that only ever moved outward, which is the same
+## ratchet, and re-deriving them is a balance decision rather than an assertion
+## shape.** Named here for rook, not touched.
 ##
 ## **Not carried over, and it is a finding rather than a threshold: the
 ## no-Abomination row wins 7 of 20 with all four of its pawns dead in the median
