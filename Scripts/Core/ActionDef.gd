@@ -267,6 +267,21 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## fragile damage dealer. One mechanism, two classes.
 @export var taunt_radius: float = 0.0
 
+## Issue 150. This action is cast on its caster, whoever that is.
+##
+## **A marker rather than an inference, and the inference is the trap.**
+## `range_units == 0.0` is the obvious tell and it is wrong twice over:
+## `_action_summon` and `_action_self_heal` are both range 0 and want opposite
+## things from it, and `DefaultBehavior._heal_candidates` already reads that zero
+## to mean "castable only on the caster" -- a second reading of the same field
+## would have to be kept in step with the first forever. swift said so on #150.
+##
+## `PlanInterpreter` does not need this: a plan says `target_self` in a block the
+## player can read. `DefaultBehavior` has no such block, and the units that need
+## it -- enemies and summons -- have no plans at all, which is why a self-buff on
+## an enemy has never been able to fire.
+@export var targets_self: bool = false
+
 ## Issue 61. Resource charged to the caster on every tick this action is held.
 ## 0 means the action is not sustained, which is every action that exists today,
 ## so adding this changes no behaviour and invalidates no measurement -- the same
