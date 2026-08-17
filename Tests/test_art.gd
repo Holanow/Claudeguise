@@ -919,11 +919,6 @@ const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #148. Delete these three the same time that branch merges.
 	# heron's #192, the Rat King. Delete this line when that branch merges --
 	# the test below names it for you.
-	# finch's #150 (PR #265). The Brute's Roar exists as content only on that
-	# branch; the icon is here first so #265 is not held red on art. **finch:
-	# delete this one line on your branch** -- the test below will name it the
-	# moment `brute_roar` reaches the registry.
-	&"brute_roar": "finch's #150, PR #265",
 }
 
 
