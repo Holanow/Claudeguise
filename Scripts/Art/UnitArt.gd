@@ -103,9 +103,31 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var scale := (radius * 2.0) / maxf(size.x, size.y)
 	var drawn := size * scale
+	# Issue 241. **A negative-width `Rect2` flips the texture but does not
+	# mirror it in place**: `draw_texture_rect` still lays it out rightward from
+	# `position.x`. The previous line was `drawn.x = -drawn.x` before building
+	# the rect, so `center - drawn * 0.5` moved the left edge to
+	# `center.x + width / 2` and the sprite landed **one full drawn width to the
+	# right of the unit**. Enemies face left, so every enemy in the game was
+	# drawn beside itself: measured at +65.5px for the Warden, +32.0 for a
+	# goblin, +49.0 for a mirrored Warrior (its file is 24x30, so a width and
+	# not a diameter is what moves). `Tools/FacingInk.gd` is the instrument and
+	# reports -0.5, -1.0 and +2.5 after this.
+	#
+	# That is what `PLAYTEST-FRESH-1` reported as "a lone cream bar attached to
+	# nothing" and what issue 241 filed as a bar offset. **The bar was never
+	# offset.** Nor was anything else a unit wears -- and nor were the targeting
+	# lines, impact rings, death markers and floaters that spawn at a unit's
+	# position, all of which have been pointing at empty floor beside an enemy.
+	#
+	# Keep the rect where it belongs and negate only the size. **Not
+	# `draw_set_transform`**, which also works and which the doc comment above
+	# rules out: it silently resets a caller's own transform, and `ArtPreview`
+	# rendering blank is how that was found the first time.
+	var rect := Rect2(center - drawn * 0.5, drawn)
 	if facing_left:
-		drawn.x = -drawn.x
-	canvas.draw_texture_rect(tex, Rect2(center - drawn * 0.5, drawn), false)
+		rect.size.x = -drawn.x
+	canvas.draw_texture_rect(tex, rect, false)
 
 ## The rectangle `draw` above actually puts ink in, in the same local space it
 ## draws into: the texture's **opaque** pixels, not its file dimensions.
