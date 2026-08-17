@@ -130,46 +130,88 @@ func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
 				id, parts.size(), unknown.size()])
 
 
-func test_the_rat_king_reads_as_more_than_one_animal() -> void:
-	# THE DESIGN RULE, ASSERTED AS GEOMETRY, and it is a stand-in so it says what
-	# it stands for: every other unit in this game reads as ONE creature and the
-	# Rat King has to read as MANY -- "a big collection of rats joined at the
-	# tail". The cue that survives being shrunk to 50 pixels is a SCALLOPED top
-	# edge: several rounded backs with real sky between them. One dome is one
-	# animal at any size.
+## THE TEST THIS REPLACES CLAIMED SOMETHING TOP-EDGE GEOMETRY CANNOT SAY, AND
+## THE CLAIM IS WITHDRAWN HERE RATHER THAN RE-THRESHOLDED.
+##
+## It was called `test_the_rat_king_reads_as_more_than_one_animal` and it
+## asserted that the Rat King scores more outline peaks than `the_warden`,
+## `ghoul` and `brute`. It passed. It was measuring `build_parts` -- the
+## POLYGONS -- and `rat_king`, `the_warden` and `ghoul` all have PNGs in
+## `Assets/Units/`, so for three of the four shapes in that comparison the thing
+## measured is dead code the game never renders. Identical to the `fill_ratio`
+## defect in `BADGE-LEGIBILITY.md`; that one was fixed and nobody swept the file
+## for a second instance.
+##
+## Pointed at the drawn art, the comparison collapses. Measured over all
+## nineteen shapes, crests and the shallowest valley in canvas px at radius 200:
+##
+##     rat_king       3   31        goblin          3   17
+##     the_warden     2   17        warrior         3   50
+##     ghoul          2   50        geysermancer    3   83
+##     brute          2   71        goblin_archer   3   17
+##
+## **Four single-creature shapes still in the game score three.** A pawn with a head, an ear and a
+## raised weapon has the same top-edge signature as a pile of three animals,
+## because a top edge cannot tell a lobe from a creature. The old test's margin
+## came from the Rat King's polygon having many vertices near its top, which is
+## a fact about how it was authored rather than about how it reads.
+##
+## So "reads as many" is **not measurable here** and nothing below asserts it.
+## `Tools/RatKingSheet.tscn` and a screenshot of a real fight are the instrument
+## for that claim, and they are the reason both are committed.
+##
+## What IS measurable, and is a direct statement of the design rather than a
+## proxy for it: the back is three humps with sky between them.
+func test_the_rat_kings_back_is_three_humps_and_not_a_dome() -> void:
+	var crests := _peaks(&"rat_king")
+	assert_eq(crests, 3,
+		("the Rat King's back has %d crests, not 3; the humps have fused into a dome, "
+		+ "and one dome is one animal at any size") % crests)
+
+
+func test_the_rat_kings_valleys_keep_their_depth() -> void:
+	# The margin, guarded separately per this project's own rule, and moved onto
+	# the number that actually has headroom. A crest COUNT has none: three is the
+	# most any shape in the game scores, so the old `>= 4` was not a margin, it
+	# was unreachable.
 	#
-	# So: sample the top of the silhouette across its width and count the peaks.
-	# Two passes of this shape failed for opposite reasons -- humps overlapped
-	# into a single dome, then humps sharpened into a mountain range -- and this
-	# catches the first. It cannot catch the second; only looking can, which is
-	# why Tools/RatKingSheet.tscn exists and why the sheet is committed.
-	# **What this measures, stated exactly, because it is not quite what the
-	# design claim says.** It counts peaks in the whole outline, and the tail
-	# strands are part of that outline, so a Rat King with flattened backs but
-	# intact strands would still pass. It is a guard against the shape collapsing
-	# into a dome, not proof that the humps specifically are doing the work.
-	# Measured: rat_king 8, the_warden 1, ghoul 1, brute 1, grub 0.
-	var peaks := _peaks(&"rat_king")
-	assert_true(peaks >= 2,
-		"the Rat King's outline has %d peaks; it reads as one animal, not a pile" % peaks)
-
-	# The negative half, and it is what makes the number above mean anything: a
-	# single-creature silhouette must NOT pass this. Without it, a sampling bug
-	# that found peaks everywhere would look exactly like success.
-	for one_animal in [&"the_warden", &"ghoul", &"brute"]:
-		assert_true(_peaks(one_animal) < peaks,
-			"'%s' scores %d peaks against the Rat King's %d -- this is not measuring 'many'" % [
-				one_animal, _peaks(one_animal), peaks])
+	# **This guards a failure mode I hit while drawing the sprite, not a
+	# hypothetical.** The outline pass is 8-connected, so it climbs a valley wall
+	# diagonally from both sides; authored one column wide, valleys at y11 and y9
+	# read back off the finished PNG as y6 and y4 and the scallop was simply gone.
+	# The crest count went to 1 and it was right to. Three-column valleys survive.
+	#
+	# Measured at 31 canvas px at radius 200, against the-warden's 17 and
+	# goblin's 17. The floor is 20: it fires while the shape still passes, and
+	# the bridging failure above puts it near zero.
+	var depth := _shallowest_valley(&"rat_king")
+	assert_true(depth >= 20.0,
+		("the Rat King's shallowest valley is %.0f px deep at radius 200, down from a measured 31. "
+		+ "The backs are merging -- check whether the outline pass has bridged a valley narrower "
+		+ "than three columns.") % depth)
 
 
-func test_the_rat_king_outline_keeps_headroom_over_a_single_creature() -> void:
-	# The margin, guarded separately, per this project's own rule: a floor of
-	# `>= 2` reads identically at 8 and at 2 and speaks only on the build that
-	# breaks it, which lands on whoever touched the file next rather than
-	# whoever caused the drift. Measured at 8 against a single-creature baseline
-	# of 1. This fires while the shape is still passing.
-	assert_true(_peaks(&"rat_king") >= 4,
-		"the Rat King is down to %d peaks from a measured 8; the pile is flattening out" % _peaks(&"rat_king"))
+func test_the_crest_detector_can_tell_a_dome_from_a_range() -> void:
+	# The detector, verified against hand-made profiles rather than trusted,
+	# because everything above is a number it produced. The per-bin version this
+	# replaces would have scored BOTH of these zero: it asked whether one bin
+	# sits lower than both its immediate neighbours by the margin, which holds
+	# for a sparse profile of polygon vertices and never for pixel columns, where
+	# adjacent bins usually read the same column and compare equal.
+	#
+	# It failed CLOSED -- zero for every shape, the Rat King included -- so
+	# repointing the old test at real art without replacing the detector would
+	# have looked like the sprite failing.
+	var dome := PackedFloat32Array([0.0, -40.0, -80.0, -100.0, -80.0, -40.0, 0.0])
+	assert_eq(_crests(dome, 16.0), 1, "a single dome must score one crest")
+
+	var range_of_three := PackedFloat32Array([
+		0.0, -60.0, 0.0, -100.0, -20.0, -80.0, 0.0])
+	assert_eq(_crests(range_of_three, 16.0), 3, "three humps with valleys between them must score three")
+
+	# And it must not find a crest in noise smaller than the margin.
+	var rough_flat := PackedFloat32Array([-50.0, -54.0, -48.0, -55.0, -47.0, -52.0])
+	assert_eq(_crests(rough_flat, 16.0), 1, "wobble under the margin is not a hump")
 
 
 func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void:
@@ -190,24 +232,90 @@ func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void
 				id, _aspect(id), ratio])
 
 
+## **This read `Silhouettes.build_parts` and was therefore counting humps on art
+## the game does not draw.** `rat_king`, `the_warden` and `ghoul` all have PNGs
+## in `Assets/Units/`, so for those the polygons are dead code -- the test could
+## not have failed for the shape a player actually meets, whatever happened to
+## it. It is the identical defect the correction note in `BADGE-LEGIBILITY.md`
+## records for `fill_ratio`; that one was fixed and nobody swept the file for a
+## second instance, and this was it.
+##
+## `Silhouettes.top_profile` takes the same two paths `draw_unit` does, in the
+## same order, and reads real pixel columns for a shape with a sprite.
 func _peaks(id: StringName) -> int:
 	var radius := 200.0
-	var bins := 40
-	var top := []
-	top.resize(bins)
-	top.fill(INF)
-	for part in Silhouettes.build_parts(id, radius, CG.Team.ENEMY, CG.DamageType.PHYSICAL):
-		for p in part["points"]:
-			var bin := clampi(int((p.x + radius) / (radius * 2.0) * float(bins)), 0, bins - 1)
-			top[bin] = minf(top[bin], p.y)
-	var margin := radius * 0.08
-	var peaks := 0
-	for i in range(1, bins - 1):
-		if top[i] == INF or top[i - 1] == INF or top[i + 1] == INF:
-			continue
-		if top[i] < top[i - 1] - margin and top[i] < top[i + 1] - margin:
-			peaks += 1
-	return peaks
+	return _crests(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)
+
+
+## How many crests the top edge has, where a crest is separated from the next by
+## a valley at least `margin` deep. Prominence, not a per-bin comparison.
+##
+## **The per-bin version silently stopped working the moment the profile became
+## dense, and it failed CLOSED -- it reported zero for every shape, including
+## the Rat King.** It asked whether one bin sits lower than both its immediate
+## neighbours by `margin`; that holds for a sparse profile of polygon vertices
+## and never holds for pixel columns, where 40 bins across a 26-pixel sprite
+## means adjacent bins usually read the SAME column and compare equal. A crest
+## six pixels tall scored zero.
+##
+## Worth stating plainly because it is the more useful half of what this file
+## learned today: the old detector was not merely measuring dead art, it was
+## measuring it in a way that could not survive being pointed at the real thing.
+static func _crests(top: PackedFloat32Array, margin: float) -> int:
+	var out := 0
+	for i in _extremes(top, margin).size():
+		if i % 2 == 0:
+			out += 1
+	return out
+
+
+## The alternating crest, valley, crest, ... heights of a top edge, in the same
+## units the profile is in. Even indices are crests, odd ones valleys.
+static func _extremes(top: PackedFloat32Array, margin: float) -> Array[float]:
+	# Gaps are gaps, not floors. A polygon profile is sampled along edges and
+	# still has them outside the shape; a sprite profile has none.
+	var vals: Array[float] = []
+	for v in top:
+		if v < INF:
+			vals.append(v)
+	if vals.is_empty():
+		return [] as Array[float]
+	var out: Array[float] = []
+	var rising := true       # rising = the outline is going UP, so y is falling
+	var extreme := vals[0]
+	for v in vals:
+		if rising:
+			if v > extreme + margin:
+				out.append(extreme)  # that was a crest, and we are off it now
+				rising = false
+				extreme = v
+			elif v < extreme:
+				extreme = v
+		else:
+			if v < extreme - margin:
+				out.append(extreme)  # that was a valley
+				rising = true
+				extreme = v
+			elif v > extreme:
+				extreme = v
+	if rising:
+		out.append(extreme)  # the last crest has no valley after it
+	return out
+
+
+## How deep the SHALLOWEST valley on a top edge is, measured against the lower
+## of the two crests beside it. Zero when there is no valley at all.
+func _shallowest_valley(id: StringName) -> float:
+	var radius := 200.0
+	var ext := _extremes(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)
+	var shallowest := INF
+	var i := 1
+	while i < ext.size() - 1:
+		# y grows downward, so a valley's depth is how far BELOW its neighbours
+		# it sits, and the honest number is against the nearer of the two.
+		shallowest = minf(shallowest, ext[i] - maxf(ext[i - 1], ext[i + 1]))
+		i += 2
+	return 0.0 if shallowest == INF else shallowest
 
 
 func _aspect(id: StringName) -> float:
@@ -811,6 +919,11 @@ const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #148. Delete these three the same time that branch merges.
 	# heron's #192, the Rat King. Delete this line when that branch merges --
 	# the test below names it for you.
+	# finch's #150 (PR #265). The Brute's Roar exists as content only on that
+	# branch; the icon is here first so #265 is not held red on art. **finch:
+	# delete this one line on your branch** -- the test below will name it the
+	# moment `brute_roar` reaches the registry.
+	&"brute_roar": "finch's #150, PR #265",
 }
 
 

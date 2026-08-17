@@ -1,8 +1,15 @@
 # Replacing the placeholder art
 
-Every unit in the game is currently drawn as coloured polygons defined in
-`Scripts/Art/Silhouettes.gd`. They are placeholders and they are meant to be
-thrown away.
+A unit with a PNG in this folder is drawn from that PNG. A unit without one
+falls back to coloured polygons defined in `Scripts/Art/Silhouettes.gd`. Both
+are placeholders and both are meant to be thrown away.
+
+**Which of the two you are looking at matters more than it sounds.** For a unit
+with a PNG the polygons are dead code the game never renders, and measuring them
+has now produced two wrong answers in this project: a published table of
+silhouette fill ratios, and a test that counted the humps on the Rat King's
+back. Anything that measures a shape must ask `Silhouettes` rather than
+`build_parts`.
 
 ## The whole procedure
 
@@ -80,6 +87,22 @@ survives where there is resolution for it: the action icon, the projectile, and
 the polygon fallback in `Scripts/Art/Silhouettes.gd`. If you redraw the Warden at
 a size that can carry a chain, put it back.
 
+**The Rat King's back is three humps and the valleys between them must be at
+least three pixels wide.** This is the one thing in the whole folder that is
+easy to lose by accident. The outline around a sprite is 8-connected, so it
+climbs a valley wall diagonally from both sides at once: valleys drawn one
+column wide were authored four and five pixels deep and read back off the
+finished PNG as one, the scallop vanished, and the pile became a dome. Three
+columns keeps the middle one out of reach of both walls. `Tests/test_art.gd`
+measures the depth on the real pixels and says so if it drops.
+
+**Its tail knot is gone from the sprite and that is a loss.** "Joined at the
+tail" is the literal design and the knot was the one detail no other unit had.
+Three attempts at 26 pixels produced antlers, then debris floating above the
+unit, then a spike that turned the pile into a leaf. It survives in the polygon
+fallback in `Scripts/Art/Silhouettes.gd`, where there is resolution for it. If
+you redraw the pile bigger, put it back.
+
 **The Rat King and the rat are a pair and should be replaced as one.** The
 README describes the miniboss as *"a big collection of rats joined at the tail"*
 whose attacks *"leave behind rats"*, so the fight is a pile of the very thing it
@@ -88,8 +111,19 @@ the pile is three rounded backs with three heads facing three different ways,
 and the rat is one of those backs and one of those heads at a third of the size.
 If you replace only one of them, the fight stops being about one creature.
 
-`Screenshots/rat_king.png` shows both, at design size and at the size the game
-actually draws them, with the Warden beside them for scale.
+`Screenshots/rat_king.png` shows the polygon fallback at design size and at the
+size the game draws it, with the Warden beside it for scale.
+`Screenshots/rat_king_silhouette_before_after.png` is the pair as they ship, and
+`Screenshots/room_rat_king_*_1280x720.png` is a real fight.
+
+**One thing a picture of a sprite cannot tell you, and no test can either.**
+"Reads as many rather than as one" is not measurable from the outline: four
+single-creature shapes still in the game — the goblin, the goblin archer, the
+warrior and the geysermancer — score exactly the same three crests on the top
+edge as the pile does, because a top edge cannot tell a lobe from a creature. A test
+in `Tests/test_art.gd` used to claim it did, and it only appeared to work
+because it was measuring polygons that stopped being drawn the day these PNGs
+landed. Judge that claim by looking at a fight.
 
 **This table is checked by a test.** `Tests/test_art.gd` walks the real content
 registry and fails if this list drifts from what the game actually asks for, so
