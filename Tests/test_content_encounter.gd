@@ -7,6 +7,7 @@ const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
 const PawnData := preload("res://Scripts/Core/PawnData.gd")
 const Encounter := preload("res://Scripts/Core/Encounter.gd")
+const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
 const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
@@ -206,7 +207,42 @@ func _run(class_id: StringName, seed: int) -> Dictionary:
 ## A Warrior change re-rolls the pair because the *other* arm is noisy.
 ##
 ## **`siege_master` at 0 of 120 is a finding in its own right**: an entire class
-## whose fight is tick-identical on every seed sampled. Not chased here.
+## whose fight is tick-identical on every seed sampled.
+##
+## **AND THE 73% IS EXPLAINED NOW, #268. It is not seed sensitivity, it is a
+## coin flip.** rook asked; splitting each class's self-difference into its two
+## possible causes answers it in one table. 16 seeds, `CG.DEFAULT_ENCOUNTER`:
+##
+##     class          wins/16   ticks min/median/max  spread   self-diff  by outcome  by ticks
+##     abomination      16        175 /  215 /  407    108%     64 of 120       0        64
+##     geysermancer      7        360 /  459 /  613     55%     88 of 120      63        25
+##     priest            4        548 /  723 / 1121     79%     90 of 120      48        42
+##     siege_master     16        295 /  318 /  337     13%      0 of 120       0         0
+##     warrior          16        442 /  496 /  586     29%     26 of 120       0        26
+##
+## **`_differs` is dominated by outcome, and only two classes have an outcome
+## that varies at all.** geysermancer x4 wins **7 of 16** and priest x4 **4 of
+## 16**; the other three win 16 of 16, so no pair of their seeds can ever
+## disagree on outcome and their whole self-difference is tick gap.
+##
+## **So the three assertions read, mostly, "did the Geysermancer lose this
+## seed".** Each pairs geysermancer against a class that wins every seed, so the
+## outcomes differ on exactly the nine seeds geysermancer loses -- which is a
+## coin toss by construction, and it is the mechanism behind all three
+## re-baselines. It is not that the Geysermancer is noisy. It is that
+## `geysermancer x4` **is the coin-flip party**, and this file asserts elsewhere,
+## on purpose, that some composition must be one.
+##
+## Still reported and not acted on. It sharpens the file's own stated question:
+## the thing to decide is whether "these two fight differently" is a claim a
+## single seed can carry when one arm is a coin flip, not which seed to pick
+## fifth.
+##
+## **One stale claim corrected while I was in here.**
+## `test_seed_changes_the_fight` says geysermancer x4 "has the widest measured
+## spread of the sampled comps". It does not, and has not for some time:
+## **abomination x4 is 108% against geysermancer's 55%.** The assertion still
+## passes and I have not moved it -- the comment was the wrong part.
 ##
 ## The header above already says the honest fix, if this rots a fourth time, is
 ## to decide whether the requirement still stands rather than pick a fifth seed.
@@ -320,7 +356,12 @@ func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 
 
 func test_seed_changes_the_fight() -> void:
-	# geysermancer x4 has the widest measured spread of the sampled comps.
+	# **This comment used to say geysermancer x4 "has the widest measured spread
+	# of the sampled comps". It does not: abomination x4 is 108% against this
+	# party's 55% (#268, table above `_differs`).** The assertion is left where
+	# it is -- 55% clears a 15% floor comfortably and re-pointing a passing test
+	# at a different party to chase a bigger number is not an improvement. What
+	# was wrong was the sentence, so the sentence is what changed.
 	var r := _win_rate([&"geysermancer", &"geysermancer", &"geysermancer", &"geysermancer"], 20)
 	var spread_fraction := float(r["max"] - r["min"]) / float(max(1, r["median"]))
 	print("seed sensitivity, geysermancer x4: ticks min=%d median=%d max=%d (spread %.0f%% of median)" % [r["min"], r["median"], r["max"], spread_fraction * 100.0])
@@ -714,8 +755,9 @@ func test_cover_changes_the_fight_for_the_parties_that_close() -> void:
 ##
 ## Fixed by taking the sibling's predicate. The tick is printed so the two
 ## causes of `DRAW` stay distinguishable -- a mutual wipe is a resolution and a
-## fight sitting on the cap is not -- and `test_the_stall_detector_can_see_a_real_stall`
-## below is the known-bad input that proves the counter moves.
+## fight sitting on the cap is not -- and
+## `test_the_stall_detector_can_see_a_constructed_stall` below is the known-bad
+## input that proves the counter moves.
 func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
 	assert_not_null(chokepoint)
@@ -731,45 +773,91 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	assert_true(draws <= 2, "expected floor1_chokepoint to resolve most fights, got %d/10 draws" % draws)
 
 
-## **The known-bad input, without which the test above is still only a claim.**
+## **THE KNOWN-BAD INPUT, AND IT IS CONSTRUCTED NOW RATHER THAN BORROWED FROM A
+## DEFECT. #268.**
 ##
 ## `ENGINEER.md`: a detector nobody feeds known-good input to is the
-## sixteen-passing-tests failure. The mirror of it applies here -- the guard
-## above ran on a room that resolves 40 of 40, so a counter pinned at zero and a
-## healthy room produce the same pass, which is exactly how it stayed broken.
-## This runs the one fight in this repository that is known to stall and asserts
-## the counter registers it.
+## sixteen-passing-tests failure. The mirror applies to the guard above -- it
+## runs on a room that resolves 40 of 40, so a counter pinned at zero and a
+## healthy room produce the same pass, which is exactly how it stayed dead from
+## issue 34 to #263.
 ##
-## `floor1_cover`, `[geysermancer, priest, siege_master, warrior]`, **seed 364**.
-## finch found it on #252 and measured it at about 1 in 5,000; I swept 6,000 on
-## `bb2c277` and found 2, of which this is the first. It is a real defect --
-## `CombatSim._resolve_move` slides one axis at a time and units settle inside a
-## pillar with sight blocked both ways -- and it is **not this test's job to fix
-## it**. Neither file is mine and finch has already said it wants its own issue.
+## **The previous fixture was `floor1_cover` seed 364, and it is gone because
+## swift fixed it. That is the good outcome and the assertion said so itself.**
+## #263 wrote it to fail the day #255 was fixed and to name the next action in
+## its own message; swift's #264 landed the sightline fix and it fired, reading
+## `expected 3600, got 690`. Deleted here, as instructed by its own text. The
+## reason it is worth recording rather than quietly replacing: **a fixture
+## borrowed from a defect has an owner who is trying to destroy it.** One in
+## 3,000 fights was never a supply this test could rely on.
 ##
-## **So this test is written to fail when the defect is fixed, and to say so.**
-## Same shape as the expiring-skip pattern in `ENGINEER.md`: it asserts that the
-## reason for a fixture is still true, fires the day it stops being true, and
-## names the next action rather than rotting into a comment nobody re-reads.
-## One fight, so it costs the gate nothing.
-func test_the_stall_detector_can_see_a_real_stall() -> void:
-	var cover := Registry.get_encounter(&"floor1_cover")
-	assert_not_null(cover)
-	var party: Array[PawnData] = []
-	var ids: Array[StringName] = [&"geysermancer", &"priest", &"siege_master", &"warrior"]
-	for i in ids.size():
-		party.append(PawnFactory.make_starter_pawn(ids[i], &"%s_364_%d" % [ids[i], i], String(ids[i])))
-	var state := CombatSim.build(party, cover, 364)
+## **So this one is built rather than found, and it is built out of what #78
+## already taught this project.** `test_content_rooms.gd` asserts that
+## `floor1_chokepoint` carries no `WALL`, with the reason on the line: *"a WALL
+## in floor1_chokepoint deadlocks the fight -- see #78"*. A wall across the room
+## is the repository's own documented way to stop a fight resolving, so the
+## fixture is a wall across the room: full arena height at x = 0, the two sides
+## 800 units apart against a longest reach of 260. Neither side can close,
+## neither can see, both stay able to act, and the fight rides to the cap.
+##
+## **Verified on both builds and it does not depend on the defect:**
+##
+##     build                         stalls
+##     main 3f1bb70                  15 of 15
+##     swift #264, sightline fixed   15 of 15
+##
+## Five classes x 3 seeds each, every one `DRAW` at tick 3600. The same probe
+## reads seed 364 as `DRAW`/3600 on `main` and `PLAYER_WIN`/690 on #264, which
+## is both the confirmation that swift's fix works and the reason this fixture
+## replaced it.
+##
+## **AND A FOUND FIXTURE IS NOT AVAILABLE ANY MORE. THAT IS THE FINDING.**
+## `Tools/StallHunt.gd`, run on `main` + #264 merged: **every registered floor-1
+## room x every buildable party x 500 seeds = 40,000 fights, and 0 reached the
+## cap.** Rooms swept: `floor1_room1`, `floor1_chokepoint`, `floor1_cover`,
+## `floor1_hazard`, `floor1_horde`, `floor1_ghoul_den`, `floor1_warden`,
+## `floor1_rat_king`. Parties: five mono comps and the five leave-one-out comps.
+## The longest fight in the whole sweep was **2,338 ticks, 65% of the cap**, and
+## only two fights of 40,000 passed half the cap at all.
+##
+## So the instruction "find the guard a new known-bad input" has no answer that
+## can be *found*: with #264 in, this repository no longer contains a registered
+## room and seed that stalls. A fixture that does not exist cannot be pinned,
+## which is exactly why the one below is **constructed**.
+##
+## **rook proposed `siege_master` as the new known-bad input, on its 0-of-120
+## seed-identical result, and it cannot be one.** A stall detector's bad input
+## has to be a fight that fails to resolve; siege_master x4 resolves **16 of 16
+## at a median 318 ticks** and is the most deterministic party in the game. It
+## is the strongest known-*good* input here, not a bad one. The 0 of 120 is a
+## real finding and it belongs to a different question, recorded above `_differs`.
+##
+## It is one fight of 3,600 ticks and costs the gate about a second. It is not
+## registered content: built here, so nothing in `Registry` gains a room that
+## cannot be played.
+func test_the_stall_detector_can_see_a_constructed_stall() -> void:
+	var enc := Encounter.new()
+	enc.id = &"a_wall_across_the_room"
+	enc.display_name = "a wall across the room"
+	enc.enemy_spawns = [
+		{"enemy_id": &"goblin", "position": Vector2(400.0, -60.0)},
+		{"enemy_id": &"goblin", "position": Vector2(400.0, 60.0)},
+	]
+	enc.party_spawns = [Vector2(-400.0, -60.0), Vector2(-400.0, 60.0)]
+	enc.terrain = [Terrain.make(Terrain.Kind.WALL, Rect2(-30.0, -CG.ARENA_HALF_HEIGHT, 60.0, CG.ARENA_HALF_HEIGHT * 2.0))]
+
+	var state := CombatSim.build(_party_of(&"warrior", 2), enc, 0)
 	CombatSim.run(state)
-	print("floor1_cover seed 364: %s at tick %d" % [CombatState.Outcome.keys()[state.outcome], state.tick])
+	print("a wall across the room: %s at tick %d" % [CombatState.Outcome.keys()[state.outcome], state.tick])
 
 	assert_eq(state.tick, CG.MAX_TICKS,
-		"floor1_cover seed 364 was the known stall and it now ends at tick %d. If somebody fixed _resolve_move, THAT IS GOOD NEWS: delete this test, say so in the pull request, and find the guard above a new known-bad input." % state.tick)
-	# The whole point. The old predicate reads false here; the new one reads true.
+		"the wall fixture must not resolve, and it ended at tick %d. If movement or sight changed so that a unit can now cross or shoot through a full-height wall, that is a real finding about Scripts/Combat and not a reason to weaken this test." % state.tick)
+	# The whole point of the fixture, and the assertion #263 found dead: the
+	# guard above reads exactly this predicate, so it has to be true here.
 	assert_true(state.outcome != CombatState.Outcome.PLAYER_WIN and state.outcome != CombatState.Outcome.ENEMY_WIN,
 		"a fight sitting on the tick cap must count as unresolved, and this one reported %s" % CombatState.Outcome.keys()[state.outcome])
 	assert_eq(state.outcome, CombatState.Outcome.DRAW,
-		"a stall reports DRAW, not UNRESOLVED -- if this ever changes, the predicate above has to change with it")
+		"a stall reports DRAW, not UNRESOLVED -- if this ever changes, the guard above has to change with it")
 
 
 ## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`
