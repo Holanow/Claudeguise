@@ -1,4 +1,4 @@
-extends "res://Tests/TestCase.gd"
+﻿extends "res://Tests/TestCase.gd"
 
 const CG := preload("res://Scripts/Core/CG.gd")
 const CombatState := preload("res://Scripts/Core/CombatState.gd")
@@ -45,6 +45,26 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 	p.blocks = blocks
 	return p
 
+## Issue 269: **these fixtures used to be `ClassDef.new()` bare, and that is no
+## longer a pawn that can run a plan.** `decide` now stops at
+## `PlanInterpreter.active_plan_count`, which is `Balance.plan_block_budget` --
+## the pawn's WIS. A `ClassDef` with an empty `base_attributes` has 0 WIS, so its
+## budget is the `maxi(1, ...)` floor of 1 block, and every plan below costs 2.
+## Every one of them would have gone inert.
+##
+## **The assertions below are untouched.** Not one threshold moved and not one
+## expectation was relaxed: they are about affordability, cooldowns, targeting
+## and fall-through, and each still asserts exactly what it did. The fixture
+## gained the one attribute that lets the pawn pay for the plan the test hands
+## it, which no real class has ever lacked -- the lowest WIS in
+## `Scripts/Content/Classes/` is 4, and `test_content_classes.gd` already asserts
+## every preset fits its class's budget. 8 is comfortably above anything here.
+func _test_class(id: StringName = &"testclass") -> ClassDef:
+	var cls := ClassDef.new()
+	cls.id = id
+	cls.base_attributes = {CG.Attribute.WIS: 8}
+	return cls
+
 
 func test_condition_holds_null_condition_always_true() -> void:
 	var self_unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
@@ -69,8 +89,7 @@ func test_decide_fires_and_tags_source_plan() -> void:
 	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
 	var state := _state_with(attacker, target)
 
-	var pawn_class := ClassDef.new()
-	pawn_class.id = &"testclass"
+	var pawn_class := _test_class()
 	var pawn := PawnData.new()
 	pawn.pawn_class = pawn_class
 	pawn.plans = [
@@ -95,7 +114,7 @@ func test_decide_returns_null_when_no_plan_fires() -> void:
 	var state := _state_with(attacker, target)
 
 	var pawn := PawnData.new()
-	pawn.pawn_class = ClassDef.new()
+	pawn.pawn_class = _test_class()
 	pawn.plans = [
 		_plan(&"only_when_hurt", _block(PlanBlock.Kind.CONDITION, &"self_hp_below_fraction", {"fraction": 0.1}), [
 			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
@@ -113,7 +132,7 @@ func test_unknown_op_fails_loudly_and_names_the_op_and_plan() -> void:
 	var state := _state_with(attacker, target)
 
 	var pawn := PawnData.new()
-	pawn.pawn_class = ClassDef.new()
+	pawn.pawn_class = _test_class()
 	pawn.plans = [
 		_plan(&"nonsense_plan", null, [
 			_block(PlanBlock.Kind.TARGETING, &"do_a_barrel_roll"),
@@ -134,7 +153,7 @@ func test_valid_ops_only_produce_no_error() -> void:
 	var state := _state_with(attacker, target)
 
 	var pawn := PawnData.new()
-	pawn.pawn_class = ClassDef.new()
+	pawn.pawn_class = _test_class()
 	pawn.plans = [
 		_plan(&"clean_plan", null, [
 			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
@@ -167,7 +186,7 @@ func test_describe_op_covers_every_whitelisted_op() -> void:
 
 ## Issue 22: CONDITION_ARG_SHAPE used to be InspectPanel.gd's own copy of this
 ## fact, duplicating what _eval_condition's match statement already encodes.
-## Moved here as data; this test is the guard against the two drifting again —
+## Moved here as data; this test is the guard against the two drifting again â€”
 ## every CONDITION_OPS entry must have a shape, and every shape entry must be
 ## a real condition op, so adding one without the other fails loudly instead
 ## of silently.
@@ -189,7 +208,7 @@ func test_describe_op_unknown_op_names_itself_rather_than_going_blank() -> void:
 ## PlanRangeAudit's cousin found on the Abomination.
 func _two_plan_pawn() -> PawnData:
 	var pawn := PawnData.new()
-	pawn.pawn_class = ClassDef.new()
+	pawn.pawn_class = _test_class()
 	pawn.plans = [
 		_plan(&"expensive_first", null, [
 			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
@@ -275,8 +294,7 @@ func _three(a: CombatUnit, b: CombatUnit, c: CombatUnit) -> CombatState:
 	return state
 
 func _cleanse_pawn() -> PawnData:
-	var cls := ClassDef.new()
-	cls.id = &"geysermancer"
+	var cls := _test_class(&"geysermancer")
 	cls.starting_actions = [&"geyser_cleanse"]
 	var pawn := PawnData.new()
 	pawn.pawn_class = cls
