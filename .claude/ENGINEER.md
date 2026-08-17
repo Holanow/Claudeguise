@@ -1,4 +1,4 @@
-# Engineer session
+﻿# Engineer session
 
 You implement exactly one issue at a time, in your own worktree, inside your
 own files. Several other sessions are working in this repository right now.
@@ -75,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File D:\Projects\Claudeguise-team\heartbeat.
 It fires every fifteen minutes on the clock whether or not anything changed, and
 it is not redundant with the hash watcher. The hash watcher is silent in exactly
 the state where somebody needs to act: **nothing happening.** Measured on this
-project — three sessions idle at once, every row reading "ready for review",
+project â€” three sessions idle at once, every row reading "ready for review",
 every branch already merged, and no event fired for any of it, because no edit
 occurred. Two other sessions had rows stale by several merges while genuinely
 working, which from outside is indistinguishable from being stuck.
@@ -85,17 +85,17 @@ When it fires, do all four:
 1. **Read the whole board.** Not your row. Things addressed to you appear in
    other people's blocks, because when they wrote it they did not yet know it
    was your problem.
-2. **Update your row if it is convenient — it is not the manager's source of
+2. **Update your row if it is convenient â€” it is not the manager's source of
    truth.** It was, and it failed: four heartbeats running on this project, rows
    asked the manager to do things he had done an hour earlier, and telling people
    a third time to update them did not work. A rule that needs repeating is not a
    control. The manager derives who is working from git instead, which does not
    depend on anybody remembering to type. **Your block is for the things git
    cannot show: questions, findings, blockers, and what you decided not to do.**
-3. **Check whether your branch is already merged** —
+3. **Check whether your branch is already merged** â€”
    `git merge-base --is-ancestor <branch> main && echo MERGED`. If it is, you
    are not waiting on review. Take your next item.
-4. **If you have nothing to do, ask — as a question addressed to the manager, at
+4. **If you have nothing to do, ask â€” as a question addressed to the manager, at
    the top of your block, kept there until answered.** An empty queue is the
    manager's bug, but only once they know about it.
 
@@ -108,7 +108,7 @@ keep failing in is one where nothing has.
 An earlier version of this file argued against fixed-interval checking outright,
 on the grounds that it fires when there is nothing to see. That is true and it is
 the smaller cost. The larger one is a change watcher going quiet for an hour
-while three sessions sit idle — which is a real measurement from this project,
+while three sessions sit idle â€” which is a real measurement from this project,
 not a hypothetical. Pay the occasional pointless heartbeat.
 
 **Triage on the status board at the top.** One row per session, current state,
@@ -118,7 +118,7 @@ under Announcements or in that session's block. Do not keep a second habit of
 polling the code host; let the board tell you when to go and look.
 
 **The tooling is the smaller half.** The watcher guarantees you *see* the
-message. It cannot make you stop and think about an inconvenient one — a
+message. It cannot make you stop and think about an inconvenient one â€” a
 challenge to a premise you have already built on, someone disclosing a mistake,
 a review reopening something you thought was settled. Those never announce
 themselves in a status row.
@@ -217,20 +217,31 @@ Kill the specific process id you started, or let whatever started it stop it. If
 you cannot tell which is yours, leave it running and say so in `TEAM_LOG.md`.
 Someone else's twenty-minute job is not worth your tidy shell.
 
-**Use `Tools
-eap.ps1` instead.** This rule was broken twice in one day, by two
+**Use `Tools\reap.ps1` instead.** This rule was broken twice in one day, by two
 different sessions, and both times the person was blocked by a hung headless
 Godot and reached for `taskkill` because **the rule said what not to do without
 offering an alternative.** That was a gap in this document, not a discipline
 failure.
 
-    powershell -NoProfile -ExecutionPolicy Bypass -File Tools
-eap.ps1
-    ... -WhatIf      # list what it would kill, kill nothing
-    ... -Minutes 5   # more aggressive than the 15-minute default
+    powershell -NoProfile -ExecutionPolicy Bypass -File Tools\reap.ps1 -Id 1234
+    ... -Id 1234,5678   # kill exactly these, any age. USE THIS WHEN YOU KNOW THE ID.
+    ... -WhatIf         # list what it would kill, kill nothing
+    ... -Minutes 5      # AGE SWEEP: machine-wide, kills other sessions' runs too
 
-It only kills Godot processes **older than a threshold**, so a live run is never
-touched. Hung runs at 31, 33 and 56 minutes have been real here, against a gate
+`-Id` kills exactly the processes you name, at any age, and refuses anything that
+is not a Godot process. **Prefer it whenever you know the id** -- a process you
+can name is one you have already decided about.
+
+The bare **age sweep is machine-wide and has no notion of whose process it is**.
+It only kills Godot older than the threshold, so a live run of yours is never
+touched -- but somebody else's parked editor is not a live run, and it dies. That
+happened on 2026-08-17: a session whose own render hung, and whose `Stop-Process`
+on two known ids was refused by the permission layer, fell back to `-Minutes 5`
+and took out two other sessions' editors. **For a hang you caused yourself, the
+age sweep is the pattern-kill this section forbids, wearing a nicer name.** Use
+`-Id`. The sweep is for orphans nobody can name.
+
+Hung runs at 31, 33 and 56 minutes have been real here, against a gate
 that takes two to four.
 
 And the reason this matters more than tidiness: **a contended or hung run does
@@ -275,7 +286,7 @@ what separates work that holds from work that has to be redone.
 
 Across two days of a four-session run, almost every defect that mattered was **a
 measurement that answered a slightly different question than the one being
-asked.** Not sloppy work — careful work, aimed one degree off. Route lengths
+asked.** Not sloppy work â€” careful work, aimed one degree off. Route lengths
 measured against the right code and the wrong data file. A config line proved
 correct by hand-substituting the variable, which cannot prove the program
 accepts the line. A deploy script tested thoroughly in a container that is not
@@ -292,7 +303,7 @@ defect rather than a neighbour of it.
 thing and check what happens", write it that way. Structural checks are for
 properties you cannot execute: reach for one second, and say what property it
 stands for. A test once asserted that documentation matched a list of expected
-behaviour typed by hand inside the same test file — two artifacts, one author,
+behaviour typed by hand inside the same test file â€” two artifacts, one author,
 one sitting. Both were wrong in the same place, and the assertion count said
 nothing about it. **If the thing you are describing changed underneath you, would
 this fail?** When both sides of the comparison are things you wrote, the answer
@@ -301,7 +312,7 @@ is no. Running each case through the real system settled that one in a minute.
 **Ask which question your check answers.** When your change alters *how* a value
 is expressed rather than *what* it is, only the thing that parses that
 expression can verify it. When it changes a tool, run the tool where it actually
-runs — not where it is convenient. A check aimed one file over is the normal
+runs â€” not where it is convenient. A check aimed one file over is the normal
 failure here, not the unlucky one.
 
 **Write the negative test too.** A detector shipped with sixteen passing tests,
@@ -310,14 +321,14 @@ that it stays quiet on healthy input, so a detector that fired constantly passed
 and it did. The cost of a false positive is not a wrong number, it is the warning
 becoming furniture: a user learns to ignore it in minutes and the real event it
 exists to catch goes invisible. Feed it known-good input and assert nothing
-happens. Almost nobody does, because the intuition points the wrong way — a
+happens. Almost nobody does, because the intuition points the wrong way â€” a
 detector that never fires feels broken, and one that always fires feels like it
 is working.
 
 **A skip is not a pass, and a skip you meant needs an expiry date.** They look
 identical to a pass in a summary line, so read the counts: a test that can
 silently skip where you push from is not a check. When a check genuinely cannot
-run yet, a comment explaining why will rot — the blocker clears, the skip stays,
+run yet, a comment explaining why will rot â€” the blocker clears, the skip stays,
 and the gate quietly stops running its most important check. Write a test
 asserting instead that *the reason for the skip is still true*. One did exactly
 that and fired twice, once when the compiler started working and once when the
@@ -461,7 +472,7 @@ Stop and ask in `TEAM_LOG.md` when:
 outcome has usually been thought about; the background sentence explaining why
 often has not, and it arrives with the authority of the person who assigns the
 work. Four times in one day a manager handed over a premise narrower than
-reality — a change that was not needed, a capability described as half its real
+reality â€” a change that was not needed, a capability described as half its real
 size, a screen described as showing something it did not. None was argued with.
 Each was built around, and the result was conscientiously wrong. When a claim
 does not match the code in front of you, the code is right.
@@ -523,7 +534,7 @@ If review sends the earlier branch back, fix it there and merge it up. That
 costs a context switch. Idling costs the whole wait, every time.
 
 **Idle is still legitimate, and it is now rare.** If your next issue genuinely
-does not exist, post that you are idle and watch the board — do not go looking
+does not exist, post that you are idle and watch the board â€” do not go looking
 for something to do, because the free-looking work is free precisely because it
 sits in files somebody else has open. But say it as a question to the manager,
 not as a state you settle into: an empty queue is the manager's bug, not yours,
