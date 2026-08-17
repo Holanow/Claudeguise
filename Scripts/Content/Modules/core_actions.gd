@@ -139,7 +139,13 @@ static func classes() -> Array[ClassDef]:
 static func actions() -> Array[ActionDef]:
 	return [
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
-		_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90),
+		# Issue 150: `_targets_self`, because Guard is built through
+		# `_action_status` -- it has a real resource cost and no cooldown, neither
+		# of which `_action_self_buff` takes -- and that helper cannot set the
+		# marker for everyone, since every other caller aims at an enemy. Range
+		# 0.0 already said this and could not be read as saying it; see
+		# `ActionDef.targets_self`.
+		_targets_self(_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90)),
 		# Issue 79: cost 60 -> 25. This action fired zero times across 210
 		# real fights, and the cause was not tuning or plan priority: the
 		# Warrior's Rage pool has a *maximum* of 40. `Balance.max_resource`
@@ -608,6 +614,7 @@ static func _action(id: StringName, display_name: String, description: String, d
 static func _action_self_heal(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, recover: int, power_scale: float, resource_cost: int, cooldown_ticks: int) -> ActionDef:
 	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, recover, power_scale, resource_cost, 0)
 	a.heals = true
+	a.targets_self = true
 	a.cooldown_ticks = cooldown_ticks
 	return a
 
@@ -650,6 +657,16 @@ static func _action_status(id: StringName, display_name: String, description: St
 ## defending a value the file no longer holds is worse than none.** The bound
 ## itself was correct and is now stated where the value lives:
 ## `RANGED_PROJECTILE_SPEED` at the top of this file.
+## Issue 150: marks an action built through a helper that cannot know. Every
+## action whose range is 0 is self-targeted by construction -- there is nothing
+## else it could ever be in range of -- but the helpers that build them are
+## shared with enemy-targeted actions, so the flag has to be set at the call
+## site. `Tests/test_plans_self_targeted.gd` refuses a zero-range action without
+## it, which is the direction of the inference that is safe.
+static func _targets_self(a: ActionDef) -> ActionDef:
+	a.targets_self = true
+	return a
+
 static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
 	return a
@@ -738,6 +755,7 @@ static func _summon_cap(a: ActionDef, cap: int) -> ActionDef:
 ## cooldown parameter at all rather than taking one and passing 0.
 static func _sustained(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, tick_power_scale: float, resource_cost: int, sustain_cost_per_tick: int, sustain_radius: float) -> ActionDef:
 	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, 0, tick_power_scale, resource_cost, 0)
+	a.targets_self = true
 	a.sustain_cost_per_tick = sustain_cost_per_tick
 	a.sustain_radius = sustain_radius
 	return a
@@ -763,6 +781,7 @@ static func _pull(a: ActionDef, distance: float) -> ActionDef:
 ## comment for the real fight this was found in.
 static func _action_self_buff(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, wind_up: int, recover: int, status: CG.Status, duration_ticks: int) -> ActionDef:
 	var a := _action(id, display_name, description, damage_type, 0.0, wind_up, recover, 0.0, 0, duration_ticks)
+	a.targets_self = true
 	a.applies_status_enabled = true
 	a.applies_status = status
 	a.status_duration_ticks = duration_ticks
@@ -807,6 +826,7 @@ static func _action_cleanse(id: StringName, display_name: String, description: S
 
 static func _action_taunt(id: StringName, display_name: String, description: String, wind_up: int, recover: int, taunt_radius: float, duration_ticks: int) -> ActionDef:
 	var a := _action(id, display_name, description, CG.DamageType.PHYSICAL, 0.0, wind_up, recover, 0.0, 0, duration_ticks)
+	a.targets_self = true
 	a.applies_status_enabled = true
 	a.applies_status = CG.Status.TAUNTING
 	a.status_duration_ticks = duration_ticks
@@ -818,6 +838,7 @@ static func _action_taunt(id: StringName, display_name: String, description: Str
 ## effect. `_action` already covers everything else this needs.
 static func _action_summon(id: StringName, display_name: String, description: String, wind_up: int, recover: int, resource_cost: int, summons_unit_id: StringName) -> ActionDef:
 	var a := _action(id, display_name, description, CG.DamageType.PHYSICAL, 0.0, wind_up, recover, 0.0, resource_cost, 0)
+	a.targets_self = true
 	a.summons_unit_id = summons_unit_id
 	return a
 

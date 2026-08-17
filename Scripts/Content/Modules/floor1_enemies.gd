@@ -63,6 +63,29 @@ static func actions() -> Array[ActionDef]:
 		## power_scale 2.0 against `attack_power` 24 makes this a real blow
 		## rather than a stun stapled to a tap: an enemy whose whole identity
 		## is "slow, tough, hits once and it hurts" has to hurt.
+		# **Issue 150: the roar the Brute was built for and could not have.**
+		# The player asked in #121 for a "big heavy guy that stuns units and
+		# taunts". heron shipped the stun and left the taunt out rather than ship
+		# one that could never fire, and was right: no self-targeted action had a
+		# path through `DefaultBehavior`, and nothing in this file has a plan, so
+		# a roar here would have been content nothing could reach.
+		# `DefaultBehavior._self_targeted_to_cast` is that path, and this is the
+		# thing that makes it more than a mechanism.
+		#
+		#   radius 200 -- the bottom of this bestiary's own ranged band
+		#     (`goblin_arrow` and `cultist_bolt` both reach 200, the Warden's
+		#     chain 270). The roar pulls whoever is already in the fight and does
+		#     not reach past it. **The Warrior's own taunt stays at 350**: a taunt
+		#     the player chose to bring should out-reach one done to them.
+		#   duration 120, cooldown 240 -- **50% uptime, and the split is the
+		#     player's #58 ruling that taunts "can't permanently affect one
+		#     pawn".** 120 ticks is 8 seconds against fights that run 300-400, so
+		#     a pawn is free for two seconds of every three it spends inside the
+		#     radius, and it can always walk out.
+		#   wind-up 8, recovery 9 -- half `brute_slam`'s 16/18. A roar is not a
+		#     swing, and a Brute that spends a full Slam cycle shouting has
+		#     stopped being the thing that hits hard.
+		_action_taunt(&"brute_roar", "Roar", "Forces every enemy within 200 units to attack the Brute for 8 seconds. It cannot roar again for another 16 seconds.", 8, 9, 200.0, 120, 240),
 		_action_status(&"brute_slam", "Slam", "A heavy melee blow at up to 50 units that stuns for 0.5 seconds, cancelling whatever the target was casting.", CG.DamageType.PHYSICAL, 50.0, 16, 18, 2.0, 0, CG.Status.STUN, 8),
 
 		## The Stalker's whole arsenal. MARKED for 6 seconds at 220 units,
@@ -279,35 +302,37 @@ static func enemies() -> Array[EnemyDef]:
 		# further; see that file's header for the finding reported to rook.
 		_enemy(&"the_warden", "The Warden", 1000, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
 
-		## **Issue #121, the player's "big heavy guy that stuns units and
-		## taunts". It stuns. It does not taunt, and the reason is a gap in
-		## `Scripts/Plans/DefaultBehavior.gd`, not a decision of mine.**
+		## **Issue #121, the player's "big heavy guy that stuns units and taunts".
+		## It now does both, and #150 is what changed.**
 		##
-		## A self-buff is unreachable to any enemy in this game. `decide()`
-		## always picks a target from the *opposing* team and then compares
-		## `dist` against the chosen action's `range_units`, so a
-		## self-targeted action at range 0.0 makes its owner walk toward a foe
-		## forever and never fire -- there is no self-target branch, and
-		## `PlanInterpreter`'s `target_self` is the only thing in the game
-		## that provides one. Aiming a taunt at a foe instead is worse than
-		## useless: `_apply_action_effect` applies the status to the *target*,
-		## so a `brute_roar` pointed at a pawn would make the Brute's allies
-		## pile onto that pawn, which is a focus-fire mechanic wearing a
-		## taunt's name.
+		## heron wrote the paragraph this replaces and it was right at the time:
+		## a self-buff was unreachable to any enemy in this game. `decide()`
+		## always picked a target from the *opposing* team and compared `dist`
+		## against the chosen action's `range_units`, so a self-targeted action at
+		## range 0 made its owner walk toward a foe forever, and aiming a taunt at
+		## a foe instead is worse than useless -- `_apply_action_effect` puts the
+		## status on the *target*, so a roar pointed at a pawn would make the
+		## Brute's allies pile onto that pawn, a focus-fire mechanic wearing a
+		## taunt's name. **heron shipped the Brute with no roar rather than a roar
+		## that could never fire, and that call is why this was a filed defect
+		## instead of a mystery six weeks later.**
 		##
-		## `EnemyDef.spawn_taunt_radius` is the one existing way an enemy can
-		## taunt, and I deliberately did not use it. It applies TAUNTING at
-		## `CG.MAX_TICKS`, an aura that outlives the fight, and a pawn inside
-		## it is forced to select the Brute and then forced to approach it
-		## every tick after. That is precisely the *permanent lock* the
-		## player's #58 ruling forbids ("taunts must not permanently lock a
-		## pawn"), and reaching for it would have shipped the letter of the
-		## ask against the ruling that governs it.
+		## swift measured it again on #150 and corrected half of it: `#129`'s
+		## `_attack_candidates` had landed in between and drops every
+		## `power_scale 0.0` action, so by then a Brute carrying a taunt behaved
+		## identically tick for tick to one without. **The taunt was inert rather
+		## than harmful, which is a different bug and a quieter one.**
 		##
-		## So the Brute ships as a heavy with a stun, `brute_roar` is not in
-		## this file at all rather than sitting here unreachable, and the
-		## finite-duration taunt is one branch in a file that is not mine.
-		## Reported on the board with the exact shape.
+		## `DefaultBehavior._self_targeted_to_cast` is the branch that closes it,
+		## and it runs only for units with no plans -- a *pawn* self-buffing from
+		## the fallback layer would be a pawn doing something written in no plan.
+		##
+		## `EnemyDef.spawn_taunt_radius` is still not used and still should not
+		## be: it applies TAUNTING at `CG.MAX_TICKS`, an aura that outlives the
+		## fight, which is the permanent lock the player's #58 ruling forbids.
+		## `brute_roar` is finite in both directions -- 8 seconds up, 16 between --
+		## and that is the whole reason its cooldown is a separate number from its
+		## duration. See `_action_taunt` in this file.
 		##
 		## Numbers: hp 320 is second only to The Warden and 1.6x the Ghoul,
 		## move_speed 1.8 is the second slowest thing that moves, and
@@ -321,7 +346,7 @@ static func enemies() -> Array[EnemyDef]:
 		## focus_bias 0.0: a Brute walks at whoever is closest and does not
 		## care what its allies are doing. A slow enemy that piles onto a
 		## distant target spends the fight walking.
-		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam"], ["Melee", "Tough", "Stun"], 0.0),
+		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam", &"brute_roar"], ["Melee", "Tough", "Stun", "Taunt"], 0.0),
 
 		## **Issue #121's anti-support specialist. Deliberately fragile at 30
 		## hp, and my own comment here was wrong when I wrote it** -- it said
@@ -458,6 +483,31 @@ static func _action_status(id: StringName, display_name: String, description: St
 static func _action_status_cd(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, status: CG.Status, duration_ticks: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:
 	var a := _action_status(id, display_name, description, damage_type, range_units, wind_up, recover, power_scale, resource_cost, status, duration_ticks, requires_los)
 	a.cooldown_ticks = cooldown_ticks
+	return a
+
+## Issue 150: an enemy's taunt. Self-targeted, no damage of its own -- the
+## status is the whole effect, the shape `core_actions._action_taunt` already
+## uses for the Warrior's.
+##
+## **Duration and cooldown are separate parameters here and they are the same
+## number in the Warrior's version. That difference is the player's #58 ruling.**
+## A cooldown equal to the duration is 100% uptime: a permanent lock assembled
+## out of finite pieces, which is precisely what `EnemyDef.spawn_taunt_radius`
+## was rejected for. The Warrior's may do that -- the player chose to bring it,
+## and a shout that lapses and cannot be renewed protects nobody for half the
+## fight. A taunt done *to* the player may not.
+##
+## `targets_self` is what gives it a path through `DefaultBehavior` at all.
+## Enemies have no plans, so `PlanInterpreter`'s `target_self` block -- the only
+## other way a self-targeted action has ever been cast -- is unreachable to
+## everything in this file.
+static func _action_taunt(id: StringName, display_name: String, description: String, wind_up: int, recover: int, taunt_radius: float, duration_ticks: int, cooldown_ticks: int) -> ActionDef:
+	var a := _action(id, display_name, description, CG.DamageType.PHYSICAL, 0.0, wind_up, recover, 0.0, 0, cooldown_ticks)
+	a.targets_self = true
+	a.applies_status_enabled = true
+	a.applies_status = CG.Status.TAUNTING
+	a.status_duration_ticks = duration_ticks
+	a.taunt_radius = taunt_radius
 	return a
 
 ## An action that spawns a unit as well as doing whatever else it does.

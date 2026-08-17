@@ -544,6 +544,36 @@ const GLYPHS := {
 	# source (issue 121, heron). `stalker_mark` does not draw the MARKED
 	# crosshair and `_PENNANT` says why.
 	&"brute_slam": _SLAM,
+	# The Brute's Roar (finch's #150). Rule 2, and it draws TAUNTED -- the badge
+	# the PLAYER'S pawns are about to wear -- rather than TAUNTING, the badge the
+	# Brute wears. Two reasons, and neither is taste:
+	#
+	# **`warrior_taunt` already draws TAUNTING, and the Warrior fights the
+	# Brute.** `floor1_hazard` is the one room fielding a Brute and the Warrior
+	# is in four of the five buildable parties, so the horn would be on two bars
+	# at once on opposite teams -- the same collision that made `stalker_mark` a
+	# pennant instead of a crosshair, and the one `siege_master_shot` shipped.
+	#
+	# **And TAUNTED is the truer half here.** Rule 2's payoff is that the player
+	# sees the thing coming and then sees the same thing land; what lands on
+	# anything they own is TAUNTED, on their own pawns, in the same second.
+	#
+	# **Not a shield, and not a horn, because the measurement says it is neither
+	# (finch, PR #265, 60 seeds x 5 parties).** `brute taken` is FLAT, 320.0 to
+	# 317.7: the roar does not draw fire and drawing anything protective would
+	# promise a tank tool the numbers say does not exist. What moves is where the
+	# party stands -- `party burn` 67.6 to 141.4, the back line walking into the
+	# pit. TAUNTED's glyph is an arc turning back on itself with a head on the
+	# end, and `StatusIcons` already describes it as "you are not choosing your
+	# target any more". A compulsion to move is exactly what was measured.
+	#
+	# Checked against `_HOOK` on the sheet at both sizes, because "a line into an
+	# open arc" is the shape `_LASH`'s comment already says a bend cannot save at
+	# 16px, and `abomination_hook` is in these fights. They separate on mass and
+	# on where the head sits: the hook is an even-width stroke with an open curve
+	# hanging off its bottom-right, this is a thick near-closed curl with a solid
+	# barb at the top-right and no straight run anywhere.
+	&"brute_roar": CG.Status.TAUNTED,
 	&"stalker_mark": _PENNANT,
 	&"stalker_dart": _DART,
 

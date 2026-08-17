@@ -35,8 +35,21 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 ## duration a new way.
 
 ## Phrase -> which of the action's own tick counts it is talking about.
+##
+## **The status pattern excludes "again for", and the exclusion earned itself
+## immediately.** `brute_roar` (#150) states two durations in one sentence -- how
+## long it holds, and how long before it can be cast again -- and the second one
+## is a cooldown. Without the lookbehind the generic pattern claimed it as a
+## status duration and failed a description that was correct.
+##
+## The patterns must not overlap for a second reason: the check at the bottom
+## counts every "N seconds" in the text against the number of patterns that
+## claimed one, and a phrase claimed twice reads there as a phrase written a way
+## nothing recognises. That check is what stops this file rotting, so it is worth
+## the lookbehind rather than a looser pattern.
 const _PATTERNS := [
-	{"re": "for ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "status"},
+	{"re": "(?<!again )for ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "status"},
+	{"re": "again for (?:another )?([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "cooldown"},
 	{"re": "Spends ([0-9]+(?:\\.[0-9]+)?) seconds? building", "field": "wind_up"},
 	{"re": "once every ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "cycle"},
 ]
@@ -115,6 +128,8 @@ func _ticks_for(action, field: String) -> int:
 			return action.status_duration_ticks
 		"wind_up":
 			return action.wind_up_ticks
+		"cooldown":
+			return action.cooldown_ticks
 		"cycle":
 			return action.wind_up_ticks + action.recover_ticks
 	return 0
