@@ -91,37 +91,25 @@ func _build_roster() -> void:
 ## The cost of the constant was the player's complaint: five classes, room for
 ## all five, showing two, in the left quarter of a 1280-wide screen, clipped
 ## mid-row inside a scroll box.
-## Issue 176 -- THE FOUR ROOMS THE PICKER OFFERS, and why this list lives here.
-##
-## The four are named in prose in `floor1_encounters.gd` and in a `PICKABLE`
-## constant inside a test, and nowhere a program can read. Rather than add a
-## third hand-written copy that can quietly disagree with the other two,
-## `test_ui_room_picker.gd` asserts that **every registered encounter is either
-## offered here or listed in `NOT_OFFERED` with a reason.** A new room therefore
-## cannot appear without somebody deciding which it is -- which is exactly the
-## failure this issue is: three rooms, four days of enemies and terrain, and
-## nothing anywhere noticed they were unreachable.
-##
-## Authored order, not sorted: `Array[StringName].sort()` compares interned
-## pointers rather than text, so a sorted list would present rooms in an order
-## that depends on process history.
-## **`ROOM_ORDER` is not #94's "four comparable rooms" and the two must not be
-## confused, because they answer different questions.** `PICKABLE` in
-## `test_content_rooms.gd` is the set that has to field the same headcount so
-## layout and roster stay comparable; this is the set a player can select. The
-## Rat King is in the second and deliberately not the first -- heron's own
-## reasoning, and the same reason `floor1_warden` fields one enemy.
-const ROOM_ORDER: Array[StringName] = [
-	&"floor1_room1",
-	&"floor1_cover",
-	&"floor1_hazard",
-	&"floor1_chokepoint",
-	&"floor1_rat_king",
-	&"floor1_warden",
-]
-
 ## Registered encounters the picker deliberately does not offer, with the
 ## reason.
+##
+## **The offered half of this pair is no longer a list here. Issue #180.** It was
+## `const ROOM_ORDER`, a third hand-written copy of a set also written as prose
+## in `floor1_encounters.gd` and as `PICKABLE` in a test. It is now
+## `Encounter.pickable`, set beside each room where the room is declared, and
+## `offered_rooms()` below reads it. Order comes from the same place: the module
+## lists its encounters in the order the picker shows them, so the order is
+## authored rather than sorted -- `Array[StringName].sort()` compares interned
+## pointers rather than text, and a sorted picker would order rooms by process
+## history.
+##
+## **This dictionary stays hand-written, and that is not an oversight.** It
+## carries a *reason*, which a bool cannot, and `test_ui_room_picker.gd` asserts
+## that every registered encounter is either offered or named here. A new room
+## still cannot appear without somebody deciding which it is, which is the
+## failure #176 was: three rooms, four days of enemies and terrain, and nothing
+## anywhere noticed they were unreachable.
 ##
 ## **THE RULE, written down because the next boss hits the same fork.** Offer any
 ## room whose point is a fight and which nothing else can reach. Exclude tuning
@@ -511,15 +499,19 @@ func selected_room() -> StringName:
 		return CG.DEFAULT_ENCOUNTER
 	return encounters[0] if not encounters.is_empty() else &""
 
-## Rooms the picker offers, in a fixed authored order rather than sorted --
-## `Array[StringName].sort()` is not alphabetical and the order a player reads
-## should not depend on which StringNames the process interned first.
+## Rooms the picker offers: every registered encounter whose content sets
+## `pickable`, in registration order rather than sorted -- `Array[StringName]`
+## does not sort alphabetically and the order a player reads should not depend
+## on which StringNames the process interned first.
+##
+## Issue #180. This used to filter a `ROOM_ORDER` constant down to the rooms that
+## exist; the flag cannot name a room that does not exist, so the filter is gone
+## with it. **The cost, stated because a comment in `test_ui_room_picker.gd`
+## relied on it:** a room can no longer be classified before its content lands,
+## because the classification is now part of the content. They merge together or
+## not at all.
 static func offered_rooms() -> Array[StringName]:
-	var out: Array[StringName] = []
-	for id in ROOM_ORDER:
-		if Registry.get_encounter(id) != null:
-			out.append(id)
-	return out
+	return Registry.pickable_encounter_ids()
 
 func _refresh_room_summary() -> void:
 	if _room_summary == null:

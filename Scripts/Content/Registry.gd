@@ -136,6 +136,23 @@ static func all_encounter_ids() -> Array[StringName]:
 	_sort_ids(ids)
 	return ids
 
+## The rooms the picker offers, in registration order. Issue #180.
+##
+## **Deliberately not sorted, unlike every other accessor here.** This one is
+## read straight into a player-facing list, and `_sort_ids` would order the
+## picker by id text rather than by the order the content is authored in. The
+## module's own `encounters()` array is that order.
+##
+## Not a fourth source of truth: it holds no list of its own, it filters the
+## flag the content sets. Whether a room is offered is decided beside the room.
+static func pickable_encounter_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	for k in _encounters.keys():
+		if _encounters[k].pickable:
+			ids.append(k)
+	return ids
+
 ## The missing fourth sibling of all_class_ids/all_encounter_ids/
 ## all_equipment_ids -- every enemy this project knows about, not just
 ## whichever ones a hand-written encounter happens to reference. Added for

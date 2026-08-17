@@ -23,17 +23,24 @@ const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 ## precisely because they cannot be run: "these four rooms are comparable to
 ## each other" is a property of the authoring, not of any one fight.
 
-## The four rooms #94 built. `floor1_horde`, `floor1_ghoul_den` and
-## `floor1_warden` stay registered and are deliberately not in this list.
+## The four rooms #94 built, and the set every headcount, stall and wall check
+## in this file measures across.
 ##
-## **This comment used to say "the four the picker offers" and there is no
-## picker.** Issue #176. `PartySelect.current_config()` hardcodes
-## `CG.DEFAULT_ENCOUNTER`, so a player fights `floor1_room1` and only ever
-## `floor1_room1`; the other three, and every specialty enemy and piece of
-## terrain in them, cannot be reached through the game at all. The name of
-## this constant is now a statement of intent rather than of fact, and
-## `test_only_one_pickable_room_can_actually_be_reached` below is what will
-## tell whoever fixes it that this file needs re-reading.
+## **This is NOT the set the picker offers, and issue #180 asked me to make it
+## query `Encounter.pickable` -- I did not, because they are different sets.**
+## The picker offers six: these four plus `floor1_rat_king` and
+## `floor1_warden`. These four exist to be *comparable to each other*, which is
+## why `test_all_four_pickable_rooms_field_the_same_number_of_enemies` asserts
+## ten enemies each; the Warden's room fields one, by design. Pointing this
+## constant at the flag would only be possible by weakening that assertion, so
+## the flag now owns "offered" and this list still owns "comparable".
+##
+## The name is the last thing left conflating the two. Renaming it to
+## `COMPARABLE` is heron's call, not mine -- reported to rook on the board with
+## the rest of #180.
+##
+## `floor1_horde`, `floor1_ghoul_den`, `floor1_rat_king` and `floor1_warden`
+## stay registered and are deliberately not in this list.
 const PICKABLE: Array[StringName] = [
 	&"floor1_room1",
 	&"floor1_cover",

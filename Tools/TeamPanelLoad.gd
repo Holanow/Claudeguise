@@ -38,7 +38,7 @@ func _init() -> void:
 	var peak_where := ""
 	var histogram := {}
 	var fights := 0
-	for room_id in PartySelect.ROOM_ORDER:
+	for room_id in PartySelect.offered_rooms():
 		var encounter := Registry.get_encounter(room_id)
 		if encounter == null:
 			continue

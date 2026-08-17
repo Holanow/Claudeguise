@@ -12,6 +12,25 @@ extends Resource
 @export var id: StringName = &""
 @export var display_name: String = ""
 
+## Issue 180. Whether the room picker offers this encounter to the player.
+##
+## **The set of pickable rooms was written in three places and only one was
+## machine-readable**: prose in `floor1_encounters.gd`, `PICKABLE` in a test, and
+## `ROOM_ORDER` in `Scripts/UI` -- the last being both the only one a tool could
+## see and the one furthest from the content. Adding a fifth room meant
+## remembering all three, and forgetting the UI one is exactly how three rooms sat
+## unreachable for days.
+##
+## Declared here rather than derived by a `Registry.pickable_encounter_ids()`,
+## because a derived function still needs a list to derive from and so relocates
+## the third source of truth instead of removing it. The content declares it; both
+## readers query it.
+##
+## **Defaults to false, so an encounter that says nothing is not offered.** The
+## safer direction: a new room silently missing from the picker is a bug somebody
+## notices, while a new room silently *appearing* in it is one they may not.
+@export var pickable: bool = false
+
 ## One entry per enemy. Each is { "enemy_id": StringName, "position": Vector2 }.
 @export var enemy_spawns: Array[Dictionary] = []
 

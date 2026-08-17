@@ -15,26 +15,34 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## Tuning notes (see Tests/test_content_encounter.gd for the measured seed
 ## sweep): a room is a property of the whole spawn list, not any one enemy.
 ##
-## ISSUE #94 -- FOUR PICKABLE ROOMS. The player picks one of these four before
-## the fight, and they are meant to play differently rather than to look
-## different:
+## ISSUE #94 -- FOUR COMPARABLE ROOMS, and they are meant to play differently
+## rather than to look different:
 ##
 ##   floor1_room1       open ground, no terrain      the baseline
 ##   floor1_cover       five pillars, sight broken   archers, cultists, a Stalker, rats
 ##   floor1_hazard      three burn bands, two lanes  ghouls, goblins, a Brute
 ##   floor1_chokepoint  pits, one land bridge, tar    room1's exact roster
-##   floor1_rat_king    bare, measured that way      the miniboss, not one of the four
 ##
 ## **All four field exactly ten enemies.** That is a rule, not a coincidence.
 ## The retrospective records a terrain conclusion that was wrong because it
 ## compared a three-enemy room against a ten-enemy one and credited the
 ## geometry for the difference; holding headcount fixed is what makes the
 ## layout question answerable at all. Rosters differ freely, headcount does
-## not.
+## not. `floor1_rat_king` and `floor1_warden` are deliberately outside that
+## rule: a miniboss and a boss are not comparable to the four or to each other.
 ##
-## `floor1_horde`, `floor1_ghoul_den` and `floor1_warden` stay registered and
-## are **not** picker options -- the picker lists the four ids above, not
-## every encounter, or it offers the player the boss room.
+## **WHICH ROOMS THE PICKER OFFERS IS NOT WRITTEN HERE ANY MORE. Issue #180.**
+## It is `Encounter.pickable`, set beside each room below, and both readers --
+## `PartySelect.offered_rooms()` and the picker test -- query it. This paragraph
+## used to be a hand-written list, and by the time it was deleted it was already
+## false: it claimed the picker listed the four rooms above, and the picker had
+## offered six for days. That is the whole argument for the flag. **Do not
+## reintroduce a list here; set the flag on the room.**
+##
+## Declaration order in `encounters()` below is the order the picker shows them
+## in, so it is authored rather than sorted -- `Array[StringName].sort()`
+## compares interned pointers, and a sorted picker would order rooms by process
+## history.
 
 ## Vertical spacing between party spawns. Used to be 60 units, fine when a
 ## unit's draw radius was 12; pike raised the radius to 22 for phone
@@ -88,8 +96,13 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 	{"enemy_id": &"ghoul", "position": Vector2(190.0, -220.0)},
 ]
 
+## **This order is player-visible.** `Registry.pickable_encounter_ids()` keeps
+## registration order, so the rooms whose `pickable` is set appear in the picker
+## in the order they are listed here. The Rat King moved ahead of the Warden in
+## this list for exactly that reason: it is the order `ROOM_ORDER` showed before
+## #180 deleted it, and the set and order a player sees are unchanged.
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_warden_room(), _the_rat_king_room()]
+	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_rat_king_room(), _the_warden_room()]
 
 ## Issue 44: floor 1's real boss room, replacing `floor1_chokepoint` as
 ## `FloorFightRunner`'s BOSS placeholder. The wall was a wall built to test a
@@ -103,6 +116,7 @@ static func _the_warden_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_warden"
 	e.display_name = "Floor 1, The Warden's Chamber"
+	e.pickable = true
 	e.enemy_spawns = [
 		{"enemy_id": &"the_warden", "position": Vector2(200.0, 0.0)},
 	]
@@ -144,6 +158,7 @@ static func _the_rat_king_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_rat_king"
 	e.display_name = "Floor 1, The Nest"
+	e.pickable = true
 	e.enemy_spawns = [
 		{"enemy_id": &"rat_king", "position": Vector2(330.0, 0.0)},
 		{"enemy_id": &"rat", "position": Vector2(150.0, -140.0)},
@@ -164,6 +179,7 @@ static func _the_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_room1"
 	e.display_name = "Floor 1, Room 1"
+	e.pickable = true
 	## Four goblins (numerous), a pair of archers, a cultist, and a ghoul
 	## anchoring the back — the tough/slow piece regen alone cannot make
 	## trivial the way it did the pure-numbers version of this room.
@@ -243,6 +259,7 @@ static func _the_chokepoint() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_chokepoint"
 	e.display_name = "Floor 1, The Narrows"
+	e.pickable = true
 	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
 	e.party_spawns = _PARTY_SPAWNS
 	## **No pillars at the bridge mouth, and a 120-unit bridge.** Both were
@@ -347,6 +364,7 @@ static func _the_cover_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_cover"
 	e.display_name = "Floor 1, Broken Colonnade"
+	e.pickable = true
 	e.enemy_spawns = [
 		## **Four rosters were measured at 20 seeds x 5 buildable parties,
 		## each one both with the colonnade and with the terrain stripped, and
@@ -574,6 +592,7 @@ static func _the_hazard_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_hazard"
 	e.display_name = "Floor 1, The Burn Pit"
+	e.pickable = true
 	e.enemy_spawns = [
 		{"enemy_id": &"ghoul", "position": Vector2(180.0, -60.0)},
 		{"enemy_id": &"ghoul", "position": Vector2(190.0, 60.0)},

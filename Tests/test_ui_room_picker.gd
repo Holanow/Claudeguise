@@ -56,18 +56,17 @@ func test_the_offered_list_and_the_excluded_list_do_not_disagree() -> void:
 	for id in PartySelect.offered_rooms():
 		assert_false(PartySelect.NOT_OFFERED.has(id),
 			"'%s' is both offered and excluded" % id)
-	# Only what the picker actually shows has to exist. `ROOM_ORDER` may name a
-	# room whose content is still on somebody's branch; `offered_rooms()` skips
-	# it, which is what keeps a classification and its content mergeable in
-	# either order.
+	# Issue #180 made this structural rather than filtered: offered rooms are
+	# the ones whose `Encounter` sets `pickable`, so an offered room that does
+	# not exist is no longer expressible. The assertion stays because it is what
+	# says so.
 	for id in PartySelect.offered_rooms():
 		assert_not_null(Registry.get_encounter(id),
 			"the picker offers '%s' and no such room is registered" % id)
 
-## Compared against `offered_rooms()` rather than `ROOM_ORDER` directly: the
-## list may name a room whose content has not landed yet, and the picker shows
-## what exists. Asserting the raw constant would go red on the trunk in the
-## window between a classification and its content.
+## Compared against `offered_rooms()`, which since issue #180 is the registry
+## filtered by `Encounter.pickable` -- there is no longer a hand-written list to
+## compare against, and a classification cannot arrive ahead of its content.
 func test_the_picker_offers_every_offered_room_in_authored_order() -> void:
 	var screen := _screen()
 	var picker: OptionButton = screen._room_picker
