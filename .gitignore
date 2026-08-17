@@ -20,3 +20,16 @@ mono_crash.*.json
 # This line exists so that following the older habit cannot commit a worktree
 # as a gitlink. See .claude/ENGINEER.md.
 .claude/worktrees/
+
+# Godot 4 writes a *.import sidecar next to every asset when the EDITOR opens the
+# project. The gate is headless (--script) and has never needed them, and none has
+# ever been tracked here. Left unignored they are 437 untracked files one
+# git add -A away from being committed by whoever runs it next.
+*.import
+
+# Godot 4.4+ writes a .uid sidecar next to every script when the EDITOR opens the
+# project. Same reasoning as *.import: never tracked here, not needed by the
+# headless gate, and 238 untracked files are a hazard to whoever runs git add -A.
+# If an editor-based workflow later needs stable UIDs in version control, this is
+# the line to delete -- it is a deliberate choice, not an oversight.
+*.uid
