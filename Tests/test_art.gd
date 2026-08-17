@@ -1653,6 +1653,75 @@ func test_the_theming_instructions_name_every_file_the_code_looks_for() -> void:
 		assert_true(readme.contains(name), "Assets/UI/README.md does not mention %s" % name)
 
 
+## The general names, and the gap that let the README lie twice about the same
+## table.
+##
+## The check below this one compares the README's SPECIFIC names
+## (`panel/inspect.png`) against call sites. Nothing checked the general ones,
+## so `panel.png` sat in the README promising to re-skin "every panel, card,
+## tooltip and chip" while `UIArt.panel_style` had zero call sites in
+## `Scripts/` -- the same defect as #237, in the same file, undetected after
+## #237 was fixed because #237's instrument could not see this half. Issue #268.
+##
+## A drop-in with no caller is the worst shape a defect takes here: the file
+## sits on disk looking correct, the game never reads it, and nothing goes red.
+## Prose saying so rots -- this section of the README was prose for weeks.
+const _GENERAL_THEME_READERS := {
+	"panel.png": ["panel_style"],
+	"panel_border.png": ["draw_border"],
+	"background.png": ["background_node", "draw_background"],
+}
+
+
+func test_every_general_theme_file_the_readme_promises_has_a_call_site() -> void:
+	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
+	var promised := _readme_general_theme_files(readme)
+	assert_eq(promised.size(), _GENERAL_THEME_READERS.size(),
+		("Assets/UI/README.md's general theme table and this test's function map " +
+		"disagree: promised %s, mapped %s. A general name added to the README " +
+		"needs the UIArt function that resolves it named here, or it is promised " +
+		"and unchecked.") % [promised, _GENERAL_THEME_READERS.keys()])
+	for name in promised:
+		assert_true(_GENERAL_THEME_READERS.has(name),
+			"Assets/UI/README.md promises %s and this test does not know what reads it" % name)
+		var callers := _ui_files_calling_any(_GENERAL_THEME_READERS[name])
+		assert_false(callers.is_empty(),
+			("Assets/UI/README.md promises %s re-skins the game, and no screen under " +
+			"Scripts/UI calls %s. Dropping that file in would do nothing, silently.") % [
+				name, " or ".join(_GENERAL_THEME_READERS[name])])
+
+
+## The general (unfoldered) `<name>.png` cells of the README's theming table.
+## Parsed, not typed, for the reason the specific list is parsed: a hand-typed
+## copy of a list in another file agrees with the mistake it exists to catch.
+func _readme_general_theme_files(readme: String) -> Array[String]:
+	var out: Array[String] = []
+	var re := RegEx.create_from_string("\\| `([a-z_]+\\.png)` \\|")
+	for m in re.search_all(readme):
+		var name := m.get_string(1)
+		if not out.has(name):
+			out.append(name)
+	out.sort()
+	return out
+
+
+## Which `.gd` files under `Scripts/UI` call any of `functions` on `UIArt`.
+func _ui_files_calling_any(functions: Array) -> Array[String]:
+	var out: Array[String] = []
+	var dir := DirAccess.open("res://Scripts/UI")
+	assert_true(dir != null, "Scripts/UI is unreadable, so this test can only report a false pass")
+	for file in dir.get_files():
+		if not file.ends_with(".gd"):
+			continue
+		var text := FileAccess.get_file_as_string("res://Scripts/UI/%s" % file)
+		for fn in functions:
+			if text.contains("UIArt.%s(" % fn):
+				out.append(file)
+				break
+	out.sort()
+	return out
+
+
 ## The other direction, and it is the one this project has already paid for
 ## twice. The test above asks whether the README mentions the names the code
 ## reads. It cannot see the opposite mistake: a name the README *prints* that no

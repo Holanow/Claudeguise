@@ -2,6 +2,7 @@ extends RefCounted
 
 const Palette := preload("res://Scripts/Core/Palette.gd")
 const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 const PIN_HINT := PopoutHost.PIN_HINT
 
@@ -53,11 +54,8 @@ static func build(text: String, title: String = "") -> Control:
 	return panel
 
 ## Same shape as PartySelect's own `_seed_box_style` — a bordered box in
-## existing Palette tokens, no new colour or spacing literal.
-static func _style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.ARENA_FLOOR
-	style.border_color = Palette.ARENA_EDGE
-	style.set_border_width_all(1)
-	style.set_content_margin_all(Palette.SPACE_S)
-	return style
+## existing Palette tokens, no new colour or spacing literal. Through
+## `UIArt.panel_style` since issue 268, so `Assets/UI/panel.png` reaches it;
+## with no file present it is the same flat box, to the pixel.
+static func _style() -> StyleBox:
+	return UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.ARENA_EDGE, 1, Palette.SPACE_S)

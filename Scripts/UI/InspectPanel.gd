@@ -8,6 +8,7 @@ const Registry := preload("res://Scripts/Content/Registry.gd")
 const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
 const Balance := preload("res://Scripts/Content/Balance.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const PlanScript := preload("res://Scripts/Core/Plan.gd")
 const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 const Glossary := preload("res://Scripts/UI/Glossary.gd")
@@ -873,13 +874,17 @@ func _caption_tooltip(picker: OptionButton) -> void:
 ## a block, clearly not one of yours, and not a dropdown that refuses to open
 ## (issue 96's build note). Not greyed either — TEXT, not TEXT_DIM, because
 ## this row is describing behaviour that really happens, not a disabled one.
+##
+## Issue 268: through `UIArt.panel_style`, and with the one specific panel name
+## `Assets/UI/README.md` prints -- `panel/inspect.png` themes this and
+## `panel.png` themes it along with everything else. With no file present it is
+## the identical flat box. The corner radius is the fallback's own: a
+## nine-sliced PNG paints its corners and `StyleBoxTexture` has no radius.
 func _fixed_chip(text: String) -> Control:
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.HP_BACK
-	style.border_color = Palette.ARENA_EDGE
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(3)
+	var style := UIArt.panel_style(&"inspect", Palette.HP_BACK, Palette.ARENA_EDGE, 1)
+	if style is StyleBoxFlat:
+		style.set_corner_radius_all(3)
 	style.content_margin_left = Palette.SPACE_S
 	style.content_margin_right = Palette.SPACE_S
 	style.content_margin_top = Palette.SPACE_XS

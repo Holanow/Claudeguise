@@ -1,6 +1,7 @@
 extends PanelContainer
 
 const Palette := preload("res://Scripts/Core/Palette.gd")
+const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Issue 112: "I need to be able to pin and drag any popup that is created
 ## outside of a menu."
@@ -89,13 +90,17 @@ static func build(title: String, body: String) -> Control:
 
 ## The same bordered box GlossaryTooltip draws, with a brighter border so a
 ## pinned popout reads as the one you are holding rather than one more panel.
-static func _style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.ARENA_FLOOR
-	style.border_color = Palette.TEAM_PLAYER
-	style.set_border_width_all(1)
-	style.set_content_margin_all(Palette.SPACE_S)
-	return style
+##
+## Issue 268: through `UIArt.panel_style`, so `Assets/UI/panel.png` reaches it.
+## The brighter border is a state signal -- pinned versus hovered -- and a
+## nine-slice is drawn as painted, so a dropped-in `panel.png` skins the popout
+## and the tooltip identically and the distinction goes. That is the
+## PartyCard/EquipmentIcons rule and this is a third instance of it; it is not
+## fixed here because the pin state has a second cue already (the popout is
+## draggable and carries a close affordance) and because inventing a new signal
+## is more than issue 268 asked for. Noted so the next person finds it.
+static func _style() -> StyleBox:
+	return UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.TEAM_PLAYER, 1, Palette.SPACE_S)
 
 ## The control this popout was pinned from, so the text can be kept true.
 ##
