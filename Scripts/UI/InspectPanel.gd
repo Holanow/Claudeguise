@@ -76,6 +76,20 @@ const _TOUCH := Palette.TOUCH_TARGET_MIN
 ## infer it from a number that moves by two.
 const NEW_PLAN_BLOCK_COST := 2
 
+## Issue 269: how far an over-budget plan row fades. Dim enough to read as "this
+## one is not like the others" at a glance, light enough that every chip on it is
+## still legible -- the player asked for dimmed and still visible, not hidden and
+## not a bare icon, because a row nobody can read is a row nobody can fix.
+const INERT_ROW_ALPHA := 0.45
+
+## Issue 269, and the exact sentence matters more than the dimming does. A row
+## the pawn cannot pay for stops firing, and `CLAUDE.md`'s binding principle is
+## that a pawn never does anything the player cannot see in the plans of action
+## -- so the mark has to carry **why** (the budget is WIS, and here are both
+## numbers) and **what to do about it** (two ways out, one per direction). Fading
+## the row alone would say only that something is wrong with it.
+const INERT_ROW_NOTE := "Inert: needs %d WIS, this pawn has %d. Equip WIS gear or remove a row."
+
 ## Issue 68: this screen is the plan editor. Hover covers reading a class now
 ## (glossary chips here, on the party cards, and the action descriptions below),
 ## so the heading no longer presents the screen as general class information.
@@ -433,10 +447,17 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 
 	var used := _blocks_used(pawn)
 	var budget := Balance.plan_block_budget(pawn)
+	## Issue 269: the second half of the first sentence changes when the pawn is
+	## over budget, because "0 free" is true and says nothing about the rows that
+	## have gone inert underneath. Equipment can raise WIS now, so the budget can
+	## fall again when the equipment comes off, and "0 free" would be the whole
+	## report of it.
+	var over := used - budget
+	var standing := ("%d free" % maxi(0, budget - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
 	out.append(_line(
-		"%d of %d plan blocks used, %d free. A target block and a skill block cost 1 each, so a new plan costs %d. A condition costs 0. The budget is this pawn's WIS." % [
-			used, budget, maxi(0, budget - used), NEW_PLAN_BLOCK_COST],
-		Palette.FONT_SIZE_SMALL, Palette.TEXT))
+		"%d of %d plan blocks used, %s. A target block and a skill block cost 1 each, so a new plan costs %d. A condition costs 0. The budget is this pawn's WIS, equipment included." % [
+			used, budget, standing, NEW_PLAN_BLOCK_COST],
+		Palette.FONT_SIZE_SMALL, Palette.TEXT if over <= 0 else Palette.HP_LOW))
 
 	## Issue 155. One sentence, and only while a fight exists to read -- between
 	## fights every verdict would be blank and the sentence would explain nothing.
@@ -446,8 +467,18 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 				VERDICT_ACTING, VERDICT_READY, VERDICT_READY, VERDICT_ACTING],
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
+	## Issue 269. Rows are paid for in priority order, so the surplus is always at
+	## the bottom: walk the list adding each row's own cost, and the first row
+	## whose running total passes the budget is where the pawn stops being able to
+	## pay. Every row from there down is inert, and each one says so under itself.
+	var spent := 0
 	for i in pawn.plans.size():
-		out.append(_plan_row(pawn.plans[i], pawn, i))
+		var plan = pawn.plans[i]
+		spent += plan.block_count()
+		var inert := spent > budget
+		out.append(_plan_row(plan, pawn, i, inert))
+		if inert:
+			out.append(_inert_note(spent, budget))
 
 	var fallback_header := HBoxContainer.new()
 	fallback_header.add_theme_constant_override("separation", int(Palette.SPACE_S))
@@ -461,6 +492,21 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	for row in _default_rows(pawn):
 		out.append(row)
 	return out
+
+## The sentence under an inert row. Indented under the row it belongs to, in the
+## warning colour rather than the dim one -- dim is what this screen uses for
+## explanatory prose, and this is not prose, it is a state the player has to act
+## on.
+func _inert_note(needed: int, budget: int) -> Control:
+	var indent := HBoxContainer.new()
+	indent.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
+	indent.add_child(gutter)
+	var note := _line(INERT_ROW_NOTE % [needed, budget], Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	indent.add_child(note)
+	return indent
 
 ## Disabled rather than hidden when there is no room, and the reason is on the
 ## screen beside it — a button that silently does nothing is exactly the
@@ -496,9 +542,19 @@ func _blocks_used(pawn: PawnData) -> int:
 ## One plan as a row of blocks. Rebuilds the whole detail panel on any change
 ## rather than patching one chip in place — plans are short and this screen is
 ## not on a hot path, so simplicity wins over an incremental update.
-func _plan_row(plan, pawn: PawnData, index: int) -> Control:
+##
+## Issue 269: `inert` is a row past the pawn's block budget. It is dimmed rather
+## than hidden, disabled or dropped, and every control on it still works -- the
+## player's own ruling is that a budget may legitimately shrink under a plan they
+## already wrote (armour comes off mid-floor), so the screen reports the state
+## instead of arguing with the edit. `modulate` fades the whole row, chips and
+## buttons together, without taking the buttons away: the row a player must be
+## able to delete is exactly the row that has gone inert.
+func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	if inert:
+		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
 
 	var number := _tag_label("%d." % (index + 1))
 	number.custom_minimum_size = Vector2(24.0, 0.0)

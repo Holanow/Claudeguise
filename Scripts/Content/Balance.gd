@@ -223,8 +223,30 @@ static func damage_reduction(unit: CombatUnit) -> float:
 	return clampf(reduction, 0.0, MAX_DAMAGE_REDUCTION)
 
 ## How many blocks a pawn's plans may total, from WIS per README.md.
+##
+## **Issue 269: through `attribute()`, not `pawn.attribute()`.** This was the one
+## formula in the file reading a raw stat, which broke `attribute()`'s own rule
+## above -- and since `plan_block_budget` is the only reader of WIS anywhere in
+## `Scripts/`, it made every point of WIS on a piece of equipment do literally
+## nothing. `robes` (2 WIS) and `scrubs` (1 WIS) are the only WIS items in the
+## game, so both armours were wholly or half inert.
+##
+## The player's ruling on what happens when the budget then *shrinks* -- take the
+## robes off and a plan the player already wrote no longer fits -- is that the
+## surplus rows go inert rather than the unequip being refused: *"you're meant to
+## assign plans of action during gameplay. In the middle of a floor ideally."*
+## The equip screen does not argue with a decision made ten minutes ago. Which
+## rows those are is `InspectPanel`'s to say, in priority order, and it must say
+## it visibly: a row that silently stops firing is the pawn-behaviour principle
+## broken exactly.
+##
+## `floori`, not `round` as the health and resource formulas use: a block is
+## indivisible, so half a block of budget must not read as a whole one and let
+## the player author a row the pawn cannot pay for. No WIS item grants a percent
+## today (`robes` and `scrubs` are both flat), so base-plus-flat is an integer
+## and the two agree -- this only decides the first percent WIS item.
 static func plan_block_budget(pawn: PawnData) -> int:
-	return maxi(1, pawn.attribute(CG.Attribute.WIS))
+	return maxi(1, floori(attribute(pawn, CG.Attribute.WIS)))
 
 ## Ticks a wind-up or recovery takes after AGI is applied. Kept as a modifier on
 ## the action's own numbers so that "this action is slow" and "this pawn is
