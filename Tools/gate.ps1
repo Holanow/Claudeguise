@@ -54,6 +54,72 @@ $code = $LASTEXITCODE
 Get-Content $log
 Remove-Item $log -ErrorAction SilentlyContinue
 
+# Comment-to-code ratio. Player's rule, 2026-08-18: no file above 2:1.
+#
+# Enforced here rather than written on the board, because a posted rule is not a
+# control. The list below is the debt that existed when the rule landed. It may
+# shrink and must never grow: a file not on it fails immediately, and a file on
+# it fails if it gets worse. That is deliberately the opposite ratchet to the one
+# issue #144 records, where a cap was widened five times and narrowed never.
+$GRANDFATHERED = @{
+    'Scripts\Core\ActionDef.gd'                    = 7.58
+    'Scripts\Core\PlanBlock.gd'                    = 5.60
+    'Scripts\Content\Modules\floor1_enemies.gd'    = 4.88
+    'Scripts\Content\PresetPlans.gd'               = 4.05
+    'Scripts\Content\Modules\core_actions.gd'      = 3.71
+    'Scripts\Core\EnemyDef.gd'                     = 3.40
+    'Scripts\Core\CombatUnit.gd'                   = 3.12
+    'Tests\test_content_encounter.gd'              = 3.03
+    'Scripts\Content\PawnFactory.gd'               = 2.96
+    'Scripts\Content\Modules\floor1_encounters.gd' = 2.94
+    'Scripts\Content\Modules\starting_classes.gd'  = 2.92
+    'Scripts\Core\CG.gd'                           = 2.67
+    'Tests\test_content_rooms.gd'                  = 2.66
+    'Scripts\Core\EquipmentDef.gd'                 = 2.64
+    'Scripts\UI\GlossaryLabel.gd'                  = 2.60
+    'Scripts\Combat\SimDeps.gd'                    = 2.46
+    'Scripts\Art\UnitArt.gd'                       = 2.36
+    'Scripts\Core\Projectile.gd'                   = 2.25
+    'Tests\test_content_cleanse.gd'                = 2.18
+    'Scripts\Core\CombatEvent.gd'                  = 2.16
+    'Scripts\Content\Balance.gd'                   = 2.05
+}
+
+$ratioFailures = @()
+Get-ChildItem -Path (Join-Path $repo 'Scripts'), (Join-Path $repo 'Tests'), (Join-Path $repo 'Tools') `
+    -Recurse -Include *.gd -ErrorAction SilentlyContinue | ForEach-Object {
+    $comments = 0
+    $codeLines = 0
+    foreach ($line in (Get-Content $_.FullName)) {
+        $t = $line.Trim()
+        if ($t -eq '') { continue }
+        if ($t.StartsWith('#')) { $comments++ } else { $codeLines++ }
+    }
+    if ($codeLines -eq 0) { return }
+    $ratio = [math]::Round($comments / $codeLines, 2)
+    if ($ratio -le 2.0) { return }
+
+    $rel = $_.FullName.Substring($repo.Length + 1)
+    if ($GRANDFATHERED.ContainsKey($rel)) {
+        if ($ratio -gt $GRANDFATHERED[$rel]) {
+            $ratioFailures += ("{0}  {1}:1, worse than its recorded {2}:1" -f $rel, $ratio, $GRANDFATHERED[$rel])
+        }
+    } else {
+        $ratioFailures += ("{0}  {1}:1  ({2} comment lines over {3} of code)" -f $rel, $ratio, $comments, $codeLines)
+    }
+}
+
+if ($ratioFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  comments   FAIL   ($($ratioFailures.Count) file(s) over the 2:1 limit)"
+    foreach ($f in $ratioFailures) { Write-Host "      $f" }
+    Write-Host "  Trim the prose or move it to the issue. If a file is genuinely all"
+    Write-Host "  definition and no logic, say so in the pull request and I will record it."
+    Write-Host "GATE FAILED (comment ratio)"
+    exit 3
+}
+Write-Host "  comments   pass   (no file over 2:1 that is not recorded debt)"
+
 if ($code -eq 0) {
     Write-Host "GATE PASSED"
 } else {
