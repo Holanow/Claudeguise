@@ -108,6 +108,32 @@ func test_in_cover_the_pawn_fires_its_action_at_itself() -> void:
 	assert_eq(intent.target_id, me.id, "Directional Block lands on its caster")
 
 
+## **Design question 4, and the measurement changed the answer.** Cover from the
+## target is also cover from your own shot -- this game's cover is binary line
+## of sight, with no peeking out. "Take cover, then Scald" measured 54.6% of
+## ticks in cover and 10/20 wins against 20/20, the pawn standing behind a
+## pillar it could not shoot past until the tick limit. The pairing has no
+## satisfying position, so the row steps aside instead of idling out the fight.
+func test_a_line_of_sight_action_makes_the_row_step_aside() -> void:
+	var s := _situation(_plan_with(&"geyser_scald"), Vector2(-200.0, 200.0), Vector2(-200.0, 0.0),
+		[Terrain.make(Terrain.Kind.PILLAR, PILLAR_AT)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	assert_true(Registry.get_action(&"geyser_scald").requires_line_of_sight,
+		"fixture check: this test is meaningless if Scald stops needing a clear line")
+	assert_true(PlanInterpreter.decide(state, me) == null,
+		"cover and a line-of-sight shot cannot both be had; the row must let the next one try")
+	assert_eq(PlanInterpreter.last_error, "", "an unsatisfiable pairing is not a malformed plan")
+
+
+## The complement, and the reason the rule is about line of sight rather than
+## about actions in general: a self-buff needs no line to anything, so "move
+## into cover and raise your shield" is exactly the plan that does work.
+func test_a_self_buff_still_fires_from_cover() -> void:
+	assert_false(Registry.get_action(&"warrior_block").requires_line_of_sight,
+		"fixture check: Directional Block must not need a clear line")
+
+
 ## Design question 2, answered yes: an ally's raised shield is cover. This is
 ## the case #315 measured, 64,602 ally-ticks already spent in the shield's
 ## shadow by accident across 452 of 800 fights, and never once on purpose.
@@ -134,6 +160,35 @@ func test_an_allys_raised_shield_counts_as_cover() -> void:
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
 	assert_true(CombatSim.shot_would_be_shielded(state, me.team, foe.team, foe.position, intent.destination),
 		"the destination must be a spot the shield actually covers, got %s" % intent.destination)
+
+
+## Already standing in the shield's shadow: the pawn has arrived and holds.
+##
+## Written because neutralising the shield half of `in_cover_from` broke no
+## test -- `_cover_spot` covered for it. This is the case #315 measured, where
+## allies are in the shadow 64,602 ticks already; the block must recognise it
+## rather than walking them somewhere else.
+func test_a_pawn_already_behind_an_allys_shield_holds_still() -> void:
+	var s := _situation(_plan_with(), Vector2(0.0, 100.0), Vector2(0.0, -200.0), [])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var foe: CombatUnit = s[2]
+
+	var ally := CombatUnit.new()
+	ally.id = 900
+	ally.team = me.team
+	ally.position = Vector2(0.0, 0.0)
+	ally.hp_max = 100
+	ally.hp = 100
+	ally.facing = (foe.position - ally.position).normalized()
+	ally.statuses[CG.Status.SHIELDING] = 300
+	state.units.append(ally)
+
+	assert_true(CombatSim.shot_would_be_shielded(state, me.team, foe.team, foe.position, me.position),
+		"fixture check: this pawn should start inside the shield's shadow")
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.IDLE, "behind the shield is arrived, not keep walking")
+	assert_eq(intent.source_plan, &"cover_test")
 
 
 ## The same ally with no shield raised is not cover, so the room is empty again.

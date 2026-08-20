@@ -203,6 +203,14 @@ static func _run_into_cover(state: CombatState, unit: CombatUnit, plan: Plan, ac
 	var threat := state.unit(unit.focus_id)
 	if threat == null or not threat.alive:
 		return null
+	## Cover from the target is also cover from your own shot: this game's cover
+	## is binary line of sight, with no peeking out. Measured before it was
+	## written -- "take cover, then Scald" held 54.6% cover and 10/20 wins
+	## against 20/20, because the pawn stood behind a pillar it could not shoot
+	## past until the tick limit. The pairing has no satisfying position, so the
+	## row steps aside for the next one rather than idling out the fight.
+	if _action_needs_line_of_sight(action_id):
+		return null
 	if in_cover_from(state, unit, unit.position, threat):
 		if action_id == &"" or not _action_can_fire(state, unit, action_id):
 			return Intent.idle(plan.id)
@@ -211,6 +219,13 @@ static func _run_into_cover(state: CombatState, unit: CombatUnit, plan: Plan, ac
 	if spot == null:
 		return null
 	return Intent.move_to(spot, plan.id)
+
+## True when the action can only be used with a clear line to its target.
+static func _action_needs_line_of_sight(action_id: StringName) -> bool:
+	if action_id == &"":
+		return false
+	var action = Registry.get_action(action_id)
+	return action != null and action.requires_line_of_sight
 
 ## Whether a shot from `threat` at `pos` would be stopped by terrain or by an
 ## ally's raised shield. The shield half is `CombatSim`'s own interception test,
