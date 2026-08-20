@@ -4,11 +4,13 @@ extends Node
 
 
 const OUT_DIR := "res://Screenshots"
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 var _main: Node
 var _tag := ""
 var _fail := 0
 
 func _ready() -> void:
+	Offscreen.hide_window(self)
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("RoomPickerShot: use a worktree."); get_tree().quit(2); return
 	var s := DisplayServer.window_get_size()
@@ -50,19 +52,25 @@ func _check(ok: bool, msg: String) -> void:
 	print("RoomPickerShot: %s %s" % ["OK  " if ok else "FAIL", msg])
 	if not ok: _fail += 1
 
-func _fresh() -> void:
+## Selects the named classes by their card's own `class_def`, never by index:
+## the first four cards of an alphabetical roster are never a Warrior (#350).
+func _fresh(party_ids: Array) -> void:
 	if _main != null:
 		_main.queue_free()
 		await _settle()
 	_main = load(ProjectSettings.get_setting("application/run/main_scene", "res://Scenes/Main.tscn")).instantiate()
 	add_child(_main)
 	await _settle()
-	var cards: Array[Node] = []
+	var by_id := {}
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
-			cards.append(n)
-	for i in mini(4, cards.size()):
-		cards[i].toggled.emit(true)
+			if n.class_def != null:
+				by_id[n.class_def.id] = n
+	for id in party_ids:
+		if not by_id.has(id):
+			_check(false, "no party card for class '%s'" % id)
+			continue
+		by_id[id].toggled.emit(true)
 	await _settle()
 
 func _run() -> void:
@@ -72,9 +80,18 @@ func _run() -> void:
 	# room should not require editing this line to be checked.
 	_check(offered.size() >= 4, "the picker offers %d rooms" % offered.size())
 
+	## The parties rotate room by room so the shots between them hold every
+	## class; the reachability checks below do not depend on which party plays.
+	var parties: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())
+	var shot_classes := {}
+
 	var reached := {}
-	for room_id in offered:
-		await _fresh()
+	for room_index in offered.size():
+		var room_id = offered[room_index]
+		var party_ids: Array = parties[room_index % parties.size()]
+		for id in party_ids:
+			shot_classes[id] = true
+		await _fresh(party_ids)
 		var select := _node_with("PartySelect.gd")
 		var picker: OptionButton = select._room_picker
 		_check(picker != null, "%s: the picker is on the screen" % room_id)
@@ -121,3 +138,9 @@ func _run() -> void:
 
 	_check(reached.size() == offered.size(),
 		"ALL %d ROOMS REACHABLE THROUGH THE CONTROLS (reached %d)" % [offered.size(), reached.size()])
+
+	var missing := []
+	for id in Registry.all_class_ids():
+		if not shot_classes.has(id):
+			missing.append(String(id))
+	_check(missing.is_empty(), "every class appears in some room shot (missing: %s)" % str(missing))

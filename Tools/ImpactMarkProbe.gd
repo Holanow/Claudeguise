@@ -2,6 +2,7 @@ extends SceneTree
 
 ## Is the bearing of an inward impact mark still true by the time it fades?
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 const SEEDS := 12
 const LIFETIME_SECONDS := 0.35
@@ -61,15 +62,19 @@ func _measure_bearings() -> void:
 		var enc = Registry.get_encounter(encounter_id)
 		var drifts := []
 		for s in SEEDS:
-			var party: Array[PawnData] = []
-			for i in mini(4, class_ids.size()):
-				var cid = class_ids[i]
-				party.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, i]), String(cid)))
-			var one := _run_one(party, enc, s, life_ticks)
-			drifts.append_array(one["drift"])
-			target_moves.append_array(one["target_move"])
-			melee_only.append_array(one["melee_drift"])
-			source_moves.append_array(one["source_move"])
+			## Every class contributes hits, not the first four of an
+			## alphabetical roster -- the Warrior is melee and was never in the
+			## sample (#350).
+			for party_ids in ScreenSweepScript.sweep_parties(class_ids):
+				var party: Array[PawnData] = []
+				for i in party_ids.size():
+					var cid = party_ids[i]
+					party.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, i]), String(cid)))
+				var one := _run_one(party, enc, s, life_ticks)
+				drifts.append_array(one["drift"])
+				target_moves.append_array(one["target_move"])
+				melee_only.append_array(one["melee_drift"])
+				source_moves.append_array(one["source_move"])
 		totals.append_array(drifts)
 		print("  %-24s hits %4d   drift median %5.1f deg  p90 %5.1f  max %5.1f  over 60deg: %.1f%%" % [
 			encounter_id, drifts.size(), _median(drifts), _pct(drifts, 90), _max(drifts),

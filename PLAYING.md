@@ -139,5 +139,5 @@ histogram, and what the win cost the party as a percentage of its own health.
 That last column is the one you asked for, and it is what the balance was
 finally steered by.
 
-`Tools/preview/fight_sheet.png` is six frames of one real fight, regenerated
-after every merge.
+`Tools/preview/fight_sheet.png` is six frames of each of two real fights, one
+per party, so every class is in it. Regenerated after every merge.
