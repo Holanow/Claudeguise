@@ -61,29 +61,7 @@ Remove-Item $log -ErrorAction SilentlyContinue
 # shrink and must never grow: a file not on it fails immediately, and a file on
 # it fails if it gets worse. That is deliberately the opposite ratchet to the one
 # issue #144 records, where a cap was widened five times and narrowed never.
-$GRANDFATHERED = @{
-    'Scripts\Core\ActionDef.gd'                    = 7.58
-    'Scripts\Core\PlanBlock.gd'                    = 5.60
-    'Scripts\Content\Modules\floor1_enemies.gd'    = 4.88
-    'Scripts\Content\PresetPlans.gd'               = 4.05
-    'Scripts\Content\Modules\core_actions.gd'      = 3.71
-    'Scripts\Core\EnemyDef.gd'                     = 3.40
-    'Scripts\Core\CombatUnit.gd'                   = 3.12
-    'Tests\test_content_encounter.gd'              = 3.03
-    'Scripts\Content\PawnFactory.gd'               = 2.96
-    'Scripts\Content\Modules\floor1_encounters.gd' = 2.94
-    'Scripts\Content\Modules\starting_classes.gd'  = 2.92
-    'Scripts\Core\CG.gd'                           = 2.67
-    'Tests\test_content_rooms.gd'                  = 2.66
-    'Scripts\Core\EquipmentDef.gd'                 = 2.64
-    'Scripts\UI\GlossaryLabel.gd'                  = 2.60
-    'Scripts\Combat\SimDeps.gd'                    = 2.46
-    'Scripts\Art\UnitArt.gd'                       = 2.36
-    'Scripts\Core\Projectile.gd'                   = 2.25
-    'Tests\test_content_cleanse.gd'                = 2.18
-    'Scripts\Core\CombatEvent.gd'                  = 2.16
-    'Scripts\Content\Balance.gd'                   = 2.05
-}
+$GRANDFATHERED = @{}
 
 $ratioFailures = @()
 Get-ChildItem -Path (Join-Path $repo 'Scripts'), (Join-Path $repo 'Tests'), (Join-Path $repo 'Tools') `
