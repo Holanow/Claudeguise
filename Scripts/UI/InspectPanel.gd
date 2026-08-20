@@ -736,6 +736,14 @@ func _default_rows(pawn: PawnData) -> Array[Control]:
 		out.append(_fixed_row([_melee_text(melee), target_text, base]))
 	else:
 		out.append(_fixed_row([_ranged_text(ranged), target_text, base]))
+
+	## Issue 338, and it goes last because it ranks last: it only ever replaces
+	## standing still, so every row above it wins the tick first.
+	out.append(_fixed_row([
+		"Step off it",
+		"The nearest edge of it",
+		"When it would otherwise stand still on a harmful surface",
+	]))
 	return out
 
 func _melee_text(action: ActionDef) -> String:

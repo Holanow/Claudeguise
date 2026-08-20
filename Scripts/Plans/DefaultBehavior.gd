@@ -27,7 +27,55 @@ const HEAL_THRESHOLD_FRACTION := 0.5
 
 const RETREAT_STEP := 200.0
 
+## Issue 338: how far past a harmful surface's edge counts as off it.
+const HAZARD_EXIT_MARGIN := 8.0
+
+## Issue 338: a unit that has decided to do NOTHING steps out of the fire.
+##
+## Only an IDLE intent is overridden, so this displaces no decision a unit has
+## actually made -- an attack, a kite step and a cover move all outrank it by
+## construction, and the player asked for exactly the case a blind playtester
+## hit: a pawn standing in ground fire for twenty seconds because it had
+## nothing else to do.
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
+	var intent := _decide_intent(state, unit)
+	if intent == null or intent.kind != CG.IntentKind.IDLE or unit.move_speed <= 0.0:
+		return intent
+	var escape = _step_out_of_harm(state, unit)
+	return Intent.move_to(escape) if escape != null else intent
+
+## The nearest spot outside every harmful surface the unit is standing in, or
+## null when it is not standing in one and when nothing safe is reachable.
+##
+## Deterministic: a fixed candidate order and a strict improvement test, so a
+## tie goes to the earlier edge rather than to the rng.
+static func _step_out_of_harm(state: CombatState, unit: CombatUnit):
+	if not CombatSim.standing_harms(state, unit.position):
+		return null
+	var best = null
+	var best_dist := INF
+	for hazard in Terrain.hazards_at(state.terrain, unit.position):
+		var r: Rect2 = hazard.rect
+		for exit_point in [
+			Vector2(r.position.x - HAZARD_EXIT_MARGIN, unit.position.y),
+			Vector2(r.end.x + HAZARD_EXIT_MARGIN, unit.position.y),
+			Vector2(unit.position.x, r.position.y - HAZARD_EXIT_MARGIN),
+			Vector2(unit.position.x, r.end.y + HAZARD_EXIT_MARGIN),
+		]:
+			var d := unit.position.distance_to(exit_point)
+			if d >= best_dist:
+				continue
+			if CombatSim.standing_harms(state, exit_point):
+				continue
+			if Terrain.point_is_blocked(state.terrain, exit_point, unit.radius):
+				continue
+			if absf(exit_point.x) > CG.ARENA_HALF_WIDTH or absf(exit_point.y) > CG.ARENA_HALF_HEIGHT:
+				continue
+			best_dist = d
+			best = exit_point
+	return best
+
+static func _decide_intent(state: CombatState, unit: CombatUnit) -> Intent:
 	var enemy_team := CG.Team.ENEMY if unit.team == CG.Team.PLAYER else CG.Team.PLAYER
 	var enemies := state.living(enemy_team)
 	if enemies.is_empty():

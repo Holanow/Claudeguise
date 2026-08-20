@@ -1024,8 +1024,20 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
+	## Issue 338 added a third branch, so a bare count would have to be edited
+	## again the next time one lands. The rows are named instead.
 	var rows := panel._default_rows(pawn)
-	assert_eq(rows.size(), 2, "a class with a real heal has a heal branch and an attack branch")
+	var fallback_text := ""
+	for row in rows:
+		fallback_text += _all_label_text(row) + "
+"
+	assert_true(fallback_text.contains("Heal"), "a class with a real heal has a heal branch:
+%s" % fallback_text)
+	assert_true(fallback_text.contains("hp"), "the heal branch names the threshold it fires at:
+%s" % fallback_text)
+	assert_true(fallback_text.contains("harmful surface"), "issue 338's branch has to be on the screen too:
+%s" % fallback_text)
+	assert_true(rows.size() >= 3, "heal, attack and step-off-the-fire, got %d rows" % rows.size())
 
 	var priest := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	priest.pawn = pawn
