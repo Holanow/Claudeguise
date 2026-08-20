@@ -117,6 +117,53 @@ Get-ChildItem -Path (Join-Path $repo 'Scripts'), (Join-Path $repo 'Tests'), (Joi
     }
 }
 
+# Comment BLOCK length. Player's rule, 2026-08-20: no run of comment lines
+# longer than MAX_COMMENT_BLOCK.
+#
+# This is the live control, and the ratio below is not. The ratio cap is at
+# 2:1 and the repo sits at 0.26:1, so nothing can fail it -- a rule nobody can
+# break is not a rule. The block cap would have caught six blocks on the commit
+# it landed with.
+#
+# The rule it enforces: a comment block keeps its first sentence. Reasoning
+# goes in the commit or the issue, where it can be read on demand and cannot
+# rot against the code beside it.
+$MAX_COMMENT_BLOCK = 10
+
+$blockFailures = @()
+Get-ChildItem -Path (Join-Path $repo 'Scripts'), (Join-Path $repo 'Tests'), (Join-Path $repo 'Tools') `
+    -Recurse -Include *.gd -ErrorAction SilentlyContinue | ForEach-Object {
+    $rel = $_.FullName.Substring($repo.Length + 1)
+    $run = 0
+    $startLine = 0
+    $lineNo = 0
+    foreach ($line in (Get-Content $_.FullName)) {
+        $lineNo++
+        if ($line.Trim().StartsWith('#')) {
+            if ($run -eq 0) { $startLine = $lineNo }
+            $run++
+        } else {
+            if ($run -gt $MAX_COMMENT_BLOCK) {
+                $blockFailures += ("{0}:{1}  {2} lines" -f $rel, $startLine, $run)
+            }
+            $run = 0
+        }
+    }
+    if ($run -gt $MAX_COMMENT_BLOCK) {
+        $blockFailures += ("{0}:{1}  {2} lines" -f $rel, $startLine, $run)
+    }
+}
+
+if ($blockFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  blocks     FAIL   ($($blockFailures.Count) comment block(s) over $MAX_COMMENT_BLOCK lines)"
+    foreach ($f in $blockFailures) { Write-Host "      $f" }
+    Write-Host "  Keep the first sentence. The rest goes in the commit or the issue."
+    Write-Host "GATE FAILED (comment block length)"
+    exit 6
+}
+Write-Host "  blocks     pass   (no comment block over $MAX_COMMENT_BLOCK lines)"
+
 if ($ratioFailures.Count -gt 0) {
     Write-Host ""
     Write-Host "  comments   FAIL   ($($ratioFailures.Count) file(s) over the 2:1 limit)"
