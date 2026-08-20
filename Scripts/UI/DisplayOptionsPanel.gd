@@ -8,6 +8,11 @@ signal changed()
 
 var _rows: Array[CheckBox] = []
 
+## Every state a row can be drawn in. `hover_pressed` is the one a screenshot
+## caught missing: a ticked row under the pointer fell back to the engine's
+## empty box and lost its outline.
+const ROW_STATES := ["normal", "hover", "pressed", "hover_pressed", "focus"]
+
 func _ready() -> void:
 	theme = AppTheme.shared()
 	visible = false
@@ -43,8 +48,8 @@ func _ready() -> void:
 		## The engine's tick is dark art on this game's dark panel and no colour
 		## can lift it, so the row is given the look every other control on the
 		## battle screen has (issue 323).
-		for state in ["normal", "hover", "pressed", "focus"]:
-			box.add_theme_stylebox_override(state, _row_style(state == "hover"))
+		for state in ROW_STATES:
+			box.add_theme_stylebox_override(state, _row_style(state.contains("hover")))
 		var id: StringName = option.id
 		var label: String = option.label
 		box.toggled.connect(func(pressed: bool):

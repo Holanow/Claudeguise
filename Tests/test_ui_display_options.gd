@@ -295,7 +295,10 @@ func test_every_row_is_visible_against_the_panel_behind_it() -> void:
 		if not (n is CheckBox):
 			continue
 		seen += 1
-		for state in ["normal", "hover"]:
+		## Every state, not just the resting one: a ticked row under the pointer
+		## draws `hover_pressed`, and that one was missed until a screenshot
+		## showed the outline gone.
+		for state in DisplayOptionsPanel.ROW_STATES:
 			var style: StyleBox = n.get_theme_stylebox(StringName(state))
 			assert_true(style is StyleBoxFlat, "row %s has no filled %s" % [n.text, state])
 			var lift: float = _luminance(style.bg_color) - _luminance(Palette.BACKGROUND)
