@@ -15,15 +15,18 @@ const BALANCED_PARTY: Array[String] = ["Warrior", "Priest", "Geysermancer", "Sie
 
 var _main: Node
 var _report: Array[String] = []
+var _failed: bool = false
 
 func _log(s: String) -> void:
 	print(s)
 	_report.append(s)
 
 func _ready() -> void:
+	Offscreen.hide_window(self)
+	_clear_outputs()
 	await _run()
 	_write_report()
-	get_tree().quit(0)
+	get_tree().quit(1 if _failed else 0)
 
 func _run() -> void:
 	var packed: PackedScene = load(ProjectSettings.get_setting("application/run/main_scene", "res://Scenes/Main.tscn"))
@@ -72,12 +75,29 @@ func _buttons() -> Array[Button]:
 			out.append(n)
 	return out
 
-func _checkboxes() -> Array[CheckBox]:
-	var out: Array[CheckBox] = []
+## Party select has not used CheckBox since the class cards landed; this
+## returned an empty array, nothing was ever selected, and every phase after
+## phase 1 died on a Start button that reads "Pick a party to fight" while
+## disabled (issue 328).
+func _party_cards() -> Array:
+	var out := []
 	for n in _walk(_main):
-		if n is CheckBox:
+		if n is Control and not (n is Button) and n.has_signal("toggled"):
 			out.append(n)
 	return out
+
+func _card_name(card) -> String:
+	return card.class_def.display_name if card.class_def != null else "<no class>"
+
+func _party_select() -> Node:
+	for n in _walk(_main):
+		if n is PartySelect:
+			return n
+	return null
+
+func _selected_count() -> int:
+	var screen := _party_select()
+	return screen.selected_pawns().size() if screen != null else -1
 
 func _labels() -> Array[Label]:
 	var out: Array[Label] = []
@@ -118,29 +138,37 @@ func _phase_party_select_edges() -> void:
 	await _shot("play_01_party_select_empty")
 	_log("start button disabled with 0 selected: %s" % _start_button_disabled())
 
-	_press_named("start") # a player will just try it
+	var fight_btn := _start_button() # a player will just try it
+	if fight_btn != null and not fight_btn.disabled:
+		fight_btn.pressed.emit()
 	await _settle()
-	_log("pressing Start with 0 selected did anything visible: %s" % (_current_screen_name() != "PartySelect"))
+	_log("pressing '%s' with 0 selected did anything visible: %s" % [
+		"<none>" if fight_btn == null else fight_btn.text,
+		_current_screen_name() != "PartySelect"])
 
-	var boxes := _checkboxes()
-	_log("classes offered: %s" % [boxes.map(func(b): return b.text)])
-	for b in boxes:
-		b.button_pressed = true
+	var cards := _party_cards()
+	_log("classes offered: %s" % [cards.map(_card_name)])
+	if cards.is_empty():
+		_log("NO CLASS CARDS FOUND -- party select changed shape; the rest of this run is meaningless")
+		_failed = true
+		return
+	for c in cards:
+		c.toggled.emit(true)
 		await get_tree().process_frame
 	await _shot("play_02_all_five_pressed")
-	var checked := boxes.filter(func(b): return b.button_pressed)
-	_log("pressed all %d checkboxes; %d ended up checked (want 4): %s" % [boxes.size(), checked.size(), checked.map(func(b): return b.text)])
-	_log("status label: %s" % _label_text_containing("Party:"))
+	_log("pressed all %d cards; %d ended up selected (want 4)" % [cards.size(), _selected_count()])
+	_log("status label: %s" % _label_text_containing("Party"))
 
-	for b in boxes:
-		if b.button_pressed:
-			b.button_pressed = false
+	for c in cards:
+		if c.selected:
+			c.toggled.emit(false)
 			await get_tree().process_frame
 
-	for b in boxes:
-		if BALANCED_PARTY.has(b.text):
-			b.button_pressed = true
+	for c in cards:
+		if BALANCED_PARTY.has(_card_name(c)):
+			c.toggled.emit(true)
 	await get_tree().process_frame
+	_log("selected the balanced four: %s" % [cards.filter(func(c): return c.selected).map(_card_name)])
 	_log("status label after selecting the balanced four: %s" % _label_text_containing("Party:"))
 
 	var edits := _line_edits()
@@ -148,11 +176,21 @@ func _phase_party_select_edges() -> void:
 		edits[0].text = FIXED_SEED
 	await _shot("play_03_party_picked_fixed_seed")
 
-func _start_button_disabled() -> bool:
+## Both labels the fight button wears: it reads "Pick a party to fight" while
+## disabled, so a prefix match on "start" cannot find it with nothing selected.
+func _start_button() -> Button:
 	for b in _buttons():
-		if b.text.to_lower().begins_with("start"):
-			return b.disabled
-	return true
+		var t := b.text.to_lower()
+		if t.begins_with("start fight") or t.begins_with("pick a party to fight"):
+			return b
+	return null
+
+func _start_button_disabled() -> bool:
+	var b := _start_button()
+	if b == null:
+		_log("NO FIGHT BUTTON ON SCREEN AT ALL")
+		return false
+	return b.disabled
 
 func _current_screen_name() -> String:
 	for c in _main.get_children():
@@ -164,10 +202,17 @@ func _current_screen_name() -> String:
 # ---------------------------------------------------------------------------
 
 func _phase_full_fight() -> void:
-	_press_named("start")
+	_press_named("start fight")
 	await _settle()
+	## Issue 145 put a deploy screen between party select and the fight, with a
+	## second Start Fight on it.
+	if _current_screen_name() == "Deploy":
+		await _shot("play_03b_deploy")
+		_press_named("start fight")
+		await _settle()
 	if _current_screen_name() != "Battle":
-		_log("did not reach the battle screen after pressing Start; stopping phase 2")
+		_log("DID NOT REACH THE BATTLE SCREEN (on %s); stopping phase 2" % _current_screen_name())
+		_failed = true
 		return
 
 	var battle := _main.get_child(0)
@@ -210,6 +255,7 @@ func _phase_full_fight() -> void:
 func _phase_battle_controls() -> void:
 	if _current_screen_name() != "Battle":
 		_log("not on the battle screen; skipping phase 3")
+		_failed = true
 		return
 	var battle := _main.get_child(0)
 
@@ -228,7 +274,11 @@ func _phase_battle_controls() -> void:
 		battle.state.tick, CombatState.Outcome.keys()[battle.state.outcome]
 	])
 
-	_log("pressing Pause")
+	## Let the restarted fight tick first. Pausing at tick 0 and reporting
+	## "0 to 0" proves nothing: an unpaused fight would have shown the same.
+	for i in 60:
+		await get_tree().process_frame
+	_log("pressing Pause at tick %d" % battle.state.tick)
 	_press_named("pause")
 	await _settle()
 	var tick_at_pause: int = battle.state.tick
@@ -275,6 +325,25 @@ func _phase_party_comparison() -> void:
 		])
 
 # ---------------------------------------------------------------------------
+
+## Every output this tool writes, removed before it starts. A half-finished run
+## that leaves the last one's screenshots in place is an instrument that lies
+## (issue 328): `play_04` through `play_08` sat on disk for eight days looking
+## current while phase 2 had not run at all.
+func _clear_outputs() -> void:
+	var dir_path := ProjectSettings.globalize_path(OUT_DIR)
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		printerr("PlaytestRun: cannot open %s to clear it; refusing to run" % dir_path)
+		get_tree().quit(2)
+		return
+	var removed := 0
+	for entry in dir.get_files():
+		if entry.begins_with("play_") or entry == "playtest_report.txt":
+			dir.remove(entry)
+			removed += 1
+	print("PlaytestRun: cleared %d previous output(s) from %s" % [removed, OUT_DIR])
 
 func _write_report() -> void:
 	var path := ProjectSettings.globalize_path("%s/playtest_report.txt" % OUT_DIR)
