@@ -15,6 +15,7 @@ func _ready() -> void:
 		printerr("TogglesProbe: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
 		return
+	Offscreen.hide_window(self)
 	var s := DisplayServer.window_get_size()
 	_tag = "%dx%d" % [int(s.x), int(s.y)]
 	var ok := await _run()
