@@ -31,7 +31,10 @@ const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
 
 ## Issue 97. One op, not three.
-const MOVEMENT_OPS := [&"keep_distance"]
+const MOVEMENT_OPS := [&"keep_distance", &"move_into_cover"]
+
+## Issue 316: how far behind a piece of cover a pawn stands, in world units.
+const COVER_STANDOFF := 20.0
 
 ## How close to the requested distance counts as arrived, in world units.
 const KEEP_DISTANCE_BAND := 15.0
@@ -61,6 +64,7 @@ const CONDITION_ARG_SHAPE := {
 ## so the plan editor can build a value editor for the distance a block holds.
 const MOVEMENT_ARG_SHAPE := {
 	&"keep_distance": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 120.0},
+	&"move_into_cover": {"kind": "none"},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -142,6 +146,8 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 					return null
 				movement = block
 	if movement != null:
+		if movement.op == &"move_into_cover":
+			return _run_into_cover(state, unit, plan, action_id)
 		return _run_movement(state, unit, plan, movement, action_id)
 	if action_id == &"" or unit.focus_id == -1:
 		return null
@@ -185,6 +191,77 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 static func action_target_id(unit: CombatUnit, action_id: StringName) -> int:
 	var action = Registry.get_action(action_id)
 	return unit.id if action != null and action.targets_self else unit.focus_id
+
+## Issue 316: put something solid between this pawn and the enemy the plan is
+## aimed at, then act from there.
+##
+## Cover from the FOCUS, not from everyone: the targeting block above already
+## decided which enemy matters, so the player picks it in the same row they can
+## see. Being in cover from every archer at once is usually not a position that
+## exists.
+static func _run_into_cover(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
+	var threat := state.unit(unit.focus_id)
+	if threat == null or not threat.alive:
+		return null
+	if in_cover_from(state, unit, unit.position, threat):
+		if action_id == &"" or not _action_can_fire(state, unit, action_id):
+			return Intent.idle(plan.id)
+		return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
+	var spot = _cover_spot(state, unit, threat)
+	if spot == null:
+		return null
+	return Intent.move_to(spot, plan.id)
+
+## Whether a shot from `threat` at `pos` would be stopped by terrain or by an
+## ally's raised shield. The shield half is `CombatSim`'s own interception test,
+## called rather than copied, so the plan layer and the projectile cannot
+## disagree about what counts as cover.
+static func in_cover_from(state: CombatState, unit: CombatUnit, pos: Vector2, threat: CombatUnit) -> bool:
+	if Terrain.line_is_blocked(state.terrain, threat.position, pos):
+		return true
+	return CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, pos)
+
+## The nearest standing spot that is in cover from `threat`, or null when the
+## room offers none. Deterministic: fixed iteration order and a strict
+## improvement test, so ties go to the earlier candidate rather than the rng.
+static func _cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit):
+	var best = null
+	var best_dist := INF
+	for f in state.terrain:
+		if not f.blocks_sight():
+			continue
+		var centre: Vector2 = f.rect.get_center()
+		var away := centre - threat.position
+		if away.length() < 0.0001:
+			continue
+		var extent := 0.5 * maxf(f.rect.size.x, f.rect.size.y)
+		var spot := centre + away.normalized() * (extent + COVER_STANDOFF)
+		var d := unit.position.distance_to(spot)
+		if d >= best_dist:
+			continue
+		if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+			continue
+		if not Terrain.line_is_blocked(state.terrain, threat.position, spot):
+			continue
+		best_dist = d
+		best = spot
+	for ally in state.living(unit.team):
+		if ally.id == unit.id or not ally.has_status(CG.Status.SHIELDING):
+			continue
+		var away2 := ally.position - threat.position
+		if away2.length() < 0.0001:
+			continue
+		var spot2 := ally.position + away2.normalized() * COVER_STANDOFF
+		var d2 := unit.position.distance_to(spot2)
+		if d2 >= best_dist:
+			continue
+		if Terrain.point_is_blocked(state.terrain, spot2, unit.radius):
+			continue
+		if not CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, spot2):
+			continue
+		best_dist = d2
+		best = spot2
+	return best
 
 ## Every gate `_run_blocks` applies to an action, asked as one question.
 static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
@@ -382,6 +459,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 		&"keep_distance":
 			var wanted := int(args.get("range", 0.0))
 			return "close to the target" if wanted <= 0 else "hold %d units from the target" % wanted
+		&"move_into_cover":
+			return "move into cover from the target"
 	return "unknown op '%s'" % op
 
 static func _fail(plan: Plan, block: PlanBlock) -> void:

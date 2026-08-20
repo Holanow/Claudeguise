@@ -1045,6 +1045,12 @@ static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, a
 const SHIELD_WIDTH := 220.0
 
 ## A shot crossing a SHIELDING unit's front is stopped by it.
+## Issue 316: would a shot from `from` to `to` be intercepted by a shield on
+## `defending_team`? The plan layer's "am I in cover" question and the
+## projectile's own interception must never be two implementations of it.
+static func shot_would_be_shielded(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> bool:
+	return _find_shielder(state, defending_team, attacking_team, from, to) != null
+
 static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> CombatUnit:
 	if attacking_team == defending_team:
 		return null
