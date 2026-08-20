@@ -20,8 +20,12 @@ func _init() -> void:
 			for seed in SEEDS:
 				var state := CombatSim.build(_pawns(party, seed), enc, seed, SimDeps.new())
 				while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
-					_sample_tick(state, totals)
+					var before := {}
+					for u in state.units:
+						if u.alive:
+							before[u.id] = u.position
 					CombatSim.step(state)
+					_sample_tick(state, totals, before)
 				fights[key] = int(fights.get(key, 0)) + 1
 				if state.outcome == CombatState.Outcome.PLAYER_WIN:
 					wins[key] = int(wins.get(key, 0)) + 1
@@ -34,11 +38,11 @@ func _init() -> void:
 	print("")
 	print("== KITE BAND ==")
 	for side in ["pawn", "enemy"]:
-		var free := int(totals.get(side + ":free", 0))
+		var alive := int(totals.get(side + ":alive", 0))
 		var shot := int(totals.get(side + ":in_range", 0))
 		var ret := int(totals.get(side + ":retreat_in_range", 0))
-		print("%s: %d free ticks, %d with a target inside its own best attack range, %d of those spent RETREATING (%.1f%% of in-range free ticks)" % [
-			side, free, shot, ret, 100.0 * float(ret) / float(maxi(1, shot))])
+		print("%s: %d alive ticks, %d with a target inside its own best attack range, %d of those spent MOVING AWAY (%.1f%% of in-range ticks)" % [
+			side, alive, shot, ret, 100.0 * float(ret) / float(maxi(1, shot))])
 	print("rat_king_lash fires per fight: %.2f over %d fights" % [float(lash) / float(maxi(1, lash_fights)), lash_fights])
 
 	print("")
@@ -53,31 +57,27 @@ func _init() -> void:
 		print("%-60s %d/%d" % [key, int(wins[key]), int(fights[key])])
 	quit(0)
 
-## Counts, for every unit the fallback layer owns on a free tick, whether it had
-## a shot available and whether it walked away from it instead.
-func _sample_tick(state: CombatState, totals: Dictionary) -> void:
+## What each unit DID this tick, read from positions rather than from a decision.
+##
+## **Never calls `decide`.** `DefaultBehavior.decide` draws from `state.rng` in
+## `_choose_target`, so an observer that calls it perturbs the fight it measures.
+func _sample_tick(state: CombatState, totals: Dictionary, before: Dictionary) -> void:
 	for unit in state.units:
-		if not unit.alive or unit.intent != null or unit.is_busy():
+		if not unit.alive or not before.has(unit.id):
 			continue
-		if unit.has_status(CG.Status.STUN):
-			continue
-		if unit.pawn != null and PlanInterpreter.decide(state, unit) != null:
-			continue
+		var was: Vector2 = before[unit.id]
 		var side := "pawn" if unit.pawn != null else "enemy"
-		totals[side + ":free"] = int(totals.get(side + ":free", 0)) + 1
+		totals[side + ":alive"] = int(totals.get(side + ":alive", 0)) + 1
 
 		var reach := _best_attack_range(unit)
 		if reach <= 0.0:
 			continue
 		var foe := _nearest_foe(state, unit)
-		if foe == null or unit.position.distance_to(foe.position) > reach:
+		if foe == null or was.distance_to(foe.position) > reach:
 			continue
 		totals[side + ":in_range"] = int(totals.get(side + ":in_range", 0)) + 1
 
-		var intent = DefaultBehavior.decide(state, unit)
-		if intent == null or intent.kind != CG.IntentKind.MOVE_TO:
-			continue
-		if intent.destination.distance_to(foe.position) > unit.position.distance_to(foe.position):
+		if unit.position.distance_to(foe.position) > was.distance_to(foe.position) + 0.01:
 			totals[side + ":retreat_in_range"] = int(totals.get(side + ":retreat_in_range", 0)) + 1
 
 func _best_attack_range(unit: CombatUnit) -> float:
