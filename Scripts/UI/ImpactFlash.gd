@@ -14,6 +14,15 @@ var _age: float = 0.0
 ## borrowing one would put a lie in the vocabulary the floating numbers and the
 ## projectile marks share. An explicit colour instead, used only when set.
 var _color_override: Color = Color(0, 0, 0, 0)
+## Issue 276: the ring is sized to a body, so it has to stay on that body.
+var _follow: Node2D = null
+
+## Sibling of the unit's view under the same Arena node, so its position needs
+## no transform.
+func follow(node: Node2D) -> void:
+	_follow = node
+	if node != null:
+		position = node.position
 
 func flash(damage_type: CG.DamageType, base_radius: float) -> void:
 	_damage_type = damage_type
@@ -35,6 +44,8 @@ func flash_color(color: Color, base_radius: float) -> void:
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	if _follow != null and is_instance_valid(_follow):
+		position = _follow.position
 	_age += delta
 	if _age >= LIFETIME_SECONDS:
 		queue_free()
