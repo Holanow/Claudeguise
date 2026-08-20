@@ -104,6 +104,36 @@ func close() -> void:
 	visible = false
 	closed.emit()
 
+## Issue 351. The same panel laid into a column of another screen rather than
+## over the top of it: no backdrop, no Back button, and no pawn list, because
+## the screen it sits in IS the pawn list.
+var _embedded := false
+
+func embed() -> void:
+	_embedded = true
+	visible = true
+	%Backdrop.visible = false
+	%CloseButton.visible = false
+	%HowToPlay.visible = false
+	_list_box.get_parent().visible = false
+	%Margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top", "right", "bottom"]:
+		%Margin.add_theme_constant_override("margin_" + side, 0)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+## One pawn, in place, with the title naming who is being edited. The button
+## that used to open this said "Inspect classes" while the page said "Edit your
+## pawns' plans"; embedded there is no button and no mismatch.
+func show_pawn(pawn: PawnData, state = null) -> void:
+	_pawns = [pawn] as Array[PawnData]
+	_live_state = state
+	_selected_index = 0
+	visible = true
+	if _embedded:
+		%Title.visible = false
+	_build_detail(pawn)
+
 ## free() rather than queue_free(): this rebuild can run again (a second
 ## selection) before a deferred deletion would ever flush, which would leave
 ## stale nodes overlapping the new ones — found by a test that rebuilt and
