@@ -159,16 +159,26 @@ func test_second_wind_is_self_only_and_gated() -> void:
 ## The whole-fight half. A green declaration test above cannot tell whether the
 ## ability is ever cast, which is exactly how warrior_execute sat unreachable
 ## for its entire existence.
+##
+## Issue 334: it also has to say WHICH rule cast it. This test passed for years
+## while the plan it is named after never fired once.
 func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 	var fires := 0
 	var heals := 0
+	var by_fallback := 0
+	var by_plan := 0
 	for s in SEEDS:
 		var state := CombatSim.build(_party(), Registry.get_encounter(&"floor1_room1"), s)
 		CombatSim.run(state)
 		for e in state.events:
 			if e.action_id != &"warrior_second_wind":
 				continue
-			if e.kind == CG.EventKind.ACTION_FIRE:
+			if e.kind == CG.EventKind.ACTION_START:
+				if e.source_plan == &"":
+					by_fallback += 1
+				else:
+					by_plan += 1
+			elif e.kind == CG.EventKind.ACTION_FIRE:
 				fires += 1
 			elif e.kind == CG.EventKind.HEAL:
 				heals += 1
@@ -176,6 +186,44 @@ func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 		"Second Wind never fired in %d real fights -- it is unreachable" % SEEDS)
 	assert_true(heals > 0,
 		"Second Wind fired %d times and healed nothing" % fires)
+	assert_true(by_fallback + by_plan > 0, "nothing started Second Wind, so no path can be named")
+
+	## Issue 334, and it is a tripwire rather than a preference: every cast
+	## measured comes from `DefaultBehavior`, never from the Warrior's own row.
+	## Measured 17 of 17 starts over 40 seeds. If this goes red the plan has
+	## started working, which is good news -- delete the assertion and say so.
+	assert_eq(by_plan, 0,
+		("the Warrior's own Second Wind row fired %d of %d times. It never used to. " +
+		"See issue 334; if this is deliberate, this assertion is the thing to remove") % [
+			by_plan, by_fallback + by_plan])
+
+## **Issue 334: WHY the row never fires, stated structurally so it cannot rot
+## against a sample.**
+##
+## `DefaultBehavior` casts any heal it owns once an ally is at or below
+## `HEAL_THRESHOLD_FRACTION`. A plan row gated at a LOWER fraction than that can
+## never be the first to reach the action: the fallback has already cast it and
+## started its cooldown by the time the pawn is hurt enough for the row to hold.
+## The row is dominated, not unlucky, and no number of seeds would show
+## otherwise.
+func test_a_self_heal_row_gated_below_the_fallback_can_never_go_first() -> void:
+	var row: Plan = null
+	for plan in PresetPlans.for_class(&"warrior"):
+		for block in plan.blocks:
+			if block.kind == PlanBlock.Kind.ACTION and block.args.get("action_id", &"") == &"warrior_second_wind":
+				row = plan
+	assert_not_null(row, "the Warrior should still ship a Second Wind row")
+	assert_not_null(row.condition, "an ungated self-heal row would fire constantly")
+	assert_eq(row.condition.op, &"self_hp_below_fraction",
+		"this test reads the row's threshold; a different condition op needs a different reading")
+
+	var row_threshold := float(row.condition.args.get("fraction", 1.0))
+	assert_true(row_threshold < DefaultBehavior.HEAL_THRESHOLD_FRACTION,
+		("the Warrior's row fires at %.2f and the fallback at %.2f. This assertion records that " +
+		"the row is DOMINATED -- it is the state issue 334 reports, not the state anyone wants. " +
+		"If the row now goes first, that is the fix landing: delete this test") % [
+			row_threshold, DefaultBehavior.HEAL_THRESHOLD_FRACTION])
+
 
 # ---------------------------------------------------------------------------
 # issue 129: the basic attack comes from the main-hand weapon
