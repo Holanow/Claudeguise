@@ -10,7 +10,7 @@ class_name Terrain
 ##
 ## Why it exists at all: every fight so far has been two clusters walking into
 ## each other across an empty rectangle, and no fight has ever been close.
-## Terrain is the cheapest thing that makes position matter — a wall means a
+## Terrain is the cheapest thing that makes position matter â€” a wall means a
 ## ranged unit can be denied line of sight, a chokepoint means four attackers
 ## cannot all reach one target, a hazard means the shortest path is not always
 ## the right one. Balance changes which side of a landslide you are on. Terrain
@@ -43,15 +43,6 @@ class Feature extends RefCounted:
 	var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
 	## A status applied to a unit standing in this feature. The player's tar
-	## pit: terrain that slows rather than hurts.
-	##
-	## `applies_status_enabled` rather than a sentinel, because `CG.Status.SHIELD`
-	## is 0 and would make "no status" and "shield" the same value. `ActionDef`
-	## already carries the pair for the same reason.
-	##
-	## Off for every feature that exists today, so nothing changes until content
-	## sets it — and the rate feeds the shared rng, so an accidental default
-	## would move every fight rather than only the afflicted ones.
 	var applies_status: CG.Status = CG.Status.SHIELD
 	var applies_status_enabled: bool = false
 	var status_duration_ticks: int = 0

@@ -37,8 +37,6 @@ static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
 		return
 
 	## Same determinism rule as a fight's own seed: derived from the floor
-	## seed and the room id, never a fresh generator, so a treasure room
-	## drops the same thing every time the same floor seed visits it.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([run.plan.seed, room.id])
 	var item := LootTables.roll_drop(room.type, room.difficulty, rng)
@@ -86,11 +84,6 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 		var class_id: StringName = pool[i]
 		var cls := Registry.get_class_def(class_id)
 		## A distinct id, not the bare class id: two different CELL rooms (or
-		## a CELL offering the same class a dead party member already had)
-		## must not collide with an existing FloorRun.carry entry keyed by
-		## pawn id -- a fresh recruit must read as never having fought,
-		## which hp_for/resource_for/is_alive already give any id with no
-		## carry entry, so long as this one is actually new.
 		var pawn_id := StringName("%s_cell_%d" % [class_id, room.id])
 		out.append(PawnFactory.make_starter_pawn(class_id, pawn_id, cls.display_name))
 	return out
@@ -145,9 +138,6 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 
 	var encounter := _encounter_for(room)
 	## Derived from the floor seed and the room id, never from a fresh
-	## generator: the same floor seed must play the same floor the same way,
-	## and this is what makes every room's fight reproducible without
-	## FloorRun carrying its own seed state.
 	var fight_seed: int = hash([run.plan.seed, room.id])
 	var state := CombatSim.build(party, encounter, fight_seed, deps)
 
@@ -161,21 +151,12 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 	run.enter(room.id)
 
 	## Rolled after the fight resolves, using the fight's own seeded rng --
-	## same reasoning as issue 20's regen and issue 7's damage variance: a
-	## drop roll needs a real, seeded source or "same floor seed, same
-	## floor" stops being true. Only on a win: a wiped party does not loot
-	## the room that wiped it.
 	if state.outcome == CombatState.Outcome.PLAYER_WIN:
 		var item := LootTables.roll_drop(room.type, room.difficulty, state.rng)
 		if item != null:
 			run.add_loot(item)
 
 		## Issue 45's call site: a party that wins carries into the next room
-		## at whatever it was recorded at above -- no recovery, no revival --
-		## same gap the issue's own finding named (record_result stores the
-		## raw fight result and nothing has ever adjusted it since). Applied
-		## only on a win, same as the loot roll above: a wiped party has no
-		## next room to recover into.
 		_apply_between_room_recovery(run, party)
 
 	return {"outcome": _map_outcome(state.outcome, room.id == run.plan.boss_id), "state": state}

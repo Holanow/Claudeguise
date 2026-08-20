@@ -31,7 +31,7 @@ var rng: RandomNumberGenerator = null
 
 ## Room features: walls, pillars, hazards, pits. Empty by default, so a fight
 ## built without an encounter's terrain behaves exactly as it did before this
-## existed — which is what lets issue 13a land without invalidating a single
+## existed â€” which is what lets issue 13a land without invalidating a single
 ## tuning measurement teal has taken.
 ##
 ## Untyped `Array`, deliberately, matching `Terrain.gd`'s own public API exactly:
