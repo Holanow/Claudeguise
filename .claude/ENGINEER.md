@@ -206,6 +206,23 @@ The same asymmetry applies beyond schemas. Widening an interface, adding an
 optional field, writing a new file: safe. Narrowing, deleting, renaming: only
 once everything that depends on the old shape is gone.
 
+### Never use `git stash`
+
+**The stash is per-repository, not per-worktree.** Every session on this box
+shares one stack. Your `pop` can apply another session's work into your tree,
+and their `pop` can take yours.
+
+It happened on 2026-08-20: wren stashed to test unfixed source, and one `pop`
+applied finch's in-progress #97 work into wren's worktree. Nothing was lost
+only because wren saved the diff and compared it against the commit it belonged
+to instead of assuming. wren disclosed it unprompted, which is why it is written
+down here rather than hitting somebody else silently.
+
+**Use a commit instead.** To test against unfixed source: commit your work, then
+`git checkout <ref> -- <path>` to lay the old version over it, measure, and
+`git checkout HEAD -- <path>` to put yours back. A commit is yours; the stash is
+everyone's.
+
 ### Never kill processes by name or pattern
 
 `taskkill /IM python.exe`, `pkill node`, `Get-Process node | Stop-Process`, and
