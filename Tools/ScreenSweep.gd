@@ -212,6 +212,19 @@ func _inspect_from_party_select() -> void:
 	await _settle()
 	await _shot("sweep_inspect_plan_editor")
 
+	# Issue 97: the one class with a ranged attack, so the fallback row states
+	# the kite rule rather than a melee approach.
+	for b in _buttons():
+		if b.text == "Geysermancer":
+			b.emit_signal("pressed")
+			break
+	await _settle()
+	for n in _walk(inspect_panel):
+		if n is ScrollContainer:
+			n.scroll_vertical = 100000
+	await _settle()
+	await _shot("sweep_inspect_ranged_fallback")
+
 ## The level editor, reached from party select.
 func _level_editor() -> void:
 	await _fresh_main()

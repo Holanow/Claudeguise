@@ -42,23 +42,31 @@ func _decide(unit: CombatUnit, enemy_at: float) -> Intent:
 
 ## **The defect, and it is heron's measurement in commit a6750e8 stated as one
 ## decision:** the Rat King "is in range and forbidden to fire, which is worse".
-func test_a_ranged_unit_inside_the_kite_floor_fires_rather_than_backing_off() -> void:
+func test_a_ranged_unit_that_cannot_outrun_the_threat_fires_instead_of_fleeing() -> void:
 	var stalker := _stalker()
-	var intent := _decide(stalker, 60.0)
+	var chaser := _immobile_dummy(1, CG.Team.ENEMY, Vector2(60.0, 0.0))
+	chaser.move_speed = stalker.move_speed + 1.0
+	var state := CombatState.new(0)
+	state.units.append(stalker)
+	state.units.append(chaser)
+	var intent := DefaultBehavior.decide(state, stalker)
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
-		"60 units is inside the 132-unit kite floor and well inside a 220-unit reach; the shot wins the tick")
+		"60 units is inside the 132-unit kite floor, but the threat is faster; fleeing gives up the shot for nothing")
 	assert_eq(intent.target_id, 1)
 
 
-## The band is not deleted. On a tick with no shot to take, the retreat is still
-## what the unit does, and it still goes away from the target.
-func test_the_same_unit_still_backs_off_when_every_attack_is_cooling() -> void:
+## The band is not deleted, and this is the case it was written for: a unit with
+## a speed edge still opens the gap rather than standing and trading.
+func test_the_same_unit_still_backs_off_from_something_slower() -> void:
 	var stalker := _stalker()
-	stalker.cooldowns[&"stalker_mark"] = 30
-	stalker.cooldowns[&"stalker_dart"] = 30
-	var intent := _decide(stalker, 60.0)
+	var chaser := _immobile_dummy(1, CG.Team.ENEMY, Vector2(60.0, 0.0))
+	chaser.move_speed = stalker.move_speed - 1.0
+	var state := CombatState.new(0)
+	state.units.append(stalker)
+	state.units.append(chaser)
+	var intent := DefaultBehavior.decide(state, stalker)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
-		"nothing can fire, so the tick is the retreat's")
+		"a faster kiter still kites")
 	assert_true(intent.destination.distance_to(Vector2(60.0, 0.0)) > 60.0,
 		"a retreat must end further from the target than it started, got %s" % intent.destination)
 
@@ -105,7 +113,7 @@ func test_a_movement_block_can_carry_a_self_targeted_action() -> void:
 			foe = u
 	for u in state.units:
 		if u.team == CG.Team.ENEMY and u != foe:
-			u.hp = 0
+			u.alive = false
 	me.position = Vector2.ZERO
 	me.resource = me.resource_max
 	foe.position = Vector2(5.0, 0.0)
@@ -148,7 +156,7 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 			foe = u
 	for u in state.units:
 		if u.team == CG.Team.ENEMY and u != foe:
-			u.hp = 0
+			u.alive = false
 	me.position = Vector2.ZERO
 	me.resource = me.resource_max
 	foe.position = Vector2(300.0, 0.0)
