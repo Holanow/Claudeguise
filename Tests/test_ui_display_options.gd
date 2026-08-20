@@ -135,7 +135,11 @@ func test_the_panel_shows_a_checkbox_for_every_option() -> void:
 			boxes.append(n)
 	assert_eq(boxes.size(), DisplayOptions.OPTIONS.size(), "one checkbox per option")
 	for i in DisplayOptions.OPTIONS.size():
-		assert_eq(boxes[i].text, DisplayOptions.OPTIONS[i].label)
+		## `begins_with` rather than equality since issue 323: the row carries
+		## its own state after the label. A missing, mislabelled or reordered
+		## row still fails here.
+		assert_true(boxes[i].text.begins_with(DisplayOptions.OPTIONS[i].label),
+			"row %d reads '%s'" % [i, boxes[i].text])
 	panel.free()
 
 ## Driven through the control a player touches, not through `set_enabled`.
@@ -226,3 +230,90 @@ func test_the_label_activity_rule_survives_the_toggle() -> void:
 	a.focus_id = b.id
 	assert_true(UnitView.should_show_label(b, state.units),
 		"the activity rule must still fire -- it is not deleted, only gated")
+
+# ---------------------------------------------------------------------------
+# Issue 323: the toggles could be clicked all along, and nobody could see it
+# ---------------------------------------------------------------------------
+#
+# Measured against the rendered panel: the engine's tick is a 14x14 block at
+# RGB(22,22,25) on a panel of RGB(20,19,26). Two points of luminance, and no
+# tint can lift it because the icon art is itself dark. So the row says what it
+# is doing in words, and looks like the other controls on the screen.
+
+func test_a_row_says_whether_the_option_is_showing_or_hidden() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	var boxes: Array[CheckBox] = []
+	for n in _all(panel):
+		if n is CheckBox:
+			boxes.append(n)
+
+	for i in DisplayOptions.OPTIONS.size():
+		var option = DisplayOptions.OPTIONS[i]
+		var off_text: String = boxes[i].text
+		assert_true(off_text.contains("hidden") != off_text.contains("showing"),
+			"a row says one of the two and not both: %s" % off_text)
+		assert_eq(off_text.contains("showing"), bool(option.default),
+			"row %d must read the state it is actually in: %s" % [i, off_text])
+
+		## Through the control, not through `set_enabled`.
+		boxes[i].button_pressed = not boxes[i].button_pressed
+		assert_ne(boxes[i].text, off_text, "the words must change with the option")
+		assert_eq(boxes[i].text.contains("showing"), DisplayOptions.enabled(option.id),
+			"the words and the option must agree: %s" % boxes[i].text)
+	_reset()
+	panel.free()
+
+## The pair the one above needs: a panel rebuilt on a choice already made must
+## open reading that choice, not the default.
+func test_a_rebuilt_panel_reads_the_choice_in_words() -> void:
+	_reset()
+	DisplayOptions.set_enabled(&"damage_numbers", true)
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	panel.refresh()
+	for n in _all(panel):
+		if n is CheckBox:
+			assert_true(n.text.contains("showing"), n.text)
+			break
+	_reset()
+	panel.free()
+
+## The row must not depend on the engine's dark-on-dark tick to look like a
+## control. Asserted as contrast against the panel it sits on, which is the
+## property that failed, rather than as "a stylebox exists".
+func test_every_row_is_visible_against_the_panel_behind_it() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	var seen := 0
+	for n in _all(panel):
+		if not (n is CheckBox):
+			continue
+		seen += 1
+		for state in ["normal", "hover"]:
+			var style: StyleBox = n.get_theme_stylebox(StringName(state))
+			assert_true(style is StyleBoxFlat, "row %s has no filled %s" % [n.text, state])
+			var lift: float = _luminance(style.bg_color) - _luminance(Palette.BACKGROUND)
+			assert_true(lift > 0.02,
+				"%s '%s' is %.4f over the panel, which is what nobody could see" % [
+					state, n.text, lift])
+	assert_eq(seen, DisplayOptions.OPTIONS.size(), "every row was checked")
+	panel.free()
+
+## And the negative: the check above must be able to fail. The engine's own
+## default for this control is exactly the thing it is guarding against.
+func test_the_contrast_check_would_catch_the_engine_default() -> void:
+	var bare := CheckBox.new()
+	var style: StyleBox = bare.get_theme_stylebox(&"normal")
+	var lift := 0.0 if not (style is StyleBoxFlat) else _luminance(style.bg_color) - _luminance(Palette.BACKGROUND)
+	assert_false(lift > 0.02,
+		"an unstyled CheckBox must not pass the check the styled ones have to")
+	bare.free()
+
+static func _luminance(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b

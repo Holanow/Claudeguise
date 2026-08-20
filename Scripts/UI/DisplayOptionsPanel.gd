@@ -37,11 +37,18 @@ func _ready() -> void:
 
 	for option in DisplayOptions.OPTIONS:
 		var box := CheckBox.new()
-		box.text = option.label
 		box.button_pressed = DisplayOptions.enabled(option.id)
+		box.text = row_text(option.label, box.button_pressed)
 		box.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+		## The engine's tick is dark art on this game's dark panel and no colour
+		## can lift it, so the row is given the look every other control on the
+		## battle screen has (issue 323).
+		for state in ["normal", "hover", "pressed", "focus"]:
+			box.add_theme_stylebox_override(state, _row_style(state == "hover"))
 		var id: StringName = option.id
+		var label: String = option.label
 		box.toggled.connect(func(pressed: bool):
+			box.text = row_text(label, pressed)
 			DisplayOptions.set_enabled(id, pressed)
 			changed.emit())
 		column.add_child(box)
@@ -59,7 +66,25 @@ func _ready() -> void:
 ## while the game is running on the player's choices.
 func refresh() -> void:
 	for i in mini(_rows.size(), DisplayOptions.OPTIONS.size()):
-		_rows[i].set_pressed_no_signal(DisplayOptions.enabled(DisplayOptions.OPTIONS[i].id))
+		var option = DisplayOptions.OPTIONS[i]
+		var on := DisplayOptions.enabled(option.id)
+		_rows[i].set_pressed_no_signal(on)
+		_rows[i].text = row_text(option.label, on)
+
+## The state of the option in words. The tick beside it was the whole report of
+## this control and it was measured at 2 points of luminance over the panel.
+static func row_text(label: String, on: bool) -> String:
+	return "%s: %s" % [label, "showing" if on else "hidden"]
+
+## A row that looks like the buttons the player has already pressed to get here.
+func _row_style(hover: bool) -> StyleBox:
+	var bg := Palette.BACKGROUND.lightened(0.12 if hover else 0.06)
+	var style := UIArt.panel_style(&"", bg, Palette.ARENA_EDGE, 1)
+	if style is StyleBoxFlat:
+		style.set_corner_radius_all(4)
+		style.content_margin_left = Palette.SPACE_S
+		style.content_margin_right = Palette.SPACE_S
+	return style
 
 func toggle_visible() -> void:
 	if not visible:
