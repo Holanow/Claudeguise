@@ -21,6 +21,14 @@ var _view: Node2D = null
 var _shielder_id := -1
 var _tag := "before"
 
+## `last` moves the shielder's own node to the end of the arena's child order.
+## A plate drawn inside a UnitView covers exactly the units drawn before it, so
+## a Warrior -- always party slot 0, always the first child -- covered nobody
+## and the defect was invisible on the one class that has the ability. This is
+## the position a summoned or later-slot shielder holds, and it is the only
+## arrangement in which the old drawing can be falsified.
+var _draw_last := false
+
 func _ready() -> void:
 	Offscreen.hide_window(self)
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -28,7 +36,11 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	for arg in OS.get_cmdline_user_args():
-		_tag = arg
+		if arg == "last":
+			_draw_last = true
+			_tag += "_last"
+		else:
+			_tag = arg
 	await _run()
 	get_tree().quit(0)
 
@@ -189,6 +201,9 @@ func _run() -> void:
 		print("ShieldInk: no Warrior raised Directional Block in a crowd; nothing to measure")
 		return
 	await _freeze()
+	if _draw_last:
+		_view._arena.move_child(_view._unit_views[_shielder_id], -1)
+		await _redraw()
 
 	var shielder: CombatUnit = _view.state.unit(_shielder_id)
 	var facing: Vector2 = shielder.facing.normalized()

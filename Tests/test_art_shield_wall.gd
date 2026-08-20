@@ -125,6 +125,14 @@ func test_the_frontage_is_divided_into_panels() -> void:
 	var seams := ShieldWall.seam_points(Vector2.RIGHT, ShieldWall.half_width(), STANDOFF)
 	assert_eq(seams.size(), ShieldWall.PANELS - 1,
 		"a plate of %d panels needs %d joins" % [ShieldWall.PANELS, ShieldWall.PANELS - 1])
+	# Counting the seams against PANELS alone proves nothing -- PANELS of 1 draws
+	# no seam and satisfies it. A panel is a pawn's worth of cover, which is what
+	# the player asked the frontage to be: "5 times as long so that other units
+	# can use it as cover".
+	var panel := CombatSim.SHIELD_WIDTH / float(ShieldWall.PANELS)
+	var pawn := CombatUnit.new().radius * 2.0
+	assert_true(panel >= pawn * 0.6 and panel <= pawn * 1.6,
+		"a panel is %.1f world units against a pawn's %.1f: it is not a pawn's worth of cover" % [panel, pawn])
 	var seen := {}
 	for line in seams:
 		var seam: PackedVector2Array = line
@@ -139,9 +147,12 @@ func test_the_frontage_is_divided_into_panels() -> void:
 func test_the_plate_is_trimmed_to_the_room_it_is_standing_in() -> void:
 	# The plate ran out through the arena wall and off the screen, which was
 	# half of what read as a rendering artifact rather than as cover.
-	var position := Vector2(CG.ARENA_HALF_WIDTH - 10.0, 0.0)
+	# Stood against the bottom wall facing across it, so the plate's own frontage
+	# runs half of its length out of the room.
+	var position := Vector2(0.0, CG.ARENA_HALF_HEIGHT - 10.0)
 	var wall := ShieldWall.wall_points(Vector2.RIGHT, ShieldWall.half_width(), STANDOFF)
 	var pieces := Geometry2D.intersect_polygons(wall, ShieldWall.room_for(position))
+	assert_false(pieces.is_empty(), "the trim left nothing at all of a plate that is half inside the room")
 	for piece in pieces:
 		for p in piece:
 			var world: Vector2 = p + position
