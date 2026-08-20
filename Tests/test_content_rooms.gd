@@ -378,7 +378,7 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 		party_fights += seeds
 	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d; diverging fights overall %d/%d" % [largest, total, worst_divergence, seeds, diverging_fights, party_fights])
 	# Threshold unchanged since issue 121; with the pillars moved onto the battle
-	# line the room clears it by miles, at 50/50 and health deltas +17 to +40.
+	# line (#330) the room clears it at 50/50, health deltas +11 +5 +18 +10 -1.
 	assert_true(diverging_fights >= 25,
 		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
 
