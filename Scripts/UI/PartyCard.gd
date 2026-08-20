@@ -100,20 +100,14 @@ func _draw_frame(rect: Rect2) -> void:
 	if selected and UIArt.has_art(&"panel_border"):
 		draw_rect(rect.grow(-SELECTION_INSET), Palette.TEAM_PLAYER, false, thickness)
 
-## Reuses Silhouettes.build_parts rather than draw_unit, which assumes it is
-## drawing centred on the canvas's own origin: a card needs the silhouette
-## offset to sit above its text, not at the card's top-left corner.
+## sable, 2026-08-19: this called `Silhouettes.build_parts` and drew the polygons
+## by hand, so **every party card showed the placeholder outline while all five
+## classes had real sprites in `Assets/Units/`.** `build_parts` warned about
+## exactly that in its own doc comment. `draw_unit` takes a `center` for this
+## case, which is what the comment here used to say it did not.
 func _draw_silhouette(center: Vector2) -> void:
-	for part in Silhouettes.build_parts(class_def.id, SILHOUETTE_RADIUS, CG.Team.PLAYER, _accent(), false):
-		var points: PackedVector2Array = part["points"]
-		var offset_points := PackedVector2Array()
-		for p in points:
-			offset_points.append(p + center)
-		if part["filled"]:
-			draw_colored_polygon(offset_points, part["fill"])
-		var closed := offset_points.duplicate()
-		closed.append(offset_points[0])
-		draw_polyline(closed, part["outline"], part["outline_width"], true)
+	Silhouettes.draw_unit(self, class_def.id, SILHOUETTE_RADIUS, CG.Team.PLAYER,
+		_accent(), false, center)
 
 func _accent() -> int:
 	if not class_def.damage_types.is_empty():

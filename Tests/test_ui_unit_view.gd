@@ -209,7 +209,7 @@ func test_the_hidden_count_agrees_with_what_is_drawn() -> void:
 ## is the least reproducible place for it to fail.
 func test_every_status_this_view_can_draw_has_a_glyph() -> void:
 	for s in CG.Status.values():
-		assert_true(StatusIcons.GLYPHS.has(s), "no glyph for %s" % CG.Status.keys()[s])
+		assert_true(StatusIcons.has_glyph(s), "no glyph for %s" % CG.Status.keys()[s])
 
 ## The badge row is drawn below the body. Above is where the resource bar, hp
 ## bar, name label and crowding stagger all live, and issue #82 is about that
