@@ -170,3 +170,30 @@ and `git clean -xdf` in that layout deletes another session's uncommitted work.
   and states on the board.
 - **Godot is the runtime.** `.godot/` was not copied; the editor rebuilds it on
   first open. It stays gitignored.
+
+## Art is baked, not drawn
+
+The player, 2026-08-19:
+
+> "we should do basically 0 drawing with code ever"
+>
+> "unless the asset itself changes -- like the aim lines"
+
+**If a picture is the same every frame, it is a PNG.** Icons, glyphs, badges,
+silhouettes, plates. `Assets/UI/README.md` documents the filename for each, and
+`UIArt.texture_for` already prefers a file over the drawn version, so a baked
+asset needs no call-site change.
+
+**Draw in code only where the geometry is a function of live state:** an aim
+line to a moving target, a bar whose fill is a fraction, a wind-up whose length
+is a remaining tick count. Those cannot be assets, because the asset would have
+to change every frame.
+
+**A missing sprite falls back to a black square.** Also the player's ruling. The
+placeholder polygons existed so a missing file still drew something; that
+guarantee is withdrawn deliberately, because a black square is an obvious defect
+and 400 lines of unreachable geometry is not.
+
+The trap, hit three times already: a test that measures drawn geometry keeps
+passing after that geometry stops being what ships. Rasterise and compare pixels
+instead. See #280.
