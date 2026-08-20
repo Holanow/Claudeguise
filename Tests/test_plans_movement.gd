@@ -51,12 +51,22 @@ func _situation(plan: Plan, enemy_at: Vector2, class_id: StringName = &"geyserma
 			me = u
 		elif u.team == CG.Team.ENEMY and foe == null:
 			foe = u
-	# Drop every other enemy so "nearest enemy" is unambiguous.
+	# Drop every other enemy so "nearest enemy" is unambiguous. Issue 325:
+	# `alive` is a stored bool that only the kill path clears, so `hp = 0` on
+	# its own left every one of them alive and this comment was false.
 	for u in state.units:
 		if u.team == CG.Team.ENEMY and u != foe:
 			u.hp = 0
+			u.alive = false
 	me.position = Vector2.ZERO
 	foe.position = enemy_at
+	## Issue 325: the line above used to be a comment claiming this, while every
+	## other enemy stayed alive. It is an assertion now, so the claim cannot go
+	## quietly false again.
+	assert_eq(state.living(CG.Team.ENEMY).size(), 1,
+		"the fixture promises one living enemy and left %d" % state.living(CG.Team.ENEMY).size())
+	assert_eq(state.living(CG.Team.ENEMY)[0].id, foe.id,
+		"the one living enemy must be the one the case is about")
 	return [state, me, foe]
 
 

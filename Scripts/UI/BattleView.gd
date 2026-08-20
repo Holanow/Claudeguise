@@ -435,6 +435,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_rebuild_units()
 	_arena.terrain = state.terrain
 	_arena.projectiles = []
+	_arena.units = state.units
 	_arena.queue_redraw()
 	if _combat_log != null:
 		_combat_log.clear_log()
@@ -510,6 +511,7 @@ func _process(delta: float) -> void:
 	for id in _unit_views:
 		_unit_views[id].sync(state)
 	_arena.projectiles = state.projectiles
+	_arena.units = state.units
 	_arena.queue_redraw()
 	_update_team_summary()
 	# Issue 113. Same place and same trigger as the unit views: "live means live"

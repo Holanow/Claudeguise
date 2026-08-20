@@ -92,39 +92,42 @@ static func _default_attack_power(unit: CombatUnit, action: ActionDef, rng: Rand
 		return 0.0
 	return float(enemy_def.attack_power.get(action.damage_type, 0)) * action.power_scale
 
+## Issue 364. `Balance.damage_reduction` already splits pawn from enemy and then
+## applies SHIELD, BLOCK and MARKED to whichever it got; this used to take the
+## enemy branch itself and return before reaching that clause, so all three were
+## inert on every non-pawn target.
 static func _default_damage_reduction(unit: CombatUnit) -> float:
-	if unit.pawn != null:
-		return Balance.damage_reduction(unit)
-	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
-	if enemy_def == null:
-		return 0.0
-	return enemy_def.damage_reduction
+	return Balance.damage_reduction(unit)
 
 ## Names the largest single contributor to `_default_damage_reduction`, branch
 ## for branch, so the cause can never name something the number did not use.
 static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCause:
 	var best := CG.MitigationCause.NONE
 	var best_v := 0.0
-	if unit.pawn == null:
+	if unit.pawn != null:
+		var toughness := clampf(
+			Balance.attribute(unit.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
+			0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)
+		if toughness > best_v:
+			best_v = toughness
+			best = CG.MitigationCause.TOUGHNESS
+		if unit.pawn.armor != null and unit.pawn.armor.damage_reduction > best_v:
+			best_v = unit.pawn.armor.damage_reduction
+			best = CG.MitigationCause.ARMOR
+	else:
 		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
-		if enemy_def != null and enemy_def.damage_reduction > 0.0:
+		if enemy_def != null and enemy_def.damage_reduction > best_v:
+			best_v = enemy_def.damage_reduction
 			best = CG.MitigationCause.HIDE
-		return best
-
-	var toughness := clampf(
-		Balance.attribute(unit.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
-		0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)
-	if toughness > best_v:
-		best_v = toughness
-		best = CG.MitigationCause.TOUGHNESS
-	if unit.pawn.armor != null and unit.pawn.armor.damage_reduction > best_v:
-		best_v = unit.pawn.armor.damage_reduction
-		best = CG.MitigationCause.ARMOR
 	if unit.has_status(CG.Status.SHIELD) and Balance.STATUS_SHIELD_REDUCTION > best_v:
 		best_v = Balance.STATUS_SHIELD_REDUCTION
 		best = CG.MitigationCause.SHIELD
 	if unit.has_status(CG.Status.BLOCK) and Balance.STATUS_BLOCK_REDUCTION > best_v:
 		best = CG.MitigationCause.BLOCK
+	## MARKED can take the total to zero, and a cause naming something that
+	## removed nothing is the lie this whole seam exists to prevent.
+	if best != CG.MitigationCause.NONE and _default_damage_reduction(unit) <= 0.0:
+		return CG.MitigationCause.NONE
 	return best
 
 static func _default_wind_up_ticks(unit: CombatUnit, action: ActionDef) -> int:
