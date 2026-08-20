@@ -121,104 +121,46 @@ var _detail_box: VBoxContainer = null
 ## preload for a class it never touches.
 var _live_state = null
 
+## The tree this screen is made of lives in `Scenes/InspectPanel.tscn`, so that
+## the player can open it in the editor and see the shape. **`new()` gives a
+## bare `Control` with none of it** -- always `create()`.
+static func create() -> InspectPanel:
+	return (load("res://Scenes/InspectPanel.tscn") as PackedScene).instantiate()
+
+## Everything a `.tscn` cannot say. Two kinds only:
+##
+## 1. **Palette values.** `Palette` is GDScript and a scene file cannot read a
+##    const, so a colour or a spacing written into the scene would be a second
+##    copy of the palette that drifts from the first. That is the split issue
+##    180 filed against a hand-written `.tres`, and `AppTheme` builds its Theme
+##    in code for the same reason.
+## 2. **The signal.**
+##
+## The anchors, the full-rect preset, `visible = false`, the container nesting,
+## the autowrap on the how-to-play paragraph, the list column's 220 minimum and
+## -- the two that were each found by a real launch rather than by reading --
+## `size_flags_vertical` on **both** scroll containers (without it the whole
+## body collapsed to nothing at any resolution) and
+## `horizontal_scroll_mode = 0` on the detail one (without it every plan row ran
+## off the right edge, taking the Remove button with it) are all in the scene now.
+## They are properties, and a property belongs where the player can see it.
 func _ready() -> void:
 	theme = AppTheme.shared()
-	# set_anchors_preset (not used here) tries to *preserve the control's
-	# current rect* when it recomputes offsets — and this node's rect is
-	# still (0,0) the moment _ready() runs, since _ready() fires after
-	# entering the tree but before any layout pass has given it a real
-	# size. That "preserved" a zero-size rect: offsets came out as
-	# (0, -viewport_width, 0, -viewport_height), which nets to zero size
-	# again however the anchors are set. set_anchors_and_offsets_preset
-	# resets the offsets to match the preset outright instead of trying to
-	# keep the old (here, meaningless) rect.
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	visible = false
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.BACKGROUND
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_top", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_right", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_L))
-	add_child(margin)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	margin.add_child(column)
-
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	column.add_child(top_row)
-
-	var title := Label.new()
-	title.text = HEADING
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(title)
-
-	var close_button := Button.new()
-	close_button.text = "Back"
-	close_button.custom_minimum_size = Vector2(0.0, _TOUCH)
-	close_button.pressed.connect(close)
-	top_row.add_child(close_button)
-
-	# Issue 68: one general "how to play", once, at the top of the screen. It
-	# replaces the per-class explanation that used to sit under every pawn's
-	# own plans heading, which is the round-one note this closes ("not every
-	# class needs a plans-in-priority-order section, there should be a general
-	# how to play"). Nothing below this line repeats any of it.
-	#
-	# The availability sentence is folded in rather than dropped: issue 21's
-	# criterion 4 wants "why does nothing look locked" answered on the screen,
-	# and it is the same kind of fact as the rest of this paragraph.
-	var how_to_play := Label.new()
-	how_to_play.text = HOW_TO_PLAY
-	how_to_play.autowrap_mode = TextServer.AUTOWRAP_WORD
-	how_to_play.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	how_to_play.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(how_to_play)
-
-	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", int(Palette.SPACE_L))
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(body)
-
-	var list_scroll := ScrollContainer.new()
-	list_scroll.custom_minimum_size = Vector2(220.0, 0.0)
-	# Both scroll containers need their own vertical EXPAND_FILL: `body`
-	# stretching to fill `column`'s remaining height does not, on its own,
-	# stretch its *children* — a Control without this collapses to its
-	# content's minimum size regardless of how much room its parent has.
-	# Found by a real launch: the whole list/detail body rendered as nothing
-	# at all, at any resolution, with only the static header visible.
-	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(list_scroll)
-	_list_box = VBoxContainer.new()
-	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.add_child(_list_box)
-
-	var detail_scroll := ScrollContainer.new()
-	detail_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# A ScrollContainer lets its child grow past its own width by default and
-	# offers a horizontal scrollbar instead. Found on a real launch the moment
-	# a plan became one row (issue 96): every plan row ran off the right edge,
-	# the Remove button was off screen entirely, and the budget line was cut
-	# mid-sentence -- all of it reachable only by scrolling sideways, which
-	# nobody does. Disabled, so the row is given exactly the panel's width and
-	# the chips share it. This is the whole reason the chips are
-	# SIZE_EXPAND_FILL rather than sized to their own text.
-	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	body.add_child(detail_scroll)
-	_detail_box = VBoxContainer.new()
-	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail_scroll.add_child(_detail_box)
+	%Backdrop.color = Palette.BACKGROUND
+	for side in ["left", "top", "right", "bottom"]:
+		%Margin.add_theme_constant_override("margin_" + side, int(Palette.SPACE_L))
+	%Column.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	%TopRow.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	%Body.add_theme_constant_override("separation", int(Palette.SPACE_L))
+	%Title.text = HEADING
+	%Title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
+	%CloseButton.custom_minimum_size = Vector2(0.0, _TOUCH)
+	%CloseButton.pressed.connect(close)
+	%HowToPlay.text = HOW_TO_PLAY
+	%HowToPlay.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	%HowToPlay.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_list_box = %ListBox
+	_detail_box = %DetailBox
 
 ## Issue 155's second half, and the answer to that issue's volume question.
 ##

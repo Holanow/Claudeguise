@@ -56,7 +56,7 @@ func _make_plan(display_name: String) -> Plan:
 func test_the_priority_number_label_does_not_autowrap() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always act")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -89,7 +89,7 @@ func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -112,7 +112,7 @@ func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 func test_attribute_chips_carry_glossary_tooltips() -> void:
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 	var pawn := _make_pawn()
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -142,7 +142,7 @@ func test_attribute_chips_carry_glossary_tooltips() -> void:
 func test_class_tags_header_line_carries_a_glossary_tooltip() -> void:
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 	var pawn := _make_pawn(CG.Role.TANK)
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -160,7 +160,7 @@ func test_class_tags_header_line_carries_a_glossary_tooltip() -> void:
 ## regardless of how much room the panel actually had, and the whole body
 ## rendered as nothing. Asserted directly rather than only via a screenshot.
 func test_list_and_detail_containers_expand_to_fill() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	var list_scroll: Control = panel._list_box.get_parent()
 	var detail_scroll: Control = panel._detail_box.get_parent()
@@ -169,7 +169,7 @@ func test_list_and_detail_containers_expand_to_fill() -> void:
 	panel.free()
 
 func test_opens_hidden_and_becomes_visible_on_open() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	assert_false(panel.visible)
 	var pawn := _make_pawn()
@@ -178,7 +178,7 @@ func test_opens_hidden_and_becomes_visible_on_open() -> void:
 	panel.free()
 
 func test_close_hides_the_panel_and_emits_closed() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([_make_pawn()])
 	var emitted: Array = []
@@ -189,7 +189,7 @@ func test_close_hides_the_panel_and_emits_closed() -> void:
 	panel.free()
 
 func test_detail_shows_the_selected_pawns_name_and_role() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([_make_pawn(CG.Role.HEALER)])
 	var text := _all_label_text(panel._detail_box)
@@ -199,7 +199,7 @@ func test_detail_shows_the_selected_pawns_name_and_role() -> void:
 	panel.free()
 
 func test_switching_pawns_rebuilds_the_detail_panel() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	var a := _make_pawn()
 	a.display_name = "Pawn A"
@@ -217,7 +217,7 @@ func test_switching_pawns_rebuilds_the_detail_panel() -> void:
 ## can, and this slice says everything is available rather than leaving it
 ## ambiguous.
 func test_availability_is_stated_on_screen() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([_make_pawn()])
 	var text := _all_label_text(panel)
@@ -248,7 +248,7 @@ func test_plan_blocks_read_in_a_players_language_via_describe_op() -> void:
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var text := _selected_chip_text(panel._detail_box)
@@ -265,7 +265,7 @@ func test_plans_list_in_priority_order() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_plan_with_condition("first", &"self_hp_below_fraction", {"fraction": 0.35}),
 		_plan_with_condition("second", &"enemy_in_range", {"range": 45.0})]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var text := _selected_chip_text(panel._detail_box)
@@ -286,7 +286,7 @@ func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	action_block.args = {"action_id": &"test_swing"}
 	plan.blocks = [action_block]
 	pawn.plans = [plan]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var text := _all_label_text(panel._detail_box)
@@ -305,7 +305,7 @@ func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 ## issue #104's rule pointed at the runner itself.
 func test_an_empty_action_description_reads_as_pending_not_blank() -> void:
 	const ActionDefScript := preload("res://Scripts/Core/ActionDef.gd")
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	var blank := ActionDefScript.new()
 	blank.id = &"blank"
@@ -322,7 +322,7 @@ func test_an_empty_action_description_reads_as_pending_not_blank() -> void:
 ## An action id that is not registered must be visibly wrong on the chip, not
 ## silently absent.
 func test_an_unregistered_action_chip_says_so() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	var chip: Label = panel._action_chip(&"nonexistent_action")
 	assert_true(chip.text.contains("not registered"), chip.text)
@@ -343,7 +343,7 @@ func test_an_unregistered_action_chip_says_so() -> void:
 func test_the_general_how_to_play_replaces_the_per_class_plans_explanation() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("only")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -366,7 +366,7 @@ func test_the_general_how_to_play_replaces_the_per_class_plans_explanation() -> 
 ## The heading reframes around editing rather than presenting the screen as
 ## general class information.
 func test_the_heading_is_about_editing_not_inspecting() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([_make_pawn()])
 	var text := _all_label_text(panel)
@@ -381,7 +381,7 @@ func test_the_heading_is_about_editing_not_inspecting() -> void:
 func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -414,7 +414,7 @@ func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 ## it is the one a player is looking at while editing.
 func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -443,7 +443,7 @@ func test_reorder_swaps_plan_priority_in_pawns_plans_array() -> void:
 	var guard := _plan_with_condition("guard", &"self_hp_below_fraction", {"fraction": 0.35})
 	var execute := _plan_with_condition("execute", &"enemy_in_range", {"range": 45.0})
 	pawn.plans = [guard, execute]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -469,7 +469,7 @@ func test_reorder_past_either_end_does_nothing() -> void:
 	var pawn := _make_pawn()
 	var only := _make_plan("Only plan")
 	pawn.plans = [only]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -487,7 +487,7 @@ func test_reorder_past_either_end_does_nothing() -> void:
 func test_reorder_buttons_disable_at_the_ends() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("First"), _make_plan("Second"), _make_plan("Third")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -519,7 +519,7 @@ func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight()
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -571,7 +571,7 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -631,7 +631,7 @@ func test_condition_op_swap_changes_whether_it_holds_in_a_fight() -> void:
 	var state := _state_with(attacker, enemy)
 	assert_false(PlanInterpreter.condition_holds(state, attacker, plan), "resource 0 should not clear amount 999")
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._set_condition_op(plan, &"always")
@@ -662,7 +662,7 @@ func test_condition_value_edit_changes_the_threshold_in_a_fight() -> void:
 	var state := _state_with(mostly_healthy, enemy)
 	assert_false(PlanInterpreter.condition_holds(state, mostly_healthy, plan), "95% hp should not read below a 10% threshold")
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._set_condition_arg(condition, "fraction", 0.99)
@@ -680,7 +680,7 @@ func test_editing_a_null_condition_creates_a_real_block() -> void:
 	plan.condition = null
 	pawn.plans = [plan]
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._set_condition_op(plan, &"enemy_in_range")
@@ -697,7 +697,7 @@ func test_condition_picker_offers_every_condition_op() -> void:
 	var plan := _make_plan("Any condition")
 	plan.condition = null
 	pawn.plans = [plan]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -722,7 +722,7 @@ func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 	var plan := _make_plan("Guard when hurt")
 	plan.condition = condition
 	pawn.plans = [plan]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -745,7 +745,7 @@ func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
 	pawn.pawn_class.starting_actions = [&"test_swing"]
 	pawn.plans = []
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._add_plan(pawn)
@@ -771,7 +771,7 @@ func test_an_added_plan_goes_last_in_priority() -> void:
 	var pawn := _make_pawn()
 	var existing := _plan_with_condition("existing", &"self_hp_below_fraction", {"fraction": 0.35})
 	pawn.plans = [existing]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._add_plan(pawn)
@@ -785,7 +785,7 @@ func test_an_added_plan_goes_last_in_priority() -> void:
 func test_add_is_refused_and_the_button_disabled_when_the_budget_is_spent() -> void:
 	var pawn := _make_pawn(CG.Role.DPS, 3)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -807,7 +807,7 @@ func test_add_is_refused_and_the_button_disabled_when_the_budget_is_spent() -> v
 func test_add_is_enabled_when_there_is_room() -> void:
 	var pawn := _make_pawn(CG.Role.DPS, 8)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var add := _button_named(panel._detail_box, "+ Add a plan")
@@ -818,7 +818,7 @@ func test_add_is_enabled_when_there_is_room() -> void:
 func test_removing_a_plan_takes_it_out_and_gives_its_blocks_back() -> void:
 	var pawn := _make_pawn(CG.Role.DPS, 4)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._add_plan(pawn)
@@ -840,7 +840,7 @@ func test_removing_a_plan_takes_it_out_and_gives_its_blocks_back() -> void:
 func test_removing_every_plan_is_allowed_and_the_default_row_remains() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("only")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -855,7 +855,7 @@ func test_removing_every_plan_is_allowed_and_the_default_row_remains() -> void:
 func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
 	var pawn := _make_pawn(CG.Role.DPS, 6)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -887,7 +887,7 @@ func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
 func _pawn_over_budget() -> PawnData:
 	var pawn := _make_pawn(CG.Role.DPS, 8)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._add_plan(pawn)
@@ -900,7 +900,7 @@ func _pawn_over_budget() -> PawnData:
 
 func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> void:
 	var pawn := _pawn_over_budget()
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -918,7 +918,7 @@ func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> vo
 ## out), on the screen, under the row it is about.
 func test_the_inert_row_says_why_and_what_to_do_about_it() -> void:
 	var pawn := _pawn_over_budget()
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -936,7 +936,7 @@ func test_the_inert_row_says_why_and_what_to_do_about_it() -> void:
 func test_a_pawn_inside_its_budget_carries_no_inert_mark() -> void:
 	var pawn := _make_pawn(CG.Role.DPS, 8)
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	panel._add_plan(pawn)
@@ -955,7 +955,7 @@ func test_a_pawn_inside_its_budget_carries_no_inert_mark() -> void:
 ## take its controls away. `modulate` fades; it does not disable.
 func test_an_inert_row_can_still_be_removed() -> void:
 	var pawn := _pawn_over_budget()
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -980,7 +980,7 @@ func test_an_inert_row_can_still_be_removed() -> void:
 func test_the_default_row_is_last_and_carries_no_editable_control() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("mine")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
@@ -994,7 +994,7 @@ func test_the_default_row_is_last_and_carries_no_editable_control() -> void:
 func test_the_default_row_costs_no_block_budget() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	assert_eq(panel._blocks_used(pawn), 0, "a pawn with no plans of its own has spent nothing")
@@ -1012,7 +1012,7 @@ func test_the_default_row_costs_no_block_budget() -> void:
 ## 11, and a row that only held at one distance would not catch a row naming
 ## the wrong half of a two-action class.
 func test_the_default_row_names_the_action_default_behavior_really_picks() -> void:
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	for class_id in [&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior"]:
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
@@ -1055,7 +1055,7 @@ func test_the_default_row_names_the_action_default_behavior_really_picks() -> vo
 func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var rows := panel._default_rows(pawn)
@@ -1085,7 +1085,7 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master")
 	pawn.plans = []
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var text := ""
@@ -1129,7 +1129,7 @@ func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void
 	var checked := 0
 	for class_id in Registry.all_class_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
-		var panel := InspectPanel.new()
+		var panel := InspectPanel.create()
 		panel._ready()
 		panel.open([pawn])
 		var rows := _plan_rows(panel)
@@ -1171,7 +1171,7 @@ func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() ->
 	assert_false(PlanInterpreter.condition_holds(state, watcher, plan),
 		"nothing is burning, so the row must not hold before the edit")
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var row: Control = _plan_rows(panel)[0]
@@ -1210,7 +1210,7 @@ func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() 
 	acted.source_plan = always.id
 	state.events.append(acted)
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn], state)
 	## Asserted per row rather than over the whole panel. **The whole-panel
@@ -1236,7 +1236,7 @@ func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> 
 	compelled.source_plan = IntentScript.COMPELLED
 	state.events.append(compelled)
 
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn], state)
 	var fallback := _all_label_text(_fallback_header(panel))
@@ -1250,7 +1250,7 @@ func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> 
 	## word the fallback row ever prints and both assertions above would still
 	## pass. 19.0% of everything a player's pawns do lands here.
 	compelled.source_plan = &""
-	var second := InspectPanel.new()
+	var second := InspectPanel.create()
 	second._ready()
 	second.open([pawn], state)
 	var fell_through := _all_label_text(_fallback_header(second))
@@ -1265,7 +1265,7 @@ func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> 
 func test_between_fights_no_row_carries_a_verdict() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always")]
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var text := _all_label_text(panel._detail_box)

@@ -150,7 +150,7 @@ func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
 	var pawn := _pawn_with_two_plans()
 
 	pawn.armor = _robes()
-	var panel := InspectPanel.new()
+	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var equipped := _all_label_text(panel._detail_box)
