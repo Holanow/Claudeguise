@@ -103,8 +103,6 @@ static func _the_room() -> Encounter:
 	e.display_name = "Floor 1, Room 1"
 	e.pickable = true
 	## Four goblins (numerous), a pair of archers, a cultist, and a ghoul
-	## anchoring the back â€” the tough/slow piece regen alone cannot make
-	## trivial the way it did the pure-numbers version of this room.
 	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
 	e.party_spawns = _PARTY_SPAWNS
 	return e
@@ -125,8 +123,6 @@ static func _the_chokepoint() -> Encounter:
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, -270.0, 60.0, 210.0)),
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, 60.0, 60.0, 210.0)),
 		## **Issue #121 item 7, the player's tar pit: terrain that slows
-		## instead of hurting.** `damage_per_tick` is 0 and the whole effect is
-		## SLOWED, which is the first feature in the game to have no damage at
 		_status_hazard(Rect2(-20.0, -60.0, 60.0, 120.0), CG.Status.SLOWED, 45),
 	]
 	return e
@@ -141,8 +137,6 @@ static func _the_cover_room() -> Encounter:
 	e.pickable = true
 	e.enemy_spawns = [
 		## **Four rosters were measured at 20 seeds x 5 buildable parties,
-		## each one both with the colonnade and with the terrain stripped, and
-		## the second column is the one that decided it.** Comparing rosters
 		{"enemy_id": &"goblin", "position": Vector2(110.0, -170.0)},
 		{"enemy_id": &"goblin", "position": Vector2(120.0, 0.0)},
 		{"enemy_id": &"goblin", "position": Vector2(110.0, 170.0)},
@@ -150,8 +144,6 @@ static func _the_cover_room() -> Encounter:
 		{"enemy_id": &"rat", "position": Vector2(260.0, -85.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, 85.0)},
 		## **Issue #121: the Stalker takes the fourth archer's place, and the
-		## headcount rule is why it is a swap rather than an addition.** Ten
-		## enemies per pickable room is what makes the four rooms comparable
 		{"enemy_id": &"stalker", "position": Vector2(250.0, 225.0)},
 		{"enemy_id": &"cultist", "position": Vector2(350.0, -155.0)},
 		{"enemy_id": &"cultist", "position": Vector2(360.0, 0.0)},
@@ -159,8 +151,6 @@ static func _the_cover_room() -> Encounter:
 	]
 	e.party_spawns = _PARTY_SPAWNS
 	## **The two x offsets below are swept, not chosen.** They are the one
-	## number in this file that could not be reasoned about, because the
-	## colonnade has two failure modes pulling in opposite directions and the
 	e.terrain = [
 		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -250.0, 100.0, 100.0)),
 		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -50.0, 100.0, 100.0)),
@@ -220,7 +210,7 @@ static func _the_horde() -> Encounter:
 	return e
 
 ## Issue 12 criterion 2, the "fewer and tougher" half: two ghouls. Slow,
-## hard to kill, hit hard â€” a wall rather than a swarm.
+## hard to kill, hit hard Ã¢â‚¬â€ a wall rather than a swarm.
 static func _the_ghoul_den() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_ghoul_den"

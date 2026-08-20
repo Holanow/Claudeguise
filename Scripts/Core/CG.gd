@@ -73,8 +73,6 @@ enum Status {
 	SHIELD,
 	BLEED,
 	## The victim side of a taunt: this unit is COMPELLED to move into range of
-	## whoever taunted it and use its default attack on that unit, in place of
-	## whatever its plan or the fallback would otherwise have chosen.
 	TAUNTED,
 	BURN,
 	HASTE,
@@ -83,21 +81,12 @@ enum Status {
 	MARKED,
 	POISON,
 	## Appended, never inserted. These values are written into CombatEvent.status
-	## and read by the log and the floaters, so shifting an existing one would
-	## silently relabel every status in a saved event stream.
 	SLOWED,
 	## Enemies within a radius are forced to focus the taunting unit. This is
-	## what makes TANK mean something: every class tagged TANK has high CON and
-	## no way to make anything attack it, so "tank" has meant "survives" rather
-	## than "protects". Nothing in this codebase redirects a target today.
 	TAUNTING,
 	## A ranged attack crossing this unit's front arc is stopped by it.
-	##
-	## How this resolves depends on a decision the player has since made: most
 	SHIELDING,
 	## This unit is holding a sustained action: an effect that ticks every tick
-	## and charges it resource every tick, for as long as its plan keeps
-	## choosing it. Issue 61.
 	SUSTAINING,
 }
 
@@ -127,8 +116,6 @@ enum EndReason {
 	## had.
 	NO_SURVIVORS,
 	## The losing side has units alive that can never act again for the rest of
-	## the fight. Today the only way in is a unit with `move_speed` 0 whose every
-	## action `requires_marked_target`, with nothing left alive that can mark.
 	CANNOT_ACT,
 }
 
@@ -152,8 +139,6 @@ enum EventKind {
 	## of whoever it was aimed at.
 	BLOCKED,
 	## A unit began holding a sustained action. Issue 61.
-	##
-	## Appended, never inserted, same rule as BLOCKED above.
 	SUSTAIN_START,
 	## A unit stopped holding a sustained action, whatever ended it: its plan
 	## chose something else, its resource ran out, it was stunned, or it died.
@@ -162,8 +147,6 @@ enum EventKind {
 	## landing on a unit mid-wind-up; the mechanism itself is not stun-specific.
 	INTERRUPTED,
 	## A unit was built onto the field mid-fight. Issue 193.
-	##
-	## Appended, never inserted, same rule the rest of this enum carries.
 	SUMMONED,
 }
 

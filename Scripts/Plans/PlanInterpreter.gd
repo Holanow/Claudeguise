@@ -87,7 +87,7 @@ const KEEP_DISTANCE_BAND := 15.0
 ## that same fact, exposed as data instead of match-statement logic, for a
 ## screen (InspectPanel) that needs to build a value editor rather than
 ## evaluate a condition. Moved here from InspectPanel.gd itself, which carried
-## its own copy pending this issue — see PR history for the "if the whitelist
+## its own copy pending this issue â€” see PR history for the "if the whitelist
 ## grows past its current five entries, it moves" call that opened it. "none"
 ## carries no value editor. "fraction" is edited as a 0-100 percent by the
 ## caller and rescaled to the 0.0-1.0 this interpreter actually reads.
@@ -98,15 +98,6 @@ const CONDITION_ARG_SHAPE := {
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	&"self_resource_below": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	## **`step` 5, not 10, and a rendered screen is what found it.** A `SpinBox`
-	## snaps whatever it is given to its own step, so `abomination_grapple_close`
-	## -- 45 units, the Abomination's real melee reach -- drew as **50** in the
-	## plan editor, one control away from the chip beside it reading "An enemy
-	## within 45 units". The plan still held 45; only the player was told
-	## otherwise. Same defect as an ability description stating half its own
-	## duration, in the screen the pawn-behaviour principle exists to protect.
-	## `Tests/test_plans_condition_args.gd` asserts every authored condition
-	## argument lands on its own step, so a future range of 47 is red instead of
-	## silently drawn as 45.
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 100.0},
 	&"ally_has_harmful_status": {"kind": "none"},
 	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
@@ -226,7 +217,7 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 ## Issue 97: **the first time the plan layer decides where a pawn stands.**
 ##
 ## Everything above this function either fires an action or returns null, and
-## null means `DefaultBehavior` decides — including all movement. This file's
+## null means `DefaultBehavior` decides â€” including all movement. This file's
 ## own comment on `_target_in_range` said so plainly: *"PlanInterpreter has
 ## never handled movement, that is DefaultBehavior's whole job."* So where a
 ## pawn stood was never visible in a plan, which is issue 98's principle, and
@@ -254,8 +245,6 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 	var away := unit.position - target.position
 	if away.length() < 0.0001:
 		# Standing exactly on the target. Any direction is "away"; pick one
-		# deterministically rather than reaching for the rng, because a fight
-		# must replay bit for bit from its seed.
 		away = Vector2(1.0, 0.0)
 
 	if dist < wanted - KEEP_DISTANCE_BAND:
@@ -264,11 +253,6 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 		return Intent.move_to(target.position + away.normalized() * wanted, plan.id)
 
 	# Standing where the player asked. Fire if there is an action and it can
-	# fire; otherwise hold, which is the instruction being obeyed rather than a
-	# pawn doing nothing for no reason. `plan.id` rides on the idle so the
-	# combat log names the plan that decided it -- issue 98 is about the player
-	# being able to see why, and an unattributed idle is the thing it objects
-	# to.
 	if action_id == &"" or not _action_can_fire(state, unit, action_id):
 		return Intent.idle(plan.id)
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
@@ -318,7 +302,7 @@ static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
 ## focused target's distance is checked against the action's own range here,
-## once, right before the intent is built — the one place both numbers are
+## once, right before the intent is built â€” the one place both numbers are
 ## available together, regardless of which targeting op or condition (if any)
 ## picked the target. Out of range falls through (returns null from decide(),
 ## via _run_blocks) rather than trying to move into range itself:
@@ -437,11 +421,6 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 		&"self_resource_at_least":
 			return unit.resource >= int(block.args.get("amount", 0))
 		## Issue 206: the mirror of the op above, and it exists because a Rage
-		## class needs to say "I cannot pay for my real ability yet". Strictly
-		## below, so `self_resource_at_least{n}` and `self_resource_below{n}`
-		## partition every value between them with no tick belonging to both or
-		## to neither -- a pair that overlapped would let two plans fire on the
-		## same tick and read to a player as the top one being ignored.
 		&"self_resource_below":
 			return unit.resource < int(block.args.get("amount", 0))
 		&"enemy_in_range":
@@ -486,7 +465,7 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
-## screen. Display only — never called from decide()/condition_holds(), so a
+## screen. Display only â€” never called from decide()/condition_holds(), so a
 ## bad string here cannot affect a fight. An unknown op still names itself
 ## rather than going blank, since a player reading "??? " and a player reading
 ## "unknown op 'x'" are getting different amounts of information from the same
