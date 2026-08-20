@@ -94,9 +94,79 @@ func test_a_dead_shielder_draws_nothing() -> void:
 	assert_false(ShieldWall.is_up(u), "a corpse must not hold cover")
 
 
-func test_the_unit_view_actually_calls_it() -> void:
-	# Geometry nothing calls is geometry nobody sees, which is the defect this
-	# issue is about in the first place.
-	var text := FileAccess.get_file_as_string("res://Scripts/UI/UnitView.gd")
-	assert_true(text.contains("ShieldWall.draw_for("),
-		"UnitView._draw no longer draws the shield")
+func test_the_arena_draws_it_and_the_unit_does_not() -> void:
+	# Issue 332. UnitViews are siblings, so a plate drawn inside one of them
+	# paints over whichever units come earlier in the child order -- the ones it
+	# exists to shelter. Drawn from the arena, which is their parent, it cannot.
+	var arena := FileAccess.get_file_as_string("res://Scripts/UI/ArenaFloor.gd")
+	assert_true(arena.contains("ShieldWall.draw_all("),
+		"ArenaFloor._draw no longer draws the shield, so nobody does")
+	var unit := FileAccess.get_file_as_string("res://Scripts/UI/UnitView.gd")
+	assert_false(unit.contains("ShieldWall."),
+		"UnitView draws the plate again, which puts it back on top of the crowd")
+
+
+func test_the_haft_reaches_the_body_that_is_holding_it() -> void:
+	# The plate's own back edge sits a standoff clear of the body, and bodies
+	# draw at DISPLAY_SCALE while the plate is world-true, so the two cannot
+	# meet by construction. The haft spans the gap instead.
+	for raw in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2(3.0, -4.0).normalized()]:
+		var facing: Vector2 = raw
+		var e := _extent(ShieldWall.haft_points(facing, STANDOFF), facing)
+		assert_almost_eq(e["along_lo"], 0.0, 0.01,
+			"facing %s draws a haft that starts clear of the shielder's own centre" % facing)
+		assert_true(e["along_hi"] > STANDOFF,
+			"facing %s draws a haft that stops short of the plate" % facing)
+
+
+func test_the_frontage_is_divided_into_panels() -> void:
+	# One long unbroken band is what a blind playtester called a teal sliver and
+	# could not identify. The seams are what make it a row of shields.
+	var seams := ShieldWall.seam_points(Vector2.RIGHT, ShieldWall.half_width(), STANDOFF)
+	assert_eq(seams.size(), ShieldWall.PANELS - 1,
+		"a plate of %d panels needs %d joins" % [ShieldWall.PANELS, ShieldWall.PANELS - 1])
+	# Counting the seams against PANELS alone proves nothing -- PANELS of 1 draws
+	# no seam and satisfies it. A panel is a pawn's worth of cover, which is what
+	# the player asked the frontage to be: "5 times as long so that other units
+	# can use it as cover".
+	var panel := CombatSim.SHIELD_WIDTH / float(ShieldWall.PANELS)
+	var pawn := CombatUnit.new().radius * 2.0
+	assert_true(panel >= pawn * 0.6 and panel <= pawn * 1.6,
+		"a panel is %.1f world units against a pawn's %.1f: it is not a pawn's worth of cover" % [panel, pawn])
+	var seen := {}
+	for line in seams:
+		var seam: PackedVector2Array = line
+		assert_almost_eq(seam[0].x, STANDOFF, 0.01, "a seam must start at the plate's back edge")
+		assert_true(seam[1].x > seam[0].x, "a seam must cross the plate, not sit on its edge")
+		assert_almost_eq(seam[0].y, seam[1].y, 0.01, "a seam must run straight across the plate")
+		assert_true(absf(seam[0].y) < ShieldWall.half_width(), "a seam must fall inside the frontage")
+		seen[snappedf(seam[0].y, 0.01)] = true
+	assert_eq(seen.size(), seams.size(), "two joins are drawn in the same place")
+
+
+func test_the_plate_is_trimmed_to_the_room_it_is_standing_in() -> void:
+	# The plate ran out through the arena wall and off the screen, which was
+	# half of what read as a rendering artifact rather than as cover.
+	# Stood against the bottom wall facing across it, so the plate's own frontage
+	# runs half of its length out of the room.
+	var position := Vector2(0.0, CG.ARENA_HALF_HEIGHT - 10.0)
+	var wall := ShieldWall.wall_points(Vector2.RIGHT, ShieldWall.half_width(), STANDOFF)
+	var pieces := Geometry2D.intersect_polygons(wall, ShieldWall.room_for(position))
+	assert_false(pieces.is_empty(), "the trim left nothing at all of a plate that is half inside the room")
+	for piece in pieces:
+		for p in piece:
+			var world: Vector2 = p + position
+			assert_true(absf(world.x) <= CG.ARENA_HALF_WIDTH + 0.01
+					and absf(world.y) <= CG.ARENA_HALF_HEIGHT + 0.01,
+				"the trimmed plate still puts ink at %s, outside the arena" % world)
+
+
+func test_the_trim_leaves_the_plate_alone_in_open_ground() -> void:
+	# The negative half: a clip that ate the plate everywhere would pass the
+	# test above.
+	var wall := ShieldWall.wall_points(Vector2.RIGHT, ShieldWall.half_width(), STANDOFF)
+	var pieces := Geometry2D.intersect_polygons(wall, ShieldWall.room_for(Vector2.ZERO))
+	assert_eq(pieces.size(), 1, "a shielder in the middle of the room must keep one whole plate")
+	var e := _extent(pieces[0], Vector2.RIGHT)
+	assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH, 0.01,
+		"the trim narrowed a plate that was nowhere near a wall")

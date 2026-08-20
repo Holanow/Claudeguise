@@ -161,3 +161,112 @@ func test_an_armoured_enemy_names_hide() -> void:
 		found = SimDeps._default_damage_reduction_cause(u)
 		break
 	assert_eq(found, CG.MitigationCause.HIDE, "no enemy in content has damage_reduction, or the cause is wrong")
+
+# ---------------------------------------------------------------------------
+# issue 364: statuses reach an enemy target
+# ---------------------------------------------------------------------------
+
+## The first enemy in content that has any hide to strip, so these cases test a
+## real target rather than a hand-made one whose numbers I chose.
+func _hided_enemy() -> CombatUnit:
+	for id in Registry.all_enemy_ids():
+		var d: EnemyDef = Registry.get_enemy(id)
+		if d != null and d.damage_reduction > 0.0:
+			var u := CombatUnit.new()
+			u.enemy_id = id
+			return u
+	return null
+
+func test_marking_an_enemy_strips_its_hide() -> void:
+	var u := _hided_enemy()
+	assert_not_null(u, "content has no enemy with damage_reduction")
+	var before: float = SimDeps._default_damage_reduction(u)
+	assert_true(before > 0.0, "the fixture enemy must start with some hide")
+	u.statuses[CG.Status.MARKED] = 999
+	var after: float = SimDeps._default_damage_reduction(u)
+	assert_true(after < before,
+		"MARKED did nothing to an enemy: %f before, %f after. This is issue 364." % [before, after])
+
+## `spotter_mark` is the only thing in content that marks an enemy, and every
+## enemy hide is under MARKED_VULNERABILITY_BONUS, so a mark removes all of it.
+func test_a_marked_enemy_keeps_no_hide_at_all() -> void:
+	var u := _hided_enemy()
+	u.statuses[CG.Status.MARKED] = 999
+	assert_eq(SimDeps._default_damage_reduction(u), 0.0)
+
+## A cause naming something that removed nothing is the lie this seam exists to
+## prevent, and MARKED is the one thing that can produce it.
+func test_a_marked_enemy_is_given_no_cause() -> void:
+	var u := _hided_enemy()
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.HIDE, "unmarked")
+	u.statuses[CG.Status.MARKED] = 999
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.NONE,
+		"the hide is gone, so naming it would be a lie")
+
+## Nothing in content puts SHIELD or BLOCK on an enemy today, so this covers a
+## path only the seam can reach. It is here because it was silently broken and
+## the next action that buffs an enemy must not rediscover it.
+func test_a_shielded_enemy_is_actually_shielded() -> void:
+	var u := CombatUnit.new()
+	u.enemy_id = Registry.all_enemy_ids()[0]
+	var bare: float = SimDeps._default_damage_reduction(u)
+	u.statuses[CG.Status.SHIELD] = 999
+	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + Balance.STATUS_SHIELD_REDUCTION)
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.SHIELD)
+
+func test_a_blocking_enemy_is_actually_blocking() -> void:
+	var u := CombatUnit.new()
+	u.enemy_id = Registry.all_enemy_ids()[0]
+	var bare: float = SimDeps._default_damage_reduction(u)
+	u.statuses[CG.Status.BLOCK] = 999
+	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + Balance.STATUS_BLOCK_REDUCTION)
+
+## The seam and Balance must agree for every target, which is the property the
+## old enemy short-circuit broke.
+func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
+	var checked := 0
+	for id in Registry.all_enemy_ids():
+		for marked in [false, true]:
+			var u := CombatUnit.new()
+			u.enemy_id = id
+			if marked:
+				u.statuses[CG.Status.MARKED] = 999
+			assert_almost_eq(SimDeps._default_damage_reduction(u), Balance.damage_reduction(u),
+				0.0001, "seam disagrees with Balance for %s (marked %s)" % [id, marked])
+			checked += 1
+	assert_true(checked >= 10, "only %d enemy cases reached" % checked)
+
+# ---------------------------------------------------------------------------
+# issue 364: why ARMOR is never the cause
+# ---------------------------------------------------------------------------
+
+## The answer is not a wiring defect. Plate mail's 5% is real and is counted;
+## it is simply always smaller than the Warrior's own toughness, and the cause
+## names one contributor.
+func test_the_warriors_plate_is_counted_but_never_the_largest() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
+	assert_not_null(pawn.armor, "the warrior must still start in armour")
+	assert_true(pawn.armor.damage_reduction > 0.0, "plate mail must still absorb something")
+	var u := CombatUnit.new()
+	u.pawn = pawn
+	var with_plate: float = SimDeps._default_damage_reduction(u)
+	pawn.armor = null
+	var without: float = SimDeps._default_damage_reduction(u)
+	assert_true(with_plate > without, "the plate's reduction is not reaching the number at all")
+	var toughness := Balance.attribute(pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON
+	assert_true(toughness > with_plate - without,
+		"plate now outweighs the warrior's toughness, so ARMOR should be the named cause")
+	u.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.TOUGHNESS)
+
+## And the ARMOR branch is reachable, so the enum value is not dead: give a pawn
+## armour heavier than its own toughness and the cause says so.
+func test_armour_heavier_than_toughness_is_named() -> void:
+	var pawn := PawnData.new()
+	pawn.attribute_bonus[CG.Attribute.CON] = 2
+	var heavy := EquipmentDef.new()
+	heavy.damage_reduction = 0.4
+	pawn.armor = heavy
+	var u := CombatUnit.new()
+	u.pawn = pawn
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.ARMOR)
