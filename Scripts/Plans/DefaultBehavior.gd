@@ -50,38 +50,16 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 
 	var candidates := _actions_that_can_fire_now(state, unit)
 	## Issue 214: nothing this unit carries can fire this tick, so fall back to
-	## the whole list rather than idling. **The fallback is the half that keeps
-	## this from being a regression**, and heron's own content comment on
-	## `stalker_dart` is why it is here: a one-action enemy whose only action is
-	## on cooldown must still kite, approach and retreat, and every one of those
-	## branches below is reached through a chosen action. Filtering without this
-	## would freeze it instead, which is a worse bug than the one being fixed.
 	if candidates.is_empty():
 		candidates = _all_actions(unit)
 	if candidates.is_empty():
 		return Intent.idle()
 
 	# Issue 93: an action that may only be aimed at a MARKED enemy narrows the
-	# candidate list before anything else looks at it, and a unit whose only
-	# attacks are marked-only holds fire when nothing is marked.
-	#
-	# This, not the range change, is what the Siege Engine rebuild rests on. An
-	# engine is a summon, so it has no plan at all and every decision it makes
-	# arrives here. Filtering the candidates rather than vetoing after
-	# `_choose_target` matters: the nearest enemy is usually not the marked one,
-	# so a veto would make an engine idle beside a target it is allowed to shoot.
-	#
-	# Deliberately generic. It reads `ActionDef.requires_marked_target` and
-	# nothing class-specific, the same way this file already infers "ranged" from
-	# an action's own range rather than from a ClassDef -- a second unit with a
-	# spotter is picked up for free. Every unit whose actions all leave the flag
-	# false sees no change at all, which is every unit but one.
 	if _all_attacks_require_a_mark(candidates):
 		enemies = _only_marked(enemies)
 		if enemies.is_empty():
 			# Hold fire. Not `move_to`: the engine cannot move (move_speed 0.0)
-			# and, more to the point, an artillery piece with no designated
-			# target should sit silent rather than wander toward one.
 			return Intent.idle()
 
 	var heal_action := _first_heal(candidates)
@@ -94,26 +72,6 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 			return Intent.move_to(neediest.position)
 
 	## **Issue 150: the branch that lets a self-targeted action be cast at all.**
-	##
-	## Everything below this point picks a target from the *opposing* team and
-	## measures the chosen action's range against it, so an action aimed at its
-	## own caster has never had a path through this file. `PlanInterpreter` has
-	## one -- a `target_self` block -- and **the units that need this have no
-	## plans at all.** That is why the Brute ships with a stun and no roar, and
-	## why any future enemy rally, shield or self-heal would have hit the same
-	## wall.
-	##
-	## **Pawns are excluded, and the exclusion is the design rather than caution.**
-	## A pawn self-buffing from the fallback layer is a pawn doing something
-	## written in no plan, on a screen with nowhere to change it -- CLAUDE.md's
-	## binding principle, and the same reason `_attack_candidates` refuses a
-	## sustained action. `unit.pawn == null` is the split this file already uses
-	## for exactly this distinction (see `_actions_that_can_fire_now`).
-	##
-	## Not gated on `range_units == 0.0`: `_action_summon` and `_action_self_heal`
-	## are both zero-range and want opposite things from it, and
-	## `_heal_candidates` already reads that zero for its own meaning. See
-	## `ActionDef.targets_self`.
 	if unit.pawn == null:
 		var self_action := _self_targeted_to_cast(state, unit, enemies)
 		if self_action != null:
@@ -124,17 +82,6 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		return Intent.idle()
 
 	# Issue 62: picks a melee-vs-ranged action by the current target's actual
-	# distance, rather than always the first non-heal entry in unit.actions.
-	# Found while re-tuning after free basic attacks moved the floor-clear
-	# table: The Warden carries both warden_axe (melee) and warden_chain_toss
-	# (ranged, "chain for whoever does not [close]" per its own content
-	# comment) specifically so a party that kites its slow move_speed still
-	# has to answer something -- but axe being first in EnemyDef.actions
-	# meant chain_toss never fired even once in a real fight, because the
-	# old _first_non_heal always returned axe regardless of range. A unit
-	# with only one non-heal action (every player, every other enemy in the
-	# bestiary today) sees no behaviour change: _choose_attack_action
-	# returns that single action exactly like _first_non_heal did.
 	var attack_action := _choose_attack_action(candidates, unit, target)
 	if attack_action == null:
 		return Intent.idle()
@@ -142,26 +89,6 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	var dist := unit.position.distance_to(target.position)
 
 	# Issue 93: a unit that cannot move does not kite and does not approach. It
-	# fires if the target is in range and waits if it is not.
-	#
-	# **This is not a tidy-up, it is the bug that would have made the whole
-	# artillery rebuild do nothing, and it was found by reasoning about the two
-	# numbers together rather than by running it.** Both movement branches below
-	# are fractions of the action's own range: a ranged unit retreats inside
-	# `KITE_RANGE_FRACTION` (0.6) and approaches beyond `RANGED_COMMIT_FRACTION`
-	# (0.85). Giving the Siege Engine ARENA_SPAN range makes those 720 and 1020
-	# units, and the arena's own diagonal is 1101 -- so essentially every target
-	# in the game sits inside the kite band, and an engine would have answered
-	# every one of them with `move_to(_retreat_point(...))`. It has move_speed
-	# 0.0, so that resolves to standing still, forever, without ever firing.
-	# Unlimited range would have turned "never fires because it is out of range"
-	# into "never fires because it thinks it is too close".
-	#
-	# Written against `move_speed` rather than against the Siege Engine, because
-	# the defect is general: kiting and approaching are both statements about
-	# where a unit intends to stand, and neither means anything to a unit that
-	# cannot stand anywhere else. Nothing else in the game has move_speed 0.0,
-	# so no existing behaviour changes.
 	if unit.move_speed <= 0.0:
 		if dist > attack_action.range_units:
 			return Intent.idle()
@@ -173,29 +100,9 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 
 	if is_ranged:
 		# Issue 34: a flagged action whose line to the target is blocked has
-		# nothing to gain from firing -- the resolve-time check would just
-		# report the MISS this avoids committing to. Approaching is the same
-		# fallback an out-of-range shot already gets; only actions that opted
-		# into requires_line_of_sight are affected, so nothing unflagged
-		# changes.
 		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
 			return Intent.move_to(target.position)
 		# PLAYTEST-NOTES-2.md note 11: "the Abomination runs away a lot...
-		# tanks should move toward enemies." Root cause traced directly: with
-		# no plan firing, `_choose_attack_action` picks `abomination_hook`
-		# (range 140, so `is_ranged` here) the moment a target sits beyond
-		# `abomination_grapple`'s own melee commit range -- and this branch
-		# then treated a 140-range gap-closer exactly like a 200+-range
-		# standoff weapon, backing off if the target ever closed inside 84
-		# units (0.6 * 140) instead of letting it hold ground or finish
-		# closing. Every real ranged action in the bestiary is a stay-at-
-		# range weapon (bolts, arrows, blasts); a pull is the opposite by
-		# construction -- it exists to drag a target closer, so a unit
-		# firing one has nothing to protect by keeping its own distance.
-		# `pull_distance > 0.0` is the same generic, action-level signal
-		# `heals`/`requires_line_of_sight` already are: it needs no
-		# ClassDef or role awareness, and no other action in the game sets
-		# it today, so nothing else changes behaviour.
 		var wants_to_close := attack_action.pull_distance > 0.0
 		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION

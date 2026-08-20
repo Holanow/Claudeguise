@@ -101,17 +101,6 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 	u.resource_max = int(deps.max_resource.call(pawn))
 	u.resource_kind = pawn.pawn_class.resource_kind if pawn.pawn_class != null else CG.ResourceKind.ENERGY
 	## Issue 164. Mana opens full, Rage and Energy at zero -- a caster that cannot
-	## cast on tick one is not playing the first half of the fight, and a Rage
-	## class that opens full never has to earn its finisher.
-	##
-	## Set after `resource_kind` on purpose: it is the input. This was
-	## `u.resource = u.resource_max` immediately after `resource_max`, so moving
-	## the assignment down is load-bearing rather than tidying.
-	##
-	## THE ENEMY BRANCH DELIBERATELY DOES NOT CHANGE. rook's ruling: the player's
-	## paragraph is about mana classes, and changing `_build_enemy_unit` because
-	## it is the same line would be an unasked balance change while balance is
-	## frozen.
 	u.resource = int(deps.starting_resource.call(u.resource_kind, u.resource_max))
 	u.move_speed = float(deps.move_speed.call(pawn))
 	u.actions = _collect_player_actions(pawn)
@@ -151,16 +140,6 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
 	## EnemyDef.spawn_taunt_radius's own doc comment: a non-pawn unit's action
-	## list only ever runs one fixed action, so it cannot rotate between
-	## "taunt" and "attack" the way a plan-driven pawn can -- a summoned siege
-	## engine that needs to draw fire gets TAUNTING applied here, at spawn,
-	## rather than through an action it would then never be able to also
-	## attack with. CG.MAX_TICKS as the expiry is "outlives the fight" -- a
-	## fight cannot run longer than that tick, so this never has to be
-	## refreshed or read as having expired mid-fight. Shared by both call
-	## sites of _build_enemy_unit (an ordinary encounter spawn in build() and
-	## a mid-fight _spawn_summon), on purpose: content decides via the
-	## EnemyDef, not via which path built the unit.
 	if enemy_def.spawn_taunt_radius > 0.0:
 		u.statuses[CG.Status.TAUNTING] = CG.MAX_TICKS
 		u.taunt_radius = enemy_def.spawn_taunt_radius
@@ -175,8 +154,6 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		if not unit.alive:
 			continue
 		## Checked BEFORE the busy guard, which is the whole of the #121 change.
-		## It used to sit after it, so a unit already mid-wind-up was never
-		## reached and its action fired on schedule.
 		if unit.has_status(CG.Status.STUN):
 			_interrupt_on_stun(state, unit)
 			continue
@@ -482,21 +459,6 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 		return
 
 	# The direct step made no progress at all (blocked immediately, not just
-	# short of the full distance). Try sliding along one axis instead of
-	# freezing.
-	#
-	# Issue 30: this used to slide with Vector2(step.x, 0.0) / Vector2(0.0,
-	# step.y) -- the x/y *component* of the diagonal step, not a full step on
-	# that axis. Near a corner where one axis is fully blocked, the unit's
-	# remaining distance is dominated by the blocked axis, so the angle to
-	# the target keeps flattening as the open axis closes in -- and the open
-	# axis's component of a fixed-length diagonal shrinks with that angle.
-	# The result was a real, measured, unit ever more slowly and never
-	# hitting zero within any fixed number of ticks: an asymptote a 3600-tick
-	# fight cap can't tell from frozen. Each axis now gets its own full
-	# move_speed (capped at how far it actually has left to go on that axis
-	# alone), so slide progress no longer depends on the angle of a step it
-	# isn't taking.
 	var slide_x := _sweep(state, unit, Vector2(_axis_step(to_dest.x, speed), 0.0))
 	var slide_y := _sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, speed)))
 	var moved_x := slide_x != unit.position
@@ -552,20 +514,6 @@ static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2
 	var best := direct
 	var best_gap := goal.distance_to(unit.position)
 	## The candidates are the step turned 45 degrees each way, then the two axis
-	## slides `_resolve_move` already computes for the wall case.
-	##
-	## The turned steps are the ones that do the work, and the axis slides alone
-	## could not: `_axis_step` returns zero on an axis with nothing left to close,
-	## so a unit walking due east at a fire dead ahead is offered no lateral
-	## candidate at all. Measured -- it stood in the fire for 8 ticks and took 40
-	## damage with this function already in place.
-	##
-	## 45 rather than 90 because a right-angle sidestep makes no progress toward
-	## the destination and is therefore refused by the monotonic rule below, which
-	## is exactly the rule that keeps this from oscillating. A 45-degree turn
-	## still closes on the goal (by cos 45 of the step) while clearing the
-	## obstacle sideways, so skirting and progress are the same movement rather
-	## than two that have to alternate.
 	var turn := step_direction.rotated(PI / 4.0) * speed
 	var turn_back := step_direction.rotated(-PI / 4.0) * speed
 	for candidate in [
@@ -697,18 +645,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		return
 
 	## Issue 61: the plan choosing a sustained action the unit is *already*
-	## holding is the re-affirmation that keeps the channel alive, and it must
-	## not also re-commit. Without this the unit would pay `resource_cost`,
-	## restart its wind-up and refresh its cooldown on every single tick of the
-	## channel, which would make holding an action strictly more expensive than
-	## firing it and would mean it never actually ticked.
-	##
-	## Checked before the affordability and cooldown gates below on purpose: a
-	## cooldown on a sustained action must not be able to interrupt one already
-	## running. (Content should not put a cooldown on one at all --
-	## `PlanInterpreter.can_afford` would refuse to re-choose it and the channel
-	## would end itself on the next free tick. `Tests/test_combat_sustain.gd`
-	## asserts no authored action does.)
 	if action.sustain_cost_per_tick > 0 and unit.sustaining == action.id:
 		return
 
@@ -718,11 +654,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		return
 
 	## The seam's only reuse of an existing CombatUnit field: focus_id becomes
-	## the in-flight action's target for the duration of the wind-up, which is
-	## what lets range be measured again when the effect lands rather than at
-	## commit. PlanInterpreter is free to set it ahead of an ACTION block; this
-	## overwrites it with where the action actually aims, which is the same
-	## value except when a targeting block aimed this one action elsewhere.
 	unit.focus_id = intent.target_id
 	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
@@ -736,8 +667,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		state.emit(spent)
 
 	## Issue 155: the one place the decision layer's answer survives its own tick.
-	## The intent is cleared by `_resolve_phase` immediately after this call, so
-	## if the reason does not ride out on this event it is gone.
 	var started := _event(CG.EventKind.ACTION_START, state.tick, unit.id, intent.target_id, action.id)
 	started.source_plan = intent.source_plan
 	state.emit(started)
@@ -753,10 +682,6 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 	for unit in state.units:
 		if not unit.alive:
 			## Issue 61: a channel does not outlive its caster. Deaths land in
-			## several places -- an attack in `_resolve_phase`, a DOT or a hazard
-			## or somebody else's aura later in this same loop -- so this is
-			## checked at the one point every dead unit passes through on every
-			## tick, rather than beside each of them.
 			if unit.sustaining != &"":
 				_end_sustain(state, unit)
 			continue
@@ -778,14 +703,10 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 		_tick_statuses(state, unit, deps)
 		_tick_hazards(state, unit)
 		## Anything above can kill this unit -- its own aura cannot, but a DOT,
-		## a hazard, or a death that resolved earlier in this tick can. Checked
-		## again here so the channel's end event lands on the tick the caster
-		## died rather than one tick later, which is what the top-of-loop check
-		## alone would give.
 		if not unit.alive and unit.sustaining != &"":
 			_end_sustain(state, unit)
 
-## Mana and Energy refill over time; Rage does not — CombatSim enforces that
+## Mana and Energy refill over time; Rage does not â€” CombatSim enforces that
 ## itself rather than trusting the rate function, so a rate that forgets to
 ## special-case Rage still cannot make it climb. Fractional rates are rounded
 ## stochastically against state.rng rather than dropped, so "0.3 per tick"
@@ -832,15 +753,6 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) 
 			if _decay_one_stack(state, unit, status, deps):
 				continue
 			## `_remove_status` also resets the two fields that shadow a status:
-			## TAUNTING's radius, so nothing downstream reads a stale reach off a
-			## unit that is no longer taunting, and SUSTAINING's action id.
-			##
-			## SUSTAINING is applied with a CG.MAX_TICKS expiry, so in a real
-			## fight it is only ever removed by `_end_sustain`. It is handled
-			## there for the same reason: the two pieces of state must not be
-			## able to diverge. This deliberately does not emit SUSTAIN_END --
-			## nothing in a fight can reach that case, and a second end event for
-			## one channel would be worse than none.
 			_remove_status(unit, status)
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
 			e.status = status
@@ -991,15 +903,6 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		_spawn_summon(state, unit, action, deps)
 
 	## Issue 61: a sustained action lands nothing at the moment it fires. Firing
-	## is ignition; the first tick of upkeep is the first tick of effect, and it
-	## arrives on this same tick because `_tick_sustain` runs later in
-	## `_tick_phase` than the branch that called this.
-	##
-	## It deliberately skips `_resolve_targets` rather than running it and
-	## ignoring the result. A channel is aimed at an area around its caster, so
-	## it has no focused target to be in range of -- running the ordinary path
-	## would emit a MISS on every ignition, which is a lie in the combat log and
-	## exactly the kind of wrong-but-plausible record issue 98 is about.
 	if action.sustain_cost_per_tick > 0:
 		_begin_sustain(state, unit, action)
 	else:
@@ -1008,13 +911,6 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 			state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
 		elif action.projectile_speed > 0.0:
 			## Issue 18: range and line-of-sight are still checked right here, at
-			## the moment the wind-up completes, exactly as an instant action --
-			## an out-of-range or blocked target still MISSes immediately above,
-			## nothing launches. The only change for a target that IS resolved:
-			## the effect does not land yet. `_spawn_projectile` aims at
-			## `targets[0]` (the primary) only; splash, if any, is regathered
-			## around the target's live position at impact, not fire time -- see
-			## `_splash_targets`'s own doc comment.
 			_spawn_projectile(state, unit, targets[0], action, deps)
 		else:
 			for target in targets:
@@ -1173,9 +1069,6 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		return
 
 	## Resolved BEFORE the damage is computed, so the bonus lands inside the one
-	## DAMAGE event rather than beside it as a second number. A player reading
-	## "Blast consumes Burn" and then a single large figure can follow the combo;
-	## two damage lines for one hit is the same fact told twice and read as two.
 	var bonus := _consume_status(state, unit, target, action)
 
 	## How hard this hit landed, after mitigation, or 0 for a heal. Read below by
@@ -1298,17 +1191,9 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 
 	target.statuses[status] = state.tick + action.status_duration_ticks
 	## TAUNTING's reach is stored on the taunting unit itself rather than
-	## re-derived from its action list each tick -- ActionDef.taunt_radius's
-	## own doc comment. Reapplying (a refresh) overwrites it the same way
-	## reapplying any other status already overwrites its expiry tick.
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = action.taunt_radius
 		## The taunt lands on its victims here, in the same breath as the status
-		## that makes this unit a taunter, so the two cannot get out of step.
-		## `status_duration_ticks` is shared deliberately: the roar's advertised
-		## duration and how long anyone is actually held by it are the same
-		## number, and a player reading "for 3 seconds" on the action should not
-		## have to learn that it means something else.
 		_broadcast_taunt(state, target, action.status_duration_ticks)
 
 	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
@@ -1700,11 +1585,6 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 	var source := state.unit(p.source_id)
 	if action != null and target != null and source != null:
 		## SHIELDING checked before the intended target, every tick the shot
-		## is in flight -- a shielder standing between the shooter and the
-		## target intercepts it wherever the shot currently is, not only once
-		## it would have reached the original target. Checked even if `target`
-		## has already died: the guard reacts to a hostile shot crossing its
-		## front regardless of what the shot was originally aimed at.
 		var shielder := _find_shielder(state, target.team, source.team, travelled_from, p.position)
 		if shielder != null:
 			p.resolved = true
@@ -1809,11 +1689,6 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 		if closest.distance_to(candidate.position) > SHIELD_WIDTH:
 			continue
 		## Vector2.normalized() on a zero-length vector returns ZERO rather
-		## than dividing by zero, so a shot starting its tick exactly on the
-		## shielder's own position dots to 0 and correctly falls through to
-		## "not in front" rather than special-casing "can't be behind me if
-		## it's exactly on me" -- a shot dead-centre on a shielder facing away
-		## is still approaching from the shielder's back, not its front.
 		var to_shot := (from - candidate.position).normalized()
 		if candidate.facing.dot(to_shot) <= 0.0:
 			continue
@@ -1831,15 +1706,6 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	var player_alive := not state.living(CG.Team.PLAYER).is_empty()
 	var enemy_alive := not state.living(CG.Team.ENEMY).is_empty()
 	# Issue 233. Only asked while both sides still have somebody standing: a
-	# side with nothing left alive has already lost by the rule above, and
-	# asking whether its corpses can act would turn a win into a draw. That is
-	# not hypothetical -- it is what the first version of this did, and
-	# `test_an_empty_side_still_loses_immediately` caught it.
-	# Issue 249. The reason is decided here rather than derived later because
-	# here is the only place that still knows it: after the tick, "the last
-	# enemy died" and "the last enemy became furniture" both look like a side
-	# that cannot fight. Taken before `_side_can_fight` can overwrite either
-	# flag, so a side that was already empty is never reported as stranded.
 	var reason := CG.EndReason.NO_SURVIVORS
 	if player_alive and enemy_alive:
 		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
@@ -1857,33 +1723,11 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	elif state.tick >= CG.MAX_TICKS:
 		outcome = CombatState.Outcome.DRAW
 		# THE ONE ENDING `CG.EndReason` HAS NO NAME FOR, AND I AM NOT INVENTING
-		# ONE: the enum is Core and Core is rook's. Both sides are alive and
-		# able, and the fight stopped because it ran out of ticks, which is
-		# neither NO_SURVIVORS nor CANNOT_ACT.
-		#
-		# Reachable in code, and **not reached in practice**: 1600 fights over
-		# every encounter x party x 40 seeds produced 1587 PLAYER_WIN, 13
-		# ENEMY_WIN and zero draws of any kind (`Tools/OutcomeTable.gd`).
-		#
-		# This is deliberately left as UNSET rather than mapped onto a reason
-		# that would be a lie. `Tests/test_combat_end_reason.gd` holds both
-		# halves of it: every ending the game actually produces carries a
-		# reason, and the tick cap is still unreachable. The second goes red
-		# the day a fight hits the cap, which is the day the enum needs a
-		# third value -- rather than a comment quietly certifying an absence.
 		reason = CG.EndReason.UNSET
 
 	if outcome != CombatState.Outcome.UNRESOLVED:
 		state.outcome = outcome
 		# finch's #219 finding, and the fifth way a channel can end: the fight
-		# stops while it is still lit. The other four all run `_end_sustain`;
-		# this one dropped the event, so a log could show a channel starting
-		# and never stopping, and anything counting SUSTAIN_START against
-		# SUSTAIN_END would come out short by at most one per fight.
-		#
-		# Before FIGHT_END, in unit order: the channel stopped because the
-		# fight did, so it reads that way round, and no dictionary is iterated
-		# to decide it.
 		for unit in state.units:
 			if unit.alive and unit.sustaining != &"":
 				_end_sustain(state, unit)
@@ -1970,8 +1814,6 @@ static func _unit_can_fight(state: CombatState, unit: CombatUnit, deps: SimDeps)
 	if unit.move_speed > 0.0:
 		return true
 	# Mid wind-up, mid channel, or a shot still in the air: the fight is not
-	# over while a unit's last decision is still resolving. Ending it here
-	# would cancel a bolt that may be about to win.
 	if unit.current_action != &"" or unit.sustaining != &"":
 		return true
 	for p in state.projectiles:
