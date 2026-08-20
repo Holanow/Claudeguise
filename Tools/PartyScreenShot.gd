@@ -64,3 +64,23 @@ func _run() -> void:
 	await _settle()
 	print("PartyScreenShot: middle column is showing %s" % select.focused_pawn().display_name)
 	await _shot("wren_party_three_columns_focused")
+
+	## The argument for one column: put WIS gear on and watch the plan budget
+	## in the panel above move, without leaving the screen.
+	var pawn = select.focused_pawn()
+	print("PartyScreenShot: before, %s" % _budget_line(select))
+	var armors: Array = select._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	for i in armors.size():
+		if armors[i].attribute_percent.get(CG.Attribute.WIS, 0.0) > 0.0 				or armors[i].attribute_flat.get(CG.Attribute.WIS, 0.0) > 0.0:
+			select._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, i + 1)
+			print("PartyScreenShot: put on %s" % armors[i].display_name)
+			break
+	await _settle()
+	print("PartyScreenShot: after,  %s" % _budget_line(select))
+	await _shot("wren_party_wis_moves_the_budget")
+
+func _budget_line(select) -> String:
+	for n in _walk(select._inspect_panel):
+		if n is Label and n.text.contains("plan blocks used"):
+			return n.text
+	return "(no budget line)"

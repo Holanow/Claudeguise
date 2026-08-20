@@ -104,17 +104,17 @@ func _bind_ui() -> void:
 	_start_run_button.pressed.connect(_on_start_run_pressed)
 	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
 
-	## Issue 351. Both panels live in the middle column rather than over the
-	## top of the screen, so the plan budget and the WIS that sets it are one
-	## glance apart instead of two screens apart.
+	## Issue 351. Both panels live in the middle column rather than over the top
+	## of the screen, so the plan budget and the WIS that sets it are one glance
+	## apart.
 	_inspect_panel = _add_panel(InspectPanelScript, %MiddleColumn)
 	_inspect_panel.embed()
 	_inspect_panel.size_flags_stretch_ratio = 3.0
 	_equip_panel = _add_panel(EquipPanelScript, %MiddleColumn)
 	_equip_panel.embed()
 	_equip_panel.size_flags_stretch_ratio = 2.0
-	## The payoff of one column: WIS bought by an item changes the plan budget,
-	## and the row it un-inerts is on screen at the time.
+	## WIS bought by an item changes the plan budget, and the row it un-inerts is
+	## on screen at the time.
 	_equip_panel.equipment_changed.connect(func(pawn): _inspect_panel.show_pawn(pawn))
 	focus_pawn(_available[0] if not _available.is_empty() else null)
 
@@ -179,10 +179,8 @@ func _seed_box_style() -> StyleBoxFlat:
 	style.set_content_margin_all(Palette.SPACE_S)
 	return style
 
-## A card does two things now: it decides whether the pawn is in the party, and
-## it decides who the middle column is about. The second happens even when the
-## first is refused, because "the party is full" is exactly when you want to
-## look at the pawn you nearly swapped in.
+## A card decides party membership and who the middle column is about, and the
+## second happens even when the first is refused.
 func _on_card_toggled(pressed: bool, pawn: PawnData) -> void:
 	focus_pawn(pawn)
 	if pressed and _selected.size() >= MAX_PARTY_SIZE and not _selected.has(pawn):
@@ -190,8 +188,7 @@ func _on_card_toggled(pressed: bool, pawn: PawnData) -> void:
 		return
 	toggle_pawn(pawn, pressed)
 
-## Who the middle column is showing. Public so a test can drive it without the
-## card tree, the same reason `toggle_pawn` is.
+## Who the middle column is showing.
 var _focused: PawnData = null
 
 func focus_pawn(pawn: PawnData) -> void:
