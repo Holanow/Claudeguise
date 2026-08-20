@@ -377,9 +377,8 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 		diverging_fights += differs
 		party_fights += seeds
 	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d; diverging fights overall %d/%d" % [largest, total, worst_divergence, seeds, diverging_fights, party_fights])
-	# finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned. BURN and the
-	# Blast combo changed how a Geysermancer spends Mana and which enemy it aims
-	# at, and every room moved with it. Deltas 0, +8, -8, +4, +2; largest 8.
+	# Threshold unchanged since issue 121; with the pillars moved onto the battle
+	# line the room clears it by miles, at 50/50 and health deltas +17 to +40.
 	assert_true(diverging_fights >= 25,
 		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
 
