@@ -136,15 +136,12 @@ static func _the_cover_room() -> Encounter:
 		{"enemy_id": &"cultist", "position": Vector2(350.0, 155.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
-	## Issue #330: the colonnade stands where the fight is, x -300 and -120.
-	## At x 20 and 160 it sat 200 units east of the battle line and cut almost
-	## nothing.
 	e.terrain = [
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-300.0, -250.0, 100.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-300.0, -50.0, 100.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-300.0, 150.0, 100.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-120.0, -150.0, 100.0, 100.0)),
-		Terrain.make(Terrain.Kind.PILLAR, Rect2(-120.0, 50.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -250.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -50.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, 150.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(160.0, -150.0, 100.0, 100.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(160.0, 50.0, 100.0, 100.0)),
 	]
 	return e
 
