@@ -74,15 +74,13 @@ static func attribute_text(a: CG.Attribute) -> String:
 		_:
 			return ""
 
-## Statuses are drawn in the battle arena (UnitView's status tags, phase 2 of
-## the hover system); this is the data half, written now so phase 2 wires a
-## mechanism against text that already exists rather than writing both at
-## once. Every status with a Balance-owned number reads it; BLEED, TAUNTED,
-## STUN, TAUNTING and SHIELDING have no single tunable number to duplicate
-## (BLEED/TAUNTED/SHIELDING's magnitude and duration are per-action data on
-## whichever ActionDef grants them, not a shared Balance constant; TAUNTING
-## reads EnemyDef.spawn_taunt_radius per-caster) -- their sentence names the
-## mechanism rather than inventing one number that would be wrong for most
+## The data half of the status hover text.
+##
+## A status with a Balance-owned number reads it. BLEED, TAUNTED, STUN,
+## TAUNTING and SHIELDING have none to duplicate -- magnitude and duration are
+## per-action data on whichever ActionDef grants them, and TAUNTING's radius is
+## `ActionDef.taunt_radius`, applied by `_apply_taunt` -- so their sentence
+## names the mechanism rather than a number that would be wrong for most
 ## casters.
 static func status_text(s: CG.Status) -> String:
 	match s:

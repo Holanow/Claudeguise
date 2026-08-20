@@ -31,12 +31,6 @@ class_name EnemyDef
 ## Tags shown to the player above the health bar.
 @export var display_tags: Array[String] = []
 
-## Taunt radius applied when this unit is spawned as a summon. 0.0 means it does
-## not taunt, which is every enemy today. It exists because a non-pawn unit's
-## action list only ever runs one fixed action, so a siege engine could otherwise
-## taunt forever or fight, never both. Read in `CombatSim._build_enemy_unit`.
-@export var spawn_taunt_radius: float = 0.0
-
 ## How strongly this enemy prefers a target its allies already attack, 0.0 for
 ## nearest-and-ignore-everyone to 1.0 for always-join-the-pile.
 @export var focus_bias: float = 0.0
