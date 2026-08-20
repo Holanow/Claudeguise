@@ -61,52 +61,27 @@ static func has_art(name: StringName) -> bool:
 	return texture_for(name) != null
 
 ## ---------------------------------------------------------------------------
-## THEMING, issue #115: "We should have some UI theming while art is going on.
-## Borders and backgrounds for the major elements mostly."
+## THEMING
 ##
-## Two things this half has to get right that the icon half did not.
+## The screens build their chrome from `ColorRect` backdrops and
+## `StyleBoxFlat` panels rather than `_draw()`, so this half hands back a
+## NODE and a STYLEBOX, not only a draw call.
 ##
-## 1. THE SCREENS DO NOT DRAW THEIR CHROME IN `_draw()`. `PartySelect`,
-##    `InspectPanel`, `CombatLogView`, `FloorMapView`, `Main`, `GlossaryTooltip`
-##    and the three level-editor views build it out of `ColorRect` backdrops and
-##    `StyleBoxFlat` panels, which are Control-node theming and not canvas
-##    drawing. `draw_border` cannot reach any of them. So the pipeline has to
-##    hand back a NODE and a STYLEBOX, not only a draw call -- otherwise every
-##    call site has to be rewritten into `_draw()` first, which is a large change
-##    to somebody else's screens for no benefit the player asked for.
+## Every lookup is two-level: `panel_style(&"inspect_panel", ...)` asks for
+## `Assets/UI/panel/inspect_panel.png` first and `Assets/UI/panel.png`
+## second. One `panel.png` re-skins every panel at once; a specific file
+## later overrides that one without disturbing the rest. Neither is a code
+## change.
 ##
-## 2. ONE FILE THEMES EVERYTHING; A SECOND FILE THEMES ONE THING. Every lookup
-##    here is two-level. `panel_style(&"inspect_panel", ...)` asks for
-##    `Assets/UI/panel/inspect_panel.png` first and `Assets/UI/panel.png` second,
-##    so dropping in one `panel.png` re-skins every panel in the game at once,
-##    and adding `panel/inspect_panel.png` later overrides that one without
-##    disturbing the rest. Neither step is a code change. A pipeline that only
-##    did the specific version would need seventeen files before anything
-##    looked different, and one that only did the general version could never
-##    make one panel special.
+## **A picture may replace decoration. It may not replace information.**
+## A nine-slice is drawn as painted, so a dropped-in border cannot carry
+## state -- one silently deleted the ring saying which pawns were picked, and
+## another deleted the badge saying an item teaches an ability. Both render
+## perfectly in a screenshot, which is this project's main instrument.
 ##
-## ---------------------------------------------------------------------------
-## AND THE RULE THAT MATTERS MORE THAN EITHER
-##
-## **A picture may replace decoration. A picture may not replace information.**
-##
-## `PartyCard` found this first: a nine-slice is drawn as painted, so a
-## dropped-in border cannot carry state, and dropping one in would have silently
-## deleted the only signal saying which four pawns the player had picked. The fix
-## was to keep drawing the selection ring inside the border, asking `has_art`.
-##
-## `EquipmentIcons` then hit the same thing independently -- a dropped-in item
-## PNG was deleting the badge that says an item teaches an ability -- so the
-## corner badge is now drawn over dropped-in art rather than instead of it.
-##
-## Two systems, same failure, neither found by looking at the default. **It is
-## invisible to a screenshot**, which is this project's main instrument: theming
-## that has eaten a state signal renders perfectly. So before theming anything,
-## ask what its border or background says besides "here is an edge" -- selected,
-## focused, disabled, active, damaged -- and if it says something, keep saying it.
-
-## The name a two-level lookup resolves to, or `&""` when neither file exists.
-## Specific first, general second.
+## So before theming anything, ask what its border or background says besides
+## "here is an edge" -- selected, focused, disabled, active, damaged -- and if
+## it says something, keep saying it.
 static func theme_name(kind: StringName, element: StringName) -> StringName:
 	if element != &"":
 		var specific := StringName("%s/%s" % [kind, element])

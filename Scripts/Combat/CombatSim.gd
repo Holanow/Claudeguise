@@ -341,46 +341,30 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 			_:
 				_resolve_idle(state, unit, deps)
 
-## Issue 132: THE FIRST THING IN THIS SIMULATION THAT TRADES TIME FOR RESOURCE.
-##
 ## A unit that spends its tick doing nothing recovers resource faster than one
-## that spends it moving or fighting. Everything else in this game gives
-## resource back on a clock (`_tick_regen`) or for landing a hit
-## (`_on_hit_landed`); nothing has ever made *standing still* a choice worth
-## making, so "wait for mana" has not been a thing a plan could express.
+## that spends it moving or fighting, so "wait for mana" is a thing a plan can
+## express.
 ##
-## Applied here, in the IDLE branch of `_resolve_phase`, rather than in
-## `_tick_phase` beside `_tick_regen`. That is deliberate and it is the reason
-## no `CombatUnit` field was needed: by the time `_tick_phase` runs, the intent
-## has already been consumed and cleared, so "did this unit idle" is a fact that
-## only exists at this exact point. Recording it on the unit to read one phase
-## later would be a second copy of something the intent already says.
+## Applied in the IDLE branch of `_resolve_phase` rather than beside
+## `_tick_regen`, which is why no `CombatUnit` field was needed: by
+## `_tick_phase` the intent is already consumed, so "did this unit idle" is a
+## fact that exists only at this point.
 ##
-## It stacks with `_tick_regen` rather than replacing it: an idling unit gets
-## the ordinary tick of regeneration in `_tick_phase` and this on top. So the
-## seam is a *multiplier on the ordinary rate*, and the number it means is
+## It stacks with `_tick_regen` rather than replacing it, so the number means
 ## "how many times faster does waiting refill you".
 ##
-## INERT BY DEFAULT AND PROVABLY SO. `SimDeps.idle_resource_regen_scale`
-## defaults to 1.0, which makes `extra` exactly 0.0, which returns before
-## `_stochastic_round` is reached and therefore **before `state.rng` is
-## touched**. That last part is what keeps every existing measurement valid:
-## consuming one more random number per idle tick would reshuffle the rng stream
-## and change every fight in the game, which is a far bigger change than the
-## feature. Checked by test, not reasoned about.
+## Inert by default and provably so: `SimDeps.idle_resource_regen_scale`
+## defaults to 1.0, making `extra` exactly 0.0, which returns before
+## `_stochastic_round` and therefore before `state.rng` is touched. Consuming
+## one more random number per idle tick would reshuffle the stream and change
+## every fight in the game. Checked by test.
 ##
-## RAGE is skipped, structurally, the same way `_tick_regen` skips it and for
-## the same reason: Rage is earned by landing hits. A berserker filling up by
-## standing still would undo the whole point of the resource, and enforcing that
-## here rather than trusting the rate function means a content mistake cannot
-## reintroduce it.
+## RAGE is skipped structurally, as `_tick_regen` skips it: Rage is earned by
+## landing hits, and enforcing that here means a content mistake cannot
+## reintroduce a berserker filling up by standing still.
 ##
-## NO EVENT IS EMITTED, deliberately. This fires on most ticks of most fights
-## for any waiting unit, which is exactly the volume argument that puts
-## RESOURCE_SPENT on the log's silent list. The resource bar already shows the
-## number moving. If it turns out a player cannot tell "my pawn is waiting on
-## purpose" from "my pawn is stuck", the fix is one event kind and I would
-## rather add it against a measured complaint than flood the log in advance.
+## No event is emitted -- this fires on most ticks of most fights for any
+## waiting unit, and the resource bar already shows the number moving.
 static func _resolve_idle(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.resource_kind == CG.ResourceKind.RAGE:
 		return
@@ -1225,46 +1209,29 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 		unit.sustaining = &""
 		unit.sustain_started_tick = -1
 
-## Issue 87: strips every harmful status from `target`, one STATUS_EXPIRED per
-## status removed.
+## Strips every harmful status from `target`, one STATUS_EXPIRED per removal.
 ##
-## `CG.is_harmful` is the only thing consulted for which statuses those are.
-## Not a second list here: the status badges (Scripts/Art/StatusIcons.gd) and
-## the combat log (Scripts/UI/CombatLogView.gd) already call the same function,
-## so what a cleanse strips and what the player sees disappear cannot disagree.
-## A status added to CG.Status without being classified there is treated as
-## harmless and survives a cleanse, which is the safe direction that function's
-## own doc comment argues for.
+## `CG.is_harmful` is the only thing consulted. The status badges and the
+## combat log call the same function, so what a cleanse strips and what the
+## player sees disappear cannot disagree. An unclassified status counts as
+## harmless and survives.
 ##
-## Placed beside `_apply_pull` at the end of `_apply_action_effect`, and
-## guarded the same way, for the same two reasons: it runs after this action's
-## own damage and death resolution, so a cleanse never fires on a corpse, and
-## an action that sets neither field behaves exactly as it did before.
+## Runs at the end of `_apply_action_effect`, after this action's own damage
+## and death resolution, so a cleanse never fires on a corpse.
 ##
-## Removal goes through `_remove_status`, which takes the magnitude with it.
-## That was not always necessary: every harmful status used to be a pure
-## read-while-present flag -- SLOWED a multiplier read in
-## `_effective_move_speed`, STUN a check in `_decide_phase`, MARKED a read in
-## Balance, BURN/POISON membership tests in `_tick_dot_statuses` -- and the only
-## status carrying anything extra (TAUNTING, via taunt_radius) was harmless and
-## therefore never reached here.
+## Removal goes through `_remove_status`, which takes the magnitude with it:
+## BLEED and BURN both carry one, and erasing only the expiry would leave nine
+## stacks on a unit that no longer has bleed, ready to be revived at full
+## strength by the next application.
 ##
-## **BLEED and BURN broke that**: both are harmful and both now carry a
-## magnitude, so a cleanse that erased only the expiry would leave nine stacks
-## of bleed sitting on a unit that no longer has bleed, waiting to be revived at
-## full strength by the next application. One removal path is what stops that
-## from ever being a question again.
+## Keys are sorted before iterating, as `_tick_statuses` does -- Dictionary
+## order is insertion order, so two fights from one seed would otherwise emit
+## removals in an order depending on which enemy afflicted the unit first.
+## Nothing random is consulted.
 ##
-## Keys are sorted before iterating, exactly as `_tick_statuses` does: a
-## Dictionary's key order is insertion order, so two fights from one seed
-## would otherwise emit the same removals in an order that depends on which
-## enemy afflicted the unit first. Nothing random is consulted at all.
-##
-## The event carries the caster and the action, where an expiry from
-## `_tick_statuses` carries source_id -1 and no action id. That is the only
-## signal separating "the Geysermancer scrubbed the poison off" from "the
-## poison ran out", and it is there for the log to use; CombatLogView does not
-## read it yet and rendering it is wren's call, not mine.
+## The event carries the caster and the action; an expiry from `_tick_statuses`
+## carries source_id -1 and no action. That is the only signal separating a
+## cleanse from a status running out.
 static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
 	if target.statuses.is_empty():
 		return
@@ -1301,65 +1268,32 @@ static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUn
 	target.position = _sweep(state, target, step)
 
 # ---------------------------------------------------------------------------
-# sustained actions (issue 61)
+# sustained actions
 # ---------------------------------------------------------------------------
 #
-# THE FIRST THING IN THIS SIMULATION THAT IS NOT A POINT IN TIME.
+# A sustained action fires once and is then held: it deals its effect and
+# charges `sustain_cost_per_tick` every tick, for as long as the decision
+# layer keeps choosing it.
 #
-# Every other action resolves as wind-up, fire, recover -- three moments. A
-# sustained action fires once and is then *held*: it deals its effect and
-# charges `sustain_cost_per_tick` on every tick, and it keeps doing so for
-# exactly as long as the pawn's decision layer keeps choosing it.
+# Four things end it:
 #
-# WHAT ENDS IT, and this is the design decision rather than an implementation
-# detail. Four things, and the first one is the important one:
-#
-#   1. The plan stops choosing it. A holding unit is NOT busy, so
-#      `_decide_phase` asks the decision layer every tick exactly as it always
-#      has. An intent of USE_ACTION naming the same action re-affirms the
-#      channel; anything else ends it (`_reaffirm_sustain`).
+#   1. The plan stops choosing it. A holding unit is not busy, so
+#      `_decide_phase` asks every tick; a USE_ACTION naming the same action
+#      re-affirms, anything else ends it (`_reaffirm_sustain`).
 #   2. Resource below the per-tick cost (`_tick_sustain`).
 #   3. STUN (`_decide_phase`).
-#   4. Death (`_tick_phase`, both ends of the loop body).
+#   4. Death (`_tick_phase`).
 #
-# (1) was chosen over an autonomous toggle the pawn switches off by itself, and
-# the reason is CLAUDE.md's binding principle: *pawns should never do anything
-# the player cannot see in the plans of action.* A channel that outlives the
-# plan that started it is a pawn burning its own resource for reasons written
-# nowhere the player can read, which is that failure exactly. Re-affirmation
-# also means the plan's CONDITION is the off switch -- already authored, already
-# visible on the inspect screen, already editable.
+# (1) rather than a toggle the pawn flips itself, because a channel that
+# outlives its plan is a pawn spending resource for a reason written nowhere
+# the player can read. Re-affirmation makes the plan's CONDITION the off
+# switch, already visible and editable on the inspect screen.
 #
-# It costs nothing to implement, because the seam was already there: the sim has
-# always asked for an intent whenever a unit is free, and a held action leaves
-# the unit free.
+# DURATION stays inert on purpose: the channel's lifetime *is* the condition,
+# re-evaluated every tick, so a DURATION block beside it would be a second
+# governor of the same lifetime with no correct answer when the two disagree.
 #
-# ON DURATION, the fifth PlanBlock kind, whose ops are `[&"once"]` and which
-# stores no per-plan progress anywhere. A sustained action is the first thing
-# that could have given it a meaning and I decided against it deliberately
-# rather than leaving it inert by accident: **this mechanism makes CONDITION do
-# DURATION's job.** The channel's lifetime *is* the plan's condition,
-# re-evaluated every tick. A DURATION block saying "for N ticks" beside it would
-# be a second, competing governor of the same lifetime, and a plan whose
-# condition drops at tick 20 with a duration of 60 has no correct answer. If
-# DURATION is ever to mean something it is scheduling -- "keep re-firing this
-# plan for N ticks before yielding to a later one" -- which is a concept
-# `PlanInterpreter` has never had, lives in a file this session does not own,
-# and is not what issue 61 asks for.
-#
-# The unit is free to move while holding: movement is not a competing action,
-# and the player asked for an aura rather than a root. In practice a plan that
-# stops firing hands the tick to `DefaultBehavior`, which usually moves, and the
-# channel ends there -- through (1), for a reason the player can read.
-
-## Begins the channel. Both pieces of state are written here and nowhere else,
-## which is what keeps `CombatUnit.sustaining` and `CG.Status.SUSTAINING` from
-## being able to disagree.
-##
-## The status carries a CG.MAX_TICKS expiry -- "outlives the fight", the same
-## thing `_build_enemy_unit` does for a spawn-time TAUNTING, and for the same
-## reason: this status is ended by a rule, not by a clock, so it must never
-## expire on its own.
+# The unit is free to move while holding. Movement is not a competing action.
 static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
 	unit.sustaining = action.id
 	unit.sustain_started_tick = state.tick

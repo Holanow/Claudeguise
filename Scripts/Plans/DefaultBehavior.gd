@@ -159,41 +159,19 @@ static func _all_actions(unit: CombatUnit) -> Array[ActionDef]:
 ## The actions `CombatSim._resolve_use_action` would actually let this unit
 ## start on this tick: affordable, and off cooldown.
 ##
-## **Issue 214, and it is issue 22's fall-through bug on the enemy side.**
-## `PlanInterpreter` has refused an unaffordable or cooling action since issue 22,
-## so a *pawn's* plan falls through to the next one. Nothing did that here, so a
-## unit with no plans -- every enemy in the game -- chose its first attack whether
-## or not it could be started, `CombatSim` refused it at the cost/cooldown gate,
-## and **the tick was spent**. `stalker_mark` carries a 60-tick cooldown and sits
-## first in the Stalker's list, so `stalker_dart` underneath it was never
-## consulted once.
+## Without this filter a unit with no plans chose its first action whether or
+## not it could be started, `CombatSim` refused it at the cost gate, and the
+## tick was spent. Measured over 480 fights it changed 63,335 of 138,450 pawn
+## decisions and 1,376 of 498,449 non-pawn ones -- the pawns were the main
+## victim by a factor of forty, nearly all of it `_first_heal` committing a
+## Priest to a heal it could not pay for, or walking it toward one.
 ##
-## The predicate is `PlanInterpreter.can_afford` rather than a copy of its four
-## lines: two copies of one gate is how the plan path and the fallback path drift
-## into disagreeing about what a unit may do, which is the same argument
-## `default_attack_action` below is public for.
+## The predicate is `PlanInterpreter.can_afford` rather than a copy of its
+## four lines: two copies of one gate is how the plan path and the fallback
+## path drift into disagreeing about what a unit may do.
 ##
-## **#214's premise is right about the cause and wrong about who pays, and the
-## correction is the larger half.** It reads *"issue 22's bug on the enemy side"*,
-## and the Stalker is where it was found -- but counted over 480 fights, every
-## encounter, all five buildable parties, this filter changes what gets chosen on
-## **1,376 of 498,449 non-pawn decisions (0.3%)** and on **63,335 of 138,450 pawn
-## decisions.** The player's own pawns were the main victim by a factor of forty.
-##
-##     what changed              pawns    non-pawns
-##     the heal chosen          35,933            0
-##     the attack chosen        27,402        1,376   <- the Stalker
-##     decisions in total      138,450      498,449
-##
-## **The heal column is the one to read, and it is a worse bug than the dart.**
-## `_first_heal` picks by list order and asked nothing about cost, so a Priest
-## with too little Mana answered a hurt ally by committing to a heal `CombatSim`
-## then refused -- or, when the ally was out of reach, by **walking toward it to
-## cast a spell it could not pay for**, every tick, instead of fighting. Both
-## columns exclude any decision the plan layer handled: pawns reach this file only
-## when no plan fires.
-##
-## Non-pawn covers summons as well as enemies; `unit.pawn == null` is the split.
+## Pawns reach this file only when no plan fires. Non-pawn covers summons as
+## well as enemies; `unit.pawn == null` is the split.
 static func _actions_that_can_fire_now(state: CombatState, unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for a in _all_actions(unit):
