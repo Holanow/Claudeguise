@@ -187,39 +187,28 @@ func _build_detail(pawn: PawnData) -> void:
 	tags_line.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
 	_detail_box.add_child(tags_line)
 
-	_detail_box.add_child(_section_header("Attributes"))
-	var attrs := HBoxContainer.new()
-	attrs.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	for a in [CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
-			CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS]:
-		# Not _line(): its word-autowrap makes a Label report a near-zero
-		# minimum width, so seven of them in one HBoxContainer render on
-		# top of each other instead of side by side. Found on a real
-		# launch — every attribute name overlapped into one garbled word.
-		var chip := Label.new()
-		chip.set_script(GlossaryLabelScript)
-		chip.mouse_filter = Control.MOUSE_FILTER_STOP
-		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
-		chip.tooltip_text = Glossary.attribute_text(a)
-		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-		attrs.add_child(chip)
-	_detail_box.add_child(attrs)
-
-	# Issue 68: was one full-width block per action, name over description --
-	# five actions on a Priest, so a wall of ten lines above the thing this
-	# screen is for. Now the same chip-with-a-tooltip shape the attributes row
-	# above already uses and the party cards already use, because reading a
-	# description is exactly what hover is for now.
+	## Issue 343. Embedded, the Equipment panel forty pixels below this one
+	## prints both of these WITH the gear in them, and two lists that disagree
+	## teach a player to trust neither. Cutting them also lifts the first plan
+	## row -- the thing this panel is for -- clear of the fold.
 	var available := _available_actions(pawn)
-	_detail_box.add_child(_section_header("Actions"))
-	if available.is_empty():
-		_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
-	else:
-		var actions_row := HBoxContainer.new()
-		actions_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-		for action_id in available:
-			actions_row.add_child(_action_chip(action_id))
-		_detail_box.add_child(actions_row)
+	if not _embedded:
+		_detail_box.add_child(_section_header("Attributes"))
+		_detail_box.add_child(_attributes_row(pawn))
+		# Issue 68: was one full-width block per action, name over description --
+		# five actions on a Priest, so a wall of ten lines above the thing this
+		# screen is for. Now the same chip-with-a-tooltip shape the attributes row
+		# above already uses and the party cards already use, because reading a
+		# description is exactly what hover is for now.
+		_detail_box.add_child(_section_header("Actions"))
+		if available.is_empty():
+			_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		else:
+			var actions_row := HBoxContainer.new()
+			actions_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
+			for action_id in available:
+				actions_row.add_child(_action_chip(action_id))
+			_detail_box.add_child(actions_row)
 
 	for control in _plans_section(pawn):
 		_detail_box.add_child(control)
@@ -239,6 +228,24 @@ func _actions_used_in_plans(pawn: PawnData) -> Array:
 			if block.op == &"use_action":
 				out.append(block.args.get("action_id", &""))
 	return out
+
+## Not `_line()`: its word-autowrap makes a Label report a near-zero minimum
+## width, so seven of them in one HBoxContainer render on top of each other
+## instead of side by side. Found on a real launch -- every attribute name
+## overlapped into one garbled word.
+func _attributes_row(pawn: PawnData) -> Control:
+	var attrs := HBoxContainer.new()
+	attrs.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	for a in [CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
+			CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS]:
+		var chip := Label.new()
+		chip.set_script(GlossaryLabelScript)
+		chip.mouse_filter = Control.MOUSE_FILTER_STOP
+		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
+		chip.tooltip_text = Glossary.attribute_text(a)
+		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+		attrs.add_child(chip)
+	return attrs
 
 ## One action as a hoverable chip. Same construction as the attribute chips
 ## above, including the `mouse_filter` line: `Label`'s engine default is

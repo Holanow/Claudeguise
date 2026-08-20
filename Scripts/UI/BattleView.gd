@@ -41,10 +41,17 @@ var _end_cost_label: Label = null
 var _inspect_panel = null
 
 var _pause_dim: ColorRect = null
+var _end_dim: ColorRect = null
 
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
+	# The same guard the other Hud children already carry: a test instantiates
+	# this scene and calls _ready() without ever entering a tree, where the
+	# engine never fires a child's own -- so the log stayed a bare Control and
+	# its mouse_filter, its label and its backdrop did not exist.
+	if not _combat_log.is_inside_tree():
+		_combat_log._ready()
 	_build_pause_dim()
 	_build_top_bar()
 	_build_team_status()
@@ -56,21 +63,27 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_layout_arena)
 
 ## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
-## or similar. Nothing currently indicates it." Added first, before any
-## other Hud child, so later Hud elements (the top bar, the pause button
-## itself, the combat log) draw on top of it and stay fully legible while
-## the arena underneath reads as held. Hud is its own CanvasLayer above
-## Arena's, so this only needs to sit early in Hud's own child order to
-## land between the two -- it does not need a z_index or a second layer.
+## or similar. Nothing currently indicates it."
 func _build_pause_dim() -> void:
+	_pause_dim = _build_dim(0.55)
+
+## A full-screen dim that reads as "the fight is held" without taking the
+## screen's words with it. Moved to the front of Hud's child order, so the log,
+## the toolbar and the team panel all draw over it and stay fully legible --
+## reading the log is the reason to pause or to look at a Victory screen at all
+## (issue 343). `CombatLog` is a scene child and is therefore already Hud's
+## first, which is why this needs move_child rather than being added early.
+func _build_dim(alpha: float) -> ColorRect:
 	var hud := get_node("Hud")
-	_pause_dim = ColorRect.new()
-	_pause_dim.color = Palette.BACKGROUND
-	_pause_dim.color.a = 0.55
-	_pause_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_pause_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pause_dim.visible = false
-	hud.add_child(_pause_dim)
+	var dim := ColorRect.new()
+	dim.color = Palette.BACKGROUND
+	dim.color.a = alpha
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.visible = false
+	hud.add_child(dim)
+	hud.move_child(dim, 0)
+	return dim
 
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
@@ -203,16 +216,20 @@ const _PANEL_TOP := Palette.SPACE_M
 func _build_end_banner() -> void:
 	var hud := get_node("Hud")
 
+	## Issue 343. The backdrop used to be a full-screen ColorRect INSIDE the
+	## banner, above every other Hud child: a blind playtester found Pause,
+	## Restart, Change party, What to show and Plans all dead after Victory, and
+	## the log neither readable nor scrollable, because one node was eating every
+	## mouse event and painting over every word. It is now a sibling at the front
+	## of the child order, and the banner itself does not take input -- only its
+	## own buttons do.
+	_end_dim = _build_dim(0.88)
+
 	_end_banner = Control.new()
 	_end_banner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_end_banner.visible = false
 	hud.add_child(_end_banner)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.BACKGROUND
-	backdrop.color.a = 0.88
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_end_banner.add_child(backdrop)
 
 	var column := VBoxContainer.new()
 	column.set_anchors_preset(Control.PRESET_CENTER)
@@ -254,7 +271,7 @@ func _build_end_banner() -> void:
 	buttons.add_child(back_button)
 
 	var inspect_button := Button.new()
-	inspect_button.text = "Inspect party"
+	inspect_button.text = "Plans"
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
@@ -279,6 +296,7 @@ static func _format_duration(ticks: int) -> String:
 func _cost_summary() -> String:
 	var alive := 0
 	var total := 0
+	var fallen: Array[String] = []
 	for u in state.units:
 		# PLAYTEST-NOTES 21: a siege engine (or any other mid-fight summon --
 		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
@@ -286,11 +304,19 @@ func _cost_summary() -> String:
 		total += 1
 		if u.hp > 0:
 			alive += 1
+		else:
+			fallen.append(u.display_name)
 	if alive == total:
 		return "Your whole party survived."
-	elif alive == 0:
-		return "None of your party survived."
-	return "%d of %d survived." % [alive, total]
+	var count := "None of your party survived." if alive == 0 else "%d of %d survived." % [alive, total]
+	return "%s  You lost %s." % [count, name_list(fallen)]
+
+## Issue 320. "3 of 4 survived" named nobody, so the playtester restarted the
+## fight with name plates on to work out which pawn was missing.
+static func name_list(names: Array[String]) -> String:
+	if names.size() <= 1:
+		return "" if names.is_empty() else names[0]
+	return "%s and %s" % [", ".join(names.slice(0, names.size() - 1)), names[-1]]
 
 ## Issue 43: height reserved for the info row (labels only, no touch
 ## target requirement) now that it is split from the controls row below
@@ -435,6 +461,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
 	_end_banner.visible = false
+	_end_dim.visible = false
 	_update_team_summary()
 	if _team_status != null:
 		_team_status.sync(state)
@@ -608,16 +635,38 @@ func _spawn_interrupt_flash(e: CombatEvent) -> void:
 ## garbled string.
 const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0) * UnitViewScript.DISPLAY_SCALE
 
+## Issue 320. Several deaths in one scrum still printed over each other, because
+## `_floater_stagger_offset` compares two points and the thing that collides is
+## a plate as wide as "Abomination dies". Deaths stack into a column instead.
+const _DEATH_STACK_RADIUS := 150.0 * UnitViewScript.DISPLAY_SCALE
+const _DEATH_STACK_STEP := 26.0 * UnitViewScript.DISPLAY_SCALE
+
+func _death_stack_offset(base_position: Vector2) -> Vector2:
+	var count := 0
+	for child in _arena.get_children():
+		if child.get_script() == DamageFloaterScript and child.death_marker \
+				and child.position.distance_to(base_position) < _DEATH_STACK_RADIUS:
+			count += 1
+	return Vector2(0.0, -_DEATH_STACK_STEP * float(count))
+
+## The player's own pawns read larger than an enemy's: issue 320 is about not
+## seeing your own party die, and four "Goblin dies" plates are the noise.
+func _death_font_size(target) -> int:
+	var base := Palette.FONT_SIZE_BODY if target.team == CG.Team.PLAYER else Palette.FONT_SIZE_SMALL
+	return int(round(base * UnitViewScript.DISPLAY_SCALE))
+
 func _spawn_death_marker(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
+	var at := target.position + _DEATH_MARKER_OFFSET \
+		+ _floater_stagger_offset(target.position) + _death_stack_offset(target.position)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
-	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	marker.show_text("%s dies" % target.display_name, Palette.team_color(target.team), 1.8,
-		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
+	marker.position = at
+	marker.show_death("%s dies" % target.display_name, Palette.team_color(target.team),
+		_death_font_size(target))
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
@@ -651,6 +700,7 @@ func _show_outcome() -> void:
 	if reason != "":
 		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
 	_end_banner.visible = true
+	_end_dim.visible = true
 
 ## Issue 218. **The banner used to contradict the line under it**: a fight where
 ## every pawn died and the siege engines finished the room off printed "Victory"
