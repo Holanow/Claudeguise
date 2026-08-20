@@ -93,6 +93,7 @@ var _row_by_id: Dictionary = {}
 var _overflow_label: Label = null
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
 
@@ -315,7 +316,6 @@ func _build_row(u: CombatUnit) -> Control:
 func _build_summon_row(u: CombatUnit) -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	row.custom_minimum_size = Vector2(0.0, IconChip.ICON_SIZE)
 	row.set_meta("summon", true)
 
@@ -323,7 +323,6 @@ func _build_summon_row(u: CombatUnit) -> Control:
 	name_label.set_script(GlossaryLabel)
 	name_label.text = u.display_name
 	name_label.tooltip_text = _unit_tooltip(u)
-	name_label.add_theme_color_override("font_color", Palette.TEXT)
 	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
@@ -350,7 +349,6 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 	name_label.set_script(GlossaryLabel)
 	name_label.text = u.display_name
 	name_label.tooltip_text = _unit_tooltip(u)
-	name_label.add_theme_color_override("font_color", Palette.TEXT)
 	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
@@ -378,7 +376,6 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 
 	var cd_line := HBoxContainer.new()
 	cd_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cd_line.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	cd_line.custom_minimum_size = Vector2(0.0, IconChip.ICON_SIZE)
 	row.add_child(cd_line)
 

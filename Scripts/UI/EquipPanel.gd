@@ -61,6 +61,7 @@ var _detail_box: VBoxContainer = null
 ## set_anchors_preset, because this node's rect is still (0,0) here and the
 ## latter tries to preserve it.
 func _ready() -> void:
+	theme = AppTheme.shared()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	visible = false
 
@@ -88,7 +89,6 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = HEADING
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title)
 
@@ -119,7 +119,6 @@ func _ready() -> void:
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(list_scroll)
 	_list_box = VBoxContainer.new()
-	_list_box.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(_list_box)
 
@@ -132,7 +131,6 @@ func _ready() -> void:
 	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(detail_scroll)
 	_detail_box = VBoxContainer.new()
-	_detail_box.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_scroll.add_child(_detail_box)
 
@@ -273,7 +271,6 @@ func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
 func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var out: Array[Control] = []
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 
 	# Issue 127: the item's own icon, first thing on the row. `EquipmentIcons`
 	# shipped in #117 with no caller anywhere and this is it -- the eleventh
@@ -296,7 +293,6 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var label := Label.new()
 	label.text = slot_name(slot)
 	label.custom_minimum_size = Vector2(120.0, 0.0)
-	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	# TEXT_DIM, not TEXT: a slot name and a section header were the same size and
 	# the same colour on the first capture, so the three sections read as one
 	# flat list. Dimming the repeated word is what separates them, rather than

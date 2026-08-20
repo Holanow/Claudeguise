@@ -53,6 +53,7 @@ var _test_cfg: RunConfig = null
 var _test_encounter: Encounter = null
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	# Issue 237. One line instead of three, and the point is not the two lines:
 	# `Assets/UI/README.md` promises the player that dropping in
 	# `background/level_editor.png` (or `background.png` for every screen at once)
@@ -92,7 +93,6 @@ func _build_header() -> void:
 	var title := Label.new()
 	title.text = "Level editor"
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title)
 
@@ -103,12 +103,10 @@ func _build_header() -> void:
 	top_row.add_child(back_button)
 
 	var name_row := HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_editor_ui.add_child(name_row)
 
 	var name_label := Label.new()
 	name_label.text = "Name"
-	name_label.add_theme_color_override("font_color", Palette.TEXT)
 	name_row.add_child(name_label)
 
 	_name_edit = LineEdit.new()
@@ -143,7 +141,6 @@ func _build_body() -> void:
 	body.add_child(side_scroll)
 
 	var side := VBoxContainer.new()
-	side.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side_scroll.add_child(side)
 
@@ -178,8 +175,6 @@ func _build_body() -> void:
 func _header_label(text: String) -> Control:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	label.add_theme_color_override("font_color", Palette.TEXT)
 	return label
 
 # ---------------------------------------------------------------------------
@@ -281,12 +276,10 @@ func _on_remove_terrain(index: int) -> void:
 
 func _removable_row(text: String, on_remove: Callable) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	label.add_theme_color_override("font_color", Palette.TEXT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	var remove_button := Button.new()

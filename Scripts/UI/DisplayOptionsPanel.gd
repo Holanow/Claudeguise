@@ -19,6 +19,7 @@ signal changed()
 var _rows: Array[CheckBox] = []
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	visible = false
 	# Sized to its contents and placed by the caller. Not a full-rect overlay:
 	# it must be possible to watch the fight change as a box is ticked, which a
@@ -38,13 +39,10 @@ func _ready() -> void:
 	backdrop.add_child(margin)
 
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	margin.add_child(column)
 
 	var title := Label.new()
 	title.text = "What to show"
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(title)
 
 	for option in DisplayOptions.OPTIONS:
@@ -52,8 +50,6 @@ func _ready() -> void:
 		box.text = option.label
 		box.button_pressed = DisplayOptions.enabled(option.id)
 		box.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-		box.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-		box.add_theme_color_override("font_color", Palette.TEXT)
 		var id: StringName = option.id
 		box.toggled.connect(func(pressed: bool):
 			DisplayOptions.set_enabled(id, pressed)

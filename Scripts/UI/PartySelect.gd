@@ -40,6 +40,7 @@ var _inspect_panel = null
 var _equip_panel = null
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	_build_roster()
 	_build_ui()
 	_update_status()
@@ -164,7 +165,6 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = "Pick your party"
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(title)
 
 	# Issue 53 sweep: this whole column had no scroll container, so at a
@@ -223,21 +223,17 @@ func _build_ui() -> void:
 	# Issue 176: the room picker. Above the seed, because which room you fight is
 	# a bigger decision than which seed you fight it on.
 	var room_row := HBoxContainer.new()
-	room_row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	column.add_child(room_row)
 
 	var room_label := Label.new()
 	room_label.text = "Room"
 	room_label.custom_minimum_size = Vector2(48.0, 0.0)
-	room_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	room_label.add_theme_color_override("font_color", Palette.TEXT)
 	room_row.add_child(room_label)
 
 	_room_picker = OptionButton.new()
 	_room_picker.custom_minimum_size = Vector2(320.0, Palette.TOUCH_TARGET_MIN)
 	_room_picker.fit_to_longest_item = false
 	_room_picker.clip_text = true
-	_room_picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	for id in offered_rooms():
 		var room = Registry.get_encounter(id)
 		_room_picker.add_item(room.display_name if room.display_name != "" else String(id))
@@ -257,26 +253,20 @@ func _build_ui() -> void:
 	_refresh_room_summary()
 
 	var seed_row := HBoxContainer.new()
-	seed_row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	column.add_child(seed_row)
 
 	var seed_label := Label.new()
 	seed_label.text = "Seed"
-	seed_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	seed_label.add_theme_color_override("font_color", Palette.TEXT)
 	seed_row.add_child(seed_label)
 
 	_seed_edit = LineEdit.new()
 	_seed_edit.text = "%08X" % (randi() & 0xFFFFFFFF)
 	_seed_edit.custom_minimum_size = Vector2(220.0, Palette.TOUCH_TARGET_MIN)
-	_seed_edit.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	_seed_edit.add_theme_color_override("font_color", Palette.TEXT)
 	_seed_edit.add_theme_stylebox_override("normal", _seed_box_style())
 	_seed_edit.add_theme_stylebox_override("focus", _seed_box_style())
 	seed_row.add_child(_seed_edit)
 
 	_status_label = Label.new()
-	_status_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	column.add_child(_status_label)
 
@@ -288,7 +278,6 @@ func _build_ui() -> void:
 	_start_button.set_script(GlossaryButtonScript)
 	_start_button.tooltip_text = "Runs one fight with the current party and seed, right now."
 	_start_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	_start_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_start_button.pressed.connect(_on_start_pressed)
 	column.add_child(_start_button)
 
@@ -318,7 +307,6 @@ func _build_ui() -> void:
 	column.add_child(secondary_row)
 
 	_start_run_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	_start_run_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_start_run_button.pressed.connect(_on_start_run_pressed)
 	secondary_row.add_child(_start_run_button)
 
@@ -328,7 +316,6 @@ func _build_ui() -> void:
 	var inspect_button := Button.new()
 	inspect_button.text = "Inspect classes"
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	secondary_row.add_child(inspect_button)
 
@@ -339,7 +326,6 @@ func _build_ui() -> void:
 	var equip_button := Button.new()
 	equip_button.text = "Equip pawns"
 	equip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	equip_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	equip_button.pressed.connect(_on_equip_pressed)
 	secondary_row.add_child(equip_button)
 
@@ -350,7 +336,6 @@ func _build_ui() -> void:
 	var level_editor_button := Button.new()
 	level_editor_button.text = "Level editor"
 	level_editor_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	level_editor_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	level_editor_button.pressed.connect(func(): level_editor_requested.emit())
 	secondary_row.add_child(level_editor_button)
 

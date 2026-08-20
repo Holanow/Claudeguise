@@ -59,6 +59,7 @@ const _EQUIP_PANEL_WIDTH := 260.0
 const _EQUIP_PANEL_TOP := 130.0
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	# Issue 237. One line instead of three, and the point is not the two lines:
 	# `Assets/UI/README.md` promises the player that dropping in
 	# `background/floor_map.png` (or `background.png` for every screen at once)
@@ -86,7 +87,6 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "The floor"
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title)
 
@@ -146,7 +146,6 @@ func _ready() -> void:
 	equip_margin.add_child(equip_scroll)
 
 	_equip_list = VBoxContainer.new()
-	_equip_list.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	equip_scroll.add_child(_equip_list)
 
 	# Mirrored on the left, same height limit and same reasoning as the
@@ -174,7 +173,6 @@ func _ready() -> void:
 	cell_margin.add_child(cell_scroll)
 
 	_cell_list = VBoxContainer.new()
-	_cell_list.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	cell_scroll.add_child(_cell_list)
 
 func open(new_run: FloorRun, new_party: Array[PawnData]) -> void:
@@ -347,7 +345,6 @@ func _show_equip_panel() -> void:
 func _populate_loot_list() -> void:
 	var heading := Label.new()
 	heading.text = "Equip which item?"
-	heading.add_theme_color_override("font_color", Palette.TEXT)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
 	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
 	_equip_list.add_child(heading)
@@ -368,7 +365,6 @@ func _populate_loot_list() -> void:
 func _populate_pawn_list(item: EquipmentDef) -> void:
 	var heading := Label.new()
 	heading.text = "Give %s to:" % item.display_name
-	heading.add_theme_color_override("font_color", Palette.TEXT)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
 	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
 	_equip_list.add_child(heading)
@@ -451,7 +447,6 @@ func _show_cell_panel(candidates: Array[PawnData]) -> void:
 
 	var heading := Label.new()
 	heading.text = "The cell offers a replacement:"
-	heading.add_theme_color_override("font_color", Palette.TEXT)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD
 	heading.custom_minimum_size = Vector2(_EQUIP_PANEL_WIDTH - Palette.SPACE_L * 2.0, 0.0)
 	_cell_list.add_child(heading)
