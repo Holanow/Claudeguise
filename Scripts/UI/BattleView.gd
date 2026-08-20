@@ -46,6 +46,12 @@ var _end_dim: ColorRect = null
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
+	# The same guard the other Hud children already carry: a test instantiates
+	# this scene and calls _ready() without ever entering a tree, where the
+	# engine never fires a child's own -- so the log stayed a bare Control and
+	# its mouse_filter, its label and its backdrop did not exist.
+	if not _combat_log.is_inside_tree():
+		_combat_log._ready()
 	_build_pause_dim()
 	_build_top_bar()
 	_build_team_status()

@@ -347,11 +347,23 @@ func test_the_middle_column_states_the_attributes_once() -> void:
 	screen._ready()
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
-	assert_true(_all_label_text(screen._equip_panel).contains(CG.attribute_name(CG.Attribute.WIS)),
+	## The chip, not the word: the plans panel's block-budget sentence names WIS
+	## legitimately ("the budget is this pawn's WIS"), so a bare substring test
+	## measures that sentence rather than the row this is about.
+	assert_true(_has_attribute_chip(screen._equip_panel),
 		"the equipment panel is where the gear-inclusive attributes live")
-	assert_false(_all_label_text(screen._inspect_panel).contains(CG.attribute_name(CG.Attribute.WIS)),
-		"the plans panel must not restate an attribute the panel below it already prints with gear in it")
+	assert_false(_has_attribute_chip(screen._inspect_panel),
+		"the plans panel must not restate an attribute row the panel below it already prints with gear in it")
 	screen.free()
+
+## A chip from an attributes row: a Label whose whole text is an attribute name
+## followed by its number, e.g. "STR 12".
+func _has_attribute_chip(node: Node) -> bool:
+	var re := RegEx.create_from_string("^(STR|DEX|AGI|CON|INT|ATN|WIS) [0-9]")
+	for n in _all_nodes(node):
+		if n is Label and re.search(n.text) != null:
+			return true
+	return false
 
 ## Same again for the action list, and the equipment panel's copy now carries
 ## every action rather than only the ones an item granted.
@@ -378,7 +390,7 @@ func test_the_plans_overlay_still_states_the_attributes_itself() -> void:
 	var panel = InspectPanel.create()
 	panel._ready()
 	panel.open([pawn] as Array[PawnData])
-	assert_true(_all_label_text(panel).contains(CG.attribute_name(CG.Attribute.WIS)),
+	assert_true(_has_attribute_chip(panel),
 		"nothing else is on screen to state them, so the overlay must keep doing it")
 	panel.free()
 	screen.free()
