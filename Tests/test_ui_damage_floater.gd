@@ -36,6 +36,37 @@ func test_show_text_respects_a_longer_custom_lifetime() -> void:
 	assert_true(f.is_queued_for_deletion())
 	f.free()
 
+## Issue 320. The one death the playtester caught on screen was "mid-grey at
+## about 40% opacity": the old fade started at frame one, so a marker was
+## already half gone by the time an eye reached it.
+func test_a_death_marker_holds_full_opacity_before_it_fades() -> void:
+	var f := DamageFloater.new()
+	f.show_death("Warrior dies", Color.WHITE, 20)
+	assert_true(f.death_marker, "BattleView stacks deaths by this flag")
+	f._process(DamageFloater.DEATH_LIFETIME * 0.5)
+	assert_eq(f.modulate.a, 1.0, "half way through its life a death must still be fully opaque")
+	f._process(DamageFloater.DEATH_LIFETIME * 0.4)
+	assert_true(f.modulate.a < 1.0, "it must still fade out rather than vanishing")
+	assert_true(f.modulate.a > 0.0)
+	f.free()
+
+func test_a_damage_number_still_fades_from_the_first_frame() -> void:
+	var f := DamageFloater.new()
+	f.show_amount(7, Color.WHITE)
+	f._process(DamageFloater.LIFETIME_SECONDS * 0.5)
+	assert_true(f.modulate.a < 1.0, "show_death's hold must not have leaked onto damage numbers")
+	f.free()
+
+func test_alpha_at_holds_then_falls_to_zero() -> void:
+	assert_eq(DamageFloater.alpha_at(0.0, 2.0, 0.0), 1.0)
+	assert_eq(DamageFloater.alpha_at(1.0, 2.0, 0.0), 0.5)
+	assert_eq(DamageFloater.alpha_at(1.4, 2.0, 0.7), 1.0)
+	assert_eq(DamageFloater.alpha_at(2.0, 2.0, 0.7), 0.0)
+
+## A death outlives a damage number by enough to be noticed at all.
+func test_a_death_marker_outlives_a_damage_number() -> void:
+	assert_true(DamageFloater.DEATH_LIFETIME > DamageFloater.LIFETIME_SECONDS * 2.0)
+
 func test_show_amount_still_uses_the_default_lifetime() -> void:
 	var f := DamageFloater.new()
 	f.show_amount(7, Color.WHITE)

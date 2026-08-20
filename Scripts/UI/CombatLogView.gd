@@ -115,7 +115,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.HEAL:
 			return "%s heals %s for %d" % [source_name, target_name, e.amount]
 		CG.EventKind.DEATH:
-			return "[color=%s]%s dies.[/color]" % [Palette.TEAM_ENEMY.to_html(), target_name]
+			return _death_line(target, target_name)
 		CG.EventKind.ACTION_START:
 			return "%s begins %s%s" % [source_name, _action_name(e.action_id), _plan_tag(source, e)]
 		CG.EventKind.ACTION_FIRE:
@@ -169,6 +169,12 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# silence distinguishable from an oversight.
 			return ""
 	return ""
+
+## Issue 320: every death read in the enemy colour, so losing your own Warrior
+## looked exactly like killing a Goblin.
+func _death_line(target, target_name: String) -> String:
+	var color := Palette.TEAM_ENEMY if target == null else Palette.team_color(target.team)
+	return "[b][color=%s]%s dies.[/color][/b]" % [color.to_html(), target_name]
 
 ## Every CG.EventKind either produces a line above or is named here, and
 ## `Tests/test_ui_combat_log.gd::test_every_event_kind_speaks_or_is_named_silent`
