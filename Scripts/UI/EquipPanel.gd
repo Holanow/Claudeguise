@@ -31,18 +31,11 @@ signal closed
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
 
-const HEADING := "Equip your pawns"
-
-## Four sentences, the same budget as the plan editor's own how-to-play. The
-## last one is the point of the feature and the reason the two screens are
-## siblings: an item that grants a skill puts a new block in the plan editor.
-const HOW_TO_PLAY := (
-	"Each pawn wears one weapon, one armor and one accessory. " +
-	"A weapon or accessory raises attributes by a percentage, armor adds flat points and absorbs a share of every hit. " +
-	"An item a class cannot use is not offered. " +
-	"Armor can also teach a skill, and a skill your gear grants becomes a block you can plan with in Edit your pawns' plans."
-)
-
+## The heading and the four-sentence how-to-play now live in
+## `Scenes/EquipPanel.tscn`. Four sentences is the same budget as the plan
+## editor's own how-to-play, and the last one is the point of the feature and the
+## reason the two screens are siblings: an item that grants a skill puts a new
+## block in the plan editor. Keep it to four if you edit it in the editor.
 const EMPTY_CHOICE := "(nothing)"
 
 ## The seven attributes, in the order the plan editor's own chip row uses them.
@@ -54,85 +47,16 @@ const ATTRIBUTE_ORDER: Array = [
 var _pawns: Array[PawnData] = []
 var _selected_index: int = 0
 
-var _list_box: VBoxContainer = null
-var _detail_box: VBoxContainer = null
+## `new()` gives a bare Control with none of the tree. Everything static --
+## backdrop, heading, how-to-play, the two scrolling columns -- is in
+## `Scenes/EquipPanel.tscn`; the pawn list and the detail column are built per
+## pawn below.
+static func create() -> EquipPanel:
+	return (load("res://Scenes/EquipPanel.tscn") as PackedScene).instantiate()
 
-## Same reasoning as InspectPanel._ready(): set_anchors_and_offsets_preset, not
-## set_anchors_preset, because this node's rect is still (0,0) here and the
-## latter tries to preserve it.
 func _ready() -> void:
 	theme = AppTheme.shared()
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	visible = false
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.BACKGROUND
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_top", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_right", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_L))
-	add_child(margin)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	margin.add_child(column)
-
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	column.add_child(top_row)
-
-	var title := Label.new()
-	title.text = HEADING
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(title)
-
-	var close_button := Button.new()
-	close_button.text = "Back"
-	close_button.custom_minimum_size = Vector2(0.0, _TOUCH)
-	close_button.pressed.connect(close)
-	top_row.add_child(close_button)
-
-	var how_to_play := Label.new()
-	how_to_play.text = HOW_TO_PLAY
-	how_to_play.autowrap_mode = TextServer.AUTOWRAP_WORD
-	how_to_play.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	how_to_play.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(how_to_play)
-
-	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", int(Palette.SPACE_L))
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(body)
-
-	var list_scroll := ScrollContainer.new()
-	list_scroll.custom_minimum_size = Vector2(220.0, 0.0)
-	# Both scroll containers need their own vertical EXPAND_FILL or they
-	# collapse to their content's minimum size however much room the body has.
-	# InspectPanel found this on a real launch, with the whole body rendering as
-	# nothing at all; this screen is built the same way and would do the same.
-	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(list_scroll)
-	_list_box = VBoxContainer.new()
-	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.add_child(_list_box)
-
-	var detail_scroll := ScrollContainer.new()
-	detail_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# A ScrollContainer otherwise lets its child grow past its own width and
-	# offers a sideways scrollbar nobody uses. The slot pickers are
-	# SIZE_EXPAND_FILL and share the panel's width because of this line.
-	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	body.add_child(detail_scroll)
-	_detail_box = VBoxContainer.new()
-	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail_scroll.add_child(_detail_box)
+	%CloseButton.pressed.connect(close)
 
 func open(pawns: Array[PawnData]) -> void:
 	_pawns = pawns
@@ -149,7 +73,7 @@ func close() -> void:
 ## rebuild before a deferred deletion flushes, leaving stale nodes overlapping
 ## the new ones.
 func _rebuild_list() -> void:
-	for child in _list_box.get_children():
+	for child in %ListBox.get_children():
 		child.free()
 	for i in _pawns.size():
 		var button := Button.new()
@@ -158,7 +82,7 @@ func _rebuild_list() -> void:
 		button.toggle_mode = true
 		button.button_pressed = i == _selected_index
 		button.pressed.connect(_select.bind(i))
-		_list_box.add_child(button)
+		%ListBox.add_child(button)
 
 ## The list carries the count of filled slots, so a player scanning the party
 ## can see who is still naked without opening each pawn in turn.
@@ -169,16 +93,16 @@ func _select(index: int) -> void:
 	if index < 0 or index >= _pawns.size():
 		return
 	_selected_index = index
-	for i in _list_box.get_child_count():
-		_list_box.get_child(i).button_pressed = i == index
+	for i in %ListBox.get_child_count():
+		%ListBox.get_child(i).button_pressed = i == index
 	_build_detail(_pawns[index])
 
 func _build_detail(pawn: PawnData) -> void:
-	for child in _detail_box.get_children():
+	for child in %DetailBox.get_children():
 		child.free()
-	_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
+	%DetailBox.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
 	if pawn.pawn_class == null:
-		_detail_box.add_child(_line("No class assigned, so nothing can be equipped.",
+		%DetailBox.add_child(_line("No class assigned, so nothing can be equipped.",
 			Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
 		return
 
@@ -197,20 +121,20 @@ func _build_detail(pawn: PawnData) -> void:
 	# this project was unhoverable until PR #76.
 	tags.mouse_filter = Control.MOUSE_FILTER_STOP
 	tags.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
-	_detail_box.add_child(tags)
+	%DetailBox.add_child(tags)
 
-	_detail_box.add_child(_section_header("Slots"))
+	%DetailBox.add_child(_section_header("Slots"))
 	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
 		for control in _slot_controls(pawn, slot):
-			_detail_box.add_child(control)
+			%DetailBox.add_child(control)
 
-	_detail_box.add_child(_section_header("What your gear is worth"))
+	%DetailBox.add_child(_section_header("What your gear is worth"))
 	for control in _effect_controls(pawn):
-		_detail_box.add_child(control)
+		%DetailBox.add_child(control)
 
-	_detail_box.add_child(_section_header("Skills your gear grants"))
+	%DetailBox.add_child(_section_header("Skills your gear grants"))
 	for control in _granted_controls(pawn):
-		_detail_box.add_child(control)
+		%DetailBox.add_child(control)
 
 # ---------------------------------------------------------------------------
 # Slots
@@ -331,7 +255,7 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	return out
 
 ## Deferred, not immediate. The picker emitting `item_selected` is a child of
-## `_detail_box`, and `_build_detail` frees every child of it -- freeing a node
+## `%DetailBox`, and `_build_detail` frees every child of it -- freeing a node
 ## partway through emitting its own signal is a use-after-free the engine warns
 ## about loudly. The plan editor hit this on real button presses and fixed it
 ## the same way: defer the rebuild, not the free.

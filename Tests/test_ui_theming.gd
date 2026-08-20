@@ -49,7 +49,17 @@ func _remove_scratch(element: String) -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(_SCRATCH % element))
 	UIArt.clear_cache()
 
+## A screen whose tree has moved into a `.tscn` builds through its own
+## `create()`; `set_script` on a bare Control gives one of those none of its
+## tree, which is a half-built screen that would still pass this test. Read off
+## the script rather than listed per screen, so a screen converted later is
+## picked up here without anybody remembering to edit this list.
 func _screen(script) -> Control:
+	for method in script.get_script_method_list():
+		if method.name == "create":
+			var made: Control = script.create()
+			made._ready()
+			return made
 	var node := Control.new()
 	node.set_script(script)
 	node._ready()
