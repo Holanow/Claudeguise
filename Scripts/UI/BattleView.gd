@@ -220,7 +220,7 @@ const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_
 const _PANEL_TOP := Palette.SPACE_M
 
 ## Issue 19: the outcome is the payoff of the whole fight and used to show as
-## a small toolbar label â€” same weight as "Seed 0000002A". This is the
+## a small toolbar label -- same weight as "Seed 0000002A". This is the
 ## prominent version: a full-screen backdrop shown only once the fight
 ## actually resolves (built hidden here, shown from _show_outcome, hidden
 ## again in begin()), so it cannot compete with anything mid-fight.
@@ -296,7 +296,7 @@ func _on_inspect_pressed() -> void:
 		## Issue 155: the live fight goes with the party. With it, every plan row
 		_inspect_panel.open(config.party, state)
 
-## e.g. 197 ticks at 30 ticks/second reads as "6.6s" â€” a player has never
+## e.g. 197 ticks at 30 ticks/second reads as "6.6s" -- a player has never
 ## seen a tick, and won't start now.
 static func _format_duration(ticks: int) -> String:
 	return "%.1fs" % (float(ticks) / float(CG.TICKS_PER_SECOND))
@@ -362,7 +362,7 @@ func _build_summary_bar(parent: Container, label_text: String, color: Color) -> 
 
 	return fill
 
-## "Are we winning" answerable without parsing seven small bars â€” issue 15's
+## "Are we winning" answerable without parsing seven small bars -- issue 15's
 ## first failure. Total hp_max is each side's starting capacity; total hp
 ## (0 for a dead unit, not removed from the total) is what is left of it, so
 ## the bar reads as "how much of this side's health is gone", the same
@@ -393,7 +393,7 @@ func _team_hp_fraction(team: CG.Team) -> float:
 ## the *fit*: at 1280x720 it shrank the arena to roughly 600x340, about 22%
 ## of the screen, most of it empty. rook caught this from
 ## Screenshots/readability_log_and_labels_1.png. The fix is to expand what
-## gets fit â€” the arena plus this margin â€” rather than shrink the space it's
+## gets fit -- the arena plus this margin -- rather than shrink the space it's
 ## fit into: the arena now fills essentially the whole viewport, and the HUD
 ## and the combat log overlay it as thin/translucent strips instead of
 ## displacing it. World-space, not screen-pixel, so the margin scales with
@@ -405,12 +405,12 @@ func _team_hp_fraction(team: CG.Team) -> float:
 ## gap + name text + its chip padding, roughly 90 above; radius + status-tag
 ## text + its chip below, roughly 70; radius + half a bar width to the sides,
 ## roughly 45. Verified against units placed at the *literal* simulated
-## corner (Screenshots/edges_1280x720.png) â€” the same trap issue 6 hit,
+## corner (Screenshots/edges_1280x720.png) -- the same trap issue 6 hit,
 ## caught again here before it merged this time.
 ##
 ## Issue 31: that whole stack now draws at UnitViewScript.DISPLAY_SCALE, so
 ## the margin sized to its worst case has to grow with it or the claim above
-## stops being true â€” caught on a real launch: a party pawn near the top of
+## stops being true -- caught on a real launch: a party pawn near the top of
 ## its deploy column had its name label land inside the HUD's own summary
 ## row, which the margin exists specifically to prevent. World-space, so
 ## this trades a little of DISPLAY_SCALE's own gain for headroom (a bigger
@@ -427,7 +427,7 @@ const _MARGIN_SIDE := 45.0 * UnitViewScript.DISPLAY_SCALE
 ## get_viewport_rect()'s width to the design width on a narrower-than-design
 ## window. Measured on a real 390x844 launch: reported viewport (1280, 2770).
 ## I tried making the arena's own height reach 50% of that (scale ~2.56) and
-## it works exactly as arithmetic â€” and it pushes the arena to ~2462 logical
+## it works exactly as arithmetic -- and it pushes the arena to ~2462 logical
 ## units wide against a visible width of 1280, cropping symmetrically at
 ## both edges. On the actual encounter's spawn layout that crop hid the
 ## *entire player party*, which is a worse failure than a small arena: see
@@ -470,7 +470,7 @@ static func log_box_top(size: Vector2) -> float:
 	return size.y + CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT
 
 ## Split out from _layout_arena so the fit math can be checked without a
-## live viewport â€” Godot only gives get_viewport_rect() a real answer inside
+## live viewport -- Godot only gives get_viewport_rect() a real answer inside
 ## a tree, which is exactly what made the canvas_items/expand behaviour this
 ## depends on (see the const comments above) hard to pin down without
 ## launching real processes at real resolutions in the first place.
@@ -482,13 +482,13 @@ static func log_box_top(size: Vector2) -> float:
 ## side in landscape: rook's own measurement was that fixing the overlap by
 ## eating vertical space cost the arena down to about a quarter of the
 ## screen, and a 16:9 arena in a wider-than-16:9 window already leaves side
-## margins it can never use â€” reserving CombatLogView.LOG_WIDTH from the
+## margins it can never use -- reserving CombatLogView.LOG_WIDTH from the
 ## width instead costs nothing the arena could have used anyway.
 ##
 ## Portrait keeps the original bottom reservation, on purpose: width is
 ## portrait's scarce dimension, not height, so a side column costs far more
 ## there than a thin bottom strip does. Applying the side reservation
-## unconditionally was tried and measured first â€” it dropped the pinned
+## unconditionally was tried and measured first -- it dropped the pinned
 ## portrait height fraction under its own regression floor, confirming the
 ## two orientations need two different answers. CombatLogView.set_landscape
 ## keeps what's actually drawn in sync with this same rule.
@@ -517,7 +517,7 @@ func begin(cfg: RunConfig) -> void:
 	begin_with_encounter(cfg, Registry.get_encounter(cfg.encounter_id))
 
 ## Issue 19: the level editor needs to test-fight a room that has never been
-## registered â€” it exists only as an in-memory `Encounter` the player is still
+## registered -- it exists only as an in-memory `Encounter` the player is still
 ## placing enemies and terrain into, with nothing to hand `Registry` and no
 ## `encounter_id` naming it yet. Split out of `begin()` so that path skips the
 ## `Registry` lookup entirely rather than requiring one: `cfg.encounter_id` is
@@ -529,7 +529,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_tick_accumulator = 0.0
 	set_paused(false)
 	_rebuild_units()
-	# Issue 26 item 1: the room's terrain, if any â€” CombatState.terrain is
+	# Issue 26 item 1: the room's terrain, if any -- CombatState.terrain is
 	_arena.terrain = state.terrain
 	_arena.projectiles = []
 	_arena.queue_redraw()
@@ -652,7 +652,7 @@ func consume_events() -> void:
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one
-## garbled string â€” Tools/preview/fight_04.png had "Cultist dies", a
+## garbled string -- Tools/preview/fight_04.png had "Cultist dies", a
 ## floating 2 and a unit label all occupying the same pixels. Floaters are
 ## transient (0.9-1.8s) so a live count of nearby siblings at spawn time is
 ## enough: each new one spreads a step further from whichever are already
@@ -703,10 +703,10 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.show_amount(e.amount, color, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
 
 ## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
-## needs an attack asset ... so I know what's up" â€” melee had nothing but a
+## needs an attack asset ... so I know what's up" -- melee had nothing but a
 ## number appearing where DamageFloater already stood in for a hit landing.
 ## Same event, same target position, same e.damage_type the floater above
-## already reads two lines up â€” no new lookup.
+## already reads two lines up -- no new lookup.
 func _spawn_impact_flash(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
@@ -766,8 +766,8 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
-## "Miss" at the target â€” the same place a hit's damage number would have
-## landed â€” says plainly that the action resolved and simply connected with
+## "Miss" at the target -- the same place a hit's damage number would have
+## landed -- says plainly that the action resolved and simply connected with
 ## nothing, using Palette.TEXT_DIM rather than a damage colour so it reads as
 ## "nothing happened" rather than as a fourth kind of hit.
 func _spawn_miss_marker(e: CombatEvent) -> void:

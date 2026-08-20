@@ -66,6 +66,22 @@ cmd /c "`"$godot`" --headless --path `"$repo`" --script res://Tests/run_tests.gd
 $code = $LASTEXITCODE
 
 Get-Content $log
+
+# A screen whose scene tree is missing renders nothing and still passes: `%Name`
+# fails, _ready() aborts, and no assertion looks at the half that never built.
+# That happened during the scenes migration -- 78 of these against a green
+# 1056/8198 summary. The trunk emits zero, so zero is the bar.
+$missing = @(Select-String -Path $log -Pattern 'Node not found' -SimpleMatch)
+if ($missing.Count -gt 0) {
+    Write-Host ""
+    Write-Host ("  scene      FAIL   ($($missing.Count) 'Node not found' during the run)")
+    $missing | Select-Object -First 5 | ForEach-Object { Write-Host ("      " + $_.Line.Trim()) }
+    Write-Host "  A node the script asked for is not in the tree. The suite cannot see this."
+    Remove-Item $log -ErrorAction SilentlyContinue
+    Write-Host "GATE FAILED (missing scene nodes)"
+    exit 5
+}
+Write-Host "  scene      pass   (no missing nodes during the run)"
 Remove-Item $log -ErrorAction SilentlyContinue
 
 # Comment-to-code ratio. Player's rule, 2026-08-18: no file above 2:1.

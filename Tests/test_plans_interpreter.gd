@@ -177,7 +177,7 @@ func test_describe_op_covers_every_whitelisted_op() -> void:
 
 ## Issue 22: CONDITION_ARG_SHAPE used to be InspectPanel.gd's own copy of this
 ## fact, duplicating what _eval_condition's match statement already encodes.
-## Moved here as data; this test is the guard against the two drifting again â€”
+## Moved here as data; this test is the guard against the two drifting again --
 ## every CONDITION_OPS entry must have a shape, and every shape entry must be
 ## a real condition op, so adding one without the other fails loudly instead
 ## of silently.
