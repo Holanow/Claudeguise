@@ -1,37 +1,24 @@
 extends SceneTree
 
-## Issue #197, option B. **Is the bearing of an inward impact mark still true by
-## the time the mark fades?**
+## Is the bearing of an inward impact mark still true by the time it fades?
 ##
 ##   godot --headless --path . --script res://Tools/ImpactMarkProbe.gd
 ##
-## OWNED BY sable. Measurement only: it reads the real simulation and prints
-## numbers. Nothing here draws, and nothing here is in the shipped path.
+## OWNED BY sable. Measurement only, never in the shipped path.
 ##
-## WHAT IS BEING MEASURED, AND WHY IT IS THE MEASURE THAT MATTERS
+## The bearing is taken once, at the tick the hit lands. The flash is then
+## parented at a fixed position and lives 0.35s, about five ticks. So the
+## question is not "did anybody move" but: from that fixed point, has the
+## attacker moved far enough around it that the arc points somewhere the
+## attacker is not?
 ##
-## Option B draws a short arc on the side of the target the hit came from. The
-## bearing is taken once, at the tick the hit lands, from `e.source_id`. The
-## flash node is then parented to the arena at a FIXED position
-## (`BattleView._spawn_impact_flash` sets `flash.position = target.position` and
-## never updates it) and lives `ImpactFlash.LIFETIME_SECONDS` = 0.35s. At
-## `CG.TICKS_PER_SECOND` that is about five ticks of movement.
+## A second column reports how far the TARGET moved. A target that walks out
+## from under its own mark is a separate problem that option B neither
+## creates nor fixes; it is printed so nobody reads the first column as
+## covering it.
 ##
-## So the question is not "did anybody move". It is: **from the fixed point the
-## mark is drawn at, has the attacker moved far enough around it that the arc is
-## now pointing somewhere the attacker is not?** That is one angle, measured at
-## the spawn point, between the attacker then and the attacker at the end of the
-## mark's life. Everything below reports that angle.
-##
-## A second column reports how far the TARGET moved, because a target that has
-## walked out from under its own impact mark is a separate legibility problem
-## that option B does not create and does not fix. It is printed so nobody reads
-## the first column as covering it.
-##
-## The threshold: an arc of ~120 degrees spans 60 degrees either side of its
-## bearing. A drift under 30 degrees leaves the attacker comfortably inside the
-## arc; over 60 and the arc no longer covers the attacker at all.
-
+## An arc of ~120 degrees spans 60 either side. Under 30 leaves the attacker
+## comfortably inside it; over 60 and it no longer covers the attacker.
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
 const SEEDS := 12

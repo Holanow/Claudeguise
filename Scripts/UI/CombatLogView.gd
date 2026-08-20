@@ -250,39 +250,24 @@ func _magnitude_text(e: CombatEvent) -> String:
 	var text := Glossary.status_magnitude_text(e.status, e.amount)
 	return "" if text == "" else " (%s)" % text
 
-## Issue 155. The half of "what happened **and why**" the log has never had.
+## Which plan row chose the action -- the "and why" half of the log.
 ##
-## A fresh-eyes playtester: *"I wrote the brain and was never shown it
-## thinking."* The log named the action and never the row that chose it, so a
-## Priest smiting instead of healing looked identical whether the heal's
-## condition was false, the heal was unaffordable, the heal sat below Smite in
-## the order, or no row fired at all and the fallback decided.
+## Volume decisions, all four load-bearing:
 ##
-## THE VOLUME DECISION, since the issue asks for it explicitly and a fresh reader
-## has already said the arena stops helping once they are reading the log.
+##   - **In the line, not a hover.** A reason you have to ask for is one
+##     nobody reads while a fight is running.
+##   - **On ACTION_START only.** One tag per decision, not per consequence;
+##     the damage, status and death below it inherit their reason.
+##   - **On pawns only.** An enemy has no plans, so `[fallback]` on a goblin
+##     names nothing the player can change. Enemies are about half of every
+##     fight's actions, so this is also where the volume is.
+##   - **Why the other rows did not fire is not here.** That is four facts
+##     per row per tick. `InspectPanel` marks each row with its live verdict
+##     instead, which puts the answer in the screen where the fix is made.
 ##
-##   - **In the line, not in a hover:** which row fired is the reason for the
-##     line, and a reason you have to go and ask for is a reason nobody reads
-##     while a fight is running. The whole complaint is about following a fight
-##     *without pausing*.
-##   - **On ACTION_START only.** One tag per decision, not per consequence. The
-##     damage, the status and the death that follow inherit their reason from the
-##     line above them, and tagging each would say the same thing four times.
-##   - **On pawns only.** An enemy has no plans and never will (`CLAUDE.md`:
-##     "enemies have no plans and do not need them"), so `[fallback]` on a goblin
-##     names nothing the player can go and change. Enemies are roughly half of
-##     every fight's actions, so this is also where the volume is.
-##   - **Why the other rows did not fire is NOT here.** That is four facts per
-##     row per tick and it would bury the log. It lives in the pause inspection
-##     instead -- `InspectPanel` marks every row with its live verdict -- which
-##     costs the log nothing and puts the answer in the screen where the fix is
-##     made.
-##
-## The number is the row number the plan editor shows (`InspectPanel._plan_row`
-## draws "1.", "2." down the same list in the same order), so "plan 2" in the log
-## and row 2 on the editor are the same row by construction rather than by
-## agreement. An id with no row -- a plan removed while its action was still
-## winding up -- prints the id rather than a wrong number.
+## The number is the row number the plan editor shows, so "plan 2" in the log
+## and row 2 in the editor are the same row by construction. An id with no row
+## -- a plan removed while its action was still winding up -- prints the id.
 func _plan_tag(source, e: CombatEvent) -> String:
 	if source == null or source.pawn == null:
 		return ""

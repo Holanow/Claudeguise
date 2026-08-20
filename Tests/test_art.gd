@@ -125,38 +125,17 @@ func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
 			"'%s' has a file that puts no ink on the screen" % id)
 
 
-## THE TEST THIS REPLACES CLAIMED SOMETHING TOP-EDGE GEOMETRY CANNOT SAY, AND
-## THE CLAIM IS WITHDRAWN HERE RATHER THAN RE-THRESHOLDED.
+## "Reads as more than one animal" is NOT measurable from a top edge, and
+## nothing below asserts it.
 ##
-## It was called `test_the_rat_king_reads_as_more_than_one_animal` and it
-## asserted that the Rat King scores more outline peaks than `the_warden`,
-## `ghoul` and `brute`. It passed. It was measuring `build_parts` -- the
-## POLYGONS -- and `rat_king`, `the_warden` and `ghoul` all have PNGs in
-## `Assets/Units/`, so for three of the four shapes in that comparison the thing
-## measured is dead code the game never renders. Identical to the `fill_ratio`
-## defect in `BADGE-LEGIBILITY.md`; that one was fixed and nobody swept the file
-## for a second instance.
+## Measured over all nineteen shapes at radius 200, four single-creature
+## shapes score the same three crests the Rat King does: a pawn with a head,
+## an ear and a raised weapon has the same top-edge signature as a pile of
+## three animals. `Tools/RatKingSheet.tscn` and a screenshot of a real fight
+## are the instrument for that claim, which is why both are committed.
 ##
-## Pointed at the drawn art, the comparison collapses. Measured over all
-## nineteen shapes, crests and the shallowest valley in canvas px at radius 200:
-##
-##     rat_king       3   31        goblin          3   17
-##     the_warden     2   17        warrior         3   50
-##     ghoul          2   50        geysermancer    3   83
-##     brute          2   71        goblin_archer   3   17
-##
-## **Four single-creature shapes still in the game score three.** A pawn with a head, an ear and a
-## raised weapon has the same top-edge signature as a pile of three animals,
-## because a top edge cannot tell a lobe from a creature. The old test's margin
-## came from the Rat King's polygon having many vertices near its top, which is
-## a fact about how it was authored rather than about how it reads.
-##
-## So "reads as many" is **not measurable here** and nothing below asserts it.
-## `Tools/RatKingSheet.tscn` and a screenshot of a real fight are the instrument
-## for that claim, and they are the reason both are committed.
-##
-## What IS measurable, and is a direct statement of the design rather than a
-## proxy for it: the back is three humps with sky between them.
+## What IS measurable, and states the design rather than proxying for it:
+## the back is three humps with sky between them.
 func test_the_rat_kings_back_is_three_humps_and_not_a_dome() -> void:
 	var crests := _peaks(&"rat_king")
 	assert_eq(crests, 3,
