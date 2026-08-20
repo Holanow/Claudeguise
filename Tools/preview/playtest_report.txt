@@ -1,133 +1,24 @@
 === PHASE 1: party select edge cases ===
 screenshot: play_01_party_select_empty
 start button disabled with 0 selected: true
-button 'Start Fight' is DISABLED, not pressing
+no button starting with 'start' found
 pressing Start with 0 selected did anything visible: false
-classes offered: ["Abomination", "Siege Master", "Geysermancer", "Priest", "Warrior"]
+classes offered: []
 screenshot: play_02_all_five_pressed
-pressed all 5 checkboxes; 4 ended up checked (want 4): ["Abomination", "Siege Master", "Geysermancer", "Priest"]
-status label: Party: 4/4
-status label after selecting the balanced four: Party: 4/4
+pressed all 0 checkboxes; 0 ended up checked (want 4): []
+status label: Party: 0/4
+status label after selecting the balanced four: Party: 0/4
 screenshot: play_03_party_picked_fixed_seed
 
 === PHASE 2: one full fight, real controls, screenshots as it goes ===
-screenshot: play_04_battle_start
-screenshot: play_05_battle_mid_1_tick30
-screenshot: play_05_battle_mid_2_tick90
-screenshot: play_05_battle_mid_3_tick150
-screenshot: play_06_battle_end
-reached a terminal outcome: PLAYER_WIN at tick 197 (6.6s), frames waited: 1060
-outcome label on screen: Victory (197 ticks)
---- real event log for this fight (for comparison against the screenshot-only read) ---
-  tick 0  FIGHT_START  source=-1 target=-1 amount=0 action=
-  tick 33  RESOURCE_SPENT  source=0 target=-1 amount=10 action=siege_shot
-  tick 33  ACTION_START  source=0 target=4 amount=0 action=siege_shot
-  tick 40  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 40  ACTION_START  source=2 target=5 amount=0 action=priest_smite
-  tick 41  ACTION_FIRE  source=0 target=4 amount=0 action=siege_shot
-  tick 41  DAMAGE  source=0 target=4 amount=24 action=siege_shot
-  tick 42  RESOURCE_SPENT  source=1 target=-1 amount=20 action=geyser_blast
-  tick 42  ACTION_START  source=1 target=4 amount=0 action=geyser_blast
-  tick 48  ACTION_FIRE  source=2 target=5 amount=0 action=priest_smite
-  tick 48  DAMAGE  source=2 target=5 amount=17 action=priest_smite
-  tick 52  ACTION_FIRE  source=1 target=4 amount=0 action=geyser_blast
-  tick 52  DAMAGE  source=1 target=4 amount=15 action=geyser_blast
-  tick 53  RESOURCE_SPENT  source=0 target=-1 amount=10 action=siege_shot
-  tick 53  ACTION_START  source=0 target=4 amount=0 action=siege_shot
-  tick 57  ACTION_START  source=3 target=5 amount=0 action=warrior_strike
-  tick 57  ACTION_START  source=5 target=3 amount=0 action=grunt_smash
-  tick 60  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 60  ACTION_START  source=2 target=5 amount=0 action=priest_smite
-  tick 61  ACTION_FIRE  source=0 target=4 amount=0 action=siege_shot
-  tick 61  DAMAGE  source=0 target=4 amount=24 action=siege_shot
-  tick 62  ACTION_FIRE  source=3 target=5 amount=0 action=warrior_strike
-  tick 62  DAMAGE  source=3 target=5 amount=21 action=warrior_strike
-  tick 66  ACTION_FIRE  source=5 target=3 amount=0 action=grunt_smash
-  tick 66  DAMAGE  source=5 target=3 amount=13 action=grunt_smash
-  tick 68  ACTION_FIRE  source=2 target=5 amount=0 action=priest_smite
-  tick 68  DAMAGE  source=2 target=5 amount=17 action=priest_smite
-  tick 70  ACTION_START  source=3 target=5 amount=0 action=warrior_strike
-  tick 75  ACTION_FIRE  source=3 target=5 amount=0 action=warrior_strike
-  tick 75  DAMAGE  source=3 target=5 amount=21 action=warrior_strike
-  tick 77  ACTION_START  source=5 target=3 amount=0 action=grunt_smash
-  tick 83  ACTION_START  source=3 target=5 amount=0 action=warrior_strike
-  tick 86  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 86  ACTION_START  source=2 target=4 amount=0 action=priest_smite
-  tick 86  ACTION_FIRE  source=5 target=3 amount=0 action=grunt_smash
-  tick 86  DAMAGE  source=5 target=3 amount=13 action=grunt_smash
-  tick 88  ACTION_FIRE  source=3 target=5 amount=0 action=warrior_strike
-  tick 88  DAMAGE  source=3 target=5 amount=14 action=warrior_strike
-  tick 88  DEATH  source=3 target=5 amount=0 action=warrior_strike
-  tick 91  RESOURCE_SPENT  source=1 target=-1 amount=20 action=geyser_blast
-  tick 91  ACTION_START  source=1 target=4 amount=0 action=geyser_blast
-  tick 91  ACTION_START  source=6 target=3 amount=0 action=archer_shot
-  tick 93  ACTION_START  source=7 target=3 amount=0 action=cultist_bolt
-  tick 94  ACTION_FIRE  source=2 target=4 amount=0 action=priest_smite
-  tick 94  DAMAGE  source=2 target=4 amount=17 action=priest_smite
-  tick 95  RESOURCE_SPENT  source=0 target=-1 amount=10 action=siege_shot
-  tick 95  ACTION_START  source=0 target=4 amount=0 action=siege_shot
-  tick 101  ACTION_FIRE  source=1 target=4 amount=0 action=geyser_blast
-  tick 101  DAMAGE  source=1 target=4 amount=10 action=geyser_blast
-  tick 101  DEATH  source=1 target=4 amount=0 action=geyser_blast
-  tick 102  ACTION_FIRE  source=6 target=3 amount=0 action=archer_shot
-  tick 102  DAMAGE  source=6 target=3 amount=7 action=archer_shot
-  tick 102  ACTION_FIRE  source=7 target=3 amount=0 action=cultist_bolt
-  tick 102  DAMAGE  source=7 target=3 amount=7 action=cultist_bolt
-  tick 103  ACTION_FIRE  source=0 target=4 amount=0 action=siege_shot
-  tick 103  MISS  source=0 target=4 amount=0 action=siege_shot
-  tick 113  ACTION_START  source=6 target=3 amount=0 action=archer_shot
-  tick 124  ACTION_FIRE  source=6 target=3 amount=0 action=archer_shot
-  tick 124  DAMAGE  source=6 target=3 amount=7 action=archer_shot
-  tick 133  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 133  ACTION_START  source=2 target=6 amount=0 action=priest_smite
-  tick 141  ACTION_FIRE  source=2 target=6 amount=0 action=priest_smite
-  tick 141  DAMAGE  source=2 target=6 amount=18 action=priest_smite
-  tick 147  ACTION_START  source=6 target=3 amount=0 action=archer_shot
-  tick 155  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 155  ACTION_START  source=2 target=6 amount=0 action=priest_smite
-  tick 158  ACTION_FIRE  source=6 target=3 amount=0 action=archer_shot
-  tick 158  DAMAGE  source=6 target=3 amount=7 action=archer_shot
-  tick 160  ACTION_START  source=3 target=7 amount=0 action=warrior_strike
-  tick 163  RESOURCE_SPENT  source=0 target=-1 amount=10 action=siege_shot
-  tick 163  ACTION_START  source=0 target=7 amount=0 action=siege_shot
-  tick 163  ACTION_FIRE  source=2 target=6 amount=0 action=priest_smite
-  tick 163  DAMAGE  source=2 target=6 amount=18 action=priest_smite
-  tick 165  ACTION_FIRE  source=3 target=7 amount=0 action=warrior_strike
-  tick 165  DAMAGE  source=3 target=7 amount=23 action=warrior_strike
-  tick 169  ACTION_START  source=6 target=3 amount=0 action=archer_shot
-  tick 170  RESOURCE_SPENT  source=1 target=-1 amount=20 action=geyser_blast
-  tick 170  ACTION_START  source=1 target=6 amount=0 action=geyser_blast
-  tick 171  ACTION_FIRE  source=0 target=7 amount=0 action=siege_shot
-  tick 171  DAMAGE  source=0 target=7 amount=25 action=siege_shot
-  tick 173  RESOURCE_SPENT  source=2 target=-1 amount=15 action=priest_smite
-  tick 173  ACTION_START  source=2 target=6 amount=0 action=priest_smite
-  tick 180  ACTION_FIRE  source=1 target=6 amount=0 action=geyser_blast
-  tick 180  DAMAGE  source=1 target=6 amount=16 action=geyser_blast
-  tick 180  ACTION_FIRE  source=6 target=3 amount=0 action=archer_shot
-  tick 180  DAMAGE  source=6 target=3 amount=7 action=archer_shot
-  tick 181  ACTION_FIRE  source=2 target=6 amount=0 action=priest_smite
-  tick 181  DAMAGE  source=2 target=6 amount=3 action=priest_smite
-  tick 181  DEATH  source=2 target=6 amount=0 action=priest_smite
-  tick 192  ACTION_START  source=3 target=7 amount=0 action=warrior_strike
-  tick 197  ACTION_FIRE  source=3 target=7 amount=0 action=warrior_strike
-  tick 197  DAMAGE  source=3 target=7 amount=2 action=warrior_strike
-  tick 197  DEATH  source=3 target=7 amount=0 action=warrior_strike
-  tick 197  FIGHT_END  source=-1 target=-1 amount=0 action=
---- end event log ---
+no button starting with 'start' found
+did not reach the battle screen after pressing Start; stopping phase 2
 
 === PHASE 3: in-fight controls (pause, restart, resize, change party) ===
-attempting resize to a phone-portrait-ish size (390x844) while on the end screen
-screenshot: play_07_resized_390x844
-pressing Restart (same seed)
-after restart: tick=0 outcome=UNRESOLVED (want tick near 0, outcome UNRESOLVED)
-pressing Pause
-screenshot: play_08_paused
-30 frames after pausing, tick moved from 0 to 0 (want: unchanged)
-pressing Change party
-screen after Change party: PartySelect (want PartySelect)
+not on the battle screen; skipping phase 3
 
 === PHASE 4: three parties, one seed, outcomes and survivors ===
 same seed for all: 0000BEEF
-  balanced (warrior/priest/geysermancer/siege_master)     -> PLAYER_WIN ticks=293  survivors=4/4
-  four warriors                                           -> PLAYER_WIN ticks=200  survivors=4/4
-  four geysermancers                                      -> ENEMY_WIN  ticks=314  survivors=0/4
+  balanced (warrior/priest/geysermancer/siege_master)     -> PLAYER_WIN ticks=488  survivors=4/4
+  four warriors                                           -> PLAYER_WIN ticks=451  survivors=3/4
+  four geysermancers                                      -> PLAYER_WIN ticks=562  survivors=1/4

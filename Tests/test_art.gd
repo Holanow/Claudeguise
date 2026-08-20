@@ -114,17 +114,15 @@ func test_the_unused_shapes_are_still_there() -> void:
 
 
 func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
-	# Not just `has_shape`: the failure being guarded against is a unit drawing
-	# the unknown-shape fallback in a real fight, and `has_shape` is exactly the
-	# thing that would have been false while nobody looked. So this asserts the
-	# shape is present AND that what it builds is not the fallback.
-	var unknown := Silhouettes.build_parts(&"not_a_real_shape", 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	# Not just "a name exists": the failure guarded against is a unit drawing
+	# the fallback in a real fight. There is no unknown-shape polygon set any
+	# more -- a shape with no file draws a black square -- so this asks the
+	# question directly, of the file.
 	for id in AHEAD_OF_CONTENT_SHAPES:
-		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
-		var parts := Silhouettes.build_parts(id, 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-		assert_true(parts.size() > unknown.size(),
-			"'%s' builds %d polygons, the unknown fallback builds %d -- it is drawing the fallback" % [
-				id, parts.size(), unknown.size()])
+		assert_true(Silhouettes.has_shape(id), "no sprite for '%s'" % id)
+		var extent := Silhouettes.drawn_extent(id, 40.0, CG.Team.ENEMY)
+		assert_true(extent.size.x > 0.0 and extent.size.y > 0.0,
+			"'%s' has a file that puts no ink on the screen" % id)
 
 
 ## THE TEST THIS REPLACES CLAIMED SOMETHING TOP-EDGE GEOMETRY CANNOT SAY, AND
@@ -315,25 +313,20 @@ func _shallowest_valley(id: StringName) -> float:
 	return 0.0 if shallowest == INF else shallowest
 
 
+## Drawn width over drawn height. Read off `drawn_extent`, which is the sprite's
+## OPAQUE box -- this used to build polygons, and for every shape with a sprite
+## that was a fact about art nobody sees.
 func _aspect(id: StringName) -> float:
-	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for part in parts:
-		for p in part["points"]:
-			lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
-			hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
-	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
+	var box := Silhouettes.drawn_extent(id, 100.0, CG.Team.ENEMY)
+	return box.size.x / maxf(0.001, box.size.y)
 
 
 ## Fraction of its own nominal box a shape's drawn width actually covers.
 ##
 ## **This used to read `Silhouettes.build_parts` and it was measuring the wrong
-## thing.** Ten shapes have real PNGs in `Assets/Units/`, and for those the
-## polygons in `Silhouettes` are dead code the game never renders -- so the
-## number this produced was a fact about art nobody sees. It goes through
-## `Silhouettes.fill_ratio`, which takes the same two paths `draw_unit` does, in
-## the same order. See the correction note in `BADGE-LEGIBILITY.md`.
+## thing** -- ten shapes had real PNGs and the polygons were dead code. There is
+## one path now, so the trap is gone rather than avoided. See the correction note
+## in `BADGE-LEGIBILITY.md`.
 func _fill_fraction(id: StringName) -> float:
 	return Silhouettes.fill_ratio(id, CG.Team.ENEMY).x
 
@@ -360,28 +353,17 @@ func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
 			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
 
 
-func test_fill_ratio_reads_the_real_art_and_not_the_dead_polygons() -> void:
-	# The regression guard for the defect above, and the reason it is possible to
-	# state as an assertion: for a shape with a PNG, the two paths disagree.
-	# `warrior` has `Assets/Units/warrior.png`, so `draw_unit` draws the texture
-	# and `build_parts` is never reached.
-	#
-	# If somebody deletes the PNGs this goes red rather than silently passing --
-	# which is correct: the whole point is that the measurement follows the art.
-	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER),
-		"this test measures the texture path; without a PNG for warrior it measures nothing")
-
-	var from_art := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
-	var parts := Silhouettes.build_parts(&"warrior", 100.0, CG.Team.PLAYER, CG.DamageType.PHYSICAL)
-	var lo := INF
-	var hi := -INF
-	for part in parts:
-		for p in part["points"]:
-			lo = minf(lo, p.x)
-			hi = maxf(hi, p.x)
-	var from_polygons := (hi - lo) / 200.0
-	assert_true(absf(from_art.x - from_polygons) > 0.05,
-		"fill_ratio returned the polygon width (%.2f) for a shape that draws a texture" % from_polygons)
+func test_fill_ratio_reads_the_real_art() -> void:
+	# **The defect this test was written for: `fill_ratio` measured polygons for
+	# ten shapes that had sprites, and a published table of numbers was wrong
+	# because of it.** There is only one path now, so the defect is structurally
+	# impossible; the assertion that remains is that the number comes from the
+	# sprite's opaque pixels rather than from its file dimensions.
+	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER), "warrior.png is gone; this test measures nothing")
+	var ratio := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
+	var tex := UnitArt.texture_for(&"warrior", CG.Team.PLAYER)
+	assert_eq(ratio, UnitArt.opaque_fraction(tex))
+	assert_true(ratio.x > 0.0 and ratio.x <= 1.0, "fill_ratio is out of range: %s" % ratio)
 
 
 func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
@@ -436,19 +418,19 @@ func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:
 
 
 func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
-	# They are a pair and they are meant to be related, which is precisely the
-	# condition under which two shapes drift into being one. The miniboss and its
-	# chaff appear on screen together and constantly.
-	var king := Silhouettes.build_parts(&"rat_king", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	var rat := Silhouettes.build_parts(&"rat", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	assert_ne(king.size(), rat.size(), "the Rat King and the rat build identical polygon counts")
-	assert_true(_aspect(&"rat") > _aspect(&"rat_king"),
-		"the rat must be the flatter of the two: the pile is tall because it is a pile")
+	# The miniboss has to read as a pile of the thing it keeps spawning, and
+	# still not be a big one of them. Pixels, because both have sprites.
+	var king := Silhouettes.top_profile(&"rat_king", 60.0, CG.Team.ENEMY)
+	var rat := Silhouettes.top_profile(&"rat", 60.0, CG.Team.ENEMY)
+	assert_ne(king, rat, "the Rat King and the Rat draw the same outline")
+	assert_true(Silhouettes.fill_ratio(&"rat_king", CG.Team.ENEMY).x
+		> Silhouettes.fill_ratio(&"rat", CG.Team.ENEMY).x * 0.5,
+		"the Rat King is not a pile beside its own rat")
 
 
 func test_an_unknown_shape_is_reported_as_unknown() -> void:
 	# The negative case. Without it, a has_shape that returned true for
-	# everything would pass both tests above perfectly.
+	# everything would satisfy every other assertion in this file.
 	assert_false(Silhouettes.has_shape(&"not_a_real_shape"))
 	assert_false(Silhouettes.has_shape(&""))
 
@@ -461,64 +443,18 @@ func test_shape_ids_are_sorted_and_complete() -> void:
 	assert_eq(ids, sorted, "shape_ids must be deterministic")
 
 
-func test_every_shape_builds_drawable_polygons() -> void:
-	# Runs the real geometry path and asserts what comes back, rather than
-	# reading the coordinate tables, which would only prove they agree with
-	# themselves. A part with fewer than three points, or a tint key that does
-	# not resolve to a colour, fails here.
-	for id in Silhouettes.shape_ids():
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var parts := Silhouettes.build_parts(id, 24.0, team, CG.DamageType.FIRE)
-			assert_true(parts.size() >= 3, "%s has only %d parts; too few to read" % [id, parts.size()])
-			for part in parts:
-				var points: PackedVector2Array = part["points"]
-				assert_true(points.size() >= 3, "%s has a part with %d points" % [id, points.size()])
-				assert_true(part["fill"] is Color, "%s has a part with no fill colour" % id)
-
-
-func test_shapes_stay_inside_the_radius_they_are_given() -> void:
-	# A shape that overflows its radius overlaps its neighbours in a crowd and
-	# makes a fight unreadable in exactly the situation that matters most.
-	# Checked on the diagonal too, not only on the axes: the first version of
-	# this file had corners past the bound that an axis-only check missed.
-	var radius := 24.0
-	for id in Silhouettes.shape_ids():
-		for part in Silhouettes.build_parts(id, radius, CG.Team.PLAYER, CG.DamageType.FIRE):
-			for p in part["points"]:
-				assert_true(
-					absf(p.x) <= radius + 0.01 and absf(p.y) <= radius + 0.01,
-					"%s has a point at %s, outside its radius of %f" % [id, p, radius]
-				)
-
-
-func test_facing_left_mirrors_the_shape() -> void:
-	# And the negative half: facing right must not mirror it. A flip applied
-	# unconditionally looks correct in every screenshot of a single unit.
-	var right := Silhouettes.build_parts(&"warrior", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE, false)
-	var left := Silhouettes.build_parts(&"warrior", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE, true)
-	assert_eq(right.size(), left.size())
-	for i in right.size():
-		var rp: PackedVector2Array = right[i]["points"]
-		var lp: PackedVector2Array = left[i]["points"]
-		for j in rp.size():
-			assert_almost_eq(lp[j].x, -rp[j].x, 0.001, "x should mirror")
-			assert_almost_eq(lp[j].y, rp[j].y, 0.001, "y should not")
-
-
-func test_an_unknown_shape_still_produces_something_visible() -> void:
-	# An invisible unit reads as a simulation bug and is not one. The fallback
-	# has to draw.
-	var parts := Silhouettes.build_parts(&"not_a_real_shape", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE)
-	assert_eq(parts.size(), 1)
-	assert_true(parts[0]["points"].size() >= 3)
-	assert_false(parts[0]["filled"], "the unknown marker is hollow, so it cannot be mistaken for real art")
-
-
-# ---------------------------------------------------------------------------
-# The art is meant to be replaced. These check that the replacing works and
-# that the instructions for it stay true.
-# ---------------------------------------------------------------------------
-
+## Three tests lived here and are deleted with the polygons they read:
+## `test_every_shape_builds_drawable_polygons`, `test_shapes_stay_inside_the
+## _radius_they_are_given` and `test_facing_left_mirrors_the_shape`. The first
+## two are structural now -- a sprite is scaled into the radius it is given by
+## `UnitArt.draw`, which cannot overshoot -- and mirroring is asserted on the
+## real path by `test_a_mirrored_sprite_is_drawn_in_the_same_place` below, which
+## is where issue #241's actual defect was.
+##
+## `test_an_unknown_shape_still_produces_something_visible` went too. What an
+## unknown shape produces is a black square, by the player's ruling, and
+## `test_every_shape_has_real_art_and_nothing_falls_back` asserts nothing in
+## this game reaches it.
 
 
 func test_every_shape_has_real_art_and_nothing_falls_back() -> void:
