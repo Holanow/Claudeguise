@@ -50,7 +50,12 @@ func _init() -> void:
 	print("")
 	print("  parse      %s   (%d scripts)" % [_verdict(_parse_failures.is_empty()), scripts.size()])
 	print("  discovery  %s   (%d test files)" % [_verdict(_misplaced_tests.is_empty()), collected.size()])
-	print("  tests      %s   (%d tests, %d assertions)" % [_verdict(_test_failures.is_empty()), _tests_run, _assertions])
+	## A file that will not parse contributes no tests, and Godot does not make
+	## that visible here -- so the count below is not comparable to a clean run.
+	if _parse_failures.is_empty():
+		print("  tests      %s   (%d tests, %d assertions)" % [_verdict(_test_failures.is_empty()), _tests_run, _assertions])
+	else:
+		print("  tests      NOT TRUSTED   (%d tests ran, but %d file(s) failed to parse and their tests did not)" % [_tests_run, _parse_failures.size()])
 	print("")
 
 	var ok := _parse_failures.is_empty() and _misplaced_tests.is_empty() and _test_failures.is_empty()
@@ -102,7 +107,13 @@ func _run_tests(collected: Array[String]) -> void:
 	for path in collected:
 		var script := load(path)
 		if script == null:
+			## A file that will not load contributes no tests. Skipping it
+			## silently is how 233 tests once vanished while the summary still
+			## read `tests pass`.
+			_test_failures.append("%s: failed to load" % path)
+			printerr("BAD TEST  %s failed to load; its tests did not run" % path)
 			continue
+		var before := _tests_run
 		var instance = script.new()
 		if not (instance is TestCase):
 			_test_failures.append("%s: does not extend TestCase" % path)
@@ -139,6 +150,12 @@ func _run_tests(collected: Array[String]) -> void:
 					var line := "%s::%s  %s" % [path.get_file(), name, f]
 					_test_failures.append(line)
 					printerr("FAIL  %s" % line)
+
+		## A file that loads and yields nothing is dead weight pretending to be
+		## coverage.
+		if _tests_run == before:
+			_test_failures.append("%s: contributed no tests" % path)
+			printerr("BAD TEST  %s loaded but contributed no tests" % path)
 
 func _walk(dir_path: String) -> Array[String]:
 	var out: Array[String] = []
