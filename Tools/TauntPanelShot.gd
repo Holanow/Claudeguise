@@ -5,19 +5,39 @@ extends Node
 ## the room picker, the battle screen's own tick, its "Inspect party" button.
 
 const OUT_DIR := "res://Screenshots"
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 var _main: Node
 var _tag := ""
 
 func _ready() -> void:
+	Offscreen.hide_window(self)
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("TauntPanelShot: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
 		return
 	var s := DisplayServer.window_get_size()
 	_tag = "%dx%d" % [int(s.x), int(s.y)]
-	var ok := await _run()
+	var ok := await _run_all()
 	get_tree().quit(0 if ok else 1)
+
+## One attempt per covering party: the state this photographs depends on who is
+## in the fight, and the first four of an alphabetical roster are never a
+## Warrior (#350). A party that never produces a taunted, walking pawn is
+## reported and does not fail the run.
+func _run_all() -> bool:
+	var any := false
+	var parties: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())
+	for i in parties.size():
+		if _main != null:
+			_main.queue_free()
+			_main = null
+			await _settle()
+		print("TauntPanelShot: party %s" % ", ".join(PackedStringArray(parties[i])))
+		var suffix := "" if i == 0 else "_%d" % (i + 1)
+		if await _run(parties[i], suffix):
+			any = true
+	return any
 
 func _settle(n: int = 6) -> void:
 	for i in n:
@@ -88,18 +108,23 @@ func _report(panel: Node) -> void:
 				or text.begins_with("Fallback"):
 			print("TauntPanelShot:   %s" % text)
 
-func _run() -> bool:
+func _run(party_ids: Array, suffix: String) -> bool:
 	_main = load(ProjectSettings.get_setting("application/run/main_scene", "res://Scenes/Main.tscn")).instantiate()
 	add_child(_main)
 	await _settle()
 
 	var select := _node_with("PartySelect.gd")
-	var cards: Array[Node] = []
+	## By the card's own `class_def`, never by index.
+	var by_id := {}
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
-			cards.append(n)
-	for i in mini(4, cards.size()):
-		cards[i].toggled.emit(true)
+			if n.class_def != null:
+				by_id[n.class_def.id] = n
+	for id in party_ids:
+		if not by_id.has(id):
+			print("TauntPanelShot: no party card for class '%s'" % id)
+			return false
+		by_id[id].toggled.emit(true)
 	await _settle()
 	if not _select_room(select._room_picker, "hazard"):
 		return false
@@ -158,5 +183,5 @@ func _run() -> bool:
 			n.scroll_vertical = 100000
 	await _settle()
 	_report(panel)
-	await _shot("wren_taunt_walking_plans")
+	await _shot("wren_taunt_walking_plans%s" % suffix)
 	return true

@@ -3,6 +3,7 @@ extends Node
 ## Issue 351: the three-column party screen. Pawns left, the selected pawn's
 ## plans and equipment in the middle, where to fight and Start on the right.
 
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const OUT_DIR := "res://Screenshots"
 
 var _main: Node
@@ -49,18 +50,24 @@ func _run() -> void:
 	await _shot("wren_party_three_columns_fresh")
 
 	var select := _node_with("PartySelect.gd")
-	var cards: Array[Node] = []
+	## By the card's own `class_def`, never by index: the first four cards of an
+	## alphabetical roster are never a Warrior (#350). The partition's last
+	## party holds the classes a prefix never reached.
+	var by_id := {}
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
-			cards.append(n)
-	for i in mini(4, cards.size()):
-		cards[i].toggled.emit(true)
+			if n.class_def != null:
+				by_id[n.class_def.id] = n
+	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[-1]
+	for id in party_ids:
+		if by_id.has(id):
+			by_id[id].toggled.emit(true)
 	await _settle()
 	await _shot("wren_party_three_columns_picked")
 
 	## The pawn the middle column is about, chosen the way a player chooses it.
-	if cards.size() > 1:
-		cards[1].toggled.emit(true)
+	if party_ids.size() > 1 and by_id.has(party_ids[1]):
+		by_id[party_ids[1]].toggled.emit(true)
 	await _settle()
 	print("PartyScreenShot: middle column is showing %s" % select.focused_pawn().display_name)
 	await _shot("wren_party_three_columns_focused")

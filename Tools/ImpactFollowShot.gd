@@ -9,11 +9,13 @@ const LIFE_TICKS := 4
 const CROP := Vector2i(96, 72)
 const ZOOM := 7
 const MIN_TARGET_MOVE := 5.0
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 var _view: Node2D = null
 var _arena: Node2D = null
 
 func _ready() -> void:
+	Offscreen.hide_window(self)
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("ImpactFollowShot: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
@@ -21,21 +23,35 @@ func _ready() -> void:
 	await _run()
 	get_tree().quit(0)
 
-func _party() -> Array[PawnData]:
+func _party(party_ids: Array) -> Array[PawnData]:
 	var party: Array[PawnData] = []
-	var class_ids := Registry.all_class_ids()
-	for i in mini(4, class_ids.size()):
-		party.append(PawnFactory.make_starter_pawn(class_ids[i], StringName("p%d" % i), String(class_ids[i])))
+	for i in party_ids.size():
+		party.append(PawnFactory.make_starter_pawn(party_ids[i], StringName("p%d" % i), String(party_ids[i])))
 	return party
 
 ## Pass one, simulation only: the hit whose target walks furthest over the
 ## ring's life, so the strip shows the defect at its plainest rather than at
-## its median.
+## its median. Searched across parties that cover every class, because an
+## alphabetical prefix of the roster never contains a Warrior (#350).
 func _find_moving_hit() -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(Registry.all_encounter_ids()[0]), SEED)
+	var best := {"tick": -1, "id": -1, "moved": 0.0, "party": []}
+	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+		var one := _find_in_party(party_ids)
+		if one["moved"] > best["moved"]:
+			best = one
+	if best["moved"] < MIN_TARGET_MOVE:
+		print("ImpactFollowShot: no hit with a target that moves; nothing to show")
+		return {}
+	print("ImpactFollowShot: party %s, hit at tick %d, unit %d, target walks %.1f units over %d ticks" % [
+		", ".join(PackedStringArray(best["party"])), best["tick"], best["id"],
+		best["moved"], LIFE_TICKS])
+	return best
+
+func _find_in_party(party_ids: Array) -> Dictionary:
+	var state := CombatSim.build(_party(party_ids), Registry.get_encounter(Registry.all_encounter_ids()[0]), SEED)
 	var seen := 0
 	var pending := []
-	var best := {"tick": -1, "id": -1, "moved": 0.0}
+	var best := {"tick": -1, "id": -1, "moved": 0.0, "party": party_ids}
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		CombatSim.step(state)
 		for e in state.events_since(seen):
@@ -52,13 +68,8 @@ func _find_moving_hit() -> Dictionary:
 				continue
 			var moved := u.position.distance_to(p["at"])
 			if moved > best["moved"]:
-				best = {"tick": p["tick"], "id": p["id"], "moved": moved}
+				best = {"tick": p["tick"], "id": p["id"], "moved": moved, "party": party_ids}
 		pending = still
-	if best["moved"] < MIN_TARGET_MOVE:
-		print("ImpactFollowShot: no hit with a target that moves; nothing to show")
-		return {}
-	print("ImpactFollowShot: hit at tick %d, unit %d, target walks %.1f units over %d ticks" % [
-		best["tick"], best["id"], best["moved"], LIFE_TICKS])
 	return best
 
 ## One simulation tick per rendered frame, driven by hand: the view's own
@@ -108,7 +119,7 @@ func _run() -> void:
 	add_child(_view)
 	await get_tree().process_frame
 	_view.set_process(false)
-	_view.state = CombatSim.build(_party(), Registry.get_encounter(Registry.all_encounter_ids()[0]), SEED)
+	_view.state = CombatSim.build(_party(hit["party"]), Registry.get_encounter(Registry.all_encounter_ids()[0]), SEED)
 	_view.event_cursor = 0
 	_arena = _view.get_node("Arena")
 

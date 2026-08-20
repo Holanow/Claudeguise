@@ -5,6 +5,7 @@ extends SceneTree
 
 
 const SEED := 0x2A
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 func _init() -> void:
 	var class_ids := Registry.all_class_ids()
@@ -14,7 +15,13 @@ func _init() -> void:
 		quit(1)
 		return
 
-	var party_ids := class_ids.slice(0, mini(4, class_ids.size()))
+	## One fight per covering party, so no class is missing from the read -- an
+	## alphabetical prefix of the roster never reached the Warrior (#350).
+	for party_ids in ScreenSweepScript.sweep_parties(class_ids):
+		_log_one_fight(party_ids)
+	quit(0)
+
+func _log_one_fight(party_ids: Array) -> void:
 	var party: Array[PawnData] = []
 	for cid in party_ids:
 		# `cls.display_name`, matching PartySelect. See the note in ContactSheet.
@@ -23,8 +30,9 @@ func _init() -> void:
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)
 
-	print("=== fight, seed %08X, %d ticks (%.1fs) ===" % [
-		SEED, state.tick, float(state.tick) / float(CG.TICKS_PER_SECOND)
+	print("=== fight, party %s, seed %08X, %d ticks (%.1fs) ===" % [
+		", ".join(PackedStringArray(party_ids)), SEED, state.tick,
+		float(state.tick) / float(CG.TICKS_PER_SECOND)
 	])
 	print("")
 	_print_roster(state)
@@ -44,7 +52,7 @@ func _init() -> void:
 	print("")
 	print("=== end: outcome %s ===" % _outcome_name(state.outcome))
 	_print_roster(state)
-	quit(0)
+	print("")
 
 func _print_roster(state: CombatState) -> void:
 	for u in state.units:
