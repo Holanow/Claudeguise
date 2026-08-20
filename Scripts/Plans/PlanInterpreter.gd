@@ -145,19 +145,9 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return _run_movement(state, unit, plan, movement, action_id)
 	if action_id == &"" or unit.focus_id == -1:
 		return null
-	if not _unit_has_action(unit, action_id):
+	if not _action_can_fire(state, unit, action_id):
 		return null
-	if not _target_in_range(state, unit, action_id):
-		return null
-	if not _target_in_los(state, unit, action_id):
-		return null
-	if not can_afford(state, unit, action_id):
-		return null
-	if not _summon_slot_free(state, unit, action_id):
-		return null
-	if not _target_is_marked(state, unit, action_id):
-		return null
-	return Intent.use_action(action_id, unit.focus_id, plan.id)
+	return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
 
 ## Issue 97: **the first time the plan layer decides where a pawn stands.**
 ##
@@ -186,7 +176,15 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 
 	if action_id == &"" or not _action_can_fire(state, unit, action_id):
 		return Intent.idle(plan.id)
-	return Intent.use_action(action_id, unit.focus_id, plan.id)
+	return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
+
+## Issue 97: who the action is aimed at, which is not always who the plan is
+## focused on -- a self-targeted action is cast on the caster whatever the
+## targeting block picked, so a MOVEMENT block can measure its distance from an
+## enemy while the buff inside it still lands on the pawn.
+static func action_target_id(unit: CombatUnit, action_id: StringName) -> int:
+	var action = Registry.get_action(action_id)
+	return unit.id if action != null and action.targets_self else unit.focus_id
 
 ## Every gate `_run_blocks` applies to an action, asked as one question.
 static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
@@ -213,7 +211,7 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 	var action = Registry.get_action(action_id)
 	if action == null:
 		return true
-	var target := state.unit(unit.focus_id)
+	var target := state.unit(action_target_id(unit, action_id))
 	if target == null:
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
@@ -231,7 +229,7 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 	var action = Registry.get_action(action_id)
 	if action == null or not action.requires_line_of_sight:
 		return true
-	var target := state.unit(unit.focus_id)
+	var target := state.unit(action_target_id(unit, action_id))
 	if target == null:
 		return false
 	return not Terrain.line_is_blocked(state.terrain, unit.position, target.position)
