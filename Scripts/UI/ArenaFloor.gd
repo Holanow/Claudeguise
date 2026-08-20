@@ -9,7 +9,7 @@ class_name ArenaFloor
 ## OWNER: pike.
 ##
 ## Attached to the Arena node itself, so it is drawn in the same local space
-## that _layout_arena positions and scales â€” the drawn rectangle is
+## that _layout_arena positions and scales -- the drawn rectangle is
 ## CG.ARENA_HALF_WIDTH/HEIGHT, the same constants the simulation places units
 ## within, not a second guess at the same numbers. Terrain rects arrive in the
 ## same space for the same reason: BattleView hands over CombatState.terrain
@@ -29,7 +29,7 @@ const CENTER_LINE_ALPHA := 0.3
 var terrain: Array = []
 
 ## Set by BattleView from CombatState.projectiles every stepped tick.
-## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" â€” issue 18
+## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" -- issue 18
 ## gave every ranged action a real travelling shot with a per-tick position,
 ## and nothing drew it; UnitView kept drawing an instant source-to-target
 ## line for the whole action instead. UnitView now suppresses that line once
@@ -108,10 +108,10 @@ func _projectile_damage_type(p) -> CG.DamageType:
 ## by fill, footprint and pattern rather than a fifth colour nobody asked for.
 ##
 ## Issue 26's own requirement, quoted directly: "a pit must not look like a
-## wall â€” they behave like exact opposites, one blocking movement and not
+## wall -- they behave like exact opposites, one blocking movement and not
 ## sight, the other the reverse." Wall is drawn as solid mass filling its
 ## whole rect (blocks both). Pit is drawn as its opposite: a dark void with
-## only an edge, no fill, reading as "an absence" rather than "an object" â€”
+## only an edge, no fill, reading as "an absence" rather than "an object" --
 ## you can see clean over it, you cannot walk into it.
 func _draw_feature(feature) -> void:
 	match feature.kind:
@@ -140,12 +140,12 @@ const _HAZARD_STRIPE_SPACING := 20.0
 ##
 ## Each stripe is the line from (t, 0) sliding down the top-then-right edge
 ## to (0, t) sliding down the left-then-bottom edge, independently clamped
-## to the rect's own size on each axis â€” the standard diagonal-hatch-in-a-
+## to the rect's own size on each axis -- the standard diagonal-hatch-in-a-
 ## rect construction. An earlier version clamped two Vector2 *parameters* in
 ## a helper function and never used the clamped result, since GDScript
 ## passes Vector2 by value: the caller kept drawing with the original,
 ## unclamped points, so a stripe on a wide short rect drew mostly outside
-## it. No helper now â€” clamped directly at the call site.
+## it. No helper now -- clamped directly at the call site.
 func _draw_hazard_stripes(rect: Rect2, base_color: Color) -> void:
 	var stripe_color := base_color
 	stripe_color.a = minf(base_color.a * 1.6, 0.7)

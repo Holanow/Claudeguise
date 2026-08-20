@@ -39,18 +39,15 @@ const _TERRAIN_KINDS: Array = [
 	Terrain.Kind.WALL, Terrain.Kind.PILLAR, Terrain.Kind.HAZARD, Terrain.Kind.PIT,
 ]
 
-var _canvas = null
-var _name_edit: LineEdit = null
-var _enemy_picker: OptionButton = null
-var _terrain_picker: OptionButton = null
-var _enemy_list_box: VBoxContainer = null
-var _terrain_list_box: VBoxContainer = null
-var _status_label: Label = null
-var _editor_ui: Control = null
-
 var _test_battle = null
 var _test_cfg: RunConfig = null
 var _test_encounter: Encounter = null
+
+## `new()` gives a bare Control with none of the tree. The whole editor chrome --
+## header, name field, canvas slot and the side panel's pickers and buttons -- is
+## in `Scenes/LevelEditor.tscn`; only the placed-item rows are built here.
+static func create() -> LevelEditorView:
+	return (load("res://Scenes/LevelEditor.tscn") as PackedScene).instantiate()
 
 func _ready() -> void:
 	theme = AppTheme.shared()
@@ -60,122 +57,28 @@ func _ready() -> void:
 	# re-skins this screen, and until this call existed it did nothing at all.
 	# With no file present `background_node` returns exactly the ColorRect this
 	# replaced, in exactly this colour, so nothing shipped changes.
-	add_child(UIArt.background_node(&"level_editor", Palette.BACKGROUND))
+	#
+	# Moved to index 0 rather than appended: it has to draw under the scene's own
+	# chrome, and `add_child` puts it last.
+	var background := UIArt.background_node(&"level_editor", Palette.BACKGROUND)
+	add_child(background)
+	move_child(background, 0)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_top", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_right", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_L))
-	add_child(margin)
+	%BackButton.pressed.connect(func(): back_requested.emit())
+	%TestButton.pressed.connect(_start_test_fight)
+	%SaveButton.pressed.connect(_on_save_pressed)
 
-	_editor_ui = VBoxContainer.new()
-	_editor_ui.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	_editor_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_child(_editor_ui)
-
-	_build_header()
-	_build_body()
-
-	_canvas.party_spawns = _default_party_spawns()
-	_canvas.enemy_placed.connect(func(_i): _rebuild_enemy_list())
-	_canvas.terrain_placed.connect(func(_i): _rebuild_terrain_list())
+	# The canvas is a bare Control in the scene and takes its script here: it is
+	# the one child whose behaviour the scene cannot carry, and `_ready()` has to
+	# be called by hand because this screen is often built outside a live tree.
+	%Canvas.set_script(LevelEditorCanvasScript)
+	%Canvas._ready()
+	%Canvas.party_spawns = _default_party_spawns()
+	%Canvas.enemy_placed.connect(func(_i): _rebuild_enemy_list())
+	%Canvas.terrain_placed.connect(func(_i): _rebuild_terrain_list())
 
 	_populate_enemy_picker()
 	_populate_terrain_picker()
-
-func _build_header() -> void:
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	_editor_ui.add_child(top_row)
-
-	var title := Label.new()
-	title.text = "Level editor"
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(title)
-
-	var back_button := Button.new()
-	back_button.text = "Back"
-	back_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	back_button.pressed.connect(func(): back_requested.emit())
-	top_row.add_child(back_button)
-
-	var name_row := HBoxContainer.new()
-	_editor_ui.add_child(name_row)
-
-	var name_label := Label.new()
-	name_label.text = "Name"
-	name_row.add_child(name_label)
-
-	_name_edit = LineEdit.new()
-	_name_edit.text = "New Room"
-	_name_edit.custom_minimum_size = Vector2(220.0, Palette.TOUCH_TARGET_MIN)
-	name_row.add_child(_name_edit)
-
-	_status_label = Label.new()
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_status_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	_editor_ui.add_child(_status_label)
-
-func _build_body() -> void:
-	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_editor_ui.add_child(body)
-
-	_canvas = Control.new()
-	_canvas.set_script(LevelEditorCanvasScript)
-	_canvas.custom_minimum_size = Vector2(400.0, 260.0)
-	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(_canvas)
-	if not _canvas.is_inside_tree():
-		_canvas._ready()
-
-	var side_scroll := ScrollContainer.new()
-	side_scroll.custom_minimum_size = Vector2(280.0, 0.0)
-	side_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(side_scroll)
-
-	var side := VBoxContainer.new()
-	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side_scroll.add_child(side)
-
-	side.add_child(_header_label("Enemies"))
-	_enemy_picker = OptionButton.new()
-	_enemy_picker.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	side.add_child(_enemy_picker)
-	_enemy_list_box = VBoxContainer.new()
-	_enemy_list_box.add_theme_constant_override("separation", int(Palette.SPACE_XS))
-	side.add_child(_enemy_list_box)
-
-	side.add_child(_header_label("Terrain"))
-	_terrain_picker = OptionButton.new()
-	_terrain_picker.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	side.add_child(_terrain_picker)
-	_terrain_list_box = VBoxContainer.new()
-	_terrain_list_box.add_theme_constant_override("separation", int(Palette.SPACE_XS))
-	side.add_child(_terrain_list_box)
-
-	var test_button := Button.new()
-	test_button.text = "Test room"
-	test_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	test_button.pressed.connect(_start_test_fight)
-	side.add_child(test_button)
-
-	var save_button := Button.new()
-	save_button.text = "Save"
-	save_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	save_button.pressed.connect(_on_save_pressed)
-	side.add_child(save_button)
-
-func _header_label(text: String) -> Control:
-	var label := Label.new()
-	label.text = text
-	return label
 
 # ---------------------------------------------------------------------------
 # Bestiary and terrain pickers
@@ -208,70 +111,68 @@ func _bestiary_ids() -> Array[StringName]:
 func _populate_enemy_picker() -> void:
 	var ids := _bestiary_ids()
 	if ids.is_empty():
-		_enemy_picker.add_item("(no enemies registered)")
-		_enemy_picker.disabled = true
+		%EnemyPicker.add_item("(no enemies registered)")
+		%EnemyPicker.disabled = true
 		return
 	for id in ids:
 		var enemy := Registry.get_enemy(id)
-		_enemy_picker.add_item(enemy.display_name if enemy != null else String(id))
-	_enemy_picker.item_selected.connect(func(idx): _set_current_enemy(ids[idx]))
+		%EnemyPicker.add_item(enemy.display_name if enemy != null else String(id))
+	%EnemyPicker.item_selected.connect(func(idx): _set_current_enemy(ids[idx]))
 	_set_current_enemy(ids[0])
 
 func _set_current_enemy(id: StringName) -> void:
-	_canvas.current_enemy_id = id
+	%Canvas.current_enemy_id = id
 	var enemy := Registry.get_enemy(id)
-	_canvas.current_enemy_radius = enemy.radius if enemy != null else 22.0
-	_canvas.mode = LevelEditorCanvasScript.Mode.PLACE_ENEMY
+	%Canvas.current_enemy_radius = enemy.radius if enemy != null else 22.0
+	%Canvas.mode = LevelEditorCanvasScript.Mode.PLACE_ENEMY
 	_set_status("Click the arena to place a %s." % (enemy.display_name if enemy != null else String(id)), false)
 
 func _populate_terrain_picker() -> void:
 	for k in _TERRAIN_KINDS:
-		_terrain_picker.add_item(String(Terrain.Kind.keys()[k]).capitalize())
-	_terrain_picker.item_selected.connect(func(idx): _set_current_terrain_kind(_TERRAIN_KINDS[idx]))
+		%TerrainPicker.add_item(String(Terrain.Kind.keys()[k]).capitalize())
+	%TerrainPicker.item_selected.connect(func(idx): _set_current_terrain_kind(_TERRAIN_KINDS[idx]))
 	_set_current_terrain_kind(_TERRAIN_KINDS[0])
 
 func _set_current_terrain_kind(kind) -> void:
-	_canvas.current_terrain_kind = kind
-	_canvas.mode = LevelEditorCanvasScript.Mode.PLACE_TERRAIN
+	%Canvas.current_terrain_kind = kind
+	%Canvas.mode = LevelEditorCanvasScript.Mode.PLACE_TERRAIN
 	_set_status("Drag a rectangle to place a %s." % String(Terrain.Kind.keys()[kind]).capitalize(), false)
 
 func _set_status(text: String, is_error: bool) -> void:
-	if _status_label == null:
-		return
-	_status_label.text = text
-	_status_label.add_theme_color_override("font_color", Palette.HP_LOW if is_error else Palette.TEXT_DIM)
+	%StatusLabel.text = text
+	%StatusLabel.add_theme_color_override("font_color", Palette.HP_LOW if is_error else Palette.TEXT_DIM)
 
 # ---------------------------------------------------------------------------
 # Placed-item lists
 # ---------------------------------------------------------------------------
 
 func _rebuild_enemy_list() -> void:
-	for child in _enemy_list_box.get_children():
+	for child in %EnemyListBox.get_children():
 		child.free()
-	for i in _canvas.enemy_spawns.size():
-		var spawn = _canvas.enemy_spawns[i]
+	for i in %Canvas.enemy_spawns.size():
+		var spawn = %Canvas.enemy_spawns[i]
 		var pos: Vector2 = spawn.position
 		var enemy := Registry.get_enemy(spawn.enemy_id)
 		var name := enemy.display_name if enemy != null else String(spawn.enemy_id)
-		_enemy_list_box.add_child(_removable_row(
+		%EnemyListBox.add_child(_removable_row(
 			"%s at (%d, %d)" % [name, int(pos.x), int(pos.y)], _on_remove_enemy.bind(i)))
 
 func _on_remove_enemy(index: int) -> void:
-	_canvas.remove_enemy(index)
+	%Canvas.remove_enemy(index)
 	_rebuild_enemy_list()
 
 func _rebuild_terrain_list() -> void:
-	for child in _terrain_list_box.get_children():
+	for child in %TerrainListBox.get_children():
 		child.free()
-	for i in _canvas.terrain.size():
-		var f = _canvas.terrain[i]
+	for i in %Canvas.terrain.size():
+		var f = %Canvas.terrain[i]
 		var kind_name := String(Terrain.Kind.keys()[f.kind]).capitalize()
-		_terrain_list_box.add_child(_removable_row(
+		%TerrainListBox.add_child(_removable_row(
 			"%s (%d,%d %dx%d)" % [kind_name, int(f.rect.position.x), int(f.rect.position.y), int(f.rect.size.x), int(f.rect.size.y)],
 			_on_remove_terrain.bind(i)))
 
 func _on_remove_terrain(index: int) -> void:
-	_canvas.remove_terrain(index)
+	%Canvas.remove_terrain(index)
 	_rebuild_terrain_list()
 
 func _removable_row(text: String, on_remove: Callable) -> Control:
@@ -321,9 +222,9 @@ func _build_encounter(id: StringName, display_name: String) -> Encounter:
 	var e := Encounter.new()
 	e.id = id
 	e.display_name = display_name
-	e.enemy_spawns = _canvas.enemy_spawns
-	e.party_spawns = _canvas.party_spawns
-	e.terrain = _canvas.terrain
+	e.enemy_spawns = %Canvas.enemy_spawns
+	e.party_spawns = %Canvas.party_spawns
+	e.terrain = %Canvas.terrain
 	return e
 
 # ---------------------------------------------------------------------------
@@ -338,7 +239,7 @@ func _build_encounter(id: StringName, display_name: String) -> Encounter:
 func _start_test_fight() -> void:
 	if _test_battle != null:
 		return
-	if _canvas.enemy_spawns.is_empty():
+	if %Canvas.enemy_spawns.is_empty():
 		_set_status("Add at least one enemy before testing.", true)
 		return
 	_test_encounter = _build_encounter(&"level_editor_test", "Test Room")
@@ -356,7 +257,7 @@ func _start_test_fight() -> void:
 	_test_battle.back_requested.connect(_end_test_fight)
 	_test_battle.restart_requested.connect(func(): _test_battle.begin_with_encounter(_test_cfg, _test_encounter))
 	_test_battle.begin_with_encounter(_test_cfg, _test_encounter)
-	_editor_ui.visible = false
+	%EditorUI.visible = false
 
 ## `BattleView`'s own back button reads "Change party" — accurate on the real
 ## battle screen, not quite here (there is no party to change, this returns
@@ -368,20 +269,20 @@ func _end_test_fight() -> void:
 	remove_child(_test_battle)
 	_test_battle.queue_free()
 	_test_battle = null
-	_editor_ui.visible = true
+	%EditorUI.visible = true
 
 # ---------------------------------------------------------------------------
 # Save
 # ---------------------------------------------------------------------------
 
 func _on_save_pressed() -> void:
-	if _canvas.enemy_spawns.is_empty():
+	if %Canvas.enemy_spawns.is_empty():
 		_set_status("Add at least one enemy before saving.", true)
 		return
-	if _canvas.has_blocked_enemy():
+	if %Canvas.has_blocked_enemy():
 		_set_status("Cannot save: an enemy is standing inside a wall or pit.", true)
 		return
-	var display_name := _name_edit.text.strip_edges()
+	var display_name: String = %NameEdit.text.strip_edges()
 	if display_name.is_empty():
 		display_name = "New Room"
 	var id := "authored_%s" % display_name.to_snake_case()
@@ -407,14 +308,14 @@ func _on_save_pressed() -> void:
 ## check the exact shape without touching a file.
 func _encounter_dict(id: String, display_name: String) -> Dictionary:
 	var enemies := []
-	for spawn in _canvas.enemy_spawns:
+	for spawn in %Canvas.enemy_spawns:
 		var pos: Vector2 = spawn.position
 		enemies.append({"enemy_id": String(spawn.enemy_id), "x": pos.x, "y": pos.y})
 	var spawns := []
-	for p in _canvas.party_spawns:
+	for p in %Canvas.party_spawns:
 		spawns.append({"x": p.x, "y": p.y})
 	var terrain_out := []
-	for f in _canvas.terrain:
+	for f in %Canvas.terrain:
 		terrain_out.append({
 			"kind": Terrain.Kind.keys()[f.kind],
 			"x": f.rect.position.x,

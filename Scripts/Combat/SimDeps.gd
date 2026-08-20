@@ -38,7 +38,7 @@ var default_attack_action: Callable = DefaultBehavior.default_attack_action
 ## balance change nobody asked for.
 var starting_resource: Callable = Balance.starting_resource
 
-## Resource per tick, before the ceiling. Never consulted for a RAGE unit Ã¢â‚¬â€
+## Resource per tick, before the ceiling. Never consulted for a RAGE unit Ã¢â‚¬--
 ## CombatSim enforces that structurally rather than trusting every possible
 ## rate function to return 0 for it.
 var resource_regen_per_tick: Callable = _default_resource_regen_per_tick

@@ -7,9 +7,8 @@ extends "res://Tests/TestCase.gd"
 ## and actually visible — separately from whether a real fight resolves a
 ## particular way (that's Scripts/Combat's own concern).
 
-func _make_view() -> Control:
-	var view := Control.new()
-	view.set_script(FloorMapView)
+func _make_view() -> FloorMapView:
+	var view := FloorMapView.create()
 	view._ready()
 	return view
 
@@ -86,7 +85,7 @@ func test_refresh_message_is_not_immediately_overwritten() -> void:
 	var party: Array[PawnData] = []
 	view.open(run, party)
 	view._refresh("Cleared the Enemy. Priest (down)")
-	assert_eq(view._status_label.text, "Cleared the Enemy. Priest (down)")
+	assert_eq(view.get_node("%StatusLabel").text, "Cleared the Enemy. Priest (down)")
 	view.free()
 
 func test_entering_a_trap_room_marks_it_visited_without_a_fight() -> void:
@@ -168,7 +167,7 @@ func test_equip_button_is_disabled_with_no_loot() -> void:
 	var run := FloorRun.new(_make_linear_plan())
 	var party: Array[PawnData] = []
 	view.open(run, party)
-	assert_true(view._equip_button.disabled)
+	assert_true(view.get_node("%EquipButton").disabled)
 	view.free()
 
 ## Issue 42: the CELL room's own screen -- swift's FloorFightRunner API
@@ -205,7 +204,7 @@ func test_entering_a_cell_with_no_losses_offers_nothing_to_pick() -> void:
 
 	view._on_room_pressed(run.plan.room(1))
 
-	assert_false(view._cell_panel.visible, "nobody to replace, so there's nothing to offer a pick for")
+	assert_false(view.get_node("%CellPanel").visible, "nobody to replace, so there's nothing to offer a pick for")
 	assert_true(run.visited.has(1))
 	assert_eq(run.current_room_id, 1)
 	view.free()
@@ -223,7 +222,7 @@ func test_entering_a_cell_with_a_loss_offers_real_candidates() -> void:
 
 	view._on_room_pressed(run.plan.room(1))
 
-	assert_true(view._cell_panel.visible, "a real loss must actually be offered a replacement")
+	assert_true(view.get_node("%CellPanel").visible, "a real loss must actually be offered a replacement")
 	assert_eq(view._cell_room, run.plan.room(1))
 	view.free()
 
@@ -247,7 +246,7 @@ func test_picking_a_cell_candidate_replaces_the_dead_pawn_and_enters_the_room() 
 	assert_true(run.is_alive(candidates[0].id))
 	assert_true(run.visited.has(1))
 	assert_eq(run.current_room_id, 1)
-	assert_false(view._cell_panel.visible)
+	assert_false(view.get_node("%CellPanel").visible)
 	view.free()
 
 func test_skipping_a_cell_leaves_the_party_untouched_but_still_enters() -> void:
@@ -267,7 +266,7 @@ func test_skipping_a_cell_leaves_the_party_untouched_but_still_enters() -> void:
 	assert_eq(party[0], dead, "declining the offer must not change the roster")
 	assert_true(run.visited.has(1))
 	assert_eq(run.current_room_id, 1)
-	assert_false(view._cell_panel.visible)
+	assert_false(view.get_node("%CellPanel").visible)
 	view.free()
 
 func test_a_pawn_that_cannot_use_an_item_is_offered_but_disabled() -> void:
@@ -283,7 +282,7 @@ func test_a_pawn_that_cannot_use_an_item_is_offered_but_disabled() -> void:
 	view._on_loot_item_pressed(item)
 
 	var pawn_button: Button = null
-	for child in view._equip_list.get_children():
+	for child in view.get_node("%EquipList").get_children():
 		if child is Button and child.text.begins_with("Geysermancer"):
 			pawn_button = child
 	assert_true(pawn_button != null, "the pawn should still be listed, just not enterable")
