@@ -121,15 +121,15 @@ func test_has_blocked_enemy_ignores_non_blocking_terrain() -> void:
 # ---------------------------------------------------------------------------
 
 func _make_view() -> LevelEditorView:
-	var v := LevelEditorView.new()
+	var v := LevelEditorView.create()
 	v._ready()
 	return v
 
 func test_screen_builds_its_pickers_and_canvas() -> void:
 	var v := _make_view()
-	assert_not_null(v._canvas)
-	assert_not_null(v._enemy_picker)
-	assert_not_null(v._terrain_picker)
+	assert_not_null(v.get_node("%Canvas"))
+	assert_not_null(v.get_node("%EnemyPicker"))
+	assert_not_null(v.get_node("%TerrainPicker"))
 	v.free()
 
 ## Registry has no all_enemy_ids() (proposed to dace on the board); this
@@ -145,12 +145,12 @@ func test_bestiary_picker_offers_every_enemy_used_by_a_registered_encounter() ->
 		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
 			expected[spawn.enemy_id] = true
 	assert_true(expected.size() > 0, "expected at least one real registered enemy to test the picker against")
-	assert_eq(v._enemy_picker.item_count, expected.size())
+	assert_eq(v.get_node("%EnemyPicker").item_count, expected.size())
 	v.free()
 
 func test_terrain_picker_offers_all_four_kinds() -> void:
 	var v := _make_view()
-	assert_eq(v._terrain_picker.item_count, 4)
+	assert_eq(v.get_node("%TerrainPicker").item_count, 4)
 	v.free()
 
 ## Criterion 3: the deploy zone this screen shows must be the same one a real
@@ -164,15 +164,15 @@ func test_default_party_spawns_are_inside_the_deploy_zone() -> void:
 func test_save_refuses_an_empty_room_without_touching_disk() -> void:
 	var v := _make_view()
 	v._on_save_pressed()
-	assert_true(v._status_label.text.to_lower().contains("enemy"), v._status_label.text)
+	assert_true(v.get_node("%StatusLabel").text.to_lower().contains("enemy"), v.get_node("%StatusLabel").text)
 	v.free()
 
 func test_save_refuses_a_blocked_enemy_without_touching_disk() -> void:
 	var v := _make_view()
-	v._canvas.place_terrain(Terrain.Kind.WALL, Rect2(-20.0, -20.0, 40.0, 40.0))
-	v._canvas.place_enemy(&"goblin", Vector2(0.0, 0.0), 22.0)
+	v.get_node("%Canvas").place_terrain(Terrain.Kind.WALL, Rect2(-20.0, -20.0, 40.0, 40.0))
+	v.get_node("%Canvas").place_enemy(&"goblin", Vector2(0.0, 0.0), 22.0)
 	v._on_save_pressed()
-	assert_true(v._status_label.text.to_lower().contains("wall") or v._status_label.text.to_lower().contains("blocked"), v._status_label.text)
+	assert_true(v.get_node("%StatusLabel").text.to_lower().contains("wall") or v.get_node("%StatusLabel").text.to_lower().contains("blocked"), v.get_node("%StatusLabel").text)
 	v.free()
 
 ## The exact shape posted to TEAM_LOG.md and proposed to dace: flat x/y (and
@@ -182,15 +182,15 @@ func test_save_refuses_a_blocked_enemy_without_touching_disk() -> void:
 ## exercised through a real file.
 func test_encounter_dict_matches_the_agreed_save_format() -> void:
 	var v := _make_view()
-	v._canvas.place_enemy(&"goblin", Vector2(150.0, -80.0), 22.0)
-	v._canvas.place_terrain(Terrain.Kind.HAZARD, Rect2(-20.0, -20.0, 40.0, 40.0))
+	v.get_node("%Canvas").place_enemy(&"goblin", Vector2(150.0, -80.0), 22.0)
+	v.get_node("%Canvas").place_terrain(Terrain.Kind.HAZARD, Rect2(-20.0, -20.0, 40.0, 40.0))
 	var dict := v._encounter_dict("authored_the_pit", "The Pit")
 
 	assert_eq(dict.id, "authored_the_pit")
 	assert_eq(dict.display_name, "The Pit")
 	assert_eq(dict.enemy_spawns.size(), 1)
 	assert_eq(dict.enemy_spawns[0], {"enemy_id": "goblin", "x": 150.0, "y": -80.0})
-	assert_eq(dict.party_spawns.size(), v._canvas.party_spawns.size())
+	assert_eq(dict.party_spawns.size(), v.get_node("%Canvas").party_spawns.size())
 	assert_eq(dict.terrain.size(), 1)
 	var t: Dictionary = dict.terrain[0]
 	assert_eq(t.kind, "HAZARD")
@@ -215,27 +215,27 @@ func test_encounter_dict_matches_the_agreed_save_format() -> void:
 ## this screen (no Main scene swap happens here at all).
 func test_test_room_builds_a_real_encounter_and_starts_a_real_fight() -> void:
 	var v := _make_view()
-	v._canvas.place_enemy(&"goblin", Vector2(150.0, 0.0), 22.0)
+	v.get_node("%Canvas").place_enemy(&"goblin", Vector2(150.0, 0.0), 22.0)
 	v._start_test_fight()
 
 	assert_not_null(v._test_battle)
 	assert_not_null(v._test_battle.state)
 	assert_eq(v._test_battle.state.units.filter(func(u): return u.team == CG.Team.ENEMY).size(), 1)
-	assert_false(v._editor_ui.visible, "editor controls should step aside while a test fight is showing")
+	assert_false(v.get_node("%EditorUI").visible, "editor controls should step aside while a test fight is showing")
 	v.free()
 
 func test_test_room_refuses_an_empty_room() -> void:
 	var v := _make_view()
 	v._start_test_fight()
 	assert_true(v._test_battle == null, "should not start a test fight with no enemies placed")
-	assert_true(v._status_label.text.to_lower().contains("enemy"), v._status_label.text)
+	assert_true(v.get_node("%StatusLabel").text.to_lower().contains("enemy"), v.get_node("%StatusLabel").text)
 	v.free()
 
 func test_ending_the_test_fight_restores_the_editor_and_frees_the_battle() -> void:
 	var v := _make_view()
-	v._canvas.place_enemy(&"goblin", Vector2(150.0, 0.0), 22.0)
+	v.get_node("%Canvas").place_enemy(&"goblin", Vector2(150.0, 0.0), 22.0)
 	v._start_test_fight()
 	v._end_test_fight()
 	assert_true(v._test_battle == null, "ending the test fight should free the embedded BattleView")
-	assert_true(v._editor_ui.visible)
+	assert_true(v.get_node("%EditorUI").visible)
 	v.free()

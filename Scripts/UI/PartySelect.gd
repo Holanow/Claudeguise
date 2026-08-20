@@ -3,7 +3,6 @@ class_name PartySelect
 
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
-const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")
 const GlossaryButtonScript := preload("res://Scripts/UI/GlossaryButton.gd")
 
 ## Pick up to four pawns and a seed, then start the fight.
@@ -351,8 +350,7 @@ func _build_ui() -> void:
 
 	# Added after the inspect panel so it draws above it if both are ever open.
 	# Same manual _ready() reasoning as every other panel built here.
-	_equip_panel = Control.new()
-	_equip_panel.set_script(EquipPanelScript)
+	_equip_panel = EquipPanel.create()
 	add_child(_equip_panel)
 	if not _equip_panel.is_inside_tree():
 		_equip_panel._ready()

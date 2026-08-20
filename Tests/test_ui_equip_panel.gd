@@ -39,7 +39,7 @@ func _make_item(id: String, slot: int, methods: Array[CG.Method] = []) -> Equipm
 	return e
 
 func _panel() -> EquipPanel:
-	var panel := EquipPanel.new()
+	var panel := EquipPanel.create()
 	panel._ready()
 	return panel
 
