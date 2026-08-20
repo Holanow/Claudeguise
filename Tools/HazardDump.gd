@@ -23,9 +23,10 @@ func _init() -> void:
 				var head := "%s|%s|%d" % [encounter_id, ",".join(PackedStringArray(party_ids)), s]
 				print("%s|OUTCOME|%d|%d" % [head, state.outcome, state.tick])
 				for e in state.events:
-					print("%s|%d|%d|%d|%d|%d|%d|%s|%d|%d|%s|%d" % [
+					print("%s|%d|%d|%d|%d|%d|%d|%s|%d|%d|%s|%d|%d|%d" % [
 						head, e.kind, e.tick, e.source_id, e.target_id,
 						e.amount, e.amount_before_mitigation, e.action_id,
 						e.damage_type, e.status, e.source_plan, e.end_reason,
+						e.amount_after_mitigation, e.mitigation_cause,
 					])
 	quit(0)
