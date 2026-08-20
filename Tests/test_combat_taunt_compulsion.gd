@@ -342,3 +342,59 @@ func test_two_runs_from_one_seed_compel_identically() -> void:
 	var b: CombatState = play.call()
 	assert_eq(a.unit(0).hp, b.unit(0).hp, "same seed, same compulsion")
 	assert_eq(a.events.size(), b.events.size(), "and the same event stream")
+
+# ---------------------------------------------------------------------------
+# what the compulsion tells the screen, and what it does not
+# ---------------------------------------------------------------------------
+
+## The plan layer is never asked while a unit is compelled, so the simulation
+## cannot name the row the taunt overruled -- it never learned there was one.
+func test_a_compelled_unit_never_consults_its_plans() -> void:
+	var taunt := _taunt(&"roar")
+	var claw := _strike(&"claw", 40.0)
+	var state := _arena(taunt)
+	var deps := _deps([taunt, claw])
+	var asked := {"free": 0, "compelled": 0}
+	var compelled_now := {"yes": false}
+	deps.plan_decide = func(_s: CombatState, u: CombatUnit) -> Intent:
+		var key: String = "compelled" if u.has_status(CG.Status.TAUNTED) else "free"
+		asked[key] = int(asked[key]) + 1
+		return null
+	for u in state.units:
+		u.pawn = PawnData.new()
+
+	for _i in 5:
+		CombatSim.step(state, deps)
+	var before := int(asked["free"])
+	assert_true(before > 0, "the plan layer was never asked at all, so the next line is vacuous")
+
+	_roar(state, deps, taunt)
+	compelled_now["yes"] = state.unit(1).has_status(CG.Status.TAUNTED)
+	assert_true(compelled_now["yes"], "nobody was compelled, so the next line is vacuous")
+	for _i in 5:
+		CombatSim.step(state, deps)
+	assert_eq(int(asked["compelled"]), 0,
+		"a compelled unit asked its plans %d times; the compulsion is meant to short-circuit them" % int(asked["compelled"]))
+
+## THE WINDOW WHERE A COMPULSION IS INVISIBLE, ISSUE 308. A compelled unit that
+## is still walking emits nothing, so nothing downstream can tell a dragged pawn
+## from one working its own plan. Red the day a walk gets an event of its own,
+## which is when `InspectPanel` can stop guessing from `ACTION_START`.
+func test_a_compelled_walk_puts_nothing_in_the_event_stream() -> void:
+	var taunt := _taunt(&"roar")
+	var claw := _strike(&"claw", 40.0)
+	var state := _arena(taunt)
+	var deps := _deps([taunt, claw])
+	_roar(state, deps, taunt)
+	var walker := state.unit(2)
+	assert_true(walker.has_status(CG.Status.TAUNTED), "unit 2 is the one being dragged")
+
+	var before := state.events.size()
+	var start := walker.position
+	CombatSim.step(state, deps)
+	assert_true(walker.position != start, "unit 2 did not walk, so this measured nothing")
+	for i in range(before, state.events.size()):
+		var e := state.events[i]
+		assert_true(e.source_id != walker.id and e.target_id != walker.id,
+			("a compelled walk now emits event kind %d. Issue 308 is fixed and "
+			+ "InspectPanel can read it instead of the last ACTION_START.") % e.kind)

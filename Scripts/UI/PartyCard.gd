@@ -81,11 +81,8 @@ func _draw_frame(rect: Rect2) -> void:
 	if selected and UIArt.has_art(&"panel_border"):
 		draw_rect(rect.grow(-SELECTION_INSET), Palette.TEAM_PLAYER, false, thickness)
 
-## sable, 2026-08-19: this called `Silhouettes.build_parts` and drew the polygons
-## by hand, so **every party card showed the placeholder outline while all five
-## classes had real sprites in `Assets/Units/`.** `build_parts` warned about
-## exactly that in its own doc comment. `draw_unit` takes a `center` for this
-## case, which is what the comment here used to say it did not.
+## `draw_unit` takes a `center`, so the card draws the shipped sprite rather than
+## composing one itself.
 func _draw_silhouette(center: Vector2) -> void:
 	Silhouettes.draw_unit(self, class_def.id, SILHOUETTE_RADIUS, CG.Team.PLAYER,
 		_accent(), false, center)

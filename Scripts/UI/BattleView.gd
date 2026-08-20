@@ -485,8 +485,8 @@ func _process(delta: float) -> void:
 	if not stepped:
 		return
 
-	consume_events()
 	_ensure_unit_views()
+	consume_events()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
 	_arena.projectiles = state.projectiles
@@ -568,6 +568,7 @@ func _spawn_impact_flash(e: CombatEvent) -> void:
 	flash.set_script(ImpactFlashScript)
 	_arena.add_child(flash)
 	flash.position = target.position
+	flash.follow(_unit_views.get(target.id))
 	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
 
 ## Issue 151, and the player asked for it twice over: "the stun icon should
@@ -583,6 +584,7 @@ func _spawn_interrupt_flash(e: CombatEvent) -> void:
 	flash.set_script(ImpactFlashScript)
 	_arena.add_child(flash)
 	flash.position = unit.position
+	flash.follow(_unit_views.get(unit.id))
 	flash.flash_color(Palette.TEXT, UnitViewScript.display_radius(unit))
 
 ## A death lands as an event, not as a unit quietly disappearing: named text

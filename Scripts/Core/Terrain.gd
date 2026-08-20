@@ -25,6 +25,11 @@ class Feature extends RefCounted:
 	var applies_status_enabled: bool = false
 	var status_duration_ticks: int = 0
 
+	## How hard the applied status hits, for the statuses whose whole damage rate
+	## is a multiple of a magnitude the applying hit normally supplies. A hazard
+	## has no hit, so it declares one here or its status ticks for nothing.
+	var status_magnitude: float = 0.0
+
 	func blocks_movement() -> bool:
 		return kind == Kind.WALL or kind == Kind.PIT
 
