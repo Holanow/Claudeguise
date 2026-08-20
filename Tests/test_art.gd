@@ -144,11 +144,8 @@ func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void
 				id, _aspect(id), ratio])
 
 
-## **This read `Silhouettes.build_parts` and was therefore counting humps on art
-## the game does not draw.** `rat_king`, `the_warden` and `ghoul` all have PNGs
-## in `Assets/Units/`, so for those the polygons are dead code -- the test could
-## not have failed for the shape a player actually meets, whatever happened to
-## it. It is the identical defect the correction note in `BADGE-LEGIBILITY.md`
+## How many humps the top edge of the shipped sprite has, read through
+## `top_profile` so it counts the art the game draws.
 func _peaks(id: StringName) -> int:
 	var radius := 200.0
 	return _crests(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)

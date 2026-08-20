@@ -534,10 +534,9 @@ func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: 
 static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 	return u.action_ticks_total - u.action_ticks_left
 
-## Split out from _draw_status_tags so it can be tested without a live
-## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a
-## drawing function directly logs errors and asserts nothing, which is
-## exactly the trap Silhouettes.build_parts's own doc comment names.
+## Split out from _draw_status_tags so it can be tested without a live canvas:
+## Godot refuses draw_* calls outside _draw(), so a test that calls a drawing
+## function directly logs errors and asserts nothing.
 static func status_tags(u: CombatUnit) -> Array[String]:
 	var tags: Array[String] = []
 	if u.resource_max > 0 and u.resource <= 0:
