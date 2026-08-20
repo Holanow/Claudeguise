@@ -14,133 +14,25 @@ class_name SoundBank
 ## OWNED BY sable (`Scripts/Audio/**`, claimed on the board -- new territory, it
 ## was in nobody's column before this).
 ##
-## ---------------------------------------------------------------------------
-## WHY IT HANGS OFF THE EVENT STREAM AND NOTHING ELSE
-##
-## `CombatEvent` already carries everything worth hearing -- `ACTION_FIRE`,
-## `DAMAGE`, `DEATH`, `STATUS_APPLIED`, `BLOCKED`, `MISS` -- and the log, the
-## floating numbers and the impact flashes are all built from it and from nothing
-## else. Sound reads the same stream at the same seam, so there are no audio
-## hooks scattered through the simulation and there is nothing for a future
-## mechanic to forget to call.
-##
-## It also keeps the hard rule intact: **nothing below the presentation layer
-## ever sees this file.** No `delta`, no `rng`, no write of any kind back into
-## the fight. A seed reproduces a fight whether or not anything is audible, and
-## the placeholder synthesis below is pure arithmetic for the same reason.
-##
-## ---------------------------------------------------------------------------
-## HOW A PLAYER REPLACES ANY OF IT
-##
-## Drop a file into `Assets/Audio/` under the name the game asks for:
-##
-##     Assets/Audio/event/death.ogg              every death
-##     Assets/Audio/action/warrior_execute.ogg   just that ability firing
-##
-## `.ogg`, `.wav` and `.mp3` all work, and **this is measured rather than
-## assumed**: `AudioStreamOggVorbis.load_from_file`, `AudioStreamWAV.load_from_
-## file` and `AudioStreamMP3.load_from_file` all exist as runtime loaders in the
-## Godot build this project uses, checked with `ClassDB.class_has_method`. That
-## matters here for the same reason `Image.load()` matters in `UIArt`: the editor
-## does not run on this machine, so anything needing an import step could never
-## be added.
-##
-## Two-level, the same shape `UIArt` uses: the specific name wins, the general
-## one covers everything else, and neither is a code change.
+## Sound hangs off the event stream and nothing else: no audio hooks in the
+## simulation, no writes back into a fight, so a seed reproduces the same
+## fight whether or not anything is audible.
 
 const AUDIO_DIR := "res://Assets/Audio"
-
-## The extensions tried, in order. `.ogg` first because it is the one a player is
-## most likely to export and the smallest of the three at usable quality.
 const EXTENSIONS := ["ogg", "wav", "mp3"]
 
-## Streams live for the process, same as `UIArt._cache` and for the same reason.
-## Null is cached too: a miss is the normal case today and re-stat'ing three
-## paths per event per frame would be the expensive half by a wide margin.
 static var _cache: Dictionary = {}
 
-## ---------------------------------------------------------------------------
-## WHICH EVENTS MAKE A NOISE BY DEFAULT, AND WHY MOST DO NOT
+## A kind in `PLACEHOLDER_VOICES` is voiced; a kind absent from it is silent
+## until a file is dropped in for it. A dropped-in file also beats the
+## placeholder, so a near-silent one is how a kind gets turned off.
 ##
-## `PLACEHOLDER_VOICES` below is the whole answer: a kind in it has a default
-## sound, a kind absent from it is silent until a file is dropped in for it. A
-## minority are voiced and the rest are silent by decision rather than by
-## omission, and there is deliberately no second list saying so -- a set and a
-## list of the same set drift apart, and this project has already paid for two
-## tables that had to agree. No total is written down anywhere, here or in the
-## README, for the same reason.
+## The rule behind the set: a sound marks a discrete happening, not a
+## continuous drain. Voicing every DAMAGE measured 9.6 sounds a second,
+## 861 of 1556 of them burn and poison ticks.
 ##
-## That drift happened anyway, in the one place a set could not stop it.
-## `Assets/Audio/README.md` is prose and it had `event/interrupted` in the table
-## headed "the six with a placeholder today", where it had never been -- so the
-## player was told a blip existed that they could replace, and replacing it would
-## have been the first sound that kind ever made. INTERRUPTED and SUMMONED were
-## both appended to `CG.EventKind` after this file was written, and the header
-## here still said "fourteen kinds" as a result. `test_the_instructions_say_
-## which_kinds_are_voiced` now splits the README at its two headings and checks
-## each side against this dictionary, so the next appended kind lands on one side
-## or goes red.
-##
-## A fight emits a great many events. This project has already written down what
-## happens to a signal that fires constantly: it becomes furniture, a player
-## learns to ignore it in minutes, and the event it existed to mark goes
-## invisible. That was said about a false-positive detector and it is exactly as
-## true of audio, which has no equivalent of looking away.
-##
-## So the voiced set is the six things a player would want to hear *happen*, and
-## the ones that are continuous, internal or already implied by another event
-## stay quiet. `ACTION_START` is implied by `ACTION_FIRE`. `RESOURCE_SPENT`
-## happens alongside the action that spent it. `STATUS_EXPIRED` is the quiet end
-## of something whose beginning already made a noise.
-##
-## **A player who disagrees does not need us**: dropping
-## `Assets/Audio/event/action_start.ogg` in gives that kind a voice with no code
-## change, which is the whole point of the pipeline and is why this being a
-## judgement call is survivable. It works the other way too -- a dropped-in file
-## beats the generated placeholder, so a **near-silent** file at
-## `event/action_fire.ogg` is how a kind gets turned OFF. Worth knowing, because
-## the pipeline is otherwise add-only.
-##
-## ---------------------------------------------------------------------------
-## AND ONE SPLIT THAT IS NOT A KIND AT ALL, WHICH MEASUREMENT FOUND
-##
-## The first version of this file gave every `DAMAGE` event a voice, and
-## `Tools/SoundProbe.gd` then measured a real fight at **9.6 sounds per second**,
-## which is not a soundtrack, it is a buzz. Reading the split rather than turning
-## a number down: **861 of 1556 damage events were burn and poison ticks**, which
-## fire every tick for the life of the status and carry no `action_id`.
-##
-## So the rule is a principle and not a volume knob: **a sound marks a discrete
-## HAPPENING, not a continuous DRAIN.** A sword landing is a happening. Poison
-## ticking for the ninth second is the same fact as the eighth. That is the same
-## reason `ACTION_START` is silent, and it is the reason this file has no
-## rate-limiter -- a rate limiter would have hidden the drain behind a
-## satisfactory number while still saying the wrong thing.
-##
-## Damage-over-time keeps its own name, `event/damage_over_time`, so it is
-## silent by default and **addressable**: a player who wants to hear their poison
-## work drops one file in. The distinction is only ever made here, in
-## presentation. The simulation does not know this file exists.
-##
-## ---------------------------------------------------------------------------
-## THE ONE CANDIDATE I LEFT SILENT AND COULD NOT SETTLE: `STATUS_APPLIED`
-##
-## It is discrete, not a drain, and it is the event that changes the shape of a
-## fight -- a stun, a taunt, a mark. By the rule above it belongs in the voiced
-## set, and I left it out anyway, so the reason belongs here rather than in a
-## commit nobody re-reads.
-##
-## A status is applied in the **same tick** as the `ACTION_FIRE` and the `DAMAGE`
-## of the hit that applied it, so voicing it turns one hit into three noises
-## 1/15th of a second apart. Measured: 14% of the unit-ticks that make any noise
-## already make more than one (worst case 3), and `STATUS_APPLIED` fires 182
-## times in 229 seconds of fighting, nearly all of them inside a hit that is
-## already audible.
-##
-## Whether three blips read as a hit with weight or as a stutter is a question
-## about **ears**, and I do not have any. So it is silent, it is one dropped file
-## away from being loud, and the number is written down for whoever can answer
-## it. Turning it on is not a code change.
+## Why each kind is on the side it is on, and the open STATUS_APPLIED
+## question, are in issue #299.
 
 ## Placeholder voices, and they are meant to sound synthetic.
 ##

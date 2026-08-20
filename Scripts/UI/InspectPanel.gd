@@ -6,54 +6,28 @@ const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
-## Issue 21b: look at your pawns between fights. A full-screen overlay added
-## as a child of whichever screen opens it (PartySelect or BattleView's end
+## Look at your pawns, and edit their plans. A full-screen overlay added as a
+## child of whichever screen opens it (PartySelect, or BattleView's end
 ## banner) rather than a Main-routed screen, so opening it never loses that
-## screen's state (an in-progress party selection, a just-finished fight).
+## screen's state.
 ##
-## Issue 6: plans are now editable here, not just readable. A player can
-## reorder a pawn's plans (priority order — the earliest plan whose condition
-## holds is the one that fires, per PlanInterpreter), swap the targeting or
-## the action inside a block, and swap or retune the plan's own condition —
-## all picked from choices the pawn actually has: TARGETING from
-## PlanInterpreter.TARGETING_OPS, ACTION from the pawn's own
-## `starting_actions`, CONDITION from PlanInterpreter.CONDITION_OPS. All three
-## are whitelisted consts PlanInterpreter already exposed for this — no change
-## to Scripts/Core or Scripts/Plans was needed.
+## A plan is one row of blocks -- skill, target, condition -- and rows are
+## added, removed and reordered. Priority is row order: the earliest plan
+## whose condition holds is the one that fires. Every pawn carries an
+## immutable final row describing what it does when no plan of its own fires.
 ##
-## Issue 95 / 96: a plan is now one row of blocks — skill, target, condition —
-## rather than a sentence with a stack of labelled dropdowns underneath, and
-## plans can be added and removed rather than only reordered. Every pawn also
-## carries an immutable final row describing what it does when no plan of its
-## own fires. See the block comments at `_plans_section` for the decisions.
+## Every choice comes from what the pawn actually has: TARGETING from
+## `PlanInterpreter.TARGETING_OPS`, ACTION from the pawn's `starting_actions`,
+## CONDITION from `PlanInterpreter.CONDITION_OPS`.
 ##
-## Each CONDITION op reads a differently-shaped argument: `always` reads
-## nothing, `self_hp_below_fraction`/`ally_below_hp_fraction` read a 0-1
-## `fraction`, `self_resource_at_least` reads an int `amount`,
-## `enemy_in_range` reads a float `range`. That mapping is
-## `PlanInterpreter.CONDITION_ARG_SHAPE` and it is read from there.
+## Each CONDITION op reads a differently-shaped argument, and that mapping is
+## `PlanInterpreter.CONDITION_ARG_SHAPE`. Read it from there; a copy in this
+## file went stale once and silently lost an op's value editor.
 ##
-## It used to be a private copy in this file. Issue 22 added the public one and
-## its comment there says it was "moved here from InspectPanel.gd" — it was
-## copied, and this screen went on reading the stale copy, which never gained
-## `ally_has_harmful_status` when that op was added. Harmless by luck (the
-## lookup falls back to `{"kind": "none"}`, which is the right answer for that
-## particular op), and the next condition op that does read an argument would
-## have silently lost its value editor. The copy is gone; there is one table.
-##
-## Editing mutates the Plan/PlanBlock resources on the PawnData in place —
-## the same instance PartySelect and BattleView already hold and hand to
-## CombatState when a fight starts, so no new plumbing was needed to make a
-## change stick.
+## Editing mutates the Plan/PlanBlock resources on the PawnData in place --
+## the same instance PartySelect and BattleView hand to CombatState.
 ##
 ## OWNER: kite (was pike).
-##
-## `ActionDef.description` is on the trunk, empty on every action so far —
-## shows as "(no description yet)" below, correct and expected, not a bug.
-## `PlanInterpreter.describe_op(op, args)` (teal's, issue 21a) landed after
-## this screen first shipped with the plan's own `display_name` standing in
-## for the block-by-block sentence; now wired to the real thing.
-
 signal closed
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN

@@ -6,61 +6,19 @@ extends SceneTree
 ##
 ## MANAGER-OWNED. Not part of the game and not part of the gate.
 ##
-## Issue 82, and the open question in issue 94. The player, looking at a
-## screenshot: the room "may have to get a little bigger by the looks of it".
+## Samples every unit position every tick and reports four things, because a
+## bounding box alone cannot tell a wandering blob from an even spread:
 ##
-## They are reading that off a screen where the fight sits in a corner, and
-## **a bigger box does not fix a fight that uses a fifth of the box** -- it
-## just makes the fraction smaller. So the question is not "is the arena big
-## enough" but "what does a fight actually cover", and nobody has measured it.
+##   box%     the bounding box the whole fight occupies.
+##   cover%   what fraction of the arena's cells ever hold a unit.
+##   blob%    at a typical tick, how far living units stand from their own
+##            centre of mass, over the arena's half-diagonal. Small means
+##            converged.
+##   at       the mean of every unit sample, across and down. 50/50 is centre.
 ##
-## I have already been wrong once on this issue by estimating from a
-## screenshot instead of measuring: I called units "perhaps 10px across" when
-## they are about 55px, an error of five times, stated as though it were a
-## finding. Hence this.
-##
-## Samples every unit position every tick, and reports the bounding box the
-## whole fight occupies as a fraction of the arena.
-##
-## ---
-##
-## **BOUNDING BOX ONLY WAS NOT ENOUGH, and the first fresh-eyes playtest is
-## what showed it.** A reader with no project context, looking at rendered
-## frames:
-##
-##   "All combat happens in a ~250x250 blob in the upper-left of a ~795x450
-##   arena. The right 40% is empty all fight."
-##
-## Ran against this tool, that reads as a contradiction: the box is 46% of the
-## arena, which is not a corner. Both are correct. **A blob that wanders and an
-## even spread that stays put have the same bounding box**, because a box is
-## decided by four extreme samples and says nothing about the other thousands.
-## So the tool answered "is the extent big enough" -- yes -- to a complaint
-## that was never about extent.
-##
-## Three columns added by heron, and each answers a different half of what the
-## reader actually said:
-##
-##   cover%   what fraction of the arena's cells EVER hold a unit. This is the
-##            "right 40% is empty" claim, directly. A wandering blob scores
-##            low here while its bounding box scores high.
-##   blob%    at a typical tick, how far the living units stand from their own
-##            centre of mass, as a fraction of the arena's half-diagonal.
-##            This is "a ~250x250 blob". Small means converged.
-##   at       where the fighting actually happens: the mean of every unit
-##            sample, as a percentage across and down the arena. 50/50 is dead
-##            centre. This is the "upper-left" claim and it is the one
-##            nobody had ever checked.
-##
-## Same fights, same loop, one extra pass over the units already being read --
-## the tool costs what it always did.
-##
-## **What this tool still cannot tell you** is whether a low cover% is bad. A
-## fight that resolves quickly covers little ground because it is short, not
-## because it is badly shaped. Read the columns beside the tick counts in
-## `SampleFights`, and hold the room fixed when comparing.
-
-
+## It cannot tell you whether a low cover% is bad: a fight that resolves
+## quickly covers little ground because it is short. Read these beside the
+## tick counts in `SampleFights`, and hold the room fixed when comparing.
 const SEEDS := 10
 const CLASSES := ["warrior", "priest", "abomination", "geysermancer", "siege_master"]
 

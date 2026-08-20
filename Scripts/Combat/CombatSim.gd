@@ -174,63 +174,21 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		unit.intent = intent
 		_reaffirm_sustain(state, unit, intent)
 
-## A stunned unit neither decides nor acts, and as of #121 it does not finish
-## what it had already started either.
+## A stunned unit neither decides nor acts, and does not finish what it had
+## started: the wind-up is thrown away, not resumed.
 ##
-## ISSUE 10'S DECISION, OVERTURNED BY THE PLAYER. Kept here rather than deleted,
-## because the reasoning behind the original call is still worth knowing and the
-## costs it named are the costs we now pay.
+## Recovery is deliberately not cancelled -- cancelling it would free the
+## stunned unit early, and an interrupt that rewards its victim is not one.
+## The resource is not refunded. Cooldown needs no refund: `_fire_action`
+## sets it and an interrupted action never fired. `focus_id` is left alone,
+## being where the unit looks rather than a pending commitment.
 ##
-## What it used to say, and it was deliberate: stun did NOT cancel an action
-## already committed before it landed. A unit mid-wind-up when stunned still
-## fired on schedule -- `is_busy()` kept it out of this loop entirely, so the
-## status only ever mattered for a unit that was free to decide. The argument
-## was that a wind-up safe once committed is the simpler thing to teach ("land
-## the stun before the swing starts, not during it"), and that cancelling one
-## costs a resource-refund policy, a decision about whether the original target
-## still matters, and a way for content to reason about "was this interrupted".
+## A stun also breaks a sustained action: a channel is a decision renewed
+## every tick, and a unit that cannot decide is not renewing one.
 ##
-## The player's ruling, in their words: *"Stun should very much interrupt actions
-## in progress"*. Which is the ordinary meaning of the word, and a stun that
-## cannot interrupt a cast is a much weaker thing than a player expects when a
-## boss lands one. heron measured the old behaviour live before anybody argued
-## about it -- stunned mid-wind-up, the action still fired -- which is what
-## turned this from a reading of the code into a question worth putting to the
-## player.
-##
-## The three costs the old comment named, now answered, and the player answered
-## all three rather than us:
-##
-##   1. **The wind-up is lost, not resumed.** Resuming is nearly invisible to
-##      somebody watching, and "broadly follow what happened and why" is the
-##      finish line this project is measured against.
-##   2. **The resource is NOT refunded.** `RESOURCE_SPENT` fired at commit and
-##      nothing reverses it. A twenty-Mana cast producing nothing is harsh on
-##      purpose: that is what makes landing a stun on a caster worth doing.
-##   3. **The original target stops mattering**, because there is no longer an
-##      action to aim. `focus_id` is left alone -- it is where the unit is
-##      looking, not a pending commitment, and it is overwritten by whatever the
-##      unit commits to next.
-##
-## Cooldown needs no refund and could not have one: `_fire_action` sets it, and
-## an interrupted action never fires, so it was never on cooldown.
-##
-## RECOVERY IS DELIBERATELY NOT CANCELLED. Only `action_ticks_left`, the wind-up,
-## is thrown away. Cancelling recovery would *help* the stunned unit -- it would
-## come out of the stun free to act instead of finishing what it owed -- and an
-## interrupt that rewards its victim is not an interrupt.
-##
-## ISSUE 61 is unchanged and its reasoning still stands on its own: a stun breaks
-## a sustained action, because a channel is a decision renewed every tick and a
-## unit that neither decides nor acts is by definition not renewing one. That was
-## true when a wind-up survived and it is true now.
-##
-## Emits INTERRUPTED once, on the tick the action is taken away, and never again
-## for the same stun -- the second tick of a stun finds nothing left to cancel.
-## `amount` is the ticks of wind-up already invested and thereby thrown away,
-## which is not recoverable after the fact for the same reason
-## `CombatUnit.action_ticks_total` had to exist at all: HASTE scales the real
-## count at commit, so the number on the ActionDef is not it.
+## Emits INTERRUPTED once, on the tick the action is taken away. `amount` is
+## the wind-up ticks invested; HASTE scales the real count at commit, so the
+## number on the ActionDef is not it.
 static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
 	unit.intent = null
 	if unit.action_ticks_left > 0:

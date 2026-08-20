@@ -69,56 +69,23 @@ static func hazard(rect: Rect2, damage_per_tick: int, damage_type: CG.DamageType
 	return f
 
 ## True when the straight line from `a` to `b` crosses anything opaque. The one
-## piece of geometry all three sessions would otherwise write separately, so it
-## lives here and is written once.
+## piece of geometry all three sessions would otherwise write separately.
 ##
-## Uses Rect2.intersects_segment via Godot's own clipping rather than a
-## hand-rolled line-box test, because a hand-rolled one is exactly the kind of
-## code that is subtly wrong for a year.
-## **A feature standing between two points cannot also be standing between two
-## points inside it.** Issue 255, and rook granted this file for exactly this
-## one change.
+## Uses `Rect2.intersects_segment` rather than a hand-rolled line-box test.
 ##
-## Measured, not supposed. `Tools/StallProbe.gd` found `floor1_cover` reaching
-## the 3600-tick cap once in 2,000 fights, seed 364, with **three units on the
-## same point inside the same pillar, sight BLOCKED between them at distance
-## 0.0**. Nothing could resolve a shot, moving toward a target you are standing
-## on covers no ground, and the fight ran forever. A PILLAR blocks sight and not
-## movement (`blocks_movement` is `WALL or PIT`), so walking into one is legal
-## and units do it.
+## A feature the units can stand in, containing *both* endpoints, does not
+## block: three units on the same point inside one pillar had sight BLOCKED
+## between them at distance 0.0, and the fight ran to the tick cap. The clause
+## is deliberately this narrow -- exempting on *either* endpoint makes standing
+## in cover beat standing behind it, and lets a shot already inside a wall fly
+## on through it.
 ##
-## **The clause is as narrow as three failing tests could make it, and I widened
-## it twice before the evidence narrowed it back. Both of those attempts are
-## recorded here because each one names a real rule this must not break.**
+## `blocks_movement()` is the difference: a WALL or a PIT cannot hold a unit,
+## so exempting one could only change a state the simulation cannot produce.
+## A PILLAR is the shape a unit really can stand in.
 ##
-## First attempt, *either* endpoint inside. Too broad, and three tests I did not
-## write said so:
-##
-##   - `test_content_rooms.gd`, twice -- a unit inside a pillar became visible to
-##     and from the whole room, so standing *in* cover beat standing behind it.
-##     Fights diverging with pillars in fell to 23 of 50 and shots denied to 890.
-##   - `test_combat_projectiles.gd` -- a shot that had flown into a wall exempted
-##     that wall and carried on through it.
-##
-## Second attempt, *both* endpoints inside any sight-blocker. The room tests came
-## back, the projectile one did not: its fixture drops a wall over the target's
-## own position, so the shot and the target end up inside the same rect and the
-## hit lands. **I moved that fixture's wall instead, which was a guess, and it
-## failed for an unrelated reason -- a wall the shot has already flown past
-## cannot block a line drawn from where the shot is now. Reverted; that test is
-## untouched.**
-##
-## So: **a feature the units can be standing in**, containing **both** endpoints.
-## `blocks_movement()` is the difference. A WALL or a PIT cannot hold a unit --
-## `CombatSim._sweep` refuses to land in one and `Tools/StallProbe.gd` reports 0
-## of 14 spawns inside a blocking rect -- so exempting one could only ever change
-## a state the simulation cannot produce, while breaking a check that guards a
-## real one. A PILLAR is the shape a unit really can stand in, and that is the
-## whole of the defect.
-##
-## It reads `contains_point`, the same `rect.has_point` that `_segment_hits_rect`
-## uses for its own endpoint test directly below -- so the two agree on what
-## "inside" means by construction, rather than by two authors remembering to.
+## Reads `contains_point`, the same `rect.has_point` that `_segment_hits_rect`
+## uses below, so the two agree on what "inside" means by construction.
 static func line_is_blocked(features: Array, a: Vector2, b: Vector2) -> bool:
 	for f in features:
 		if not f.blocks_sight():

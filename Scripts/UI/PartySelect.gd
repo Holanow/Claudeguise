@@ -65,75 +65,13 @@ func _build_roster() -> void:
 			continue
 		_available.append(PawnFactory.make_starter_pawn(class_id, class_id, cls.display_name))
 
-## Issue 18: rook's own eyeballed read of party_select_phone_400x800.png was
-## "every card well under the 48-pixel touch minimum". Measured instead with
-## get_global_rect() (Control's coordinates are always logical, the same as
-## custom_minimum_size — the stretch scale is applied at render/input-mapping
-## time, not by resizing controls): every card is 170x200, over three times
-## TOUCH_TARGET_MIN on its short side, at any window size. Godot maps a real
-## tap back through the same stretch transform, so this is the actual
-## functional target, not merely a number that happens not to shrink.
+## Registered encounters the picker does not offer, with the reason. Offered
+## rooms are not listed here: `Encounter.pickable` is set where the room is
+## declared and `offered_rooms()` reads it, in module order.
 ##
-## **Issue 133 replaced the fixed `CARD_COLUMNS = 2` grid with an
-## `HFlowContainer`, and the argument that column count had to be fixed was
-## wrong in a way worth keeping written down.** It ran: `expand` stretch means
-## `get_viewport_rect()` reports design space rather than physical pixels, so a
-## container computing its own columns from the viewport cannot get narrower on
-## a phone. That is true of `get_viewport_rect()` and it is not an argument for
-## a constant, because **a flow container does not ask the viewport anything.**
-## It wraps at the width its parent gives it, which is a real layout width in
-## the same logical space every other Control here uses. So the responsive case
-## and the wide case are one behaviour rather than two competing schemes, which
-## is what the old comment was right to want.
-##
-## The cost of the constant was the player's complaint: five classes, room for
-## all five, showing two, in the left quarter of a 1280-wide screen, clipped
-## mid-row inside a scroll box.
-## Registered encounters the picker deliberately does not offer, with the
-## reason.
-##
-## **The offered half of this pair is no longer a list here. Issue #180.** It was
-## `const ROOM_ORDER`, a third hand-written copy of a set also written as prose
-## in `floor1_encounters.gd` and as `PICKABLE` in a test. It is now
-## `Encounter.pickable`, set beside each room where the room is declared, and
-## `offered_rooms()` below reads it. Order comes from the same place: the module
-## lists its encounters in the order the picker shows them, so the order is
-## authored rather than sorted -- `Array[StringName].sort()` compares interned
-## pointers rather than text, and a sorted picker would order rooms by process
-## history.
-##
-## **This dictionary stays hand-written, and that is not an oversight.** It
-## carries a *reason*, which a bool cannot, and `test_ui_room_picker.gd` asserts
-## that every registered encounter is either offered or named here. A new room
-## still cannot appear without somebody deciding which it is, which is the
-## failure #176 was: three rooms, four days of enemies and terrain, and nothing
-## anywhere noticed they were unreachable.
-##
-## **THE RULE, written down because the next boss hits the same fork.** Offer any
-## room whose point is a fight and which nothing else can reach. Exclude tuning
-## fixtures, which the tools fight directly and a player has no reason to meet.
-## It used to exclude the floor's terminal boss as well, whose point is *arrival*
-## rather than the fight itself; see the ruling below for why that half is
-## suspended and when it comes back.
-##
-## The Rat King is offered on that rule: **nothing about runs exists yet**, so
-## "a single fight you can pick" and "a miniboss you progress to" are not two
-## different things in the game, only in intent -- and excluding it would ship
-## the King, the rats, BLEED stacking and sable's silhouette unreachable, which
-## is the exact failure #176 existed to end.
-##
-## **The terminal-boss half of the rule is suspended, by the player's ruling on
-## #194: "if the warden is done and ready to go I see no reason not to make it
-## playable".** The reasoning it overrules -- that offering the floor boss off a
-## menu spends its arrival once and for free -- is not wrong; it is beaten by the
-## simpler fact that **there is no floor to arrive at.** The Warden is the
-## most-measured content in this game and no player has ever fought it, which is
-## #176's failure again with a better excuse attached.
-##
-## **The exclusion returns when runs exist.** Keep this paragraph and move
-## `floor1_warden` back into `NOT_OFFERED` on the day a player can reach it by
-## progressing. Until then the rule reads: offer any room whose point is a fight
-## and which nothing else can reach; exclude tuning fixtures only.
+## The rule: offer any room whose point is a fight and which nothing else can
+## reach; exclude tuning fixtures. `floor1_warden` returns here on the day a
+## player can reach it by progressing (#300).
 const NOT_OFFERED := {
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",

@@ -1,67 +1,19 @@
 extends RefCounted
 
 
-## Base equipment types. README.md's own tables, filtered to the tag
-## combinations the five starting classes actually carry. This note used to say
-## a Bow had no class to fit and was therefore absent; issue 129 added one (and
-## a Staff), because a Siege Master is Martial and fights at range and a Bow is
-## exactly what it was holding all along. See Registry.gd for the module
-## contract. OWNER: teal.
+## Base equipment types, filtered to the tag combinations the five starting
+## classes carry. See Registry.gd for the module contract. OWNER: teal.
 ##
-## Issue 39: weapons and accessories are percent per README ("directly
-## increase a pawn's Str, Int, and/or Dex by a percentage" / "increase AGI,
-## ATT, or INT by a percentage"), armor is flat plus an occasional CON
-## percent ("increase a pawn's stats by a flat amount and occasionally their
-## CON by a percentage"). `Balance.attribute()` is what actually applies
-## these; this file only declares the numbers.
+## Weapons and accessories are percent, armor is flat plus an occasional CON
+## percent; `Balance.attribute()` applies them, this file only declares.
 ##
-## `allowed_methods` (issue 40) is the tag-gating field, and it is populated
-## on every weapon. It speaks martial-versus-magical only, which is the axis
-## that makes a caster in plate wrong; README also gates by role and damage
-## type, and nothing here enforces those. Per `EquipmentDef`'s own note,
-## declaring is content's job and refusing is the equip screen's -- the screen
-## should never offer a piece a pawn cannot use, so the player meets it as an
-## absence rather than an error.
+## `allowed_methods` gates martial versus magical only. Declaring is content's
+## job, refusing is the equip screen's, so a pawn meets an unusable piece as
+## an absence rather than an error.
 ##
-## Issue 100: `granted_actions` was empty on all seventeen items until
-## `plate_mail` carried Directional Block. That field existing and no item
-## using it is why equipment counted as unreachable.
-##
-## Issue 129, the player's own instruction -- "a unit's basic attack should be
-## determined by its main hand weapon rather than its class". README's weapon
-## table has carried a **Provided Actions** column from the start (Sword ->
-## Attack, Bow -> Ranged Attack, Orb -> Ranged Magical Attack) and no weapon
-## here provided anything. Every weapon now grants exactly one basic attack,
-## and `starting_classes.gd` no longer ships one.
-##
-## | Weapon | README tags     | Provides         |
-## | ------ | --------------- | ---------------- |
-## | Sword  | Melee, Martial  | Strike           |
-## | Wrench | Melee, Summoner | Strike           |
-## | Sickle | Melee, Magical  | Claw             |
-## | Bow    | Ranged, Martial | Shot             |
-## | Orb    | Ranged, Magical | Spout            |
-## | Staff  | Ranged, Magical | Bolt             |
-##
-## **The five actions are the five each class used to carry, unchanged and not
-## renamed.** The mapping is deliberately the identity one -- a Warrior with a
-## Sword still swings Strike, a Priest with a Staff still casts Bolt -- so that
-## the only thing this issue moves is *where the action comes from*, and the
-## balance measurement is attributable to that and to the weapon's own
-## percentages rather than to five new sets of numbers. Their ids keep their
-## old class prefixes (`warrior_strike`, `priest_bolt`, ...) because renaming
-## them would edit `Scripts/Art/ActionIcons.gd`, `Tests/test_art.gd`,
-## `Tests/test_combat_sim.gd` and `Tests/test_ui_*` -- four files across two
-## other sessions -- for no change a player can see. Worth its own issue, not
-## worth taking someone else's fixtures hostage for this one.
-##
-## **Every weapon grants exactly one attack, and there is a test for it.** A
-## weapon that granted nothing would be a trap: a pawn holding it has no free
-## action at all and stands still whenever it cannot pay for a spell, which is
-## the resource-exhaustion wall issues 22, 62 and 79 each fixed once. README
-## lists Wrench as providing "Tag, Overcharge" -- neither mechanism exists --
-## so it provides the plain melee attack instead of nothing.
-
+## Every weapon grants exactly one basic attack and a test asserts it: a
+## weapon granting nothing leaves a pawn with no free action, which is the
+## resource-exhaustion wall.
 static func classes() -> Array[ClassDef]:
 	return []
 
