@@ -13,6 +13,7 @@ const OUT_DIR := "res://Screenshots"
 
 var _main: Node
 var _res_tag: String = ""
+var _classes_shot: Dictionary = {}
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -20,6 +21,7 @@ func _ready() -> void:
 		printerr("  detached worktree instead.")
 		get_tree().quit(2)
 		return
+	Offscreen.hide_window(self)
 	# get_viewport().get_visible_rect().size is the project's *logical*
 	# canvas_items/expand coordinate space, not the physical window --
 	# project.godot keeps design height fixed and widens design width to
@@ -30,7 +32,23 @@ func _ready() -> void:
 	var size := DisplayServer.window_get_size()
 	_res_tag = "%dx%d" % [int(size.x), int(size.y)]
 	await _run()
-	get_tree().quit(0)
+	get_tree().quit(0 if _coverage_ok() else 3)
+
+## Fails the run when a class was never photographed, so the blind spot in
+## issue 327 cannot come back silently.
+func _coverage_ok() -> bool:
+	var missing: Array[String] = []
+	for id in Registry.all_class_ids():
+		if not _classes_shot.has(id):
+			missing.append(String(id))
+	if missing.is_empty():
+		print("ScreenSweep: photographed every class (%d) at %s" % [
+			_classes_shot.size(), _res_tag])
+		return true
+	printerr("ScreenSweep: NEVER PHOTOGRAPHED: %s at %s -- the sweep is blind to" % [
+		", ".join(missing), _res_tag])
+	printerr("  those classes and its screenshots must not be cited as coverage.")
+	return false
 
 func _settle(frames: int = 4) -> void:
 	for i in frames:
@@ -64,6 +82,40 @@ func _party_cards() -> Array:
 			out.append(n)
 	return out
 
+## Parties that between them contain every class, rather than the first four
+## cards of an alphabetical roster -- which is why no screenshot in this repo
+## had ever contained a Warrior, fifth of five (issue 327). A short final
+## party is padded from the front so every shot is still a full party.
+static func sweep_parties(class_ids: Array, party_size: int = 4) -> Array:
+	var parties := []
+	var taken := 0
+	while taken < class_ids.size():
+		var party := []
+		while party.size() < party_size and taken < class_ids.size():
+			party.append(class_ids[taken])
+			taken += 1
+		for pad in class_ids:
+			if party.size() >= party_size:
+				break
+			if not party.has(pad):
+				party.append(pad)
+		parties.append(party)
+	return parties
+
+## Select the named classes by their card's own `class_def`, never by index.
+func _select_classes(ids: Array) -> bool:
+	var by_id := {}
+	for card in _party_cards():
+		if card.class_def != null:
+			by_id[card.class_def.id] = card
+	for id in ids:
+		if not by_id.has(id):
+			printerr("ScreenSweep: no party card for class '%s'" % id)
+			return false
+		by_id[id].toggled.emit(true)
+		_classes_shot[id] = true
+	return true
+
 func _press_named(prefix: String) -> bool:
 	for b in _buttons():
 		if b.text.to_lower().begins_with(prefix.to_lower()) and b.is_visible_in_tree():
@@ -93,7 +145,11 @@ func _fresh_main() -> void:
 
 func _run() -> void:
 	await _party_select_empty()
-	await _party_select_full_and_start_fight()
+	var parties := sweep_parties(Registry.all_class_ids())
+	for i in parties.size():
+		var tag := "p%d" % (i + 1)
+		print("ScreenSweep: %s = %s" % [tag, ", ".join(PackedStringArray(parties[i]))])
+		await _party_select_full_and_start_fight(parties[i], tag)
 	await _inspect_from_party_select()
 	await _level_editor()
 	await _floor_map_and_end_of_fight()
@@ -105,13 +161,12 @@ func _party_select_empty() -> void:
 
 ## Pick a full party of four, then confirm Start Fight is on screen and
 ## clickable before pressing it, then follow the fight to its end banner.
-func _party_select_full_and_start_fight() -> void:
+func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 	await _fresh_main()
-	var cards := _party_cards()
-	for i in mini(4, cards.size()):
-		cards[i].toggled.emit(true)
+	if not _select_classes(party):
+		return
 	await get_tree().process_frame
-	await _shot("sweep_party_select_full")
+	await _shot("sweep_party_select_full_%s" % tag)
 
 	var start_btn: Button = null
 	for b in _buttons():
@@ -135,7 +190,7 @@ func _party_select_full_and_start_fight() -> void:
 	## "Start Fight" now means "go and place your party" and there is a second
 	## Start Fight on the deploy screen itself.
 	if _current_screen_name() == "Deploy":
-		await _shot("sweep_deploy")
+		await _shot("sweep_deploy_%s" % tag)
 		_press_named("start fight")
 		await _settle()
 
@@ -145,7 +200,7 @@ func _party_select_full_and_start_fight() -> void:
 		printerr("  be cited as current.")
 		return
 	var battle := _main.get_child(0)
-	await _shot("sweep_battle_start")
+	await _shot("sweep_battle_start_%s" % tag)
 
 	var frames := 0
 	var max_wait_frames := 60 * 400
@@ -155,7 +210,7 @@ func _party_select_full_and_start_fight() -> void:
 		frames += 1
 		if not mid_shot_taken and battle.state.tick >= 60:
 			mid_shot_taken = true
-			await _shot("sweep_battle_mid")
+			await _shot("sweep_battle_mid_%s" % tag)
 
 	## **This used to shoot unconditionally and call the file "end banner".**
 	## A second fresh-eyes playtester got `outcome=UNRESOLVED tick=64` and a
@@ -169,7 +224,7 @@ func _party_select_full_and_start_fight() -> void:
 			max_wait_frames, battle.state.tick, _res_tag])
 		printerr("  NOT shooting an end banner. There is no banner on screen to shoot.")
 		return
-	await _shot("sweep_battle_end_banner")
+	await _shot("sweep_battle_end_banner_%s" % tag)
 	print("ScreenSweep: fight ended outcome=%s tick=%d at %s" % [
 		CombatState.Outcome.keys()[battle.state.outcome], battle.state.tick, _res_tag
 	])
@@ -223,9 +278,9 @@ func _level_editor() -> void:
 ## The floor map, reached via Start Run, plus whichever room resolves first.
 func _floor_map_and_end_of_fight() -> void:
 	await _fresh_main()
-	var cards := _party_cards()
-	for i in mini(4, cards.size()):
-		cards[i].toggled.emit(true)
+	var parties := sweep_parties(Registry.all_class_ids())
+	if parties.is_empty() or not _select_classes(parties[0]):
+		return
 	await get_tree().process_frame
 
 	var run_btn: Button = null
