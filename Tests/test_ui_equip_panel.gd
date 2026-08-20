@@ -403,7 +403,12 @@ func test_a_naked_pawn_reads_as_empty_not_as_broken() -> void:
 	panel.open([_make_pawn()])
 	var text := _text_of(panel)
 	assert_true(text.contains("0/3"), "the list must show how many slots are filled")
-	assert_true(text.contains("None."), "granted skills must read as none, not as blank")
+	## The Actions section used to list only the gear-granted subset, so a naked
+	## pawn's read "None." It now carries every action the pawn can call, and the
+	## thing that must not read as blank is the sentence saying none of them came
+	## from gear.
+	assert_true(text.contains("are this pawn's own"),
+		"a naked pawn must be told its actions are its own, not shown a blank section")
 	panel.free()
 
 # ---------------------------------------------------------------------------

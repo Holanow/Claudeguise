@@ -41,10 +41,17 @@ var _end_cost_label: Label = null
 var _inspect_panel = null
 
 var _pause_dim: ColorRect = null
+var _end_dim: ColorRect = null
 
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
+	# The same guard the other Hud children already carry: a test instantiates
+	# this scene and calls _ready() without ever entering a tree, where the
+	# engine never fires a child's own -- so the log stayed a bare Control and
+	# its mouse_filter, its label and its backdrop did not exist.
+	if not _combat_log.is_inside_tree():
+		_combat_log._ready()
 	_build_pause_dim()
 	_build_top_bar()
 	_build_team_status()
@@ -56,21 +63,27 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_layout_arena)
 
 ## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
-## or similar. Nothing currently indicates it." Added first, before any
-## other Hud child, so later Hud elements (the top bar, the pause button
-## itself, the combat log) draw on top of it and stay fully legible while
-## the arena underneath reads as held. Hud is its own CanvasLayer above
-## Arena's, so this only needs to sit early in Hud's own child order to
-## land between the two -- it does not need a z_index or a second layer.
+## or similar. Nothing currently indicates it."
 func _build_pause_dim() -> void:
+	_pause_dim = _build_dim(0.55)
+
+## A full-screen dim that reads as "the fight is held" without taking the
+## screen's words with it. Moved to the front of Hud's child order, so the log,
+## the toolbar and the team panel all draw over it and stay fully legible --
+## reading the log is the reason to pause or to look at a Victory screen at all
+## (issue 343). `CombatLog` is a scene child and is therefore already Hud's
+## first, which is why this needs move_child rather than being added early.
+func _build_dim(alpha: float) -> ColorRect:
 	var hud := get_node("Hud")
-	_pause_dim = ColorRect.new()
-	_pause_dim.color = Palette.BACKGROUND
-	_pause_dim.color.a = 0.55
-	_pause_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_pause_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pause_dim.visible = false
-	hud.add_child(_pause_dim)
+	var dim := ColorRect.new()
+	dim.color = Palette.BACKGROUND
+	dim.color.a = alpha
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.visible = false
+	hud.add_child(dim)
+	hud.move_child(dim, 0)
+	return dim
 
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
@@ -203,16 +216,20 @@ const _PANEL_TOP := Palette.SPACE_M
 func _build_end_banner() -> void:
 	var hud := get_node("Hud")
 
+	## Issue 343. The backdrop used to be a full-screen ColorRect INSIDE the
+	## banner, above every other Hud child: a blind playtester found Pause,
+	## Restart, Change party, What to show and Plans all dead after Victory, and
+	## the log neither readable nor scrollable, because one node was eating every
+	## mouse event and painting over every word. It is now a sibling at the front
+	## of the child order, and the banner itself does not take input -- only its
+	## own buttons do.
+	_end_dim = _build_dim(0.88)
+
 	_end_banner = Control.new()
 	_end_banner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_end_banner.visible = false
 	hud.add_child(_end_banner)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.BACKGROUND
-	backdrop.color.a = 0.88
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_end_banner.add_child(backdrop)
 
 	var column := VBoxContainer.new()
 	column.set_anchors_preset(Control.PRESET_CENTER)
@@ -254,7 +271,7 @@ func _build_end_banner() -> void:
 	buttons.add_child(back_button)
 
 	var inspect_button := Button.new()
-	inspect_button.text = "Inspect party"
+	inspect_button.text = "Plans"
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
@@ -444,6 +461,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
 	_end_banner.visible = false
+	_end_dim.visible = false
 	_update_team_summary()
 	if _team_status != null:
 		_team_status.sync(state)
@@ -682,6 +700,7 @@ func _show_outcome() -> void:
 	if reason != "":
 		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
 	_end_banner.visible = true
+	_end_dim.visible = true
 
 ## Issue 218. **The banner used to contradict the line under it**: a fight where
 ## every pawn died and the siege engines finished the room off printed "Victory"
