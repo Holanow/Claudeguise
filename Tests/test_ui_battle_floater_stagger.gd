@@ -81,6 +81,62 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	DisplayOptions.reset()
 	view.free()
 
+## Issue 320: three "Rat dies" markers and a "Miss" inside a 130x100 box, two
+## of them overlapping exactly. `_floater_stagger_offset` compares two points
+## and the thing that collides is a plate as wide as the pawn's name, so three
+## rats a point-radius apart each got a zero offset and printed on top of each
+## other. Deaths now stack into a column.
+func test_deaths_in_one_scrum_stack_instead_of_overprinting() -> void:
+	const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
+	var view := _make_view_with_target(Vector2(200.0, 200.0))
+	for i in 2:
+		var extra := CombatUnit.new()
+		extra.id = i + 1
+		extra.team = CG.Team.ENEMY
+		extra.display_name = "Rat"
+		# Far enough apart that the point-radius stagger sees nothing, which is
+		# exactly the case the playtester photographed.
+		extra.position = Vector2(200.0 + 70.0 * float(i + 1), 200.0)
+		view.state.units.append(extra)
+
+	var arena := view.get_node("Arena")
+	var ys: Array[float] = []
+	for id in [0, 1, 2]:
+		var death := CombatEvent.make(CG.EventKind.DEATH, 1)
+		death.target_id = id
+		view.state.emit(death)
+		view.consume_events()
+		var marker: Node2D = _last_with_script(arena, DamageFloaterScript)
+		assert_true(marker.death_marker, "a death must spawn a death marker, not a plain floater")
+		ys.append(marker.position.y)
+
+	assert_ne(ys[0], ys[1], "the second death in a scrum must not print on the first")
+	assert_ne(ys[1], ys[2], "nor the third on the second")
+	assert_ne(ys[0], ys[2])
+	DisplayOptions.reset()
+	view.free()
+
+## The negative half: a death across the arena from another one must not be
+## dragged up into a column with it.
+func test_a_death_far_from_another_does_not_stack() -> void:
+	var view := _make_view_with_target(Vector2.ZERO)
+	var far := CombatUnit.new()
+	far.id = 1
+	far.team = CG.Team.ENEMY
+	far.display_name = "Goblin"
+	far.position = Vector2(900.0, 0.0)
+	view.state.units.append(far)
+	assert_eq(view._death_stack_offset(far.position), Vector2.ZERO)
+
+	var death := CombatEvent.make(CG.EventKind.DEATH, 1)
+	death.target_id = 0
+	view.state.emit(death)
+	view.consume_events()
+	assert_eq(view._death_stack_offset(far.position), Vector2.ZERO,
+		"a death at the other end of the arena is not in this scrum")
+	DisplayOptions.reset()
+	view.free()
+
 func _last_with_script(arena: Node, script: Script) -> Node2D:
 	for i in range(arena.get_child_count() - 1, -1, -1):
 		var child := arena.get_child(i)

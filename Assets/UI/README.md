@@ -162,6 +162,7 @@ Assets/UI/background/level_editor.png   just the level editor
 Assets/UI/background/arena.png          just the floor inside the arena
 Assets/UI/border/arena.png              just the frame around the arena
 Assets/UI/panel/inspect.png             just the inspect panel
+Assets/UI/panel/death.png               just the plate behind "Warrior dies"
 ```
 
 The specific file wins for that element, the general one keeps covering

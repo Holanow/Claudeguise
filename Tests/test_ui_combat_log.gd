@@ -316,6 +316,20 @@ func test_death_line_names_the_unit() -> void:
 	assert_true(line.contains("dies"), line)
 	view.free()
 
+## Issue 320: every death printed in the enemy colour, so losing your own
+## Warrior read exactly like killing a Rat.
+func test_a_death_line_is_coloured_by_the_side_that_lost_the_unit() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var enemy := CombatEvent.make(CG.EventKind.DEATH, 3)
+	enemy.target_id = 1
+	var mine := CombatEvent.make(CG.EventKind.DEATH, 3)
+	mine.target_id = 0
+	assert_true(view.line_for_event(state, enemy).contains(Palette.TEAM_ENEMY.to_html()))
+	assert_true(view.line_for_event(state, mine).contains(Palette.TEAM_PLAYER.to_html()),
+		"the player's own casualty must not read in the enemy colour")
+	view.free()
+
 func test_miss_line_names_actor_action_and_target() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()

@@ -10,13 +10,14 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## the fight resolves, and it names what the fight cost without asking the
 ## player to count bars.
 
-func _make_unit(id: int, team: CG.Team, hp: int, hp_max: int, alive: bool = true) -> CombatUnit:
+func _make_unit(id: int, team: CG.Team, hp: int, hp_max: int, alive: bool = true, display_name: String = "") -> CombatUnit:
 	var u := CombatUnit.new()
 	u.id = id
 	u.team = team
 	u.hp = hp
 	u.hp_max = hp_max
 	u.alive = alive
+	u.display_name = display_name if display_name != "" else "Pawn %d" % id
 	return u
 
 func _spawn() -> Node2D:
@@ -47,21 +48,59 @@ func test_a_full_survival_reads_as_a_whole_party() -> void:
 func test_a_total_wipe_reads_as_none_survived() -> void:
 	var view = _spawn()
 	var state := CombatState.new(0)
-	state.units.append(_make_unit(0, CG.Team.PLAYER, 0, 10, false))
-	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false))
+	state.units.append(_make_unit(0, CG.Team.PLAYER, 0, 10, false, "Warrior"))
+	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false, "Priest"))
 	view.state = state
-	assert_eq(view._cost_summary(), "None of your party survived.")
+	assert_eq(view._cost_summary(), "None of your party survived.  You lost Warrior and Priest.")
 	view.free()
 
 func test_a_partial_loss_counts_survivors_against_the_starting_party() -> void:
 	var view = _spawn()
 	var state := CombatState.new(0)
 	state.units.append(_make_unit(0, CG.Team.PLAYER, 6, 10))
-	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false))
+	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false, "Warrior"))
 	state.units.append(_make_unit(2, CG.Team.PLAYER, 3, 10))
 	view.state = state
-	assert_eq(view._cost_summary(), "2 of 3 survived.")
+	assert_eq(view._cost_summary(), "2 of 3 survived.  You lost Warrior.")
 	view.free()
+
+## Issue 320, the playtester's own words: "Fight 1 said '3 of 4 survived' and
+## named nobody ... twice I watched a party member die and the game never told
+## me which one."
+func test_the_cost_summary_names_every_pawn_that_died() -> void:
+	var view = _spawn()
+	var state := CombatState.new(0)
+	state.units.append(_make_unit(0, CG.Team.PLAYER, 6, 10, true, "Priest"))
+	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false, "Warrior"))
+	state.units.append(_make_unit(2, CG.Team.PLAYER, 0, 10, false, "Abomination"))
+	state.units.append(_make_unit(3, CG.Team.ENEMY, 0, 10, false, "Goblin"))
+	view.state = state
+	var summary: String = view._cost_summary()
+	assert_true(summary.contains("Warrior"), summary)
+	assert_true(summary.contains("Abomination"), summary)
+	assert_false(summary.contains("Goblin"), "an enemy death is not a cost the player paid: " + summary)
+	assert_false(summary.contains("Priest"), "a survivor must not read as a casualty: " + summary)
+	view.free()
+
+## A summoned siege engine is a player-team unit with no pawn. It must not be
+## named as a casualty for the same reason it is not counted as one.
+func test_a_dead_summon_is_not_named_as_a_casualty() -> void:
+	var view = _spawn()
+	var state := CombatState.new(0)
+	state.units.append(_make_unit(0, CG.Team.PLAYER, 0, 10, false, "Warrior"))
+	var summon := _make_unit(1, CG.Team.PLAYER, 0, 10, false, "Siege Engine")
+	summon.enemy_id = &"siege_engine"
+	state.units.append(summon)
+	view.state = state
+	assert_eq(view._cost_summary(), "None of your party survived.  You lost Warrior.")
+	view.free()
+
+func test_name_list_reads_as_a_sentence_at_one_two_and_three() -> void:
+	assert_eq(BattleView.name_list([] as Array[String]), "")
+	assert_eq(BattleView.name_list(["Warrior"] as Array[String]), "Warrior")
+	assert_eq(BattleView.name_list(["Warrior", "Priest"] as Array[String]), "Warrior and Priest")
+	assert_eq(BattleView.name_list(["Warrior", "Priest", "Abomination"] as Array[String]),
+		"Warrior, Priest and Abomination")
 
 func test_end_banner_is_hidden_until_the_fight_resolves() -> void:
 	var view = _spawn()

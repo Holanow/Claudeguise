@@ -279,6 +279,7 @@ static func _format_duration(ticks: int) -> String:
 func _cost_summary() -> String:
 	var alive := 0
 	var total := 0
+	var fallen: Array[String] = []
 	for u in state.units:
 		# PLAYTEST-NOTES 21: a siege engine (or any other mid-fight summon --
 		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
@@ -286,11 +287,19 @@ func _cost_summary() -> String:
 		total += 1
 		if u.hp > 0:
 			alive += 1
+		else:
+			fallen.append(u.display_name)
 	if alive == total:
 		return "Your whole party survived."
-	elif alive == 0:
-		return "None of your party survived."
-	return "%d of %d survived." % [alive, total]
+	var count := "None of your party survived." if alive == 0 else "%d of %d survived." % [alive, total]
+	return "%s  You lost %s." % [count, name_list(fallen)]
+
+## Issue 320. "3 of 4 survived" named nobody, so the playtester restarted the
+## fight with name plates on to work out which pawn was missing.
+static func name_list(names: Array[String]) -> String:
+	if names.size() <= 1:
+		return "" if names.is_empty() else names[0]
+	return "%s and %s" % [", ".join(names.slice(0, names.size() - 1)), names[-1]]
 
 ## Issue 43: height reserved for the info row (labels only, no touch
 ## target requirement) now that it is split from the controls row below
@@ -608,16 +617,38 @@ func _spawn_interrupt_flash(e: CombatEvent) -> void:
 ## garbled string.
 const _DEATH_MARKER_OFFSET := Vector2(0.0, -22.0) * UnitViewScript.DISPLAY_SCALE
 
+## Issue 320. Several deaths in one scrum still printed over each other, because
+## `_floater_stagger_offset` compares two points and the thing that collides is
+## a plate as wide as "Abomination dies". Deaths stack into a column instead.
+const _DEATH_STACK_RADIUS := 150.0 * UnitViewScript.DISPLAY_SCALE
+const _DEATH_STACK_STEP := 26.0 * UnitViewScript.DISPLAY_SCALE
+
+func _death_stack_offset(base_position: Vector2) -> Vector2:
+	var count := 0
+	for child in _arena.get_children():
+		if child.get_script() == DamageFloaterScript and child.death_marker \
+				and child.position.distance_to(base_position) < _DEATH_STACK_RADIUS:
+			count += 1
+	return Vector2(0.0, -_DEATH_STACK_STEP * float(count))
+
+## The player's own pawns read larger than an enemy's: issue 320 is about not
+## seeing your own party die, and four "Goblin dies" plates are the noise.
+func _death_font_size(target) -> int:
+	var base := Palette.FONT_SIZE_BODY if target.team == CG.Team.PLAYER else Palette.FONT_SIZE_SMALL
+	return int(round(base * UnitViewScript.DISPLAY_SCALE))
+
 func _spawn_death_marker(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
+	var at := target.position + _DEATH_MARKER_OFFSET \
+		+ _floater_stagger_offset(target.position) + _death_stack_offset(target.position)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
-	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	marker.show_text("%s dies" % target.display_name, Palette.team_color(target.team), 1.8,
-		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
+	marker.position = at
+	marker.show_death("%s dies" % target.display_name, Palette.team_color(target.team),
+		_death_font_size(target))
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
