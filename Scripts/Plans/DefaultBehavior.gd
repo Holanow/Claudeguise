@@ -10,9 +10,8 @@ class_name DefaultBehavior
 ## 40-45 world units; every ranged one sits at 200+.
 const MELEE_RANGE_THRESHOLD := 60.0
 
-## A ranged unit closer than this fraction of its own range backs off instead
-## of firing, so "ranged classes keep their distance" is an observable choice
-## rather than an accident of where the fight started.
+## A ranged unit closer than this fraction of its own range backs off, but only
+## on a tick it cannot shoot: the shot always wins over the step. Issue 97.
 const KITE_RANGE_FRACTION := 0.6
 
 ## Range is checked when a hit lands, not when it commits (CombatSim's own
@@ -85,10 +84,12 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		var wants_to_close := attack_action.pull_distance > 0.0
 		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
-		if dist < kite_min and not wants_to_close:
-			return Intent.move_to(_retreat_point(unit, target))
 		if dist > commit_max:
 			return Intent.move_to(target.position)
+		## Issue 97: the retreat is what a unit does INSTEAD of shooting, so it
+		## only gets the tick when there is no shot to take.
+		if dist < kite_min and not wants_to_close and not PlanInterpreter.can_afford(state, unit, attack_action.id):
+			return Intent.move_to(_retreat_point(unit, target))
 		return Intent.use_action(attack_action.id, target.id)
 
 	var commit_max_melee := attack_action.range_units * MELEE_COMMIT_FRACTION

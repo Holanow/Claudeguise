@@ -1,0 +1,170 @@
+extends "res://Tests/TestCase.gd"
+
+
+## Issue 97: the automatic kite band, and the one thing it is no longer allowed
+## to do -- walk a unit away from a shot it could take on this tick.
+
+func _immobile_dummy(id: int, team: CG.Team, pos: Vector2) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = id
+	u.team = team
+	u.position = pos
+	u.hp_max = 1000000
+	u.hp = u.hp_max
+	u.move_speed = 0.0
+	u.actions = []
+	return u
+
+func _stalker(at: Vector2 = Vector2.ZERO) -> CombatUnit:
+	var def := Registry.get_enemy(&"stalker")
+	var u := CombatUnit.new()
+	u.id = 0
+	u.team = CG.Team.PLAYER
+	u.enemy_id = &"stalker"
+	u.position = at
+	u.hp_max = 1000
+	u.hp = u.hp_max
+	u.resource_kind = def.resource_kind
+	u.resource_max = def.resource_max
+	u.resource = def.resource_max
+	u.move_speed = def.move_speed
+	u.radius = def.radius
+	u.actions = def.actions.duplicate()
+	return u
+
+func _decide(unit: CombatUnit, enemy_at: float) -> Intent:
+	var enemy := _immobile_dummy(1, CG.Team.ENEMY, Vector2(enemy_at, 0.0))
+	var state := CombatState.new(0)
+	state.units.append(unit)
+	state.units.append(enemy)
+	return DefaultBehavior.decide(state, unit)
+
+
+## **The defect, and it is heron's measurement in commit a6750e8 stated as one
+## decision:** the Rat King "is in range and forbidden to fire, which is worse".
+func test_a_ranged_unit_inside_the_kite_floor_fires_rather_than_backing_off() -> void:
+	var stalker := _stalker()
+	var intent := _decide(stalker, 60.0)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
+		"60 units is inside the 132-unit kite floor and well inside a 220-unit reach; the shot wins the tick")
+	assert_eq(intent.target_id, 1)
+
+
+## The band is not deleted. On a tick with no shot to take, the retreat is still
+## what the unit does, and it still goes away from the target.
+func test_the_same_unit_still_backs_off_when_every_attack_is_cooling() -> void:
+	var stalker := _stalker()
+	stalker.cooldowns[&"stalker_mark"] = 30
+	stalker.cooldowns[&"stalker_dart"] = 30
+	var intent := _decide(stalker, 60.0)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
+		"nothing can fire, so the tick is the retreat's")
+	assert_true(intent.destination.distance_to(Vector2(60.0, 0.0)) > 60.0,
+		"a retreat must end further from the target than it started, got %s" % intent.destination)
+
+
+## The far edge of the band is a different rule and is untouched: firing at the
+## rim of range whiffs against anything that steps back during the wind-up.
+func test_a_unit_beyond_its_commit_distance_still_closes() -> void:
+	var stalker := _stalker()
+	var intent := _decide(stalker, 210.0)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_true(intent.destination.distance_to(Vector2(210.0, 0.0)) < 210.0,
+		"beyond 0.85 of its reach the unit approaches, got %s" % intent.destination)
+
+
+## Issue 97's recorded constraint, now decided: a MOVEMENT block measures its
+## distance from the focused enemy, and a self-targeted action inside it is
+## still cast on the caster instead of being refused for having no reach.
+func test_a_movement_block_can_carry_a_self_targeted_action() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a0", "A")
+	var plan := Plan.new()
+	plan.id = &"kite_and_burn"
+	plan.display_name = "Immolate up close"
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_nearest_enemy"
+	var movement := PlanBlock.new()
+	movement.kind = PlanBlock.Kind.MOVEMENT
+	movement.op = &"keep_distance"
+	movement.args = {"range": 0.0}
+	var action := PlanBlock.new()
+	action.kind = PlanBlock.Kind.ACTION
+	action.op = &"use_action"
+	action.args = {"action_id": &"abomination_immolate"}
+	plan.blocks = [targeting, movement, action]
+	pawn.plans = [plan]
+
+	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var me: CombatUnit = null
+	var foe: CombatUnit = null
+	for u in state.units:
+		if u.team == CG.Team.PLAYER and me == null:
+			me = u
+		elif u.team == CG.Team.ENEMY and foe == null:
+			foe = u
+	for u in state.units:
+		if u.team == CG.Team.ENEMY and u != foe:
+			u.hp = 0
+	me.position = Vector2.ZERO
+	me.resource = me.resource_max
+	foe.position = Vector2(5.0, 0.0)
+
+	var intent := PlanInterpreter.decide(state, me)
+	assert_not_null(intent, "the block idled here before issue 97 decided this")
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
+	assert_eq(intent.action_id, &"abomination_immolate")
+	assert_eq(intent.target_id, me.id, "a self-targeted action lands on the caster, not on whoever the plan focused")
+
+
+## The negative half: aiming is not the same as reach. An enemy-targeted action
+## in a movement block is still refused when the enemy is outside its range.
+func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a1", "A")
+	var plan := Plan.new()
+	plan.id = &"grapple_from_afar"
+	plan.display_name = "Grapple"
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_nearest_enemy"
+	var movement := PlanBlock.new()
+	movement.kind = PlanBlock.Kind.MOVEMENT
+	movement.op = &"keep_distance"
+	movement.args = {"range": 300.0}
+	var action := PlanBlock.new()
+	action.kind = PlanBlock.Kind.ACTION
+	action.op = &"use_action"
+	action.args = {"action_id": &"abomination_grapple"}
+	plan.blocks = [targeting, movement, action]
+	pawn.plans = [plan]
+
+	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var me: CombatUnit = null
+	var foe: CombatUnit = null
+	for u in state.units:
+		if u.team == CG.Team.PLAYER and me == null:
+			me = u
+		elif u.team == CG.Team.ENEMY and foe == null:
+			foe = u
+	for u in state.units:
+		if u.team == CG.Team.ENEMY and u != foe:
+			u.hp = 0
+	me.position = Vector2.ZERO
+	me.resource = me.resource_max
+	foe.position = Vector2(300.0, 0.0)
+
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.IDLE,
+		"a 45-unit grapple cannot reach 300 units; the block holds position and says so")
+
+
+## The op names itself in the plan editor. An unnamed op renders as
+## "unknown op 'keep_distance'" on the one screen this issue exists to fix.
+func test_the_movement_op_has_a_player_facing_sentence() -> void:
+	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 120.0}), "hold 120 units from the target")
+	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 0.0}), "close to the target")
+	for op in PlanInterpreter.MOVEMENT_OPS:
+		assert_true(PlanInterpreter.MOVEMENT_ARG_SHAPE.has(op),
+			"the editor cannot build a value editor for '%s' without an arg shape" % op)
+		assert_true(PlanInterpreter.describe_op(op, {}).find("unknown op") == -1,
+			"'%s' has no sentence" % op)
