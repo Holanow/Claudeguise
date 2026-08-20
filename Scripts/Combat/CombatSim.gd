@@ -833,9 +833,7 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		e.damage_type = _DOT_STATUSES[status]
 		e.status = status
 		state.emit(e)
-		if unit.hp <= 0 and unit.alive:
-			unit.alive = false
-			state.emit(_event(CG.EventKind.DEATH, state.tick, -1, unit.id, &""))
+		if _kill_if_dead(state, unit, -1, &""):
 			return
 
 ## A tar pit: terrain that applies a status rather than dealing damage.
@@ -887,9 +885,7 @@ static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
 		e.amount = applied
 		e.damage_type = hazard.damage_type
 		state.emit(e)
-		if unit.hp <= 0 and unit.alive:
-			unit.alive = false
-			state.emit(_event(CG.EventKind.DEATH, state.tick, -1, unit.id, &""))
+		if _kill_if_dead(state, unit, -1, &""):
 			return
 
 # ---------------------------------------------------------------------------
@@ -1074,44 +1070,67 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	## How hard this hit landed, after mitigation, or 0 for a heal. Read below by
 	## `_apply_status` for a status whose magnitude is the hit that applied it.
 	var dealt := 0
-
 	if action.heals:
-		var amount := maxi(0, int(round(deps.attack_power.call(unit, action, state.rng) + bonus)))
-		var before := target.hp
-		target.hp = mini(target.hp_max, target.hp + amount)
-		var applied := target.hp - before
-		if applied > 0:
-			var e := _event(CG.EventKind.HEAL, state.tick, unit.id, target.id, action.id)
-			e.amount = applied
-			e.damage_type = action.damage_type
-			state.emit(e)
+		_apply_heal(state, unit, target, action, bonus, deps)
 	else:
-		var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
-		var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
-		var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
-		var before := target.hp
-		target.hp = maxi(0, target.hp - mitigated)
-		var applied := before - target.hp
-		dealt = mitigated
-		var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, target.id, action.id)
-		e.amount = applied
-		e.amount_before_mitigation = int(round(raw))
-		e.damage_type = action.damage_type
-		state.emit(e)
-		_on_damage_taken(state, target, applied, deps)
+		dealt = _apply_damage(state, unit, target, action, bonus, deps)
 
 	if action.applies_status_enabled:
 		_apply_status(state, unit, target, action, dealt)
 
-	if target.hp <= 0 and target.alive:
-		target.alive = false
-		state.emit(_event(CG.EventKind.DEATH, state.tick, unit.id, target.id, action.id))
+	_kill_if_dead(state, target, unit.id, action.id)
 
 	if action.pull_distance > 0.0 and target.alive:
 		_apply_pull(state, unit, target, action.pull_distance)
 
 	if action.cleanses_harmful and target.alive:
 		_cleanse_harmful(state, unit, target, action)
+
+## The heal half. `applied` is what the health bar actually moved, so a heal on
+## a target already at full emits nothing rather than a HEAL of 0.
+static func _apply_heal(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps) -> void:
+	var amount := maxi(0, int(round(deps.attack_power.call(unit, action, state.rng) + bonus)))
+	var before := target.hp
+	target.hp = mini(target.hp_max, target.hp + amount)
+	var applied := target.hp - before
+	if applied <= 0:
+		return
+	var e := _event(CG.EventKind.HEAL, state.tick, unit.id, target.id, action.id)
+	e.amount = applied
+	e.damage_type = action.damage_type
+	state.emit(e)
+
+## The damage half. Returns the MITIGATED figure, which is what a hit-scaled
+## status stores -- deliberately not the `applied` figure the event carries,
+## which is clamped by however much health the target had left.
+static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps) -> int:
+	var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
+	var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
+	var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
+	var before := target.hp
+	target.hp = maxi(0, target.hp - mitigated)
+	var applied := before - target.hp
+	var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, target.id, action.id)
+	e.amount = applied
+	e.amount_before_mitigation = int(round(raw))
+	e.damage_type = action.damage_type
+	state.emit(e)
+	_on_damage_taken(state, target, applied, deps)
+	return mitigated
+
+## The one shape a unit dies in, shared by the three things that can kill one:
+## an action's effect, a damage-over-time status and a hazard. Returns whether
+## this call is the one that killed it, so a caller iterating a unit's remaining
+## damage sources can stop.
+##
+## `source_id` and `action_id` are the caller's to state: a DOT and a hazard have
+## neither, and pass -1 and the empty name exactly as they always did.
+static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, action_id: StringName) -> bool:
+	if unit.hp > 0 or not unit.alive:
+		return false
+	unit.alive = false
+	state.emit(_event(CG.EventKind.DEATH, state.tick, source_id, unit.id, action_id))
+	return true
 
 # ---------------------------------------------------------------------------
 # a status that remembers something (issues 121 and 130)
@@ -1573,12 +1592,7 @@ static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
 ## sliding into the path blocks that tick's hit-check with no special case.
 static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps) -> void:
 	var travelled_from := p.position
-	var to_aim := p.aim_point - p.position
-	var remaining := to_aim.length()
-	if p.speed >= remaining or remaining <= 0.0001:
-		p.position = p.aim_point
-	else:
-		p.position = p.position + to_aim.normalized() * p.speed
+	_step_projectile(p)
 
 	var action: ActionDef = deps.action_lookup.call(p.action_id)
 	var target := state.unit(p.target_id)
@@ -1589,25 +1603,47 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 		if shielder != null:
 			p.resolved = true
 			state.emit(_event(CG.EventKind.BLOCKED, state.tick, p.source_id, shielder.id, p.action_id))
-			for t in _splash_targets(state, shielder, action):
-				_apply_action_effect(state, source, t, action, deps)
-			_on_hit_landed(state, source, action, deps)
+			_land_hit(state, source, shielder, action, deps)
 			return
-
-		if target.alive:
-			var in_range := p.position.distance_to(target.position) <= target.radius
-			var blocked := action.requires_line_of_sight \
-				and Terrain.line_is_blocked(state.terrain, p.position, target.position)
-			if in_range and not blocked:
-				p.resolved = true
-				for t in _splash_targets(state, target, action):
-					_apply_action_effect(state, source, t, action, deps)
-				_on_hit_landed(state, source, action, deps)
-				return
+		if _projectile_hits(state, p, target, action):
+			p.resolved = true
+			_land_hit(state, source, target, action, deps)
+			return
 
 	if p.position == p.aim_point:
 		p.resolved = true
 		state.emit(_event(CG.EventKind.MISS, state.tick, p.source_id, p.target_id, p.action_id))
+
+## One tick of travel toward the frozen `aim_point`, landing exactly on it
+## rather than overshooting -- which is what makes "reached the aim point" an
+## exact equality test above rather than a distance threshold.
+static func _step_projectile(p: Projectile) -> void:
+	var to_aim := p.aim_point - p.position
+	var remaining := to_aim.length()
+	if p.speed >= remaining or remaining <= 0.0001:
+		p.position = p.aim_point
+	else:
+		p.position = p.position + to_aim.normalized() * p.speed
+
+## Condition (1) above: the shot's new position is inside the target's own body,
+## and nothing has slid into the line since it was launched.
+static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUnit, action: ActionDef) -> bool:
+	if not target.alive:
+		return false
+	if p.position.distance_to(target.position) > target.radius:
+		return false
+	if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, p.position, target.position):
+		return false
+	return true
+
+## What a connecting shot does, and both branches above do the same three
+## things: splash around whoever it actually hit, apply the effect to each, then
+## pay the source for a landed hit. `hit` is the shielder or the intended
+## target; nothing else about the two branches differs.
+static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	for t in _splash_targets(state, hit, action):
+		_apply_action_effect(state, source, t, action, deps)
+	_on_hit_landed(state, source, action, deps)
 
 ## How wide the shield is: how close a hostile shot's path has to pass to a
 ## SHIELDING unit's front for that unit to take it instead.
@@ -1713,27 +1749,36 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 		if not player_alive or not enemy_alive:
 			reason = CG.EndReason.CANNOT_ACT
 
-	var outcome := CombatState.Outcome.UNRESOLVED
-	if player_alive and not enemy_alive:
-		outcome = CombatState.Outcome.PLAYER_WIN
-	elif enemy_alive and not player_alive:
-		outcome = CombatState.Outcome.ENEMY_WIN
-	elif not player_alive and not enemy_alive:
-		outcome = CombatState.Outcome.DRAW
-	elif state.tick >= CG.MAX_TICKS:
+	var outcome := _outcome_for(player_alive, enemy_alive)
+	if outcome == CombatState.Outcome.UNRESOLVED and state.tick >= CG.MAX_TICKS:
 		outcome = CombatState.Outcome.DRAW
 		# THE ONE ENDING `CG.EndReason` HAS NO NAME FOR, AND I AM NOT INVENTING
 		reason = CG.EndReason.UNSET
+	if outcome == CombatState.Outcome.UNRESOLVED:
+		return
+	_end_fight(state, outcome, reason)
 
-	if outcome != CombatState.Outcome.UNRESOLVED:
-		state.outcome = outcome
-		# finch's #219 finding, and the fifth way a channel can end: the fight
-		for unit in state.units:
-			if unit.alive and unit.sustaining != &"":
-				_end_sustain(state, unit)
-		var end_event := _event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &"")
-		end_event.end_reason = reason
-		state.emit(end_event)
+## Who won, from who is still in the fight. UNRESOLVED means both sides are
+## still standing, which is the only case the tick cap ever gets a say in.
+static func _outcome_for(player_alive: bool, enemy_alive: bool) -> CombatState.Outcome:
+	if player_alive and not enemy_alive:
+		return CombatState.Outcome.PLAYER_WIN
+	if enemy_alive and not player_alive:
+		return CombatState.Outcome.ENEMY_WIN
+	if not player_alive and not enemy_alive:
+		return CombatState.Outcome.DRAW
+	return CombatState.Outcome.UNRESOLVED
+
+## Everything the end of a fight does, once it has been decided.
+static func _end_fight(state: CombatState, outcome: CombatState.Outcome, reason: CG.EndReason) -> void:
+	state.outcome = outcome
+	# finch's #219 finding, and the fifth way a channel can end: the fight
+	for unit in state.units:
+		if unit.alive and unit.sustaining != &"":
+			_end_sustain(state, unit)
+	var end_event := _event(CG.EventKind.FIGHT_END, state.tick, -1, -1, &"")
+	end_event.end_reason = reason
+	state.emit(end_event)
 
 ## Issue 233. A side is beaten when it has no living unit left **or** when
 ## every unit it has left can never act again for the rest of the fight.
