@@ -170,6 +170,35 @@ func test_a_beneficial_status_ends_rather_than_fades() -> void:
 	assert_true(line.contains("ends"), line)
 	assert_false(line.contains("fades"), line)
 
+## Issue 308. The taunt's STATUS_APPLIED is the only line the log ever prints
+## about a compulsion -- the walk under it emits nothing -- and it threw away
+## `source_id`, which is the taunter.
+func test_a_taunt_names_the_taunter() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.status = CG.Status.TAUNTED
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Warrior"), "the taunter is named: %s" % line)
+	assert_true(line.contains("Rat"), "the victim is named: %s" % line)
+
+	## A status the simulation reports with no source must not gain a "by ?",
+	## and a self-applied one must not name the same unit twice.
+	var hazard := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	hazard.target_id = 1
+	hazard.status = CG.Status.BURN
+	assert_false(view.line_for_event(state, hazard).contains("by"),
+		view.line_for_event(state, hazard))
+	var selfcast := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	selfcast.source_id = 0
+	selfcast.target_id = 0
+	selfcast.status = CG.Status.SHIELD
+	assert_false(view.line_for_event(state, selfcast).contains("by"),
+		view.line_for_event(state, selfcast))
+	view.free()
+
 func test_a_harmful_status_still_reads_as_an_affliction() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
