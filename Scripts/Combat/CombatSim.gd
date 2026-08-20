@@ -586,9 +586,15 @@ static func _apply_hazard_status(state: CombatState, unit: CombatUnit, hazard) -
 	var status: CG.Status = hazard.applies_status
 	var entering := not unit.has_status(status)
 	unit.statuses[status] = state.tick + hazard.status_duration_ticks
+	## `maxf`, so standing in a weak fire never waters down a fiercer burn a hit
+	## already applied -- the same rule `_apply_status` uses for a hit-scaled status.
+	if hazard.status_magnitude > 0.0:
+		var carried := float(unit.status_magnitude.get(status, 0.0))
+		unit.status_magnitude[status] = maxf(carried, hazard.status_magnitude)
 	if entering:
 		var e := _event(CG.EventKind.STATUS_APPLIED, state.tick, -1, unit.id, &"")
 		e.status = status
+		e.amount = int(unit.status_magnitude.get(status, 0.0))
 		state.emit(e)
 
 ## A unit standing in a HAZARD takes its damage every tick it is inside, with
