@@ -16,6 +16,11 @@ var _seam: ColorRect = null
 var _landscape := true
 
 func _ready() -> void:
+	## This node is anchored full-rect and draws nothing itself; only the box in
+	## the corner is real. Left on the Control default it is a screen-sized
+	## click target, which is the shape of the defect issue 343 is about.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	_backdrop = ColorRect.new()
 	_backdrop.color = Palette.BACKGROUND
 	_backdrop.color.a = 0.72

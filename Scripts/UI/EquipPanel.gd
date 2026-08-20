@@ -146,8 +146,8 @@ func _build_detail(pawn: PawnData) -> void:
 	for control in _effect_controls(pawn):
 		%DetailBox.add_child(control)
 
-	%DetailBox.add_child(_section_header("Skills your gear grants"))
-	for control in _granted_controls(pawn):
+	%DetailBox.add_child(_section_header("Actions"))
+	for control in _action_controls(pawn):
 		%DetailBox.add_child(control)
 
 # ---------------------------------------------------------------------------
@@ -398,21 +398,32 @@ func granted_action_ids(pawn: PawnData) -> Array[StringName]:
 				out.append(action_id)
 	return out
 
-func _granted_controls(pawn: PawnData) -> Array[Control]:
+## Every action this pawn can call, gear included, and which of them the gear
+## put there. The plans panel listed the same row without the gear in it, forty
+## pixels away, and two lists that disagree teach a player to trust neither.
+func _action_controls(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	var granted := granted_action_ids(pawn)
-	if granted.is_empty():
-		out.append(_line(
-			"None. No item this pawn is wearing teaches a skill. Plate Mail is the one that does.",
+	var available: Array = Registry.actions_for_pawn(pawn)
+	if available.is_empty():
+		out.append(_line("None. This pawn has nothing to call.",
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	for action_id in granted:
+	for action_id in available:
 		row.add_child(_action_chip(action_id))
 	out.append(row)
+
+	var granted := granted_action_ids(pawn)
+	if granted.is_empty():
+		out.append(_line(
+			"All %d are this pawn's own. Nothing it is wearing teaches a skill; Plate Mail is the one that does." % available.size(),
+			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		return out
+	var names := granted.map(func(a): return _action_display_name(a))
 	out.append(_line(
-		"Now a skill block in Edit your pawns' plans, on top of this pawn's own %d." % _class_action_count(pawn),
+		"%s came from gear, on top of this pawn's own %d, and each is a skill block in Edit your pawns' plans." % [
+			", ".join(names), _class_action_count(pawn)],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	return out
 
