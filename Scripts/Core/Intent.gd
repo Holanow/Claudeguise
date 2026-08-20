@@ -39,7 +39,7 @@ var source_plan: StringName = &""
 ##
 ## It needs its own value because it is a third thing, not a shade of the other
 ## two. Left at &"" it reads as "the fallback decided", which is wrong in the one
-## case a player is most likely to be confused by — their pawn abandoning the row
+## case a player is most likely to be confused by â€” their pawn abandoning the row
 ## they wrote. Issue 98's principle is exactly this: a pawn doing something that
 ## is in no plan the player can see.
 ##
