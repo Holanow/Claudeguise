@@ -40,6 +40,7 @@ var _hint: Label = null
 var _encounter_label: Label = null
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	# Issue 237. One line instead of three, and the point is not the two lines:
@@ -59,17 +60,14 @@ func _ready() -> void:
 	add_child(margin)
 
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	margin.add_child(column)
 
 	var title := Label.new()
 	title.text = "Place your party"
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(title)
 
 	_encounter_label = Label.new()
-	_encounter_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_encounter_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	column.add_child(_encounter_label)
 
@@ -107,7 +105,6 @@ func _ready() -> void:
 	var fight := Button.new()
 	fight.text = "Start Fight"
 	fight.custom_minimum_size = Vector2(220.0, Palette.TOUCH_TARGET_MIN)
-	fight.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	fight.pressed.connect(_on_fight_pressed)
 	buttons.add_child(fight)
 
@@ -117,14 +114,12 @@ func _ready() -> void:
 	var reset := Button.new()
 	reset.text = "Reset placement"
 	reset.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	reset.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	reset.pressed.connect(reset_placement)
 	buttons.add_child(reset)
 
 	var back := Button.new()
 	back.text = "Back"
 	back.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	back.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	back.pressed.connect(func(): back_requested.emit())
 	buttons.add_child(back)
 

@@ -122,6 +122,7 @@ var _detail_box: VBoxContainer = null
 var _live_state = null
 
 func _ready() -> void:
+	theme = AppTheme.shared()
 	# set_anchors_preset (not used here) tries to *preserve the control's
 	# current rect* when it recomputes offsets — and this node's rect is
 	# still (0,0) the moment _ready() runs, since _ready() fires after
@@ -158,7 +159,6 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = HEADING
 	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	title.add_theme_color_override("font_color", Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title)
 
@@ -200,7 +200,6 @@ func _ready() -> void:
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(list_scroll)
 	_list_box = VBoxContainer.new()
-	_list_box.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(_list_box)
 
@@ -218,7 +217,6 @@ func _ready() -> void:
 	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(detail_scroll)
 	_detail_box = VBoxContainer.new()
-	_detail_box.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_detail_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_scroll.add_child(_detail_box)
 
@@ -315,7 +313,6 @@ func _build_detail(pawn: PawnData) -> void:
 		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
 		chip.tooltip_text = Glossary.attribute_text(a)
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-		chip.add_theme_color_override("font_color", Palette.TEXT)
 		attrs.add_child(chip)
 	_detail_box.add_child(attrs)
 
@@ -376,7 +373,6 @@ func _action_chip(action_id: StringName) -> Control:
 		chip.tooltip_text = "This action is not in the registry, so nothing can use it."
 		return chip
 	chip.text = action.display_name
-	chip.add_theme_color_override("font_color", Palette.TEXT)
 	chip.tooltip_text = _action_description(action)
 	return chip
 
@@ -476,7 +472,6 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 			out.append(_inert_note(spent, budget))
 
 	var fallback_header := HBoxContainer.new()
-	fallback_header.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	fallback_header.add_child(_line(
 		"Fallback, always last and not yours to change:",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
@@ -494,7 +489,6 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 ## on.
 func _inert_note(needed: int, budget: int) -> Control:
 	var indent := HBoxContainer.new()
-	indent.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
 	indent.add_child(gutter)
@@ -547,7 +541,6 @@ func _blocks_used(pawn: PawnData) -> int:
 ## able to delete is exactly the row that has gone inert.
 func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	if inert:
 		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
 
@@ -945,7 +938,6 @@ func _fixed_chip(text: String) -> Control:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	label.add_theme_color_override("font_color", Palette.TEXT)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	panel.add_child(label)
 	return panel
@@ -1067,7 +1059,6 @@ func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> Act
 
 func _fixed_row(texts: Array) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	var spacer := Control.new()
 	# Lines the fixed row's first chip up under the editable rows' first chip,
 	# which sits after a number label and two reorder buttons.
