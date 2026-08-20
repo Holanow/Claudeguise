@@ -7,6 +7,8 @@ class_name DisplayOptionsPanel
 signal changed()
 
 var _rows: Array[CheckBox] = []
+var _scroll: ScrollContainer = null
+var _column: VBoxContainer = null
 
 ## Every state a row can be drawn in. `hover_pressed` is the one a screenshot
 ## caught missing: a ticked row under the pointer fell back to the engine's
@@ -33,8 +35,17 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_M))
 	backdrop.add_child(margin)
 
+	## The list scrolls, because the list grows: two options fitted 720px and
+	## four do not, and a fourth option nobody can reach is the defect this
+	## panel exists to have fixed (issue 319).
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(_scroll)
+
 	var column := VBoxContainer.new()
-	margin.add_child(column)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(column)
+	_column = column
 
 	var title := Label.new()
 	title.text = "What to show"
@@ -94,7 +105,23 @@ func _row_style(hover: bool) -> StyleBox:
 func toggle_visible() -> void:
 	if not visible:
 		refresh()
+		fit_to_screen()
 	visible = not visible
+
+## As tall as its contents, or as tall as the room under it, whichever is less.
+## Measured rather than capped at a constant: 520 would fit 1280x720 and run off
+## the bottom of a 844x390 launch, which this panel has done before.
+func fit_to_screen() -> void:
+	if _scroll == null or not is_inside_tree():
+		return
+	fit_within(get_viewport_rect().size.y - position.y - Palette.SPACE_M * 2.0)
+
+## Split from the measurement so the arithmetic can be tested without a window.
+func fit_within(room: float) -> void:
+	if _scroll == null:
+		return
+	var wanted := _column.get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = maxf(Palette.TOUCH_TARGET_MIN, minf(wanted, room))
 
 ## Issue 268. Through `UIArt.panel_style`, so `Assets/UI/panel.png` re-skins
 ## this panel the way the README has always claimed it does. With no file
