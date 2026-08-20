@@ -48,17 +48,21 @@ func _fight(party_ids: Array, encounter, fight_seed: int, c: Dictionary) -> void
 	var seen_events := 0
 	var behind_this_fight := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
-		# Which projectiles are still in flight, and at whom, before the tick
-		# resolves any of them. A BLOCKED event names the shooter and the
-		# blocker but never the unit the shot was aimed at, so the intended
-		# target has to be read off the projectile it belonged to.
+		# A BLOCKED event names the shooter and the blocker but never the unit
+		# the shot was aimed at, so the intended target has to be read off the
+		# projectile it belonged to: the ones that resolve during this tick.
+		var was_resolved := {}
+		for i in state.projectiles.size():
+			if (state.projectiles[i] as Projectile).resolved:
+				was_resolved[i] = true
+
+		CombatSim.step(state)
+
 		var aimed_at := {}
 		for i in state.projectiles.size():
 			var p: Projectile = state.projectiles[i]
-			if not p.resolved:
+			if p.resolved and not was_resolved.has(i):
 				aimed_at[i] = p.target_id
-
-		CombatSim.step(state)
 
 		while seen_events < state.events.size():
 			var e: CombatEvent = state.events[seen_events]
@@ -90,7 +94,7 @@ func _intended_target(state: CombatState, aimed_at: Dictionary, e: CombatEvent) 
 	var found := -1
 	for i in aimed_at:
 		var p: Projectile = state.projectiles[i]
-		if not p.resolved or p.source_id != e.source_id or p.action_id != e.action_id:
+		if p.source_id != e.source_id or p.action_id != e.action_id:
 			continue
 		if found != -1 and found != int(aimed_at[i]):
 			return -1 # two candidates disagreeing: refuse to guess
