@@ -11,13 +11,6 @@ extends SceneTree
 ## real decision layer against a real Brute carrying a real taunt and prints
 ## what comes back, rather than reading the file and reasoning about it.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 func _init() -> void:
 	var slam := Registry.get_action(&"brute_slam")

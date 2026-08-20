@@ -1,8 +1,6 @@
 extends RefCounted
+class_name GlossaryTooltip
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 const PIN_HINT := PopoutHost.PIN_HINT
 

@@ -1,18 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const TeamStatusView := preload("res://Scripts/UI/TeamStatusView.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
-const IconChip := preload("res://Scripts/UI/IconChip.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
 
 ## Issue 113, the team status panel.
 ##

@@ -1,4 +1,5 @@
 extends RefCounted
+class_name CG
 
 ## Frozen vocabulary for the whole project. Enums and simulation constants.
 ##

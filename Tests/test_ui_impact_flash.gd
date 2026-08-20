@@ -1,11 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const ImpactFlash := preload("res://Scripts/UI/ImpactFlash.gd")
 
 ## PLAYTEST-NOTES 4: "every class needs an attack asset ... so I know what's
 ## up" -- melee had nothing but DamageFloater's number where a hit landed.

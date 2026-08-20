@@ -1,12 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Swapping the party between runs is an acceptance criterion for the slice, so
 ## PartySelect is not a placeholder. These tests drive selection through

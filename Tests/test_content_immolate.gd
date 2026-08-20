@@ -1,13 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
 
 ## Issue 219. `SUSTAIN_START` and `SUSTAIN_END` were the last event kinds in the
 ## game that rendered a correct log line and **never happened** -- swift built

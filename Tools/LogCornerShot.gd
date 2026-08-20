@@ -18,10 +18,6 @@ extends Node
 ## No hand-built state: party select, room picker, Start fight, deploy, Start
 ## fight, then shots across a running fight, the same route as TeamPanelShot.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
-const TeamStatusView := preload("res://Scripts/UI/TeamStatusView.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

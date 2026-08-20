@@ -1,4 +1,5 @@
 extends Resource
+class_name PlanBlock
 
 ## One block inside a plan. The kind is not decoration: CONDITION gates the
 ## plan, TARGETING resolves instantly and moves the pawn's focus, ACTION is the

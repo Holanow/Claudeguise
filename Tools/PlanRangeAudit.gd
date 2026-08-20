@@ -15,10 +15,6 @@ extends SceneTree
 ## one session, and neither is wrong on its own. The simulation turns the
 ## disagreement into a silent miss, and on screen that reads as a broken caster.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
 func _init() -> void:
 	var problems := 0

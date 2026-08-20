@@ -12,10 +12,6 @@ extends SceneTree
 ## every `_PARTS` key. An id with no PNG and no polygon draws the unknown
 ## diamond, which is a third path and is also not dead.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
 
 func _init() -> void:
 	var poly_ids := {}

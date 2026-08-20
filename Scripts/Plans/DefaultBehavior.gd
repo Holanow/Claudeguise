@@ -1,14 +1,6 @@
 extends RefCounted
+class_name DefaultBehavior
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 
 ## What a unit does when no plan fires. Every unit has this, including enemies,
 ## which have no plans at all in this slice.

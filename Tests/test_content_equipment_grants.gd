@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## Issues 100 and 99: equipment that grants an action, and the Warrior's
 ## self-sustain that replaces the action it grants.
@@ -402,7 +390,6 @@ func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 ## than stand there. This is what proves the *grant* works independently of the
 ## plan row that makes it reachable in a real fight.
 func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
-	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a0", "Abomination")
 	pawn.plans = []
 	var state := CombatState.new(0)

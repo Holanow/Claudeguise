@@ -1,9 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Issue 241. **Where does `draw_unit` actually put ink, per facing?**
 ##

@@ -1,15 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## Issue 138. The Priest's heal was not being out-prioritised, it was being
 ## **out-spent**: on `main`, across 192 real fights, an ally sat at or below the

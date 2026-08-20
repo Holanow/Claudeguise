@@ -31,17 +31,6 @@ extends SceneTree
 ## preset plan ladder first, and the note printed at the end says what that
 ## costs.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 6
 const PROBE_ACTION_ID := &"probe_cleanse"

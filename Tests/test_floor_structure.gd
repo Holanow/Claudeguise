@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
 
 ## Covers all five acceptance criteria in Issues/issue-5-first-floor-structure.md.
 ## Everything here is headless: no CombatSim, no content, no screen, exactly

@@ -1,14 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Issue 12, the simulation half: a resolving action with `summons_unit_id`
 ## set adds a unit to `state.units`, on the caster's team, at or near the

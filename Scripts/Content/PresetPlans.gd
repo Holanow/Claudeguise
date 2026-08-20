@@ -1,8 +1,6 @@
 extends RefCounted
+class_name PresetPlans
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
 ## Preset plans, shipped on the pawn per issue 2. No editor, no
 ## UI: issue 3 displays these read-only. Each is deliberately a specialty

@@ -1,11 +1,6 @@
 extends Node2D
+class_name ArenaFloor
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The ground a fight happens on: a floor filling the play area, a boundary at
 ## the simulated bounds, a faint grid for a sense of scale, and whatever

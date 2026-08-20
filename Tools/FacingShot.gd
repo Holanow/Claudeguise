@@ -18,10 +18,6 @@ extends Node
 ## way it is looking. The picture shows a body; the print says which body and
 ## why, so a reviewer does not have to trust an eye on a mirrored polygon.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

@@ -1,10 +1,6 @@
 extends Node2D
+class_name IconsOverlay
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
 ## Draws status badges and wind-up icons over the real battle screen, for

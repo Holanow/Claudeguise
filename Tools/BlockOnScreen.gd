@@ -16,9 +16,6 @@ extends Node
 ## events it just watched. That is wren's file and this does not touch it: the
 ## empty strings in the output are the ask, not a defect I left behind.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 
 const OUT_DIR := "res://Screenshots"
 

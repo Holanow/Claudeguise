@@ -1,6 +1,6 @@
 extends Control
+class_name PopoutLayer
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
 const PopoutScript := preload("res://Scripts/UI/Popout.gd")
 
 ## Issue 112: where pinned popouts live, and the one place that knows how to

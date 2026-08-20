@@ -1,4 +1,5 @@
 extends RefCounted
+class_name FloorRoom
 
 ## One room in a generated floor's graph. Says what kind of room this is and
 ## what it connects to; never what it contains. `Scripts/Content/**` fills a

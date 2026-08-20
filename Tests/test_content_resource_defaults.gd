@@ -1,14 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## Issue 132's content half: what a fight starts with, and the magic default
 ## attack that returns mana.

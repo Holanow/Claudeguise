@@ -1,7 +1,6 @@
 extends Node2D
+class_name ImpactFlash
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
 ## A brief coloured ring expanding and fading at the moment a hit lands --
 ## sable's `AttackFX.draw_impact_flash` (Scripts/Art, PR #69), wired in here.

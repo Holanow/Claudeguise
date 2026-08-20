@@ -12,9 +12,6 @@ extends Node
 ## Comparing the state, not the label: a screen can print any name. The fight
 ## has to contain the room's own terrain and its own enemy positions.
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 var _main: Node

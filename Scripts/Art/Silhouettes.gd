@@ -1,9 +1,6 @@
 extends RefCounted
+class_name Silhouettes
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Placeholder art, as polygons in code.
 ##

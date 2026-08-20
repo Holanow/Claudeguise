@@ -1,6 +1,6 @@
 extends Resource
+class_name ActionDef
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Something a unit can do that takes time and may cost resource. Attacks,
 ## spells, blocks, and the plain move are all actions, so the simulation has one

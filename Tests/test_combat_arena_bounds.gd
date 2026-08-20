@@ -1,11 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## Issue 16's own criterion 3, against real content rather than hand-built
 ## fixtures: "the four-class party on seed 0000002A reaches a real outcome

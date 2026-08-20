@@ -1,8 +1,6 @@
 extends RefCounted
+class_name CombatUnit
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## One combatant's live state inside a fight. Built once from a PawnData or an
 ## enemy definition and mutated only by the simulation.

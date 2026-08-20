@@ -15,8 +15,6 @@ extends Node
 ## resolution, so both passes can run into the same directory without
 ## clobbering each other.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
 
 const OUT_DIR := "res://Screenshots"
 

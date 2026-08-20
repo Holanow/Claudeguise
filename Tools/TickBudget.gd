@@ -24,12 +24,6 @@ extends SceneTree
 ## Reports the worst case rather than an average: the longest fight seen, and
 ## any fight that actually hit the ceiling.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 20
 

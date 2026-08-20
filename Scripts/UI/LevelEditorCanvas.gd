@@ -1,7 +1,6 @@
 extends Control
+class_name LevelEditorCanvas
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const ArenaFloorScript := preload("res://Scripts/UI/ArenaFloor.gd")
 const OverlayScript := preload("res://Scripts/UI/LevelEditorOverlay.gd")
 

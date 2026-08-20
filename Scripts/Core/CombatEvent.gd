@@ -1,6 +1,6 @@
 extends RefCounted
+class_name CombatEvent
 
-const CG := preload("res://Scripts/Core/CG.gd")
 const Self := preload("res://Scripts/Core/CombatEvent.gd")
 
 ## Everything the simulation reports outwards. The battle view, the floating

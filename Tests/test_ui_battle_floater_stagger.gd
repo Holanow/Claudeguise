@@ -1,11 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
 
 ## Issue 26 item 3: in a scrum, several floating numbers used to spawn at the
 ## literal same point and read as one garbled string

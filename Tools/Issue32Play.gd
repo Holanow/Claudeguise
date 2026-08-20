@@ -14,8 +14,6 @@ extends Node
 ## own instruction, not in Tools/preview -- this is the player-facing record,
 ## not an engineer's tool output.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
 
 const OUT_DIR := "res://Screenshots"
 

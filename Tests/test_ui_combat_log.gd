@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## CombatLogView.line_for_event is pure formatting split out of the Control so
 ## it can be checked without a live RichTextLabel. This is the half of issue 3

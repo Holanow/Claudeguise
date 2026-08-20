@@ -1,9 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 const LevelEditorCanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 
 ## The level editor's own drawing on top of ArenaFloor: the party deploy

@@ -1,7 +1,6 @@
 extends Label
+class_name GlossaryLabel
 
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## A Label that shows a glossary popup on hover, for the ad hoc `Label.new()`
 ## chips screens already build. Build a bare Label, `set_script` this, set

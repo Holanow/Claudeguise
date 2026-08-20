@@ -1,4 +1,5 @@
 extends RefCounted
+class_name TestCase
 
 ## Base class for every test. Copy Tests/test_skeleton.gd as the pattern.
 ##

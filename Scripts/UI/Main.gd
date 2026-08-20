@@ -1,10 +1,5 @@
 extends Node
 
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const DeployView := preload("res://Scripts/UI/DeployView.gd")
 
 ## Root node. Owns which screen is showing and the RunConfig that passes
 ## between them. Nothing else in the project knows about screens.

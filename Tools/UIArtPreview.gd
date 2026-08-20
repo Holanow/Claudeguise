@@ -1,11 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 
 ## Every status badge and every ability icon, drawn at readable size and at the
 ## size they will actually be, plus the nine-slice border path. Same reasoning

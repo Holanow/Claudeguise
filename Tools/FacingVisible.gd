@@ -15,9 +15,6 @@ extends Node
 ## Points rather than pixels because `build_parts` is what `draw_unit` draws and
 ## comparing its output asks the drawing itself rather than a rasterisation of it.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 func _ready() -> void:
 	var ids: Array[StringName] = []

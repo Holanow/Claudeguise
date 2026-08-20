@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
 
 ## Covers all four acceptance criteria in Issues/issue-9-rooms-run-fights.md.
 ## Uses real content (PawnFactory, Registry's one authored encounter) rather

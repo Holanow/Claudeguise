@@ -1,14 +1,5 @@
 ﻿extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## PlanInterpreter tested entirely against hand-built CombatState, per issue
 ## 2's note that this does not need CombatSim to be working.

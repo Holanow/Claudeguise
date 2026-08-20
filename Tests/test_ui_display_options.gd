@@ -1,16 +1,7 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
-const DisplayOptionsPanel := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 
 ## Issue 136: floating damage numbers become a toggle, defaulting to off.
 ##
@@ -208,9 +199,6 @@ func _all(node: Node) -> Array[Node]:
 # Issue 82: name plates become the second toggle
 # ---------------------------------------------------------------------------
 
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 
 func test_name_plates_are_off_by_default() -> void:
 	_reset()

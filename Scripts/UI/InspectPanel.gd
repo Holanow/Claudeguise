@@ -1,17 +1,8 @@
 extends Control
+class_name InspectPanel
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const PlanScript := preload("res://Scripts/Core/Plan.gd")
 const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 

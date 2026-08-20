@@ -20,13 +20,6 @@ extends SceneTree
 ## two arms would be identical -- which is exactly what swift measured on `main`
 ## and reported on #150.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const ENCOUNTER := &"floor1_hazard"
 const SEEDS := 60

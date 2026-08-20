@@ -17,10 +17,6 @@ extends Node
 ##
 ## OWNER: wren. Not part of the game and not part of the gate.
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

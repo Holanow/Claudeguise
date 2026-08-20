@@ -1,10 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
 
 ## Every item icon in the registry, drawn together, at the size the equip screen
 ## will actually draw them and at the size below that.

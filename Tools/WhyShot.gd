@@ -16,8 +16,6 @@ extends Node
 ## It also prints the plan tags it can see in the running log rather than only
 ## saving an image, so a failure is legible without opening a PNG.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

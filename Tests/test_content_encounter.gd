@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
 
 ## The whole-fight acceptance checks from issues 2 and 7. Real CombatSim, real
 ## Registry content. Reference compositions here are re-picked whenever a

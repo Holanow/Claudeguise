@@ -1,13 +1,6 @@
 extends Control
+class_name EquipPanel
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 

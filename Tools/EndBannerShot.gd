@@ -18,13 +18,6 @@ extends Node
 ## room picker, the seed box, Start fight, deploy, Start fight, then it lets the
 ## fight run to its own end and photographs the banner.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

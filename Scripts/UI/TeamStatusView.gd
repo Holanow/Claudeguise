@@ -1,15 +1,6 @@
 extends Control
+class_name TeamStatusView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
-const GlossaryLabel := preload("res://Scripts/UI/GlossaryLabel.gd")
-const IconChip := preload("res://Scripts/UI/IconChip.gd")
-const PopoutLayer := preload("res://Scripts/UI/PopoutLayer.gd")
 
 ## Issue 113: the player's whole team, in one place that does not move.
 ##

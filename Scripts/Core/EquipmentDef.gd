@@ -1,6 +1,6 @@
 extends Resource
+class_name EquipmentDef
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Weapon, armor or accessory. All three share one shape and the slot decides
 ## which fields are read.

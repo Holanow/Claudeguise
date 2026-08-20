@@ -24,9 +24,6 @@ extends Node
 ## numbers are the point of the issue, and a popout that froze at the tick it was
 ## pinned on would look perfectly correct in a single frame.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const IconChip := preload("res://Scripts/UI/IconChip.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

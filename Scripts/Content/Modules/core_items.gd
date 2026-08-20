@@ -1,11 +1,5 @@
 extends RefCounted
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Base equipment types. README.md's own tables, filtered to the tag
 ## combinations the five starting classes actually carry. This note used to say

@@ -1,7 +1,5 @@
 extends Control
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The theming half of `UIArt` (issue #115), rendered with art and without it,
 ## side by side, in the node types the real screens are actually built from.

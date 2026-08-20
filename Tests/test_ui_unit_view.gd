@@ -1,15 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 const PawnDataScript := preload("res://Scripts/Core/PawnData.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
 const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
@@ -619,7 +610,6 @@ func test_has_active_projectile_is_false_with_none_in_flight() -> void:
 	view.free()
 
 func test_has_active_projectile_is_true_for_this_units_own_unresolved_shot() -> void:
-	const Projectile := preload("res://Scripts/Core/Projectile.gd")
 	var state := CombatState.new(0)
 	var u := _make_unit(0, Vector2.ZERO)
 	state.units.append(u)
@@ -633,7 +623,6 @@ func test_has_active_projectile_is_true_for_this_units_own_unresolved_shot() -> 
 	view.free()
 
 func test_has_active_projectile_ignores_a_resolved_shot() -> void:
-	const Projectile := preload("res://Scripts/Core/Projectile.gd")
 	var state := CombatState.new(0)
 	var u := _make_unit(0, Vector2.ZERO)
 	state.units.append(u)
@@ -647,7 +636,6 @@ func test_has_active_projectile_ignores_a_resolved_shot() -> void:
 	view.free()
 
 func test_has_active_projectile_ignores_another_units_shot() -> void:
-	const Projectile := preload("res://Scripts/Core/Projectile.gd")
 	var state := CombatState.new(0)
 	var u := _make_unit(0, Vector2.ZERO)
 	var other := _make_unit(1, Vector2(50.0, 0.0))

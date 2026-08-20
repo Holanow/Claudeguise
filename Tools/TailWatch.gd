@@ -13,10 +13,6 @@ extends Node
 ## Shots are taken by tick, not by wall clock: the last pawn dies at tick 605 on
 ## this seed, so the tail frames straddle it.
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

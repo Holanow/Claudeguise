@@ -1,13 +1,6 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 
 ## How big does a status badge have to be before it means anything?
 ##

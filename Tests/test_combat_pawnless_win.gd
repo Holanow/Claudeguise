@@ -1,12 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## ISSUE 218, and rook's ruling on it: **a fight where every pawn is dead is not
 ## a victory.** The enemies are gone, so the simulation says PLAYER_WIN and goes

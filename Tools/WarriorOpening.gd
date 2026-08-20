@@ -14,12 +14,6 @@ extends SceneTree
 ##
 ## Measurement only, not part of the gate.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const PARTY: Array[StringName] = [&"geysermancer", &"priest", &"siege_master", &"warrior"]
 const SEEDS := 20

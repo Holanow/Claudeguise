@@ -16,12 +16,6 @@ extends Node
 ## what `facing` says, and whether they agree. A unit with no facing yet is
 ## counted separately -- the team guess is the answer there and is not wrong.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const PARTY := [&"geysermancer", &"priest", &"siege_master", &"warrior"]
 const ROOMS := [&"floor1_room1", &"floor1_cover", &"floor1_warden"]

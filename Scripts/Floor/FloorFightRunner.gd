@@ -1,17 +1,6 @@
 extends RefCounted
+class_name FloorFightRunner
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const LootTables := preload("res://Scripts/Content/LootTables.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## Plays one fight-bearing room of a FloorRun for real, through CombatSim, and
 ## writes the result back. This is the connection issue 5 left for later: the

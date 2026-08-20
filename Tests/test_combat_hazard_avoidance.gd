@@ -1,12 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Issue 163, the movement half: a step that would end in fire gives way to a
 ## clear one, when a clear one exists that still makes progress.

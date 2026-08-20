@@ -1,6 +1,5 @@
 extends SceneTree
 
-const TestCase := preload("res://Tests/TestCase.gd")
 
 ## The whole gate. Run it with:
 ##

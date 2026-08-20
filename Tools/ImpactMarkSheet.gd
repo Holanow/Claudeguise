@@ -1,12 +1,6 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Issue #197's live options, drawn at the size a fight draws them.
 ##

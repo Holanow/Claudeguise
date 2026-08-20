@@ -18,12 +18,6 @@ extends SceneTree
 ## 800" sounds like a rounding error; a pawnless *tail* is a different and much
 ## more common event, and it is the one a player actually sees.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 40
 

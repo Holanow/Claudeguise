@@ -32,13 +32,6 @@ extends SceneTree
 ## bearing. A drift under 30 degrees leaves the attacker comfortably inside the
 ## arc; over 60 and the arc no longer covers the attacker at all.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
 const SEEDS := 12

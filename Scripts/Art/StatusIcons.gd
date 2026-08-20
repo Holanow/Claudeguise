@@ -1,8 +1,6 @@
 extends RefCounted
+class_name StatusIcons
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## One badge per `CG.Status`, for PLAYTEST-NOTES-2 item 2:
 ##

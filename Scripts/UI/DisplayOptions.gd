@@ -1,4 +1,5 @@
 extends RefCounted
+class_name DisplayOptions
 
 ## Every "show less on the screen" preference, in one place.
 ##

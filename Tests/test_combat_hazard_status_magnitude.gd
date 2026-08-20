@@ -1,13 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## ISSUE 204, ARMED AND NOT YET FIRED. A TRIPWIRE, NOT A FIX.
 ##

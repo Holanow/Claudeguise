@@ -1,7 +1,6 @@
 extends RefCounted
+class_name SoundBank
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 
 ## The audio hook, for issue #125:
 ##

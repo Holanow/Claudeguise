@@ -1,16 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
 
 ## Issue 269, the second half of it. wren's branch made `plan_block_budget` read
 ## equipment WIS and made `InspectPanel` dim and label every plan row past the

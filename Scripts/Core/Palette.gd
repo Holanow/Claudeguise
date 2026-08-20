@@ -1,6 +1,6 @@
 extends RefCounted
+class_name Palette
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Every colour, size and spacing value in the project. One file so that nobody
 ## picks a colour inline and nothing has to be hunted down later.

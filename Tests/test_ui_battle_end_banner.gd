@@ -1,10 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const Palette := preload("res://Scripts/Core/Palette.gd")
 
 ## Issue 19: the outcome used to be a small toolbar label reading
 ## "Victory (197 ticks)" — a number nobody playing has ever seen, at the
@@ -118,9 +114,6 @@ func test_end_banner_shows_and_names_the_outcome_on_resolution() -> void:
 # Issue 218: the banner used to contradict the line under it
 # ---------------------------------------------------------------------------
 
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
 
 func _make_pawn_unit(id: int, hp: int, alive: bool) -> CombatUnit:
 	var u := _make_unit(id, CG.Team.PLAYER, hp, 10, alive)

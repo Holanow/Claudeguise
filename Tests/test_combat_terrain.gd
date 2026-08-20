@@ -1,14 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## Covers issue 13a's four acceptance criteria. Same helper shapes as
 ## test_combat_sim.gd (hand-built units, no Registry/Balance dependency);

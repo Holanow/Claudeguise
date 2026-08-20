@@ -1,7 +1,6 @@
 extends PanelContainer
+class_name Popout
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Issue 112: "I need to be able to pin and drag any popup that is created
 ## outside of a menu."

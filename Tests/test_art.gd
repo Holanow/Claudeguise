@@ -1,7 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 
 ## MANAGER-OWNED, alongside Scripts/Art/.
 ##
@@ -9,7 +7,6 @@ const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 ## it *looks* is not testable and is not attempted: that is what
 ## Tools/ArtPreview.tscn and the committed screenshot are for.
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 const CLASS_SHAPES := [&"warrior", &"priest", &"geysermancer", &"siege_master", &"abomination"]
 
@@ -522,7 +519,6 @@ func test_an_unknown_shape_still_produces_something_visible() -> void:
 # that the instructions for it stay true.
 # ---------------------------------------------------------------------------
 
-const UnitArt := preload("res://Scripts/Art/UnitArt.gd")
 
 
 func test_with_no_art_files_every_shape_falls_back_to_polygons() -> void:
@@ -608,7 +604,6 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 # where a shape or a number could be silently wrong.
 # ---------------------------------------------------------------------------
 
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
 const _ALL_DAMAGE_TYPES := [
 	CG.DamageType.PHYSICAL, CG.DamageType.FIRE, CG.DamageType.WATER,
@@ -696,9 +691,6 @@ func test_impact_flash_progress_is_clamped() -> void:
 # How they look is not testable and is not attempted -- Tools/UIArtPreview.tscn
 # and the committed screenshots are for that.
 
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 
 
 func _every_status() -> Array:
@@ -1253,7 +1245,6 @@ func test_the_count_grows_with_the_badge() -> void:
 		"the tab does not scale with the badge: %.1f at 16px and %.1f at 80px" % [small.size.y, large.size.y])
 
 
-const IconsOverlay := preload("res://Tools/IconsOverlay.gd")
 const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
@@ -1334,8 +1325,6 @@ func test_action_art_name_is_the_action_id() -> void:
 # instrument that has ever caught a collision on this project.
 # ---------------------------------------------------------------------------
 
-const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 const _EVERY_SLOT := [
 	EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY,
@@ -1554,7 +1543,6 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 # themed path would pass while the default silently changed.
 # ---------------------------------------------------------------------------
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
 
 const _THEME_SCRATCH := ["res://Assets/UI/panel.png", "res://Assets/UI/panel/scratch_element.png",
 	"res://Assets/UI/background.png", "res://Assets/UI/border/scratch_element.png"]

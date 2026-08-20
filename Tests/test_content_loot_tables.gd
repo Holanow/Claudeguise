@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const LootTables := preload("res://Scripts/Content/LootTables.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
 
 ## Issue 42: items are loot per issue 41's own outcome. What drops, and how
 ## often, against the real Registry content.

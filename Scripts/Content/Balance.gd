@@ -1,10 +1,6 @@
 extends RefCounted
+class_name Balance
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Every tuning number in the game and every formula that turns attributes into
 ## the values the simulation uses.

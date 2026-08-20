@@ -1,15 +1,6 @@
 extends RefCounted
+class_name PlanInterpreter
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## Turns a pawn's plans into one Intent per tick.
 ##

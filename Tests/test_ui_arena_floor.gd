@@ -1,11 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const ArenaFloor := preload("res://Scripts/UI/ArenaFloor.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## Criterion 1 says the drawn arena and the simulated arena must be the same
 ## rectangle, not a second guess at it. ArenaFloor reads CG.ARENA_HALF_WIDTH/
@@ -78,8 +73,6 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 # ---------------------------------------------------------------------------
 
 func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
-	const CG := preload("res://Scripts/Core/CG.gd")
-	const Projectile := preload("res://Scripts/Core/Projectile.gd")
 	var action_id: StringName = &""
 	for cid in Registry.all_class_ids():
 		var cls := Registry.get_class_def(cid)
@@ -96,8 +89,6 @@ func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
 	arena.free()
 
 func test_projectile_damage_type_falls_back_to_physical_for_an_unknown_action() -> void:
-	const CG := preload("res://Scripts/Core/CG.gd")
-	const Projectile := preload("res://Scripts/Core/Projectile.gd")
 	var arena := ArenaFloor.new()
 	var p := Projectile.new()
 	p.action_id = &"not_a_real_action"

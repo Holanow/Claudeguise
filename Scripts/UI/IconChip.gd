@@ -1,11 +1,6 @@
 extends Control
+class_name IconChip
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## One small icon with a word beside it, hoverable and pinnable.
 ##

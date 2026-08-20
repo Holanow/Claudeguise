@@ -16,7 +16,6 @@ extends Node
 ## them to what was on the deploy screen. A screenshot shows the pawns moved;
 ## only this shows the simulation agreed.
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 
