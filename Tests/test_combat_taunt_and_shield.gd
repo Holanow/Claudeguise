@@ -312,10 +312,10 @@ func test_a_shot_that_steps_clean_over_the_shielder_in_one_tick_is_still_blocked
 	assert_eq(_events_of(state, CG.EventKind.BLOCKED).size(), 1, "a shot faster than the shield is wide must still be caught")
 	assert_eq(squishy.hp, squishy.hp_max, "the intended target must be untouched")
 
-## The width is 40 and it is a real edge, not "everything nearby". 50 units off
-## the path is outside it; the old 22 and the new 40 disagree between these two
-## cases, which is what makes this pair worth having.
-func test_the_shield_is_forty_wide_and_not_wider() -> void:
+## The frontage is `SHIELD_WIDTH` centred on the shielder, so half of it either
+## side, and it is a real edge rather than "everything nearby": 100 units off
+## the path is inside a 220-wide shield and 130 is outside it.
+func test_the_shield_is_five_pawns_wide_and_not_wider() -> void:
 	var shot := _shot(&"shot", 20.0)
 
 	var run := func(offset: float) -> Array:
@@ -334,8 +334,39 @@ func test_the_shield_is_forty_wide_and_not_wider() -> void:
 			CombatSim.step(state, deps)
 		return _events_of(state, CG.EventKind.BLOCKED)
 
-	assert_eq((run.call(35.0) as Array).size(), 1, "35 units off the path is inside a 40-wide shield -- and outside the old 22")
-	assert_eq((run.call(50.0) as Array).size(), 0, "50 units off the path is outside it: the shield is a width, not the whole room")
+	assert_eq((run.call(100.0) as Array).size(), 1, "100 units off the path is inside a 220-wide shield -- and outside the 80-unit frontage it replaced")
+	assert_eq((run.call(130.0) as Array).size(), 0, "130 units off the path is outside it: the shield is a width, not the whole room")
+	assert_eq(CombatSim.SHIELD_WIDTH, 220.0, "SHIELD_WIDTH is the full frontage, five pawn-widths across")
+
+## What issue 315 is for: an ally who is not the shielder gets the shot. Every
+## SHIELDING test before this one aimed at a target directly behind the
+## shielder, so a shield that only ever covered its own holder passed all of
+## them.
+func test_a_shot_aimed_at_an_ally_off_to_one_side_is_taken_by_the_shielder() -> void:
+	var shot := _shot(&"shot", 20.0)
+	var deps := _deps_with_action(shot, 7.0)
+
+	var state := CombatState.new(316)
+	var shooter := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [shot.id])
+	# 70.7 units off the shielder's centre at closest approach: sheltered by a
+	# 220-wide frontage, out in the open behind the 80-unit one.
+	var squishy := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 200), [])
+	var shielder := _unit(2, CG.Team.ENEMY, 50, Vector2(100, 0), [])
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	var blocked := _events_of(state, CG.EventKind.BLOCKED)
+	assert_eq(blocked.size(), 1, "the shielder must take a shot aimed at somebody else")
+	assert_eq((blocked[0] as CombatEvent).target_id, shielder.id, "BLOCKED must name the shielder, not the ally it covered")
+	assert_eq(squishy.hp, squishy.hp_max, "the ally it was aimed at must be untouched")
+	assert_eq(shielder.hp, shielder.hp_max - 7, "the shielder pays for it")
 
 ## A guard does not catch what has already gone past it. The front-arc test is
 ## asked of where the shot started its tick, so a shot leaving out the back is

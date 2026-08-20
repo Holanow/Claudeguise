@@ -1039,9 +1039,10 @@ static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, a
 		_apply_action_effect(state, source, t, action, deps)
 	_on_hit_landed(state, source, action, deps)
 
-## How wide the shield is: how close a hostile shot's path has to pass to a
-## SHIELDING unit's front for that unit to take it instead.
-const SHIELD_WIDTH := 40.0
+## The shield's full frontage, centred on the shielder and about five pawns
+## wide, so a hostile shot passing within half of it in front of a SHIELDING
+## unit is taken by that unit instead of by whoever it was aimed at.
+const SHIELD_WIDTH := 220.0
 
 ## A shot crossing a SHIELDING unit's front is stopped by it.
 static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> CombatUnit:
@@ -1053,7 +1054,7 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 		if candidate.facing == Vector2.ZERO:
 			continue # "no facing yet" per CombatUnit.facing's own doc comment: blocks nothing
 		var closest := Geometry2D.get_closest_point_to_segment(candidate.position, from, to)
-		if closest.distance_to(candidate.position) > SHIELD_WIDTH:
+		if closest.distance_to(candidate.position) > SHIELD_WIDTH * 0.5:
 			continue
 		var to_shot := (from - candidate.position).normalized()
 		if candidate.facing.dot(to_shot) <= 0.0:
