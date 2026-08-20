@@ -988,45 +988,10 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	return label
 
-## A short fixed string sitting beside a SIZE_EXPAND_FILL control in an
-## HBoxContainer -- the plan row's priority number today. `_line`'s autowrap
-## makes a Label report a near-zero minimum width, the same bug already found
-## and worked around for the Attributes chips above, so the container gives it
-## ~0 width and the neighbour's text is drawn starting at the same x position.
-##
-## Issue 53 found this on a real launch when the prefixes were "Targeting:",
-## "Action:" and "Condition:" and one of them rendered as "TaSelfting:"
-## (Screenshots/sweep_inspect_plan_editor_*). Those three prefixes are gone --
-## issue 96 made each block a chip that says its own value, so there is nothing
-## left to label -- but the trap is a property of `_line`, not of those
-## strings, and the number label sits in exactly the same position.
-# ---------------------------------------------------------------------------
-# Issue 155: live verdicts, so a paused fight says why a row is not firing
-# ---------------------------------------------------------------------------
-#
-# The issue names four reasons a row a player wrote did not fire, and says the
-# game distinguishes none of them: the condition was false, the action was
-# unaffordable, the row was outranked, or nothing fired and the fallback
-# decided. Three of the four are separated here.
-#
-# **WHAT THIS DOES NOT DO, stated rather than implied.** "Unaffordable / out of
-# range / no line of sight" is the fourth, and it is NOT distinguished. Every
-# gate that produces it is a private static inside `PlanInterpreter._run_blocks`
-# (finch's file), and re-implementing those seven checks here would be a second
-# copy of the decision, which is exactly how the log and the sim would come to
-# disagree about why a pawn did something. The honest half is on screen: a row
-# reading `ready` while the fallback reads `acting` says the condition was true
-# and the row still lost, which narrows it to affordability, range, or being
-# outranked. The exact line needs `PlanInterpreter.why_not(state, unit, plan)`
-# and it is asked for on the board.
-#
-# `condition_holds` is the one piece of the decision that is already public and
-# already pure -- `_eval_condition` only reads -- so it can be asked live
-# without touching the fight. **Nothing here calls `decide()`**, which would
-# look like the more direct answer and is not: `decide()` writes `unit.focus_id`
-# as a side effect, so a player opening this panel would change the next tick of
-# the fight they are inspecting.
-
+## A short fixed string beside a SIZE_EXPAND_FILL control in an HBoxContainer.
+## `_line`'s autowrap makes a Label report a near-zero minimum width, so the
+## container gives it ~0 and the neighbour's text starts at the same x. This
+## is a property of `_line`, not of any particular string.
 const VERDICT_ACTING := "acting"
 const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"

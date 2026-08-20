@@ -529,41 +529,22 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 			best = candidate
 	return best
 
-## Issue 87: the nearest living ally carrying any status `CG.is_harmful`
-## classifies as harmful, or null when nobody does. `unit` itself counts as an
-## ally at distance 0, so a poisoned caster scrubs its own affliction first --
-## a cleanse that cannot answer the one status the caster is standing in would
-## be a strange ability, and `state.living(unit.team)` already includes it.
+## The nearest living ally carrying any status `CG.is_harmful` classifies as
+## harmful, or null. `unit` counts as an ally at distance 0, so a poisoned
+## caster scrubs itself first.
 ##
 ## Backs BOTH the `ally_has_harmful_status` condition and the
-## `target_ally_with_harmful_status` targeting op, deliberately from one
-## function rather than two similar ones: the two must agree exactly. If the
-## condition could hold on an ally the targeting op then declines to pick,
-## `_eval_targeting` returns -1, `_run_blocks` leaves `unit.focus_id` at
-## whatever the previous tick left there -- which for this class is an *enemy*,
-## from `geyser_blast_cluster`'s own targeting block -- and the plan would fire
-## an ally-shaped action at an enemy. That is not hypothetical: it is the exact
-## shape swift warned about in their #87 signature note, arriving through
-## targeting rather than through `heals`.
+## `target_ally_with_harmful_status` op from one function, because the two
+## must agree exactly. If the condition holds on an ally the op then declines,
+## `_eval_targeting` returns -1, `_run_blocks` leaves `focus_id` at whatever
+## the previous tick set -- an enemy, for this class -- and the plan fires an
+## ally-shaped action at an enemy.
 ##
-## `CG.is_harmful` is the only thing consulted for what counts, the same single
-## source `CombatSim._cleanse_harmful` and the status badges already use, so a
-## plan that fires and a cleanse that strips cannot disagree about what a
-## harmful status is.
+## `CG.is_harmful` is the only thing consulted, the same source
+## `CombatSim._cleanse_harmful` and the status badges use.
 ##
-## Nearest wins, ties broken by iteration order over `state.living`, which is
-## `state.units` order and therefore fixed for a seed. No rng.
-## Issue 181: the nearest living enemy carrying `status`, or null.
-##
-## **Backs BOTH `enemy_has_status` and `target_enemy_with_status`, from one
-## function, for the reason `_nearest_afflicted_ally` records below and paid for
-## on #87: if the condition can hold on a unit the targeting op then declines,
-## `_run_blocks` leaves `focus_id` at whatever the previous tick set** -- which
-## for this class is another enemy from `geyser_blast_cluster` -- **and the plan
-## fires at the wrong target.** Two similar functions are how that comes back.
-##
-## Nearest wins, ties by iteration order over `state.living`, which is fixed for
-## a seed. No rng.
+## Nearest wins, ties by iteration order over `state.living`, fixed for a
+## seed. No rng.
 static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF

@@ -13,39 +13,21 @@ class_name CombatLogView
 ## Rat for 7" is not enough to tell a tuning problem from a targeting problem.
 
 ## Screen-space, not world-space, so neither scales with the arena.
-## BattleView.compute_layout reserves exactly one of these (whichever
-## matches the current orientation) before fitting the arena into what's
-## left (issue 26/29), so a change here has to be matched there.
+## `BattleView.compute_layout` reserves exactly one of these (whichever
+## matches the orientation) before fitting the arena into what is left, so a
+## change here has to be matched there.
 ##
-## Issue 29: landscape used to reserve LOG_HEIGHT along the bottom, same as
-## portrait still does here. That fixed a real overlap (three of seven units
-## drawn behind the log's text) at the cost of the arena's own size -- rook
-## measured the fix at "about a quarter of the screen", a real regression
-## against "everything larger and more readable". A 16:9 arena in a
-## wider-than-16:9 window already leaves empty side margins it can never
-## use; landscape now spends those on the log instead, side rather than
-## below. Portrait keeps the bottom strip: width is portrait's scarce
-## dimension, not height, so a side column would cost far more there than a
-## thin bottom strip does -- confirmed by the regression this file's own
-## history includes, where applying the side reservation unconditionally
-## dropped the pinned portrait height fraction under its floor.
+## Landscape reserves a side column, portrait a bottom strip. A 16:9 arena in
+## a wider window already leaves side margins it can never use, so landscape
+## spends those on the log; width is portrait's scarce dimension, not height,
+## so a side column would cost far more there.
 ##
-## PLAYTEST-NOTES-2 item 8: *"The log is too large. Move it to a bottom
-## corner, out of the way."* It is one box now, `LOG_WIDTH` x `LOG_HEIGHT`,
-## pinned to the bottom of whichever strip the orientation reserves -- the
-## bottom-right corner in landscape, the bottom band in portrait. It used to
-## run the whole height of the landscape column, and after the team status
-## panel took the top of that column (issue 113) what was left was twelve
-## lines. **The manager's ruling: twelve lines is already more than a player
-## reads mid-fight, so take the shorter log and move it.**
+## The log is one box, `LOG_WIDTH` x `LOG_HEIGHT`, pinned to the bottom of
+## whichever strip the orientation reserves.
 ##
-## The reservation in `BattleView.compute_layout` is unchanged and still the
-## full column, because the panel is in the top of it. **Measured before
-## touching it: at 1280x720 the arena is height-limited -- a 1095x870 fit into
-## a usable 1020x720 is 0.932 by width and 0.828 by height -- so the 260 px
-## column costs the arena nothing at all. Same at 844x390 (0.533 by width,
-## 0.448 by height).** Reclaiming the column would not have grown the arena by
-## a pixel; only the log's own size was ever on the table here.
+## The reservation stays the full column because the team status panel is in
+## the top of it, and the column costs the arena nothing: at 1280x720 the fit
+## is 0.932 by width against 0.828 by height, so the arena is height-limited.
 const LOG_WIDTH := 260.0
 const LOG_HEIGHT := 200.0
 const LOG_MARGIN := -20.0
