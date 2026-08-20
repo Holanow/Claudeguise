@@ -95,6 +95,15 @@ func _bake_all() -> void:
 				var color := EquipmentIcons.gem_color(id) if EquipmentIcons.RING_GEMS.has(id) else Palette.TEXT
 				UIArt.draw_glyph(c, EquipmentIcons.glyph_for(id), EquipmentIcons._inner(item.slot, icon), color))
 
+	# The three empty plates. `draw_empty_slot` is the one call with no item id
+	# behind it, so it needs names of its own; `Assets/UI/README.md` lists them.
+	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+		var dim := EquipmentIcons.slot_color(slot)
+		dim.a = 0.45
+		await _bake("res://Assets/UI/item/empty_%s.png" % String(EquipmentDef.Slot.keys()[slot]).to_lower(), ICON,
+			func(c: CanvasItem) -> void:
+				EquipmentIcons._draw_plate(c, slot, icon, dim))
+
 	var center := Vector2(PAD + UNIT * 0.5, PAD + UNIT * 0.5)
 	for id in UNBAKED_UNITS:
 		await _bake_unit(id, center)
