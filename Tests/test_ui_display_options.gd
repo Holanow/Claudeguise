@@ -320,3 +320,28 @@ func test_the_contrast_check_would_catch_the_engine_default() -> void:
 
 static func _luminance(c: Color) -> float:
 	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+## Issue 319 added two options and four of them do not fit 720px, let alone the
+## 844x390 launch this panel has run off the bottom of before. Both directions:
+## it must not grow past the room it is given, and it must not shrink below one
+## row when the room is absurd.
+func test_the_panel_never_grows_past_the_screen_it_is_on() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	assert_true(DisplayOptions.OPTIONS.size() >= 4,
+		"this check is about a list long enough to overflow")
+
+	panel.fit_within(300.0)
+	assert_true(panel._scroll.custom_minimum_size.y <= 300.0,
+		"asked for 300 and took %.1f" % panel._scroll.custom_minimum_size.y)
+	panel.fit_within(0.0)
+	assert_true(panel._scroll.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN,
+		"a panel with no room must still show a row rather than vanish")
+
+	## And with room to spare it stops at its own content rather than stretching.
+	panel.fit_within(100000.0)
+	assert_true(panel._scroll.custom_minimum_size.y < 100000.0,
+		"the panel must not stretch to fill a screen it does not need")
+	panel.free()

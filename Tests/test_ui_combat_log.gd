@@ -801,3 +801,107 @@ func _real_fight() -> CombatState:
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	CombatSim.run(state)
 	return state
+
+# ---------------------------------------------------------------------------
+# Issue 319: the log's two drains are the player's to silence
+# ---------------------------------------------------------------------------
+#
+# A blind playtester lost the middle of a Burn Pit fight to nine consecutive
+# seconds of one repeated sentence. The player's ruling was a switch rather
+# than a deletion: "give the player the ability to disable certain logs, like
+# room hazards and status damage".
+
+func _ground_tick(tick: int, target_id: int) -> CombatEvent:
+	var e := CombatEvent.make(CG.EventKind.DAMAGE, tick)
+	e.source_id = -1
+	e.target_id = target_id
+	e.amount = 2
+	e.amount_before_mitigation = 2
+	e.damage_type = CG.DamageType.FIRE
+	return e
+
+func _status_tick(tick: int, target_id: int, status: CG.Status) -> CombatEvent:
+	var e := _ground_tick(tick, target_id)
+	e.status = status
+	return e
+
+## Both directions for both filters. A one-way test would pass on a log that
+## prints nothing at all, or on one that ignores the switch.
+func test_each_drain_can_be_silenced_and_brought_back() -> void:
+	DisplayOptions.reset()
+	var state := _make_state()
+	var view := CombatLogView.new()
+
+	var ground := _ground_tick(40, 1)
+	assert_ne(view.line_for_event(state, ground), "", "the ground speaks by default")
+	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
+	assert_eq(view.line_for_event(state, ground), "", "and the player can silence it")
+	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
+	assert_ne(view.line_for_event(state, ground), "", "and bring it back")
+
+	var poison := _status_tick(40, 1, CG.Status.POISON)
+	assert_eq(view.line_for_event(state, poison), "", "poison is silent by default")
+	DisplayOptions.set_enabled(&"log_status_damage", true)
+	var line := view.line_for_event(state, poison)
+	assert_ne(line, "", "and the player can ask for it")
+	assert_true(line.contains("Poison"), "and it must say which status: %s" % line)
+	assert_ne(line, view.line_for_event(state, ground),
+		"a status tick and a ground tick must not read identically")
+
+	## One switch must not move the other.
+	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
+	assert_ne(view.line_for_event(state, poison), "",
+		"silencing the ground must not silence poison")
+	DisplayOptions.reset()
+	view.free()
+
+## Every damage-over-time status, not just poison: a filter that covers one of
+## them is a filter with a hole in it.
+func test_the_status_filter_covers_every_dot() -> void:
+	DisplayOptions.reset()
+	var state := _make_state()
+	var view := CombatLogView.new()
+	assert_false(CombatSim._DOT_STATUSES.is_empty(), "the walk must have something to walk")
+	DisplayOptions.set_enabled(&"log_status_damage", true)
+	for status in CombatSim._DOT_STATUSES:
+		var e := _status_tick(40, 1, status)
+		e.damage_type = CombatSim._DOT_STATUSES[status]
+		assert_ne(view.line_for_event(state, e), "",
+			"%s is a damage-over-time tick and the switch must reach it" % CG.Status.keys()[status])
+	DisplayOptions.reset()
+	view.free()
+
+## The measurement the issue was filed on, against the only authored room with
+## fire in it, through the real formatter.
+func test_the_burn_pit_log_is_mostly_ground_until_the_player_says_otherwise() -> void:
+	DisplayOptions.reset()
+	var party: Array[PawnData] = []
+	for cid in Registry.all_class_ids().slice(0, 4):
+		party.append(PawnFactory.make_starter_pawn(
+			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_hazard"), 1)
+	CombatSim.run(state)
+
+	var view := CombatLogView.new()
+	var shown := 0
+	var ground := 0
+	for e in state.events:
+		var line := view.line_for_event(state, e)
+		if line == "":
+			continue
+		shown += 1
+		if line.contains("from the ground"):
+			ground += 1
+	assert_true(ground > 100, "the Burn Pit must actually burn somebody: %d" % ground)
+	assert_true(float(ground) / float(shown) > 0.25,
+		"the default log is %d of %d ground lines, which is the complaint" % [ground, shown])
+
+	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
+	var quiet := 0
+	for e in state.events:
+		if view.line_for_event(state, e) != "":
+			quiet += 1
+	print("burn pit: %d lines, %d of them ground -> %d with the ground off" % [shown, ground, quiet])
+	assert_eq(quiet, shown - ground, "switching it off must remove exactly the ground lines")
+	DisplayOptions.reset()
+	view.free()
