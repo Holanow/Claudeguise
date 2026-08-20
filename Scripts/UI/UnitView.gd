@@ -150,10 +150,13 @@ func _unit() -> CombatUnit:
 ## Class id for a pawn, enemy id for an enemy. Silhouettes.draw_unit falls
 ## back to a hollow diamond for any id it does not know, so this is safe to
 ## call before teal's content registers real classes or enemies.
-func _shape_id(u: CombatUnit) -> StringName:
+static func shape_id(u: CombatUnit) -> StringName:
 	if u.pawn != null and u.pawn.pawn_class != null:
 		return u.pawn.pawn_class.id
 	return u.enemy_id
+
+func _shape_id(u: CombatUnit) -> StringName:
+	return shape_id(u)
 
 ## The class's first damage type colours its accent shapes. Enemies have no
 ## class to read one from, so they fall back to physical until there is a
@@ -171,7 +174,6 @@ func _draw() -> void:
 	var radius := display_radius(u)
 
 	_draw_targeting_line(u)
-	ShieldWall.draw_for(self, u, radius)
 
 	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
 

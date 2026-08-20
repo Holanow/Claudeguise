@@ -19,6 +19,11 @@ var terrain: Array = []
 ## Set by BattleView from CombatState.projectiles every stepped tick.
 var projectiles: Array = []
 
+## Set by BattleView from CombatState.units every stepped tick, for the cover a
+## shielder holds: it is drawn here, on the parent of every UnitView, so it
+## cannot repaint the units standing behind it (issue 332).
+var units: Array = []
+
 const _PROJECTILE_RADIUS := 5.0
 
 func _draw() -> void:
@@ -46,6 +51,8 @@ func _draw() -> void:
 
 	for feature in terrain:
 		_draw_feature(feature)
+
+	ShieldWall.draw_all(self, units, UnitView.DISPLAY_SCALE)
 
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
