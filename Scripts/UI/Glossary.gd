@@ -40,7 +40,7 @@ static func method_text(method: CG.Method) -> String:
 			return ""
 
 ## One line combining a class's three tags, the same trio PartyCard and
-## InspectPanel both already show side by side ("Tank Â· Melee Â· Martial").
+## InspectPanel both already show side by side ("Tank · Melee · Martial").
 ## Single source for both screens' tooltip copy so they cannot drift apart.
 static func class_tags_text(role: CG.Role, style: CG.Style, method: CG.Method) -> String:
 	return "%s %s %s" % [role_text(role), style_text(style), method_text(method)]
