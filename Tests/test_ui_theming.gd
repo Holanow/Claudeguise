@@ -49,9 +49,17 @@ func _remove_scratch(element: String) -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(_SCRATCH % element))
 	UIArt.clear_cache()
 
+## A screen whose tree lives in a `.tscn` cannot be built by setting the script
+## on a bare Control -- it gets none of the tree and `_ready()` fails on the
+## first `%Name`. Those screens expose `create()`; the ones still built
+## imperatively do not, and take the old path unchanged.
 func _screen(script) -> Control:
-	var node := Control.new()
-	node.set_script(script)
+	var node: Control
+	if script.has_method("create"):
+		node = script.create()
+	else:
+		node = Control.new()
+		node.set_script(script)
 	node._ready()
 	return node
 

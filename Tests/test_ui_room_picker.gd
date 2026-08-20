@@ -16,7 +16,7 @@ extends "res://Tests/TestCase.gd"
 ## asked for before their lid test could be deleted, and it passes for all four.
 
 func _screen() -> PartySelect:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	return screen
 
@@ -103,7 +103,7 @@ func test_the_picker_starts_on_the_default_room_not_whatever_sorts_first() -> vo
 ## A screen with no picker built yet must still never fall through to
 ## `all_encounter_ids()[0]`.
 func test_a_screen_with_no_picker_still_names_the_default_room() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	assert_eq(screen.current_config().encounter_id, CG.DEFAULT_ENCOUNTER,
 		"the issue-32 fallback must survive")
 	screen.free()

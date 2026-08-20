@@ -34,7 +34,7 @@ func _cfg(n: int = 4) -> RunConfig:
 	return cfg
 
 func _screen(cfg: RunConfig, encounter = null) -> DeployView:
-	var screen := DeployView.new()
+	var screen := DeployView.create()
 	screen._ready()
 	screen.open(cfg, encounter)
 	return screen
