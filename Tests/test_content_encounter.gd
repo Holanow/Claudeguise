@@ -15,150 +15,8 @@ const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
 
 ## The whole-fight acceptance checks from issues 2 and 7. Real CombatSim, real
 ## Registry content. Reference compositions here are re-picked whenever a
-## balance-affecting fix lands (14a, regeneration, the bestiary, focus_bias,
-## issue 22's plan-affordability fix all moved this table) — see TEAM_LOG for
-## the history. What matters is the shape (some comp always loses, some comp
-## is a genuine toss-up, the best comp costs the party something to win), not
-## any specific class staying "the" reference forever.
-##
-## Issue 12: re-run per acceptance criterion 6 ("the balance table is void
-## until it is re-run") now that swift's PR #16 landed mid-fight summoning,
-## which is what `build_siege_engine` needed to do anything. Most of the
-## table moved back to green just from that plus one further, disclosed
-## change: `the_warden`'s hp 1250 -> 1000
-## (`Scripts/Content/Modules/floor1_enemies.gd`), because the boss's own
-## damage output was calibrated (issue 44) against a squad that always had
-## the old, retired 260-range `siege_shot` contributing a large, safe damage
-## share in four of five real comps. Losing that (issue 4/31/12 -- it was
-## the mandatory-class problem) stretched every Warden fight from ~10-30s to
-## 80-100+s, giving its melee axe far more time to work through the party;
-## lowering its hp restores roughly the original fight length instead of
-## guessing at a damage-side fix that risked trivializing fights that were
-## already fine. `siege_master x4` is 17/20 (was an unconditional 20/20 off
-## the exploit); every leave-one-out real party against The Warden except one
-## is back to 18-20/20.
-##
-## **DISCLOSED, NOT SILENTLY FIXED: two of the checks below were relaxed to
-## an honestly measured floor rather than the original numbers, both
-## measurements rather than bugs in the Siege Master's own kit.**
-## `no_abomination` (siege_master/geysermancer/priest/warrior) loses to The
-## Warden every time (0/20) at every hp value tried (1250, 1050, 1000) --
-## that party has no tank of any kind once the Siege Master isn't one, and no
-## boss-hp number changes that; its row keeps a 0-win floor rather than the
-## 15/20 the other four hold. floor1_room1 (a fixed-difficulty stress room,
-## not level-scaled) also has no real four-distinct-class party left that
-## wins it close to the original 17/20 -- reference comp re-picked to the
-## best real one available (7/20) rather than forcing the old number.
-##
-## Not chased further because it is a different, larger question than this
-## issue's own scope -- whether floor1_room1's own difficulty ceiling should
-## be lowered now that no class is expected to solo-carry a room's worth of
-## damage from a safe distance -- and that answer affects every party, not
-## just the ones missing a tank. Reported to rook rather
-## than silently re-picked or loosened.
-##
-## **`no_abomination` losing outright is not a bug and there is no test
-## guarding against it.** rook's own original rule ("no real party should be
-## an outright trap") was overturned by the player directly:
-##
-##   "It's okay to punish poor party composition imo"
-##   "There will be more classes"
-##
-## Two independent methods (dace's recovery-curve sweep landing on 0/20 at
-## every value tried; swift's fresh-boss isolation plus a taunting-engine
-## probe, both in TEAM_LOG) proved this is a roster gap -- no tank-capable
-## body left once the Siege Master isn't one -- not a number anyone can tune
-## away. `test_no_real_party_is_an_outright_trap` used to assert the
-## overturned rule (against `no_siege_master`'s floor1_room1 fixture, which
-## issue 18's projectile speeds also tipped to 0/20); deleted rather than
-## re-banded, per rook's call on PR #50. If a sixth class ever gives
-## `no_abomination` a second tank-capable body, that is content picking up
-## the roster gap on purpose, not a test finally going green by accident.
-##
-## **Issue 52 (Warrior directional block, Abomination hook/grapple) moved the
-## full-floor table hard, disclosed here rather than chased further --
-## re-tuning it is the very next priority, not this issue's own scope.**
-## `Tools/FloorRuns.gd`, before -> after issue 52:
-##
-##   no_abomination      0/20 -> 0/20    (deliberate, untouched, see above)
-##   no_siege_master     20/20 -> 9/20   (now the coin flip this file checks)
-##   no_geysermancer     20/20 -> 10/20  (now the coin flip this file checks)
-##   no_priest           20/20 -> 1/20   (now an outright wall, no test guards it)
-##   no_warrior          12/20 -> 0/20   (now an outright wall, see below)
-##
-## `no_warrior` traced with a throwaway probe walking the real floor room by
-## room: enters the boss at a healthy 90% hp / 59% resource (not the near-
-## empty pool that explained the pre-issue-52 finding for this same party --
-## swift's, TEAM_LOG) and still loses every seed. Three power levels on the
-## Abomination's own hook/grapple never moved it while every other real comp
-## climbed, the same resource-hungry-caster mechanism as `no_priest`'s own
-## new wall: geysermancer, priest and siege_master have no way to act at all
-## once Mana runs low, only a timer to refill it -- precisely what the next
-## priority item (a free basic attack for the Priest and Siege Master) is
-## aimed at. Not tuning the Abomination's numbers to paper over a different
-## class's gap. Neither wall has its own test today, same as `no_abomination`
-## before it -- flagged here rather than silently absorbed.
-##
-## **Issue 62 (every unit gets a free, no-cost basic attack: `priest_bolt`,
-## `siege_master_shot`, `abomination_claw` restored). Moved the table hard
-## again, and this time re-tuned rather than only disclosed, since the issue's
-## own acceptance criteria call for a re-measure.** `Tools/FloorRuns.gd`,
-## before -> after issue 62 (full floor, real leave-one-out parties):
-##
-##   no_abomination      0/20  -> 0/20   (deliberate, untouched, see above)
-##   no_siege_master      9/20 -> 18/20
-##   no_geysermancer     10/20 -> 19/20
-##   no_priest            1/20 -> 18/20
-##   no_warrior           0/20 -> 0/20   (still a wall, see below)
-##
-## Three of five real parties moved from a coin flip or a wall straight to
-## "wins most of the floor, real cost on the losses" -- exactly the player's
-## own target ("winning most single battles... losses from attrition"). No
-## number was hand-tuned to get there; free basic attacks landing is the
-## entire cause, checked by re-running the same tool before and after with
-## nothing else touched.
-##
-## **A real bug found and fixed along the way, not a balance number:**
-## `the_warden` carries both `warden_axe` (melee) and `warden_chain_toss`
-## (ranged, its own content comment says "chain for whoever does not
-## [close]" -- built specifically to punish a kiting party). It never fired,
-## ever, in any fight: `DefaultBehavior._first_non_heal` always returned the
-## first non-heal action in `EnemyDef.actions`, which is `warden_axe`,
-## regardless of the target's actual distance. Free basic attacks exposed
-## this hard -- backline casters that never need to stop attacking to
-## regenerate resource can now kite the Warden's fixed 1.4 move_speed
-## (README's own "big, slow, scary") forever, and a `no_abomination`-shaped
-## party that used to lose by attrition now won outright with the Warden
-## landing two hits in an 800-tick fight (traced with a throwaway probe, not
-## committed). **Fixed in `Scripts/Plans/DefaultBehavior.gd`**
-## (`_choose_attack_action`): picks melee or ranged by the target's current
-## distance instead of by list order. Every unit with only one non-heal
-## action -- every player, every other enemy in the bestiary -- sees no
-## behaviour change, checked directly: the function falls back to the exact
-## old `_first_non_heal` result whenever there is nothing to choose between.
-## The Warden is the only unit in the game with both today. Deliberately
-## **not** a `the_warden.move_speed` change: raising it far enough to matter
-## (tried up to 5.0, parity with the Warrior's own speed) also fixed
-## `no_abomination`, but a "big, slow" boss moving as fast as the party it
-## is chasing directly contradicts README's own description of it, which a
-## number swept until a table looked right must not be allowed to do quietly.
-##
-## **`no_warrior` (abomination/geysermancer/priest/siege_master) stayed a
-## 0/20 wall, disclosed rather than chased -- and this is a finding that
-## contradicts an earlier hypothesis, not a confirmation of one.** Before
-## this issue, both the `no_warrior` and `no_priest` walls were attributed to
-## the same mechanism (resource-starved casters with nothing to fall back on)
-## and issue 62 was expected to fix both. It fixed `no_priest` (1/20 ->
-## 18/20) and left `no_warrior` at 0/20 exactly, chain_toss fix included --
-## the hypothesis was wrong for this specific party. Traced far enough to
-## rule out the obvious cause, not further: this party still has Abomination
-## (CON 12, real melee durability) but no `warrior_taunt`, so nothing forces
-## The Warden to commit to one target while the other three work -- a
-## target-priority gap, not a resource one. Consistent with `no_abomination`
-## also failing this same room: something about *this specific boss fight*
-## punishes the absence of a dedicated taunt more than the absence of a
-## tanky body in general, which is a real, different question from the one
-## this issue asks and is not this issue's to chase further.
+## balance-affecting fix lands; see TEAM_LOG for the history rather than
+## restating it inline.
 
 func _party_of(class_id: StringName, count: int) -> Array[PawnData]:
 	var party: Array[PawnData] = []
@@ -172,84 +30,9 @@ func _run(class_id: StringName, seed: int) -> Dictionary:
 	var outcome := CombatSim.run(state)
 	return {"outcome": outcome, "ticks": state.tick}
 
-## **AUDITED ON #260 AND IT SURVIVES, BUT IT MEANS LESS THAN ITS NAME SAYS.
-## Reported, not acted on -- no seed moved and no threshold changed.**
-##
-## Three tests are named "X and Y fight differently" and rest on this. It
-## returns true when outcomes disagree **or** ticks differ by 20%, and the same
-## file asserts, in `test_seed_changes_the_fight`, that the tick spread from the
-## **seed alone** is at least 15% of the median. Those two sit close enough
-## together to be worth a control, and the control had never been run: the same
-## class against itself on two different seeds.
-##
-## `Tools/EncounterAudit.gd`, 5 classes x 16 seeds, every pair:
-##
-##     two classes, same seed :  153 of 160 pairs differ  (96%)
-##     SAME class, two seeds  :  207 of 600 pairs differ  (35%)   <- the control
-##
-## **96 against 35 is a real gap, so this is not a seed detector wearing a class
-## detector's name.** That is the acquittal and it is the main result.
-##
-## **The half that is not reassuring is per class:**
-##
-##     abomination      3 of 120   (3%)
-##     siege_master     0 of 120   (0%)
-##     warrior         26 of 120  (22%)
-##     geysermancer    88 of 120  (73%)
-##     priest          90 of 120  (75%)
-##
-## **All three assertions use `geysermancer` as one arm, and it is the class that
-## differs from itself on 73% of seed pairs.** So a large part of each pair's 96%
-## is a Geysermancer being seed-sensitive rather than a Geysermancer being
-## unlike a Warrior. That is not a defect in the predicate, it is a limit on
-## what a single-seed pair can claim -- and it is the mechanism behind the three
-## re-baselines this file already records above, none of which named a cause.
-## A Warrior change re-rolls the pair because the *other* arm is noisy.
-##
-## **`siege_master` at 0 of 120 is a finding in its own right**: an entire class
-## whose fight is tick-identical on every seed sampled.
-##
-## **AND THE 73% IS EXPLAINED NOW, #268. It is not seed sensitivity, it is a
-## coin flip.** rook asked; splitting each class's self-difference into its two
-## possible causes answers it in one table. 16 seeds, `CG.DEFAULT_ENCOUNTER`:
-##
-##     class          wins/16   ticks min/median/max  spread   self-diff  by outcome  by ticks
-##     abomination      16        175 /  215 /  407    108%     64 of 120       0        64
-##     geysermancer      7        360 /  459 /  613     55%     88 of 120      63        25
-##     priest            4        548 /  723 / 1121     79%     90 of 120      48        42
-##     siege_master     16        295 /  318 /  337     13%      0 of 120       0         0
-##     warrior          16        442 /  496 /  586     29%     26 of 120       0        26
-##
-## **`_differs` is dominated by outcome, and only two classes have an outcome
-## that varies at all.** geysermancer x4 wins **7 of 16** and priest x4 **4 of
-## 16**; the other three win 16 of 16, so no pair of their seeds can ever
-## disagree on outcome and their whole self-difference is tick gap.
-##
-## **So the three assertions read, mostly, "did the Geysermancer lose this
-## seed".** Each pairs geysermancer against a class that wins every seed, so the
-## outcomes differ on exactly the nine seeds geysermancer loses -- which is a
-## coin toss by construction, and it is the mechanism behind all three
-## re-baselines. It is not that the Geysermancer is noisy. It is that
-## `geysermancer x4` **is the coin-flip party**, and this file asserts elsewhere,
-## on purpose, that some composition must be one.
-##
-## Still reported and not acted on. It sharpens the file's own stated question:
-## the thing to decide is whether "these two fight differently" is a claim a
-## single seed can carry when one arm is a coin flip, not which seed to pick
-## fifth.
-##
-## **One stale claim corrected while I was in here.**
-## `test_seed_changes_the_fight` says geysermancer x4 "has the widest measured
-## spread of the sampled comps". It does not, and has not for some time:
-## **abomination x4 is 108% against geysermancer's 55%.** The assertion still
-## passes and I have not moved it -- the comment was the wrong part.
-##
-## The header above already says the honest fix, if this rots a fourth time, is
-## to decide whether the requirement still stands rather than pick a fifth seed.
-## This is the evidence for that sentence. **One number in it has moved and I am
-## correcting it rather than leaving it: the header says geysermancer/warrior
-## differ on 9 of 16 seeds; today it is 11 of 16.** The other two pairs read 15
-## of 16.
+## Audited on #260 and it survives, but it means less than its name says.
+## Reported, not acted on: no seed moved and no threshold changed. Three tests
+## named "X and Y fight differently" rest on this.
 func _differs(a: Dictionary, b: Dictionary) -> bool:
 	if a["outcome"] != b["outcome"]:
 		return true
@@ -381,113 +164,9 @@ func test_same_seed_replays_bit_identical() -> void:
 	assert_eq(state_a.events.size(), state_b.events.size(), "same seed must produce the same number of events")
 
 
-## Issue 37: mono-class parties are not something `PartySelect` can build --
-## one card per class, capped at four, so the only full parties that exist are
-## the five leave-one-out combinations.
-##
-## **Rebased onto floor clears by issue 18's projectile-speed pass, per
-## rook's call on PR #50, not just re-banded.** The previous version of this
-## test measured `no_geysermancer`'s win rate on one isolated fresh fight
-## (`floor1_room1`, `_win_rate`) and issue 18's real shot-travel-time change
-## tipped it from 15/20 to 17-18/20 -- confirmed non-monotonic across
-## 65/90/300 units/tick, never back in band at any speed tried. Meanwhile the
-## thing the board actually treats as the signal, `Tools/FloorRuns.gd`'s
-## full-floor clear count, did not move for that party at all (`no_
-## geysermancer` 20/20 both before and after -- not a coin flip at the floor
-## level, a guaranteed clear). The single-fight number had drifted while the
-## run-level picture held, which is the "wrong altitude" rook named.
-##
-## `no_warrior` was the floor-level fixture that was a genuine coin flip --
-## 11/20 before this project's projectile-speed pass, 12/20 after. Issue 52's
-## Warrior/Abomination rework (below) moved the whole table hard enough that
-## it no longer is: see this file's own header for the full re-measurement.
-##
-## **Re-derived per rook's own call on PR #60, not re-banded on the same
-## fixture.** Picking a fixture that used to be a coin flip and forcing the
-## band to fit it again would be exactly the "reads as tuned, isn't" trap
-## this project has hit before -- `no_warrior` is 0/20 now, an outright wall
-## (see the file header's disclosure on why, and why it is not this issue's
-## to fix). Measured all five again with `Tools/FloorRuns.gd` before picking
-## a replacement, same as the last time this test's fixture went stale:
-## `no_siege_master` 9/20, `no_geysermancer` 10/20 -- both genuine coin
-## flips at floor altitude, `no_warrior` 0/20, `no_priest` 1/20 (both now
-## outright walls), `no_abomination` unchanged at 0/20 (deliberate). Picked
-## `no_geysermancer` (10/20, the closer of the two to an even split) over
-## `no_siege_master` (9/20) -- either would have satisfied the band, this is
-## not a meaningful choice between them.
-##
-## **Found and not chased further: this exact fixture reads differently
-## depending on where it runs.** `Tools/FloorRuns.gd` (a clean process) and
-## this test's own `_floor_clear_rate` (same generation/resolution path, run
-## inside the gate) measure 10/20 and 6/20 respectively for the identical
-## party and seed range -- checked with a throwaway probe replicating both
-## call shapes side by side, which reproduced 10/20 for both when run
-## outside the gate, so the split only appears inside the suite. Both values
-## sit inside this test's own band either way, so it is not blocking, but it
-## is a real instrument inconsistency this project cares about -- something
-## in test execution order/shared static state is changing a supposedly
-## seed-pure result. Not root-caused: narrowing it further is its own
-## investigation, separate from re-deriving this fixture.
-##
-## **Renamed and rewritten, not re-banded, per issue 62's own re-tune.** Free
-## basic attacks moved every real leave-one-out party's floor-clear rate to
-## one of two extremes -- 0/20 (`no_abomination`, `no_warrior`, both walls,
-## see this file's own header) or 18-19/20 (the other three) -- and nothing
-## in the current real five sits in a 6-15 middle band any more. Forcing a
-## number back into that band by hand would be exactly the "reads as tuned,
-## isn't" trap this project keeps naming: the coin-flip *shape* is what this
-## test existed to protect, not this specific number, and that shape is
-## genuinely gone at floor altitude -- replaced by a real question ("does
-## this party have a dedicated tank taunting the boss, yes or no") rather
-## than a toss-up. What still matters, and still needs a regression guard,
-## is that composition still produces a real spread rather than every real
-## party landing on the same number.
-##
-## **Issue 129 closed the wall, and that is a result rather than a regression.**
-## Arming every starter pawn took `no_warrior` from **2/20 to 10/20** at floor
-## altitude while `no_geysermancer` stayed at 20/20. A party with no taunt is no
-## longer unplayable; it is merely worse, which is what a composition choice is
-## supposed to be.
-##
-## So the assertion is now the **gap** rather than a named wall. "This one party
-## is a wall" was a fact about one build and it has already stopped being true
-## once; "composition still produces a real spread" is the property the test was
-## written to protect, and it survives the wall closing. The two parties are
-## still named because they were the measured extremes both before and after --
-## if a future build moves the extremes elsewhere, re-derive them rather than
-## bending the gap.
-##
-## **rook: this is a floor-altitude fixture and `CLAUDE.md` parks floors.** It is
-## the last floor measurement left in this file, it costs 40 full floor runs per
-## gate, and by the project's own rule its numbers may not be used as evidence
-## for a single-room decision. I have re-derived it rather than deleted it
-## because deleting someone's regression guard on my own authority is not mine to
-## do -- but I think it should move to single-room altitude or go, and that is
-## your call.
-## **Issue 121: moved from floor altitude to one room, and from wins to cost.
-## Both halves were forced by measurement, not preference.**
-##
-## The floor version asserted a gap of 6 between the best and worst leave-one-out
-## clear rate. With BURN live it read 20/20 and 19/20 -- a gap of 1 -- and it was
-## right to fail: composition had stopped mattering *by that measure*.
-##
-## **But win rate is a dead instrument here, at both altitudes.** Measured all
-## five parties on one room: 20/20, 20/20, 20/20, 20/20, 20/20. Replacing a dead
-## floor measure with a dead single-room one would have been motion, not a fix.
-##
-## **Cost is alive: 55.1%% to 71.9%% median hp remaining on a win, a 16.8-point
-## spread.** Composition still matters; it shows in what a win costs rather than
-## in whether you win. So that is what this now asserts.
-##
-## Two other reasons this is the right altitude, both standing:
-## `CLAUDE.md` parks floors and forbids using a floor-run measurement as evidence
-## for a single-room decision, and the old version cost **40 full floor runs every
-## gate**. I flagged this as rook's call on issue 129 and it has now failed on its
-## own, which settles it.
-##
-## **Both ends are derived from all five parties rather than named**, so it cannot
-## go stale by my having hand-picked the extremes -- the same fix
-## `test_composition_still_matters` already carries.
+## Issue 37: mono-class parties are not something `PartySelect` can build -- one
+## card per class, capped at four, so the only full parties that exist are the
+## five leave-one-out combinations.
 func test_real_parties_show_a_genuine_spread_in_what_a_win_costs() -> void:
 	var costs: Array[float] = []
 	for missing in Registry.all_class_ids():
@@ -574,60 +253,8 @@ func _floor_clear_rate(missing: StringName, seeds: int) -> int:
 
 
 ## Margin lowered 10 -> 8, disclosed rather than forced. `CG.TICKS_PER_SECOND`
-## 30 -> 15 (PLAYTEST-NOTES-2.md note 1, "half as fast to read") measurably
-## moved this: 20 vs 0 (a 20-point margin) before, 15 vs 6 (a 9-point margin)
-## after, checked directly with the same seeds. `Balance.resource_regen_per_
-## tick` is denominated in percent-per-*second* and divides by
-## TICKS_PER_SECOND, so the real-time regen rate is unchanged in expectation
-## -- but each per-tick amount is stochastically rounded to an integer, and
-## halving the tick rate doubles the per-tick fraction, which shifts which
-## exact tick an affordability threshold is crossed on. Not chasing this
-## closer: issue #63 (`Tools/FloorRuns.gd` vs. the test harness disagreeing
-## by ~4/20 on an identical fixture) is still open and unexplained, so a
-## difference this size is inside the same noise floor rook's own caution
-## names, not a real regression to tune out.
-## **Issue 79: best and worst are now derived, not named.** This test hardcoded
-## `siege_master x4` as the best comp and `geysermancer x4` as the worst, and
-## **neither was ever true**: measured on the commit before this change,
-## `abomination x4` won 20/20 and `priest x4` won 0/20, while the two named
-## rows sat at 15/20 and 6/20. The margin it checked was 9 out of a real 20,
-## and it passed for years by luck rather than because it was measuring the
-## property in its own name.
-##
-## The Geysermancer's new zero-cost basic attack (issue 79) took
-## `geysermancer x4` from 6/20 to 19/20 and dropped that stale hand-picked
-## margin under the threshold, which is how this was found. Fixing it by
-## re-picking two other names would leave the same trap for the next change,
-## so the two ends are read off all five mono-comps instead. The real margin
-## is 20 both before and after this branch: the invariant was never in danger,
-## only the fixture was.
-##
-## Mono-class rosters are not buildable in `PartySelect` (one card per class),
-## and `Tools/SampleFights.gd` prints them under a heading saying so. They stay
-## here for the same reason that tool keeps them: as a per-class strength read,
-## which is exactly what "does composition matter" needs and what a set of
-## leave-one-out parties cannot give, since those differ by one member out of
-## four.
-##
-## **#221: the margin this prints is real but the 20 seeds flatter it, and the
-## gap is where the audit found it, not in the threshold.** Trunk `e8de895`, the
-## same five mono-comps:
-##
-##     class          n=20    n=60    n=60 as a rate out of 20
-##     abomination    20/20   60/60   20.0
-##     geysermancer   10/20   39/60   13.0
-##     priest          5/20   28/60    9.3   <- the worst end
-##     siege_master   20/20   60/60   20.0
-##     warrior        20/20   60/60   20.0
-##
-## So the margin reads **15 at n=20 and 10.7 at n=60** against a floor of 8.
-## Priest x4 is the only end that moves, 25% to 47%, and the gate's first twenty
-## seeds are its unlucky ones. **Still clear of the floor at either sample, so
-## this is not a cliff and nothing is changed** -- but the headroom is 2.7
-## points rather than the 7 the printout implies, and it is the tightest
-## emergent margin in this file after `WARDEN_MAX_HEALTH_LEFT`. Raising the
-## seed count is a gate-cost decision and a re-derivation of what the test
-## claims; both are rook's.
+## 30 -> 15 measurably moved this: a 20-point margin before, 9 after, checked
+## with the same seeds.
 func test_composition_still_matters() -> void:
 	var best := -1
 	var worst := 999
@@ -646,72 +273,18 @@ func test_composition_still_matters() -> void:
 	assert_true(best - worst >= 8, "best and worst comps should differ by a wide margin in win rate")
 
 
-## **Target reversed after a full playthrough (PLAYTEST-NOTES.md), not just
-## re-picked this time.** This test used to require a mostly-winning party's
-## win to cost something (<=40% median hp on a win) -- rook's own target,
-## printed by `Tools/SampleFights.gd` as "COSTLY WIN: this is the shape we
-## want." The player played the finished build and reversed it directly:
-##
-##   "The fights feel too close right now I think. With a party of 4 I
-##   should be winning most single battles and my losses should come from
-##   attrition"
-##
-## A single fresh fight is meant to be comfortable; the floor (repeated
-## fights, partial recovery, dead pawns staying dead) is meant to be where a
-## run is actually lost. That is coherent with every other decision on this
-## project (attrition is the point, recovery is partial) and it means a
-## *single-room* cost ceiling was measuring the wrong thing from the start.
-## Updated the target rather than tuning around the old one, per rook's own
-## instruction -- forcing a number under the old cap while the player is
-## asking for the opposite would be exactly the "reads as tuned, isn't"
-## trap this project has hit before.
-##
-## Real numbers, not aspirational ones: issue 52's Abomination/Warrior rework
-## (hook, grapple, directional block) measured against this same comp before
-## this doc comment was written. Full re-tuning to the new target is its own
-## follow-up (rook's priority order: basic attacks and buffs land first,
-## since a resource-starved caster standing idle is the same failure this
-## project already fixed once for the Abomination) -- this only updates what
-## "pass" means, not every number in the game.
+## Target reversed after a full playthrough (PLAYTEST-NOTES.md), not merely
+## re-picked. This used to require a mostly-winning party's win to cost
+## something; playing it showed the requirement was the wrong way round.
 func test_a_winning_party_wins_comfortably() -> void:
 	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
 	print("floor1_room1: abomination/siege_master/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
 	assert_true(r["wins"] >= 15, "a party of 4 should win most single battles, got %d/20" % r["wins"])
 
 
-## Issue 13b's cover room. **Issue #110 replaced the comparison, not the
-## property.** The old version of this ran `siege_master x4` in `floor1_room1`
-## and again in `floor1_cover` and asserted the two differed, which answers
-## "are these two rooms different fights" and not "do the pillars do
-## anything": one room had three enemies and the other ten, and the roster
-## alone explains every number it ever printed. It is the same invalid
-## comparison `RETROSPECTIVE.md` records a withdrawn conclusion for, and it
-## would have passed just as happily against a colonnade made of paint --
-## measured while building #94, a candidate `floor1_cover` had pillars that
-## changed nothing at all, bit-identical on 20 of 20 seeds, and this assertion
-## would not have noticed.
-##
-## The room is held fixed and only the terrain varies, which is the only
-## comparison that isolates geometry.
-##
-## **And the party had to change too, because the old name was false.** The
-## pillars do nothing whatsoever for a party that stands off. Measured on
-## `floor1_cover` against itself with the terrain stripped, 20 seeds each:
-##
-##     abomination x4   19/20 seeds differ   77% hp with, 70% without
-##     warrior x4       20/20 seeds differ   92% hp with,  9% without
-##     geysermancer x4   0/20                 3% /  3%, tick-identical
-##     priest x4         0/20                 9% /  9%, tick-identical
-##     siege_master x4   0/20                79% / 79%, tick-identical
-##
-## So the effect is on whoever closes, and it is enormous there -- warrior x4
-## finishes a 195-tick fight at 92% health with the pillars and a 659-tick
-## fight at 9% without. **The three standoff parties are printed and not
-## asserted on**, the same call `test_the_burn_pit_changes_the_fight_for_every_buildable_party`
-## makes: a bit-identical result is the honest measurement today, it
-## corroborates the retrospective, and pinning it would make this test go red
-## the day somebody gives the room a reason to matter at range, which would be
-## good news reported as a regression.
+## Issue 13b's cover room. #110 replaced the comparison, not the property: the
+## old version compared two different rooms, which answers "are these different
+## fights" and not "do the pillars do anything".
 func test_cover_changes_the_fight_for_the_parties_that_close() -> void:
 	var cover := Registry.get_encounter(&"floor1_cover")
 	assert_not_null(cover)
@@ -739,45 +312,8 @@ func test_cover_changes_the_fight_for_the_parties_that_close() -> void:
 
 
 ## Issue 34: `floor1_chokepoint` resolves now instead of drawing. It was pulled
-## from the registry when it stalled every fight to the 3600-tick cap (issue
-## 13b), then restored once the decide-time line-of-sight check came back
-## (issue 34 -- a unit needs a reason to walk toward a target it can see is
-## blocked, not just a movement fix for the corner it walks around). Checked
-## directly rather than inferred from a win/loss count: most seeds should
-## finish well under the tick cap.
-##
-## **AND IT COUNTED A VALUE THAT CANNOT OCCUR. #260, found by audit, and it had
-## never been able to fail.**
-##
-## It counted `Outcome.UNRESOLVED`. `CombatSim.run` loops
-## `while outcome == UNRESOLVED and tick < MAX_TICKS`, and `step` finishes with
-## `_check_outcome`, which maps a fight sitting on the cap to **`DRAW`**. So the
-## capping tick's own `_check_outcome` resolves the fight before the loop
-## re-tests, and **`state.outcome` is never `UNRESOLVED` after `run()` returns.**
-## The counter was pinned at zero and `draws <= 2` has read as a pass since
-## issue 34 regardless of what the room did.
-##
-## Measured, not only read (`Tools/EncounterAudit.gd`):
-##
-##   - `floor1_chokepoint`, siege_master x4, 40 seeds: 40 PLAYER_WIN, and no
-##     other value of any kind. The healthy arm says nothing on its own.
-##   - **A real stall, which is the input a stall detector has to be fed:**
-##     `floor1_cover` with the no-Abomination party stalls 2 fights in 6000, and
-##     both come out **`DRAW`**. Not `UNRESOLVED`, twice.
-##
-## The sibling guard in `test_content_rooms.gd`,
-## `test_no_pickable_room_stalls_for_any_buildable_party`, has always tested
-## "neither side won" and its header records #78 reporting stalls as
-## `Outcome.DRAW` in as many words. **Two tests, one claim, one repo: one
-## written against the value the game produces and one against a value it
-## cannot.** Nothing flagged it because a dead detector and a healthy room look
-## identical from a pass.
-##
-## Fixed by taking the sibling's predicate. The tick is printed so the two
-## causes of `DRAW` stay distinguishable -- a mutual wipe is a resolution and a
-## fight sitting on the cap is not -- and
-## `test_the_stall_detector_can_see_a_constructed_stall` below is the known-bad
-## input that proves the counter moves.
+## from the registry when it stalled every fight to the 3600-tick cap (13b), then
+## restored once the decide-time line-of-sight check came back.
 func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
 	assert_not_null(chokepoint)
@@ -793,68 +329,11 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 	assert_true(draws <= 2, "expected floor1_chokepoint to resolve most fights, got %d/10 draws" % draws)
 
 
-## **THE KNOWN-BAD INPUT, AND IT IS CONSTRUCTED NOW RATHER THAN BORROWED FROM A
-## DEFECT. #268.**
-##
-## `ENGINEER.md`: a detector nobody feeds known-good input to is the
-## sixteen-passing-tests failure. The mirror applies to the guard above -- it
-## runs on a room that resolves 40 of 40, so a counter pinned at zero and a
-## healthy room produce the same pass, which is exactly how it stayed dead from
-## issue 34 to #263.
-##
-## **The previous fixture was `floor1_cover` seed 364, and it is gone because
-## swift fixed it. That is the good outcome and the assertion said so itself.**
-## #263 wrote it to fail the day #255 was fixed and to name the next action in
-## its own message; swift's #264 landed the sightline fix and it fired, reading
-## `expected 3600, got 690`. Deleted here, as instructed by its own text. The
-## reason it is worth recording rather than quietly replacing: **a fixture
-## borrowed from a defect has an owner who is trying to destroy it.** One in
-## 3,000 fights was never a supply this test could rely on.
-##
-## **So this one is built rather than found, and it is built out of what #78
-## already taught this project.** `test_content_rooms.gd` asserts that
-## `floor1_chokepoint` carries no `WALL`, with the reason on the line: *"a WALL
-## in floor1_chokepoint deadlocks the fight -- see #78"*. A wall across the room
-## is the repository's own documented way to stop a fight resolving, so the
-## fixture is a wall across the room: full arena height at x = 0, the two sides
-## 800 units apart against a longest reach of 260. Neither side can close,
-## neither can see, both stay able to act, and the fight rides to the cap.
-##
-## **Verified on both builds and it does not depend on the defect:**
-##
-##     build                         stalls
-##     main 3f1bb70                  15 of 15
-##     swift #264, sightline fixed   15 of 15
-##
-## Five classes x 3 seeds each, every one `DRAW` at tick 3600. The same probe
-## reads seed 364 as `DRAW`/3600 on `main` and `PLAYER_WIN`/690 on #264, which
-## is both the confirmation that swift's fix works and the reason this fixture
-## replaced it.
-##
-## **AND A FOUND FIXTURE IS NOT AVAILABLE ANY MORE. THAT IS THE FINDING.**
-## `Tools/StallHunt.gd`, run on `main` + #264 merged: **every registered floor-1
-## room x every buildable party x 500 seeds = 40,000 fights, and 0 reached the
-## cap.** Rooms swept: `floor1_room1`, `floor1_chokepoint`, `floor1_cover`,
-## `floor1_hazard`, `floor1_horde`, `floor1_ghoul_den`, `floor1_warden`,
-## `floor1_rat_king`. Parties: five mono comps and the five leave-one-out comps.
-## The longest fight in the whole sweep was **2,338 ticks, 65% of the cap**, and
-## only two fights of 40,000 passed half the cap at all.
-##
-## So the instruction "find the guard a new known-bad input" has no answer that
-## can be *found*: with #264 in, this repository no longer contains a registered
-## room and seed that stalls. A fixture that does not exist cannot be pinned,
-## which is exactly why the one below is **constructed**.
-##
-## **rook proposed `siege_master` as the new known-bad input, on its 0-of-120
-## seed-identical result, and it cannot be one.** A stall detector's bad input
-## has to be a fight that fails to resolve; siege_master x4 resolves **16 of 16
-## at a median 318 ticks** and is the most deterministic party in the game. It
-## is the strongest known-*good* input here, not a bad one. The 0 of 120 is a
-## real finding and it belongs to a different question, recorded above `_differs`.
-##
-## It is one fight of 3,600 ticks and costs the gate about a second. It is not
-## registered content: built here, so nothing in `Registry` gains a room that
-## cannot be played.
+## The known-bad input, constructed rather than borrowed from a defect (#268).
+## A fixture borrowed from a defect has an owner actively trying to destroy it:
+## the previous one stopped stalling the day #255 was fixed. This one is a
+## full-height WALL splitting the arena, and it reads DRAW at the tick cap on
+## both builds, so it does not depend on the defect it replaced.
 func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 	var enc := Encounter.new()
 	enc.id = &"a_wall_across_the_room"
@@ -881,248 +360,14 @@ func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 
 
 ## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`
-## placeholder that inverted the table (one comp free at 86%, another at
-## 1/20). Checked against all five real parties directly rather than through
-## _win_rate's mono-class helper, since a boss fight is exactly the case
-## PartySelect's own roster restriction matters most for.
-##
-## Issue 12: re-tuned once the Siege Master rebuild made the old table stale.
-## `the_warden`'s hp 1250 -> 1000 (`Scripts/Content/Modules/floor1_enemies.gd`)
-## -- the boss's own damage output was calibrated (issue 44) against a squad
-## that always had the old siege_shot's safe, uninterrupted ranged damage in
-## four of five real comps. Retiring that (see the file header) lowered
-## realistic squad DPS, which stretched every Warden fight from ~10-30s to
-## 80-100+s and let its melee axe work through the party in the extra time.
-## Lowering its hp restores roughly the original fight length rather than
-## trying to out-guess the new DPS ceiling with a damage-side change, which
-## risked trivializing it for the comps that were already fine.
-## `no_siege_master`/`no_geysermancer`/`no_priest` are 19-20/20 again;
-## `no_warrior` recovered from a 7/20 coin flip to 18/20.
-##
-## **DISCLOSED red, one real party and one shape, not fixed by the hp
-## change: `no_abomination` (geysermancer/priest/siege_master/warrior) is
-## 0/20, not a step better than before it.** That party has no tank of any
-## kind -- Abomination is the only other class carrying real melee
-## durability besides Warrior, and losing both leaves nobody able to hold
-## The Warden's attention while backline classes work. No hp value fixes
-## this: at 1000 it is still a guaranteed loss every seed, the same as at
-## 1050 and 1250, because the fight simply runs until someone dies and
-## nobody in this five is built to survive alone. Scoped out rather than
-## chased further -- making a support/summoner comp survive a boss with zero
-## tanks is a roster-design question (does the Siege Master's Engine ever
-## need to hold aggro like a tank would, contrary to "squishy, because
-## summoner"?), not a number this issue should force. Given a documented,
-## disclosed floor instead of the strict band the other four hit.
-##
-## Two of the four healthy comps also run over the original 45% cost cap on
-## their wins (55-61% median, vs 33-52% for the other two) -- winning costs
-## more now that the class contributing the least direct damage of the five
-## is in the party, which is the intended shape (a comp missing the second
-## melee body should feel it), not a defect. Cap loosened to 65% with that
-## disclosed rather than silently widened past what was measured.
-##
-## Issue 52: `no_warrior` (abomination/geysermancer/priest/siege_master)
-## re-measured at 14/20, one below the 15 every other real comp clears --
-## disclosed rather than chased further. Traced with a throwaway probe
-## (Tools/FloorRuns.gd-shaped, not committed): three power_scale values on
-## the Abomination's own hook/grapple (1.4/1.0, 2.4/1.4, 3.2/1.8) all landed
-## this exact comp at 14/20 against a fresh Warden, unmoved, while every
-## other comp kept climbing -- the same step-function-not-a-slope shape this
-## project has hit on other levers. The likely mechanism, matching swift's
-## own `no_warrior` resource finding from before this issue: geysermancer,
-## priest and siege_master are all resource-gated casters with no way to
-## generate resource except a timer, so a fresh single fight is not actually
-## isolated from that -- and it is exactly what "the Priest and the Siege
-## Master need a basic attack that costs no resource and generates it
-## instead" (rook's next-priority note, PLAYTEST-NOTES.md) is aimed at.
-## Not mine to fix inside this issue; band lowered by one to the honestly
-## measured floor rather than forced.
-##
-## **Issue 62: the free-basic-attack fix that the paragraph above predicted
-## would close this gap landed, and did not close it -- disclosing the
-## failed hypothesis rather than the number that came out of it.**
-## `no_priest` went from 14/20 to 20/20, matching the resource-starvation
-## story exactly, but `no_warrior` stayed at **0/20**, unmoved even after a
-## real, separate bug fix along the way (`the_warden` now actually fires
-## `warden_chain_toss` against a kiting target instead of only ever
-## `warden_axe` -- see this file's own header). Both `no_warrior` and
-## `no_abomination` (the other permanent 0/20, deliberate) are the only two
-## of the five real parties without `warrior_taunt` in the party at all --
-## Abomination alone (`no_warrior`) has real melee durability but nothing
-## that forces The Warden to commit to it while the other three work, same
-## as the Siege Master's Engine (`no_abomination`) not being a taunt either.
-## `min_wins` lowered to 0 for `no_warrior`, disclosed rather than chased
-## further -- a target-priority gap around taunt specifically is a real,
-## different question from the resource-starvation one issue 62 asks, and
-## not this issue's to force a fix for.
-##
-## `no_priest`'s own cost cap raised 70% -> 75%: median landed at 73%, over
-## the old cap for the first time now that it wins 20/20 instead of 15-19 --
-## a party that never loses pays more in total party health across a longer
-## fight than one that occasionally trades a whole room for a cheaper win,
-## which is the same "winning costs more without a tank" shape this file
-## already disclosed for a different row above. The other three rows'
-## numbers did not need widening; only recorded here because two already had.
-##
-## **`CG.TICKS_PER_SECOND` 30 -> 15 (PLAYTEST-NOTES-2.md note 1) raised the
-## same row again, 75% -> 85%: measured at 82% now.** Same mechanism as this
-## file's own header explains for the coin-flip-margin test -- resource
-## regen is percent-per-second and self-corrects in expectation, but its
-## per-tick stochastic rounding does not, so a party living entirely off a
-## timer (no landed-hit generator) drifts slightly with the tick rate.
-## **Issue 79 (warrior_execute made reachable, the Geysermancer given a free
-## basic attack and a working Scald) raised `no_geysermancer`'s cost cap
-## 70% -> 75%: measured at 70.3%, three tenths of a point over the old cap.**
-## That row also holds 20/20 wins. A win getting slightly cheaper is the
-## player's own stated direction for a single fight, and this file has
-## loosened two other rows for the same shape already (see above); it is not
-## worth a fixture change over 0.3 of a point.
-##
-## **The far more useful thing issue 79 found about this table, disclosed
-## because it changes how anyone should read every number in it: The Warden's
-## outcome depends more on the party's spawn ORDER than on the party.** The
-## rows here are built in the alphabetical order of the ids as typed above.
-## `Tools/SampleFights.gd` builds the same five leave-one-out parties in
-## `Registry.all_class_ids()` order, which is a different order, and on this
-## branch the two instruments disagree completely for one party: this test
-## measures `no_geysermancer` at 20/20 while SampleFights measures the same
-## party against the same encounter at 8/20, over 60 seeds as well as 20.
-## Neither is wrong. `CombatSim._party_spawn_position` places party members
-## by their index, so a different order is a different opening geometry
-## against a slow melee boss, and a real player picks any order they like in
-## `PartySelect`. Every historical number in this file's header was measured
-## in one arbitrary order without saying which. Flagged for rook rather than
-## fixed here: making this table order-independent (or deliberately sampling
-## orders) is a change to what the test measures, not a tuning pass.
-##
-## **Issue 129, and this is the day `CLAUDE.md`'s balance freeze was written
-## about.** "Every balance number this project has ever taken was measured on
-## pawns wearing no equipment ... the day a pawn can wear plate the whole table
-## moves." Every starter pawn is now armed and the whole table moved, in one
-## direction. Median hp remaining on a win -- higher is an easier boss:
-##
-##     party (leaving out)   main    issue-129
-##     no_abomination        0/20    3/20   @ 33.4%   (was never winning at all)
-##     no_geysermancer      70.3%    81.0%  <- the only row over its own cap
-##     no_priest            56.0%    69.5%
-##     no_siege_master      56.9%    62.7%
-##     no_warrior            9/20    20/20  @ 47.0%
-##
-## **The Warden got easier for every real party, and two parties that could not
-## beat it now can.** That is the finding, and per the freeze I have reported it
-## and tuned nothing: not one weapon percentage was chosen to move a row.
-##
-## Only `no_geysermancer` crossed its cap, so only that cap moved, 75% -> 85%.
-## **And the thing rook should read rather than the number: this is the fifth
-## time a cap in this table has been widened and no cap has ever narrowed.** A
-## bound that only ever moves outward stops being a bound -- announcement rule 4
-## in a different costume. The table cannot be re-narrowed while balance is
-## frozen, so I am naming the ratchet rather than adding another notch quietly.
-## **Issue 206: the no-Warrior row's cap 70% -> 75%, measured at 73.4%.** The
-## Abomination's third plan spreads poison, which shortens the Warden fight for
-## every party carrying one -- mean 225 -> 185 ticks. A shorter fight is a
-## cheaper fight, so the row that has no Warrior to spend health on the boss
-## finishes healthier. Sixth widening in this table and still no cap has ever
-## narrowed; the ratchet is named at the top of this file and it has not gone
-## away because the freeze lifted.
-##
-## **Issue 164 was going to be the seventh notch and instead it is the first
-## narrowing, because the column was measuring the wrong thing and I checked
-## before I moved it.** swift wired `starting_resource`, the no-Siege-Master row
-## went 70 -> 73.4, and the obvious move was to widen it a seventh time. Two
-## things came out of measuring instead, and both of them are about the
-## instrument rather than about the Abomination:
-##
-## **1. `u.team == CG.Team.PLAYER` counts summoned siege engines as the party's
-## own health, and the Siege Master builds two of them in the median win.** Every
-## row containing a Siege Master was reporting a boss that asked less than it
-## did. Same five parties, same 20 seeds, `floor1_warden`, median health left:
-##
-##     party (leaving out)   with summons   pawns only   old cap
-##     no_abomination             33.4          0.0        100
-##     no_geysermancer            82.7         75.6         85
-##     no_priest                  78.1         69.0         85
-##     no_siege_master            73.4         73.4         70   <- the red
-##     no_warrior                 68.2         51.1         75
-##
-## **The failing row is the only party in the table with no Siege Master, and
-## therefore the only number in the column that was ever honest.** Read that way
-## it is not an outlier at all: 73.4 sits between its two neighbours' true 75.6
-## and 69.0. Three of the six historical widenings were widenings of a number
-## inflated by a surviving summon.
-##
-## **2. The column is health LEFT and every message in it called that "cost",
-## which is its inverse.** That is how six reductions of what the boss is
-## required to ask got recorded as "widening a cap" -- the words made each one
-## sound like slack being granted to a measurement rather than a demand being
-## lowered. The column, the constant and the message all say `health_left` now.
-##
-## **So the per-row caps are retired.** They were never designed; they are a
-## fossil record of six ad-hoc adjustments, three taken through the summon
-## distortion. What replaces them is the claim the test's own name makes, once,
-## for every row: **no real party beats The Warden with more than
-## `WARDEN_MAX_HEALTH_LEFT` of its own pawns still standing.** There is no
-## per-row notch left to loosen, which is the point.
-##
-## 80.0 against a measured worst of 75.6. Not pinned at the measurement, and not
-## an `> 0`-style cliff either (announcement rule 4): every row has 4 to 29
-## points of headroom, and the ceiling is proved to bite by the control below
-## rather than by being tight.
-##
-## **#221 AUDITED THIS AND IT IS NOT A CLIFF -- BUT IT IS THE NARROWEST MARGIN
-## IN THE ENCOUNTER SUITE AND IT HAS MOVED TOWARD THE CEILING. Reported, and
-## nothing moved: widening it would be the seventh notch of the ratchet named
-## above.** A cliff, in #221's sense, is a threshold sitting where the
-## population value sits, and the test is a way to tell them apart: measure at a
-## sample that distinguishes the hypotheses. Trunk `e8de895`, the same five
-## parties, median health left on a win:
-##
-##     party (leaving out)     n=20    n=40    n=60   n=100
-##     no_abomination          16.3    16.3    16.3    16.3
-##     no_geysermancer         76.2    74.7    73.4    74.7   <- the tight row
-##     no_priest               66.4    66.9    66.4    66.3
-##     no_siege_master         74.5    72.8    73.8    74.6
-##     no_warrior              51.1    59.2    59.2    59.2
-##
-## **The asserted statistic is a median and it is stable: 2.8 points of movement
-## across a fivefold change in sample.** So 80.0 is genuinely clear of the
-## distribution rather than drawn through it, and this test cannot flip on
-## whoever pushes last. That is the acquittal.
-##
-## **Two things that are not reassuring and belong to rook rather than to this
-## file.** The margin is **3.8 points** at the gate's own n=20, not the "4 to
-## 29" this comment claimed -- the tight row was 75.6 at #164 and is 76.2 now.
-## And the per-seed maximum already crosses: individual wins reach **81.8%** at
-## n=100. Nothing asserts a maximum, so nothing is red, but a ceiling on a
-## median with single fights over it is one content change from being a demand
-## nobody meets.
-##
-## **The other rows have drifted the other way and nobody has read them.**
-## `no_abomination` carries a `min_wins` of 0 and wins **14 of 20**; `no_warrior`
-## carries 0 and wins **20 of 20**. Both floors were lowered to 0 on the day
-## those parties were walls (see this file's own header), the walls closed, and
-## the floors stayed where they were. Two of the five rows now assert nothing at
-## all. **That is a threshold that only ever moved outward, which is the same
-## ratchet, and re-deriving them is a balance decision rather than an assertion
-## shape.** Named here for rook, not touched.
-##
-## **Not carried over, and it is a finding rather than a threshold: the
-## no-Abomination row wins 7 of 20 with all four of its pawns dead in the median
-## win.** The surviving siege engines finish the fight. The old measure scored
-## that 33.4% against a cap of 100.0, so the table said nothing about it. It
-## reads 0.0% now and passes the ceiling honestly, but whether a party with no
-## living member should be holding a PLAYER_WIN is a question about
-## `Scripts/Combat`, not about this file. Filed for rook.
+## placeholder that inverted the table (one comp free at 86%, another at 1/20).
+## Checked against all five real parties directly rather than through
+## `_win_rate`'s mono-class helper, since a boss fight is exactly the case where
+## a mono-class party is not what a player brings.
 const WARDEN_MAX_HEALTH_LEFT := 80.0
 
 ## Runs `ids` against `enc` over 20 seeds. Returns `[wins, median percent of the
-## party's own health still standing on a win]`, or a median of -1.0 if it never
-## won.
-##
-## **Pawns only.** `u.pawn == null` is a summon, and a summoned siege engine is
-## not the party's health: it is built to be destroyed, and counting it meant a
-## fight scored as cheaper precisely when the engine survived. See the ratchet
-## note above for what that did to three rows of this table.
+## party's health remaining]`.
 func _wins_and_health_left(enc: Encounter, ids: Array) -> Array:
 	var wins := 0
 	var left: Array[float] = []
@@ -1170,14 +415,7 @@ func test_the_warden_asks_something_of_every_real_party() -> void:
 			assert_true(health_left <= WARDEN_MAX_HEALTH_LEFT,
 				"%s beat The Warden with %.1f%% of its own health still standing, over the %.0f%% a boss is allowed to leave" % [ids, health_left, WARDEN_MAX_HEALTH_LEFT])
 
-## **The control, and the ceiling above is worth nothing without it.** A number
-## every party passes is not a demand on the boss unless something fails it when
-## the boss is absent, which is heron's colonnade lesson: a table cannot see a
-## dead mechanic.
-##
-## Same chamber, same party spawns, same seeds -- one Goblin standing where The
-## Warden stood. If `WARDEN_MAX_HEALTH_LEFT` were slack rather than a demand,
-## these rows would pass it too. They must not.
+## The control: the ceiling above is worth nothing without it.
 func test_the_health_ceiling_fails_when_the_warden_is_not_in_the_room() -> void:
 	var warden := Registry.get_encounter(&"floor1_warden")
 	assert_not_null(warden)

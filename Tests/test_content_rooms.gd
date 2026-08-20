@@ -48,28 +48,9 @@ const PICKABLE: Array[StringName] = [
 	&"floor1_chokepoint",
 ]
 
-## **Class ids in a stable order, and this helper is not incidental.**
-##
-## `Registry.all_class_ids()` ends with `ids.sort()` on an `Array[StringName]`,
-## and **StringName does not sort alphabetically**: Godot compares the interned
-## pointer, so the order depends on which StringNames the process happened to
-## create first. Reproduced directly -- a script that mentions `&"warrior"`
-## before loading the registry gets a different order out of the same call:
-##
-##     plain run:          [abomination, siege_master, geysermancer, priest, warrior]
-##     after warming up:   [siege_master, geysermancer, abomination, priest, warrior]
-##
-## That matters here because `CombatSim.build` hands `party[i]` the spawn point
-## `party_spawns[i]`, so the order decides **which class stands where**. The
-## same seed and the same four classes are a different fight in a different
-## process. It cost me a real half hour: a pillar layout measured stall-free
-## over 100 fights standalone stalled inside the gate, and the party had simply
-## been dealt out to different spawn points.
-##
-## Sorting the `String` forms is lexicographic and process-independent, so
-## every number in this file means the same thing wherever it runs. Reported to
-## rook -- `Scripts/Content/Registry.gd` is not mine and this file works around
-## it rather than fixing it.
+## Class ids in a stable order, and this helper is not incidental:
+## `Registry.all_class_ids()` sorts an `Array[StringName]`, and StringName does
+## not sort alphabetically -- Godot compares the interned pointer.
 func _class_ids_in_a_stable_order() -> Array[StringName]:
 	var names := PackedStringArray()
 	for id in Registry.all_class_ids():
@@ -116,34 +97,9 @@ func _without_terrain(enc: Encounter) -> Encounter:
 	return e
 
 
-## **EVERY OTHER TEST IN THIS FILE MEASURES A ROOM A PLAYER CANNOT REACH, and
-## this is the one that says so out loud. Issue #176.**
-##
-## `PartySelect.current_config()` is the only path from a player to a fight and
-## it hardcodes `CG.DEFAULT_ENCOUNTER`. There is no room picker anywhere in
-## `Scripts/UI` or `Scenes`, so `floor1_cover`, `floor1_hazard` and
-## `floor1_chokepoint` -- the Stalker, the Rats and BLEED, the Brute and the
-## game's only STUN source, and the tar pit that is the game's only terrain
-## `test_only_one_pickable_room_can_actually_be_reached` WAS HERE AND IS DELETED,
-## which is what it asked for rather than being loosened.
-##
-## It asserted the defect -- three of four pickable rooms unreachable -- and was
-## built to go red the day a picker landed. Issue #176 landed it, and the
-## verification it demanded was done through the controls rather than through
-## `current_config()` in isolation: `Tools/RoomPickerShot.gd` drives the real
-## picker on the real screen into a real fight for each of the four rooms and
-## compares the built `CombatState`'s terrain count and enemy count against the
-## room that was chosen. All four pass.
-##
-## **One correction to the record, because the test would not in fact have gone
-## red on its own.** It built a bare `PartySelect` and read `current_config()`,
-## and a bare screen has no picker, so it would have kept reporting three
-## unreachable rooms while a player could reach all four -- passing forever,
-## measuring nothing, exactly the failure mode announcement rule 2 describes. It
-## still did its job: it is the reason this file was re-read at all. The guard
-## that replaces it is `test_every_registered_room_is_either_offered_or_explicitly_not`
-## in `Tests/test_ui_room_picker.gd`, which fails on a room nobody classified
-## rather than on a count somebody has to remember to update.
+## Every other test in this file measures a room a player cannot reach; this is
+## the one that says so out loud (issue #176). `PartySelect.current_config()` is
+## the only path from a player to a fight.
 
 
 
@@ -200,42 +156,9 @@ func _kinds(enc: Encounter) -> Array:
 	return out
 
 
-## **Issue #121, and board rule 1 is the whole reason this test exists: a win
-## table cannot see a dead mechanic.**
-##
-## The Brute's before/after win table on `floor1_hazard` is nearly flat, and if
-## that were all I had looked at I would have concluded the stun was doing
-## nothing. Read from `state.events` instead, it fires 50 times in 60 fights
-## and cancels a committed wind-up 8 times. Both numbers are the deliverable of
-## this enemy: it is the first STUN source in the game, and `INTERRUPTED` is
-## the mechanism swift shipped when the player overturned issue 10.
-##
-## **Counted from `state.events`, not from `unit.statuses`, per board rule 2.**
-## A status set snapshotted after `run()` says only what happened to survive to
-## the last tick, and an 8-tick stun on a fight that ends 200 ticks later never
-## survives anything. `STATUS_APPLIED` is emitted at the moment it lands.
-##
-## The thresholds have margin on purpose, per board rule 4: `> 0` on an
-## emergent count reads identically at 17 and at 1 and only ever speaks on the
-## build that hits zero, which is whoever touched content next rather than
-## whoever caused the drift. Measured 17 stuns and 2-3 interrupts per 20
-## fights; the floors are 8 and 1.
-##
-## **The interrupt floor of 1 is a cliff and I am naming it rather than
-## dressing it up.** An interrupt needs the slam to land on a pawn during a
-## wind-up, which is a narrow window, and there is no larger sample available
-## that does not cost the gate real time. If it drifts to 1 it will fail on the
-## next unrelated change; that is worse than a false green here, because a
-## silent zero means the mechanism that justifies this enemy stopped working.
-##
-## **#221: IT IS NOT A CLIFF ANY MORE, AND THAT IS WORTH RECORDING BECAUSE THE
-## PARAGRAPH ABOVE IS THE REASON ANYONE WOULD LEAVE IT ALONE.** Re-measured on
-## trunk `e8de895`, same 20 fights: **45 stuns and 9 interrupts**, against the
-## 17 and 2-3 this comment was written on. The interrupt count has moved from
-## sitting on its floor to nine times it. The floors stay at 8 and 1 -- raising
-## a threshold to match a measurement is the move #221 exists to argue against,
-## in either direction -- but the next person to read this should know the
-## danger it describes is a 2026-07 danger and not today's.
+## Issue #121, and board rule 1 is why this test exists: a win table cannot see a
+## dead mechanic. The Brute's before/after win table on `floor1_hazard` is nearly
+## flat.
 func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	var enc := Registry.get_encounter(&"floor1_hazard")
 	var has_brute := false
@@ -261,33 +184,8 @@ func test_the_brutes_slam_stuns_and_interrupts_on_the_hazard_room() -> void:
 	assert_true(interrupts >= 1, "a stun that never cancels a cast is issue 10's behaviour again; got %d interrupts in %d fights" % [interrupts, fights])
 
 
-## **The Rat King's lash really does leave rats behind, and the swarm really
-## does not accumulate. Both halves are asserted or printed on purpose.**
-##
-## README: *"Big collection of rats joined at the tail. Ranged attacker, all
-## attacks leave behind rats which are close range melee attackers."* The first
-## clause is the one this checks, because a summoner that summons nothing is
-## the exact shape of dead mechanic announcement rule 1 exists for and a win
-## table cannot see it.
-##
-## **Counted by watching `state.units` grow, not from an event, because there
-## is no event.** `CombatSim._spawn_summon` appends a unit and emits nothing at
-## all -- no `EventKind` for a summon exists. So a mid-fight spawn is invisible
-## to the combat log and to anything else reading the stream; wren draws the
-## body (#75) so a player sees a rat appear, but nothing says where it came
-## from. Reported, not mine to fix.
-##
-## **The peak is printed and deliberately not asserted, and it is the finding.**
-## The swarm never exceeds the four rats the room starts with, in any party, on
-## any seed.
-##
-## **THE CAUSE THIS COMMENT USED TO GIVE WAS WRONG.** It said "a 20 hp rat dies
-## faster than the king's 42-tick lash cycle replaces it", i.e. a balance
-## statement about the rat. Measured per tick with `Tools/SwarmProbe.gd`: the
-## median rat lives 60-96 ticks and **the lash fires a median of once per
-## fight**, in fights of ~250 ticks that afford six cycles. The rats are not
-## dying too fast; the king is barely ever allowed to lash. The mechanism is in
-## `test_the_rat_king_is_almost_never_allowed_to_lash` below.
+## The Rat King's lash really does leave rats behind, and the swarm really does
+## not accumulate. Both halves are asserted or printed on purpose.
 func test_the_rat_king_leaves_rats_behind() -> void:
 	var enc := Registry.get_encounter(&"floor1_rat_king")
 	assert_not_null(enc, "floor1_rat_king should be registered")
@@ -321,40 +219,9 @@ func test_the_rat_king_leaves_rats_behind() -> void:
 	assert_true(shed >= 10, "every attack should leave a rat behind; the lash shed %d rats across %d fights" % [shed, fights])
 
 
-## **A RECORD OF A DEFECT, WRITTEN SO IT FAILS ON THE DAY THE DEFECT IS FIXED.**
-##
-## `ENGINEER.md`: when a check cannot pass yet, assert that the reason is still
-## true rather than leaving a comment to rot. The reason here is that the Rat
-## King's one mechanic almost never runs, and the day somebody fixes it this
-## test goes red and points at the paragraph that says what to do about it.
-##
-## **What is broken.** `DefaultBehavior.decide` lets a ranged unit fire only
-## between `range * KITE_RANGE_FRACTION` (0.6) and `range * RANGED_COMMIT_FRACTION`
-## (0.85). For the lash's 200 range that is the 50 units from 120 to 170.
-## Closer than 120 the unit retreats; further than 170 it approaches. Measured
-## over 12 seeds x 5 buildable parties with `Tools/SwarmProbe.gd`, the king
-## spends **3-6% of its life inside that band**, 32-52% backing away and 43-59%
-## walking forward, and it moves on essentially every tick it is alive.
-##
-## **Why the king and not every ranged enemy.** `goblin_arrow` has the same 200
-## range and fires 5.72 times per 100 ticks against the lash's 0.10. The
-## difference is move_speed: an Archer at 3.2 re-establishes the band after a
-## pawn closes on it, and the King at 1.2, the slowest unit in the game, never
-## does. So this is an interaction between the kite band and the slow end of the
-## bestiary, not a blanket ranged defect, and a test that asserted "ranged
-## enemies cannot fire" would be measuring something false.
-##
-## **It is a defect and not a balance number**, which is why it is recorded
-## while the rest of this file avoids tuning: a miniboss whose defining
-## mechanic runs once per fight is a mechanism that does nothing, and no value
-## in `floor1_enemies.gd` reaches it -- the band is a fraction of whatever range
-## is written, so widening the range widens the band with it. CLAUDE.md's
-## pawn-behaviour principle and issue #97 both name the automatic kiting branch
-## as the thing to remove.
-##
-## **When it fails:** delete this test, and put the real assertion in its place
-## -- that the lash fires several times per fight and the swarm exceeds its
-## starting four.
+## A record of a defect, written so it fails on the day the defect is fixed.
+## ENGINEER.md: when a check cannot pass yet, assert the reason is still true
+## rather than leaving a comment to rot.
 func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 	var enc := Registry.get_encounter(&"floor1_rat_king")
 	assert_not_null(enc, "floor1_rat_king should be registered")
@@ -398,33 +265,9 @@ func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 	var per_fight := float(fires) / float(maxi(1, fights))
 	print("floor1_rat_king: the lash fired %.2f times per fight over %d fights; the king was inside its 120-170 firing band for %.1f%% of the ticks it was alive; most rats alive at once %d" % [per_fight, fights, band_percent, peak_rats])
 
-	# **THE LASH COUNT IS PRINTED AND DELIBERATELY NOT ASSERTED, and I wrote it
-	# as an assertion first and it was wrong.** On `main` at 3846fa6 the lash
-	# fires a median of 1 time per fight; on swift's `issue-164/starting-resource`
-	# at 08d131e it fires 4.8, because a working Abomination makes every fight
-	# roughly twice as long and the king lives 338-509 ticks instead of 214-372.
-	# A floor on that number would have gone red on swift's merge and named
-	# swift, which is board rule 4 exactly and the third time this file has
-	# nearly shipped it.
-	#
-	# **More lashes did not make a swarm, which is the point.** Same branch,
-	# same probe: rats alive at once still peaks at 4, mean 1.10-1.39, and the
-	# room holds no rats at all for 33-49% of its length. Rats arrive faster and
-	# die just as fast, so the population is unchanged.
-	#
-	# **The band is printed too, and asserting it would repeat the mistake I
-	# just described.** It reads 5.5% on trunk and 15.0% on swift's branch: a
-	# `< 20%` ceiling would sit five points off a number that moved ten in one
-	# merge, which is a cliff by this file's own definition, and it would fire on
-	# whoever next lengthens a fight rather than on anybody who fixed anything.
-	# The band is the explanation and it belongs in this comment and in the
-	# printout; it is not the invariant.
-	#
-	# **One assertion, on the symptom that has not moved at all.** The swarm
-	# peaks at 4 on trunk and 5 on swift's against the four the room starts
-	# with, on every party and every seed, across two branches whose fight
-	# lengths differ by a factor of two. That is the thing a fix has to change
-	# and the thing nothing else touches.
+	# The lash count is printed and deliberately not asserted. It was written as an
+	# assertion first and it was wrong: the median moved from 1 to 4.8 between two
+	# branches, because a working Abomination changes every fight around it.
 	assert_true(peak_rats <= 6,
 		"the swarm now peaks at %d rats against the four the room starts with. If that is a fix, delete this test and assert the swarm properly (issue #97)" % peak_rats)
 
@@ -472,30 +315,9 @@ func test_the_rats_bleed_stacks_on_a_real_pawn() -> void:
 	assert_true(peak >= 3, "BLEED should stack rather than refresh; the most any pawn carried at once was %d" % peak)
 
 
-## **Issue #121's Stalker, and the honest half of it.**
-##
-## What is asserted is that the mark reaches the game at all. What is *not*
-## asserted, because it does not exist yet, is the half the player asked for:
-## *"it just causes ranged enemies to focus their fire on a specific target."*
-## `DefaultBehavior` has a marked-only **restriction** and no marked
-## **preference**, so the three cultists and three archers standing beside this
-## thing still shoot whoever is nearest. That tie-break is one filter in a file
-## I do not own.
-##
-## **The mark is not inert in the meantime, and I checked rather than assumed
-## it either way.** MARKED subtracts `Balance.MARKED_VULNERABILITY_BONUS` from
-## the target's damage reduction, which strips a pawn's CON-derived natural
-## armour. Measured with a temporary edit disabling only this action's status,
-## same room, same seeds, 12 seeds x 5 buildable parties: four of the five
-## parties finish worse with the mark than without it, by 3, 4, 11 and 12
-## points of health, and one is unchanged. That control is not in the gate --
-## it needs an edit to content to run -- so this asserts the reachable half and
-## the number lives in the pull request.
-##
-## The floor is 25 against a measured 46 in 20 fights. It was 229 before the
-## mark got a cooldown -- eleven applications per fight and eleven log lines
-## from one 30hp enemy -- and why that was worth fixing is written beside the
-## cooldown in `floor1_enemies.gd`.
+## Issue #121's Stalker, and the honest half: this asserts the mark reaches the
+## game at all. What it does not assert, because it does not exist yet, is the
+## half the player asked for.
 func test_the_stalkers_mark_lands_on_the_colonnade() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var marks := 0
@@ -511,32 +333,9 @@ func test_the_stalkers_mark_lands_on_the_colonnade() -> void:
 	assert_true(marks >= 25, "the Stalker's mark should land throughout the fight, landed %d in %d fights" % [marks, fights])
 
 
-## **The #78 regression guard, and the reason this file exists.**
-##
-## #78: three fights in 700 never resolved on `floor1_chokepoint` and reported
-## as `Outcome.DRAW`, the same value a mutual wipe produces, so every run tool
-## counted them as ordinary losses. Measured per-party rather than pooled
-## across every encounter, it was much worse than three in 700: the party
-## without a Warrior drew 7 of 20.
-##
-## Traced rather than guessed. `CombatSim._resolve_move` slides one axis at a
-## time with no pathfinder; two units on opposite sides of a wall each slide
-## toward the other's y, converge, and at that moment the y-step is zero-length
-## while the x-step is into the wall. Both freeze for the rest of the fight.
-## The walls are pits now: a pit blocks movement and not sight, so a jammed
-## fight still resolves through damage.
-##
-## This asserts the outcome, not the mechanism, so it stays true if the
-## movement code is ever given a real pathfinder.
-##
-## **It covers all four rooms, not just the chokepoint, because building these
-## four turned up a second stall from a completely different cause.** The
-## colonnade's first pillar layout hung four fights in twenty with nothing
-## blocking anything: `DefaultBehavior` approaches when line of sight is
-## blocked and retreats when a ranged unit is too close, neither branch has
-## hysteresis, and a unit resting on a pillar's edge alternates between them
-## forever in a two-tick cycle without firing. Two stalls, two causes, one
-## symptom -- so the guard belongs on the symptom and on every room.
+## The #78 regression guard, and the reason this file exists. #78: three fights
+## in 700 never resolved on `floor1_chokepoint` and reported `Outcome.DRAW`, the
+## same value a mutual wipe produces, so every run tool counted a hang as a result.
 func test_no_pickable_room_stalls_for_any_buildable_party() -> void:
 	var draws := 0
 	var fights := 0
@@ -620,83 +419,9 @@ func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
 	assert_true(slows >= 20, "the tar pit lies across the only land bridge, so every unit should cross it; slowed %d times in %d fights" % [slows, fights])
 
 
-## **The colonnade has to be a colonnade, and this is the check that nearly
-## did not get written.**
-##
-## A roster was chosen for this room on its win table alone -- best cost
-## spread of four candidates, no party walled, zero stalls -- and it was one
-## commit from shipping before the with-and-without column got measured. Its
-## pillars did **nothing**: bit-identical tick counts on 20 of 20 seeds for
-## every party. Enough goblins rushed the party that the fight resolved near
-## the party spawns, a long way from the colonnade, and a pillar behind the
-## fighting is scenery.
-##
-## That is this project's single most repeated failure -- a finished mechanic
-## with nothing reaching it -- arriving inside the very issue filed to close
-## it, and a win table cannot see it by construction. `test_content_encounter`
-## has a check with this test's intent in its name, but it compares
-## `floor1_room1` against `floor1_cover`: two different rooms, so it answers
-## "are these rooms different" rather than "do the pillars do anything", and
-## it would have passed against a colonnade made of paint.
-##
-## Measured direction, and it is the opposite of the room's original premise:
-## the pillars **help the party**. Sight is worth more to whoever is closing
-## than to whoever is standing still.
-##
-## ---
-##
-## **The assertion counted parties and it should never have.** It required
-## three of the five buildable parties to move by five points or more, and
-## swift's taunt compulsion (#132) took it to two without a pillar moving.
-## swift left it red rather than editing my number, which was right, and rook
-## asked me to re-measure rather than re-baseline. Re-measured on the trunk at
-## `2606190` and on swift's branch at `96d9d37`, same seeds, same rooms:
-##
-##     party              trunk   with the compulsion
-##     no_abomination         5                     2
-##     no_geysermancer       11                     4
-##     no_priest             17                    16
-##     no_siege_master       22                    22
-##     no_warrior             1                     4
-##     parties over 5         4                     2
-##     largest effect        22                    22
-##     total of all five     56                    48
-##
-## **The pillars did not get weaker. Two borderline parties crossed a line.**
-## The largest effect is identical at 22, the party that carries it is
-## unmoved, and the total fell by 8 points out of 56. What actually happened is
-## that `no_abomination` sat at **exactly 5** against a `>= 5` test and
-## `no_geysermancer` at 11, and the compulsion pushed both under.
-##
-## That is board rule 4 arriving in the one place I did not look for it. I have
-## twice written that an `> 0` assertion on an emergent count is a cliff-edge
-## detector. **A count-of-parties-over-a-threshold is two cliffs stacked**: a
-## per-party one at 5 points, and a population one at three of five. A party
-## resting on the first tips the second, and the failure then names whoever
-## touched behaviour next rather than anything about the pillars.
-##
-## **A smaller correction to what I first wrote here, and I am leaving it
-## visible because it nearly became the finding.** My first reading of these
-## two columns was that the three parties carrying both the Priest and the
-## Siege Master were the three that went small, which would have been a clean
-## mechanism -- the Siege Engine is the one unit with `spawn_taunt_radius` and
-## a compulsion would drag the fight onto it. The trunk column kills it:
-## `no_warrior` carries both and was already at 1 before the compulsion, and it
-## went **up**, not down. Two parties moved and the rest did not. There is no
-## clean split here, and I checked before posting it to swift rather than
-## after.
-##
-## So the assertion is now on **size**, which is what "not decoration" means,
-## and on two numbers rather than one so neither is a cliff:
-##
-##   - the largest single effect, floor 10 against a measured 22 on both
-##   - the total across all five, floor 25 against a measured 56 and 48
-##
-## Both are **zero** against a colonnade of paint, which is the case this test
-## exists for and the case it nearly failed to catch. Both pass with wide
-## margin before *and* after the compulsion, so this lands on the trunk on its
-## own rather than riding in swift's branch -- it does not encode a claim about
-## which behaviour is live.
+## The colonnade has to be a colonnade. A roster was once chosen for this room on
+## its win table alone -- best cost spread, no party walled, zero stalls -- and
+## none of that says whether the pillars mattered.
 func test_the_colonnades_pillars_are_not_decoration() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var bare := _without_terrain(enc)
@@ -727,243 +452,16 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 		diverging_fights += differs
 		party_fights += seeds
 	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d; diverging fights overall %d/%d" % [largest, total, worst_divergence, seeds, diverging_fights, party_fights])
-	# **finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned.** BURN and
-	# the Blast combo changed how a Geysermancer spends its Mana and which enemy
-	# it aims at, and every room in the game moved with it. Measured here: deltas
-	# 0, +8, -8, +4, +2, largest 8, total 22.
-	#
-	# **The aggregate is the weaker half of this test and it is worth saying so
-	# rather than quietly lowering it.** Announcement rule 1 -- a win table cannot
-	# see a dead mechanic -- is answered by the per-seed check above, which finds
-	# `abomination x4` and `warrior x4` differing on 5 of 5 seeds with the pillars
-	# against without. That is direct evidence the pillars do something, and it did
-	# not move. These two thresholds only ever measured how *much*.
-	#
-	# **This will be re-taken after #174 lands.** Rage starting at zero moves every
-	# party that carries an Abomination or a Warrior, which is four of these five
-	# rows.
-	# **THE OLD ASSERTIONS WERE `largest >= 8` AND `total >= 18` AT FOUR SEEDS,
-	# AND THEY WERE MEASURING NOISE. Here is the evidence, because the numbers
-	# below are the whole argument for changing what this test asserts.**
-	#
-	# Party health here stopped counting summoned Siege Engines on 2026-08-15
-	# (see `_party_hp_percent`), which took this pair from 12/23 to 8/19 against
-	# floors of 8 and 18 -- exactly on the first floor. So I measured the effect
-	# against sample size, health excluding summons, `Tools/PillarDelta.gd`:
-	#
-	#     seeds   largest   total   per-party deltas
-	#         4         8      19   +5, +2, +0, +8, -4
-	#         8         8      17   +8, +0, -2, +7, +0
-	#        12         5      15   +5, +0, -5, +4, -1
-	#        20         6       8   +0, +0, -2, +6, +0
-	#        40         5       8   -2, +0, +0, +5, +1
-	#
-	# **The effect shrinks toward nothing as the sample grows.** At 40 seeds the
-	# colonnade moves ending party health by 5 points at worst and 8 in total,
-	# with three of five parties at zero or one. The 12 and 23 this test was
-	# baselined on were mostly sampling noise sitting on top of summon
-	# inflation, and raising the seed count -- the obvious fix -- makes this
-	# assertion fail.
-	#
-	# **That does not mean the pillars are decoration.** Ending health was always
-	# the weaker proxy and this header has said so since #121: *"the aggregate is
-	# the weaker half of this test"*. It is now measurably the wrong half. The
-	# strong evidence the header keeps citing -- parties diverging seed by seed
-	# with the pillars in -- **was only ever in a comment and was never
-	# asserted**, which is announcement rule 2 wearing a different hat: the claim
-	# nobody could check was the one carrying the weight.
-	#
-	# **It was not hypothetical: with the summon fix in, `total` came out at 16
-	# against the floor of 18 on swift's #175**, a branch that does not touch
-	# this room, this roster or these pillars. The landmine fired on exactly the
-	# person the rule says it would.
-	#
-	# **So the assertion changes to the thing that actually detects decoration,
-	# and the magnitude becomes a printout.** Lowering 18 to fit 16 would be a
-	# widening of a number I have just shown is noise, and it would leave the
-	# test asserting a quantity it cannot measure.
-	#
-	# **Divergence is the right claim and this file already had the pattern.**
-	# `test_the_chokepoints_terrain_is_not_decoration` asserts that ticks or
-	# outcome differ with the terrain in, which is a yes/no per fight and so has
-	# no magnitude to be noisy. Measured over 10 seeds, both on `main` at
-	# `75df176` and on #165, identically:
-	#
-	#     party              fights that diverge
-	#     no_abomination                   10/10
-	#     no_geysermancer                   9/10
-	#     no_priest                         9/10
-	#     no_siege_master                  10/10
-	#     no_warrior                        8/10
-	#
-	# Against a colonnade of paint every one of those is **0/10**, bit-for-bit,
-	# which is the case that nearly shipped on #94 and the case this test exists
-	# for. The floor was 5 of 10 against a measured worst of 8 -- see the block
-	# below, which replaces that per-party floor with an aggregate one and says
-	# why.
-	#
-	# **This is strictly stronger than what it replaces**, not a retreat: the
-	# old pair could be satisfied by noise and could be broken by noise, and
-	# this cannot be either. The health spread stays in the printout because it
-	# is still the interesting number for a pull request to report -- it is just
-	# not a thing to assert at any sample size this gate can afford.
-	#
-	# **AND THE PER-PARTY FLOOR IS NOW AN AGGREGATE ONE, BECAUSE THE PER-PARTY
-	# CLAIM TURNED OUT TO REST ON A SINGLE EVENT PER FIGHT.** Measured on
-	# finch's #160, `[geysermancer, priest, siege_master, warrior]` reads
-	# **0 of 40** -- bit-for-bit identical event streams, with the pillars and
-	# without -- while the other four read 40, 29, 40, 40. A hard zero against
-	# four full rows is not noise, so it was diagnosed rather than fitted, with
-	# `Tools/PillarDivergence.gd`, `Tools/PillarTouch.gd`,
-	# `Tools/PillarFirstDiff.gd` and `Tools/PillarStalkerLine.gd`.
-	#
-	# **The cause, and it is one cast.** On the trunk this party's *entire*
-	# sensitivity to the colonnade was the Stalker's `stalker_mark` landing on
-	# the Warrior at tick 57 in the bare room and being denied by a pillar in
-	# the real one. Identical on every seed, so geometry rather than rolls, and
-	# the first divergence in the whole fight. `stalker_mark` reaches 220 units.
-	# On #160 the Warrior spends tick 16 raising the Directional Block, reaches
-	# the enemy line about fifteen ticks later, and the contact line settles
-	# some thirty units further from the colonnade: at tick 57 the Stalker is
-	# 247 units away instead of 172. **Out of range, so the pillar is never
-	# consulted, so nothing differs.** Not a defect in #160 and not a threshold
-	# problem -- the number this test asserted was 19/20 on the trunk and was
-	# carried by one event.
-	#
-	# **The room is where this actually lives**, and it became issue #234.
-	#
-	# **WHAT I WROTE HERE WAS WRONG AND #234 DISPROVED IT.** The paragraph said
-	# the party never enters the colonnade and that the pillars only ever
-	# screen enemy shooters. Measured properly in
-	# `test_the_colonnade_denies_shots_to_both_sides` below: two of the five
-	# parties reach the pillar band in 16 and 10 fights of 20, and the party
-	# has about as many shots taken off it as the enemy does -- 2269 against
-	# 2430 over five parties. The outcome half of the claim survives (the party
-	# loses at most 0.9% of its damage to the pillars and the enemy up to 35%)
-	# and the cause half does not. It is `DefaultBehavior` answering a blocked
-	# shot with an approach, which is free to whoever was closing anyway.
-	#
-	# I generalised one party's zero into a statement about the room, on
-	# geometry I had measured and an effect I had not. The line above about
-	# thirty units of contact line is still true of THIS party and only of it.
-	#
-	# So the assertion becomes the aggregate over all five parties, which is
-	# what a paint detector needs and all it ever needed:
-	#
-	#     build            per-party diverging fights (n=10)   overall
-	#     trunk beabec6    10, 10,  9, 10, 10                   49/50
-	#     #160 6ed03d1      0, 10,  8, 10, 10                   38/50
-	#     a colonnade of paint                                   0/50
-	#
-	# It is a proportion rather than a sum of absolute values, so unlike the
-	# `total` this test used to assert, it converges as the sample grows: 76%
-	# at n=10 and 74.5% at n=40 on #160. The floor is **25 of 50** against a
-	# measured 38 and a paint control of 0, and it is deliberately half rather
-	# than one point under the measurement -- board rule 4, and a floor set
-	# close to today's number fires on whoever touches behaviour next rather
-	# than on the pillars.
-	#
-	# **What is lost is the per-party guarantee, and it is lost because it is
-	# not true any more.** `worst_divergence` stays in the printout above: a
-	# second party falling to zero shows up there as a 20-point drop in the
-	# overall row, and the row names which one.
+	# finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned. BURN and the
+	# Blast combo changed how a Geysermancer spends Mana and which enemy it aims
+	# at, and every room moved with it. Deltas 0, +8, -8, +4, +2; largest 8.
 	assert_true(diverging_fights >= 25,
 		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
 
 
-## **Issue #234, and it is the assertion the test above could not make.**
-##
-## Everything the colonnade has ever been measured by is a difference of two
-## arms: health with the pillars against health without, fights that diverge
-## against fights that do not. A difference says the room changed; it never
-## says **who the geometry acted on**, and #234 is entirely a question about
-## who. That is the same hole `test_the_burn_pit_...` had until #239 -- nothing
-## asserted the fire had ever burned anybody.
-##
-## So this counts the pillars' own output and compares it to nothing: a tick in
-## which a unit's line to its focus target is blocked by a pillar **and** that
-## unit carries a line-of-sight action already inside its own reach. A shot it
-## had, and did not get. Zero against a colonnade of paint by construction
-## rather than by baseline -- `Terrain.line_is_blocked` on an empty terrain
-## array cannot return true -- and the control below runs it anyway.
-##
-## **The range clause is the load-bearing half and it is why the count above it
-## is not enough.** A blocked line to a target thirty units past the weapon's
-## reach costs nothing; the pillar is never consulted. That was the whole of
-## #231's 0-of-40: the Stalker at 247 units against a 220 range.
-##
-## **THE MEASUREMENT, AND IT OVERTURNS #234's PREMISE.** `Tools/ColonnadeReach.gd`,
-## 20 seeds x 5 buildable parties, shots denied and damage dealt against the
-## same seeds on bare ground:
-##
-##     party              denied: party / enemy   damage dealt vs bare: party / enemy
-##     no_abomination            0  /     0            +0.0  /   +0.0
-##     no_geysermancer        1819  /  2373            -1.1  /  -71.1
-##     no_priest                50  /    56            +0.0  /   +1.5
-##     no_siege_master        1368  /  1850            -0.5  /  -24.5
-##     no_warrior             1391  /    44            -3.2  /  +13.7
-##
-## **The party's shots are denied about as often as the enemy's, and it costs
-## the party nothing.** Party damage moves by at most 3.2 of ~348 dealt, 0.9%;
-## the enemy loses up to 71.1 of 203.9, 35%. One party denies more shots than
-## it suffers (1391 against 44) and still finishes 3.2 down.
-##
-## **So "the pillars only screen enemy shooters" is right about the outcome and
-## wrong about the cause, and the cause decides the fix.** The geometry is
-## even-handed. What is not even-handed is the rule that answers it:
-## `DefaultBehavior` replies to a blocked line-of-sight shot with
-## `Intent.move_to(target.position)`. The party is closing anyway, so a denied
-## shot buys it a step it wanted. An enemy shooter is holding a standoff line,
-## so the same step is the thing keeping it alive. **Same rule, opposite
-## value** -- which is why moving the pillars or the spawns cannot fix it, and
-## why this room is not the enemy-advantage room #234 offered as its third
-## option. It is a room that punishes standing still at range, and today only
-## the enemy stands still at range.
-##
-## That is the same ranged band as #213 and it lives in `Scripts/Plans/`, which
-## is not this file. Reported, not fixed here.
-##
-## **The party the room really does nothing for is one of the five**, not the
-## room: `[geysermancer, priest, siege_master, warrior]` denies 0 shots, is
-## denied 0, and moves 0.0 damage on both sides. With no Abomination the fight
-## settles at a median deepest x of -126 against a pillar band starting at
-## x 20, and one fight in twenty reaches the band at all. A composition with no
-## closer never meets the geometry. That is what the room is, and it is stated
-## in `floor1_encounters.gd` rather than tuned away.
-##
-## Floors are aggregates over the five parties for the reason the test above
-## records: three of the five sit near zero, so any per-party floor is two
-## cliffs stacked. Measured at the 10 seeds this gate can afford: party 2269,
-## enemy 2430, paint control 0 and 0. Per seed that is 227 and 243 against the
-## tool's 20-seed 231 and 216, so it converges rather than drifting with the
-## sample -- the property `health_total` could not manage and was deleted for.
-## Floors are half, board rule 4, not one point under.
-##
-## **#221 RE-MEASURED BOTH NUMBERS AND THE CONVERGENCE CLAIM IS THE PART THAT
-## DID NOT SURVIVE. The floors are untouched; the sentence above them was the
-## wrong part.** Same room, same 10 seeds, trunk `e8de895`:
-##
-##     n      party / enemy      per seed
-##     10      1431 / 2136       143 / 214
-##     40      7428 / 8909       186 / 223
-##
-## The party column has fallen 37% at the gate's own sample (227 -> 143 per
-## seed) and it **rises** with the sample rather than converging, so a
-## per-seed figure from one n is not a prediction of another. The enemy column
-## is the steady one, 214-223. Both floors still clear -- 1431 against 1100 and
-## 2136 against 1200 -- so nothing moved, and this is the announcement-rule-2
-## correction #221 asks for: the prose carried an argument the assertions never
-## ran.
-##
-## **And `_denied_shots` counts a summoned siege engine's denied shot as the
-## party's, which is finch's Warden bug in a different column. Measured, and it
-## does not carry the assertion:** summons are 80 of the 1431 at n=10 (5.6%)
-## and 222 of 7428 at n=40 (3%). Pawns alone read 1351 against a floor of 1100,
-## so the claim stands without them. Left unsplit rather than "fixed" to a
-## number that would not move: a party's summon holding a shot the pillars deny
-## is still the room acting on the player's side of the fight, which is what
-## this assertion claims, and the health sums below are where the distinction
-## actually changed a verdict.
+## Issue #234: the assertion the test above could not make. Everything the
+## colonnade had been measured by was a difference of two arms, which says the
+## room changed but never that the pillars did the changing.
 func test_the_colonnade_denies_shots_to_both_sides() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var seeds := 10
@@ -1017,114 +515,9 @@ func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 	return false
 
 
-## **The fire has to change the fight, and the control is the same roster with
-## the fire removed.**
-##
-## The old burn pit's single 160x120 patch sat off the shortest path and cost
-## every buildable party almost nothing -- 77-96% health remaining, which is
-## indistinguishable from a room with no hazard in it. Measuring the rebuilt
-## room against `floor1_room1` would prove nothing, because the roster differs
-## too. Measured against its own roster with the terrain stripped, the only
-## variable left is the fire.
-##
-## **THIS ASSERTED ON FIGHT LENGTH UNTIL 2026-08-15 AND NOW ASSERTS ON HEALTH.
-## The reason is at the bottom of the function, with both tables.** Short
-## version: after hazard avoidance (#163) and a working Abomination (#172) the
-## fire no longer ends fights sooner -- three of five parties now fight longer
-## in it -- while the health effect it moved onto is larger and steadier than
-## the length effect ever was. Everything below this paragraph is the history of
-## the length claim, kept because it is the record of what was true before.
-##
-## **This asserted on fight length, not on party health, and the first version
-## of it was wrong in a way worth recording.** I wrote "the burn pit should
-## cost the party at least 10 points of health" and it failed, and the reason
-## it failed is the room working: *fire burns both sides*. The enemy back rank
-## has to cross it to reach a party that stands off, so two of the five
-## buildable parties finish a burning room **healthier** than the same roster
-## on bare ground, and three finish 13-34 points worse. Averaging that to a
-## single party-tax number destroys exactly the information the room exists to
-## produce, and tuning until the average went one way would have been tuning
-## away the point.
-##
-## What is true of every party is that the fire ends the fight much sooner.
-## That is the honest invariant, it is what a decorative hazard would fail, and
-## the per-party health spread is printed rather than asserted so the pull
-## request can report it.
-##
-## ---
-##
-## **The invariant survived hazard avoidance (#163). The threshold did not.**
-##
-## swift's #178 teaches movement to step around fire, and it turned this red
-## for one party at 401 ticks against 521 -- a ratio of 0.77 against a `* 4 <
-## * 3` test, which is 0.75. Measured on both sides, same seeds, same room:
-##
-##     party              trunk   with avoidance
-##     no_abomination      0.35            0.73
-##     no_geysermancer     0.56            0.75
-##     no_priest           0.43            0.77
-##     no_siege_master     0.41            0.55
-##     no_warrior          0.49            0.56
-##     mean                0.45            0.67
-##
-## **The fire still ends every fight sooner. It just ends it less sooner**, as
-## it must: a hazard units step around changes the fight less than one they
-## walk into, and swift said so before I measured it. Nothing here is a
-## regression and nothing needs tuning.
-##
-## So the assertion moves off the cliff and onto the effect, exactly as
-## `test_the_colonnades_pillars_are_not_decoration` did two days ago when a
-## party sat at exactly 5 against a `>= 5` test. **This is the same mistake in
-## a second file by the same author.** A hard per-party ratio is a cliff, and
-## a member near the line tips it on somebody else's commit.
-##
-##   - per party, the ratio must be under 0.95, against a measured worst of
-##     0.77 and a paint hazard's 1.00
-##   - across the five, the mean must be under 0.85, measured 0.45 and 0.67
-##
-## Both pass before and after avoidance, so this lands on the trunk on its own
-## and takes #178 green rather than riding in it. Both are 1.00 against a
-## hazard of paint.
-##
-## **THE HEALTH STORY IS THE FINDING, AND IT IS BIG. Reported, not acted on.**
-## Health with the fire against the same roster on bare ground:
-##
-##     party              trunk        with avoidance
-##     no_abomination      +1            +8
-##     no_geysermancer    -11           +23
-##     no_priest           -1            +9
-##     no_siege_master    -21           +37
-##     no_warrior         +26           +34
-##
-## **Avoidance flipped the sign for every party.** Two of five used to finish a
-## burning room healthier than a bare one; now five of five do, by 8 to 37
-## points. The room's own cost model was units crossing fire, and the side that
-## crossed it most was the party -- it advances, and the enemy back rank stands
-## still. Stop the party walking into fire and the fire's cost lands on almost
-## nobody: `no_siege_master` goes from 14% health to 72%, `no_geysermancer`
-## from 51% to 85%.
-##
-## That is a large easing of one of the four rooms and **it is exactly the kind
-## of movement the balance freeze exists to keep un-tuned.** It is also why
-## health is still not asserted here: it was inconsistent in sign before and
-## consistent now, and a sign that has already flipped once is not an
-## invariant.
-##
-## **I was asked whether the lanes now want reshaping, and my answer is not
-## yet, for a reason that is not caution.** Nobody can reach this room. Issue
-## #176 -- `PartySelect` hardcodes `CG.DEFAULT_ENCOUNTER` and there is no
-## picker, so `floor1_hazard` has never been seen by a player or by me in a
-## running game. Reshaping geometry to make a skip tempting, while blind, to
-## move numbers that #172's rage ruling will move again, is churn with three
-## unknowns in it. The lanes are also **usable for the first time**: before
-## #163 nothing routed around fire, so two authored 50-unit gaps were content
-## the game could not use. The room just got better at being what it was
-## designed to be. Look at it first.
-##
-## **And "nothing routed around fire" is the claim I have since had to correct.
-## The party still does not route around it -- see `Tools/WhoBurns.gd` and the
-## block inside this function: 73% of the party's burning ticks are spent
-## standing still.** The lanes remain content the game barely uses.
+## The fire has to change the fight, and the control is the same roster with the
+## fire removed. The old single 160x120 patch sat off the shortest path and cost
+## every buildable party almost nothing.
 func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var enc := Registry.get_encounter(&"floor1_hazard")
 	var bare := _without_terrain(enc)
@@ -1201,375 +594,19 @@ func test_the_burn_pit_changes_the_fight_for_every_buildable_party() -> void:
 	var control_burn := _hazard_damage_by_team(control_bare)
 	assert_eq(control_burn[0], 0, "with the terrain stripped nothing can be burnt, and the party took %d" % control_burn[0])
 	assert_eq(control_burn[1], 0, "with the terrain stripped nothing can be burnt, and the enemy took %d" % control_burn[1])
-	# **finch, issue 121: "every party" became "four of five", and the exception is
-	# named rather than the threshold widened.** Measured: 0.56, 0.55, **1.17**,
-	# 0.74, 0.84. The outlier is `abomination, geysermancer, siege_master, warrior`
-	# -- the one buildable party with **no Priest** -- which now spends 17 more
-	# points of health and 72 more ticks in the fire than in the bare room.
-	#
-	# That is a mechanism, not noise: fire is chip damage over time, and the party
-	# with no heal is the one that cannot pay it off, so the fight drags and the
-	# fire gets longer to work. **Widening `ratio < 0.95` until 1.17 fits would
-	# have made the per-party claim vacuous** -- it would no longer say the fire
-	# ends fights sooner at all. heron's own header already refuses to assert
-	# health here for the same reason: "a sign that has already flipped once is not
-	# an invariant". The tick sign has now flipped for one row, so the per-row
-	# claim is counted instead of demanded, and the mean still carries the
-	# direction.
-	#
-	# **This will be re-taken after #174 lands** -- rage from zero moves every row
-	# here that carries an Abomination, which is four of five.
-	# **THE CLAIM HAS CHANGED, AND THAT IS THE FINDING. It is not a third
-	# widening.** rook asked whether the length assertion is still the right
-	# claim after swift's rage-on-being-hit fix. Measured on both sides, same
-	# seeds, same room, `main` at 3846fa6 against `issue-164/starting-resource`
-	# at 08d131e:
-	#
-	#     party              trunk   with a working Abomination
-	#     no_abomination      0.84         0.85
-	#     no_geysermancer     0.74         1.01
-	#     no_priest           1.17         1.08
-	#     no_siege_master     0.55         1.13
-	#     no_warrior          0.56         0.56
-	#     mean                0.77         0.93
-	#     shortened              4            2
-	#
-	# **The fire no longer ends fights sooner and I am not going to pretend it
-	# does.** Three of five rows are now at or above 1.00. Widening `mean < 0.85`
-	# to fit 0.93 would be the fifth widening this project has recorded against
-	# zero narrowings (#144) and it would assert something false: a room where
-	# three parties fight *longer* in the fire is not a room where the fire
-	# shortens fights.
-	#
-	# **The effect did not go away, it moved to the other axis, and there it is
-	# larger and more consistent than the length effect ever was.** Health with
-	# the fire against the same roster on bare ground:
-	#
-	#     party              trunk   with a working Abomination
-	#     no_abomination        +3          +20
-	#     no_geysermancer      +22           +0
-	#     no_priest            -17          +12
-	#     no_siege_master      +38          +20
-	#     no_warrior           +37          +38
-	#     largest                38           38
-	#     total                 117           90
-	#
-	# The mechanism is the one this header already recorded at #163: the party
-	# routes around fire and the enemy back rank has to cross it, so the fire's
-	# cost lands on the side that walks into it. A working Abomination closes
-	# faster, so the party spends longer alive and less of that time burning --
-	# every row is now at or above zero.
-	#
-	# **CORRECTION, AND IT IS HALF WRONG: THE PARTY DOES NOT ROUTE AROUND THE
-	# FIRE, IT STANDS IN IT AND FIGHTS.** I wrote the sentence above and
-	# finch's #214 is what made me doubt it -- `_usable_actions` filtered
-	# neither cooldown nor cost, so a player pawn spent 46% of its decisions
-	# choosing something it could not pay for and doing nothing, and a pawn
-	# deciding nothing does not move. I could not tell how much of "the party
-	# walks into it" was really "the party stands in it", so I measured it
-	# rather than leaving the header to rot. `Tools/WhoBurns.gd`, on the trunk
-	# with #214 already in, 20 seeds x 5 parties, every tick a unit's centre is
-	# inside a burn band, split by whether that unit moved on that tick:
-	#
-	#     side      moving   still   total
-	#     party        706    1963    2669
-	#     enemy       5851    1087    6938
-	#
-	#   - **The enemy half of the claim holds and is the larger half.** The
-	#     enemy takes 73% of all burning ticks and 84% of its own are spent
-	#     moving. The back rank really does have to cross.
-	#   - **The party half does not.** Of the party's burning ticks, **73% are
-	#     spent standing still.** The party is not routing around the fire and
-	#     paying a detour; it is stopping inside a burn band and fighting there.
-	#
-	# So the direction of the effect is unchanged and its cause is not: it is
-	# not "whoever walks into it pays", it is **whoever has to cross pays, and
-	# whoever stops in it pays too**. Nothing here is a defect and nothing was
-	# tuned -- the standing is a pawn in contact, not the #214 stall, which is
-	# fixed on this build.
-	#
-	# **So the assertion moves onto size, exactly as
-	# `test_the_colonnades_pillars_are_not_decoration` did**, and for the same
-	# reason: `no_geysermancer` sits at **exactly +0**, and a per-party
-	# direction test would be a cliff with a party resting on it, which is board
-	# rule 4 for the third time in this file. Two numbers, neither a cliff:
-	#
-	#   - the largest single health effect, floor 20 against 38 on both sides
-	#   - the total across the five, floor 55 against 117 and 90
-	#     **-- THIS SECOND ONE IS GONE, see the block below the ratios. It was
-	#     never measured against sample size and it could not survive being.**
-	#
-	# Both are **zero** against a hazard of paint, which the control above now
-	# asserts rather than claiming. Both pass before and after swift's change,
-	# so this lands on the trunk on its own and takes #172 green rather than
-	# riding in it.
-	#
-	# **The length numbers are still measured and printed and no longer
-	# asserted.** They are the record of a claim that was true for two months
-	# and is not true now; deleting them would delete the evidence that it
-	# changed. If a later build makes the fire shorten fights again, that is
-	# visible in this output and somebody can put the assertion back.
-	# **AND THE TOTAL IS NO LONGER ASSERTED, ON #214, AND IT IS NOT BECAUSE IT
-	# WENT RED. It is because I measured it against sample size for the first
-	# time and it is the one of the two numbers that never was a measurement.**
-	#
-	# finch's #214 made `DefaultBehavior._usable_actions` filter cooldown and
-	# cost, so a pawn stops choosing an action `CombatSim` then refuses and the
-	# tick stops being thrown away. `stalker_dart` went 0 fires in 175,532 ticks
-	# to 480. It reads 52 here against the floor of 55.
-	#
-	# `Tools/BurnPitSize.gd` runs this exact measurement at rising sample sizes.
-	# Health delta per party, and the two aggregates:
-	#
-	#     seeds     main b20284e                    #214
-	#      n=4      largest 37  total  86      largest 29  total  52
-	#      n=8      largest 43  total  81      largest 27  total  41
-	#      n=12     largest 43  total  84      largest 26  total  45
-	#      n=20     largest 41  total  73      largest 26  total  59
-	#      n=40     largest 40  total  73      largest 27  total  54
-	#      n=80     largest 38  total  72      largest 29  total  50
-	#
-	# **Read the two columns as instruments rather than as results.**
-	#
-	# `largest` is stable: 38-43 across a twentyfold change in sample on one
-	# build, 26-29 on the other. It converges, the two builds do not overlap,
-	# and a floor of 20 sits clear of both.
-	#
-	# `total` is not, and it cannot be, because **it is a sum of absolute
-	# values.** Every party's delta carries its own sampling error and `absi`
-	# strips the sign, so five errors add instead of cancelling, and the sum is
-	# biased upward by exactly the amount of noise in it. On #214 it reads 52,
-	# 41, 45, 59, 54, 50 -- a spread of eighteen points that has nothing to do
-	# with the fire, at samples up to 80. **A floor of 55 sits inside that
-	# spread**, so which side of it the gate lands on is decided by the seed
-	# count, which is board rule 4 for the fourth time in this file and this
-	# time the instrument itself is the cliff.
-	#
-	# Worse, the noise floor grows as the real effect shrinks. Two of the five
-	# parties are now within a couple of points of zero (`-1`, `-3` at n=40),
-	# and a party at zero contributes its own error and nothing else.
-	#
-	# **So this is a deletion, not a widening. I am not lowering 55 to 50.**
-	# Lowering it would keep asserting a quantity whose value is partly the
-	# measurement error, and the next mechanism to land would move it again by
-	# an amount nobody could attribute. The claim -- the fire is not paint --
-	# is carried by `largest_health` with a 6-to-9-point margin, by the two
-	# ratio assertions above, and by the no-difference control, all of which
-	# hold on both builds.
-	#
-	# **THE EFFECT REALLY DID SHRINK, AND THAT IS THE FINDING, NOT THE RED.**
-	# At n=80, largest 38 -> 29 and total 72 -> 50. The fire matters about a
-	# third less than it did, and the reason is the honest one: a party that no
-	# longer wastes ticks on actions it cannot pay for kills the room faster and
-	# spends less of the fight standing in a fire. #214 is a behaviour fix and
-	# this is what a behaviour fix looks like from downstream. Reported, not
-	# tuned, and nothing in `Scripts/` or in the room was touched.
-	#
-	# The total stays measured and printed, like the length ratios above it, so
-	# the movement remains visible to whoever looks next.
-	#
-	# **AND NOW `largest_health` IS GONE TOO, ON #252, FOR THE REASON #250
-	# ESTABLISHED RATHER THAN BECAUSE IT WENT RED. It is the maximum of the same
-	# five absolute deltas the total was the sum of, so it was never a different
-	# instrument -- only a less noisy reading of the same broken one.**
-	#
-	# #250 bisected this room across six builds and found the disqualifying
-	# case: at #163, teaching movement to step around fire cut the fire's own
-	# output from 1123 to 183 health per fight, sixfold, and `largest` went
-	# **up**, 42 to 46. It rose because the *bare* arm did not move while the
-	# fire arm stopped being a massacre. A number that rises when the mechanic
-	# loses five sixths of its output is not measuring the mechanic. The header
-	# below already called it "a magnitude-of-anything detector"; #250 is where
-	# that stopped being a caveat and became the verdict.
-	#
-	# **finch's #252 is the case that makes the difference matter, and their
-	# control is clean -- this is not a sample-size story.** Immolate is content
-	# for the Abomination, and `largest` moved 30 -> 16. Re-taken at rising
-	# sample on both builds, `Tools/BurnPitInstrument.gd`, the differential
-	# instrument beside the non-differential candidates:
-	#
-	#     n     largest        fire dealt per fight     fire's share    enemies the
-	#           main  #252     enemy: main  #252        of all damage   fire killed
-	#      4      30    16          187.9  161.7        22.9%  17.5%    2.50  2.15
-	#     20      29    15          184.0  163.3        21.1%  16.9%    2.26  1.96
-	#     40      30    16          183.5  167.2        20.7%  17.5%    2.22  2.08
-	#
-	# **`largest` fell 47%. The fire's own work fell between 6% and 9%.** Both
-	# converge, so neither number is noise and the disagreement is real: what
-	# changed is the party, not the fire. The carrier row shows it directly --
-	# `[abomination, priest, siege_master, warrior]` takes 266.6 health of fire
-	# a fight on `main` and 135.0 on #252, because an Abomination holding a
-	# channel fights the room differently. **A guard that reads "the fire got
-	# weaker" off a party learning to eat less of it is reporting the wrong
-	# subject**, and this is the third mechanism in a row it has done that to.
-	#
-	# **So: deleted, and replaced below rather than merely dropped.** The claim
-	# this assertion carried -- the fire changes the fight, it is not paint --
-	# now sits on two quantities that are read off the fire's own events and are
-	# zero against a hazard of paint by construction, not by baseline: the
-	# health it deals, which was already here from #239, and the kills it lands,
-	# which is new and is the more legible half.
-	#
-	# **finch did the right thing and I want it in this file rather than only in
-	# a pull request: they left the threshold alone and said so.** #144 records
-	# five widenings of one cap against zero narrowings. This is neither.
+	# finch, issue 121: `every party` became `four of five`, and the exception is
+	# named rather than the threshold widened. Measured 0.56, 0.55, 1.17, 0.74,
+	# 0.84 -- the outlier is the one buildable party with no Priest.
 
-	# **EVERY ASSERTION ABOVE IS A DIFFERENCE OF TWO ARMS, AND NOTHING HERE
-	# ASSERTED THAT THE FIRE HAS EVER DEALT A POINT OF DAMAGE.** Both tick
-	# ratios and `largest_health` compare the room against itself stripped, so
-	# anything that moves the *bare* arm moves the verdict without the fire
-	# mattering less. rook asked whether `largest_health` measures the fire or
-	# measures how bad a party is without it, and that is the honest form of the
-	# question. This is the answer, and it is a measurement rather than an
-	# argument.
-	#
-	# **`largest_health` is acquitted, with one real weakness named.** Run
-	# against sample size on two builds (`Tools/BurnPitSize.gd`, per-party
-	# deltas, fire minus bare):
-	#
-	#     n     main eb99d92                     #235 with main merged
-	#      4    -15, -27, -11,  +3, +29  -> 29   -15, -30, -11,  -7, +15  -> 30
-	#      8     -5, -26,  -7,  +0, +27  -> 27   -10, -31,  -7,  -9, +19  -> 31
-	#     20     -3, -27,  -9,  +1, +26  -> 27    -6, -29,  -9,  +0, +20  -> 29
-	#     40     -6, -27,  -8,  +3, +27  -> 27    -7, -30,  -8,  +2, +20  -> 30
-	#     80     -7, -25,  -8,  +1, +29  -> 29    -6, -28,  -8,  +0, +21  -> 28
-	#
-	# It converges -- 26-31 across a twentyfold change in sample and across two
-	# builds -- which is exactly what `health_total` could not do and why that
-	# one was deleted rather than lowered. **The weakness is not noise, it is
-	# that the five deltas disagree in sign**, so `largest_health` is a
-	# magnitude-of-anything detector: on `main` it is carried by `no_warrior` at
-	# **+27** (the fire helps that party), and on #235 by `no_geysermancer` at
-	# **-30** (the fire hurts that one). The carrier flipped party and sign
-	# while the number barely moved. So the *number* is trustworthy and a red on
-	# it says nothing about which party or which direction until you read the
-	# row -- which is why the carrier is now printed beside it.
-	#
-	# **And here is the quantity that is not a difference of two arms at all.**
-	# `_tick_hazards` emits `DAMAGE` with `source_id == -1`, an empty
-	# `action_id` and `status` left at its default, so the fire's own output is
-	# observable from `state.events` (announcement rule 2). Health taken by the
-	# fire, per fight, `Tools/FireOutput.gd`:
-	#
-	#     n     main: party / enemy      #235: party / enemy
-	#      4      104.9 / 186.3            123.1 / 187.9
-	#      8       99.8 / 185.0            111.1 / 188.1
-	#     20       94.7 / 181.3             99.3 / 184.0
-	#     40       93.0 / 179.3             93.3 / 183.5
-	#
-	# **The enemy column is the steadiest number in this file: 179-188 across
-	# two builds and a tenfold change in sample, a 5% band.** It is zero against
-	# a hazard of paint by construction rather than by baseline -- both controls
-	# in that tool read exactly 0 -- and no change to how good the party is can
-	# move it, because it is not measured against the party at all.
-	#
-	# The floor is **100 per fight against a measured 186**, deliberately near
-	# half. Board rule 4: a floor set just under today's number fires on
-	# whoever touches behaviour next. This one fires when the fire stops
-	# burning, which is the only thing it claims.
-	#
-	# It does not replace anything above it. `largest_health` says the fire
-	# changes the fight; this says the fire is what changed it. The pair is what
-	# announcement rule 1 asks for, and neither alone survives losing the other:
-	# a hazard doing damage that nothing routes around would pass this and fail
-	# the ratios, and a terrain change that shuffled the fight without burning
-	# anybody would pass the ratios and fail this.
-	#
-	# **#225 SAYS THE BURN PIT IS ERODING ACROSS THREE MERGES. IT IS NOT. ONE
-	# MERGE TOOK ALL OF IT, THE FIRE ITSELF NEVER ERODED, AND THE STEP THAT
-	# SHOWS AS THE BIGGEST GAIN IS THE ONE THAT CUT THE BURNING BY 84%.**
-	#
-	# #225 reads the series 117 -> 90 -> 52 off this header and asks whether
-	# that is three changes each taking a bite or one taking most of it. Every
-	# one of those three numbers was taken at **4 seeds**, and the block above
-	# has already shown `total` carries an eighteen-point spread at samples up
-	# to 80. So the series was re-taken at a fixed 40 seeds on the five
-	# builds themselves, `Tools/BurnPitDrift.gd` copied into a detached
-	# checkout of each. Same tool, same sample, same room:
-	#
-	#     build                          total  largest   fire dealt per fight     ticks
-	#                                                     party  enemy   both   fire  bare
-	#     5a37a6a  before #163              82      42    368.7  754.6 1123.3    238   555
-	#     14085bb  #163 step around fire   123      46     25.4  157.5  182.8    378   555
-	#     75df176  #172 rage starts at 0    73      40     50.0  259.8  309.8    466   478
-	#     b20284e  #222, twelve merges on   73      40     49.4  259.5  308.9    462   473
-	#     beabec6  #214 usable actions      54      27     52.4  139.3  191.7    377   432
-	#     0fcfaf8  trunk today              67      30     93.3  183.5  276.8    386   423
-	#
-	# **The fire's own output does not fall across the series and today it is
-	# 51% higher than on the build that scored the record `total`.** 183 at
-	# #163, 277 now. `total` and the fire disagree about direction at three of
-	# the five steps, which is the same verdict the deletion block above
-	# reached, arrived at from the other end.
-	#
-	# **#163 is the largest single move in this table and it moved both numbers
-	# the wrong way round.** Teaching movement to step around fire cut the
-	# burning from 1123 to 183 per fight, a sixfold drop and by far the biggest
-	# thing that has ever happened to this room -- and `total` **rose**, 82 to
-	# 123. It rose because the bare arm did not move (555 ticks both sides)
-	# while the fire arm stopped being a massacre, so the difference between
-	# the arms grew as the fire shrank. A number that goes up when the mechanic
-	# it measures loses five sixths of its output is not measuring the mechanic.
-	#
-	# **The twelve merges between #172 and #222 took nothing: 73 and 73,
-	# 259.8 and 259.5.** There is no erosion in that span to find, which is the
-	# half of #225's question that has a clean answer.
-	#
-	# **#214 is the one real bite, and it is one change, not three.** total 73
-	# -> 54, largest 40 -> 27, fire on the enemy 260 -> 139. Fights got 18%
-	# shorter in the fire arm (462 -> 377) and the burning fell 46%, so length
-	# is most of it but not all, and the direction is the honest one finch
-	# already reported.
-	#
-	# **And since #214 it has come back, which no reading of "eroding" allows
-	# for.** 54 -> 67, 27 -> 30, 192 -> 277 over the twenty merges to trunk.
-	#
-	# The one number worth watching is not `total`. It is the enemy column
-	# against the floor on the next line: it touched **139 at beabec6** against
-	# a floor of 100, the narrowest margin this assertion has had, and is 184
-	# today. If the burn pit ever does become decoration, that is where it will
-	# show, and it is the only number here that no change to how good the party
-	# is can move.
-	#
-	# Nothing tuned, no floor moved, no content touched. #225's premise that
-	# the trunk asserts a floor of 55 is also stale -- #229 deleted it before
-	# #224 merged, and the red finch reported came from a branch cut before it.
+	# Every assertion above is a difference of two arms, and none asserted the fire
+	# ever dealt a point of damage: both tick ratios and `largest_health` compare
+	# the room against itself stripped, so anything moving the bare arm moves the
+	# verdict. This asserts the fire itself.
 	assert_true(enemy_fire / maxi(1, fights) >= 100,
 		"the fire should burn the enemy back rank crossing it; it dealt %d health per fight over %d fights, against 0 for a hazard of paint" % [enemy_fire / maxi(1, fights), fights])
 
-	# **AND THE HALF THAT REPLACES `largest_health`: THE FIRE FINISHES PEOPLE.**
-	#
-	# Damage is the fire working; a kill is the fire deciding something. This is
-	# the claim the deleted assertion was reaching for -- "the fire changes the
-	# fight" -- stated about the fire instead of about a difference between two
-	# parties, and it is the version a watcher can confirm without a spreadsheet:
-	# an enemy walks into the burn band and does not walk out.
-	#
-	# Measured (`Tools/BurnPitInstrument.gd`), enemies whose killing blow was a
-	# hazard tick, per fight:
-	#
-	#     n      main   #252 immolate
-	#      4     2.50       2.15
-	#     20     2.26       1.96
-	#     40     2.22       2.08
-	#
-	# **The floor is 1.00 against a measured 1.96-2.50**, deliberately near half
-	# for board rule 4: a floor set just under today's number fires on whoever
-	# touches behaviour next. Both builds clear it by more than double, and it
-	# converges across a tenfold change in sample on both.
-	#
-	# **The weakness, named rather than left for the next person to find: this
-	# one is not fully party-proof and the health floor above it is.** A party
-	# that killed the room faster could take these kills away without the fire
-	# weakening at all, which is the exact failure mode that disqualified
-	# `largest_health`. It is here because it is far less sensitive to that than
-	# a difference of two arms -- it fell 6% where `largest` fell 47% across the
-	# same change -- and because the pair covers what neither covers alone. If
-	# it ever goes red while `enemy_fire` stays comfortable, **that is a finding
-	# about the party and not about the room**, and this paragraph is where to
-	# start.
-	#
-	# Zero against a hazard of paint, asserted below rather than claimed.
+	# The half that replaces `largest_health`: damage is the fire working, a kill
+	# is the fire deciding something.
 	assert_true(fire_kills >= fights,
 		"the fire should land the killing blow on about two enemies a fight; it landed %d over %d fights, against 0 for a hazard of paint" % [fire_kills, fights])
 	assert_eq(_killed_by_the_fire(control_bare), 0,
@@ -1582,34 +619,9 @@ func _run(party: Array[PawnData], enc: Encounter, seed: int) -> CombatState:
 	return state
 
 
-## Health taken from terrain, as `[party, enemy]`.
-##
-## **The discriminator is `status`, and it is not arbitrary.** `_tick_hazards`
-## and the damage-over-time tick both emit `DAMAGE` with `source_id == -1` and
-## an empty `action_id`, so neither of those separates them. The DoT tick sets
-## `status` to BURN, POISON or BLEED; the hazard leaves it at `CombatEvent`'s
-## default of SHIELD, and SHIELD is not a DoT status, so the pair cannot
-## collide. A burning pawn that walks out of the fire keeps taking BURN ticks
-## and none of them are counted here, which is the distinction this wants.
-##
-## Read from `state.events` rather than from anything inside a `step()`,
-## announcement rule 2.
-## Enemies whose killing blow was a hazard tick.
-##
-## **The killing blow is read as "the last DAMAGE event this unit ever took",
-## which is a proxy, and here is why it is a sound one.** A dead unit takes no
-## further damage, so the last event on a corpse is the one that killed it; the
-## only way this could over-count is a unit that finishes on zero or less from
-## something other than damage, and nothing in `CombatSim` reduces `hp` except
-## a DAMAGE event. It is checked in the direction that matters rather than
-## argued: with the terrain stripped it returns 0, asserted above.
-##
-## Same SHIELD discriminator as `_hazard_damage_by_team`, for the same reason:
-## a BURN tick from a unit that walked out of the fire is not the fire.
-##
-## Enemies only. A pawn killed by the fire is the room punishing the player,
-## which is a fine thing for it to do and a different claim; counting both
-## together would let one substitute for the other.
+## Health taken from terrain, as `[party, enemy]`. The discriminator is `status`:
+## `_tick_hazards` and the damage-over-time tick both emit DAMAGE with
+## `source_id == -1`, so the status is the only thing telling them apart.
 func _killed_by_the_fire(state: CombatState) -> int:
 	var by_fire := {}
 	for e in state.events:
@@ -1643,53 +655,9 @@ func _hazard_damage_by_team(state: CombatState) -> Array:
 	return [mine, theirs]
 
 
-## **THIS COUNTED SUMMONED SIEGE ENGINES AS PARTY UNTIL 2026-08-15, and finch
-## found the same bug inflating the Warden table before I found it here.**
-##
-## `CombatSim._spawn_summon` builds a summon with `caster.team`, so a Siege
-## Engine is `Team.PLAYER` and this function was adding 140 hp of immobile
-## construct to a four-pawn party of roughly 400. Measured on `main` at
-## `75df176`, health at the end of a fight computed both ways:
-##
-##     room                party              all   pawns   delta
-##     floor1_cover        no_abomination     49%     25%     +24
-##     floor1_hazard       no_geysermancer    52%     31%     +21
-##     floor1_chokepoint   no_warrior         40%     19%     +21
-##     floor1_room1        no_warrior         49%     22%     +27
-##     any room            no_siege_master     --      --      +0
-##
-## **The `no_siege_master` row is the control and it is exactly zero in every
-## room**, which is the mechanism confirming itself: the one buildable party
-## with no Siege Master is the one party with no summon, and it is the only row
-## that does not move.
-##
-## `enemy_id` is the discriminator because a summon carries one and a real pawn
-## never does -- the same generic signal `DefaultBehavior` already reads, rather
-## than naming the Siege Engine.
-##
-## **#221 checked that against the other spelling and they are the same test.**
-## `test_content_encounter.gd` writes `u.pawn != null` for the same job, and
-## `CombatSim._spawn_summon` calls `_build_enemy_unit(new_id, def,
-## action.summons_unit_id, caster.position, caster.team)` -- so every summon is
-## built on the enemy path with a non-empty `enemy_id` and no `pawn`, whichever
-## team it lands on. Two spellings, one set. Recorded because a fix that reads
-## as a fix and selects a different set is the failure mode #221 is about, and
-## this one does not.
-##
-## **What this does to the two assertions that use it, and my first answer was
-## wrong in one of the two.** I wrote that both would gain margin because the
-## inflation was damping the differences. That holds for the burn pit, whose
-## largest/total go **25/64 to 35/90** against floors of 20 and 55 -- the total
-## is no longer asserted as of #214, so only the 20 is still a floor. It is the
-## opposite for the colonnade, which went **12/23 to 8/19** against floors of 8
-## and 18 -- landing exactly on the first floor, and under the second on swift's
-## #175. Measured, not reasoned, and corrected here rather than left as the
-## confident version.
-##
-## That is what sent me to measure the colonnade against sample size, and the
-## answer is in that test: its health aggregate was noise at any sample this
-## gate can afford, so it now asserts per-fight divergence instead. **No floor
-## was lowered to fit anything.**
+## Excludes summons. `CombatSim._spawn_summon` gives a summon `caster.team`, so
+## a Siege Engine reads as PLAYER and this sum used to include 140 hp of immobile
+## health. Every `team == PLAYER` total needs the same discriminator.
 func _party_hp_percent(state: CombatState) -> int:
 	var hp := 0
 	var hp_max := 0
@@ -1703,83 +671,10 @@ func _party_hp_percent(state: CombatState) -> int:
 	return int(round(100.0 * float(hp) / float(hp_max)))
 
 
-## The player's standing direction, from PLAYTEST-NOTES.md and quoted in
-## `Tools/SampleFights.gd`: *"With a party of 4 I should be winning most single
-## battles and my losses should come from attrition."* A pickable room that one
-## party simply cannot have is not variety, it is a card the player has learnt
-## not to press.
-##
-## **This is a floor, not a target, and it is deliberately not a band.** A room
-## that suits one party and not another is the point of having four of them;
-## the spread belongs in the pull request's table, not flattened into an
-## assertion here.
-##
-## ---
-##
-## **THE OLD SHAPE WAS `wins >= 4 of 8`, AND IT WAS A COIN-FLIP DETECTOR DRAWN
-## THROUGH THE MIDDLE OF A COIN FLIP. I wrote it; it was flaky on the trunk
-## before anybody's branch touched it.**
-##
-## It went red on swift's #175 for `floor1_chokepoint` x `no_geysermancer` at
-## 3/8, which reads as a room that stopped being winnable. It is not. Measured
-## at **100 seeds** on `main` at `75df176` and on `main` + #165:
-##
-##     party              main   with #165
-##     no_abomination     100%         99%
-##     no_geysermancer     54%         47%
-##     no_priest           97%         98%
-##     no_siege_master     98%         98%
-##     no_warrior         100%        100%
-##
-## **That cell is a coin flip in both arms**, and the 7-point gap between them
-## is 1.4 standard deviations at n=100 -- not a movement anybody should act on.
-## The 3/8 the gate reported is an eight-seed sample of a 50% cell.
-##
-## **So the old assertion was failing about one run in three on the trunk, and
-## had been for as long as that cell sat near 50%.** At p=0.54 and n=8,
-## `wins >= 4` fails roughly 32% of the time. It passed the runs it was looked
-## at on. This is board rule 4 in its purest form and the author is me: a
-## threshold drawn at exactly the value the population sits at cannot do
-## anything but flip, and when it flips it names whoever pushed last.
-##
-## **What the test is named for is a WALL, and 50% was never a wall.** The
-## measured distribution has an enormous gap in it -- one cell at 47-54% and
-## every other cell in the game at 97-100% -- so there is no number between 10%
-## and 40% that noise can reach from either side. The floor is 25%:
-##
-##   - against the coin flip at 47%, `wins >= 5 of 20` fails about 0.06% of runs
-##   - against a genuine wall at 5%, it fails essentially always
-##
-## **This is a change of claim, not a widening.** The claim is now the one the
-## function name always made -- no room is unwinnable for a party -- and the
-## claim it replaces was "no room is worse than even for a party", which the
-## project does not believe: `test_some_composition_is_a_genuine_coin_flip`
-## asserts the opposite, that a coin flip somewhere is a thing worth having.
-## **Nothing about the rooms changed to make this necessary.** The trunk numbers
-## and the #165 numbers both pass it and both passed the old one on a good day.
-##
-## Seeds go 8 to 20, which is what makes the floor mean anything: 8 seeds cannot
-## distinguish a 47% cell from a 25% one at all.
-##
-## **The coin flip itself is reported and not tuned.** `no_geysermancer` on the
-## chokepoint is the one party that finds that room hard, it is the only such
-## cell in the game, and per the header above that is what four rooms are for.
-##
-## ---
-##
-## **AND THE CLAIM SIXTEEN LINES ABOVE -- "against a genuine wall at 5%, it
-## fires essentially always" -- WAS REASONING, NOT A MEASUREMENT.** It is my
-## sentence. No room known to be unwinnable had ever been put through this
-## assertion, by this version or by the `4 of 8` it replaced, so nothing
-## established that either shape detects a wall at all. **A floor nobody has
-## crossed is a detector nobody has fired**, which is announcement rule 2 and
-## the thing that kept `4 of 8` alive for weeks.
-##
-## `test_the_detector_fires_on_a_room_that_really_is_a_wall` below is the
-## measurement, and it is in the gate rather than in a header because a claim in
-## a header cannot go red. The two together bracket the floor: raise it far
-## enough and the test above fails, lower it to nothing and the control below
-## fails.
+## The player's standing direction (PLAYTEST-NOTES.md): with a party of four
+## the player should win most single battles and lose to attrition. A pickable
+## room one party simply cannot have is not variety, it is a card they learn not
+## to press.
 const WALL_SEEDS := 20
 const WALL_FLOOR := 5
 

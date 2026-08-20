@@ -2,9 +2,8 @@ extends Resource
 
 const CG := preload("res://Scripts/Core/CG.gd")
 
-## An enemy type. Per README.md enemies have visible health and tags and simple
-## individual patterns, so they carry stats directly rather than deriving them
-## through a class the way a pawn does.
+## An enemy type. Enemies carry stats directly rather than deriving them through
+## a class the way a pawn does.
 ##
 ## MANAGER-OWNED SHAPE. Instances live in Scripts/Content/Enemies/.
 
@@ -17,19 +16,14 @@ const CG := preload("res://Scripts/Core/CG.gd")
 
 ## World units per tick.
 @export var move_speed: float = 1.0
-## NOT drawing only, despite what this comment used to say and what
-## CombatUnit.radius still implies. `CombatSim._move_toward` uses it for real
-## movement collision, and since issue 18 a projectile's hit check uses the
-## target's radius too. Changing it changes fights.
-##
-## kite found this while scaling units for legibility: they distrusted the
-## comment, checked the simulation, and used a view-only DISPLAY_SCALE instead.
-## Had they believed the file, every fight would have quietly changed while
-## looking like a display tweak.
+
+## **NOT drawing only**, whatever `CombatUnit.radius` implies.
+## `CombatSim._move_toward` uses it for movement collision and a projectile's
+## hit check uses the target's radius. Changing it changes fights.
 @export var radius: float = 22.0
 
 ## Flat attack power per damage type, keyed by CG.DamageType. Enemies skip the
-## attribute system entirely; there is no pawn behind them to grow.
+## attribute system; there is no pawn behind them to grow.
 @export var attack_power: Dictionary = {}
 
 @export var damage_reduction: float = 0.0
@@ -39,39 +33,16 @@ const CG := preload("res://Scripts/Core/CG.gd")
 ## Tags shown to the player above the health bar.
 @export var display_tags: Array[String] = []
 
-## Taunt radius applied to this unit the moment it is spawned as a summon.
-## 0.0 means it does not taunt, which is every enemy today.
-##
-## Why this exists rather than the summon simply using a taunt action: **a
-## non-pawn unit's action list only ever runs one fixed action.** It cannot
-## rotate between "taunt" and "attack" the way a plan-driven pawn can, so a
-## siege engine can either taunt forever or fight, never both.
-##
-## dace found this from the balance side: an 80-hp engine never draws real fire,
-## which leaves a summoner as a slower and more fragile damage dealer. They
-## posted the exact shape rather than guessing at it, and rather than reaching
-## into Core or Combat to try.
-##
-## Read at spawn time in `CombatSim._build_enemy_unit` -- that half is swift's.
+## Taunt radius applied when this unit is spawned as a summon. 0.0 means it does
+## not taunt, which is every enemy today. It exists because a non-pawn unit's
+## action list only ever runs one fixed action, so a siege engine could otherwise
+## taunt forever or fight, never both. Read in `CombatSim._build_enemy_unit`.
 @export var spawn_taunt_radius: float = 0.0
 
-## How strongly this enemy prefers a target its allies are already attacking,
-## from 0.0 (pick the nearest, ignore what everyone else is doing) to 1.0
-## (join the pile whenever there is one).
+## How strongly this enemy prefers a target its allies already attack, 0.0 for
+## nearest-and-ignore-everyone to 1.0 for always-join-the-pile.
 ##
-## Added for teal's diagnosis on issue 7: more enemies currently means more
-## total damage rather than concentrated damage, because every enemy
-## independently picks its own nearest pawn. A party of four absorbs spread
-## damage very well and dies to concentrated damage, which is why wins cost
-## 20% of the party's hp and never a casualty.
-##
-## Deliberately per-enemy rather than a global rule, because it is a design
-## lever and not a difficulty knob: a goblin pack that swarms whoever is already
-## bleeding is a different threat from a ghoul that walks at the closest thing,
-## and both should be expressible. It is also the readable version — a player can
-## see a swarm converge and learn to spread out, which they cannot do about a
-## hidden damage multiplier.
-##
-## The decision layer reads this. The simulation does not: focus is a choice, not
-## a rule, and it belongs with the rest of the decision-making.
+## Per-enemy rather than global because it is a design lever, not a difficulty
+## knob, and it is the readable version: a player can watch a swarm converge and
+## learn to spread out. The decision layer reads this; the simulation does not.
 @export var focus_bias: float = 0.0

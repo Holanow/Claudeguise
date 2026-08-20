@@ -6,13 +6,6 @@ const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## One combatant's live state inside a fight. Built once from a PawnData or an
 ## enemy definition and mutated only by the simulation.
-##
-## MANAGER-OWNED SHAPE. The combat session fills in behaviour, the view reads
-## these fields, and nobody outside Scripts/Combat/ writes to one.
-##
-## Every field here is either an integer, a float, or a container of them. There
-## are no node references and no timers. That is what lets a fight be saved as a
-## seed and replayed.
 
 ## Stable within one fight. Index into CombatState.units.
 var id: int = -1
@@ -31,26 +24,6 @@ var position: Vector2 = Vector2.ZERO
 ## **Not drawing only, and changing it disturbs everyone's tuning.**
 ##
 ## This said "Drawing only. Verified 2026-08-12: nothing in Scripts/Combat,
-## Scripts/Plans or Scripts/Floor reads this for range, movement or collision."
-## That was true when written and false within days — terrain (13a) and
-## projectiles (18) both landed after it and both read this field:
-##
-## - `_sweep` -> `Terrain.point_is_blocked(..., unit.radius)`, the collision body.
-## - `_advance_projectile` -> `distance_to(target.position) <= target.radius`,
-##   **the hit window for every shot in the game.**
-##
-## swift measured it over 105 fights, changing only the pawn default. Shrinking
-## is nearly free; **growing is not** — at 40 the party loses 11 more fights than
-## at 22, because a bigger pawn is a bigger target.
-##
-## So this is a **balance** number wearing a drawing number's clothes. Anything
-## that wants a unit to *look* different belongs in draw scale, not here: see
-## issue 190, where every mark on a unit sizes from this field while the drawn
-## silhouette fills 0.56 to 1.00 of it.
-##
-## The dated verification is the lesson. **A comment that certifies an absence
-## goes stale silently**, because nothing fails when someone adds the first
-## reader. If an invariant matters, assert it; a note cannot hold it.
 var radius: float = 22.0
 
 var hp: int = 0
@@ -67,11 +40,6 @@ var alive: bool = true
 ## Set by the decision layer, consumed by the simulation on the same tick.
 ##
 ## The seam between the two halves of a tick, and it is deliberate. The
-## simulation only asks the decision layer for an intent when this is null, and
-## it clears the field once it has resolved it. So a test can put an intent here
-## by hand and drive the simulation with no plans, no default behaviour and no
-## content of any kind, which is what lets the simulation and the decision layer
-## be built at the same time by two sessions who cannot run each other's code.
 var intent: Intent = null
 
 ## Unit id this pawn is currently focused on, or -1. Targeting blocks write
@@ -81,14 +49,6 @@ var focus_id: int = -1
 
 ## Which way this unit is looking, as a unit vector. Zero means "no facing yet",
 ## which is every unit before anything sets it.
-##
-## The simulation has never needed this: `_resolve_targets` resolves a shot
-## instantly at fire time, so nothing has ever cared where a unit was pointed.
-## The UI derives a `facing_left` flag for drawing and that is all.
-##
-## It exists now because the Warrior is getting a guard that stops ranged
-## attacks crossing its front, and "its front" has to be a real quantity the
-## simulation agrees on rather than something the renderer guessed.
 var facing: Vector2 = Vector2.ZERO
 
 ## How far this unit's TAUNTING reaches while the status holds, copied from the
@@ -101,11 +61,6 @@ var taunt_radius: float = 0.0
 ## Issue 61. The sustained action this unit is currently holding, or &"" when it
 ## is holding nothing -- which is every unit in every fight until content
 ## authors an action with `sustain_cost_per_tick > 0`.
-##
-## Stored here rather than derived, on exactly the `taunt_radius` precedent: a
-## status the rest of the game can see (CG.Status.SUSTAINING) with its magnitude
-## -- here, *which* action -- kept on the unit beside it. CombatSim is the only
-## writer and sets both in the same two places, so the pair cannot drift.
 var sustaining: StringName = &""
 
 ## The tick the current channel began, or -1 when nothing is held. Carried into
@@ -121,16 +76,6 @@ var action_ticks_left: int = 0
 
 ## What `action_ticks_left` started at for the action currently being performed.
 ## 0 when the unit is free.
-##
-## Exists so a wind-up can be drawn as a **countdown** rather than a fixed ring:
-## progress is `1.0 - action_ticks_left / action_ticks_total`, and there is no
-## way to recover the denominator after the fact. `wind_up_ticks` on the action
-## is not it -- `_apply_haste` scales the real value at commit time, so a hasted
-## unit's ring would run at the wrong rate against the raw number.
-##
-## Requested by wren with an exact signature rather than worked around in the
-## UI, after sable built the countdown art. Written once beside
-## `action_ticks_left` in `CombatSim`; nothing else should set it.
 var action_ticks_total: int = 0
 var recover_ticks_left: int = 0
 
@@ -143,35 +88,6 @@ var statuses: Dictionary = {}
 ## What each status is carrying BEYOND its expiry tick, keyed by CG.Status.
 ## Absent means 0.0, which is every status that existed before this field and
 ## every status that does not store anything.
-##
-## **A status used to be a duration and nothing else**, and two of the player's
-## rulings need it to remember one more number. The unit that number is in is
-## decided per status, in one table in `CombatSim`, and there are exactly two
-## kinds today:
-##
-##   - **BLEED: a stack count.** Applying it again adds one. Damage per tick is
-##     per stack, so bleed punishes being hit *often*.
-##   - **BURN: the damage of the hit that applied it.** Damage per tick scales
-##     off that, so burn punishes being hit *hard* -- and an action that
-##     consumes the burn gets a bonus scaled by the same number, so how hard
-##     Scald landed decides how much Blast gets back.
-##
-## (POISON stores nothing and scales off the target's max health, so the three
-## damage-over-time statuses have three different scaling rules on purpose.)
-##
-## ONE Dictionary rather than one per meaning, and beside `statuses` rather than
-## inside it: that Dictionary's value is the expiry tick, and packing a second
-## number into it is how two quantities start disagreeing. Two separate fields
-## for "stacks" and "magnitude" would be the same mistake one level up -- a
-## status remembering a thing is one mechanism, not two.
-##
-## CombatSim is the only writer, and every path that erases a status erases the
-## magnitude with it (`CombatSim._remove_status`), so the pair cannot drift --
-## the `taunt_radius`/`sustaining` precedent.
-##
-## Read by the badges: sable draws BLEED's as a count and BURN's as a strength.
-## A badge identical at one stack and at nine, or on a burn worth 2 and one
-## worth 40, fails the player's own definition of done.
 var status_magnitude: Dictionary = {}
 
 ## Action ids available to this unit, from class, equipment and enemy
