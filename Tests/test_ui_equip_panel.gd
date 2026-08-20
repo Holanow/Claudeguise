@@ -417,16 +417,15 @@ func test_a_naked_pawn_reads_as_empty_not_as_broken() -> void:
 func test_party_select_can_reach_the_equip_screen_and_edits_reach_the_fight() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
-	var found: Button = null
-	for node in _all_nodes(screen):
-		if node is Button and node.text == "Equip pawns":
-			found = node
-	assert_not_null(found, "party select must carry a button that opens the equip screen")
-
-	found.pressed.emit()
-	assert_true(screen._equip_panel.visible, "pressing it must open the panel")
+	## Issue 351 removed the button: equipment is a column of this screen now
+	## rather than a destination, so reachability is that the panel is on the
+	## screen and showing the pawn the player picked.
+	assert_true(screen._equip_panel.visible, "the equip column must be on the screen")
+	assert_true(screen._equip_panel.is_ancestor_of(screen._equip_panel.get_node("%DetailBox")),
+		"and built, not a bare Control")
 
 	var pawn: PawnData = screen.available_pawns()[0]
+	screen.focus_pawn(pawn)
 	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
 	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 1)
 	screen.toggle_pawn(pawn, true)

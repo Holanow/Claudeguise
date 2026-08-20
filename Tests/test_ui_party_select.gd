@@ -221,16 +221,119 @@ func test_the_roster_wraps_rather_than_scrolling_sideways() -> void:
 ## The half that actually stops the scrolling. Five full-width stacked buttons
 ## spent about 320 of 720 pixels of height, so the roster was left 175 for a
 ## 200-pixel card; widening the roster alone could not have fixed that.
-func test_the_secondary_destinations_share_a_row_and_start_fight_does_not() -> void:
+## Rewritten for issue 351, and the intent is the one it was written with: the
+## thing that starts a fight must not be confusable with a place to go. Two of
+## the three buttons it used to name are gone, because the screens they opened
+## are now the middle column.
+func test_starting_a_fight_lives_apart_from_the_places_you_can_go() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
-	var row := screen._start_run_button.get_parent()
-	assert_true(row is HFlowContainer, "the secondary buttons must share a wrapping row")
-	assert_ne(screen._start_button.get_parent(), row, "Start Fight keeps its own full-width band")
-	var texts: Array[String] = []
-	for child in row.get_children():
-		if child is Button:
-			texts.append(child.text)
-	for expected in ["Inspect classes", "Equip pawns", "Level editor"]:
-		assert_true(texts.has(expected), "'%s' must be in the shared row, row holds %s" % [expected, str(texts)])
+	var column := screen._start_button.get_parent()
+	assert_eq(screen._start_run_button.get_parent(), column,
+		"the two ways to start a fight belong together")
+	var level_editor: Button = null
+	for node in _all_nodes(screen):
+		if node is Button and node.text == "Level editor":
+			level_editor = node
+	assert_not_null(level_editor, "the level editor is still reachable")
+	assert_true(column.get_children().find(level_editor) > column.get_children().find(screen._start_run_button) + 1,
+		"the level editor must not sit against the Start buttons")
+
+	## And the destinations that became columns are gone as destinations, or
+	## this screen has both and the mismatch the issue was filed for.
+	var button_texts: Array[String] = []
+	for node in _all_nodes(screen):
+		if node is Button:
+			button_texts.append(node.text)
+	for text in ["Inspect classes", "Equip pawns"]:
+		assert_false(button_texts.has(text),
+			"'%s' is a column now, not a button: %s" % [text, str(button_texts)])
 	screen.free()
+
+# ---------------------------------------------------------------------------
+# Issue 351: three columns, and the middle one is the pawn
+# ---------------------------------------------------------------------------
+#
+# "pawns on the left, pawn inspect in the middle, then the level select and
+# start on the right". The middle column is where the two things that interact
+# become visible together: WIS from equipment sets the plan block budget.
+
+func test_the_middle_column_opens_on_a_real_pawn_rather_than_empty() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	assert_not_null(screen.focused_pawn(), "a third of the screen must not open blank")
+	assert_eq(screen.focused_pawn(), screen.available_pawns()[0])
+	assert_true(screen._inspect_panel.visible and screen._equip_panel.visible,
+		"both halves of the middle column are on the screen at once")
+	screen.free()
+
+## The requirement the brief singled out: the column has to work for a pawn that
+## is NOT in the party, because the left column is where you are still choosing.
+func test_the_middle_column_shows_a_pawn_that_is_not_in_the_party() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var outsider: PawnData = screen.available_pawns()[2]
+	screen.focus_pawn(outsider)
+	assert_false(screen.selected_pawns().has(outsider), "and it is genuinely not in the party")
+	assert_true(_all_label_text(screen._inspect_panel).contains(outsider.display_name),
+		"the plans column must be about the pawn being looked at")
+	screen.free()
+
+## A refused card still focuses. That is the moment you most want to look: the
+## party is full and you are deciding whether this pawn is worth a swap.
+func test_a_fifth_card_is_refused_and_still_focuses_the_pawn() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var pawns := screen.available_pawns()
+	for i in 4:
+		screen.toggle_pawn(pawns[i], true)
+	assert_eq(screen.selected_pawns().size(), 4)
+	screen._on_card_toggled(true, pawns[4])
+	assert_eq(screen.selected_pawns().size(), 4, "the party must still be refused")
+	assert_eq(screen.focused_pawn(), pawns[4], "and the middle column must still move")
+	screen.free()
+
+## The whole argument for one column: equipment that adds WIS raises the plan
+## block budget, and the row past the budget is what un-inerts. Driven through
+## the panel a player touches, and asserted on the sentence the player reads.
+func test_equipping_wis_moves_the_plan_budget_in_the_column_beside_it() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var pawn: PawnData = screen.available_pawns()[0]
+	screen.focus_pawn(pawn)
+	var before := _budget_line(screen)
+	assert_ne(before, "", "the plans column must state the budget")
+
+	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	var wis_item := -1
+	for i in armors.size():
+		if armors[i].attribute_percent.get(CG.Attribute.WIS, 0.0) > 0.0 				or armors[i].attribute_flat.get(CG.Attribute.WIS, 0.0) > 0.0:
+			wis_item = i
+			break
+	if wis_item < 0:
+		assert_true(true, "no WIS armour is defined, so there is nothing to move")
+		screen.free()
+		return
+	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, wis_item + 1)
+	assert_ne(_budget_line(screen), before,
+		"the budget sentence must move when the gear that sets it does: still '%s'" % before)
+	screen.free()
+
+func _budget_line(screen) -> String:
+	for node in _all_nodes(screen._inspect_panel):
+		if node is Label and node.text.contains("plan blocks used"):
+			return node.text
+	return ""
+
+func _all_label_text(node: Node) -> String:
+	var out := ""
+	for n in _all_nodes(node):
+		if n is Label:
+			out += n.text + " "
+	return out
+
+func _all_nodes(node: Node) -> Array[Node]:
+	var out: Array[Node] = [node]
+	for c in node.get_children():
+		out.append_array(_all_nodes(c))
+	return out

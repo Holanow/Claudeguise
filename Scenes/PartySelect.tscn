@@ -20,97 +20,103 @@ theme_override_constants/margin_top = 32
 theme_override_constants/margin_right = 32
 theme_override_constants/margin_bottom = 32
 
-[node name="Column" type="VBoxContainer" parent="Margin"]
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="Title" type="Label" parent="Margin/Column"]
+[node name="LeftColumn" type="VBoxContainer" parent="Margin/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 4.0
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Margin/Columns/LeftColumn"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Pick your party"
 
-[node name="RosterScroll" type="ScrollContainer" parent="Margin/Column"]
+[node name="StatusLabel" type="Label" parent="Margin/Columns/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.603922, 0.580392, 0.666667, 1)
+
+[node name="RosterScroll" type="ScrollContainer" parent="Margin/Columns/LeftColumn"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="RosterBox" type="HFlowContainer" parent="Margin/Column/RosterScroll"]
+[node name="RosterBox" type="HFlowContainer" parent="Margin/Columns/LeftColumn/RosterScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 16
 
-[node name="RoomRow" type="HBoxContainer" parent="Margin/Column"]
-layout_mode = 2
-
-[node name="RoomLabel" type="Label" parent="Margin/Column/RoomRow"]
-custom_minimum_size = Vector2(48, 0)
-layout_mode = 2
-text = "Room"
-
-[node name="RoomPicker" type="OptionButton" parent="Margin/Column/RoomRow"]
+[node name="MiddleColumn" type="VBoxContainer" parent="Margin/Columns"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 5.0
+theme_override_constants/separation = 8
+
+[node name="RightColumn" type="VBoxContainer" parent="Margin/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 3.0
+theme_override_constants/separation = 16
+
+[node name="RoomLabel" type="Label" parent="Margin/Columns/RightColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Where to fight"
+
+[node name="RoomPicker" type="OptionButton" parent="Margin/Columns/RightColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 clip_text = true
 fit_to_longest_item = false
 
-[node name="RoomSummary" type="Label" parent="Margin/Column/RoomRow"]
+[node name="RoomSummary" type="Label" parent="Margin/Columns/RightColumn"]
 unique_name_in_owner = true
 layout_mode = 2
+autowrap_mode = 2
 theme_override_colors/font_color = Color(0.603922, 0.580392, 0.666667, 1)
 theme_override_font_sizes/font_size = 16
 
-[node name="SeedRow" type="HBoxContainer" parent="Margin/Column"]
+[node name="SeedRow" type="HBoxContainer" parent="Margin/Columns/RightColumn"]
 layout_mode = 2
 
-[node name="SeedLabel" type="Label" parent="Margin/Column/SeedRow"]
+[node name="SeedLabel" type="Label" parent="Margin/Columns/RightColumn/SeedRow"]
 layout_mode = 2
 text = "Seed"
 
-[node name="SeedEdit" type="LineEdit" parent="Margin/Column/SeedRow"]
+[node name="SeedEdit" type="LineEdit" parent="Margin/Columns/RightColumn/SeedRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 48)
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
+size_flags_horizontal = 3
 
-[node name="StatusLabel" type="Label" parent="Margin/Column"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.603922, 0.580392, 0.666667, 1)
-
-[node name="StartButton" type="Button" parent="Margin/Column"]
+[node name="StartButton" type="Button" parent="Margin/Columns/RightColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 tooltip_text = "Runs one fight with the current party and seed, right now."
 script = ExtResource("2_glossary")
 
-[node name="SecondaryRow" type="HFlowContainer" parent="Margin/Column"]
-layout_mode = 2
-theme_override_constants/h_separation = 16
-theme_override_constants/v_separation = 8
-
-[node name="StartRunButton" type="Button" parent="Margin/Column/SecondaryRow"]
+[node name="StartRunButton" type="Button" parent="Margin/Columns/RightColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 tooltip_text = "Enters the floor with the current party. Fights and rooms follow in sequence, with damage and resources carried between them."
 script = ExtResource("2_glossary")
 
-[node name="InspectButton" type="Button" parent="Margin/Column/SecondaryRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+[node name="Filler" type="Control" parent="Margin/Columns/RightColumn"]
 layout_mode = 2
-text = "Inspect classes"
+size_flags_vertical = 3
 
-[node name="EquipButton" type="Button" parent="Margin/Column/SecondaryRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-text = "Equip pawns"
-
-[node name="LevelEditorButton" type="Button" parent="Margin/Column/SecondaryRow"]
+[node name="LevelEditorButton" type="Button" parent="Margin/Columns/RightColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
