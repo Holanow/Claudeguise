@@ -194,22 +194,36 @@ func _bind_ui() -> void:
 	%EquipButton.pressed.connect(_on_equip_pressed)
 	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
 
-	_inspect_panel = Control.new()
-	_inspect_panel.set_script(InspectPanelScript)
-	add_child(_inspect_panel)
-	# Same reasoning as PartyCard's own manual _ready() call in _fill_roster:
-	# this node may be built while PartySelect itself is not yet in a live tree
-	# (a test calling _ready() directly), and add_child alone only triggers
-	# _ready() automatically once the parent enters a real SceneTree.
-	if not _inspect_panel.is_inside_tree():
-		_inspect_panel._ready()
-
+	_inspect_panel = _add_panel(InspectPanelScript)
 	# Added after the inspect panel so it draws above it if both are ever open.
-	_equip_panel = Control.new()
-	_equip_panel.set_script(EquipPanelScript)
-	add_child(_equip_panel)
-	if not _equip_panel.is_inside_tree():
-		_equip_panel._ready()
+	_equip_panel = _add_panel(EquipPanelScript)
+
+## **A panel whose tree has moved into a `.tscn` cannot be built by setting the
+## script on a bare Control**: it gets none of the tree, `%Name` resolves to
+## nothing, and `_ready()` aborts on the first one -- a blank screen behind a
+## green test suite, because a detached screen never renders. `create()` is the
+## constructor those panels expose.
+##
+## InspectPanel and EquipPanel are moving to scenes on other sessions' branches,
+## so this asks rather than assuming and builds correctly whichever lands first.
+## **Delete the second half and call `create()` directly once both are on the
+## trunk** -- it is a merge-order accommodation, not a pattern.
+##
+## The manual `_ready()` is the same reasoning as PartyCard's in `_fill_roster`:
+## this node may be built while PartySelect is not yet in a live tree (a test
+## calling `_ready()` directly), and `add_child` alone only triggers `_ready()`
+## automatically once the parent enters a real SceneTree.
+func _add_panel(script) -> Control:
+	var panel: Control
+	if script.has_method("create"):
+		panel = script.create()
+	else:
+		panel = Control.new()
+		panel.set_script(script)
+	add_child(panel)
+	if not panel.is_inside_tree():
+		panel._ready()
+	return panel
 
 ## One card per class, so it stays in code. Issue 17: a checkbox next to a bare
 ## class name did not let anyone make this screen's only decision; each class is
