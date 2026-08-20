@@ -1563,48 +1563,29 @@ static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, a
 ## range would make this ability change when an unrelated action was tuned.
 const SHIELD_WIDTH := 40.0
 
-## A shot crossing a SHIELDING unit's front is stopped by it, per
-## CG.Status.SHIELDING's own doc comment -- this is the projectile-based
-## design that comment named as the point of building #18 first, replacing
-## the geometric-line-check fallback it also named (never built, since
-## projectiles landed before this did).
+## A shot crossing a SHIELDING unit's front is stopped by it.
 ##
-## Tested against the **segment the shot travelled this tick**, `from` -> `to`,
-## not against where it happens to have landed at the end of it. A shot moves
-## `speed` units per tick (65 for every real ranged action today) and the
-## window is 40 wide, so a point test lets a shot teleport straight through a
-## raised shield without ever being sampled inside it. That is not a rare edge:
-## it is most shots, and it is a large part of why this ability appeared to do
-## nothing. A segment test has no such hole at any speed, which also means the
-## measurement stops depending on the tick rate.
+## Tested against the segment the shot travelled this tick, `from` -> `to`,
+## not where it landed. A shot moves 65 units a tick and the window is 40
+## wide, so a point test lets most shots teleport through a raised shield
+## without ever being sampled inside it.
 ##
-## The front arc is now two sign tests instead of one, and the second is new:
+## The front arc is two sign tests:
 ##
-##   1. the shot **started this tick in front**: `facing.dot(from - pos) > 0`
-##   2. the shot is **moving into the shield**: `facing.dot(to - from) < 0`
+##   1. the shot started this tick in front: `facing.dot(from - pos) > 0`
+##   2. the shot is moving into the shield: `facing.dot(to - from) < 0`
 ##
-## Together that is the player's own wording for the ability -- "ranged attacks
-## that enter its melee range from the direction it's facing". Test 1 alone was
-## what this had, and it cannot tell approach from departure, because it reads
-## where the shot is and never which way it is going. The old comment on the
-## facing test in Tests/test_combat_taunt_and_shield.gd says so outright: a
-## shielder on the shot's line is "briefly in front of the shot during the
-## approach and briefly behind it during departure, for *either* facing". So a
-## shot that had already flown past a guard could be caught on its way out, and
-## widening the window from 22 to 40 would have made that more common, not less.
-## Test 2 removes it: a shield stops what comes at its face.
+## Test 1 alone reads where the shot is and never which way it is going, so a
+## shot that had already flown past could be caught on its way out. Neither
+## test can be asked of the closest point on the segment: for a shot passing
+## straight through, that point is the shielder's own position, which dots to
+## zero from every facing.
 ##
-## Neither test can be asked of the closest point on the segment. For a shot
-## passing straight through a shielder that point is the shielder's own
-## position, which dots to zero from every facing.
+## `attacking_team == defending_team` returns null immediately: SHIELDING
+## stops incoming fire, not outgoing support aimed at an ally behind it.
 ##
-## `attacking_team == defending_team` returns null immediately, so a shield
-## never blocks a friendly heal or buff aimed at an ally standing behind it --
-## SHIELDING stops incoming fire, not outgoing support.
-##
-## First qualifying shielder in `state.living(defending_team)` order wins,
-## same "iterate units, never a Dictionary" determinism rule every other
-## tie-break in this file already follows.
+## First qualifying shielder in `state.living(defending_team)` order wins --
+## iterate units, never a Dictionary, as every tie-break in this file does.
 static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> CombatUnit:
 	if attacking_team == defending_team:
 		return null
@@ -1672,49 +1653,17 @@ static func _end_fight(state: CombatState, outcome: CombatState.Outcome, reason:
 	end_event.end_reason = reason
 	state.emit(end_event)
 
-## Issue 233. A side is beaten when it has no living unit left **or** when
-## every unit it has left can never act again for the rest of the fight.
+## A side is beaten when it has no living unit left, or when every unit it has
+## left can never act again.
 ##
-## The second half exists because of one measured event, not a hypothetical.
-## `floor1_warden` with the four-class party: 22 of 40 seeds outlive the whole
-## party because two Siege Engines are still standing. Eleven of those are wins
-## the engines land within 4 seconds. **The other eleven are 25.9-second
-## defeats, of which 21.8 to 25.9 seconds contain nothing the player's side
-## does at all** -- measured event by event with `Tools/TailAnatomy.gd`, and
-## watched on screen with `Tools/TailWatch.gd`, where the arena is visually
-## frozen and the combat log's last line is twelve seconds old.
+## The second half is not hypothetical: `siege_engine_bolt` is
+## `requires_marked_target`, the engines have `move_speed` 0, and only the
+## Siege Master applies MARKED. The tick the mark fades, two engines become
+## furniture with no action they can ever satisfy, and the fight runs another
+## 22 seconds in which the player's side does nothing at all.
 ##
-## The cause is not a slow tail, which is why "speed the tail up" is not the
-## fix. `siege_engine_bolt` is `requires_marked_target`, the engines have
-## `move_speed` 0, and the only unit in the game that applies MARKED is the
-## Siege Master. The tick their mark fades, two engines become furniture with
-## no action they can ever satisfy, and the Warden spends 25 seconds
-## demolishing them. **The fight is decided; only the announcement is late.**
-##
-## It is deliberately not "end the fight when the last pawn dies": that throws
-## away the eleven wins the engines earn, and they earn them in under four
-## seconds.
-## Issue 218, and rook's ruling: **a fight where every pawn is dead is not a
-## victory.** The simulation's result does not change -- the enemies are gone,
-## so `outcome` is PLAYER_WIN and stays PLAYER_WIN -- but the screen must not
-## call it one. This is the question the banner asks to tell the two endings
-## apart.
-##
-## Public because the answer belongs here rather than in the view: it is a
-## property of the fight, and a second implementation of "which of these units
-## was a pawn" in `BattleView` would drift from this one. 11 of 40 seeds on
-## `floor1_warden` end this way (issue 233), so it is not a corner case.
-##
-## **No new field was needed and I did not add one.** `state.units` keeps dead
-## units in place with `alive == false` for the whole fight, and a pawn is the
-## one player-team unit with `pawn != null` -- `build()` sets `.pawn` for party
-## members and leaves `enemy_id` empty, while a summon is built from an EnemyDef
-## and carries one. So "the party existed and every one of them is dead" is
-## readable off `CombatState` at any tick, including after the fight ends.
-##
-## The party-existed half is not decoration: a fight with no pawns at all (the
-## level editor's test fight can build one) would otherwise report every win as
-## pawnless and the banner would read Defeat on it.
+## Deliberately not "end when the last pawn dies": the engines win 11 of 40
+## seeds on `floor1_warden`, and they do it in under four seconds.
 static func party_was_wiped(state: CombatState) -> bool:
 	var pawns := 0
 	for unit in state.units:

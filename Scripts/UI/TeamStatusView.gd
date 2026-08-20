@@ -2,49 +2,25 @@ extends Control
 class_name TeamStatusView
 
 
-## Issue 113: the player's whole team, in one place that does not move.
+## The player's whole team in one place that does not move: health, resource,
+## statuses and cooldowns in a fixed column, which is what makes comparing two
+## party compositions possible.
 ##
 ## OWNER: wren.
 ##
-## > "I also need a live full team status view somewhere that shows health,
-## > resource, status effects, and cooldowns. It can be mostly icons and bars as
-## > long as definitions are clear"
-##
-## Health, resource and statuses are all drawn already -- on the unit, in a
-## moving fight, at the size the arena happens to be. This is the same four
-## facts in a fixed column, which is what makes comparing two party compositions
-## possible at all.
-##
-## **Cooldowns are new. Nothing in this game has ever drawn one**, and the design
-## of that quarter came out of a measurement rather than a guess. `Tools
-## /CooldownLoad.gd`, five rooms by ten seeds by two parties, sampled every tick:
-##
-##   Warrior       97.96% of its living ticks with something on cooldown, 2 at once
-##   Priest        71.71%                                                  2
-##   Geysermancer  29.13%                                                  1
-##   Abomination    0.00%                                                  0
-##   Siege Master   0.00%                                                  0
-##
-## Three things follow, and all three are load-bearing here:
+## The cooldown quarter is sized from measurement, and all three follow from
+## it:
 ##
 ## 1. **Two slots, not one per action.** Nothing ever held more than two.
-## 2. **Two of the five classes own no action with a cooldown at all**, so their
-##    row says so in words. An empty pair of boxes on the Abomination would read
-##    as the panel being broken, every fight, for the life of the feature.
-## 3. **A lamp reading "something is on cooldown" would be lit 98% of the time
-##    for a Warrior.** That is a detector that always fires, which this project's
-##    own board says becomes furniture within minutes. So the chip names the
-##    action and says how many seconds are left.
+## 2. **Two of the five classes own no action with a cooldown**, so their row
+##    says so in words. Empty boxes would read as the panel being broken.
+## 3. **The chip names the action and the seconds left.** A lamp reading
+##    "something is on cooldown" would be lit 98% of a Warrior's living ticks,
+##    which is a detector that always fires.
 ##
-## **How many rows**, from `Tools/TeamPanelLoad.gd`, the same 100 fights: the
-## player's side held **5 or 6 living units in every single fight**, never four,
-## because the Siege Master's engines are player-team units. A panel sized to
-## the four pawns would have been wrong on 100 fights out of 100.
-
-## Party pawns keep their row after they die -- losing one is the most important
-## thing that can happen to your team and the row going blank would delete it.
-## A summon's row exists only while the summon does: it was temporary, and a
-## fight that builds and loses six engines must not grow a six-row graveyard.
+## Sized for 5 or 6 rows, not 4: the Siege Master's engines are player-team
+## units, and the player's side held more than four living units in 100 fights
+## out of 100.
 const MAX_PAWN_ROWS := 4
 const MAX_SUMMON_ROWS := 2
 const MAX_ROWS := MAX_PAWN_ROWS + MAX_SUMMON_ROWS

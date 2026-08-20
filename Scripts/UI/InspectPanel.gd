@@ -859,46 +859,27 @@ func _fixed_chip(text: String) -> Control:
 	return panel
 
 # ---------------------------------------------------------------------------
-# The default row
+# The default row: what a pawn does when no plan of its own fires.
 #
-# Issue 96: "every pawn gets an immutable final row: move into range, then
-# basic attack", and "it has to match what actually happens — check what that
-# code really does before writing the row's text."
-#
-# It does not match, in three ways, and the issue's own instruction is to
-# describe reality and raise the difference rather than reword either one. All
-# three are read out of `DefaultBehavior` here rather than restated, so the
-# numbers on this screen cannot drift from the numbers in the simulation:
+# Every number is read out of `DefaultBehavior` rather than restated, so this
+# screen cannot drift from the simulation. It states four things, and none of
+# them is the "move into range, then basic attack" it sounds like:
 #
 # 1. **A pawn with a real heal checks its allies first.** `_first_heal` picks
-#    the first action with `heals` and `power_scale > 0.0`, and if any living
-#    ally is at or below `HEAL_THRESHOLD_FRACTION` of max hp, that is what it
-#    does — walking to the ally if it is out of range. Only the Priest has one
-#    today, so only the Priest grows this row.
-# 2. **A ranged pawn does not "move into range", it holds a band.** Closer than
-#    `KITE_RANGE_FRACTION` of its own range and it backs away; further than
-#    `RANGED_COMMIT_FRACTION` and it approaches; between the two it fires. This
-#    is the mechanism behind PLAYTEST-NOTES-2 item 11, so a player reading this
-#    row can now see the retreat rather than being surprised by it. An action
-#    with `pull_distance > 0.0` never backs off, and that exception shows too.
-# 3. **"The basic attack" is not what it picks.** `_choose_attack_action` takes
-#    the **cheapest action that can actually deal damage** on each side of
-#    `MELEE_RANGE_THRESHOLD`, then chooses between the two by the target's
-#    current distance; with only one of the two it uses that one whatever the
-#    distance. So the row names the actual action, from the actual rule, rather
-#    than a concept the code does not have.
-#
-#    **That rule used to be "first in `starting_actions` order", and issue 129
-#    ended it.** List order was why `warden_chain_toss` never fired and why
-#    `geyser_spout` had to be moved to the front of its class's list; it could
-#    not survive the basic attack arriving from the main-hand weapon, because
-#    equipment grants are appended after class actions and first-in-list would
-#    have named a Warrior's Guard — a self-buff with no damage in it.
-#
-# Target selection is the fourth thing this row states: a taunter in range wins
-# over distance (`_nearest_taunter`), otherwise the nearest enemy.
+#    the first action with `heals` and `power_scale > 0.0`; a living ally at
+#    or below `HEAL_THRESHOLD_FRACTION` gets it, walked to if out of range.
+# 2. **A ranged pawn holds a band rather than closing.** Inside
+#    `KITE_RANGE_FRACTION` it backs away, beyond `RANGED_COMMIT_FRACTION` it
+#    approaches, between the two it fires. An action with `pull_distance > 0`
+#    never backs off, and that exception shows too.
+# 3. **The attack is the cheapest action that can actually deal damage** on
+#    each side of `MELEE_RANGE_THRESHOLD`, chosen between by the target's
+#    distance. Not first-in-list: that was why `warden_chain_toss` never
+#    fired, and it cannot survive weapons granting the basic attack, since
+#    equipment actions are appended after class ones.
+# 4. **Target selection**: a taunter in range beats distance
+#    (`_nearest_taunter`), otherwise the nearest enemy.
 # ---------------------------------------------------------------------------
-
 func _default_rows(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 	var actions: Array[ActionDef] = []

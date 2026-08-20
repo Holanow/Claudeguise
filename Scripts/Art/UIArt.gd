@@ -2,46 +2,29 @@ extends RefCounted
 class_name UIArt
 
 
-## The interface half of the drop-in art pipeline. PLAYTEST-NOTES-2 item 15:
-##
-##   "There must be a way to drop in artier UI elements later -- borders, icons.
-##    Unit art already works this way: a PNG in Assets/Units/ replaces a unit
-##    with no code change, no import, no registration. The interface has no
-##    equivalent."
-##
-## This is that equivalent. `Scripts/Art/UnitArt.gd` does it for units; this does
-## it for everything else, and `StatusIcons.gd` and `ActionIcons.gd` are its
-## first two consumers rather than a test being its only one.
+## The interface half of the drop-in art pipeline. `UnitArt.gd` does it for
+## units; this does it for everything else.
 ##
 ## MANAGER-OWNED (`Scripts/Art/**`).
 ##
-## ---------------------------------------------------------------------------
-## HOW TO REPLACE ANY PIECE OF INTERFACE ART
-##
-## Drop a PNG into `Assets/UI/` under the name the code asks for:
+## To replace any piece of interface art, drop a PNG into `Assets/UI/` under
+## the name the code asks for:
 ##
 ##     Assets/UI/status/bleed.png            one status badge
 ##     Assets/UI/action/warrior_execute.png  one ability icon
 ##     Assets/UI/panel_border.png            the border around panels
 ##
-## That is the whole procedure. No code change, no scene edit, no re-import, no
-## registration step. `Assets/UI/README.md` lists every name the game currently
-## looks for, and `Tests/test_art.gd` keeps that list honest.
+## No code change, no scene edit, no re-import, no registration.
+## `Assets/UI/README.md` lists every name the game looks for and
+## `Tests/test_art.gd` keeps that list honest.
 ##
-## Every drawing function here works with no files on disk at all -- that is the
-## normal case today. A missing file means "draw the generated default", which
-## is not an error and is never logged as one. A caller never asks whether a
-## file exists.
+## Every function here works with no files on disk. A missing file means
+## "draw the generated default" and is never an error; a caller never asks
+## whether a file exists.
 ##
-## ---------------------------------------------------------------------------
-## WHY IT LOADS IMAGES THE UNUSUAL WAY
-##
-## Same reason as `UnitArt.gd`, and the comment there has the measurement:
+## Images load via `Image.load()` rather than `load()`, as in `UnitArt.gd`:
 ## `load()` cannot produce a texture for a PNG the editor has never imported,
-## the editor does not run on this machine, and `Image.load()` works anyway. The
-## consequence is the property that makes this a drop-in at all -- it works
-## whether or not anything has ever been imported.
-
+## which is what makes this a drop-in at all.
 const ART_DIR := "res://Assets/UI"
 
 ## Textures live for the process, same as UnitArt's cache and for the same

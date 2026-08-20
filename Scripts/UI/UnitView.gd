@@ -43,40 +43,20 @@ const BAR_GAP := 3.0
 ## now instead, which is what lets this come down to "a bar is still a bar".
 const MIN_BAR_WIDTH := 20.0
 
-## Issue 190. **The ratio, not the decoration.** Two correct fixes -- narrowing
-## the bar to the footprint, and tethering it to the body -- could not solve
-## "a large coloured dash with a small creature underneath", because both sized
-## from `CombatUnit.radius`, the **collision footprint**, while `Silhouettes`
-## fills 0.56 to 1.00 of it. A goblin is 15px of drawn body inside a 33px
-## reservation, so its 44px bar was three times the creature.
+## Everything a unit wears -- bar width, the bar stack's anchor, the badge row
+## -- measures from the **drawn** body, not from `CombatUnit.radius`.
 ##
-## Everything a unit wears now measures from the **drawn** body: bar width, the
-## bar stack's anchor, and the badge row below it.
+## The radius is the collision footprint and the art fills a fraction of it,
+## so sizing from it gave a goblin a 44px bar over 15px of body. The player's
+## own pawns are the narrowest on the field (priest 0.50, warrior 0.54), and
+## the vertical axis is worse: `siege_master` fills 0.33 of its box.
 ##
-## **Derived from `Silhouettes.build_parts`, the same single source sable's own
-## floor test measures** -- not a second hand-written table of numbers that
-## could drift from the art. sable owns whether this belongs on `Silhouettes`
-## as a real API; asked on the board, and if they expose one this collapses to
-## a call.
-## **sable's `Silhouettes.drawn_extent` / `fill_ratio` (#200), not my own
-## derivation, and the correction matters more than the plumbing.** My version
-## measured `build_parts` only. **Ten shapes have real PNGs in `Assets/Units/`
-## and for those the polygons are dead code the game never renders**, so it was
-## measuring shapes nobody sees -- which is how the goblin got written down as
-## the worst shape at 0.56 when it is 0.71 and one of the better ones.
-##
-## Two things that changes:
-##
-##   - **The narrowest things on the field are the player's own pawns** (priest
-##     0.50, warrior 0.54, geysermancer 0.54), so my "warrior and abomination
-##     unchanged in practice" was where the remaining error was -- I reported it
-##     as the reassuring half and it was the defect.
-##   - **The vertical axis was never measured and is worse.** `siege_master`
-##     fills 0.33 of its box vertically, so the whole bar-and-badge column was
-##     anchored to a radius the art misses by two thirds.
+## Uses `Silhouettes.drawn_extent` / `fill_ratio`, sable's, so this cannot
+## drift from the art. Deriving it from `build_parts` here measured the
+## polygons instead, which ten shapes with real PNGs never render.
 ##
 ## Do NOT reach for the texture's `get_width()`: pixel art carries margin --
-## `siege_master.png` is 24x14 with 20x8 opaque -- and that path fixes a third
+## `siege_master.png` is 24x14 with 20x8 opaque -- so that path fixes a third
 ## of the error while looking like it fixed all of it. `opaque_rect` scans.
 ##
 ## Cached per shape and team at a reference radius: PNG art is per-team, and
