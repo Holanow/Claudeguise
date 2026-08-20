@@ -122,9 +122,6 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
-	if enemy_def.spawn_taunt_radius > 0.0:
-		u.statuses[CG.Status.TAUNTING] = CG.MAX_TICKS
-		u.taunt_radius = enemy_def.spawn_taunt_radius
 	return u
 
 # ---------------------------------------------------------------------------
