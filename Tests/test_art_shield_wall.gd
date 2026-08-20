@@ -37,12 +37,12 @@ func test_the_drawn_frontage_is_the_simulations_own_band() -> void:
 	# A hand-written width drifts from `SHIELD_WIDTH` the first time anybody
 	# tunes it, and then the picture teaches the player something false about
 	# where it is safe to stand.
-	assert_almost_eq(ShieldWall.half_width(), CombatSim.SHIELD_WIDTH, 0.0001,
-		"the plate's half-frontage must be read from CombatSim.SHIELD_WIDTH")
+	assert_almost_eq(ShieldWall.half_width() * 2.0, CombatSim.SHIELD_WIDTH, 0.0001,
+		"the plate's frontage must be CombatSim.SHIELD_WIDTH, the band _find_shielder blocks")
 	for raw in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2(3.0, -4.0).normalized()]:
 		var facing: Vector2 = raw
 		var e := _extent(ShieldWall.wall_points(facing, ShieldWall.half_width(), STANDOFF), facing)
-		assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH * 2.0, 0.01,
+		assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH, 0.01,
 			"facing %s draws a frontage that is not the band the simulation blocks" % facing)
 
 

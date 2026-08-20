@@ -16,13 +16,12 @@ const BOW := 7.0
 const FILL_ALPHA := 0.34
 const OUTLINE_WIDTH := 2.0
 
-## The half-frontage the simulation actually protects, in world units.
-## `CombatSim._find_shielder` blocks a shot whose closest approach to the
-## shielder's centre is within `SHIELD_WIDTH`, so the covered band is
-## `SHIELD_WIDTH` either side of that centre and this is read from the same
-## constant rather than copied.
+## Half the frontage the simulation protects, in world units, read from the
+## same constant `CombatSim._find_shielder` measures a shot against rather than
+## copied: a drawn width that can drift teaches the player a false place to
+## stand.
 static func half_width() -> float:
-	return CombatSim.SHIELD_WIDTH
+	return CombatSim.SHIELD_WIDTH * 0.5
 
 ## The plate in the shielder's local space, +X along `facing`. The back edge is
 ## flat and spans exactly `half_width * 2`; the front edge bows forward, which
