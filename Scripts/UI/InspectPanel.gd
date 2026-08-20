@@ -803,7 +803,7 @@ func _live_verdict(pawn: PawnData, plan) -> String:
 	var unit = _live_unit(pawn)
 	if unit == null:
 		return ""
-	if _last_source_plan(unit) == plan.id:
+	if not unit.has_status(CG.Status.TAUNTED) and _last_source_plan(unit) == plan.id:
 		return VERDICT_ACTING
 	return VERDICT_READY if PlanInterpreter.condition_holds(_live_state, unit, plan) else VERDICT_WAITING
 
@@ -814,6 +814,10 @@ func _live_fallback_verdict(pawn: PawnData) -> String:
 	var unit = _live_unit(pawn)
 	if unit == null:
 		return ""
+	## The live status first: a compelled walk emits no event, so two thirds of
+	## the compulsion is invisible to the event stream (issue 308).
+	if unit.has_status(CG.Status.TAUNTED):
+		return VERDICT_TAUNTED
 	var last := _last_source_plan(unit)
 	if last == IntentScript.COMPELLED:
 		return VERDICT_TAUNTED

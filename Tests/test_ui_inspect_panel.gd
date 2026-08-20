@@ -1209,6 +1209,43 @@ func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> 
 	assert_false(fell_through.contains(InspectPanel.VERDICT_TAUNTED), fell_through)
 	second.free()
 
+## Issue 308, and it is 66% of the compulsion: a pawn still WALKING to its
+## taunter emits no event at all, so the panel used to keep reporting the plan
+## it ran before the taunt landed. The fixture is the defect's own shape -- an
+## ordinary ACTION_START on the pawn's own row, plus the live status.
+func test_a_taunted_pawn_still_walking_marks_no_plan_row_acting() -> void:
+	var pawn := _make_pawn()
+	var plan := _make_plan("Always")
+	pawn.plans = [plan]
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(400, 0)))
+	var acted := CombatEvent.make(CG.EventKind.ACTION_START, 5)
+	acted.source_id = 0
+	acted.source_plan = plan.id
+	state.events.append(acted)
+
+	var before := InspectPanel.create()
+	before._ready()
+	before.open([pawn], state)
+	## The pair: untaunted, this same state must read `acting`, or the assertions
+	## below are passed by a panel that never says the word.
+	assert_true(_all_label_text(_plan_rows(before)[0]).contains(InspectPanel.VERDICT_ACTING),
+		"untaunted, the row that acted must still say acting")
+	before.free()
+
+	unit.statuses[CG.Status.TAUNTED] = 900
+	unit.status_magnitude[CG.Status.TAUNTED] = 1.0
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var row := _all_label_text(_plan_rows(panel)[0])
+	assert_false(row.contains(InspectPanel.VERDICT_ACTING),
+		"the simulation has taken control away from this pawn: %s" % row)
+	var fallback := _all_label_text(_fallback_header(panel))
+	assert_true(fallback.contains(InspectPanel.VERDICT_TAUNTED), fallback)
+	panel.free()
+
 ## The quiet case. Opened between fights -- which is how `PartySelect` opens it,
 ## and how it has always been opened -- there is nothing live to report and the
 ## screen must say nothing rather than guess. A verdict on a screen with no

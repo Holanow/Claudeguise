@@ -112,9 +112,13 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "%s's %s fires" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.STATUS_APPLIED:
 			var strength := _magnitude_text(e)
+			## Who did it, when the simulation named somebody other than the
+			## victim -- a taunt's only line in the log, and the compelled walk
+			## under it emits nothing (issue 308).
+			var by := "" if source == null or e.source_id == e.target_id else " by %s" % source_name
 			if CG.is_harmful(e.status):
-				return "%s is afflicted with %s%s" % [target_name, _status_name(e.status), strength]
-			return "%s gains %s%s" % [target_name, _status_name(e.status), strength]
+				return "%s is afflicted with %s%s%s" % [target_name, _status_name(e.status), strength, by]
+			return "%s gains %s%s%s" % [target_name, _status_name(e.status), strength, by]
 		CG.EventKind.STATUS_EXPIRED:
 			if e.source_id != -1:
 				var action := Registry.get_action(e.action_id)
