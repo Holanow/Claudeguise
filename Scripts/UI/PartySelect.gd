@@ -4,7 +4,7 @@ class_name PartySelect
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")
-const GlossaryButtonScript := preload("res://Scripts/UI/GlossaryButton.gd")
+const SCENE := "res://Scenes/PartySelect.tscn"
 
 ## Pick up to four pawns and a seed, then start the fight.
 ##
@@ -39,10 +39,15 @@ var _roster_box = null
 var _inspect_panel = null
 var _equip_panel = null
 
+## The tree this screen needs lives in `Scenes/PartySelect.tscn`; `new()` gives a
+## bare Control with none of it. Always build this screen with `create()`.
+static func create() -> PartySelect:
+	return (load(SCENE) as PackedScene).instantiate() as PartySelect
+
 func _ready() -> void:
 	theme = AppTheme.shared()
 	_build_roster()
-	_build_ui()
+	_bind_ui()
 	_update_status()
 
 ## Issue 21b found this the moment the inspect screen tried to show a pawn's
@@ -141,221 +146,117 @@ const TERRAIN_WORDS := {
 	Terrain.Kind.PIT: ["pit", "pits"],
 }
 
-func _build_ui() -> void:
-	# Issue 237. One line instead of three, and the point is not the two lines:
-	# `Assets/UI/README.md` promises the player that dropping in
+## Everything a scene file cannot express: the art-swappable background, the
+## per-class cards and per-room picker items (both loops), the panels built by
+## `set_script`, and every signal connection.
+##
+## **The chrome around them is in `Scenes/PartySelect.tscn` and is edited there,
+## not here.** The margins, spacings, font sizes and dim colours in that file are
+## literals rather than reads of `Palette`, deliberately: re-applying `Palette`
+## at runtime would silently overwrite whatever the scene was edited to say,
+## which is the whole reason the tree moved out of code.
+func _bind_ui() -> void:
+	# Issue 237. `Assets/UI/README.md` promises the player that dropping in
 	# `background/party_select.png` (or `background.png` for every screen at once)
-	# re-skins this screen, and until this call existed it did nothing at all.
-	# With no file present `background_node` returns exactly the ColorRect this
-	# replaced, in exactly this colour, so nothing shipped changes.
-	add_child(UIArt.background_node(&"party_select", Palette.BACKGROUND))
+	# re-skins this screen. With no file present `background_node` returns exactly
+	# a ColorRect in `Palette.BACKGROUND`. Built here rather than in the scene
+	# because which node it is depends on whether that file exists; moved to index
+	# 0 because it has to draw behind the tree the scene already brought.
+	var background := UIArt.background_node(&"party_select", Palette.BACKGROUND)
+	add_child(background)
+	move_child(background, 0)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_top", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_right", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_L))
-	add_child(margin)
+	_roster_box = %RosterBox
+	_room_picker = %RoomPicker
+	_room_summary = %RoomSummary
+	_seed_edit = %SeedEdit
+	_status_label = %StatusLabel
+	_start_button = %StartButton
+	_start_run_button = %StartRunButton
 
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	margin.add_child(column)
+	_fill_roster()
+	_fill_rooms()
+	_refresh_room_summary()
 
-	var title := Label.new()
-	title.text = "Pick your party"
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	column.add_child(title)
+	_seed_edit.text = "%08X" % (randi() & 0xFFFFFFFF)
+	_seed_edit.add_theme_stylebox_override("normal", _seed_box_style())
+	_seed_edit.add_theme_stylebox_override("focus", _seed_box_style())
 
-	# Issue 53 sweep: this whole column had no scroll container, so at a
-	# short viewport (844x390, the phone-landscape size the game is required
-	# to work at) the roster's own minimum height -- three rows of 170x200
-	# cards -- pushed everything below it, including the Start Fight button,
-	# past the bottom of the visible window. A Container does not clip or
-	# scroll on its own; the content was still there, just off-canvas, which
-	# is exactly "not visible or clickable". The roster is what makes this
-	# column tall, so it is what gets the ScrollContainer and the
-	# SIZE_EXPAND_FILL that lets it give up space to whatever the viewport
-	# actually has -- the seed row, status label and every button below it
-	# keep their natural size and stay pinned inside the fixed remainder.
-	var roster_scroll := ScrollContainer.new()
-	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(roster_scroll)
+	_room_picker.item_selected.connect(func(_i: int): _refresh_room_summary())
+	_start_button.pressed.connect(_on_start_pressed)
+	_start_run_button.pressed.connect(_on_start_run_pressed)
+	# Issue 21b: reachable before anyone has committed to a fight. Issue 100:
+	# equipment beside the plan editor rather than inside it -- the two screens
+	# answer different questions about the same pawn, and a granted skill is the
+	# seam. Issue 19: the level editor is where a player grows the room library,
+	# which has nothing to do with the party they are about to fight with.
+	%InspectButton.pressed.connect(_on_inspect_pressed)
+	%EquipButton.pressed.connect(_on_equip_pressed)
+	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
 
-	# Issue 133, straight from the player: "The opening screen has a ton of
-	# horizontal space to use but I still have to scroll the class selector.
-	# Make it fill the available space instead."
-	#
-	# A ScrollContainer hands its child the child's own minimum width and lets
-	# it scroll sideways, which would let the flow put all five cards on one
-	# line and scroll rather than wrap. Disabling horizontal scrolling makes the
-	# ScrollContainer force the flow to its own width, which is the width the
-	# window actually has -- so the wrap point comes from the layout instead of
-	# from a number anybody typed.
-	roster_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_inspect_panel = _add_panel(InspectPanelScript)
+	# Added after the inspect panel so it draws above it if both are ever open.
+	_equip_panel = _add_panel(EquipPanelScript)
 
-	_roster_box = HFlowContainer.new()
-	_roster_box.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
-	_roster_box.add_theme_constant_override("v_separation", int(Palette.SPACE_M))
-	_roster_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	roster_scroll.add_child(_roster_box)
+## **A panel whose tree has moved into a `.tscn` cannot be built by setting the
+## script on a bare Control**: it gets none of the tree, `%Name` resolves to
+## nothing, and `_ready()` aborts on the first one -- a blank screen behind a
+## green test suite, because a detached screen never renders. `create()` is the
+## constructor those panels expose.
+##
+## InspectPanel and EquipPanel are moving to scenes on other sessions' branches,
+## so this asks rather than assuming and builds correctly whichever lands first.
+## **Delete the second half and call `create()` directly once both are on the
+## trunk** -- it is a merge-order accommodation, not a pattern.
+##
+## The manual `_ready()` is the same reasoning as PartyCard's in `_fill_roster`:
+## this node may be built while PartySelect is not yet in a live tree (a test
+## calling `_ready()` directly), and `add_child` alone only triggers `_ready()`
+## automatically once the parent enters a real SceneTree.
+func _add_panel(script) -> Control:
+	var panel: Control
+	if script.has_method("create"):
+		panel = script.create()
+	else:
+		panel = Control.new()
+		panel.set_script(script)
+	add_child(panel)
+	if not panel.is_inside_tree():
+		panel._ready()
+	return panel
 
+## One card per class, so it stays in code. Issue 17: a checkbox next to a bare
+## class name did not let anyone make this screen's only decision; each class is
+## a PartyCard showing its silhouette, role and style, and the whole card is the
+## touch target (measured at 170x200, over three times TOUCH_TARGET_MIN).
+func _fill_roster() -> void:
 	if _available.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No classes available yet."
 		empty_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 		_roster_box.add_child(empty_label)
-	else:
-		for pawn in _available:
-			var card := Control.new()
-			card.set_script(PartyCardScript)
-			# Called directly rather than left to the engine: this node may
-			# be built while PartySelect itself is not yet in a live tree
-			# (a test calling _ready() directly, same pattern the rest of
-			# Scripts/UI/ uses), and custom_minimum_size has to be set
-			# either way for the touch-target guarantee to hold.
-			card._ready()
-			card.class_def = pawn.pawn_class
-			card.toggled.connect(_on_card_toggled.bind(pawn))
-			_roster_box.add_child(card)
-			_cards[pawn.id] = card
+		return
+	for pawn in _available:
+		var card := Control.new()
+		card.set_script(PartyCardScript)
+		# Called directly rather than left to the engine: this node may be built
+		# while PartySelect itself is not yet in a live tree (a test calling
+		# _ready() directly), and custom_minimum_size has to be set either way
+		# for the touch-target guarantee to hold.
+		card._ready()
+		card.class_def = pawn.pawn_class
+		card.toggled.connect(_on_card_toggled.bind(pawn))
+		_roster_box.add_child(card)
+		_cards[pawn.id] = card
 
-	# Issue 176: the room picker. Above the seed, because which room you fight is
-	# a bigger decision than which seed you fight it on.
-	var room_row := HBoxContainer.new()
-	column.add_child(room_row)
-
-	var room_label := Label.new()
-	room_label.text = "Room"
-	room_label.custom_minimum_size = Vector2(48.0, 0.0)
-	room_row.add_child(room_label)
-
-	_room_picker = OptionButton.new()
-	_room_picker.custom_minimum_size = Vector2(320.0, Palette.TOUCH_TARGET_MIN)
-	_room_picker.fit_to_longest_item = false
-	_room_picker.clip_text = true
+## Issue 176: one item per offered room, so it stays in code.
+func _fill_rooms() -> void:
 	for id in offered_rooms():
 		var room = Registry.get_encounter(id)
 		_room_picker.add_item(room.display_name if room.display_name != "" else String(id))
 		_room_picker.set_item_metadata(_room_picker.item_count - 1, id)
 		if id == CG.DEFAULT_ENCOUNTER:
 			_room_picker.selected = _room_picker.item_count - 1
-	_room_picker.item_selected.connect(func(_i: int): _refresh_room_summary())
-	room_row.add_child(_room_picker)
-
-	# What the room is, derived from the room rather than authored beside it, so
-	# it cannot drift from what the fight actually contains. The playtest found
-	# that nothing anywhere explains anything; a name alone would repeat that.
-	_room_summary = Label.new()
-	_room_summary.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_room_summary.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	room_row.add_child(_room_summary)
-	_refresh_room_summary()
-
-	var seed_row := HBoxContainer.new()
-	column.add_child(seed_row)
-
-	var seed_label := Label.new()
-	seed_label.text = "Seed"
-	seed_row.add_child(seed_label)
-
-	_seed_edit = LineEdit.new()
-	_seed_edit.text = "%08X" % (randi() & 0xFFFFFFFF)
-	_seed_edit.custom_minimum_size = Vector2(220.0, Palette.TOUCH_TARGET_MIN)
-	_seed_edit.add_theme_stylebox_override("normal", _seed_box_style())
-	_seed_edit.add_theme_stylebox_override("focus", _seed_box_style())
-	seed_row.add_child(_seed_edit)
-
-	_status_label = Label.new()
-	_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(_status_label)
-
-	# PLAYTEST-NOTES 11 / hover-info-box system: "Start Fight and Start Run
-	# don't say what they do." Same mechanism as every other glossary term
-	# (GlossaryButton, same set_script pattern GlossaryLabel already uses)
-	# rather than a second system for two buttons specifically.
-	_start_button = Button.new()
-	_start_button.set_script(GlossaryButtonScript)
-	_start_button.tooltip_text = "Runs one fight with the current party and seed, right now."
-	_start_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	_start_button.pressed.connect(_on_start_pressed)
-	column.add_child(_start_button)
-
-	# Issue 43: a run is several rooms in sequence with damage carried
-	# between them, the whole reason Scripts/Floor exists. Kept beside the
-	# single-fight button rather than replacing it — the single fight is
-	# how the balance actually gets measured (issue 43's own criterion 5).
-	_start_run_button = Button.new()
-	_start_run_button.set_script(GlossaryButtonScript)
-	_start_run_button.tooltip_text = "Enters the floor with the current party. Fights and rooms follow in sequence, with damage and resources carried between them."
-	# Issue 133: the four secondary destinations share one wrapping row instead
-	# of each taking a full-width band.
-	#
-	# This is the other half of the player's complaint and it is the half that
-	# actually stops the scrolling. Five stacked buttons at TOUCH_TARGET_MIN
-	# apiece spent about 320 of 720 pixels of height, each one 1200 pixels wide
-	# to hold two words -- so the roster was left 175 pixels for a 200-pixel
-	# card and clipped it, and widening the roster alone could not have fixed
-	# that. Flowing these frees the height the cards were missing.
-	#
-	# Start Fight stays a full-width band on its own above this row. It is the
-	# primary action and the only one that is not a detour, and evening the five
-	# out would have made the screen read as five equal choices.
-	var secondary_row := HFlowContainer.new()
-	secondary_row.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
-	secondary_row.add_theme_constant_override("v_separation", int(Palette.SPACE_S))
-	column.add_child(secondary_row)
-
-	_start_run_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	_start_run_button.pressed.connect(_on_start_run_pressed)
-	secondary_row.add_child(_start_run_button)
-
-	# Issue 21b: reachable from party select, before anyone has committed to a
-	# fight — the obvious place to read what a class will actually do before
-	# picking it.
-	var inspect_button := Button.new()
-	inspect_button.text = "Inspect classes"
-	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	inspect_button.pressed.connect(_on_inspect_pressed)
-	secondary_row.add_child(inspect_button)
-
-	# Issue 100: equipment before the fight, beside the plan editor rather than
-	# inside it. The two screens answer different questions about the same pawn
-	# -- what it can do, and what it will do -- and a granted skill is the seam:
-	# equip Plate Mail here and Directional Block is a block to plan with there.
-	var equip_button := Button.new()
-	equip_button.text = "Equip pawns"
-	equip_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	equip_button.pressed.connect(_on_equip_pressed)
-	secondary_row.add_child(equip_button)
-
-	# Issue 19: the room library the generator draws from was five
-	# hand-written GDScript rooms; this is where a player grows it. Reachable
-	# from here rather than only mid-run, since authoring has nothing to do
-	# with the party you are about to fight with.
-	var level_editor_button := Button.new()
-	level_editor_button.text = "Level editor"
-	level_editor_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	level_editor_button.pressed.connect(func(): level_editor_requested.emit())
-	secondary_row.add_child(level_editor_button)
-
-	_inspect_panel = Control.new()
-	_inspect_panel.set_script(InspectPanelScript)
-	add_child(_inspect_panel)
-	# Same reasoning as PartyCard's own manual _ready() call above: this node
-	# may be built while PartySelect itself is not yet in a live tree (a test
-	# calling _ready() directly), and add_child alone only triggers _ready()
-	# automatically once the parent enters a real SceneTree.
-	if not _inspect_panel.is_inside_tree():
-		_inspect_panel._ready()
-
-	# Added after the inspect panel so it draws above it if both are ever open.
-	# Same manual _ready() reasoning as every other panel built here.
-	_equip_panel = Control.new()
-	_equip_panel.set_script(EquipPanelScript)
-	add_child(_equip_panel)
-	if not _equip_panel.is_inside_tree():
-		_equip_panel._ready()
 
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like

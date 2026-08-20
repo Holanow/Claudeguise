@@ -7,7 +7,7 @@ class_name FloorRun
 ## pawn fought in.
 ##
 ## OWNER: wren, issue 5. Deliberately does not call CombatSim or know what a
-## CombatUnit is â€” issue 5's boundary is the floor model, not the fight.
+## CombatUnit is -- issue 5's boundary is the floor model, not the fight.
 ## Wiring a room's fight to the simulation is a separate issue.
 
 var plan: FloorPlan

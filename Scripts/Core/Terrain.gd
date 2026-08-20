@@ -10,7 +10,7 @@ class_name Terrain
 ##
 ## Why it exists at all: every fight so far has been two clusters walking into
 ## each other across an empty rectangle, and no fight has ever been close.
-## Terrain is the cheapest thing that makes position matter â€” a wall means a
+## Terrain is the cheapest thing that makes position matter -- a wall means a
 ## ranged unit can be denied line of sight, a chokepoint means four attackers
 ## cannot all reach one target, a hazard means the shortest path is not always
 ## the right one. Balance changes which side of a landslide you are on. Terrain

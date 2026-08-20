@@ -3,7 +3,7 @@ class_name FloorRoom
 
 ## One room in a generated floor's graph. Says what kind of room this is and
 ## what it connects to; never what it contains. `Scripts/Content/**` fills a
-## room in from `type` and `difficulty` â€” a FloorRoom says "this is an enemy
+## room in from `type` and `difficulty` -- a FloorRoom says "this is an enemy
 ## room with difficulty 3", never which enemies.
 ##
 ## OWNER: wren, issue 5.
@@ -25,7 +25,7 @@ var id: int = -1
 var type: Type = Type.ENEMY
 
 ## Room ids this one connects to. Symmetric: if a connects to b, b connects
-## to a. A room graph, not a directed one â€” nothing in this slice needs a
+## to a. A room graph, not a directed one -- nothing in this slice needs a
 ## one-way door.
 var connections: Array[int] = []
 

@@ -17,7 +17,7 @@ func _make_pawn(id: String, name: String) -> PawnData:
 	return pawn
 
 func test_toggle_pawn_adds_and_removes_from_the_party() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	var pawn := _make_pawn("warrior", "Warrior")
 	screen.toggle_pawn(pawn, true)
 	assert_eq(screen.selected_pawns().size(), 1)
@@ -26,7 +26,7 @@ func test_toggle_pawn_adds_and_removes_from_the_party() -> void:
 	screen.free()
 
 func test_toggle_pawn_respects_the_four_pawn_cap() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	var pawns: Array[PawnData] = []
 	for i in 5:
 		var pawn := _make_pawn("class_%d" % i, "Class %d" % i)
@@ -36,7 +36,7 @@ func test_toggle_pawn_respects_the_four_pawn_cap() -> void:
 	screen.free()
 
 func test_current_config_carries_the_selected_party_and_seed() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	# _seed_edit is built in _ready(), which does not run outside a tree. A
 	# missing edit falls back to seed 0 rather than crashing.
 	var pawn := _make_pawn("priest", "Priest")
@@ -49,7 +49,7 @@ func test_current_config_carries_the_selected_party_and_seed() -> void:
 func test_two_different_selections_produce_different_configs() -> void:
 	# The party can be swapped and it shows: two different selections must not
 	# collapse into the same RunConfig.
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	var warrior := _make_pawn("warrior", "Warrior")
 	var priest := _make_pawn("priest", "Priest")
 
@@ -70,7 +70,7 @@ func test_two_different_selections_produce_different_configs() -> void:
 ## registered to prove anything), so this is a no-op rather than a false
 ## pass while the registry is empty.
 func test_current_config_picks_the_default_encounter_not_the_alphabetically_first_one() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var encounters := Registry.all_encounter_ids()
 	if not encounters.has(CG.DEFAULT_ENCOUNTER):
@@ -81,7 +81,7 @@ func test_current_config_picks_the_default_encounter_not_the_alphabetically_firs
 	screen.free()
 
 func test_prefill_seed_sets_the_seed_field() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	screen.prefill_seed("0000002A")
 	var config := screen.current_config()
@@ -89,7 +89,7 @@ func test_prefill_seed_sets_the_seed_field() -> void:
 	screen.free()
 
 func test_start_button_explains_why_it_is_disabled_with_no_party() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_true(screen._start_button.disabled)
 	assert_ne(screen._start_button.text, "Start Fight", "must say why, not just be greyed out")
@@ -100,13 +100,13 @@ func test_start_button_explains_why_it_is_disabled_with_no_party() -> void:
 ## disabled-state version of the player's own complaint that Start Fight
 ## and Start Run don't say what they do.
 func test_disabled_start_fight_and_start_run_read_differently() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_ne(screen._start_button.text, screen._start_run_button.text, "the two disabled buttons must not read identically")
 	screen.free()
 
 func test_start_button_enables_and_reads_start_once_a_pawn_is_picked() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var pawn := _make_pawn("warrior", "Warrior")
 	screen.toggle_pawn(pawn, true)
@@ -115,7 +115,7 @@ func test_start_button_enables_and_reads_start_once_a_pawn_is_picked() -> void:
 	screen.free()
 
 func test_a_fifth_selection_is_visibly_refused_not_silently_ignored() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	for i in 4:
 		screen.toggle_pawn(_make_pawn("class_%d" % i, "Class %d" % i), true)
@@ -130,13 +130,13 @@ func test_a_fifth_selection_is_visibly_refused_not_silently_ignored() -> void:
 ## rather than eyeballed — a 47px control looks fine in a screenshot and
 ## fails a thumb.
 func test_the_start_button_meets_the_minimum_touch_target() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_true(screen._start_button.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	screen.free()
 
 func test_the_seed_field_meets_the_minimum_touch_target() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_true(screen._seed_edit.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	screen.free()
@@ -148,7 +148,7 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 ## real class ids), so this is a no-op rather than a false pass while the
 ## registry is empty.
 func test_every_roster_pawn_carries_its_preset_plans() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var class_ids := Registry.all_class_ids()
 	if class_ids.is_empty():
@@ -158,7 +158,7 @@ func test_every_roster_pawn_carries_its_preset_plans() -> void:
 	screen.free()
 
 func test_every_card_meets_the_minimum_touch_target() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	for id in screen._cards:
 		var card = screen._cards[id]
@@ -180,7 +180,7 @@ func test_every_card_meets_the_minimum_touch_target() -> void:
 ## don't say what they do." Same GlossaryButton mechanism as every other
 ## hoverable term.
 func test_start_fight_and_start_run_carry_distinct_glossary_tooltips() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_false(screen._start_button.tooltip_text.is_empty())
 	assert_false(screen._start_run_button.tooltip_text.is_empty())
@@ -188,7 +188,7 @@ func test_start_fight_and_start_run_carry_distinct_glossary_tooltips() -> void:
 	screen.free()
 
 func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_true(screen._roster_box.get_parent() is ScrollContainer, "the roster grid must be able to give up space to a short viewport")
 	assert_eq(screen._roster_box.get_parent().size_flags_vertical, Control.SIZE_EXPAND_FILL)
@@ -234,7 +234,7 @@ func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
 ## count rather than on the class, so a future `GridContainer` with a computed
 ## column count would also pass -- it is the constant that was the defect.
 func test_the_roster_has_no_fixed_column_count() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var cards: int = screen._roster_box.get_child_count()
 	assert_true(cards >= 5, "the shipped game has five classes, got %d" % cards)
@@ -249,7 +249,7 @@ func test_the_roster_has_no_fixed_column_count() -> void:
 ## scrolls sideways instead, which looks identical in the code and puts every
 ## card on one unreachable line.
 func test_the_roster_wraps_rather_than_scrolling_sideways() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	assert_eq(screen._roster_box.get_parent().horizontal_scroll_mode,
 		ScrollContainer.SCROLL_MODE_DISABLED,
@@ -264,7 +264,7 @@ func test_the_roster_wraps_rather_than_scrolling_sideways() -> void:
 ## the distinction rather than only the saving, because flowing all five would
 ## have passed a height check while making the screen read as five equal choices.
 func test_the_secondary_destinations_share_a_row_and_start_fight_does_not() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var row := screen._start_run_button.get_parent()
 	assert_true(row is HFlowContainer, "the secondary buttons must share a wrapping row")

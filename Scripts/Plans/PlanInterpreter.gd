@@ -87,7 +87,7 @@ const KEEP_DISTANCE_BAND := 15.0
 ## that same fact, exposed as data instead of match-statement logic, for a
 ## screen (InspectPanel) that needs to build a value editor rather than
 ## evaluate a condition. Moved here from InspectPanel.gd itself, which carried
-## its own copy pending this issue â€” see PR history for the "if the whitelist
+## its own copy pending this issue -- see PR history for the "if the whitelist
 ## grows past its current five entries, it moves" call that opened it. "none"
 ## carries no value editor. "fraction" is edited as a 0-100 percent by the
 ## caller and rescaled to the 0.0-1.0 this interpreter actually reads.
@@ -217,7 +217,7 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 ## Issue 97: **the first time the plan layer decides where a pawn stands.**
 ##
 ## Everything above this function either fires an action or returns null, and
-## null means `DefaultBehavior` decides â€” including all movement. This file's
+## null means `DefaultBehavior` decides -- including all movement. This file's
 ## own comment on `_target_in_range` said so plainly: *"PlanInterpreter has
 ## never handled movement, that is DefaultBehavior's whole job."* So where a
 ## pawn stood was never visible in a plan, which is issue 98's principle, and
@@ -302,7 +302,7 @@ static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
 
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
 ## focused target's distance is checked against the action's own range here,
-## once, right before the intent is built â€” the one place both numbers are
+## once, right before the intent is built -- the one place both numbers are
 ## available together, regardless of which targeting op or condition (if any)
 ## picked the target. Out of range falls through (returns null from decide(),
 ## via _run_blocks) rather than trying to move into range itself:
@@ -465,7 +465,7 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
-## screen. Display only â€” never called from decide()/condition_holds(), so a
+## screen. Display only -- never called from decide()/condition_holds(), so a
 ## bad string here cannot affect a fight. An unknown op still names itself
 ## rather than going blank, since a player reading "??? " and a player reading
 ## "unknown op 'x'" are getting different amounts of information from the same

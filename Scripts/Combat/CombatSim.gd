@@ -706,7 +706,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 		if not unit.alive and unit.sustaining != &"":
 			_end_sustain(state, unit)
 
-## Mana and Energy refill over time; Rage does not â€” CombatSim enforces that
+## Mana and Energy refill over time; Rage does not -- CombatSim enforces that
 ## itself rather than trusting the rate function, so a rate that forgets to
 ## special-case Rage still cannot make it climb. Fractional rates are rounded
 ## stochastically against state.rng rather than dropped, so "0.3 per tick"

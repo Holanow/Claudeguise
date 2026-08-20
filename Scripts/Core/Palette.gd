@@ -27,7 +27,7 @@ const HP_FULL := Color("7cc46b")
 ## - **Health bars** drew a badly hurt *party* pawn in the enemy's colour, at the
 ##   moment the field most needs reading. Fixed by giving bars team colour.
 ## - **Death text** announced every death in the enemy's colour regardless of who
-##   died, so losing your own pawn read as killing theirs. Not an omission â€”
+##   died, so losing your own pawn read as killing theirs. Not an omission --
 ##   actively wrong. Fixed in #191.
 ## - **The concentration badge** is a 33px filled circle in this colour on
 ##   *player* pawns, and both fresh-eyes playtesters named it the most prominent
@@ -35,7 +35,7 @@ const HP_FULL := Color("7cc46b")
 ##
 ## The fourth instance is the one to prevent. **If you are about to draw
 ## something in `HP_LOW` that is not a health level, you want a different
-## colour** â€” and if it is on a unit, you are about to say "enemy" to a reader.
+## colour** -- and if it is on a unit, you are about to say "enemy" to a reader.
 ##
 ## Not split into two values here on purpose: that changes every screen at once,
 ## and the three fixes above each chose a colour that suited their own use.
@@ -55,7 +55,7 @@ const SPACE_L := 32.0
 
 ## Sized for a phone held at arm's length, not for a desktop window you can
 ## lean into. The user's framing: "imagine that I'm playing this on a mobile
-## device". That is a forcing function rather than a port â€” if a fight is
+## device". That is a forcing function rather than a port -- if a fight is
 ## readable at this size it is readable everywhere, and everything that only
 ## works at 11px was never carrying its weight.
 ##
