@@ -3,12 +3,6 @@ extends "res://Tests/TestCase.gd"
 const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen.
-##
-## Most fixtures are hand-built (the pattern the rest of Tests/test_ui_* uses)
-## so the screen's behaviour does not depend on what content happens to be
-## registered. The tests that are specifically about real items say so and use
-## the Registry on purpose, because "Plate Mail grants a Block a Warrior can
-## plan with" is a claim about the shipped game, not about a fixture.
 
 func _make_class(method: CG.Method = CG.Method.MARTIAL) -> ClassDef:
 	var cls := ClassDef.new()
@@ -51,11 +45,6 @@ func _panel() -> EquipPanel:
 ## `granted_actions`, and until issue 100 the fight honoured it while
 ## `InspectPanel._available_actions` returned `starting_actions` alone -- so the
 ## ability fired and could never be planned.
-##
-## Driven the way a player drives it: equip through the equip screen's own
-## picker, then ask the plan editor what it offers. Not by setting `pawn.armor`
-## directly, because the defect being guarded against is exactly a screen that
-## agrees with itself and disagrees with its neighbour.
 func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 	var plate := Registry.get_equipment(&"plate_mail")
 	assert_not_null(plate, "plate_mail must be registered for this test to mean anything")
@@ -112,14 +101,6 @@ func test_the_actions_row_shows_a_granted_action() -> void:
 
 # ---------------------------------------------------------------------------
 # Issue 127: the equipment icons had no caller.
-#
-# `EquipmentIcons` shipped in #117 with an icon for each of seventeen items and
-# `EquipPanel` referenced it zero times, so the screen drew none of them -- the
-# eleventh built-and-unreachable feature on this project. These tests exist to
-# make that state fail rather than pass silently, so they assert placement on
-# the *opened* screen and not only inside the row builder: a row builder nothing
-# calls is exactly as unreachable as an icon nothing draws.
-# ---------------------------------------------------------------------------
 
 ## The reachability guard. Opening the screen the way the screen is opened must
 ## put icons on it. This is the assertion the missing caller would have failed.
@@ -212,10 +193,6 @@ func _text_of(node: Node) -> String:
 
 ## `EquipmentDef.allowed_methods` asks for refusal by absence rather than by
 ## error message: the screen must simply not offer the piece.
-##
-## Both halves, because "the list is filtered" and "the list is empty" pass the
-## same one-sided assertion. A martial class is offered the Sword and refused
-## the Orb; a magical class is refused the Sword and offered the Orb.
 func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	var panel := _panel()
 	var martial_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.WEAPON))

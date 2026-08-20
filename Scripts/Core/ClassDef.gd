@@ -5,9 +5,6 @@ class_name ClassDef
 ## A pawn class: a bag of tags, a base attribute spread, a resource kind and a
 ## set of starting actions. Per README.md a class never changes after the pawn
 ## is generated.
-##
-## MANAGER-OWNED SHAPE. The fields are frozen. The *instances* live in
-## Scripts/Content/Classes/ and belong to the content session.
 
 @export var id: StringName = &""
 @export var display_name: String = ""

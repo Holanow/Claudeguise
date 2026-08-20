@@ -1,33 +1,6 @@
 extends SceneTree
 
 ## Do the encounter tests' assertions measure what their names say?
-##
-##     godot --headless --path . --script res://Tools/EncounterAudit.gd
-##
-## rook asked for an audit after sable found `test_art.gd` counting 8 peaks on a
-## Rat King that reads as one shrub at the size it is drawn. Same family as
-## `largest_health`: a number that is real, and is not the thing the assertion
-## is named for. Three checks in `test_content_encounter.gd` looked like
-## candidates from reading, so each gets the experiment that can kill it.
-##
-## Probes, in the order they pay off:
-##
-##   1. **Can `state.outcome` ever be UNRESOLVED after `CombatSim.run`?**
-##      `test_the_chokepoint_room_resolves_instead_of_drawing` counts exactly
-##      that and asserts the count is at most 2 of 10. If the answer is no, the
-##      counter is structurally zero and the assertion has never been able to
-##      fail. Run against a fight known to stall, not only against healthy ones
-##      -- a detector must be fed the input it exists to catch.
-##   2. **Does `_differs` distinguish two classes, or two seeds?** It reports a
-##      difference when outcomes disagree or ticks differ by 20%. This game is
-##      asserted elsewhere in the same file to have a tick spread of at least
-##      15% of the median from the seed alone. So the control is the same class
-##      against itself on two different seeds: if that trips at a similar rate,
-##      the assertion cannot tell "these classes fight differently" from "this
-##      game is seed-sensitive".
-##   3. **Does the tick cap discriminate?** Printed for the record.
-##
-## Measurement only, never gated.
 
 
 

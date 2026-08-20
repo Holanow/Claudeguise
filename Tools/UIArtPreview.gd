@@ -5,16 +5,6 @@ extends Node2D
 ## size they will actually be, plus the nine-slice border path. Same reasoning
 ## as Tools/ArtPreview.gd and Tools/AttackFXPreview.gd: "the shapes are fine" is
 ## not a conclusion to reach from reading a coordinate table.
-##
-##   godot --path . --resolution 1500x1180 res://Tools/UIArtPreview.tscn
-##
-## No --headless. get_viewport().get_texture() never populates under --headless
-## on this machine; a real window works. That is written up in
-## Tools/AttackFXPreview.gd and cost an hour the first time.
-##
-## This is the design sheet. Tools/IconsInFight.tscn is the other half and the
-## more important one -- it puts these on real units in a real fight, because a
-## shape that exists in a table is not a thing being drawn.
 
 const CAPTURE_PATH := "res://Screenshots/ui_icons_sheet.png"
 
@@ -34,9 +24,6 @@ var _border_tex: Texture2D = null
 func _ready() -> void:
 	# Printed, not assumed. The project uses a canvas_items stretch with a design
 	# width, so `--resolution 1500x1340` does NOT give a 1500-wide drawing space:
-	# the logical viewport stays near the design width and the whole thing is
-	# scaled up on output. Laying this sheet out against the window size put the
-	# last column off the edge, and it took cropping the PNG at 1:1 to see it.
 	print("UIArtPreview: logical viewport is ", get_viewport_rect().size)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw

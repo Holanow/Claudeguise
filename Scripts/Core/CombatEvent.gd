@@ -5,11 +5,6 @@ const Self := preload("res://Scripts/Core/CombatEvent.gd")
 
 ## Everything the simulation reports outwards. The battle view, the floating
 ## numbers and the combat log are built from these and from nothing else.
-##
-## A view that polls `CombatUnit.hp` each frame can show a number change but
-## cannot say why, and "that felt bad" then has no cause attached to it.
-##
-## MANAGER-OWNED SHAPE.
 
 var kind: CG.EventKind = CG.EventKind.DAMAGE
 var tick: int = 0
@@ -34,9 +29,6 @@ var amount_before_mitigation: int = 0
 ## intent is consumed. **Set on ACTION_START only** -- the one event marking a
 ## decision rather than a consequence; a DAMAGE line inherits its reason from the
 ## ACTION_START above it. Three meanings:
-##   - a plan id        -> that row of the pawn's plans fired
-##   - &""              -> nothing fired, DefaultBehavior chose
-##   - Intent.COMPELLED -> a taunt overrode what the plans wanted
 var source_plan: StringName = &""
 
 ## Set on FIGHT_END only; see `CG.EndReason`. A fact the simulation knows as it

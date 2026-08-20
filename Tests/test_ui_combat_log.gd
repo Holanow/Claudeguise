@@ -10,13 +10,6 @@ extends "res://Tests/TestCase.gd"
 ## portrait, matching whichever orientation BattleView.compute_layout fit
 ## the arena against — the same rule (size.x >= size.y), so the reservation
 ## and what's actually drawn never disagree.
-##
-## **`anchor_top` was 0.0 here and is 1.0 now, and that is the assertion this
-## test was written to make rather than an incidental one.** It said the log runs
-## the full height of the right-hand column, which was true from issue 29 until
-## PLAYTEST-NOTES-2 item 8 — *"the log is too large, move it to a bottom corner"*
-## — landed. Changed rather than deleted: which edges the log is docked to is
-## still exactly what belongs here, and the corner is two edges instead of three.
 func test_landscape_docks_the_log_to_the_bottom_right_corner() -> void:
 	var view := CombatLogView.new()
 	view._ready()
@@ -165,7 +158,6 @@ func test_a_hazard_tick_names_no_source_and_reads_differently_from_poison() -> v
 # ---------------------------------------------------------------------------
 # PLAYTEST-NOTES-2 item 6: a beneficial status must not read as an
 # affliction.
-# ---------------------------------------------------------------------------
 
 func test_a_beneficial_status_gains_rather_than_afflicts() -> void:
 	var state := _make_state()
@@ -423,19 +415,6 @@ func test_a_real_hazard_tick_still_says_the_ground() -> void:
 # ---------------------------------------------------------------------------
 
 ## THE POINT OF ISSUE 151. `line_for_event` is a `match` with `return ""`
-## underneath, so a kind appended to `CG.EventKind` renders nothing in real
-## fights with the gate green throughout. It happened five times to three
-## people. A status cannot be added invisibly -- three gate tests refuse one
-## with no glyph and no glossary entry -- and there was no equivalent for the
-## other enum.
-##
-## Walked from the real enum, not from a list typed here, so appending a kind
-## fails this test rather than shipping silent. A kind that is meant to be
-## silent goes in `CombatLogView.SILENT_KINDS` and says so out loud.
-##
-## The event this builds is deliberately generic: a real source, a real target,
-## a real action, an amount. A kind that needs something more specific than that
-## to produce a line is a kind whose line is fragile.
 func test_every_event_kind_speaks_or_is_named_silent() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
@@ -548,7 +527,6 @@ func test_a_summon_names_the_summoner_and_the_unit_that_arrived() -> void:
 # ---------------------------------------------------------------------------
 # Issue 186: a consumed burn, a cleansed one and one that simply ran out were
 # three different events printing one sentence.
-# ---------------------------------------------------------------------------
 
 ## The defect. `CombatSim._consume_status` carries the caster and the consuming
 ## action on its STATUS_EXPIRED for exactly this reason -- its own comment calls
@@ -666,12 +644,6 @@ func test_a_status_whose_magnitude_is_not_a_strength_prints_no_number() -> void:
 # "I wrote the brain and was never shown it thinking." The log named the action
 # and never the row, so four different reasons a pawn ignored a plan looked
 # identical.
-#
-# `Intent.source_plan` has existed since the skeleton with a comment saying it
-# is "written into the combat log", and NOTHING EVER READ IT: an intent dies
-# inside one `step()`, and no event carried the field out. There was also no
-# test anywhere asserting the ACTION_START line's text at all, which is why
-# that stayed true for five releases.
 
 ## Against a real fight, through the real `line_for_event`, rather than against
 ## a hand-built event -- the shape being checked is that the simulation carries
@@ -753,11 +725,6 @@ func test_an_unknown_plan_id_prints_the_id_rather_than_a_wrong_row() -> void:
 ## The compulsion is a THIRD reason, not a shade of the fallback, and it is the
 ## one a player is most likely to be confused by: their pawn abandoning the row
 ## they wrote. Left at &"" it would read "[fallback]", a confident wrong answer.
-##
-## Built here rather than sampled, because `Tools/PlanAttribution.gd` measured
-## 4404 tagged actions over 100 real fights and NOT ONE was a compulsion -- no
-## offered room taunts a pawn. A path real content never walks is exactly the
-## path that ships broken.
 func test_a_taunted_pawn_says_so_instead_of_blaming_the_fallback() -> void:
 	var state := _make_state()
 	state.unit(0).pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")

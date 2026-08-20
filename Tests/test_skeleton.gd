@@ -3,11 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## The pattern to copy. Every test file looks like this: extend TestCase, name
 ## the file test_*.gd, put it in Tests/, and name each test method test_*.
-##
-## What it asserts is the frozen contract itself. These are the assumptions
-## three sessions are building against in parallel without reading each other's
-## code, so if one of them stops holding, everyone finds out here rather than
-## in a merge.
 
 
 func test_tick_constants_agree() -> void:
@@ -15,7 +10,6 @@ func test_tick_constants_agree() -> void:
 	# (PLAYTEST-NOTES-2.md note 1). One constant, not a hundred tick-count
 	# edits, per rook's own standing note in TEAM_LOG ("CG.TICKS_PER_SECOND
 	# is negotiable now, in one direction... down to roughly 0.1s per tick").
-	# 15 gives 0.0667s/tick, comfortably above that floor.
 	assert_eq(CG.TICKS_PER_SECOND, 15)
 	assert_almost_eq(CG.TICK_SECONDS * CG.TICKS_PER_SECOND, 1.0)
 	assert_true(CG.MAX_TICKS > CG.TICKS_PER_SECOND, "a fight must be able to last past one second")

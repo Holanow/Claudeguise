@@ -1,44 +1,6 @@
 extends SceneTree
 
-## Find a fight that still sits on the tick cap, and check whether a seed does
-## anything at all for the party the chokepoint guard samples.
-##
-##     godot --headless --path . --script res://Tools/StallHunt.gd
-##
-## Why: `test_the_stall_detector_can_see_a_real_stall` pinned `floor1_cover`
-## seed 364 as the known-bad input for
-## `test_the_chokepoint_room_resolves_instead_of_drawing`. #255 fixed the cause
-## (a pillar containing both endpoints blocked the shot between two units
-## standing inside it), so that fight ends at tick 690 and the fixture is gone.
-## A guard whose counter is never exercised is the thing the audit found in the
-## first place, so it needs a new one -- and it has to stall on the build with
-## the fix as well as without it, or it re-blocks the next person.
-##
-## Probe 2 is the other half. `_differs` scored `siege_master` at 0 of 120 seed
-## pairs, and the chokepoint guard runs `siege_master x4` over ten seeds. If the
-## seed does nothing there, that guard's sample size is one, whatever the loop
-## says.
-##
-## **RESULT, #268, on `main` 3f1bb70 with #264 merged: there is no stalling
-## input left to find.** 8 rooms x 10 parties x 500 seeds = **40,000 fights, 0
-## on the cap.** Longest fight in the sweep was 2,338 ticks (floor1_cover,
-## priest x4, seed 45), 65% of the cap; only 2 fights of 40,000 got past half
-## the cap. Control in the same run: `floor1_cover` seed 364, finch's old
-## fixture, reads `PLAYER_WIN` at tick 690 instead of `DRAW` at 3600.
-##
-## Per-room longest, same run:
-##
-##     floor1_room1       1943   floor1_horde        882
-##     floor1_chokepoint  1019   floor1_ghoul_den    312
-##     floor1_cover       2338   floor1_warden       964
-##     floor1_hazard       686   floor1_rat_king    1430
-##
-## That is why `test_the_stall_detector_can_see_a_constructed_stall` builds its
-## fixture instead of pinning one. Re-run this before assuming otherwise.
-##
-## Measurement only, never gated.
-
-
+## Find a fight that still sits on the tick cap.
 const ENCOUNTERS: Array[StringName] = [
 	&"floor1_room1", &"floor1_chokepoint", &"floor1_cover", &"floor1_hazard",
 	&"floor1_horde", &"floor1_ghoul_den", &"floor1_warden", &"floor1_rat_king",

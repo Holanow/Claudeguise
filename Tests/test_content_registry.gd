@@ -5,18 +5,9 @@ extends "res://Tests/TestCase.gd"
 ## all_encounter_ids/all_equipment_ids, added for the level editor's
 ## bestiary picker. Its own file has no dedicated test yet, so these check
 ## the same properties the other three already rely on callers assuming:
-## sorted, no duplicates, and every id actually resolves through
-## Registry.get_enemy.
 
 ## This test used to build its expectation by calling `sort()` on a copy --
 ## the same `Array[StringName].sort()` the function under test was calling.
-## It compared the output to itself and could not fail, which is why nobody
-## noticed that **`Array[StringName].sort()` is not alphabetical at all**: it
-## compares interned pointers, so `[zebra, apple, mango]` sorts to `[mango,
-## apple, zebra]`.
-##
-## The oracle is now an independent one. See `Registry._sort_ids` for why the
-## order mattered well beyond tidiness.
 func test_all_enemy_ids_is_sorted() -> void:
 	var ids := Registry.all_enemy_ids()
 	var as_text: Array[String] = []
@@ -46,9 +37,6 @@ func test_every_id_in_all_enemy_ids_resolves() -> void:
 
 ## Not every registered enemy has to be used by an encounter -- that gap is
 ## exactly why this function exists (see Registry.gd's own comment on it).
-## This just confirms the two lists are not accidentally identical by
-## construction, i.e. that all_enemy_ids really reads the enemy table and
-## not something derived from encounters.
 func test_all_enemy_ids_is_not_derived_from_encounters() -> void:
 	var enemy_ids := Registry.all_enemy_ids()
 	var siege_engine_registered := enemy_ids.has(&"siege_engine")

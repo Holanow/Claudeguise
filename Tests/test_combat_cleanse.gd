@@ -7,15 +7,6 @@ extends "res://Tests/TestCase.gd"
 ## nothing under either -- `grep cleanses_harmful Scripts/` returned exactly
 ## the declaration -- which is why the reachability suite (PR #80) counted it
 ## as a mechanism that no fight could reach.
-##
-## Every test here drives `CombatSim.step()` with the action injected through
-## `SimDeps.action_lookup`, the same seam `test_combat_pull_and_slow.gd` uses:
-## the cleanse has to survive the real commit/wind-up/fire path rather than a
-## direct call to the effect function, because "the effect works when called"
-## was never the thing in doubt.
-##
-## The content half -- a Geysermancer action that sets the field, and a plan
-## that picks it -- is finch's, in `Scripts/Content/**`.
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
 	var u := CombatUnit.new()

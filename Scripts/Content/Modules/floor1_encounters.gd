@@ -18,7 +18,6 @@ const _PARTY_SPAWNS: Array[Vector2] = [
 
 ## A HAZARD whose whole effect is a status. `Terrain.hazard()` takes a damage
 ## number and no status, and I did not ask rook for a second constructor:
-## `Feature`'s fields are public and content already builds every other part of
 static func _status_hazard(rect: Rect2, status: CG.Status, ticks: int) -> Terrain.Feature:
 	var f := Terrain.make(Terrain.Kind.HAZARD, rect)
 	f.applies_status_enabled = true
@@ -60,9 +59,6 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 static func encounters() -> Array[Encounter]:
 	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_rat_king_room(), _the_warden_room()]
 
-## Issue 44: floor 1's real boss room, replacing `floor1_chokepoint` as
-## `FloorFightRunner`'s BOSS placeholder. The wall was a wall built to test a
-## terrain mechanic, not a fight built to test a party -- it favoured
 static func _the_warden_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_warden"
@@ -74,8 +70,6 @@ static func _the_warden_room() -> Encounter:
 	e.party_spawns = _PARTY_SPAWNS
 	return e
 
-## **Floor 1's miniboss room. README's own pairing: The Warden is the boss and
-## the Rat King is the miniboss, and this is deliberately the opposite fight.**
 static func _the_rat_king_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_rat_king"
@@ -102,14 +96,10 @@ static func _the_room() -> Encounter:
 	e.id = &"floor1_room1"
 	e.display_name = "Floor 1, Room 1"
 	e.pickable = true
-	## Four goblins (numerous), a pair of archers, a cultist, and a ghoul
 	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
 	e.party_spawns = _PARTY_SPAWNS
 	return e
 
-## Issue 13b criterion 1: `floor1_room1`'s exact roster, with a wall down the
-## middle of the room and one gap in it. Every enemy that used to be reachable
-## the instant the party closed to range is now reachable only through the
 static func _the_chokepoint() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_chokepoint"
@@ -122,35 +112,30 @@ static func _the_chokepoint() -> Encounter:
 	e.terrain = [
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, -270.0, 60.0, 210.0)),
 		Terrain.make(Terrain.Kind.PIT, Rect2(-20.0, 60.0, 60.0, 210.0)),
-		## **Issue #121 item 7, the player's tar pit: terrain that slows
 		_status_hazard(Rect2(-20.0, -60.0, 60.0, 120.0), CG.Status.SLOWED, 45),
 	]
 	return e
 
 ## THE COVER ROOM. Issue #94's second of four pickable rooms.
 ##
-## Issue 13b criterion 1's other half, and rook's finding from issue 24: ranged
 static func _the_cover_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_cover"
 	e.display_name = "Floor 1, Broken Colonnade"
 	e.pickable = true
 	e.enemy_spawns = [
-		## **Four rosters were measured at 20 seeds x 5 buildable parties,
 		{"enemy_id": &"goblin", "position": Vector2(110.0, -170.0)},
 		{"enemy_id": &"goblin", "position": Vector2(120.0, 0.0)},
 		{"enemy_id": &"goblin", "position": Vector2(110.0, 170.0)},
 		{"enemy_id": &"rat", "position": Vector2(250.0, -225.0)},
 		{"enemy_id": &"rat", "position": Vector2(260.0, -85.0)},
 		{"enemy_id": &"goblin_archer", "position": Vector2(260.0, 85.0)},
-		## **Issue #121: the Stalker takes the fourth archer's place, and the
 		{"enemy_id": &"stalker", "position": Vector2(250.0, 225.0)},
 		{"enemy_id": &"cultist", "position": Vector2(350.0, -155.0)},
 		{"enemy_id": &"cultist", "position": Vector2(360.0, 0.0)},
 		{"enemy_id": &"cultist", "position": Vector2(350.0, 155.0)},
 	]
 	e.party_spawns = _PARTY_SPAWNS
-	## **The two x offsets below are swept, not chosen.** They are the one
 	e.terrain = [
 		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -250.0, 100.0, 100.0)),
 		Terrain.make(Terrain.Kind.PILLAR, Rect2(20.0, -50.0, 100.0, 100.0)),
@@ -162,7 +147,6 @@ static func _the_cover_room() -> Encounter:
 
 ## THE HAZARD ROOM. Issue #94's third of four pickable rooms.
 ##
-## Issue 13b's hazard criterion: a hazard worth walking around, not one that
 static func _the_hazard_room() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_hazard"

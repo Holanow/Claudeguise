@@ -6,26 +6,6 @@ const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen. Three slots per pawn, every effect in
 ## specific numbers, and the granted actions an item teaches.
-##
-## OWNER: wren.
-##
-## Built as a full-screen overlay added as a child of PartySelect, the same
-## shape and the same reasoning as InspectPanel: opening it never loses the
-## party selection underneath it. The two screens are deliberately the same
-## layout -- pawn list on the left, detail on the right -- because they are two
-## halves of one job. This one decides what a pawn *can* do; the plan editor
-## decides what it *will* do.
-##
-## **Editing writes straight onto the PawnData.** `PartySelect._available` holds
-## the same instances it puts into `RunConfig.party`, so assigning `pawn.armor`
-## here is the whole edit. No apply step, nothing to serialize, exactly as the
-## plan editor already works.
-##
-## The numbers on this screen are read from `Balance`, never restated. Every
-## before/after pair is the same pawn measured twice: once as it is, and once
-## through `_stripped`, a copy carrying the class and the manual attribute bonus
-## and no equipment. A hand-written "+15% STR means +2" would go stale the first
-## time a formula moved, and this screen exists to be trusted about numbers.
 
 signal closed
 
@@ -170,10 +150,6 @@ func _set_equipped(pawn: PawnData, slot: int, item: EquipmentDef) -> void:
 ## What this pawn may put in this slot. `EquipmentDef.allows` is the one place
 ## that answers the question, and the screen refuses by *not offering*, which is
 ## the behaviour `EquipmentDef.allowed_methods` asks for in its own doc comment:
-## the player meets a restriction as an absence, never as an error message.
-##
-## Public so a test can assert the offer directly rather than reading captions
-## back off an OptionButton.
 func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
@@ -197,12 +173,6 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var row := HBoxContainer.new()
 
 	# Issue 127: the item's own icon, first thing on the row. `EquipmentIcons`
-	# shipped in #117 with no caller anywhere and this is it -- the eleventh
-	# built-and-unreachable feature on this project, and it was reachable only
-	# because sable read my diff looking for their own API.
-	#
-	# `worn` is computed below for the effect line; the icon needs it first, so
-	# it is read here and used twice rather than looked up twice.
 	var worn := equipped(pawn, slot)
 	var icon := Control.new()
 	icon.set_script(ItemIconViewScript)
@@ -229,9 +199,6 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Both lines, for the reason the plan editor's chips carry them:
-	# fit_to_longest_item defaults to true and makes the control claim a minimum
-	# width big enough for its longest *unselected* entry, which runs a row off
-	# the right edge. clip_text governs drawing only and does not help alone.
 	picker.fit_to_longest_item = false
 	picker.clip_text = true
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
@@ -272,8 +239,6 @@ func _refresh(pawn: PawnData) -> void:
 ## the player's language ("Heavy plate"), and this is the same item in numbers,
 ## which is what the issue asks a slot to show. Deriving it means an item added
 ## next week is described correctly here without anyone remembering to.
-##
-## Public so a test can assert the sentence without reaching into the tree.
 func item_effect_text(item: EquipmentDef) -> String:
 	if item == null:
 		return "Empty."
@@ -307,12 +272,8 @@ func _slot_effect_text(item: EquipmentDef) -> String:
 # fields, because the interesting cases are the ones where they compound -- a
 # flat +2 CON and a +10% CON on the same piece are not "+2 and +10%", they are
 # a specific integer, and that integer is what a player is deciding on.
-# ---------------------------------------------------------------------------
 
 ## The same pawn with the same class and the same manual bonus, wearing nothing.
-## A fresh PawnData rather than clearing and restoring the real one: this runs
-## on every rebuild, and a screen that briefly unequips the pawn it is drawing
-## is one interrupted call away from saving that state.
 func _stripped(pawn: PawnData) -> PawnData:
 	var bare := PawnData.new()
 	bare.id = pawn.id
@@ -379,9 +340,6 @@ func _derived_line_float(label: String, before: float, after: float, suffix: Str
 		Palette.HP_FULL if not is_equal_approx(before, after) else Palette.TEXT_DIM)
 
 ## "STR 12" when nothing changed it, "STR 12 to 14 (+2)" when something did.
-## Written out rather than shown as a bare delta: the issue asks for specific
-## numbers, and a player choosing between two items wants the number they will
-## be fighting with, not the size of the step.
 func _stat_text(name: String, before: float, after: float, _digits: int) -> String:
 	var prefix := "" if name == "" else name + " "
 	if int(round(before)) == int(round(after)):
@@ -396,7 +354,6 @@ func _stat_text(name: String, before: float, after: float, _digits: int) -> Stri
 # editor now asks as well, so what this section promises and what that screen
 # offers cannot disagree -- they were two separate computations until issue 100,
 # and the fight knew about a granted action while the plan editor did not.
-# ---------------------------------------------------------------------------
 
 func granted_action_ids(pawn: PawnData) -> Array[StringName]:
 	var out: Array[StringName] = []

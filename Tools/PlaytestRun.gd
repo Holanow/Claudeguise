@@ -7,12 +7,6 @@ extends Node
 ## interactions on party select, a full fight watched through several
 ## screenshots, the in-fight controls, and a same-seed multi-party
 ## comparison.
-##
-##   godot --path . --resolution 1280x720 res://Tools/PlaytestRun.tscn
-##
-## Handed to wren for issue 11 by rook; not part of the gate. Everything
-## printed here also lands in Tools/preview/playtest_report.txt so the
-## board write-up can quote it verbatim.
 
 
 const OUT_DIR := "res://Tools/preview"

@@ -21,7 +21,6 @@ var enemy_id: StringName = &""
 var position: Vector2 = Vector2.ZERO
 ## **Not drawing only, and changing it disturbs everyone's tuning.**
 ##
-## This said "Drawing only. Verified 2026-08-12: nothing in Scripts/Combat,
 var radius: float = 22.0
 
 var hp: int = 0
@@ -37,7 +36,6 @@ var alive: bool = true
 
 ## Set by the decision layer, consumed by the simulation on the same tick.
 ##
-## The seam between the two halves of a tick, and it is deliberate. The
 var intent: Intent = null
 
 ## Unit id this pawn is currently focused on, or -1. Targeting blocks write
@@ -51,9 +49,6 @@ var facing: Vector2 = Vector2.ZERO
 
 ## How far this unit's TAUNTING reaches while the status holds, copied from the
 ## action that applied it. 0.0 when not taunting.
-##
-## Stored here rather than looked up through the action each tick, matching the
-## rest of the derived-at-apply-time state on this shape.
 var taunt_radius: float = 0.0
 
 ## Issue 61. The sustained action this unit is currently holding, or &"" when it

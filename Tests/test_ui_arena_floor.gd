@@ -70,7 +70,6 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 # plain dot-with-trail). `Projectile` carries action_id, not damage_type --
 # this is the lookup sable flagged as an open question in their signature
 # proposal.
-# ---------------------------------------------------------------------------
 
 func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
 	var action_id: StringName = &""

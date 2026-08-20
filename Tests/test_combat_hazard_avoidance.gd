@@ -3,15 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 163, the movement half: a step that would end in fire gives way to a
 ## clear one, when a clear one exists that still makes progress.
-##
-## The two that matter:
-##   test_a_unit_walks_around_a_hazard_it_would_otherwise_cross  -- the defect.
-##   test_a_unit_boxed_in_by_fire_still_walks_through_it         -- the limit.
-##
-## And `test_a_detour_never_moves_a_unit_further_from_its_destination` is the one
-## guarding against a repeat of the two-tick limit cycle heron found in
-## DefaultBehavior, where two branches with no hysteresis hung a fight for 2400
-## ticks. Progress here is monotonic by construction and the test pins it.
 
 func _unit(id: int, team: CG.Team, pos: Vector2) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -71,12 +62,6 @@ func test_a_unit_walks_around_a_hazard_it_would_otherwise_cross() -> void:
 ## width sits between a unit and its destination is still crossed. Getting round
 ## that needs a route -- a lane chosen several steps ahead -- and this game has
 ## no pathfinding and is not getting any here.
-##
-## Choosing a destination that is not through the fire is the DECISION layer's
-## job, `Scripts/Plans`, finch's. This function only ever decides a step.
-##
-## Pinned as a test so nobody reads the feature as more than it is, and so the
-## day somebody does build routing, this fails and tells them to delete it.
 func test_a_hazard_directly_between_a_unit_and_its_goal_is_still_crossed() -> void:
 	var head_on := Rect2(-40.0, -30.0, 80.0, 60.0)
 	var state := _state([_fire(head_on)])

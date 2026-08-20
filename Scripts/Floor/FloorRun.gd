@@ -5,10 +5,6 @@ class_name FloorRun
 ## Tracks one traversal of a generated FloorPlan: where the party is, which
 ## rooms have been visited, and what carried over from the last room each
 ## pawn fought in.
-##
-## OWNER: wren, issue 5. Deliberately does not call CombatSim or know what a
-## CombatUnit is -- issue 5's boundary is the floor model, not the fight.
-## Wiring a room's fight to the simulation is a separate issue.
 
 var plan: FloorPlan
 var current_room_id: int = -1
@@ -20,9 +16,6 @@ var visited: Array[int] = []
 var carry: Dictionary = {}
 
 ## What the party has picked up this run, in the order rooms dropped it.
-## Unassigned to any pawn -- there is no equip screen yet (issue 41's own
-## framing: item generation and the equip screen both come after this),
-## so this is a holding pen for the run, not an inventory system.
 var loot: Array[EquipmentDef] = []
 
 ## Called when a room resolves and something drops. Records it; does not

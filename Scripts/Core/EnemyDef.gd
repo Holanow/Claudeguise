@@ -4,8 +4,6 @@ class_name EnemyDef
 
 ## An enemy type. Enemies carry stats directly rather than deriving them through
 ## a class the way a pawn does.
-##
-## MANAGER-OWNED SHAPE. Instances live in Scripts/Content/Enemies/.
 
 @export var id: StringName = &""
 @export var display_name: String = ""
@@ -41,8 +39,4 @@ class_name EnemyDef
 
 ## How strongly this enemy prefers a target its allies already attack, 0.0 for
 ## nearest-and-ignore-everyone to 1.0 for always-join-the-pile.
-##
-## Per-enemy rather than global because it is a design lever, not a difficulty
-## knob, and it is the readable version: a player can watch a swarm converge and
-## learn to spread out. The decision layer reads this; the simulation does not.
 @export var focus_bias: float = 0.0

@@ -9,10 +9,6 @@ extends "res://Tests/TestCase.gd"
 ## and the team panel's chips already hovered and already pinned -- all of that
 ## landed with #113. What was missing is the half that makes it an explanation
 ## rather than a glossary, which is what the badge is carrying **right now**.
-##
-## So these tests are about the live numbers and the two ways they can lie:
-## printing a number that is not a magnitude at all, and printing one that was
-## true when it was pinned.
 
 func _unit(name: String) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -72,10 +68,6 @@ func test_a_status_that_carries_no_magnitude_reports_only_its_countdown() -> voi
 
 ## **The trap this function exists to avoid, and it is not hypothetical.**
 ## `status_magnitude` is one dictionary holding different kinds of number:
-## TAUNTED stores the taunter's unit id and SUSTAINING stores an action. A
-## generic "print the magnitude when it is not zero" publishes a unit id to the
-## player as a strength. `CombatLogView` worked this out once; this is the same
-## rule with one owner.
 func test_a_status_whose_magnitude_is_not_a_magnitude_reports_no_number() -> void:
 	var u := _unit("Geysermancer")
 	u.statuses[CG.Status.TAUNTED] = 45
@@ -217,10 +209,6 @@ func _layer() -> Control:
 ## was harmless while every popout described a constant and it stops being
 ## harmless the moment one carries a countdown -- a pinned box reading "3.0s
 ## left" four seconds later is not stale, it is wrong.
-##
-## Reproduced in the failing direction first: without `refresh` the body is still
-## the string it was pinned with, which is what the second assertion here checks
-## by pinning, changing the source, and reading the body BEFORE refreshing.
 func test_a_pinned_popout_is_re_read_from_the_chip_it_was_pinned_from() -> void:
 	var screen := _layer()
 	var layer := screen.get_child(0)

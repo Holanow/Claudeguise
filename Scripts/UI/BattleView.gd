@@ -9,15 +9,6 @@ const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
-##
-## OWNER: pike.
-##
-## Real time, with a pause: wall-clock delta accumulates and is spent in whole
-## ticks, so the fight runs at CG.TICKS_PER_SECOND regardless of frame rate,
-## catching up if frames were dropped rather than quietly running in slow
-## motion. Pause just stops spending the accumulator; it never touches
-## Engine.time_scale or the scene tree pause, so floaters and log entries from
-## before the pause keep finishing on wall clock time.
 
 signal restart_requested
 signal back_requested
@@ -84,18 +75,15 @@ func _build_pause_dim() -> void:
 func _build_top_bar() -> void:
 	var hud := get_node("Hud")
 
-	# The arena now fills almost the whole viewport (see _layout_arena), so
 	var backdrop := ColorRect.new()
 	backdrop.color = Palette.BACKGROUND
 	backdrop.color.a = 0.72
 	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	backdrop.offset_bottom = _TOP_BAR_BOTTOM
-	# Issue 113: it stops where the team panel's own column begins. This strip
 	backdrop.offset_right = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(backdrop)
 
-	# Issue 43: this used to be one HBoxContainer holding four labels and
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	bar.add_theme_constant_override("separation", int(Palette.SPACE_M))
@@ -111,7 +99,6 @@ func _build_top_bar() -> void:
 	controls.offset_top = Palette.SPACE_M + _INFO_ROW_HEIGHT + Palette.SPACE_S
 	hud.add_child(controls)
 
-	# Issue 15: "you cannot tell who is winning" without parsing seven small
 	var summary := VBoxContainer.new()
 	summary.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	summary.add_theme_constant_override("separation", int(Palette.SPACE_XS))
@@ -125,7 +112,6 @@ func _build_top_bar() -> void:
 	_party_label.add_theme_color_override("font_color", Palette.TEXT)
 	bar.add_child(_party_label)
 
-	# Issue 36's own "while you are there": the room's name existed
 	_encounter_label = Label.new()
 	_encounter_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	bar.add_child(_encounter_label)
@@ -134,13 +120,11 @@ func _build_top_bar() -> void:
 	_seed_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	bar.add_child(_seed_label)
 
-	# Issue 19: this used to be the *only* place the outcome showed, at the
 	_outcome_label = Label.new()
 	_outcome_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	bar.add_child(_outcome_label)
 
-	# Issue 18 criterion 3: every control at least Palette.TOUCH_TARGET_MIN on
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"
 	_pause_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
@@ -159,14 +143,12 @@ func _build_top_bar() -> void:
 	back_button.pressed.connect(func(): back_requested.emit())
 	controls.add_child(back_button)
 
-	# Issue 136. On the control row beside Pause, because the point of turning
 	var view_button := Button.new()
 	view_button.text = "What to show"
 	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	view_button.pressed.connect(func(): _display_options.toggle_visible())
 	controls.add_child(view_button)
 
-	# Issue 155, and it is the reachability half of that issue rather than a
 	var plans_button := Button.new()
 	plans_button.text = "Plans"
 	plans_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
@@ -183,20 +165,6 @@ func _build_top_bar() -> void:
 	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
 
 ## Issue 113: the player's whole team, in a fixed place, above the log.
-##
-## **In the side strip the log already has, not over the arena.** That strip is
-## reserved out of the viewport before the arena is fitted (`compute_layout`), so
-## everything drawn in it is free: putting the panel anywhere else would shrink
-## the fight to make room for a description of it.
-##
-## The log used to pay for it, losing the top `TeamStatusView.MAX_PANEL_HEIGHT`
-## of its own column. **It no longer pays anything**: notes item 8 has landed and
-## the log is a fixed `CombatLogView.LOG_HEIGHT` box in the bottom corner, so the
-## panel has the top of the column, the log has the bottom of it, and the middle
-## is empty. `test_ui_team_status.gd` asserts they do not meet.
-##
-## Portrait puts the log along the bottom band instead, well clear of the panel
-## in the top right.
 func _build_team_status() -> void:
 	var hud := get_node("Hud")
 	_team_status = Control.new()
@@ -205,10 +173,8 @@ func _build_team_status() -> void:
 	if not _team_status.is_inside_tree():
 		_team_status._ready()
 	_team_status.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	# The same 20px the log holds off the right edge (CombatLogView.LOG_MARGIN),
 	_team_status.offset_right = CombatLogView.LOG_MARGIN
 	_team_status.offset_left = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
-	# At the top of the screen, beside the top bar rather than under it. The bar's
 	_team_status.offset_top = _PANEL_TOP
 	_team_status.offset_bottom = _PANEL_TOP + TeamStatusViewScript.MAX_PANEL_HEIGHT
 
@@ -276,7 +242,6 @@ func _build_end_banner() -> void:
 	back_button.pressed.connect(func(): back_requested.emit())
 	buttons.add_child(back_button)
 
-	# Issue 21b: reachable from the end of a fight, per the issue's own note
 	var inspect_button := Button.new()
 	inspect_button.text = "Inspect party"
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
@@ -291,7 +256,6 @@ func _build_end_banner() -> void:
 
 func _on_inspect_pressed() -> void:
 	if _inspect_panel != null and config != null:
-		## Issue 155: the live fight goes with the party. With it, every plan row
 		_inspect_panel.open(config.party, state)
 
 ## e.g. 197 ticks at 30 ticks/second reads as "6.6s" -- a player has never
@@ -329,10 +293,6 @@ const _SUMMARY_ROW_HEIGHT := 20.0
 const _SUMMARY_BAR_WIDTH := 120.0
 
 ## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
-## Returns the fill rect so _update_team_summary can resize it later.
-## One fixed label width so both troughs begin at the same x. Issue 82: without
-## it the two bars start in different places and cannot be compared by eye,
-## which is the only thing they exist for.
 const _SUMMARY_LABEL_WIDTH := 64.0
 
 func _build_summary_bar(parent: Container, label_text: String, color: Color) -> ColorRect:
@@ -385,35 +345,6 @@ func _team_hp_fraction(team: CG.Team) -> float:
 
 ## World-space room added around the arena's own bounds when fitting it to
 ## the viewport.
-##
-## This used to be a large fixed *screen-pixel* reservation sized to clear
-## the HUD strip and the whole log panel, which insets the *rect* rather than
-## the *fit*: at 1280x720 it shrank the arena to roughly 600x340, about 22%
-## of the screen, most of it empty. rook caught this from
-## Screenshots/readability_log_and_labels_1.png. The fix is to expand what
-## gets fit -- the arena plus this margin -- rather than shrink the space it's
-## fit into: the arena now fills essentially the whole viewport, and the HUD
-## and the combat log overlay it as thin/translucent strips instead of
-## displacing it. World-space, not screen-pixel, so the margin scales with
-## the arena instead of eating a fixed chunk regardless of zoom.
-##
-## Sized to the actual worst case a unit draws at its own position, per
-## UnitView's stack (BAR_GAP/BAR_HEIGHT/FONT_SIZE_SMALL, all Palette's
-## phone-scale values now): radius(22) + gap + resource bar + gap + hp bar +
-## gap + name text + its chip padding, roughly 90 above; radius + status-tag
-## text + its chip below, roughly 70; radius + half a bar width to the sides,
-## roughly 45. Verified against units placed at the *literal* simulated
-## corner (Screenshots/edges_1280x720.png) -- the same trap issue 6 hit,
-## caught again here before it merged this time.
-##
-## Issue 31: that whole stack now draws at UnitViewScript.DISPLAY_SCALE, so
-## the margin sized to its worst case has to grow with it or the claim above
-## stops being true -- caught on a real launch: a party pawn near the top of
-## its deploy column had its name label land inside the HUD's own summary
-## row, which the margin exists specifically to prevent. World-space, so
-## this trades a little of DISPLAY_SCALE's own gain for headroom (a bigger
-## fit box means a slightly smaller scale_factor) rather than reopening the
-## clipping bug this margin was built to fix.
 const _MARGIN_TOP := 150.0 * UnitViewScript.DISPLAY_SCALE
 const _MARGIN_BOTTOM := 70.0 * UnitViewScript.DISPLAY_SCALE
 const _MARGIN_SIDE := 45.0 * UnitViewScript.DISPLAY_SCALE
@@ -424,14 +355,6 @@ const _MARGIN_SIDE := 45.0 * UnitViewScript.DISPLAY_SCALE
 ## scaling, and window/stretch/mode canvas_items + expand pinning
 ## get_viewport_rect()'s width to the design width on a narrower-than-design
 ## window. Measured on a real 390x844 launch: reported viewport (1280, 2770).
-## I tried making the arena's own height reach 50% of that (scale ~2.56) and
-## it works exactly as arithmetic -- and it pushes the arena to ~2462 logical
-## units wide against a visible width of 1280, cropping symmetrically at
-## both edges. On the actual encounter's spawn layout that crop hid the
-## *entire player party*, which is a worse failure than a small arena: see
-## the finding in TEAM_LOG rather than shipped here. Kept the safe, fully-
-## visible fit; flagging the conflict for rook rather than silently picking
-## a side of it.
 func _layout_arena() -> void:
 	if _arena == null:
 		return
@@ -446,24 +369,6 @@ func _layout_arena() -> void:
 
 ## Where the log's box begins, so the team status panel above it can be checked
 ## against something measured rather than against a constant.
-##
-## **I built a clamp here first and deleted it, and the deletion is the finding.**
-## The panel is bounded at `_PANEL_TOP + MAX_PANEL_HEIGHT` = 450 and a 200 px box
-## on a 720-tall column starts at 500, so the two clear each other by 50 -- but
-## only while the column is 720. I assumed a phone landscape was shorter than
-## that (inferring it from a 390x844 launch reporting 1280x2770) and wrote a
-## clamp for it.
-##
-## **Measured instead of inferred: a real 844x390 launch reports 1558x720.** The
-## stretch is `canvas_items` + `expand` off a 1280x720 base, which pins whichever
-## axis has the smaller window/base ratio and expands the other, so a landscape
-## window is never shorter than 720 logical pixels: above 16:9 the height pins at
-## 720, at or below it the width pins at 1280 and the height comes out at
-## 1280/aspect >= 720. The clamp could never have fired in any window the game
-## can be opened in, and shipping it would have been another unreachable branch
-## in a project that has shipped thirteen. `test_ui_team_status.gd` asserts the
-## invariant it was guarding, over real window sizes through the real stretch
-## rule, which is the thing worth keeping.
 static func log_box_top(size: Vector2) -> float:
 	return size.y + CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT
 
@@ -472,24 +377,6 @@ static func log_box_top(size: Vector2) -> float:
 ## a tree, which is exactly what made the canvas_items/expand behaviour this
 ## depends on (see the const comments above) hard to pin down without
 ## launching real processes at real resolutions in the first place.
-## Issue 26, item 2 first put the log's reservation into this fit: it is a
-## fixed *screen-pixel* strip, not a world-space margin, and did not scale
-## with the arena the way _MARGIN_BOTTOM does, so a bottom-docked log at
-## ordinary scale factors used to draw over units _MARGIN_BOTTOM (issue 8)
-## never actually cleared. Issue 29 moves the strip from the bottom to the
-## side in landscape: rook's own measurement was that fixing the overlap by
-## eating vertical space cost the arena down to about a quarter of the
-## screen, and a 16:9 arena in a wider-than-16:9 window already leaves side
-## margins it can never use -- reserving CombatLogView.LOG_WIDTH from the
-## width instead costs nothing the arena could have used anyway.
-##
-## Portrait keeps the original bottom reservation, on purpose: width is
-## portrait's scarce dimension, not height, so a side column costs far more
-## there than a thin bottom strip does. Applying the side reservation
-## unconditionally was tried and measured first -- it dropped the pinned
-## portrait height fraction under its own regression floor, confirming the
-## two orientations need two different answers. CombatLogView.set_landscape
-## keeps what's actually drawn in sync with this same rule.
 static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN_SIDE
 	var fit_top := CG.ARENA_HALF_HEIGHT + _MARGIN_TOP
@@ -497,7 +384,6 @@ static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_width := fit_half_width * 2.0
 	var fit_height := fit_top + fit_bottom
 
-	# Floors of 1.0, not fit_width/fit_height: those are world-space
 	var usable_size: Vector2
 	if size.x >= size.y:
 		usable_size = Vector2(max(size.x - CombatLogView.LOG_WIDTH, 1.0), size.y)
@@ -527,7 +413,6 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_tick_accumulator = 0.0
 	set_paused(false)
 	_rebuild_units()
-	# Issue 26 item 1: the room's terrain, if any -- CombatState.terrain is
 	_arena.terrain = state.terrain
 	_arena.projectiles = []
 	_arena.queue_redraw()
@@ -539,7 +424,6 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_outcome_label.text = ""
 	_end_banner.visible = false
 	_update_team_summary()
-	# Issue 113: before the first tick, not after it. A player looking at the
 	if _team_status != null:
 		_team_status.sync(state)
 	set_process(true)
@@ -570,17 +454,6 @@ func _rebuild_units() -> void:
 ## view node at all. It fought, dealt and took damage, and died entirely
 ## invisibly. That is the real cause of "siege engines are still invisible";
 ## the silhouette rook added was necessary and nowhere near sufficient.
-##
-## Called every stepped tick, and it only ever *adds*. Rebuilding the whole set
-## per tick would be the obvious wrong fix: every UnitView carries per-instance
-## state that only means anything across ticks (`_label_last_active_tick`,
-## `_last_seen_hp`/`_last_seen_resource`), so a fresh node each tick would
-## reset the label hysteresis every frame and bring back exactly the name
-## flicker PLAYTEST-NOTES 20 was about.
-##
-## Nothing here removes a view for a dead unit: `CombatState.units` never
-## shrinks (death sets `alive` false and `sync` hides the node), so a removal
-## branch would be code for a case that cannot happen.
 func _ensure_unit_views() -> void:
 	if state == null:
 		return
@@ -613,11 +486,9 @@ func _process(delta: float) -> void:
 		return
 
 	consume_events()
-	# Issue 75: before syncing, not after -- a unit summoned this tick has to
 	_ensure_unit_views()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
-	# Issue 18's real travelling shots (CombatState.projectiles) have per-tick
 	_arena.projectiles = state.projectiles
 	_arena.queue_redraw()
 	_update_team_summary()
@@ -657,10 +528,6 @@ func consume_events() -> void:
 ## there rather than landing on top of them. Deterministic by spawn order
 ## within a frame, not by anything read off CombatState, so it changes
 ## nothing about what a player can infer from position.
-## Issue 31: scaled by UnitViewScript.DISPLAY_SCALE alongside the units
-## themselves, so a floater's stagger step keeps the same visual relationship
-## to a body that just got bigger, rather than several numbers crowding a
-## gap sized for the old, smaller sprite.
 const _FLOATER_STAGGER_RADIUS := 40.0 * UnitViewScript.DISPLAY_SCALE
 const _FLOATER_STAGGER_STEP := 18.0 * UnitViewScript.DISPLAY_SCALE
 
@@ -677,16 +544,6 @@ func _floater_stagger_offset(base_position: Vector2) -> Vector2:
 
 ## Issue 136: off by default, and the guard is here rather than at the call site
 ## so nothing can spawn a damage number without passing it.
-##
-## **This is the first thing anyone has proposed removing from this screen.**
-## swift measured 861 of 1556 damage events in a real fight as damage-over-time
-## ticks -- a drain rather than a happening -- so most floaters were never hits
-## at all, and the log already carries every one with source, target, type and
-## mitigated-versus-raw. Nothing is lost by the default.
-##
-## Death markers, miss markers and impact flashes are deliberately NOT behind
-## this. They mark events a player has no other way to see at the moment they
-## happen; a damage number duplicates a log line.
 func _spawn_floater(e: CombatEvent) -> void:
 	if not DisplayOptions.enabled(&"damage_numbers"):
 		return
@@ -703,8 +560,6 @@ func _spawn_floater(e: CombatEvent) -> void:
 ## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
 ## needs an attack asset ... so I know what's up" -- melee had nothing but a
 ## number appearing where DamageFloater already stood in for a hit landing.
-## Same event, same target position, same e.damage_type the floater above
-## already reads two lines up -- no new lookup.
 func _spawn_impact_flash(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
@@ -720,18 +575,6 @@ func _spawn_impact_flash(e: CombatEvent) -> void:
 ## drawn by UnitView from the STATUS_APPLIED on the same tick and says WHAT
 ## happened; this says it happened NOW, which is the half a badge cannot do for
 ## someone watching without pausing.
-##
-## `source_id`, not `target_id` -- INTERRUPTED names the unit that LOST the
-## action, and `target_id` is -1 on this kind. Passing it to the damage-shaped
-## helpers above would silently flash nothing.
-##
-## White rather than a damage colour: an interrupt is not damage and has no
-## damage type, and borrowing one would put a lie into the vocabulary the
-## floating numbers and the projectile marks share.
-##
-## NOT behind the damage_numbers option, for the same reason death and miss
-## markers are not: it marks something a player has no other way to see at the
-## moment it happens.
 func _spawn_interrupt_flash(e: CombatEvent) -> void:
 	var unit := state.unit(e.source_id)
 	if unit == null:
@@ -758,7 +601,6 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _DEATH_MARKER_OFFSET + _floater_stagger_offset(target.position)
-	# Issue 187. Two changes, and the colour is a defect rather than a taste
 	marker.show_text("%s dies" % target.display_name, Palette.team_color(target.team), 1.8,
 		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
@@ -776,7 +618,6 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = target.position + _floater_stagger_offset(target.position)
-	# Issue 187: was `FONT_SIZE_FLOATER` -- 34 before the display scale, so
 	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS,
 		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
 
@@ -798,18 +639,6 @@ func _show_outcome() -> void:
 
 ## Issue 218. **The banner used to contradict the line under it**: a fight where
 ## every pawn died and the siege engines finished the room off printed "Victory"
-## over "None of your party survived."
-##
-## rook's ruling: a fight where every pawn is dead is a **Defeat**, because a
-## summon outliving the party is a fact about the summon. `CombatSim` owns the
-## question -- `is_pawnless_win` is swift's, on `CombatState`, and 11 of 40 seeds
-## on `floor1_warden` end this way, so it is not a corner case. Asked here rather
-## than re-derived: a second "which of these units was a pawn" in this file would
-## drift from the one in the simulation, which is what `_cost_summary`'s own
-## comment above already had to be careful about.
-##
-## The colour follows the word rather than the outcome enum, or the banner would
-## say Defeat in the player's own colour.
 static func outcome_word(state: CombatState) -> String:
 	if CombatSim.is_pawnless_win(state):
 		return "Defeat"
@@ -822,27 +651,6 @@ static func outcome_word(state: CombatState) -> String:
 
 ## Issue 249: what finished the fight, in words, or "" when saying anything would
 ## add nothing.
-##
-## `outcome` says who won and `CG.EndReason` says what ended it, and since #243
-## those are genuinely two facts: a side can lose because it is dead, or because
-## nothing left on it can ever act again. On seed 0 the screen read "The Warden's
-## Marked fades" and then Defeat, which is legible only to somebody who already
-## knows the rule.
-##
-## **NO_SURVIVORS prints nothing.** It is the ending the game has always had and
-## "everything on the other side is dead" is what a player already reads Victory
-## as meaning. A line under every banner restating the obvious is furniture
-## within two fights, and then the one ending that needed explaining is wearing
-## the same clothes as the one that never did.
-##
-## UNSET prints nothing either, and that is not the same silence: it means
-## nothing set a reason, which `CG.EndReason` calls a defect in the setter rather
-## than a fourth ending. `test_ui_battle_end_banner.gd` asserts a real fight never
-## reaches the banner carrying it, so the silence cannot hide one.
-##
-## The side is named rather than left as "they". The reason is a fact about the
-## LOSER, and a player reading "nothing could fight any more" under a Defeat has
-## to know whether that was their party or the room.
 static func end_reason_sentence(state: CombatState) -> String:
 	if end_reason_of(state) != CG.EndReason.CANNOT_ACT:
 		return ""
@@ -853,9 +661,6 @@ static func end_reason_sentence(state: CombatState) -> String:
 	return "Neither side could fight any more."
 
 ## The reason off the fight's own FIGHT_END event.
-##
-## Searched from the end because FIGHT_END is the last thing in the stream and a
-## restarted fight appends to a fresh state, so the last one is this fight's.
 static func end_reason_of(state: CombatState) -> CG.EndReason:
 	for i in range(state.events.size() - 1, -1, -1):
 		if state.events[i].kind == CG.EventKind.FIGHT_END:

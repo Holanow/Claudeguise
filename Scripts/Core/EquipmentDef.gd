@@ -4,8 +4,6 @@ class_name EquipmentDef
 
 ## Weapon, armor or accessory. All three share one shape and the slot decides
 ## which fields are read.
-##
-## MANAGER-OWNED SHAPE. Instances belong to the content session.
 
 enum Slot { WEAPON, ARMOR, ACCESSORY }
 

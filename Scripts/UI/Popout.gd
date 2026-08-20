@@ -4,24 +4,6 @@ class_name Popout
 
 ## Issue 112: "I need to be able to pin and drag any popup that is created
 ## outside of a menu."
-##
-## OWNER: wren.
-##
-## One pinned popout. Dragging is handled here rather than by a title bar,
-## because a title bar is a second thing to aim at: **the whole panel is the
-## handle**, except the close button, and a drag is clamped so a popout can
-## never be dropped where it cannot be picked up again.
-##
-## The panel is the same bordered box `GlossaryTooltip` draws for a hover, in
-## the same Palette tokens, so a pinned popout is visibly the hover box that
-## stayed rather than a different kind of window.
-##
-## `mouse_filter` is the trap this issue names and it is set in three places on
-## purpose: STOP on the panel so a drag reaches it, IGNORE on the two labels so
-## they do not swallow the drag before the panel sees it, and STOP on the close
-## button so it beats the drag. A `Label` defaults to IGNORE and a `Control`
-## defaults to STOP, which is the mismatch that shipped one unreachable feature
-## on this project, so nothing here is left to a default.
 
 const MAX_WIDTH := 260.0
 
@@ -89,31 +71,10 @@ static func build(title: String, body: String) -> Control:
 
 ## The same bordered box GlossaryTooltip draws, with a brighter border so a
 ## pinned popout reads as the one you are holding rather than one more panel.
-##
-## Issue 268: through `UIArt.panel_style`, so `Assets/UI/panel.png` reaches it.
-## The brighter border is a state signal -- pinned versus hovered -- and a
-## nine-slice is drawn as painted, so a dropped-in `panel.png` skins the popout
-## and the tooltip identically and the distinction goes. That is the
-## PartyCard/EquipmentIcons rule and this is a third instance of it; it is not
-## fixed here because the pin state has a second cue already (the popout is
-## draggable and carries a close affordance) and because inventing a new signal
-## is more than issue 268 asked for. Noted so the next person finds it.
 static func _style() -> StyleBox:
 	return UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.TEAM_PLAYER, 1, Palette.SPACE_S)
 
 ## The control this popout was pinned from, so the text can be kept true.
-##
-## Issue 245. A pinned popout used to be a snapshot: `PopoutHost` copied
-## `tooltip_text` into a Label and nothing ever wrote to it again. That was
-## harmless while every popout described a constant -- what STR does, what
-## Poison does in general -- and it stops being harmless the moment a popout
-## carries a live number. A pinned box reading *"3 stacks, 4.2s left"* four
-## seconds later is not stale, it is **wrong**, and the player asked for the
-## live numbers specifically.
-##
-## Weak rather than strong: the host is a chip on a panel that rebuilds rows as
-## units die, so a popout must not keep a freed control alive, and `refresh`
-## must not assume it is still there.
 var source: WeakRef = null
 
 ## Re-read the body from whatever pinned this. Silent when there is no source or
@@ -177,9 +138,6 @@ func _gui_input(event: InputEvent) -> void:
 
 ## Public so a test can drag without synthesising input, and so the clamp is
 ## one function rather than repeated at the two call sites that place a popout.
-## Clamped against the parent's rect: a popout dropped past the edge is a
-## popout that cannot be picked up again, which is the same class of defect as
-## a control laid out off the bottom of the screen.
 func move_to(target: Vector2) -> void:
 	# The parent's own `size`, not `get_parent_area_size()`. That call returns
 	# (0, 0) for a Control outside a live SceneTree however large its parent

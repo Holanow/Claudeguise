@@ -2,61 +2,10 @@ extends RefCounted
 class_name AttackFX
 
 
-## The attack visuals PLAYTEST-NOTES item 4 asks for: "every class needs an
-## attack asset or animation so I know what's up."
-##
-## MANAGER-OWNED (`Scripts/Art/**`). Both pieces are wired into the fight and
-## both call sites are `Scripts/UI`, wren's: `ArenaFloor` draws the projectile
-## marker and `ImpactFlash` draws the burst.
-##
-## ---------------------------------------------------------------------------
-## WHY DAMAGE TYPE AND NOT CLASS
-##
-## A per-class animation would lose to the outline the same way a literal
-## rasterization of the old polygons lost to Silhouettes' hand-designed
-## shapes in the first art pass -- interior detail and motion both vanish at
-## the size a unit or a 5px projectile mark actually draws. Damage type
-## survives that: every action already carries one (ActionDef.damage_type),
-## the floating numbers already colour by it (Palette.damage_color), and a
-## Priest's Smite now reads nothing like a Cultist's Dark Bolt even though
-## both are "a ranged bolt" in the abstract -- which is closer to what the
-## player is actually asking to be able to tell apart than "which class
-## threw it" is.
-##
-## ---------------------------------------------------------------------------
-## TWO PIECES
-##
-## 1. Projectile shape (`projectile_points` / `draw_projectile`) -- a small
-##    distinct silhouette per damage type, replacing a single dot-with-trail
-##    for every ranged shot.
-## 2. Impact flash (`impact_flash_radius` / `impact_flash_alpha` /
-##    `draw_impact_flash`) -- a brief radial burst at the position and tick a
-##    DAMAGE/HEAL event lands, so melee gets an actual attack visual and not
-##    just a number appearing.
-##
-## There were three. The middle one was a wind-up telegraph ring, and it is
-## gone: PR #84 replaced the ring with a progress bar carrying an ability icon
-## (`UnitView._draw_wind_up` + `ActionIcons`), the player preferred the bar, and
-## nothing in the game reached `draw_wind_up` afterwards. Removed in issue #85
-## rather than left with passing tests, which is the one thing that makes dead
-## code look load-bearing.
-##
-## Geometry and colour are split from the actual draw_* calls the same way
-## Silhouettes.build_parts is split from Silhouettes.draw_unit: Godot refuses
-## draw_* outside _draw(), so a test that only calls the draw_ wrapper logs a
-## wall of errors and asserts nothing.
-
-## One polygon per damage type, in a unit circle (-1..1) with +X as "forward"
-## -- the direction of travel. draw_projectile rotates and scales these; nothing
-## here knows about world space.
-##
-## Colour alone already carries most of the read at the ~5-10px a projectile
-## mark draws (Palette.damage_color, same as the floating numbers), so shape
-## is the secondary cue -- for a viewer who cannot rely on the colour, same
-## reasoning Terrain's hazard stripes exist alongside its colour fill. Kept
-## simple on purpose: one polygon, no negative-space islands, because there is
-## no room for a detached feature at this size the way there is on a full unit
-## silhouette.
+## Attack visuals, keyed by damage type rather than by class. Interior detail
+## vanishes at the size a unit or a 5px projectile mark actually draws, and
+## every action already carries a damage type that the floating numbers
+## already colour by.
 const _PROJECTILE_SHAPES := {
 	# Arrow: a head and a shaft, the plainest "this is a shot" read.
 	CG.DamageType.PHYSICAL: [
@@ -109,8 +58,6 @@ const _PROJECTILE_SHAPES := {
 
 ## The points for one damage type, scaled to `size` and rotated so local +X
 ## points along `forward` (world space, not necessarily normalised).
-## Split from draw_projectile so a test can check the geometry without a
-## live canvas.
 static func projectile_points(damage_type: CG.DamageType, size: float, forward: Vector2) -> PackedVector2Array:
 	var raw: Array = _PROJECTILE_SHAPES.get(damage_type, _PROJECTILE_SHAPES[CG.DamageType.PHYSICAL])
 	var angle := forward.angle() if forward.length_squared() > 0.0001 else 0.0

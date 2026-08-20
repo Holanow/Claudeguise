@@ -1,16 +1,6 @@
 extends Node
 
 ## Issue 176: can a player actually reach all four rooms?
-##   godot --path . --resolution 1280x720 res://Tools/RoomPickerShot.tscn
-##
-## heron's `test_only_one_pickable_room_can_actually_be_reached` says to verify
-## every room reaches a real fight THROUGH THE CONTROLS before deleting it.
-## This is that verification: for each room, a fresh Main, the picker driven by
-## its own `item_selected`, Start Fight, the deploy screen, Start Fight again,
-## and then the built CombatState compared against the room that was chosen.
-##
-## Comparing the state, not the label: a screen can print any name. The fight
-## has to contain the room's own terrain and its own enemy positions.
 
 
 const OUT_DIR := "res://Screenshots"

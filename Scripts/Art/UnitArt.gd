@@ -4,7 +4,6 @@ class_name UnitArt
 
 ## Real art, if any exists, in place of the placeholder polygons.
 ##
-## MANAGER-OWNED (`Scripts/Art/**`), and built to be thrown away by whoever
 
 const ART_DIR := "res://Assets/Units"
 
@@ -32,9 +31,6 @@ static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return texture_for(shape_id, team) != null
 
-## Draws the texture centred on `center`, scaled so its longest side spans the
-## unit's diameter. Aspect ratio is preserved: art that is taller than it is wide
-## stays that way rather than being squashed into a square, because a squashed
 static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left: bool, center: Vector2 = Vector2.ZERO) -> void:
 	var size := Vector2(tex.get_width(), tex.get_height())
 	if size.x <= 0.0 or size.y <= 0.0:
@@ -48,9 +44,6 @@ static func draw(canvas: CanvasItem, tex: Texture2D, radius: float, facing_left:
 	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	canvas.draw_texture_rect(tex, signed_rect(tex, radius, facing_left, center), false)
 
-## The rect `draw` hands to `draw_texture_rect`, signed: `size.x` is negative
-## when the sprite is mirrored. Split out of `draw` only so a test can assert
-## the arithmetic without a renderer -- the gate is headless and reads back
 static func signed_rect(tex: Texture2D, radius: float, facing_left: bool, center: Vector2 = Vector2.ZERO) -> Rect2:
 	var size := Vector2(tex.get_width(), tex.get_height())
 	var drawn := size * ((radius * 2.0) / maxf(size.x, size.y))
@@ -95,11 +88,6 @@ static func column_tops(tex: Texture2D) -> PackedFloat32Array:
 	return out
 
 ## `opaque_rect` as a fraction of the footprint the unit is drawn into, per axis.
-##
-## Computed from the integer pixel counts rather than by scaling and dividing
-## back, so a sprite whose art is exactly half its file -- `priest.png` is 12
-## opaque columns of 24 -- reports exactly 0.5 instead of 0.49999999999999994.
-## A floor test on this value sits right on that boundary today.
 static func opaque_fraction(tex: Texture2D) -> Vector2:
 	var longest := maxf(tex.get_width(), tex.get_height())
 	if longest <= 0.0:

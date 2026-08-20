@@ -4,11 +4,6 @@ extends "res://Tests/TestCase.gd"
 ## MANAGER-OWNED. Terrain geometry is the one piece of maths three sessions
 ## would otherwise each write, so it is written once and tested hard here rather
 ## than three times and tested loosely.
-##
-## Line-of-sight in particular is the classic subtly-wrong-for-a-year function:
-## it passes every test anyone thinks to write with a wall directly between two
-## points, and is wrong for a wall beside the line, behind a point, or exactly
-## touching it. Those cases are all below.
 
 
 func _wall(x: float, y: float, w: float, h: float):

@@ -3,13 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## TAUNTING and SHIELDING: one mechanism serving the Warrior (guard/taunt) and
 ## the Siege Master (draw fire onto a summoned engine). This file covers:
-##   - CombatUnit.facing, set by CombatSim from movement and from committing
-##     to an action -- nothing set it before this.
-##   - SHIELDING: a travelling shot crossing a shielder's front resolves
-##     against the shielder instead of its intended target.
-##   - TAUNTING's status machinery (apply/expire, writing taunt_radius) --
-##     inert on its own; nothing yet reads it to redirect a decision. That
-##     half is Scripts/Plans, routed to dace separately.
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -409,7 +402,6 @@ func test_determinism_holds_with_shielding_in_play() -> void:
 # ---------------------------------------------------------------------------
 # TAUNTING status machinery -- inert: nothing yet reads taunt_radius to
 # redirect a decision. That half is Scripts/Plans, and not this file's.
-# ---------------------------------------------------------------------------
 
 func test_applying_taunting_writes_taunt_radius_onto_the_unit() -> void:
 	var taunt := ActionDef.new()
@@ -518,8 +510,6 @@ func test_reapplying_taunting_refreshes_taunt_radius() -> void:
 # ---------------------------------------------------------------------------
 # EnemyDef.spawn_taunt_radius: a non-pawn unit taunts from the moment it
 # exists, since its one fixed action can never also be "taunt, then attack"
-# the way a plan-driven pawn rotates between blocks.
-# ---------------------------------------------------------------------------
 
 func _engine_def(id: StringName, hp: int, taunt_radius: float) -> EnemyDef:
 	var e := EnemyDef.new()

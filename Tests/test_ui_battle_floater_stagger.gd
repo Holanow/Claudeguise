@@ -7,14 +7,6 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## (Tools/preview/fight_04.png: "Cultist dies", a floating 2 and a unit label
 ## all on the same pixels). Each new floater near an existing one now spreads
 ## a step further rather than landing on top of it.
-##
-## Issue 136 made the numbers a toggle defaulting to OFF, so every test here now
-## turns them on in the fixture and resets afterwards. **The assertions are
-## unchanged**: this file measures where a floater lands relative to its
-## neighbours, which is a question about floaters that are being drawn. Left as
-## it was, it would have passed trivially by spawning none -- a stagger test
-## with nothing to stagger, which is the "X can never be observed" failure this
-## project has already shipped twice.
 
 func _make_view_with_target(pos: Vector2) -> Node2D:
 	var state := CombatState.new(1)
@@ -67,13 +59,6 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	# The death marker's own vertical offset stacks on top of the
 	# horizontal stagger, not instead of it: a killing blow's DAMAGE event
 	# and its DEATH event fire the same tick and must not overlap either.
-	#
-	# PR #69's wiring adds an ImpactFlash alongside every DAMAGE/HEAL
-	# event's own floater, so "the last child added" is no longer
-	# necessarily the floater -- filtered by script instead (the same
-	# selector _floater_stagger_offset itself already uses) rather than by
-	# position in the tree, which is exactly the kind of assumption a new
-	# sibling node breaks silently.
 	const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 	var view := _make_view_with_target(Vector2(50.0, 50.0))
 	var damage := CombatEvent.make(CG.EventKind.DAMAGE, 1)

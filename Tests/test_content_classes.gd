@@ -36,64 +36,10 @@ func test_every_starting_action_resolves() -> void:
 			assert_not_null(Registry.get_action(action_id), "%s references unknown action %s" % [id, action_id])
 
 
-## Issue 52: Warrior ships three, not two. SHIELDING has no path from the
-## game to a player without a preset plan (the plan editor is deferred), so
-## warrior_block needed a third slot rather than replacing warrior_guard's
-## or warrior_taunt's already-tuned ones -- both stay, disclosed in
-## starting_classes.gd's own WIS 4->6 note (the budget the third plan needed
-## a raise for) and PresetPlans.gd's own comment on warrior_block_default.
-##
-## Priest ships four: the player's own "one for speed, one for resistance"
-## direction (priest_haste, priest_ward) added two plans on top of the
-## original heal/smite pair, same reasoning and the same WIS-budget-raise
-## shape as the Warrior's own third plan -- see starting_classes.gd's WIS
-## 5->8 note.
-##
-## Issue 79: Warrior ships four. warrior_execute had no preset plan at all
-## after issue 30 deleted `warrior_execute_when_raging`, and DefaultBehavior
-## never picks it (no ranged action in the kit, so `_choose_attack_action`
-## always falls back to warrior_strike) -- so the action fired zero times in
-## 210 real fights. A preset plan is once again the only path from the game to
-## it. Same WIS-budget-raise shape as the two entries above; see
-## starting_classes.gd's own WIS 6->8 note.
-##
-## Every other class keeps the original two-plan invariant.
-##
-## Issue 87: Geysermancer ships three. `geyser_cleanse` is ally-targeted, and
-## `DefaultBehavior` cannot reach an ally-targeted action for this class at all,
-## so -- exactly like warrior_execute and warrior_block before it -- a preset
-## plan is the only path from the game to the ability. Measured, not assumed:
-## swift's `Tools/CleanseWindow.gd` fired a *free* cleanse zero times in 210
-## real fights when it sat in `starting_actions` and nowhere else. Unlike those
-## two this needed no WIS raise: three plans at 2 blocks each is exactly the
-## WIS-6 budget this class already had.
-##
-## Issue 206: Abomination ships three. Same shape as every entry above -- the
-## Sickle grants `abomination_claw` and Claw fired **zero** times, so a preset
-## plan is the only path from the game to it. Measured twice before settling:
-## "Claw while you cannot afford a Hook" fired 3 times in 80 fights, because this
-## class sits under Hook's cost for 0.2% of its alive ticks; "Claw whoever is not
-## poisoned" fires 260. WIS 4 -> 6 for the third plan, the same pure-capacity
-## raise the Warrior and Priest entries above record.
-##
-## Issue 160: Warrior ships five. `warrior_block` has now been rescued from
-## unreachability three times -- issue 52 filed it existing and never firing,
-## issue 99 moved it onto `plate_mail` and deleted its plan in the same commit,
-## and swift then measured 0 SHIELDING and 0 BLOCKED across 40 seeds of 7
-## encounters. `DefaultBehavior` cannot reach a zero-power self-buff, so a preset
-## plan is the only path, and four plans at 2 blocks each sat exactly at the
-## WIS-8 budget. WIS 8 -> 10, the same pure-capacity raise this class's own entry
-## records at 4 -> 6 and 6 -> 8, and `Balance.plan_block_budget` is still the only
-## reader of WIS anywhere in `Scripts/`.
-##
-## Issue 219: Abomination ships four. `abomination_immolate` is the only
-## sustained action in the game, so it is the only thing that can produce a
-## `SUSTAIN_START` or a `SUSTAIN_END` -- two event kinds that had rendered
-## correct log lines and fired zero times in 100 fights since #61. It cannot
-## arrive through `DefaultBehavior`: that layer is deliberately blind to
-## sustained actions now (see `_attack_candidates`), because a channel lit by the
-## fallback is a pawn holding an aura for a reason written in no plan. WIS 6 -> 8,
-## the same pure-capacity raise this class's own 4 -> 6 entry records.
+## Plans per class. Two is the baseline. A class ships more when an action has
+## no other path from the game to the player: `DefaultBehavior` cannot reach an
+## ally-targeted action, a zero-power self-buff, or a sustained one, so without
+## a preset plan those fire zero times.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 5,
 	&"priest": 4,
@@ -236,9 +182,6 @@ func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
 
 
 ## Issue 13b criterion 2: no room may spawn a unit inside a WALL or PIT.
-## `Terrain.point_is_blocked` is the same check the simulation itself uses for
-## movement, at radius 0 -- a spawn point exactly inside a wall's rect fails
-## this the same way it would fail to walk there.
 func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 	var checked := 0
 	for encounter_id in Registry.all_encounter_ids():
@@ -289,7 +232,6 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	# enemy re-deciding afterward, which tests a different thing (what
 	# happens once the tank is gone) than what this test is checking (does
 	# taunt redirect while both are alive). 100 ticks was checked directly:
-	# Warrior alive at 163/246 hp, no false failure from this effect.
 	for i in 100:
 		CombatSim.step(state)
 	var warrior_unit := state.unit(0)
@@ -309,23 +251,11 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	# across a real room, and one far enough away to be outside the
 	# Warrior's own taunt_radius is a legitimate case, not a bug -- taunt
 	# reaches what it reaches, it does not blanket the whole encounter.
-	# The real claim is that taunt clearly wins the room, not that it wins
-	# every single enemy regardless of distance.
 	assert_true(enemies_focused_on_warrior > enemies_focused_on_geysermancer, "a taunting Warrior in range should pull most of the room off the Geysermancer, got %d on the Warrior vs %d still on the Geysermancer" % [enemies_focused_on_warrior, enemies_focused_on_geysermancer])
 
 
 ## Issue 30, second pass: a taunting Warrior that dies inside its own taunt
 ## window is a worse tank than one that never taunted (rook's framing).
-## `no_abomination`'s own boss fight measured the Warrior dying to The
-## Warden at tick 203 of a 240-tick taunt, both before and after several
-## CON values up to 35 -- proof CON alone does not fix that specific comp,
-## reported in the PR rather than a claim this test could cheaply stand in
-## for (a single pawn vs a real boss is a different, larger scenario). What
-## this test checks instead, cheaply and directly: warrior_guard's own
-## trigger. Raised 0.35->0.65 so a Warrior takes real proactive cover after
-## one meaningful hit rather than needing to already be almost dead --
-## checked against the exact number rather than trusting the comment above
-## the constant to stay true.
 func test_warrior_guards_proactively_not_only_when_nearly_dead() -> void:
 	var warrior := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
 	var plans := PresetPlans.for_class(&"warrior")

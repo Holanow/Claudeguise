@@ -2,15 +2,10 @@ extends Resource
 class_name ActionDef
 
 
-## Something a unit can do that takes time and may cost resource. Attacks,
-## spells, blocks, and the plain move are all actions, so the simulation has one
 
 @export var id: StringName = &""
 @export var display_name: String = ""
 
-## One or two sentences a player reads on the inspect screen, in their language
-## rather than ours: what this does and when it is worth using. Not the numbers ÃƒÂ¢Ã¢--Â¬Ã¢â‚¬Â
-## the screen can read those off the fields below and they change every time
 @export var description: String = ""
 
 ## Ticks between the unit committing and the effect landing. The unit is
@@ -91,7 +86,6 @@ class_name ActionDef
 
 ## World units per tick a shot from this action travels before its effect
 ## lands. 0.0 means instant -- every action that exists today, unchanged --
-## same inert-by-default pattern as pull_distance and summons_unit_id before
 @export var projectile_speed: float = 0.0
 
 ## How far this action's TAUNTING status reaches, in world units. 0.0 means the
@@ -100,14 +94,9 @@ class_name ActionDef
 
 ## Issue 150. This action is cast on its caster, whoever that is.
 ##
-## **A marker rather than an inference, and the inference is the trap.**
 @export var targets_self: bool = false
 
 ## Issue 61. Resource charged to the caster on every tick this action is held.
-## 0 means the action is not sustained, which is every action that exists today,
-## so adding this changes no behaviour and invalidates no measurement -- the same
 @export var sustain_cost_per_tick: int = 0
 
-## World units around the caster a held effect reaches on each tick. Every
-## living enemy inside it takes the action's effect, the same
 @export var sustain_radius: float = 0.0

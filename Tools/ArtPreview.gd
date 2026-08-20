@@ -3,14 +3,6 @@ extends Node2D
 
 ## Draws every placeholder silhouette once, at the size it will actually appear
 ## in a fight, and saves a screenshot.
-##
-##   godot --path . Tools/ArtPreview.tscn
-##
-## MANAGER-OWNED. This is a look-at-it harness, not part of the game, which is
-## why it lives in Tools/ and not in Scenes/ where it would collide with pike.
-##
-## It exists because "the art is fine" is not something to conclude from reading
-## an array of coordinates. Every shape here was moved after seeing it rendered.
 
 const CAPTURE_PATH := "res://Tools/preview/silhouettes.png"
 
@@ -21,13 +13,6 @@ const _MARGIN := Vector2(60.0, 90.0)
 ## Drawn at two sizes: large enough to see what the shape is meant to be, and
 ## the size it will actually occupy on screen. A silhouette that reads well only
 ## at the large size has not solved the problem.
-##
-## The second number is derived rather than typed, and the first version of this
-## file got it wrong by typing 12.0 — the world radius — which showed every
-## shape smaller than it will ever appear and made them all look hopeless. The
-## arena is CG.ARENA_HALF_WIDTH either side of the origin fitted across the
-## viewport, so a world radius is multiplied by that scale before it reaches a
-## pixel. Same class of error as measuring the right thing in the wrong units.
 const _RADIUS_LARGE := 54.0
 const _DEFAULT_UNIT_RADIUS := 12.0
 

@@ -6,8 +6,6 @@ class_name PawnData
 ## simulation never mutates one of these. It reads it once when building the
 ## CombatUnit, so the same PawnData can be dropped into the same fight twice and
 ## produce the same fight twice.
-##
-## MANAGER-OWNED SHAPE.
 
 @export var id: StringName = &""
 @export var display_name: String = ""

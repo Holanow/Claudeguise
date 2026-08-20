@@ -3,19 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## ISSUE 233. A side with nothing left that can act has lost now, not in
 ## twenty-five seconds.
-##
-## Measured, not supposed: on `floor1_warden`, 22 of 40 seeds outlive the whole
-## party because two Siege Engines are still standing. Eleven are wins the
-## engines land inside four seconds. The other eleven ran **25.9 seconds** after
-## the last pawn died, of which 21.8 to 25.9 seconds contained no player-side
-## event of any kind (`Tools/TailAnatomy.gd`), because `siege_engine_bolt` is
-## marked-only, the engines cannot move, and the only unit that applies MARKED
-## is the dead Siege Master.
-##
-## The rule is narrow on purpose and the negative tests are the point: a
-## cooldown, an empty resource pool and a target out of range all resolve
-## themselves in time, so none of them may end a fight. Only a mark cannot be
-## restored by the unit that needs it.
 
 const _SEED := 23300
 

@@ -6,16 +6,6 @@ extends Node2D
 ##   godot --path . --resolution 1280x720 res://Tools/FacingInk.tscn
 ##
 ## OWNER: wren. Not part of the game and not part of the gate.
-##
-## `Tools/FacingVisible.gd` -- mine, issue 256 -- compares `build_parts`, and
-## **for the ten shapes with a PNG in `Assets/Units/` those polygons are dead
-## code the game never draws.** That is the same error `BADGE-LEGIBILITY.md` §8
-## records twice in this repo, and I made it a third time. This tool rasterises
-## instead, so it asks the path `draw_unit` really takes.
-##
-## Each shape is drawn twice at a known origin, once per facing, and the frame
-## is scanned for the columns that received ink. A mirror that flips a shape in
-## place leaves the inked span unmoved; anything else prints the displacement.
 
 const ORIGIN_Y := 120.0
 const ROW_STEP := 200.0

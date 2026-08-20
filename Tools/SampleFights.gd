@@ -2,21 +2,6 @@ extends SceneTree
 
 ## Runs the real encounter with real content across many seeds and prints what
 ## happened.
-##
-##   godot --headless --path . --script res://Tools/SampleFights.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## This exists because every other thing I look at is a report *about* the work,
-## and most of them are written by whoever is being reviewed. A test suite says a
-## fight resolves. It does not say whether the fights are all the same length,
-## whether one party composition wins every time, or whether the encounter is a
-## coin flip. Those are properties of the assembled whole, and review inspects
-## parts.
-##
-## It deliberately measures rather than renders: how long, how close, who died.
-## If a fight is decided in two seconds or takes the full two minutes, nobody
-## needs to watch it to know something is wrong.
 
 
 const SEEDS := 20
@@ -32,19 +17,6 @@ func _init() -> void:
 		return
 
 	# EVERY encounter, named in the output, rather than one picked by index.
-	#
-	# This used to sample `encounter_ids[0]`, which was correct while exactly one
-	# encounter existed and became silently wrong the moment a second appeared:
-	# the list is sorted alphabetically, so `floor1_ghoul_den` displaced
-	# `floor1_room1` and the tool went on printing confident numbers about a room
-	# nobody was tuning. teal caught it after two rounds of retuning produced
-	# byte-identical output and they went looking for why instead of assuming
-	# their edit had not mattered.
-	#
-	# The fix is not an argument for choosing the encounter. It is measuring all
-	# of them and putting the name above each table, so there is no index to be
-	# wrong about and no way to read a number without seeing what it is a number
-	# for.
 	for encounter_id in encounter_ids:
 		print("")
 		print("========================================================")
@@ -68,28 +40,6 @@ func _init() -> void:
 
 ## Every party a player can actually assemble, and then the ones they cannot,
 ## labelled as such.
-##
-## `PartySelect` gives one card per class and refuses a second copy of the same
-## one (`_selected.has(pawn)` at PartySelect.gd:213), with MAX_PARTY_SIZE 4. So
-## with five classes the only full parties in the game are the five
-## leave-one-out combinations. **`siege_master x4` is not a party. Nobody can
-## build it.**
-##
-## This tool generated four-of-a-kind parties from the first day and every
-## balance decision tonight was steered by them: issue 24, issue 31 and issue 35
-## are all about `siege_master x4` being untouchable, and issue 7's coin-flip
-## criterion was met by `abomination x4`. Real conclusions, drawn carefully,
-## from measurements of teams that cannot exist.
-##
-## wren found it by playing the game, which is the only place the constraint is
-## visible, and found it in the same hour they found `PartySelect` fighting the
-## wrong room off `all_encounter_ids()[0]`. Both bugs are the same shape as the
-## one the long comment above already describes: **a tool and the game disagreeing
-## about what the game is, with only the tool being read.**
-##
-## The mono-class rows stay, because they are a genuinely useful read on a single
-## class's strength, but they are printed under a heading that says what they
-## are so that nobody balances against them again.
 func _parties(class_ids: Array) -> Array:
 	var out := []
 	if class_ids.size() > 4:
@@ -170,20 +120,6 @@ func _sample(party_ids: Array, encounter) -> void:
 		_median(margins), close_note,
 	])
 	# The number the user asked for, and it changes what "balanced" means.
-	#
-	#   "If a team wins 75% of the time but they do it with 2 members down and
-	#    the other 2 almost dead I would call that fine pretty much."
-	#
-	# So a high win rate is not the failure. A high win rate that costs nothing
-	# is. Win count alone cannot tell those apart and it is what we had been
-	# steering by all evening.
-	#
-	# Measured over WON fights only, which the first version of this did not do.
-	# A median across all twenty is dominated by the losses, where the party
-	# finishes on 0% by definition — so `priest x4`, which won one fight in
-	# twenty, was printing "COSTLY WIN: this is the shape we want" beside a row
-	# that is simply a party losing. The label describes what winning costs, so
-	# it has to be computed from the fights that were won.
 	if wins == 0:
 		print("  cost       no wins to measure")
 	else:
@@ -217,14 +153,6 @@ func _median(a: Array[int]) -> int:
 
 
 ## How much hp the losing side had left, as a percentage of its starting total.
-##
-## This is the number issue 7 is really about. A win/loss record says which side
-## won; it says nothing about whether it was close. 0% means the loser was wiped
-## out — which is what every fight in this project has been so far. Anything
-## above about 15% is a fight that could have gone the other way.
-##
-## Measured on the side that lost, so it reads the same whoever wins. A draw is
-## measured on the party, since a draw is a failure to finish rather than a win.
 func _losing_side_hp_percent(state, outcome: int) -> int:
 	var team := CG.Team.PLAYER
 	if outcome == CombatState.Outcome.ENEMY_WIN:
@@ -277,24 +205,6 @@ func _team_hp_percent(state, team: int) -> int:
 
 ## The verdict line, and its polarity is reversed from the version rook
 ## wrote it with.
-##
-## The original read: a fight is fine when winning costs the winner
-## something, whatever the win rate is; UNTOUCHED (>=85% hp, nobody down)
-## was flagged as a problem and a COSTLY win (<=40% hp or <=2 survivors) was
-## labelled "the shape we want". That was rook's own target, from before a
-## full playthrough. The player played the finished build and reversed it
-## directly (PLAYTEST-NOTES.md note 5):
-##
-##   "The fights feel too close right now I think. With a party of 4 I
-##   should be winning most single battles and my losses should come from
-##   attrition"
-##
-## A single room is meant to be comfortable; the floor (several rooms, no
-## full heal between them, a dead pawn stays dead) is meant to be where a
-## run is actually lost. So this tool printing "COSTLY WIN: this is the
-## shape we want" beside a close single-room fight was steering straight at
-## the opposite of what the player asked for -- the same thresholds still
-## describe something real, only the label was backwards.
 func _cost_note(party_hp: int, survivors: int) -> String:
 	if party_hp >= 55 and survivors >= 4:
 		return "   <- COMFORTABLE WIN: matches the player's own single-fight target"

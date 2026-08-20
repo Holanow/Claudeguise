@@ -3,18 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## #58, #121 and #132: a taunted unit is FORCED to move into range and use its
 ## default attack on whoever taunted it.
-##
-## The test that carries the whole issue is
-## `test_a_compelled_pawn_abandons_a_plan_that_says_otherwise`. Taunt already
-## influenced targeting inside `DefaultBehavior`, which never runs when a plan
-## fired -- and every player pawn has a plan, so the ability was decorative in
-## the one situation it exists for. A fixture whose pawn has no plan would pass
-## on the old build and prove nothing.
-##
-## The negative pair matters as much: `test_an_untaunted_unit_decides_for_itself`
-## and `test_a_second_taunter_cannot_steal_a_pawn_already_compelled`. A
-## compulsion that fires when it should not is worse than one that never fires,
-## because it takes the game away from the player rather than merely failing to.
 
 const _SEED := 7200
 const _TAUNT_RADIUS := 300.0

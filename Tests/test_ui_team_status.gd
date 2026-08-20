@@ -3,15 +3,6 @@ extends "res://Tests/TestCase.gd"
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 113, the team status panel.
-##
-## Two halves, and the second one is the one that matters. The first is that the
-## panel says the right thing about a state handed to it. The second is that a
-## real fight, stepped through `BattleView._process`, puts it on the screen and
-## keeps it there -- twelve features on this project were built and unreachable,
-## and every one of them would have passed the first half.
-##
-## **Every assertion here has been shown its failing case.** A floor nobody has
-## crossed is a detector nobody has fired.
 
 const _WARRIOR := &"warrior"
 
@@ -79,9 +70,6 @@ func test_pawns_come_before_summons() -> void:
 	assert_eq(ids, [1, 0])
 
 ## The caps are per kind, so a fifth pawn and a third engine are both counted.
-## One combined total would be able to report zero hidden while a row was
-## missing, which is the failure `hidden_status_count` was written to end on the
-## badges and would have been reintroduced here.
 func test_the_overflow_count_is_counted_per_kind() -> void:
 	var state := CombatState.new(1)
 	for i in TeamStatusView.MAX_PAWN_ROWS + 1:
@@ -300,10 +288,6 @@ func test_the_panel_and_the_log_share_the_column_without_meeting() -> void:
 ## to the base and the other expands. Checked against a real launch rather than
 ## taken from the documentation -- 844x390 reports 1558x720, and 390x844 reports
 ## 1280x2770, both of which this reproduces.
-##
-## It is here rather than in `BattleView` because nothing in the game needs it:
-## Godot answers `get_viewport_rect()` directly. Only a test that wants to know
-## what a window the harness cannot open would have reported needs to derive it.
 func _viewport_for(window: Vector2) -> Vector2:
 	var base := Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width")),
@@ -315,10 +299,6 @@ func _viewport_for(window: Vector2) -> Vector2:
 ## corner, out of the way."* A box in a corner, not a column and not a full-width
 ## band, and the same box in both orientations -- portrait's band is full width
 ## by design, which is the one difference.
-##
-## Landscape and portrait are checked in that order on purpose: the bug this
-## shape of code produces is a stale offset from the previous orientation, and it
-## only ever appears on the second call.
 func test_the_log_is_a_box_in_the_bottom_corner() -> void:
 	var log_view := Control.new()
 	log_view.set_script(CombatLogView)
@@ -369,10 +349,6 @@ func test_the_panel_never_exceeds_the_height_reserved_for_it() -> void:
 ## below 23, so a pawn row was really 72 rather than 66, the panel overran the
 ## inset, and two rows drew underneath the log's text. Nineteen tests were green
 ## through it, because not one of them asked Godot how tall a label is.
-##
-## So `panel_height` sums what the nodes report, and this checks the constant
-## against that in **both** directions. The upper bound alone is not enough: a
-## constant of 5000 would pass it and move the log off the screen.
 func test_the_reserved_height_matches_the_worst_case_the_nodes_actually_measure() -> void:
 	var state := CombatState.new(1)
 	for i in TeamStatusView.MAX_PAWN_ROWS + 1:

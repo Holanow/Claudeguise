@@ -3,31 +3,9 @@ class_name Silhouettes
 
 
 ## What one unit looks like: a PNG in `Assets/Units/`, and nothing else.
-##
-## MANAGER-OWNED (`Scripts/Art/**`).
-##
-## **This file was 704 lines of polygons in code.** Nineteen shapes, drawn as
-## point arrays because the Godot editor would not run on this machine and
-## anything needing an import step was unavailable. Twelve of them had been dead
-## for months -- a sprite existed and the polygons were never reached -- and that
-## dead half caused three separate measurement defects, each recorded in
-## `BADGE-LEGIBILITY.md` or in issue #266: a test counting humps on art nobody
-## renders, a published fill-ratio table taken off the wrong artefact, and a
-## facing probe measuring polygons the renderer had stopped drawing.
-##
-## The remaining seven were rendered out to PNGs and the polygons deleted.
-## Player's ruling, 2026-08-19: *"we should do basically 0 drawing with code
-## ever"*, and *"a missing sprite can fall back to a black square"*. The bake
-## tool is in git history: `git log --diff-filter=D -- Tools/BakeGlyphs.gd`.
-##
-## So there is one path now instead of two, which is the whole point: a
-## measurement taken here is a measurement of what the game draws.
 
 ## Every shape id with art on disk, sorted. Sorted because anything iterating
 ## content has to be deterministic.
-##
-## `<id>.player.png` and `<id>.enemy.png` are one id with two files -- see
-## `UnitArt.texture_for` -- so the side suffix is stripped before deduping.
 static func shape_ids() -> Array[StringName]:
 	var seen := {}
 	var dir := DirAccess.open(UnitArt.ART_DIR)
@@ -49,13 +27,6 @@ static func has_shape(id: StringName) -> bool:
 	return UnitArt.has_art(id, CG.Team.PLAYER) or UnitArt.has_art(id, CG.Team.ENEMY)
 
 ## Draws one unit's art centred on `center`, sized to fit a circle of `radius`.
-##
-## A shape with no file draws a BLACK SQUARE. Player's ruling, and it is the
-## right shape for it: an invisible unit looks like a simulation bug, and a
-## black square looks like a missing sprite.
-##
-## `center` exists so a caller that needs the art somewhere other than the
-## origin -- a card, a roster row, a tooltip -- can still come through here.
 static func draw_unit(
 	canvas: CanvasItem,
 	shape_id: StringName,
@@ -93,10 +64,6 @@ static func drawn_extent(
 ## The top edge of the drawing, sampled into `columns` bins across the unit's
 ## footprint, in the same local space `draw_unit` draws into. `INF` for a bin
 ## with no ink in it.
-##
-## **This function exists because a test that counted the humps on the Rat
-## King's back was counting them on art the game does not draw.** It reads every
-## pixel column the sprite covers, which is the only artefact there is now.
 static func top_profile(
 	shape_id: StringName,
 	radius: float,
@@ -137,9 +104,6 @@ static func top_profile(
 
 ## `drawn_extent` as a fraction of the footprint the game reserves for the unit,
 ## per axis. 1.0 means the drawing fills its nominal box on that axis.
-##
-## Normalised so it can be compared across shapes and tabulated; a caller sizing
-## a real bar wants `drawn_extent` and the radius it already has, not this.
 static func fill_ratio(shape_id: StringName, team: CG.Team) -> Vector2:
 	var tex := UnitArt.texture_for(shape_id, team)
 	if tex == null:

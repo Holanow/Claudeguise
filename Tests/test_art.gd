@@ -2,10 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## MANAGER-OWNED, alongside Scripts/Art/.
-##
-## These check the parts of the placeholder art that can go wrong silently. How
-## it *looks* is not testable and is not attempted: that is what
-## Tools/ArtPreview.tscn and the committed screenshot are for.
 
 
 const CLASS_SHAPES := [&"warrior", &"priest", &"geysermancer", &"siege_master", &"abomination"]
@@ -22,40 +18,11 @@ const UNUSED_SHAPES := [&"rat", &"grub", &"brute"]
 ## Siege Master's engine shipped invisible for weeks -- it was drawing the
 ## unknown-shape fallback in real fights and the art suite was green throughout,
 ## because a summoned unit is in no spawn list either.
-##
-## So anything drawn before its content exists goes here and gets checked like
-## content. The Rat King is floor 1's miniboss and the rat is what its attacks
-## leave behind; neither is in an encounter yet.
 const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine", &"stalker"]
 
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# The check that was missing, and the reason it was missing is instructive:
-	# I wrote silhouettes named rat, grub and brute before any content existed,
-	# teal named their enemies dungeon_grunt, dungeon_archer and dungeon_cultist,
-	# and every enemy in the game drew the unknown-shape fallback for hours.
-	# Both halves were individually correct. Nothing compared them, because they
-	# are owned by different sessions and neither one is wrong on its own.
-	#
-	# Asks the Registry rather than a list typed in this file. A list here would
-	# be a second artifact by the same author as the first, and it would agree
-	# with itself forever.
-	# Enemies are reached through the encounters rather than through a registry
-	# listing. That was the better question right up until it was not.
-	#
-	# **It missed the siege engine, and the player found it by playing:** "siege
-	# master engines are currently invisible". A summoned unit spawns in no
-	# encounter, so walking encounter spawn lists could never see it, and it drew
-	# the unknown-shape fallback in every real fight.
-	#
-	# The comment that used to sit here said "an enemy that never spawns does not
-	# need art yet, and one that spawns always does". True when written, false the
-	# moment mid-fight summoning landed. **A test's assumption can rot without the
-	# test ever failing**, which is the same failure as an instrument that stops
-	# measuring what it claims -- and this project has now been bitten by that
-	# more times than by any bug.
-	#
-	# So both sources are checked: what encounters spawn, and what actions summon.
 	for id in Registry.all_class_ids():
 		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
 
@@ -125,38 +92,8 @@ func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
 			"'%s' has a file that puts no ink on the screen" % id)
 
 
-## THE TEST THIS REPLACES CLAIMED SOMETHING TOP-EDGE GEOMETRY CANNOT SAY, AND
-## THE CLAIM IS WITHDRAWN HERE RATHER THAN RE-THRESHOLDED.
-##
-## It was called `test_the_rat_king_reads_as_more_than_one_animal` and it
-## asserted that the Rat King scores more outline peaks than `the_warden`,
-## `ghoul` and `brute`. It passed. It was measuring `build_parts` -- the
-## POLYGONS -- and `rat_king`, `the_warden` and `ghoul` all have PNGs in
-## `Assets/Units/`, so for three of the four shapes in that comparison the thing
-## measured is dead code the game never renders. Identical to the `fill_ratio`
-## defect in `BADGE-LEGIBILITY.md`; that one was fixed and nobody swept the file
-## for a second instance.
-##
-## Pointed at the drawn art, the comparison collapses. Measured over all
-## nineteen shapes, crests and the shallowest valley in canvas px at radius 200:
-##
-##     rat_king       3   31        goblin          3   17
-##     the_warden     2   17        warrior         3   50
-##     ghoul          2   50        geysermancer    3   83
-##     brute          2   71        goblin_archer   3   17
-##
-## **Four single-creature shapes still in the game score three.** A pawn with a head, an ear and a
-## raised weapon has the same top-edge signature as a pile of three animals,
-## because a top edge cannot tell a lobe from a creature. The old test's margin
-## came from the Rat King's polygon having many vertices near its top, which is
-## a fact about how it was authored rather than about how it reads.
-##
-## So "reads as many" is **not measurable here** and nothing below asserts it.
-## `Tools/RatKingSheet.tscn` and a screenshot of a real fight are the instrument
-## for that claim, and they are the reason both are committed.
-##
-## What IS measurable, and is a direct statement of the design rather than a
-## proxy for it: the back is three humps with sky between them.
+## "Reads as more than one animal" is NOT measurable from a top edge, and
+## nothing below asserts it.
 func test_the_rat_kings_back_is_three_humps_and_not_a_dome() -> void:
 	var crests := _peaks(&"rat_king")
 	assert_eq(crests, 3,
@@ -169,16 +106,6 @@ func test_the_rat_kings_valleys_keep_their_depth() -> void:
 	# the number that actually has headroom. A crest COUNT has none: three is the
 	# most any shape in the game scores, so the old `>= 4` was not a margin, it
 	# was unreachable.
-	#
-	# **This guards a failure mode I hit while drawing the sprite, not a
-	# hypothetical.** The outline pass is 8-connected, so it climbs a valley wall
-	# diagonally from both sides; authored one column wide, valleys at y11 and y9
-	# read back off the finished PNG as y6 and y4 and the scallop was simply gone.
-	# The crest count went to 1 and it was right to. Three-column valleys survive.
-	#
-	# Measured at 31 canvas px at radius 200, against the-warden's 17 and
-	# goblin's 17. The floor is 20: it fires while the shape still passes, and
-	# the bridging failure above puts it near zero.
 	var depth := _shallowest_valley(&"rat_king")
 	assert_true(depth >= 20.0,
 		("the Rat King's shallowest valley is %.0f px deep at radius 200, down from a measured 31. "
@@ -193,10 +120,6 @@ func test_the_crest_detector_can_tell_a_dome_from_a_range() -> void:
 	# sits lower than both its immediate neighbours by the margin, which holds
 	# for a sparse profile of polygon vertices and never for pixel columns, where
 	# adjacent bins usually read the same column and compare equal.
-	#
-	# It failed CLOSED -- zero for every shape, the Rat King included -- so
-	# repointing the old test at real art without replacing the detector would
-	# have looked like the sprite failing.
 	var dome := PackedFloat32Array([0.0, -40.0, -80.0, -100.0, -80.0, -40.0, 0.0])
 	assert_eq(_crests(dome, 16.0), 1, "a single dome must score one crest")
 
@@ -214,12 +137,6 @@ func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void
 	# version WAS a third mound, indistinguishable from `grub` and `brute` at a
 	# glance -- the failure the top of Silhouettes.gd warns about, sitting in the
 	# file underneath the warning.
-	#
-	# Deliberately NOT "flattest of every shape in the game". It is, at 1.21
-	# against grub's 1.15, and asserting a superlative on a six-percent margin
-	# would hand a failure to whoever next edits an unrelated shape. The design
-	# requirement is that it is not mistakable for the mounds, and that is what
-	# is checked.
 	var ratio := _aspect(&"rat")
 	for id in [&"grub", &"brute", &"ghoul", &"goblin", &"rat_king"]:
 		assert_true(ratio > _aspect(id),
@@ -232,11 +149,6 @@ func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void
 ## in `Assets/Units/`, so for those the polygons are dead code -- the test could
 ## not have failed for the shape a player actually meets, whatever happened to
 ## it. It is the identical defect the correction note in `BADGE-LEGIBILITY.md`
-## records for `fill_ratio`; that one was fixed and nobody swept the file for a
-## second instance, and this was it.
-##
-## `Silhouettes.top_profile` takes the same two paths `draw_unit` does, in the
-## same order, and reads real pixel columns for a shape with a sprite.
 func _peaks(id: StringName) -> int:
 	var radius := 200.0
 	return _crests(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)
@@ -244,18 +156,6 @@ func _peaks(id: StringName) -> int:
 
 ## How many crests the top edge has, where a crest is separated from the next by
 ## a valley at least `margin` deep. Prominence, not a per-bin comparison.
-##
-## **The per-bin version silently stopped working the moment the profile became
-## dense, and it failed CLOSED -- it reported zero for every shape, including
-## the Rat King.** It asked whether one bin sits lower than both its immediate
-## neighbours by `margin`; that holds for a sparse profile of polygon vertices
-## and never holds for pixel columns, where 40 bins across a 26-pixel sprite
-## means adjacent bins usually read the SAME column and compare equal. A crest
-## six pixels tall scored zero.
-##
-## Worth stating plainly because it is the more useful half of what this file
-## learned today: the old detector was not merely measuring dead art, it was
-## measuring it in a way that could not survive being pointed at the real thing.
 static func _crests(top: PackedFloat32Array, margin: float) -> int:
 	var out := 0
 	for i in _extremes(top, margin).size():
@@ -322,11 +222,6 @@ func _aspect(id: StringName) -> float:
 
 
 ## Fraction of its own nominal box a shape's drawn width actually covers.
-##
-## **This used to read `Silhouettes.build_parts` and it was measuring the wrong
-## thing** -- ten shapes had real PNGs and the polygons were dead code. There is
-## one path now, so the trap is gone rather than avoided. See the correction note
-## in `BADGE-LEGIBILITY.md`.
 func _fill_fraction(id: StringName) -> float:
 	return Silhouettes.fill_ratio(id, CG.Team.ENEMY).x
 
@@ -335,18 +230,6 @@ func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
 	# Measured for PLAYTEST-FRESH-2, whose headline is that units are too small
 	# to identify. The floor fails nothing today and fires on a shape drawn
 	# smaller than any that has ever shipped.
-	#
-	# This is NOT a claim that any shape should be wider. A goblin is a small
-	# hunched creature and that is what the shape is. It is a claim that nobody
-	# should add a shape that occupies a third of the space the game reserves for
-	# it, because the decoration around it is sized from the reservation.
-	#
-	# The floor stays at 0.5 across the correction from polygons to real art, and
-	# that is a coincidence worth writing down rather than a threshold left
-	# alone: the polygon path's worst was the goblin at 0.56, the real art's
-	# worst is `priest.png` at exactly 0.50 -- twelve opaque columns of a
-	# twenty-four wide file. It sits ON the floor, so the next shape drawn any
-	# narrower goes red immediately.
 	for id in CLASS_SHAPES + UNUSED_SHAPES + AHEAD_OF_CONTENT_SHAPES + [&"goblin", &"goblin_archer", &"ghoul", &"the_warden", &"cultist"]:
 		var fill := _fill_fraction(id)
 		assert_true(fill >= 0.5,
@@ -369,9 +252,6 @@ func test_fill_ratio_reads_the_real_art() -> void:
 func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
 	# The trap this exists to close, and the reason `opaque_rect` scans pixels
 	# instead of reading `get_width`. Pixel art carries margin: `siege_master.png`
-	# is a 24x14 file with only 20x8 of it opaque. A caller that moved off the
-	# collision radius and onto the file dimensions would fix part of #190 and
-	# look like it had fixed all of it.
 	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
 		"this test measures the texture path; without a PNG for siege_master it measures nothing")
 	var tex := UnitArt.texture_for(&"siege_master", CG.Team.PLAYER)
@@ -401,11 +281,6 @@ func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:
 	# The negative half. A floor nobody has proved can fire is furniture, and
 	# this project has shipped exactly that before -- a detector with sixteen
 	# passing tests that could never go red.
-	#
-	# `_unknown_parts` is the fallback drawn for a shape id nothing defines, and
-	# it is deliberately a full-size marker, so it passes. The failing case is
-	# built here rather than added to the roster: a real shape drawn at a third
-	# scale.
 	assert_true(_fill_fraction(&"definitely_not_a_shape") >= 0.5,
 		"the unknown-shape fallback should fill its own footprint")
 	var lo := INF
@@ -444,17 +319,6 @@ func test_shape_ids_are_sorted_and_complete() -> void:
 
 
 ## Three tests lived here and are deleted with the polygons they read:
-## `test_every_shape_builds_drawable_polygons`, `test_shapes_stay_inside_the
-## _radius_they_are_given` and `test_facing_left_mirrors_the_shape`. The first
-## two are structural now -- a sprite is scaled into the radius it is given by
-## `UnitArt.draw`, which cannot overshoot -- and mirroring is asserted on the
-## real path by `test_a_mirrored_sprite_is_drawn_in_the_same_place` below, which
-## is where issue #241's actual defect was.
-##
-## `test_an_unknown_shape_still_produces_something_visible` went too. What an
-## unknown shape produces is a black square, by the player's ruling, and
-## `test_every_shape_has_real_art_and_nothing_falls_back` asserts nothing in
-## this game reaches it.
 
 
 func test_every_shape_has_real_art_and_nothing_falls_back() -> void:
@@ -463,11 +327,6 @@ func test_every_shape_has_real_art_and_nothing_falls_back() -> void:
 	# shapes had no sprite; all nineteen have one now, both sides, so the loop
 	# skipped every id and recorded no assertion at all -- which the gate
 	# correctly reports as a test that asserts nothing.
-	#
-	# So it is turned around to say the thing that is now true and is worth
-	# holding: no unit in this game draws a fallback. That is what makes
-	# deleting the polygons safe, and if a sprite is ever removed this fires
-	# with the id rather than a black square appearing in a fight.
 	var ids := Silhouettes.shape_ids()
 	assert_true(ids.size() >= 15, "only %d shapes; this walk is wrong" % ids.size())
 	for id in ids:
@@ -482,11 +341,6 @@ func test_a_mirrored_sprite_is_drawn_in_the_same_place() -> void:
 	# left-facing unit was drawn one full drawn width beside itself, 65px for the
 	# Warden. A negative-width `Rect2` mirrors in place and does not move, so the
 	# negation belongs on the rect and not on the size that positions it.
-	#
-	# Arithmetic, not pixels, and deliberately: the gate is headless, headless
-	# uses the dummy renderer, and a rasterising check there reads back nothing
-	# and reports a silent skip. `Tools/FacingInk.gd` is the rasterising half and
-	# is run by hand. This half is the one that can fail in CI.
 	for id in Silhouettes.shape_ids():
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
 			var tex := UnitArt.texture_for(id, team)
@@ -496,9 +350,6 @@ func test_a_mirrored_sprite_is_drawn_in_the_same_place() -> void:
 			var left := UnitArt.signed_rect(tex, 33.0, true, Vector2(100.0, 40.0))
 			assert_true(left.size.x < 0.0, "%s is not mirrored when it faces left" % id)
 			# NOT `left.abs()`. `Rect2.abs()` normalises by moving `position`
-			# left by the width; `draw_texture_rect` does not -- it keeps
-			# `position` and inks rightward. The engine's rule is the one that
-			# decides where the pixels land, and it is why this bug existed.
 			assert_eq(left.position, right.position,
 				"%s moves when it is mirrored: %s vs %s" % [id, left.position, right.position])
 			assert_eq(left.size.x, -right.size.x, "%s changes width when mirrored" % id)
@@ -545,7 +396,6 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 # needs an attack asset or animation"). Geometry-only, same reasoning as the
 # silhouette tests above -- draw_* calls need a live canvas and are not
 # where a shape or a number could be silently wrong.
-# ---------------------------------------------------------------------------
 
 
 const _ALL_DAMAGE_TYPES := [
@@ -627,12 +477,6 @@ func test_impact_flash_progress_is_clamped() -> void:
 # The UI art drop-in pipeline and its first two consumers: status badges
 # (PLAYTEST-NOTES-2 item 2), ability icons (item 3), and the loader both sit on
 # (item 15).
-#
-# What these check is what can go wrong *silently*: an icon that exists for
-# every value today and stops existing when somebody adds one, a glyph that
-# draws outside its own box, a drop-in path that quietly never finds the file.
-# How they look is not testable and is not attempted -- Tools/UIArtPreview.tscn
-# and the committed screenshots are for that.
 
 
 
@@ -644,9 +488,6 @@ func _every_status() -> Array:
 
 
 ## Every action any class or enemy in the real registry can actually order.
-## Derived from the content rather than from a list typed here, because a list
-## typed here would be a second artifact by the same author and would agree with
-## itself while both were wrong.
 func _every_reachable_action_id() -> Array:
 	var out: Array = []
 	for class_id in Registry.all_class_ids():
@@ -709,14 +550,6 @@ func test_status_plate_direction_follows_is_harmful() -> void:
 	# The stated rule: harmful points down, beneficial points up, and
 	# `CG.is_harmful()` is the only source for it. There is deliberately no
 	# second list to drift from it.
-	#
-	# **Measured on the baked pixels, not on a polygon.** The plates were an
-	# array of points until they were baked into `Assets/UI/status/`; a test
-	# still reading points would be measuring an artefact the game no longer
-	# draws, which is the failure this repo has recorded three times.
-	#
-	# A plate that POINTS DOWN is wide at the top and narrow at the bottom, so
-	# the near-top row carries far more ink than the near-bottom one.
 	for s in _every_status():
 		var name := StatusIcons.art_name(s)
 		var high := _row_ink(name, 0.06)
@@ -773,16 +606,6 @@ func test_no_two_status_glyphs_are_the_same_picture() -> void:
 	# StatusIcons.gd asserted "no two share an outline" for months and it was
 	# false: a droplet and a flame are different arrays and the same picture,
 	# and measured on screen they disagreed on 2.1% of their pixels.
-	#
-	# It used to sample polygons through a hand-rolled point-in-polygon pass,
-	# which was the best available while the glyphs were geometry. They are
-	# files now, so this compares the shipped pixels directly, and the number it
-	# reports is directly comparable with the ones `Tools/BadgeLegibility` published
-	# before it was deleted: 2.1% for bleed/burn and 9.3% for taunted/burn, both treated as
-	# defects and redrawn.
-	#
-	# Only same-category pairs are checked. Rim colour and plate direction
-	# already separate harmful from helpful, and no glyph has to.
 	var grid := 32
 	var pixels := {}
 	for s in _every_status():
@@ -802,11 +625,6 @@ func test_no_two_status_glyphs_are_the_same_picture() -> void:
 	# unacceptable rather than from today's measurement.** taunted/burn was 9.3%
 	# and was redrawn; bleed/burn was 2.1% and was redrawn. A floor of 10%
 	# catches both.
-	#
-	# Today's closest pair is BURN/POISON at 10.6%, so the margin is thin and
-	# that pair is the next one worth redrawing. Reported rather than acted on.
-	# The floor is not to be lowered to buy room: issue #144 records five
-	# widenings of one cap and zero narrowings.
 	assert_true(worst > 0.10,
 		("the closest same-category badge pair is %s at %.1f%% of their pixels. "
 		+ "Two badges that similar are one badge on a 17px unit -- redraw one.") % [
@@ -817,15 +635,6 @@ func test_the_glyph_similarity_detector_actually_fires() -> void:
 	# A detector shipped without this is the failure mode this project has
 	# written down: sixteen tests asserting a warning is well-formed when it
 	# fires, none asserting it fires at all.
-	#
-	# The old control was the literal droplet bleed used to be, typed into this
-	# file. That geometry exists nowhere but git history now, so the control is
-	# taken from real data at both ends:
-	#
-	#   FIRES. `archer_shot` and `goblin_arrow` are the same picture and are
-	#   allowlisted below as such. The metric must report them as identical.
-	#   DOES NOT FIRE ON EVERYTHING. A shield badge and a flame badge are
-	#   nothing alike and must score far above the floor.
 	var grid := 32
 	var same := _pixel_difference(
 		_icon_pixels(ActionIcons.art_name(&"archer_shot"), grid),
@@ -850,26 +659,8 @@ func test_every_reachable_action_has_an_icon() -> void:
 
 
 ## Icons drawn before the content that will use them exists.
-##
-## **This list breaks a genuine deadlock rather than excusing a mistake.** Art
-## and content for one enemy are two commits in two files owned by two sessions,
-## and each is red without the other: an icon with no action fails the test
-## below, and an action with no icon fails `test_every_reachable_action_has_an
-## _icon`. Whichever merges first turns the trunk red for the other. heron put
-## it exactly right on #148 -- *"you cannot add an enemy to this game without one
-## commit in `Scripts/Art`"* -- and that coupling is fine as long as it does not
-## also mean the trunk cannot be green until both land in the same minute.
-##
-## **Every entry here is temporary and this list deletes itself.** The check
-## below asserts the reason for each entry is STILL TRUE, so the moment the
-## action reaches the registry the entry is stale and the gate says so, naming
-## the line to remove. A comment saying "remove this later" rots; an assertion
-## that the excuse still applies cannot.
 const _ICONS_AHEAD_OF_CONTENT := {
 	# heron's #162. Delete this one the same time that branch merges.
-	# heron's #148. Delete these three the same time that branch merges.
-	# heron's #192, the Rat King. Delete this line when that branch merges --
-	# the test below names it for you.
 }
 
 
@@ -901,18 +692,6 @@ func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> vo
 func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 	# The expiry date on the list above. Without this the exemption outlives its
 	# reason, and the next icon left behind by deleted content hides inside it.
-	#
-	# **Collected and asserted once rather than asserted inside the loop, and
-	# that is not a style choice.** The loop version made zero assertions when
-	# the list was empty, and this project's gate correctly fails a test that
-	# records none -- so emptying the list, which is the SUCCESSFUL end state
-	# this whole mechanism exists to reach, turned the trunk red with the
-	# message "it crashed part-way, or it asserts nothing". Whoever deleted the
-	# last three lines would have been told they had broken something.
-	#
-	# Found by doing it: merging heron's branch in a scratch worktree, deleting
-	# the three lines and running the gate. Reading this test would never have
-	# shown it, because the bug is in the case where the loop does not run.
 	var stale: Array[String] = []
 	var described_nothing: Array[String] = []
 	for id in _ICONS_AHEAD_OF_CONTENT:
@@ -931,11 +710,6 @@ func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 ## `test_status_backed_action_icons_resolve_to_the_status_glyph` was here, and
 ## it is deleted rather than rewritten. It asserted that Guard's icon array WAS
 ## the BLOCK badge's array, which is a check only a shared table can support.
-## The two are separate PNGs now, painted at different sizes on different plates
-## in different colours, and no cheap comparison says "same picture, drawn twice
-## on purpose". Inventing an expensive one that agreed with me by construction
-## would be worse than the honest gap. Rule 2 is now a rule for whoever repaints
-## these, stated in `ActionIcons.gd` and in `Assets/UI/README.md`.
 
 
 func test_an_action_with_no_file_reports_no_icon() -> void:
@@ -960,10 +734,6 @@ const _DELIBERATE_SHARED_GLYPHS := {
 	"geyser_blast|geyser_spout": true,
 	# `priest_heal|warrior_second_wind` was excused here and the entry is now
 	# GONE, removed by the negative half of the test below rather than by taste.
-	# The two shared `_CROSS` as geometry, but an ability icon is coloured by its
-	# damage type and these two have different ones, so as shipped pictures they
-	# were never the same picture. The table said they were because it compared
-	# arrays, which is the artefact-one-file-over error in miniature.
 }
 
 
@@ -972,11 +742,6 @@ func test_no_two_ability_icons_share_a_glyph_by_accident() -> void:
 	# `siege_engine_bolt` both drew `_BOLT_HEAVY`, and a Siege Master builds the
 	# engine and then fights beside it -- so the same icon sat over two units at
 	# once, on two bars, which is the exact case rule 4 exists to prevent.
-	#
-	# Compares shipped pixels, not arrays. That is stricter in one direction and
-	# looser in the other, and both are corrections: two different arrays that
-	# render alike now fail, and two identical arrays rendered in different
-	# damage colours now pass, because on screen they are not the same icon.
 	var grid := 32
 	var pixels := {}
 	var ids := _baked_ids("action")
@@ -1021,11 +786,6 @@ func test_ui_art_returns_null_for_a_name_with_no_file() -> void:
 
 func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 	# The item-15 claim, exercised end to end rather than reasoned about.
-	#
-	# **The first half of this test used to be "assert status/bleed.png does not
-	# exist".** It does now -- every badge in the game is a dropped-in PNG since
-	# the bake -- so the shipped art IS the proof that a name the game asks for
-	# resolves with no import, no registration and no code change.
 	var art_name := StatusIcons.art_name(CG.Status.BLEED)
 	assert_eq(String(art_name), "status/bleed")
 	assert_not_null(UIArt.texture_for(art_name),
@@ -1055,11 +815,6 @@ func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 # poison in that it does damage less often but stacks infinitely", and the issue
 # is explicit that a badge identical at one stack and at nine fails their own
 # definition of done.
-#
-# Geometry only. Whether a five-pixel digit is legible is not testable and was
-# not guessed at: Tools/StackBadgeSheet.tscn renders it at the real 17.4px and
-# at 4x, and the screenshots are committed.
-# ---------------------------------------------------------------------------
 
 const _BADGE := Rect2(Vector2(10.0, 20.0), Vector2(17.4, 17.4))
 
@@ -1106,16 +861,6 @@ func test_the_count_never_reaches_into_the_next_badge() -> void:
 
 func test_the_count_never_covers_the_plate_point() -> void:
 	# THE ONE THAT MATTERS, and the first version failed it.
-	#
-	# These plates point DOWN when harmful and UP when helpful, and
-	# Assets/UI/README.md promises the player that the direction carries the same
-	# information as the colour, "so it still works for a player who cannot
-	# separate red from green". A tab in the bottom-right corner sits exactly on
-	# a harmful plate's point and rubs it out. That is a picture replacing
-	# information, it is this project's house rule, and no test or screenshot
-	# review would have caught it -- I caught it by looking at the render.
-	#
-	# So: the tab must stay in the half of the badge AWAY from the point.
 	for stacks in [2, 27, 140]:
 		var harmful := StatusIcons.stack_count_rect(CG.Status.BLEED, _BADGE, stacks)
 		assert_true(harmful.end.y <= _BADGE.position.y + _BADGE.size.y * 0.5,
@@ -1160,18 +905,6 @@ func test_the_diagnostic_harness_draws_badges_at_the_size_the_game_does() -> voi
 	# Tools/IconsOverlay.gd is the harness every judgement about these badges has
 	# been made on, including a fresh-eyes playtest that called them "invisible
 	# at 1x".
-	#
-	# **This test has already failed to do its job once, and the way it failed is
-	# the point.** It hardcoded 14.0 while the game drew 17.4; that was fixed by
-	# comparing the harness against `UnitViewScript.STATUS_BADGE_SIZE`. Then #190
-	# made the badge scale with the drawn body, `STATUS_BADGE_SIZE` became the
-	# ceiling of a clamp almost nothing reaches, and this test went on passing
-	# while the harness drew badges at TWICE the size the game did -- because
-	# both sides of the assertion read the same stale constant.
-	#
-	# So it now compares against `status_badge_size`, the function the screen
-	# calls, at a real unit's real radius. An assertion whose two sides can go
-	# stale together is not a guard.
 	var scale: float = BattleViewScript.compute_layout(Vector2(1280.0, 720.0))["scale"].x
 	var radius := 11.0 * UnitViewScript.DISPLAY_SCALE
 	assert_almost_eq(
@@ -1225,12 +958,6 @@ func test_action_art_name_is_the_action_id() -> void:
 
 # ---------------------------------------------------------------------------
 # EquipmentIcons: one icon per item, for issue 100's equip screen.
-#
-# Geometry and table checks only, same reasoning as everything above -- `draw_*`
-# needs a live canvas. The check these cannot make is whether two icons look
-# alike, and that one is `Tools/EquipmentIconSheet.tscn`, which is the only
-# instrument that has ever caught a collision on this project.
-# ---------------------------------------------------------------------------
 
 
 const _EVERY_SLOT := [
@@ -1292,8 +1019,6 @@ func _alpha_mask(name: StringName, grid: int) -> PackedByteArray:
 
 ## The shape of everything drawn ON a plate, colour ignored. The plate fill is
 ## `Palette.HP_BACK` on all three icon systems, so anything else is the picture.
-## Alpha cannot answer this for an accessory: its plate is a filled circle, so
-## all four rings have byte-identical alpha and differ only inside it.
 func _ink_mask(name: StringName, grid: int) -> PackedByteArray:
 	var out := PackedByteArray()
 	var back := Palette.HP_BACK
@@ -1317,9 +1042,6 @@ func test_the_three_slots_are_told_apart_by_shape_and_by_colour() -> void:
 	# Two redundant channels, and this test exists because losing one of them is
 	# silent: a player who cannot separate the rim colours still has the plate,
 	# and a greyscale screenshot still shows three different outlines.
-	#
-	# The empty-slot plates are the plate on its own, so they are what this
-	# measures -- an item's own picture sits on top of one of these three.
 	var grid := 32
 	var masks := {}
 	for slot in _EVERY_SLOT:
@@ -1341,10 +1063,6 @@ func test_no_item_plate_is_another_icon_system_s_plate() -> void:
 	# Three icon systems can be on the equip screen at once -- the item, the
 	# action it grants, and the status that action applies. A glance should never
 	# have to work out which system it is reading first.
-	#
-	# Outlines, on real pixels. Any ability icon carries the ability plate and
-	# any badge carries a status plate, so one of each is enough to stand for
-	# the system.
 	var grid := 32
 	var ability := _alpha_mask(ActionIcons.art_name(&"warrior_strike"), grid)
 	var good := _alpha_mask(StatusIcons.art_name(CG.Status.SHIELD), grid)
@@ -1358,13 +1076,6 @@ func test_no_item_plate_is_another_icon_system_s_plate() -> void:
 
 func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> void:
 	# Rule 3, and the thing #100 made true that no art had yet said: `plate_mail`
-	# teaches Directional Block, and an item that changes what a pawn can DO is a
-	# different kind of item from one that adds 3 STR.
-	#
-	# There is deliberately no second table here. The badge resolves through
-	# `ActionIcons.art_name`, so it cannot drift from what the wind-up bar draws
-	# for the same action -- which is exactly how `geyser_cleanse` came to show a
-	# damage-over-time attack's icon.
 	var granting := 0
 	for id in Registry.all_equipment_ids():
 		var item := Registry.get_equipment(id)
@@ -1388,9 +1099,6 @@ func test_the_four_rings_differ_by_colour_and_by_cut() -> void:
 	# channels of their own, and losing either is silent: without the cut a
 	# greyscale reader has four identical icons, without the colour a 20px
 	# reader has four identical icons.
-	#
-	# Both channels are measured on the shipped files. The cut is the alpha
-	# outline, which is exactly what survives a greyscale read.
 	var grid := 32
 	var rings: Array[StringName] = [&"brown_ring", &"red_ring", &"blue_ring", &"yellow_ring"]
 	for id in rings:
@@ -1427,17 +1135,6 @@ func test_the_status_badge_instructions_match_the_real_statuses() -> void:
 	#
 	# ENRAGE became TAUNTED in `CG.Status`. The enum moved, the badge was
 	# redrawn, the glossary sentence was rewritten -- and `Assets/UI/README.md`
-	# went on telling the player to drop in `status/enrage.png`, a filename
-	# `StatusIcons.art_name` has not resolved since the rename. Drop that file in
-	# and nothing happens, silently, which is the worst failure this pipeline
-	# has: the whole promise of the folder is "no code change, it just works".
-	# SUSTAINING was added and never listed at all, the same defect from the
-	# other direction.
-	#
-	# Every other drop-in table here is checked against the code that reads it.
-	# This one was not, so it was the one that rotted. Asked as "does the code's
-	# own lookup name appear", never as a hand-typed list -- a list typed here
-	# would rot in exactly the same way and agree with itself while doing it.
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	assert_ne(readme, "", "Assets/UI/README.md is missing")
 	for status in CG.Status.values():
@@ -1454,14 +1151,6 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 	# the thirty-four actions the registry defines were missing from it --
 	# brute_slam, geyser_cleanse, geyser_spout, rat_bite, stalker_dart,
 	# stalker_mark and warrior_second_wind.
-	#
-	# The README already claimed "this list is checked by a test", and that was
-	# false. The nearby test walks the registry against the icons that exist,
-	# never against this file, so the sentence described a check that did not
-	# exist. It does now.
-	#
-	# Registry-driven, so an action added tomorrow fails here rather than at the
-	# moment an artist drops in a PNG that never appears.
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	assert_ne(readme, "", "Assets/UI/README.md is missing")
 	var checked := 0
@@ -1478,16 +1167,6 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 # ---------------------------------------------------------------------------
 # UIArt theming (#115): borders and backgrounds for the major elements, through
 # the pipeline that already exists.
-#
-# These write real PNGs into Assets/UI and delete them again, the same way
-# `test_a_dropped_in_png_is_found_with_no_registration` does, because the claim
-# being made is about files on disk and reasoning about it proves nothing.
-#
-# Every one has a NEGATIVE half. With no file present these calls must produce
-# exactly what the screens already build by hand -- that property is what makes
-# it safe to convert nine screens at once, and a test that only checked the
-# themed path would pass while the default silently changed.
-# ---------------------------------------------------------------------------
 
 
 const _THEME_SCRATCH := ["res://Assets/UI/panel.png", "res://Assets/UI/panel/scratch_element.png",
@@ -1619,17 +1298,6 @@ func test_the_theming_instructions_name_every_file_the_code_looks_for() -> void:
 
 ## The general names, and the gap that let the README lie twice about the same
 ## table.
-##
-## The check below this one compares the README's SPECIFIC names
-## (`panel/inspect.png`) against call sites. Nothing checked the general ones,
-## so `panel.png` sat in the README promising to re-skin "every panel, card,
-## tooltip and chip" while `UIArt.panel_style` had zero call sites in
-## `Scripts/` -- the same defect as #237, in the same file, undetected after
-## #237 was fixed because #237's instrument could not see this half. Issue #268.
-##
-## A drop-in with no caller is the worst shape a defect takes here: the file
-## sits on disk looking correct, the game never reads it, and nothing goes red.
-## Prose saying so rots -- this section of the README was prose for weeks.
 const _GENERAL_THEME_READERS := {
 	"panel.png": ["panel_style"],
 	"panel_border.png": ["draw_border"],
@@ -1691,17 +1359,6 @@ func _ui_files_calling_any(functions: Array) -> Array[String]:
 ## reads. It cannot see the opposite mistake: a name the README *prints* that no
 ## call site ever asks for. A file dropped in under such a name does nothing,
 ## silently, and looks perfectly correct sitting on disk. `status/enrage.png`
-## was exactly this after the ENRAGE -> TAUNTED rename, and `background/menu.png`
-## was exactly this until now -- it named a main menu the game does not have.
-##
-## Reproduced by rendering before this was written, not by reading: a real
-## yellow-cornered `Assets/UI/border/arena.png` was dropped in and the arena
-## frame kept the green corners of the general `panel_border.png`, because
-## `ArenaFloor` passes no element name. `Screenshots/theme_dropin_*.png`.
-##
-## So the README carries a machine-checked list of which of its own names are
-## not wired up yet, and this compares that list against the call sites. It goes
-## red the moment issue #237 wires one, naming the line to delete.
 func test_no_specific_theme_name_the_readme_prints_is_a_name_nothing_asks_for() -> void:
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	var documented := _readme_specific_theme_elements(readme)
@@ -1739,9 +1396,6 @@ func _readme_specific_theme_elements(readme: String) -> Array[String]:
 
 
 ## Which of `candidates` a screen really asks for. A `.gd` under `Scripts/UI`
-## that both imports `UIArt` and contains the literal `&"<name>"` is asking for
-## it; nothing else in this game has a reason to hold these strings, checked by
-## grep before this was written.
 func _element_names_call_sites_ask_for(candidates: Array[String]) -> Dictionary:
 	var live := {}
 	var dir := DirAccess.open("res://Scripts/UI")

@@ -123,10 +123,6 @@ func _make_pawn_unit(id: int, hp: int, alive: bool) -> CombatUnit:
 ## **Reproduced before it was fixed, and it is the whole issue**: the banner
 ## printed "Victory" and the line directly under it printed "None of your party
 ## survived." One fight, two sentences, in the same box.
-##
-## rook's ruling: every pawn dead is a Defeat. A siege engine outliving the party
-## is a fact about the engine. Both halves are asserted together on purpose --
-## the defect was never in either sentence alone.
 func test_a_win_with_every_pawn_dead_reads_as_a_defeat() -> void:
 	var view = _spawn()
 	var state := CombatState.new(0)

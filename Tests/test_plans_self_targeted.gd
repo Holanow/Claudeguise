@@ -9,20 +9,6 @@ extends "res://Tests/TestCase.gd"
 ## this file. `PlanInterpreter` has a `target_self` block and every pawn has
 ## plans; nothing in the bestiary does. That is why floor 1's "big heavy guy that
 ## stuns units and taunts" shipped with a stun and no taunt.
-##
-## **swift's correction to the issue's premise is worth keeping, because it
-## changes what this file has to prove.** By the time #150 was measured, #129's
-## `_attack_candidates` had landed and dropped every zero-power action, so a
-## Brute carrying a taunt behaved *identically, tick for tick*, to one without.
-## The taunt was inert rather than harmful -- which is the quieter bug, and the
-## one an outcome table can never see. So the assertions below are about the
-## action being **chosen**, not about the fight coming out differently.
-##
-## The negative half is the one that would catch this going too far: a **pawn**
-## must never self-buff from the fallback layer. That would be a pawn doing
-## something written in no plan, on a screen with nowhere to change it, which is
-## CLAUDE.md's binding principle and the same reason `_attack_candidates` refuses
-## a sustained action.
 
 const ROAR := &"brute_roar"
 
@@ -156,10 +142,6 @@ func test_the_brute_really_roars_and_it_really_lands_on_a_pawn() -> void:
 ## numbers on the action:** *"taunts must not permanently lock a pawn"*. Measured
 ## every tick from `unit.statuses`, because a status is state and the run of ticks
 ## it was held cannot be recovered from the event stream afterwards.
-##
-## The bound is the action's own duration, read from the registry. A roar whose
-## cooldown was shortened back to its duration would still pass every other test
-## in this file and would fail this one, which is the point.
 func test_no_pawn_is_ever_locked_for_longer_than_the_roar_lasts() -> void:
 	var duration: int = Registry.get_action(ROAR).status_duration_ticks
 	var cooldown: int = Registry.get_action(ROAR).cooldown_ticks

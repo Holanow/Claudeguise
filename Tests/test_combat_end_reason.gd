@@ -7,18 +7,6 @@ extends "res://Tests/TestCase.gd"
 ## now two, and on seed 0 of `floor1_warden` the second one reads "The Warden's
 ## Marked fades" and then Defeat -- legible only to somebody who already knows
 ## the rule.
-##
-## **A FIGHT_END still carrying UNSET is a defect in the setter**, so that is
-## asserted rather than commented, against real fights rather than fixtures.
-##
-## ONE EXCEPTION, AND IT IS NOT A GAP IN THE SETTER. The tick cap ends a fight
-## with both sides alive and able, which is neither NO_SURVIVORS nor CANNOT_ACT,
-## and `CG.EndReason` has no third value. I have not invented one -- the enum is
-## Core and Core is rook's. `test_no_real_fight_reaches_the_tick_cap` is the
-## other half of that: the cap is unreachable in practice today (1600 fights,
-## zero draws of any kind), and the day it stops being unreachable this goes red
-## and names the value that has to be added. A comment would have gone stale
-## silently instead.
 
 const SEEDS := 40
 const WARDEN := &"floor1_warden"

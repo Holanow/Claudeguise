@@ -3,22 +3,6 @@ class_name CombatSim
 
 
 ## The simulation. Owns every mutation of a CombatUnit and every event emitted.
-##
-## OWNER: wren. Files under Scripts/Combat/ are wren's. Nobody else edits them.
-##
-## The contract the rest of the project is built against:
-##
-##   var state := CombatSim.build(party, encounter, seed)
-##   while state.outcome == CombatState.Outcome.UNRESOLVED:
-##       CombatSim.step(state)
-##
-## `step` advances exactly one tick and must be pure with respect to everything
-## outside `state`. Same seed plus same inputs, same fight, every time.
-##
-## `deps` is optional on every entry point and defaults to the real content
-## system (SimDeps.new() wires to Balance and Registry). Tests pass their own
-## SimDeps and never touch Balance, Registry or a single registered class,
-## action or enemy.
 
 ## Layout-only fallback spacing for party members past the encounter's spawn
 ## list. Not a combat number: nothing here affects hp, damage or speed.
@@ -100,7 +84,6 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 	u.hp = u.hp_max
 	u.resource_max = int(deps.max_resource.call(pawn))
 	u.resource_kind = pawn.pawn_class.resource_kind if pawn.pawn_class != null else CG.ResourceKind.ENERGY
-	## Issue 164. Mana opens full, Rage and Energy at zero -- a caster that cannot
 	u.resource = int(deps.starting_resource.call(u.resource_kind, u.resource_max))
 	u.move_speed = float(deps.move_speed.call(pawn))
 	u.actions = _collect_player_actions(pawn)
@@ -139,7 +122,6 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
-	## EnemyDef.spawn_taunt_radius's own doc comment: a non-pawn unit's action
 	if enemy_def.spawn_taunt_radius > 0.0:
 		u.statuses[CG.Status.TAUNTING] = CG.MAX_TICKS
 		u.taunt_radius = enemy_def.spawn_taunt_radius
@@ -174,63 +156,8 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		unit.intent = intent
 		_reaffirm_sustain(state, unit, intent)
 
-## A stunned unit neither decides nor acts, and as of #121 it does not finish
-## what it had already started either.
-##
-## ISSUE 10'S DECISION, OVERTURNED BY THE PLAYER. Kept here rather than deleted,
-## because the reasoning behind the original call is still worth knowing and the
-## costs it named are the costs we now pay.
-##
-## What it used to say, and it was deliberate: stun did NOT cancel an action
-## already committed before it landed. A unit mid-wind-up when stunned still
-## fired on schedule -- `is_busy()` kept it out of this loop entirely, so the
-## status only ever mattered for a unit that was free to decide. The argument
-## was that a wind-up safe once committed is the simpler thing to teach ("land
-## the stun before the swing starts, not during it"), and that cancelling one
-## costs a resource-refund policy, a decision about whether the original target
-## still matters, and a way for content to reason about "was this interrupted".
-##
-## The player's ruling, in their words: *"Stun should very much interrupt actions
-## in progress"*. Which is the ordinary meaning of the word, and a stun that
-## cannot interrupt a cast is a much weaker thing than a player expects when a
-## boss lands one. heron measured the old behaviour live before anybody argued
-## about it -- stunned mid-wind-up, the action still fired -- which is what
-## turned this from a reading of the code into a question worth putting to the
-## player.
-##
-## The three costs the old comment named, now answered, and the player answered
-## all three rather than us:
-##
-##   1. **The wind-up is lost, not resumed.** Resuming is nearly invisible to
-##      somebody watching, and "broadly follow what happened and why" is the
-##      finish line this project is measured against.
-##   2. **The resource is NOT refunded.** `RESOURCE_SPENT` fired at commit and
-##      nothing reverses it. A twenty-Mana cast producing nothing is harsh on
-##      purpose: that is what makes landing a stun on a caster worth doing.
-##   3. **The original target stops mattering**, because there is no longer an
-##      action to aim. `focus_id` is left alone -- it is where the unit is
-##      looking, not a pending commitment, and it is overwritten by whatever the
-##      unit commits to next.
-##
-## Cooldown needs no refund and could not have one: `_fire_action` sets it, and
-## an interrupted action never fires, so it was never on cooldown.
-##
-## RECOVERY IS DELIBERATELY NOT CANCELLED. Only `action_ticks_left`, the wind-up,
-## is thrown away. Cancelling recovery would *help* the stunned unit -- it would
-## come out of the stun free to act instead of finishing what it owed -- and an
-## interrupt that rewards its victim is not an interrupt.
-##
-## ISSUE 61 is unchanged and its reasoning still stands on its own: a stun breaks
-## a sustained action, because a channel is a decision renewed every tick and a
-## unit that neither decides nor acts is by definition not renewing one. That was
-## true when a wind-up survived and it is true now.
-##
-## Emits INTERRUPTED once, on the tick the action is taken away, and never again
-## for the same stun -- the second tick of a stun finds nothing left to cancel.
-## `amount` is the ticks of wind-up already invested and thereby thrown away,
-## which is not recoverable after the fact for the same reason
-## `CombatUnit.action_ticks_total` had to exist at all: HASTE scales the real
-## count at commit, so the number on the ActionDef is not it.
+## A stunned unit neither decides nor acts, and does not finish what it had
+## started: the wind-up is thrown away, not resumed.
 static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
 	unit.intent = null
 	if unit.action_ticks_left > 0:
@@ -252,36 +179,8 @@ static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
 # WHY THIS IS IN THE SIMULATION AND NOT IN THE DECISION LAYER. Taunt already
 # influenced targeting, in `DefaultBehavior._choose_target`, under an earlier
 # ruling of rook's: *taunt overrides the default fallback, never a stated plan*.
-# That is enforced by construction, because `DefaultBehavior` never runs when a
-# plan fired -- and it is exactly why the Brute's roar was decorative. **Every
-# player pawn has a plan.** A taunt that only moves unplanned units taunts
-# nobody the player controls, in the one situation the ability exists for.
-#
-# rook's ruling was made before the player stated theirs and has been withdrawn
-# in favour of it. A compulsion that must beat a plan cannot live in the thing
-# that only runs when no plan fired, so it lives here, next to STUN -- which is
-# the same shape already: a status that overrides whatever the decision layer
-# would have said. One rule covers planned pawns and unplanned enemies rather
-# than two that can disagree.
-#
-# THIS IS NOT A HIDDEN RULE, which is the CLAUDE.md principle it has to answer
-# to. A compelled unit carries a TAUNTED badge for exactly as long as it is
-# compelled, and a STATUS_APPLIED event names who taunted it and when. The pawn
-# is visibly not following its plan, and the reason is on the pawn. That is the
-# difference between a compulsion and the automatic kiting branch this project
-# deleted: one is a legible status a player can counter, the other was an
-# unwritten rule nobody could see or change.
 
 ## Who this unit is compelled by, or null.
-##
-## The taunter's id is kept in `status_magnitude[TAUNTED]`, which is the
-## "a status remembers something" mechanism from #130 doing a second job rather
-## than a second mechanism being built beside it.
-##
-## A DEAD TAUNTER FREES ITS VICTIMS IMMEDIATELY, and says so with a
-## STATUS_EXPIRED rather than leaving a badge on a pawn that is no longer
-## compelled. Killing the Brute is the other counter to its roar, and a player
-## who cannot see that it worked has not been given the counter.
 static func _compelling_taunter(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	if not unit.has_status(CG.Status.TAUNTED):
 		return null
@@ -297,20 +196,6 @@ static func _compelling_taunter(state: CombatState, unit: CombatUnit) -> CombatU
 ## Move into range, then use the default attack on the taunter. Exactly the
 ## player's sentence, and nothing else -- a compelled unit is not made to stop
 ## healing itself or to walk into a pit, it is made to pick one target.
-##
-## `deps.default_attack_action` is `DefaultBehavior.default_attack_action`, which
-## is public for precisely this reason: its own doc comment records that a
-## *copy* of "which attack does this unit fall back to" has already gone stale
-## twice on this project, and that one shared definition is the fix. This is now
-## its third caller and it does not get a fourth copy of the rule.
-##
-## Which SIDE (melee or ranged) is decided here by whether the melee option can
-## actually reach, which is a simpler rule than `_choose_attack_action`'s commit
-## fraction and is stated rather than borrowed. A unit with one attack -- every
-## unit in the game but The Warden -- takes the same branch either way.
-##
-## A unit with no attack at all is still dragged into range. It has been taunted;
-## it just has nothing to answer with.
 static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDeps) -> Intent:
 	var defs: Array[ActionDef] = []
 	for id in unit.actions:
@@ -330,25 +215,6 @@ static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDe
 	return Intent.use_action(chosen.id, taunter.id, Intent.COMPELLED)
 
 ## Puts TAUNTED on everyone the taunt reaches, at the moment it is applied.
-##
-## A ONE-SHOT BROADCAST, not a membership test re-run every tick. That is what
-## makes the player's two other rulings true at once: the status carries a real
-## duration, so nothing is locked permanently, and **a cleanse actually frees the
-## pawn** instead of being overwritten again on the following tick. A
-## per-tick-membership taunt (the shape `_tick_hazards` uses for standing in
-## fire) would make cleansing it pointless, which would contradict the ruling
-## that cleansing is the counter.
-##
-## ENEMIES MUST NOT DOUBLE-TAUNT, per the player, and it is enforced here as a
-## property of the mechanism rather than as cleverness in enemy targeting: a unit
-## already compelled by a **living** taunter is skipped, so a second roar cannot
-## steal it and cannot refresh it. Two Brutes therefore split a party instead of
-## piling onto one pawn, without either of them having to know the other exists.
-## (The other half -- an enemy not *wasting* the cast in the first place -- is a
-## decision, and lives in `Scripts/Plans`.)
-##
-## `state.living` order is `state.units` order, so two runs from one seed taunt
-## the same units in the same order. Nothing random is consulted.
 static func _broadcast_taunt(state: CombatState, taunter: CombatUnit, ticks: int) -> void:
 	if taunter.taunt_radius <= 0.0 or ticks <= 0:
 		return
@@ -383,46 +249,9 @@ static func _resolve_phase(state: CombatState, deps: SimDeps) -> void:
 			_:
 				_resolve_idle(state, unit, deps)
 
-## Issue 132: THE FIRST THING IN THIS SIMULATION THAT TRADES TIME FOR RESOURCE.
-##
 ## A unit that spends its tick doing nothing recovers resource faster than one
-## that spends it moving or fighting. Everything else in this game gives
-## resource back on a clock (`_tick_regen`) or for landing a hit
-## (`_on_hit_landed`); nothing has ever made *standing still* a choice worth
-## making, so "wait for mana" has not been a thing a plan could express.
-##
-## Applied here, in the IDLE branch of `_resolve_phase`, rather than in
-## `_tick_phase` beside `_tick_regen`. That is deliberate and it is the reason
-## no `CombatUnit` field was needed: by the time `_tick_phase` runs, the intent
-## has already been consumed and cleared, so "did this unit idle" is a fact that
-## only exists at this exact point. Recording it on the unit to read one phase
-## later would be a second copy of something the intent already says.
-##
-## It stacks with `_tick_regen` rather than replacing it: an idling unit gets
-## the ordinary tick of regeneration in `_tick_phase` and this on top. So the
-## seam is a *multiplier on the ordinary rate*, and the number it means is
-## "how many times faster does waiting refill you".
-##
-## INERT BY DEFAULT AND PROVABLY SO. `SimDeps.idle_resource_regen_scale`
-## defaults to 1.0, which makes `extra` exactly 0.0, which returns before
-## `_stochastic_round` is reached and therefore **before `state.rng` is
-## touched**. That last part is what keeps every existing measurement valid:
-## consuming one more random number per idle tick would reshuffle the rng stream
-## and change every fight in the game, which is a far bigger change than the
-## feature. Checked by test, not reasoned about.
-##
-## RAGE is skipped, structurally, the same way `_tick_regen` skips it and for
-## the same reason: Rage is earned by landing hits. A berserker filling up by
-## standing still would undo the whole point of the resource, and enforcing that
-## here rather than trusting the rate function means a content mistake cannot
-## reintroduce it.
-##
-## NO EVENT IS EMITTED, deliberately. This fires on most ticks of most fights
-## for any waiting unit, which is exactly the volume argument that puts
-## RESOURCE_SPENT on the log's silent list. The resource bar already shows the
-## number moving. If it turns out a player cannot tell "my pawn is waiting on
-## purpose" from "my pawn is stuck", the fix is one event kind and I would
-## rather add it against a measured complaint than flood the log in advance.
+## that spends it moving or fighting, so "wait for mana" is a thing a plan can
+## express.
 static func _resolve_idle(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.resource_kind == CG.ResourceKind.RAGE:
 		return
@@ -438,9 +267,6 @@ static func _resolve_idle(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 
 ## No pathfinding: a unit that cannot take its full step tries sliding along
 ## one axis at a time, and stays put only if neither axis is clear either.
-## Enough for a room built from a few rectangles, per issue 13a's own scope;
-## a unit that genuinely cannot route around an obstacle is a finding to
-## report, not a pathfinder to build.
 static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, deps: SimDeps) -> void:
 	var before := unit.position
 	var to_dest := intent.destination - unit.position
@@ -458,7 +284,6 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 		_update_facing_from_movement(unit, before)
 		return
 
-	# The direct step made no progress at all (blocked immediately, not just
 	var slide_x := _sweep(state, unit, Vector2(_axis_step(to_dest.x, speed), 0.0))
 	var slide_y := _sweep(state, unit, Vector2(0.0, _axis_step(to_dest.y, speed)))
 	var moved_x := slide_x != unit.position
@@ -475,35 +300,6 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 
 ## Issue 163: a step that would end in fire gives way to a clear one, when a
 ## clear one exists that still makes progress.
-##
-## `_sweep` has always refused to LAND a unit inside a wall. It never had an
-## opinion about a hazard, because a hazard does not block -- so a unit walked
-## the straight line into fire and stood in it. heron measured the cost: 20hp
-## units dead on tick 48 and tick 68 of EVERY seed in `floor1_hazard`, and the
-## room's two authored safe lanes were content nothing in the game could use.
-##
-## THIS IS NOT PATHFINDING and does not become it. It considers exactly the two
-## axis slides `_resolve_move` already computes for the wall case, and it walks
-## into the fire when neither is better. A unit boxed in by a hazard burns, which
-## is the honest outcome for a room authored that way.
-##
-## THE ANTI-OSCILLATION RULE IS THE LOAD-BEARING PART, and it is here because
-## this project has already paid for the alternative: heron found a two-tick
-## limit cycle in `DefaultBehavior` where an approach branch and a kite branch
-## had no hysteresis between them, and a fight hung for 2400 ticks firing not one
-## shot. **A detour is only taken if it strictly reduces the distance to the
-## destination.** Progress is therefore monotonic and a unit cannot trade places
-## between two steps forever.
-##
-## A unit ALREADY standing in a hazard is not helped by this and should not be:
-## every candidate is measured for where it lands, so a burning unit takes
-## whichever step gets it out, and the straight line out is usually it.
-##
-## NO EVENT. The cause is drawn on the floor -- a unit curving around a lit
-## hazard explains itself in a way a retreat does not -- and this would fire on
-## most ticks of most crossings, which is the flood argument that keeps
-## RESOURCE_SPENT off the log. Posted on the board rather than decided quietly;
-## one event kind if the ruling goes the other way.
 static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2, speed: float, direct: Vector2) -> Vector2:
 	if state.terrain.is_empty() or not _hazard_harms(state, direct):
 		return direct
@@ -513,7 +309,6 @@ static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2
 	var step_direction := to_dest.normalized()
 	var best := direct
 	var best_gap := goal.distance_to(unit.position)
-	## The candidates are the step turned 45 degrees each way, then the two axis
 	var turn := step_direction.rotated(PI / 4.0) * speed
 	var turn_back := step_direction.rotated(-PI / 4.0) * speed
 	for candidate in [
@@ -576,11 +371,6 @@ static func _axis_step(remaining: float, move_speed: float) -> float:
 ## resolves rather than cached on the unit, so applying or removing SLOWED
 ## mid-fight changes the very next step rather than reaching back into one
 ## already computed.
-##
-## Deliberately the only place `unit.move_speed` gets touched for movement.
-## `unit.move_speed` itself is set once in build() from deps.move_speed and
-## never mutated -- SLOWED is a per-tick read-time multiplier, not a write to
-## the unit, which is what lets it expire cleanly with nothing to restore.
 static func _effective_move_speed(unit: CombatUnit, deps: SimDeps) -> float:
 	if not unit.has_status(CG.Status.SLOWED):
 		return unit.move_speed
@@ -591,11 +381,6 @@ static func _effective_move_speed(unit: CombatUnit, deps: SimDeps) -> float:
 ## reached before hitting something solid -- `unit.position` unchanged if
 ## even the first increment is blocked. This is what stops a unit faster
 ## than a wall is thick from tunneling straight through it:
-## `Terrain.point_is_blocked` alone only checks the landing point, and a
-## single large jump can clear a thin wall without either endpoint ever
-## registering as inside it. Doubles as "stop at the wall" for a head-on
-## approach with no clear slide axis, which is the "stop" half of "slide
-## along it or stop" -- no pathfinding, just don't pass through.
 const _MOVE_SWEEP_STEP := 4.0
 
 static func _sweep(state: CombatState, unit: CombatUnit, step: Vector2) -> Vector2:
@@ -644,7 +429,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		push_error("CombatSim: unit %d tried unknown action '%s'" % [unit.id, intent.action_id])
 		return
 
-	## Issue 61: the plan choosing a sustained action the unit is *already*
 	if action.sustain_cost_per_tick > 0 and unit.sustaining == action.id:
 		return
 
@@ -653,7 +437,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	if unit.cooldowns.has(action.id) and state.tick < int(unit.cooldowns[action.id]):
 		return
 
-	## The seam's only reuse of an existing CombatUnit field: focus_id becomes
 	unit.focus_id = intent.target_id
 	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
@@ -681,7 +464,6 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 	for unit in state.units:
 		if not unit.alive:
-			## Issue 61: a channel does not outlive its caster. Deaths land in
 			if unit.sustaining != &"":
 				_end_sustain(state, unit)
 			continue
@@ -702,7 +484,6 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 		_tick_dot_statuses(state, unit, deps)
 		_tick_statuses(state, unit, deps)
 		_tick_hazards(state, unit)
-		## Anything above can kill this unit -- its own aura cannot, but a DOT,
 		if not unit.alive and unit.sustaining != &"":
 			_end_sustain(state, unit)
 
@@ -710,8 +491,6 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 ## itself rather than trusting the rate function, so a rate that forgets to
 ## special-case Rage still cannot make it climb. Fractional rates are rounded
 ## stochastically against state.rng rather than dropped, so "0.3 per tick"
-## still averages out over a fight instead of always rounding to 0 (and stays
-## reproducible for the same seed).
 static func _tick_regen(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.resource_kind == CG.ResourceKind.RAGE:
 		return
@@ -730,19 +509,6 @@ static func _stochastic_round(state: CombatState, value: float) -> int:
 
 ## Keys are sorted before iterating because a Dictionary's key order is insertion
 ## order -- the order the statuses happened to land in during a fight.
-##
-## A STACKING STATUS DOES NOT DROP NINE STACKS AT ONCE. On expiry it loses one
-## and re-arms for `deps.status_stack_decay_ticks`, so a bleed reads down 3, 2,
-## 1, gone rather than vanishing in a single frame the tick its source dies.
-## That decay window is content's number, and it defaults to 0 -- which means
-## the whole status comes off at once, exactly the refresh behaviour every
-## status had before this existed. So this is inert until finch sets it, like
-## everything else here.
-##
-## A dropped stack emits nothing. The status has not expired, and the badge count
-## is drawn live off `status_magnitude`, so the player sees it fall without a log
-## line per step -- which at nine stacks would be nine lines saying the same
-## thing gets smaller.
 static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.statuses.is_empty():
 		return
@@ -781,8 +547,6 @@ static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.St
 ## that. Fires before _tick_statuses checks expiry, so the tick a status
 ## expires on still deals its damage; the tick after, it does not, matching
 ## the hazard "stops the tick after it leaves" behaviour.
-## BLEED appended, never inserted: this is iterated in order and two statuses
-## killing a unit on the same tick must resolve in a fixed one.
 const _DOT_STATUSES := {
 	CG.Status.BURN: CG.DamageType.FIRE,
 	CG.Status.POISON: CG.DamageType.PROFANE,
@@ -790,27 +554,6 @@ const _DOT_STATUSES := {
 }
 
 ## THREE STATUSES, THREE SCALING RULES, one expression:
-##
-##     per_tick = base(unit, status) + per_magnitude(unit, status) * magnitude
-##
-##   - POISON scales off the target's max health. Base only; it stores no
-##     magnitude, so the second term is zero and it is untouched.
-##   - BURN scales off the hit that applied it. Content moves its number from
-##     the base to the per-magnitude side and burn punishes being hit hard.
-##   - BLEED scales off repetition. Per-magnitude times the stack count, ticking
-##     on a slower interval, so it punishes being hit often.
-##
-## Both new seams default to inert (`0.0` and `1`), so until content wires a
-## number this is arithmetically the identical expression it was before: BURN
-## and POISON take their base and nothing else, and BLEED, which nothing
-## applies, does nothing. That matters more than usual here -- `_stochastic_round`
-## draws from `state.rng`, so a rate that moved at all would reshuffle the shared
-## stream and change every fight in the game rather than only the burning ones.
-##
-## The interval gate is `state.tick % interval`, on the fight's own clock rather
-## than a per-unit counter. Two units bleeding tick together, which reads as one
-## rhythm on screen instead of an arrhythmia, and there is no per-unit state to
-## keep in step with the status.
 static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	for status in _DOT_STATUSES:
 		if not unit.has_status(status):
@@ -837,26 +580,6 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 			return
 
 ## A tar pit: terrain that applies a status rather than dealing damage.
-##
-## Called BEFORE the `damage_per_tick <= 0` early-out above, and that ordering is
-## the entire fix. A feature whose whole effect is a status has no damage, so it
-## was skipped before anything ever looked at `applies_status` -- heron measured
-## the pit slowing something 0 times in 20 fights.
-##
-## THE EXPIRY IS REFRESHED EVERY TICK THE UNIT IS INSIDE, so walking out is what
-## ends it, not a clock that started when it walked in. That is the same
-## membership-per-tick shape the damage loop above already uses, and it is what
-## makes a pit read as a place rather than as a trap that fires once.
-##
-## THE EVENT FIRES ON ENTRY ONLY, and only on entry. A refresh is silent. Per
-## tick would be 45 log lines for one unit crossing one pit, which is the
-## `stalker_mark` flood again -- and a player does not need to be told forty-five
-## times that a rat is still in the tar. The badge is what says "still slowed";
-## the event says "became slowed".
-##
-## Deliberately does not use `_apply_status`: that one reads an `ActionDef` and
-## carries the stacking and hit-scaling rules, none of which a patch of ground
-## has. A pit refreshes, it does not stack, and nothing about it is a hit.
 static func _apply_hazard_status(state: CombatState, unit: CombatUnit, hazard) -> void:
 	if not hazard.applies_status_enabled or hazard.status_duration_ticks <= 0:
 		return
@@ -898,7 +621,6 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if action.summons_unit_id != &"":
 		_spawn_summon(state, unit, action, deps)
 
-	## Issue 61: a sustained action lands nothing at the moment it fires. Firing
 	if action.sustain_cost_per_tick > 0:
 		_begin_sustain(state, unit, action)
 	else:
@@ -906,7 +628,6 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		if targets.is_empty():
 			state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
 		elif action.projectile_speed > 0.0:
-			## Issue 18: range and line-of-sight are still checked right here, at
 			_spawn_projectile(state, unit, targets[0], action, deps)
 		else:
 			for target in targets:
@@ -924,30 +645,6 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 
 ## Everything a source gains from a hit that actually connected: Rage, and issue
 ## 165's `ActionDef.restores_resource`.
-##
-## Rage gains only from a landed hit, not from committing or from a miss: a
-## Rage pawn swinging at nothing (out of range at landing) must not fill, per
-## issue 4's own acceptance criterion for it. Issue 18 split this out of
-## `_fire_action` because "landed" now happens at two different moments: the
-## same tick as firing for an instant action, or a later tick at projectile
-## impact -- `_advance_projectile` calls this too, once it resolves a hit.
-##
-## **THAT SPLIT IS WHY `restores_resource` IS WIRED HERE AND NOWHERE ELSE, and it
-## is the trap issue 165 was filed around.** Both actions carrying the field
-## today -- `priest_bolt` and `geyser_spout` -- are projectiles, so a version
-## wired into `_fire_action` would look right, pass a hand-written test, and
-## return nothing in a real fight. Every caller of this function is a connection
-## and none of the MISS paths call it, which is what makes "does not pay out on a
-## miss" a property of where the code sits rather than a condition it has to
-## check.
-##
-## `action` is threaded in for the same reason: this used to need only the
-## source, and the restore is per action.
-##
-## The restore is a flat int, so no stochastic rounding -- unlike Rage, which is
-## a rate. It is clamped at `resource_max` the same way, and it is not restricted
-## by resource kind: a Rage class that ever carries the field gains Rage from it,
-## which is a content decision rather than one for this file.
 static func _on_hit_landed(state: CombatState, source: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	if action != null and action.restores_resource > 0:
 		source.resource = clampi(source.resource + action.restores_resource, 0, source.resource_max)
@@ -958,28 +655,6 @@ static func _on_hit_landed(state: CombatState, source: CombatUnit, action: Actio
 		source.resource = clampi(source.resource + gained, 0, source.resource_max)
 
 ## Issue 174: Rage also fills from being HIT, not only from hitting.
-##
-## `_on_hit_landed` pays the attacker and nothing has ever paid the victim, so a
-## Rage class opening at 0 (issue 164) had exactly one way to earn its first
-## ability: land hits with a free basic attack while being focused. Measured, it
-## did not get there -- the Abomination died in 19 of 20 fights and peak Rage
-## fell 82 -> 29.
-##
-## **The gap is the opening, not the ceiling**, which is why this is the fix
-## rather than a higher starting pool or a stronger Claw. A starting pool
-## contradicts the player's ruling outright, and a stronger Claw makes the ramp
-## survivable by making it pointless. Filling from damage taken preserves the
-## ramp and gives it a second source that a 12-CON class which closes and holds
-## is uniquely placed to use -- the Abomination earns rage by doing its job.
-##
-## Only on damage that actually landed, and only on a survivor: a killing blow
-## pays nothing, the same way `_on_hit_landed` refuses to pay for a miss.
-##
-## Placed inside the damage branch rather than beside `_apply_action_effect`'s
-## exit, so a heal can never reach it and neither can a status application.
-## DOTs and hazards deliberately do not pay: a burn ticking on a corpse-to-be is
-## not somebody hitting you, and paying per tick would make standing in fire the
-## cheapest way to fill a Rage bar in the game.
 static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: int, deps: SimDeps) -> void:
 	if applied <= 0 or not target.alive:
 		return
@@ -991,35 +666,6 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 
 ## Issue 12: the one place `state.units` grows after `build()`. Appends only --
 ## never inserts, never reorders -- so a new unit's id is `state.units.size()`
-## at the moment it is appended, which is exactly the index `state.unit(id)`
-## expects. Every existing id keeps pointing at the same unit forever, same as
-## before this existed.
-##
-## Runs unconditionally when the action fires, independent of whether
-## `_resolve_targets` finds anything: a build action is not an attack, and
-## content is free to give it no target at all (or a self-target) without the
-## summon becoming contingent on a hit.
-##
-## Deterministic by construction: no rng, no wall-clock, nothing but the
-## caster's own state and `deps.enemy_lookup`, which is a pure content lookup.
-## Same seed, same decisions, same casters resolve in the same tick in the
-## same order (CombatState's own ordering rule -- iterate `units`, never a
-## Dictionary), so two runs from the same seed spawn identically. Unknown
-## `EnemyDef` ids are handled by `_build_enemy_unit` itself, the same way an
-## unknown enemy spawn in `build()` already is.
-##
-## Spawned on the caster's team, at the caster's exact position ("at or near"
-## per issue 12) -- units do not collide with each other, only with terrain, so
-## sharing a point is not a stuck state.
-##
-## A unit appended here can be visited later in the same tick's `_resolve_phase`
-## or `_tick_phase` loop, because both iterate `state.units` directly and Array
-## iteration in GDScript re-reads size() each step. That is harmless rather
-## than avoided: a unit that did not exist during `_decide_phase` has
-## `intent == null` and `action_ticks_left == 0` / `recover_ticks_left == 0`, so
-## every branch that would touch it this tick is a no-op. It gets its first
-## real decision on the following tick, same as any unit built in `build()`
-## would if `_decide_phase` had not already run for tick 1.
 static func _spawn_summon(state: CombatState, caster: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	var enemy_def: EnemyDef = deps.enemy_lookup.call(action.summons_unit_id)
 	var new_id := state.units.size()
@@ -1064,7 +710,6 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	if not target.alive:
 		return
 
-	## Resolved BEFORE the damage is computed, so the bonus lands inside the one
 	var bonus := _consume_status(state, unit, target, action)
 
 	## How hard this hit landed, after mitigation, or 0 for a heal. Read below by
@@ -1119,12 +764,6 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	return mitigated
 
 ## The one shape a unit dies in, shared by the three things that can kill one:
-## an action's effect, a damage-over-time status and a hazard. Returns whether
-## this call is the one that killed it, so a caller iterating a unit's remaining
-## damage sources can stop.
-##
-## `source_id` and `action_id` are the caller's to state: a DOT and a hazard have
-## neither, and pass -1 and the empty name exactly as they always did.
 static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, action_id: StringName) -> bool:
 	if unit.hp > 0 or not unit.alive:
 		return false
@@ -1140,66 +779,20 @@ static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, 
 # status to the tick it ends and there has never been anywhere to put a
 # per-application payload, which is why nothing in this game stacks and why every
 # damage-over-time status scaled off the same thing.
-#
-# Two of the player's rulings need the same missing piece, so they are one
-# mechanism and not two:
-#
-#   "Bleed should differentiate itself from poison in that it does damage less
-#    often but stacks infinitely."
-#   "BURN damage per tick should be relative to the hit that applied it."
-#
-# `CombatUnit.status_magnitude` is that piece. What the number MEANS is decided
-# per status, by exactly one of the two tables below, and the sim owns only how
-# it is written and how it decays. Every number it turns into is content's,
-# through SimDeps, so there is no tuning value in this file.
 
 ## Statuses that accumulate instead of refreshing: applying one again adds a
 ## stack rather than replacing what was there.
-##
-## BLEED and nothing else, per #130, which names BLEED and is silent about the
-## rest. A table here rather than a flag on `ActionDef` on purpose: whether a
-## status stacks is a property of the status, and a field would let two actions
-## applying BLEED disagree about it, which is a knob nobody asked to turn.
 const _STACKING_STATUSES := {
 	CG.Status.BLEED: true,
 }
 
 ## Statuses whose magnitude is the damage of the hit that applied them.
-##
-## BURN, per the player's ruling. The stored number is the **mitigated** damage
-## -- what the hit actually dealt, which is the figure in the floater and the
-## log, so "it burns as hard as it hit" is something a player can check on
-## screen. Armour therefore matters twice, and that is the intended reading: a
-## well-armoured target takes a small hit and consequently a small burn.
-##
-## `mitigated` rather than the `applied` figure the event carries, because
-## `applied` is clamped by the target's remaining health -- a killing blow
-## would otherwise store a number that describes how nearly dead the target
-## already was rather than how hard it was hit.
 const _HIT_SCALED_STATUSES := {
 	CG.Status.BURN: true,
 }
 
 ## Writes the status, its expiry and its magnitude in one place, so the three
 ## cannot be set inconsistently by two call sites.
-##
-## RE-APPLICATION, and this is the decision with a wrong answer a player would
-## notice and be unable to explain:
-##
-##   - **Stacking statuses add one and refresh the expiry.** That is the whole
-##     of "stacks infinitely".
-##   - **Hit-scaled statuses take the MAX and refresh the expiry.** Not
-##     overwrite. Overwriting downward means a second, weaker fire attack makes
-##     the player's burn *worse*, which is an outcome nobody could explain from
-##     watching. It is worse still now that a consume's payoff scales off the
-##     same number: a weak follow-up would silently devalue a combo the player
-##     had already planned around. The duration always refreshes, so a light hit
-##     still keeps a strong burn alive -- it just cannot dilute it.
-##   - **Everything else behaves exactly as before**, a plain refresh.
-##
-## `STATUS_APPLIED.amount` carries the resulting magnitude, which is unset on
-## that kind today, so a log line can say "Bleed (3)" or "Burn (18)" without a
-## new field and without reaching into the unit.
 static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, dealt: int) -> void:
 	var status: CG.Status = action.applies_status
 	var carried := float(target.status_magnitude.get(status, 0.0))
@@ -1209,10 +802,8 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 		target.status_magnitude[status] = maxf(carried, float(dealt))
 
 	target.statuses[status] = state.tick + action.status_duration_ticks
-	## TAUNTING's reach is stored on the taunting unit itself rather than
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = action.taunt_radius
-		## The taunt lands on its victims here, in the same breath as the status
 		_broadcast_taunt(state, target, action.status_duration_ticks)
 
 	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
@@ -1223,21 +814,6 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 ## Strips `action.consumes_status` off the target and returns the bonus power it
 ## paid, or 0.0 when the action consumes nothing or the target is not carrying
 ## it. Every action in the game today takes the second branch.
-##
-## The bonus is `consumed_power_scale` times the status's OWN stored magnitude,
-## which is the player's rule and is about every consume rather than about
-## Blast: *"this will be the norm for burn consume effects"*. A burn from a big
-## hit ticks harder and is worth more to eat, off one stored number read at both
-## ends.
-##
-## A stacking status is consumed whole -- every stack, for the total magnitude.
-## Eating one stack of nine would need a second decision about which stack and
-## leave the player with a badge that barely moved.
-##
-## Emits STATUS_EXPIRED carrying the caster and the consuming action, exactly as
-## `_cleanse_harmful` does and for the same reason: that pair is the only thing
-## separating "Blast ate the burn" from "the burn ran out", and it is emitted
-## before the DAMAGE event so a log reads in cause-then-effect order.
 static func _consume_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> float:
 	if not action.consumes_status_enabled:
 		return 0.0
@@ -1255,9 +831,6 @@ static func _consume_status(state: CombatState, caster: CombatUnit, target: Comb
 ## `statuses`, `status_magnitude` and the two fields that shadow a status
 ## (`taunt_radius`, `sustaining`) cannot be left disagreeing -- which is exactly
 ## how a stale taunt radius or a phantom stack would survive a cleanse.
-##
-## Emits nothing: the three callers each say something different about why the
-## status went (expiry, cleanse, consume) and the event belongs to them.
 static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 	unit.statuses.erase(status)
 	unit.status_magnitude.erase(status)
@@ -1267,46 +840,7 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 		unit.sustaining = &""
 		unit.sustain_started_tick = -1
 
-## Issue 87: strips every harmful status from `target`, one STATUS_EXPIRED per
-## status removed.
-##
-## `CG.is_harmful` is the only thing consulted for which statuses those are.
-## Not a second list here: the status badges (Scripts/Art/StatusIcons.gd) and
-## the combat log (Scripts/UI/CombatLogView.gd) already call the same function,
-## so what a cleanse strips and what the player sees disappear cannot disagree.
-## A status added to CG.Status without being classified there is treated as
-## harmless and survives a cleanse, which is the safe direction that function's
-## own doc comment argues for.
-##
-## Placed beside `_apply_pull` at the end of `_apply_action_effect`, and
-## guarded the same way, for the same two reasons: it runs after this action's
-## own damage and death resolution, so a cleanse never fires on a corpse, and
-## an action that sets neither field behaves exactly as it did before.
-##
-## Removal goes through `_remove_status`, which takes the magnitude with it.
-## That was not always necessary: every harmful status used to be a pure
-## read-while-present flag -- SLOWED a multiplier read in
-## `_effective_move_speed`, STUN a check in `_decide_phase`, MARKED a read in
-## Balance, BURN/POISON membership tests in `_tick_dot_statuses` -- and the only
-## status carrying anything extra (TAUNTING, via taunt_radius) was harmless and
-## therefore never reached here.
-##
-## **BLEED and BURN broke that**: both are harmful and both now carry a
-## magnitude, so a cleanse that erased only the expiry would leave nine stacks
-## of bleed sitting on a unit that no longer has bleed, waiting to be revived at
-## full strength by the next application. One removal path is what stops that
-## from ever being a question again.
-##
-## Keys are sorted before iterating, exactly as `_tick_statuses` does: a
-## Dictionary's key order is insertion order, so two fights from one seed
-## would otherwise emit the same removals in an order that depends on which
-## enemy afflicted the unit first. Nothing random is consulted at all.
-##
-## The event carries the caster and the action, where an expiry from
-## `_tick_statuses` carries source_id -1 and no action id. That is the only
-## signal separating "the Geysermancer scrubbed the poison off" from "the
-## poison ran out", and it is there for the log to use; CombatLogView does not
-## read it yet and rendering it is wren's call, not mine.
+## Strips every harmful status from `target`, one STATUS_EXPIRED per removal.
 static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
 	if target.statuses.is_empty():
 		return
@@ -1321,18 +855,6 @@ static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: Com
 		state.emit(e)
 
 ## Issue 14: drags `target` toward `caster` by up to `distance`, world units.
-## Guarded by the caller on `target.alive` -- checked *after* this same
-## effect's own damage/death resolution above, so a pull on a killing blow
-## never fires on a corpse.
-##
-## Reuses `_sweep`, the same increment-and-stop walk ordinary movement already
-## uses against `Terrain.point_is_blocked`, rather than a straight-line
-## teleport: a pull that can shove a unit through a wall is exactly the "lands
-## inside terrain" failure issue 14 names, and `_sweep` already refuses to
-## land past the first blocked increment. A pull that meets a wall stops at
-## the wall instead of failing outright -- dragged as far as the wall allows,
-## which reads better than a hook that does nothing because the last few units
-## of it were blocked.
 static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, distance: float) -> void:
 	var to_caster := caster.position - target.position
 	var dist := to_caster.length()
@@ -1343,65 +865,12 @@ static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUn
 	target.position = _sweep(state, target, step)
 
 # ---------------------------------------------------------------------------
-# sustained actions (issue 61)
+# sustained actions
 # ---------------------------------------------------------------------------
 #
-# THE FIRST THING IN THIS SIMULATION THAT IS NOT A POINT IN TIME.
-#
-# Every other action resolves as wind-up, fire, recover -- three moments. A
-# sustained action fires once and is then *held*: it deals its effect and
-# charges `sustain_cost_per_tick` on every tick, and it keeps doing so for
-# exactly as long as the pawn's decision layer keeps choosing it.
-#
-# WHAT ENDS IT, and this is the design decision rather than an implementation
-# detail. Four things, and the first one is the important one:
-#
-#   1. The plan stops choosing it. A holding unit is NOT busy, so
-#      `_decide_phase` asks the decision layer every tick exactly as it always
-#      has. An intent of USE_ACTION naming the same action re-affirms the
-#      channel; anything else ends it (`_reaffirm_sustain`).
-#   2. Resource below the per-tick cost (`_tick_sustain`).
-#   3. STUN (`_decide_phase`).
-#   4. Death (`_tick_phase`, both ends of the loop body).
-#
-# (1) was chosen over an autonomous toggle the pawn switches off by itself, and
-# the reason is CLAUDE.md's binding principle: *pawns should never do anything
-# the player cannot see in the plans of action.* A channel that outlives the
-# plan that started it is a pawn burning its own resource for reasons written
-# nowhere the player can read, which is that failure exactly. Re-affirmation
-# also means the plan's CONDITION is the off switch -- already authored, already
-# visible on the inspect screen, already editable.
-#
-# It costs nothing to implement, because the seam was already there: the sim has
-# always asked for an intent whenever a unit is free, and a held action leaves
-# the unit free.
-#
-# ON DURATION, the fifth PlanBlock kind, whose ops are `[&"once"]` and which
-# stores no per-plan progress anywhere. A sustained action is the first thing
-# that could have given it a meaning and I decided against it deliberately
-# rather than leaving it inert by accident: **this mechanism makes CONDITION do
-# DURATION's job.** The channel's lifetime *is* the plan's condition,
-# re-evaluated every tick. A DURATION block saying "for N ticks" beside it would
-# be a second, competing governor of the same lifetime, and a plan whose
-# condition drops at tick 20 with a duration of 60 has no correct answer. If
-# DURATION is ever to mean something it is scheduling -- "keep re-firing this
-# plan for N ticks before yielding to a later one" -- which is a concept
-# `PlanInterpreter` has never had, lives in a file this session does not own,
-# and is not what issue 61 asks for.
-#
-# The unit is free to move while holding: movement is not a competing action,
-# and the player asked for an aura rather than a root. In practice a plan that
-# stops firing hands the tick to `DefaultBehavior`, which usually moves, and the
-# channel ends there -- through (1), for a reason the player can read.
-
-## Begins the channel. Both pieces of state are written here and nowhere else,
-## which is what keeps `CombatUnit.sustaining` and `CG.Status.SUSTAINING` from
-## being able to disagree.
-##
-## The status carries a CG.MAX_TICKS expiry -- "outlives the fight", the same
-## thing `_build_enemy_unit` does for a spawn-time TAUNTING, and for the same
-## reason: this status is ended by a rule, not by a clock, so it must never
-## expire on its own.
+# A sustained action fires once and is then held: it deals its effect and
+# charges `sustain_cost_per_tick` every tick, for as long as the decision
+# layer keeps choosing it.
 static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
 	unit.sustaining = action.id
 	unit.sustain_started_tick = state.tick
@@ -1410,12 +879,6 @@ static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionD
 
 ## Ends it, from any of the four causes. Safe to call on a unit holding nothing,
 ## which is why every caller is a plain unguarded call.
-##
-## Erasing the status here does NOT emit STATUS_EXPIRED, where `_tick_statuses`
-## and `_cleanse_harmful` both do. SUSTAIN_END is that event, carrying strictly
-## more information (which action, how long); two events for one ending would
-## put the same fact in a log twice and let a reader count a channel as having
-## stopped twice.
 static func _end_sustain(state: CombatState, unit: CombatUnit) -> void:
 	if unit.sustaining == &"":
 		return
@@ -1428,10 +891,6 @@ static func _end_sustain(state: CombatState, unit: CombatUnit) -> void:
 
 ## Cause (1). Called from `_decide_phase` with whatever the decision layer just
 ## returned, on every tick the unit was free to decide.
-##
-## A unit that is busy is never asked, so it is never checked here, and its
-## channel survives its own recovery ticks. That is deliberate: recovery is the
-## unit finishing the thing it was told to do, not the unit changing its mind.
 static func _reaffirm_sustain(state: CombatState, unit: CombatUnit, intent: Intent) -> void:
 	if unit.sustaining == &"":
 		return
@@ -1440,28 +899,6 @@ static func _reaffirm_sustain(state: CombatState, unit: CombatUnit, intent: Inte
 	_end_sustain(state, unit)
 
 ## One tick of upkeep: charge, then deal.
-##
-## The same membership-per-tick shape `_tick_hazards` already uses for standing
-## in fire, pointed at the caster instead of at a fixed patch of ground. That
-## was the model issue 61 named and it is the right one -- there is no duration
-## to decay, no list of affected units to maintain, nothing to clean up when
-## somebody walks out. Position is re-read every tick and that is the whole
-## bookkeeping.
-##
-## ON THE TICK THE RESOURCE RUNS OUT: it stops cleanly and there is no partial
-## tick. Nothing is charged and nothing is dealt. The alternative -- spend what
-## is left and deal a fraction of the effect -- makes the last tick of every
-## channel a different tick from all the others for no gain a player could
-## read.
-##
-## DETERMINISM: `state.living()` is `state.units` order, which is fixed for a
-## seed, and the only randomness reached is `state.rng` through
-## `deps.attack_power`, consumed in that same fixed order. No wall clock, no
-## Dictionary iteration.
-##
-## This can kill a unit that `_tick_phase` has not reached yet in the loop that
-## called it, which is the same thing an attack in `_resolve_phase` has always
-## been able to do -- that unit is simply skipped for the rest of this tick.
 static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.sustaining == &"":
 		return
@@ -1482,21 +919,6 @@ static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 		_apply_action_effect(state, unit, target, action, deps)
 
 ## Everyone inside the channel's radius this tick.
-##
-## `action.heals` picks the side, the same field that already decides whether
-## `_apply_action_effect` adds or subtracts hp -- so a sustained heal aura is a
-## card content can author with no further work here, which is what issue 61
-## means by "a new category, not a new number". A damage aura reads the enemy
-## team and therefore can never catch the caster's own party.
-##
-## `requires_line_of_sight` is honoured per target, so a pillar between the
-## Abomination and a goblin spares the goblin. An aura that burns through a wall
-## would be the same defect `Terrain.line_is_blocked` was built to fix for
-## shots.
-##
-## A zero radius returns nothing rather than falling back to the focused target.
-## A channel with a cost and no reach is content authored wrong, and it should
-## look wrong -- silently retargeting it would hide the mistake.
 static func _sustain_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
 	var out: Array[CombatUnit] = []
 	if action.sustain_radius <= 0.0:
@@ -1544,18 +966,6 @@ static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: Co
 ## that would end the fight this tick still lands before the outcome is
 ## decided -- the same ordering guarantee every other effect in a tick
 ## already gets.
-##
-## Scans from `state.next_unresolved_projectile` rather than 0: resolved
-## entries stay in the array in place (same "dead units stay in place"
-## convention `state.units` already uses -- nothing iterating mid-tick should
-## see the array reshuffle), and a long, hasted fight can accumulate
-## thousands of them. Correctness never depends on the cursor: the scan below
-## still covers cursor..end in full every tick, so a fast projectile launched
-## after a slower one is still found and resolved even though it isn't at the
-## front. The cursor only buys speed, on the assumption that resolution is
-## *roughly* in launch order -- if that assumption turns out false in
-## practice, this degrades toward scanning the same already-resolved prefix
-## repeatedly, not toward missing anything.
 static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
 	var i := state.next_unresolved_projectile
 	while i < state.projectiles.size():
@@ -1569,27 +979,6 @@ static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
 
 ## Moves `p` up to `p.speed` toward its frozen `aim_point`, then resolves it
 ## if either condition is met this tick:
-##
-## 1. Its target is still alive and `p`'s new position is within the
-##    target's own `radius` of the target's *current* position -- reusing
-##    the field the movement code already treats as a unit's physical size
-##    rather than inventing a second "how close counts as a hit" number.
-##    This is what lets a target walk into an incoming shot early.
-## 2. It has reached `aim_point` without (1) firing -- resolves as an
-##    ordinary MISS, the same event an out-of-range shot already gets today.
-##    This is what lets a target walk out of the way: nothing is at the aim
-##    point anymore.
-##
-## A target that died before impact simply never satisfies (1) again (`state.unit`
-## still resolves the id -- ids are stable forever -- but `.alive` is false),
-## so it falls through to (2), an ordinary miss, with no cancellation path to
-## build. A dead source needs nothing special at all: everything this needs
-## (`source_id`, `target_id`, `action_id`, `aim_point`) was captured at launch.
-##
-## `requires_line_of_sight` is re-checked every tick against the live
-## predicate (`Terrain.line_is_blocked`, projectile's current position to the
-## target's current position) rather than once at fire time, so a pillar
-## sliding into the path blocks that tick's hit-check with no special case.
 static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps) -> void:
 	var travelled_from := p.position
 	_step_projectile(p)
@@ -1598,7 +987,6 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 	var target := state.unit(p.target_id)
 	var source := state.unit(p.source_id)
 	if action != null and target != null and source != null:
-		## SHIELDING checked before the intended target, every tick the shot
 		var shielder := _find_shielder(state, target.team, source.team, travelled_from, p.position)
 		if shielder != null:
 			p.resolved = true
@@ -1647,72 +1035,9 @@ static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, a
 
 ## How wide the shield is: how close a hostile shot's path has to pass to a
 ## SHIELDING unit's front for that unit to take it instead.
-##
-## 40 units, which is melee range -- `warrior_strike` and `warrior_execute`
-## both have `range_units = 40.0`, and that is what "melee" means in this
-## content. It is the player's own original wording for this ability: "block
-## ranged attacks that enter its melee range from the direction it's facing."
-##
-## It was `candidate.radius`, 22 units, the shielder's own body. That cannot
-## do what `warrior_block`'s description promises ("stops a travelling shot
-## aimed at an ally standing behind it") because two units cannot overlap, so
-## an ally standing behind is at least 44 units away -- twice the old window.
-## The shield covered a bubble on the Warrior, and the ally was only ever
-## protected when the shot happened to fly close past the Warrior anyway.
-##
-## Reusing `radius` was the same instinct as reusing it for the ordinary hit
-## check, and it was wrong for the same reason a hit check is right: a hit
-## asks "did this touch a body", a shield asks "did this come through the
-## space I am guarding". Those are different questions and 40 is the answer to
-## the second one, stated rather than borrowed.
-##
-## It does not follow content: if melee range moves, this does not move with
-## it. Deliberate -- a simulation constant that silently tracked an action's
-## range would make this ability change when an unrelated action was tuned.
 const SHIELD_WIDTH := 40.0
 
-## A shot crossing a SHIELDING unit's front is stopped by it, per
-## CG.Status.SHIELDING's own doc comment -- this is the projectile-based
-## design that comment named as the point of building #18 first, replacing
-## the geometric-line-check fallback it also named (never built, since
-## projectiles landed before this did).
-##
-## Tested against the **segment the shot travelled this tick**, `from` -> `to`,
-## not against where it happens to have landed at the end of it. A shot moves
-## `speed` units per tick (65 for every real ranged action today) and the
-## window is 40 wide, so a point test lets a shot teleport straight through a
-## raised shield without ever being sampled inside it. That is not a rare edge:
-## it is most shots, and it is a large part of why this ability appeared to do
-## nothing. A segment test has no such hole at any speed, which also means the
-## measurement stops depending on the tick rate.
-##
-## The front arc is now two sign tests instead of one, and the second is new:
-##
-##   1. the shot **started this tick in front**: `facing.dot(from - pos) > 0`
-##   2. the shot is **moving into the shield**: `facing.dot(to - from) < 0`
-##
-## Together that is the player's own wording for the ability -- "ranged attacks
-## that enter its melee range from the direction it's facing". Test 1 alone was
-## what this had, and it cannot tell approach from departure, because it reads
-## where the shot is and never which way it is going. The old comment on the
-## facing test in Tests/test_combat_taunt_and_shield.gd says so outright: a
-## shielder on the shot's line is "briefly in front of the shot during the
-## approach and briefly behind it during departure, for *either* facing". So a
-## shot that had already flown past a guard could be caught on its way out, and
-## widening the window from 22 to 40 would have made that more common, not less.
-## Test 2 removes it: a shield stops what comes at its face.
-##
-## Neither test can be asked of the closest point on the segment. For a shot
-## passing straight through a shielder that point is the shielder's own
-## position, which dots to zero from every facing.
-##
-## `attacking_team == defending_team` returns null immediately, so a shield
-## never blocks a friendly heal or buff aimed at an ally standing behind it --
-## SHIELDING stops incoming fire, not outgoing support.
-##
-## First qualifying shielder in `state.living(defending_team)` order wins,
-## same "iterate units, never a Dictionary" determinism rule every other
-## tie-break in this file already follows.
+## A shot crossing a SHIELDING unit's front is stopped by it.
 static func _find_shielder(state: CombatState, defending_team: CG.Team, attacking_team: CG.Team, from: Vector2, to: Vector2) -> CombatUnit:
 	if attacking_team == defending_team:
 		return null
@@ -1724,7 +1049,6 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 		var closest := Geometry2D.get_closest_point_to_segment(candidate.position, from, to)
 		if closest.distance_to(candidate.position) > SHIELD_WIDTH:
 			continue
-		## Vector2.normalized() on a zero-length vector returns ZERO rather
 		var to_shot := (from - candidate.position).normalized()
 		if candidate.facing.dot(to_shot) <= 0.0:
 			continue
@@ -1741,7 +1065,6 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 		deps = SimDeps.new()
 	var player_alive := not state.living(CG.Team.PLAYER).is_empty()
 	var enemy_alive := not state.living(CG.Team.ENEMY).is_empty()
-	# Issue 233. Only asked while both sides still have somebody standing: a
 	var reason := CG.EndReason.NO_SURVIVORS
 	if player_alive and enemy_alive:
 		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
@@ -1752,7 +1075,6 @@ static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	var outcome := _outcome_for(player_alive, enemy_alive)
 	if outcome == CombatState.Outcome.UNRESOLVED and state.tick >= CG.MAX_TICKS:
 		outcome = CombatState.Outcome.DRAW
-		# THE ONE ENDING `CG.EndReason` HAS NO NAME FOR, AND I AM NOT INVENTING
 		reason = CG.EndReason.UNSET
 	if outcome == CombatState.Outcome.UNRESOLVED:
 		return
@@ -1772,7 +1094,6 @@ static func _outcome_for(player_alive: bool, enemy_alive: bool) -> CombatState.O
 ## Everything the end of a fight does, once it has been decided.
 static func _end_fight(state: CombatState, outcome: CombatState.Outcome, reason: CG.EndReason) -> void:
 	state.outcome = outcome
-	# finch's #219 finding, and the fifth way a channel can end: the fight
 	for unit in state.units:
 		if unit.alive and unit.sustaining != &"":
 			_end_sustain(state, unit)
@@ -1780,49 +1101,8 @@ static func _end_fight(state: CombatState, outcome: CombatState.Outcome, reason:
 	end_event.end_reason = reason
 	state.emit(end_event)
 
-## Issue 233. A side is beaten when it has no living unit left **or** when
-## every unit it has left can never act again for the rest of the fight.
-##
-## The second half exists because of one measured event, not a hypothetical.
-## `floor1_warden` with the four-class party: 22 of 40 seeds outlive the whole
-## party because two Siege Engines are still standing. Eleven of those are wins
-## the engines land within 4 seconds. **The other eleven are 25.9-second
-## defeats, of which 21.8 to 25.9 seconds contain nothing the player's side
-## does at all** -- measured event by event with `Tools/TailAnatomy.gd`, and
-## watched on screen with `Tools/TailWatch.gd`, where the arena is visually
-## frozen and the combat log's last line is twelve seconds old.
-##
-## The cause is not a slow tail, which is why "speed the tail up" is not the
-## fix. `siege_engine_bolt` is `requires_marked_target`, the engines have
-## `move_speed` 0, and the only unit in the game that applies MARKED is the
-## Siege Master. The tick their mark fades, two engines become furniture with
-## no action they can ever satisfy, and the Warden spends 25 seconds
-## demolishing them. **The fight is decided; only the announcement is late.**
-##
-## It is deliberately not "end the fight when the last pawn dies": that throws
-## away the eleven wins the engines earn, and they earn them in under four
-## seconds.
-## Issue 218, and rook's ruling: **a fight where every pawn is dead is not a
-## victory.** The simulation's result does not change -- the enemies are gone,
-## so `outcome` is PLAYER_WIN and stays PLAYER_WIN -- but the screen must not
-## call it one. This is the question the banner asks to tell the two endings
-## apart.
-##
-## Public because the answer belongs here rather than in the view: it is a
-## property of the fight, and a second implementation of "which of these units
-## was a pawn" in `BattleView` would drift from this one. 11 of 40 seeds on
-## `floor1_warden` end this way (issue 233), so it is not a corner case.
-##
-## **No new field was needed and I did not add one.** `state.units` keeps dead
-## units in place with `alive == false` for the whole fight, and a pawn is the
-## one player-team unit with `pawn != null` -- `build()` sets `.pawn` for party
-## members and leaves `enemy_id` empty, while a summon is built from an EnemyDef
-## and carries one. So "the party existed and every one of them is dead" is
-## readable off `CombatState` at any tick, including after the fight ends.
-##
-## The party-existed half is not decoration: a fight with no pawns at all (the
-## level editor's test fight can build one) would otherwise report every win as
-## pawnless and the banner would read Defeat on it.
+## A side is beaten when it has no living unit left, or when every unit it has
+## left can never act again.
 static func party_was_wiped(state: CombatState) -> bool:
 	var pawns := 0
 	for unit in state.units:
@@ -1852,13 +1132,9 @@ static func _side_can_fight(state: CombatState, team: CG.Team, deps: SimDeps) ->
 ## target walks back into range, so none of those may end a fight. A mark is the
 ## one precondition a unit cannot restore for itself, and only a living ally
 ## that applies MARKED can restore it.
-##
-## Anything not covered by that reasoning returns true, so this cannot end a
-## fight the old rule would have kept running for any other reason.
 static func _unit_can_fight(state: CombatState, unit: CombatUnit, deps: SimDeps) -> bool:
 	if unit.move_speed > 0.0:
 		return true
-	# Mid wind-up, mid channel, or a shot still in the air: the fight is not
 	if unit.current_action != &"" or unit.sustaining != &"":
 		return true
 	for p in state.projectiles:

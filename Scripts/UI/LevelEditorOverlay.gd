@@ -4,22 +4,6 @@ const LevelEditorCanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd"
 
 ## The level editor's own drawing on top of ArenaFloor: the party deploy
 ## zone, every placed enemy, and the rectangle being dragged out right now.
-##
-## OWNER: kite.
-##
-## A child of the same ArenaFloor-scripted node the editor's terrain draws
-## on, not a sibling of it — the same reason UnitView is a child of
-## BattleView's Arena rather than a sibling: a CanvasItem's children draw
-## after its own _draw() call, so this is what keeps ArenaFloor's opaque
-## floor fill from painting over everything placed on it. Found on a real
-## launch: the first version drew enemies from the Control's own _draw(),
-## with ArenaFloor added as a later sibling — every enemy vanished under the
-## floor the instant a real screenshot was taken, invisible in the gate
-## because no test asserted draw order, only that the data was there.
-##
-## Reads the canvas's live state directly rather than owning a duplicate of
-## it — this node exists only to draw. `LevelEditorCanvas` still owns
-## everything and is the only thing anyone outside this file talks to.
 
 var canvas = null
 

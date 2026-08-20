@@ -7,8 +7,6 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## already drawn from the STATUS_APPLIED on the same tick and says WHAT
 ## happened; the flash says it happened NOW, which is the half a badge cannot do
 ## for someone watching a fight without pausing.
-##
-## See Tests/test_ui_battle_death_marker.gd for why _ready() is called directly.
 
 func _view(state: CombatState) -> Node:
 	var view = BattleScene.instantiate()

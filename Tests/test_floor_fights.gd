@@ -2,10 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Covers all four acceptance criteria in Issues/issue-9-rooms-run-fights.md.
-## Uses real content (PawnFactory, Registry's one authored encounter) rather
-## than hand-built fixtures, because this issue's whole point is the seam
-## between the floor model and the real simulation -- a fake encounter would
-## not test that seam.
 
 ## Issue 12: swapped Siege Master -> Abomination. This file tests the floor/
 ## room seam, not any one class's balance, so the fixture does not need to be

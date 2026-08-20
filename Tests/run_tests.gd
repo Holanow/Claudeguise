@@ -2,23 +2,6 @@ extends SceneTree
 
 
 ## The whole gate. Run it with:
-##
-##   godot --headless --path . --script res://Tests/run_tests.gd
-##
-## or through Tools/gate.ps1, which is the same command with the Godot path
-## resolved. Exit code 0 means every check passed. Anything else means stop.
-##
-## MANAGER-OWNED. Nobody else edits this file.
-##
-## Three checks, printed separately, because a summary line that folds them
-## together hides the one that matters:
-##
-##   1. parse     every .gd in the repository loads
-##   2. discovery every test_*.gd is somewhere the runner collects it
-##   3. tests     every test method passes
-##
-## Check 2 exists because a test file the runner never opens produces no output
-## and is indistinguishable from a passing one. It has caught this before.
 
 const TEST_DIR := "res://Tests"
 const SKIP_DIRS := [".godot", ".git", "addons"]
@@ -32,19 +15,6 @@ var _self_path := "res://Tests/run_tests.gd"
 
 ## An optional substring filter, for iterating on one file without paying for the
 ## whole suite:
-##
-##     godot --headless --path . --script res://Tests/run_tests.gd -- projectiles
-##
-## **Parse and discovery always run over everything, and that is deliberate.** A
-## missing symbol in Scripts/Core is a parse-time failure in Godot that takes
-## down every script transitively preloading it, so a filtered run that skipped
-## the parse check could report green while the real gate is broken. Only the
-## test-execution phase narrows.
-##
-## Added after swift was told to use a filter argument that did not exist. They
-## checked the command instead of trusting it, found `_init` always walked the
-## whole tree regardless, and said so rather than running something that looked
-## like it worked. The suggestion was mine and so was the gap.
 static func _filter_from_args() -> String:
 	for a in OS.get_cmdline_user_args():
 		var s := String(a).strip_edges()
@@ -96,12 +66,6 @@ func _verdict(ok: bool) -> String:
 
 ## `load()` alone is not enough here, and the difference is not cosmetic. A .gd
 ## file with a type error prints three SCRIPT ERROR lines and then `load()`
-## hands back a non-null GDScript anyway, so a null check reports "parse pass"
-## next to a wall of parse errors. That is the worst possible gate output: it
-## trains everyone to read the summary and ignore the errors above it. Caught by
-## deliberately breaking a file and watching this check pass.
-##
-## `reload()` returns the actual compile result, so it is the thing to ask.
 func _check_parse(scripts: Array[String]) -> void:
 	for path in scripts:
 		var res := load(path)
@@ -165,18 +129,6 @@ func _run_tests(collected: Array[String]) -> void:
 			## and the gate prints PASS. wren hit this by deleting a function
 			## while a test still called it: the only symptom anywhere was the
 			## assertion count moving 4399 -> 4398.
-			##
-			## That is issue 104's rule pointed at the runner itself -- "X never
-			## happened" is indistinguishable from "X could never be observed"
-			## -- and the runner is the worst possible place for it, because
-			## every other check in this project is trusted on the strength of
-			## its verdict.
-			##
-			## Measured before adopting rather than argued for: wren ran this
-			## detector across the whole suite and it produced **1 hit, the
-			## genuinely broken test, and 0 false positives across the other
-			## 572.** A test with nothing to assert is welcome to say so with
-			## `assert_true(true, "...")` and a reason.
 			if case.assertions == 0:
 				var vacuous := "%s::%s  ran and recorded no assertion -- it crashed part-way, or it asserts nothing" % [path.get_file(), name]
 				_test_failures.append(vacuous)

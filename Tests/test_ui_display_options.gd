@@ -4,14 +4,6 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 
 ## Issue 136: floating damage numbers become a toggle, defaulting to off.
-##
-## The first thing anyone has proposed *removing* from the battle screen, and
-## the first fresh-eyes playtest reached the same conclusion independently:
-## "the arena needs about a third as much, drawn four times larger".
-##
-## `DisplayOptions` holds static state, so every test here resets it. A toggle
-## leaking from one test into the next is the exact bug this file exists to
-## prevent shipping.
 
 func _reset() -> void:
 	DisplayOptions.reset()

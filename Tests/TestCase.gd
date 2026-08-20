@@ -2,13 +2,6 @@ extends RefCounted
 class_name TestCase
 
 ## Base class for every test. Copy Tests/test_skeleton.gd as the pattern.
-##
-## MANAGER-OWNED. Add a helper by proposing it in TEAM_LOG.md.
-##
-## A test is any method whose name begins with `test_` on a class extending
-## this, in a file named `test_*.gd` under Tests/. The runner fails naming any
-## `test_*.gd` file anywhere else in the repository, because a test file outside
-## the runner's reach reports nothing and looks exactly like a passing one.
 
 var failures: Array[String] = []
 var assertions: int = 0

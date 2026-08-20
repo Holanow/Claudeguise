@@ -2,8 +2,6 @@ extends RefCounted
 
 
 ## Floor 1's bestiary: monsters, not mirrors of the five pawn classes.
-## `EnemyDef` skips the attribute system on purpose, so nothing here is bound
-## to look like a pawn's stat spread. See Registry.gd for the module
 
 static func classes() -> Array[ClassDef]:
 	return []
@@ -16,51 +14,35 @@ static func classes() -> Array[ClassDef]:
 ## shielded, dodged or seen coming.
 const RANGED_PROJECTILE_SPEED := 32.5
 
-## **Issue #121's enemy actions live here, not in `core_actions.gd`, and I was
-## wrong about that for two days.**
 static func actions() -> Array[ActionDef]:
 	return [
-		## **The first STUN source in the game**, and it only became worth
 		_action_taunt(&"brute_roar", "Roar", "Forces every enemy within 200 units to attack the Brute for 8 seconds. It cannot roar again for another 16 seconds.", 8, 9, 200.0, 120, 240),
 		_action_status(&"brute_slam", "Slam", "A heavy melee blow at up to 50 units that stuns for 0.5 seconds, cancelling whatever the target was casting.", CG.DamageType.PHYSICAL, 50.0, 16, 18, 2.0, 0, CG.Status.STUN, 8),
 
-		## The Stalker's whole arsenal. MARKED for 6 seconds at 220 units,
 		_projectile(_action_status_cd(&"stalker_mark", "Mark", "Marks a target within 220 units for 6 seconds, stripping its natural armour.", CG.DamageType.PHYSICAL, 220.0, 4, 5, 1.0, 0, CG.Status.MARKED, 90, 60, true), RANGED_PROJECTILE_SPEED),
 
-		## **The Stalker's second action exists because the cooldown above
 		_projectile(_action(&"stalker_dart", "Dart", "A light ranged dart at up to 200 units.", CG.DamageType.PHYSICAL, 200.0, 6, 8, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 
-		## **Issue #130's BLEED source, and the fastest action in the game.**
 		_action_status(&"rat_bite", "Bite", "A fast melee bite at up to 40 units that adds a stack of Bleed.", CG.DamageType.PHYSICAL, 40.0, 3, 4, 1.0, 0, CG.Status.BLEED, 45),
 
-		## **Floor 1's miniboss, and README wrote its whole design in one line:**
 		_summons(_action(&"rat_king_lash", "Tail Lash", "A ranged strike at up to 200 units that leaves a rat behind.", CG.DamageType.PHYSICAL, 200.0, 20, 22, 1.0, 0, 0, true), &"rat"),
 	]
 
 static func enemies() -> Array[EnemyDef]:
 	return [
-		# Weak, fast, numerous. Meant to show up in groups; one alone is not a
 		_enemy(&"goblin", "Goblin", 35, 0, CG.ResourceKind.ENERGY, 4.0, 11.0, {CG.DamageType.PHYSICAL: 9}, 0.0, [&"goblin_stab"], ["Melee", "Weak"], 0.7),
 		_enemy(&"goblin_archer", "Goblin Archer", 28, 0, CG.ResourceKind.ENERGY, 3.2, 11.0, {CG.DamageType.PHYSICAL: 8}, 0.0, [&"goblin_arrow"], ["Ranged", "Weak"], 0.6),
-		# Slow and hard to kill, hits hard when it connects. A wall, not a
 		_enemy(&"ghoul", "Ghoul", 200, 0, CG.ResourceKind.ENERGY, 1.6, 16.0, {CG.DamageType.PHYSICAL: 20}, 0.1, [&"ghoul_maul"], ["Melee", "Undead", "Tough"], 0.1),
-		# Ranged caster, unchanged role. Moderate bias: happy to finish a
 		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 11}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
-		# Issue 44: floor 1's boss. High hp and a slow move_speed per README's
 		_enemy(&"the_warden", "The Warden", 1000, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
 
 		## **Issue #121, the player's "big heavy guy that stuns units and taunts".
-		## It now does both, and #150 is what changed.**
 		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam", &"brute_roar"], ["Melee", "Tough", "Stun", "Taunt"], 0.0),
 
-		## **Issue #121's anti-support specialist. Deliberately fragile at 30
 		_enemy(&"stalker", "Stalker", 30, 0, CG.ResourceKind.ENERGY, 3.8, 10.0, {CG.DamageType.PHYSICAL: 5}, 0.0, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
 
-		## **Issue #130's BLEED source. The player's words are "something small
 		_enemy(&"rat", "Rat", 20, 0, CG.ResourceKind.ENERGY, 5.0, 8.0, {CG.DamageType.PHYSICAL: 3}, 0.0, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
 
-		## **Floor 1's miniboss. README pairs it with The Warden, and it is the
-		## opposite kind of fight in every way I could make it.**
 		_enemy(&"rat_king", "The Rat King", 420, 0, CG.ResourceKind.ENERGY, 1.2, 24.0, {CG.DamageType.PHYSICAL: 21}, 0.0, [&"rat_king_lash"], ["Ranged", "Miniboss", "Summoner"], 0.0),
 	]
 
@@ -72,11 +54,6 @@ static func items() -> Array[EquipmentDef]:
 
 ## The two action helpers this module needs, and they are copies of
 ## `core_actions.gd`'s rather than calls into it. Those are `static func _`
-## names -- private by this project's own convention -- on a module another
-## session owns, and a cross-module call to one would make every signature
-## change in that file a break in this one. Two small constructors are cheaper
-## than that coupling, and `Registry` composes modules precisely so a module
-## can be read on its own.
 static func _action(id: StringName, display_name: String, description: String, damage_type: CG.DamageType, range_units: float, wind_up: int, recover: int, power_scale: float, resource_cost: int, cooldown_ticks: int, requires_los: bool = false) -> ActionDef:
 	var a := ActionDef.new()
 	a.id = id
@@ -122,10 +99,6 @@ static func _action_taunt(id: StringName, display_name: String, description: Str
 	return a
 
 ## An action that spawns a unit as well as doing whatever else it does.
-## `core_actions.gd`'s `_action_summon` is not this: it hardcodes
-## `power_scale` 0.0 and a self-target, because every summon before this one
-## was a dedicated build action. The Rat King's lash is an attack that happens
-## to shed a rat, which is what "all attacks leave behind rats" means.
 static func _summons(a: ActionDef, unit_id: StringName) -> ActionDef:
 	a.summons_unit_id = unit_id
 	return a

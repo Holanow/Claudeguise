@@ -21,9 +21,6 @@ const MOVE_PER_DEX_BONUS := 0.05
 const ATTACK_POWER_PER_POINT := 1.9
 
 ## Issue 7: a hit rolls within [1 - spread, 1 + spread] of its base power.
-## Drawn from the fight's own `CombatState.rng`, never a fresh generator, so
-## the same seed still reproduces the same fight exactly. 0.0 disables
-## variance entirely, which is what every caller gets by not passing `rng`.
 const ATTACK_VARIANCE_SPREAD := 0.55
 
 const DAMAGE_REDUCTION_PER_CON := 0.01
@@ -50,13 +47,8 @@ const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
 const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 
 ## Issue 23: percent of the victim's own max hp lost per BURN/POISON tick.
-## Proportional rather than flat so a Ghoul and a Goblin Archer find the same
-## burn equally scary instead of it being trivial for one and lethal in three
 const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
 
-## **BURN, and this is the number the whole mechanism turns on.** Fraction of the
-## applying hit's *mitigated* damage that burn deals **per tick**, multiplied by
-## `CombatUnit.status_magnitude[BURN]`, which `CombatSim` stores as exactly that
 const BURN_FRACTION_OF_HIT_PER_TICK := 0.0056
 
 ## **BLEED is issue 130's, not this issue's, and this value is swift's live
@@ -71,12 +63,10 @@ const HASTE_TICK_SCALE := 0.7
 
 ## Issue 52: multiplier on move_speed while SLOWED is active. `SimDeps` ran
 ## on a local placeholder of the same value (0.5) until this landed --
-## `_default_slowed_speed_scale`'s own doc comment names this exact function
 const SLOWED_SPEED_SCALE := 0.5
 
 ## Issue 39: an attribute including equipment's `attribute_flat` and
 ## `attribute_percent` (weapons and accessories: percent per README.md; armor:
-## flat, plus occasional percent on CON). The single place a stat multiplier
 static func attribute(pawn: PawnData, a: CG.Attribute) -> float:
 	var value := float(pawn.attribute(a))
 	var flat := 0.0
@@ -101,7 +91,6 @@ static func move_speed(pawn: PawnData) -> float:
 
 ## Attack power for one damage type, before the action's own power_scale.
 ##
-## Per README.md: Martial+Melee scales off STR, Martial+Ranged (and
 static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGenerator = null) -> float:
 	var _unused := d
 	if pawn.pawn_class == null:
@@ -121,10 +110,6 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 ## Issue 12: how much extra damage a MARKED unit takes. Subtracted from
 ## reduction rather than added as a separate multiplier, so a heavily
 ## armoured target reads as "the mark burned through some of that armour"
-## and a bare one reads as "already exposed, now more so" -- one number,
-## one mental model. Large enough on an enemy with 0.0 base reduction
-## (every enemy but The Warden) to be the whole point of bringing a
-## Spotter: measurably increases damage taken is issue 12's own criterion 4.
 const MARKED_VULNERABILITY_BONUS := 0.25
 
 ## Fraction of incoming damage removed, from armor, natural toughness and
@@ -149,7 +134,6 @@ static func damage_reduction(unit: CombatUnit) -> float:
 
 ## How many blocks a pawn's plans may total, from WIS per README.md.
 ##
-## **Issue 269: through `attribute()`, not `pawn.attribute()`.** This was the one
 static func plan_block_budget(pawn: PawnData) -> int:
 	return maxi(1, floori(attribute(pawn, CG.Attribute.WIS)))
 
@@ -164,7 +148,6 @@ static func scale_action_ticks(base_ticks: int, pawn: PawnData) -> int:
 
 ## What a pawn's resource pool holds at the moment a fight starts.
 ##
-## Issue 132, the player's own words: *"Resource should return to some kind of
 static func starting_resource(kind: CG.ResourceKind, max_resource: int) -> int:
 	match kind:
 		CG.ResourceKind.MANA:
@@ -230,9 +213,6 @@ static func slowed_speed_scale(unit: CombatUnit) -> float:
 	var _unused := unit
 	return SLOWED_SPEED_SCALE
 
-## Issue 45: how much health a run restores between rooms, and the answer is
-## "some, and more if the party brought a Healer" -- README's own text for
-## the role ("meant to restore health and revive allies") is the most
 const BASE_RECOVERY_FRACTION := 0.04
 const HEALER_RECOVERY_BONUS := 0.08
 
@@ -274,7 +254,6 @@ static func revive_hp(hp_max: int, has_living_healer: bool) -> int:
 
 ## Found mid-#30, while measuring `no_warrior`'s own 0/20: `FloorRun` carries
 ## resource forward exactly, same as it did for hp before issue 45 --
-## `Tools/FloorRuns.gd` (once it reported resource at all; it did not until
 const BASE_RESOURCE_RECOVERY_FRACTION := 0.50
 
 ## Applies the fraction above to one pawn's carried resource. Missing

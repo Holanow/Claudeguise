@@ -41,15 +41,6 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 ## `PlanInterpreter.active_plan_count`, which is `Balance.plan_block_budget` --
 ## the pawn's WIS. A `ClassDef` with an empty `base_attributes` has 0 WIS, so its
 ## budget is the `maxi(1, ...)` floor of 1 block, and every plan below costs 2.
-## Every one of them would have gone inert.
-##
-## **The assertions below are untouched.** Not one threshold moved and not one
-## expectation was relaxed: they are about affordability, cooldowns, targeting
-## and fall-through, and each still asserts exactly what it did. The fixture
-## gained the one attribute that lets the pawn pay for the plan the test hands
-## it, which no real class has ever lacked -- the lowest WIS in
-## `Scripts/Content/Classes/` is 4, and `test_content_classes.gd` already asserts
-## every preset fits its class's budget. 8 is comfortably above anything here.
 func _test_class(id: StringName = &"testclass") -> ClassDef:
 	var cls := ClassDef.new()
 	cls.id = id
@@ -177,10 +168,6 @@ func test_describe_op_covers_every_whitelisted_op() -> void:
 
 ## Issue 22: CONDITION_ARG_SHAPE used to be InspectPanel.gd's own copy of this
 ## fact, duplicating what _eval_condition's match statement already encodes.
-## Moved here as data; this test is the guard against the two drifting again --
-## every CONDITION_OPS entry must have a shape, and every shape entry must be
-## a real condition op, so adding one without the other fails loudly instead
-## of silently.
 func test_condition_arg_shape_covers_exactly_the_condition_ops() -> void:
 	for op in PlanInterpreter.CONDITION_OPS:
 		assert_true(PlanInterpreter.CONDITION_ARG_SHAPE.has(op), "CONDITION_ARG_SHAPE missing an entry for %s" % op)
@@ -270,12 +257,6 @@ func test_action_off_cooldown_fires_normally() -> void:
 
 # ---------------------------------------------------------------------------
 # Issue 87: ally_has_harmful_status / target_ally_with_harmful_status.
-#
-# The two ops are a pair and are tested as one, because the failure that
-# matters is them disagreeing: a condition that holds where the targeting op
-# declines leaves `unit.focus_id` at whatever the previous tick set, and for
-# the Geysermancer that is an enemy.
-# ---------------------------------------------------------------------------
 
 func _three(a: CombatUnit, b: CombatUnit, c: CombatUnit) -> CombatState:
 	var state := CombatState.new(0)

@@ -3,19 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## Issues 100 and 99: equipment that grants an action, and the Warrior's
 ## self-sustain that replaces the action it grants.
-##
-## **Why this file runs fights and builds real pawns instead of checking
-## tables.** `EquipmentDef.granted_actions` existed from issue 39 and every one
-## of the seventeen registered items left it empty, so nothing ever proved the
-## field reached anything. Equipment was the first built-and-unreachable thing
-## found on this project. A test that asserts `plate_mail.granted_actions ==
-## [warrior_block]` would have passed on the day this shipped and told nobody
-## whether wearing plate does anything.
-##
-## The load-bearing pair is `test_a_warrior_without_plate_cannot_block` and
-## `test_a_warrior_wearing_plate_can_block`. Either alone is worthless: the first
-## also passes if Block is broken for everyone, the second also passes if Block
-## fires for everyone. Only together do they say "the item is what did it".
 
 const SEEDS := 6
 
@@ -43,9 +30,6 @@ func test_plate_mail_grants_directional_block() -> void:
 		"plate_mail grants an action that does not exist")
 
 ## The negative half, and the one that would have caught the original defect:
-## before this issue every item granted nothing, so "at least one item grants
-## something" is the assertion that was silently false for the whole life of the
-## field.
 func test_at_least_one_registered_item_grants_an_action() -> void:
 	var granting := 0
 	for id in Registry.all_equipment_ids():
@@ -66,9 +50,6 @@ func test_every_granted_action_resolves() -> void:
 
 ## `Registry.actions_for_pawn` is what the plan editor and the fight must both
 ## read, so that what a player can plan and what a pawn can do cannot diverge.
-## Issue 160: `armor = null` is explicit here for the same reason as in
-## `test_a_warrior_without_plate_cannot_block` below -- a starter Warrior wears
-## plate now, so "bare" has to be stated rather than defaulted to.
 func test_equipping_plate_adds_block_to_what_the_pawn_can_do() -> void:
 	var pawn := _warrior()
 	pawn.armor = null
@@ -106,16 +87,6 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 # ---------------------------------------------------------------------------
 
 ## Fires a Block plan at a Warrior that does not own Block. It must decline.
-##
-## Before issue 100 nothing checked action ownership anywhere: `PlanInterpreter`
-## resolved straight out of `Registry`, so this plan fired happily on a pawn
-## wearing nothing, and equipping the item changed precisely nothing observable.
-## **Issue 160: the armour is stripped explicitly now, and it used not to need
-## to be.** This test rested on "a starter pawn wears nothing", which stopped
-## being true the day `PawnFactory` started issuing `plate_mail` -- the same
-## issue that made Block reachable at all. The pair is unchanged in what it
-## claims; only the "without" half now has to say what it means instead of
-## relying on a default.
 func test_a_warrior_without_plate_cannot_block() -> void:
 	var bare := _warrior()
 	bare.armor = null
@@ -188,18 +159,6 @@ func test_second_wind_is_self_only_and_gated() -> void:
 ## The whole-fight half. A green declaration test above cannot tell whether the
 ## ability is ever cast, which is exactly how warrior_execute sat unreachable
 ## for its entire existence.
-##
-## **Issue 206: `floor1_warden` -> `floor1_room1`, and the reason is a finding
-## rather than a fixture wobble.** The Abomination's new poison-spreading plan
-## shortens the Warden fight for every party carrying one -- mean **225 -> 185
-## ticks** -- and the Warrior only ever drops under this plan's 35% threshold at
-## the very end. Measured: Second Wind **STARTs 9 times and FIREs 0**, because the
-## fight ends inside its own 15-tick wind-up. Not an unreachable ability and not
-## a rage problem (it holds 16 Rage against a cost of 15) -- the party simply wins
-## before it needs healing.
-##
-## `floor1_room1` fires it 22 times in 24 seeds, so it is the encounter where this
-## ability actually has a life. Checked before repointing rather than after.
 func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 	var fires := 0
 	var heals := 0
@@ -226,12 +185,8 @@ func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 # table is typed and says nothing about whether anybody ever swings it, which is
 # how `granted_actions` sat empty on seventeen items for weeks. So every claim
 # here is made twice: armed, and with the same pawn's hand emptied.
-# ---------------------------------------------------------------------------
 
 ## What a basic attack is, written once so four tests cannot disagree about it:
-## something that damages an enemy and costs nothing to use. Free is the whole
-## point -- it is what a pawn falls back on when it cannot pay for anything
-## else, which is the wall issues 22, 62 and 79 each fixed once.
 func _is_basic_attack(action) -> bool:
 	return action != null and not action.heals and action.power_scale > 0.0 and action.resource_cost <= 0
 
@@ -318,11 +273,6 @@ func test_an_unarmed_rage_pawn_cannot_act_at_all() -> void:
 
 ## The whole-fight half, and the one the issue names: "a weapon-granted basic
 ## attack must actually fire in a real fight", not merely exist.
-##
-## Every weapon a starter carries, counted by ACTION_FIRE in a real
-## `floor1_room1` over SEEDS seeds. Read from `state.events`, not from
-## `unit.intent` -- announcement rule 2, and it was my own test that earned it.
-## Cached: three tests read the same table and each run is twelve real fights.
 var _fires_cache := {}
 
 func _basic_attack_fires(strip_weapons: bool) -> Dictionary:
@@ -345,16 +295,6 @@ func _basic_attack_fires(strip_weapons: bool) -> Dictionary:
 	return counts
 
 ## Measured on this branch over FIGHT_SEEDS seeds of `floor1_room1`:
-##
-##     warrior_strike     81      priest_bolt         11
-##     geyser_spout       35      siege_master_shot   16
-##     abomination_claw   34   <- zero until issue 206 gave it a plan row
-##
-## The floors are set at roughly a third of each, which is announcement rule 4
-## applied to my own detector: `> 0` on an emergent count cannot warn, only fail,
-## and at 6 seeds two of these read 2 and 4 -- one content change from silence.
-## Verified the floors fire rather than being inert by raising them to 999 and
-## confirming red with the real counts in the message.
 const FIGHT_SEEDS := 12
 const MIN_FIRES := {
 	&"warrior_strike": 25,
@@ -373,7 +313,6 @@ const MIN_FIRES := {
 ## paid rows covered every tick. `ABOMINATION_CLAW_IS_DEAD` and the test guarding
 ## it are **deleted rather than loosened** -- they were a statement about a moment
 ## and the moment passed, which is exactly what they were written to announce.
-## Claw joins the table above with its own measured floor.
 func test_every_weapons_basic_attack_fires_in_a_real_fight() -> void:
 	var counts := _basic_attack_fires(false)
 	for cid in Registry.all_class_ids():
@@ -457,28 +396,6 @@ func _block_of(kind: PlanBlock.Kind, op: StringName, args: Dictionary) -> PlanBl
 
 # ---------------------------------------------------------------------------
 # Issue 160: the Directional Block reaches a real fight.
-#
-# **Three layers had to be right at once and each was defensible alone**, which
-# is why this went unnoticed through two previous rescues of the same ability:
-#
-#   1. `warrior_block` left `starting_actions` for `plate_mail` (issue 99).
-#   2. `PawnFactory` equipped a weapon and no armour, so every measurement tool
-#      in the repo built a Warrior that could not block.
-#   3. `warrior_block_default` was deleted in the same commit as (1) and nothing
-#      replaced it -- and `DefaultBehavior` cannot reach the action either, since
-#      a zero-power self-buff is excluded by `_attack_candidates` and invisible
-#      to `_first_heal`.
-#
-# swift measured the result: 40 seeds x 7 encounters, **0 SHIELDING ticks and 0
-# BLOCKED against 9,000+ enemy shots**, and correctly refused to tune
-# `SHIELD_WIDTH` against a build the game did not have.
-#
-# Measured on this branch, 384 fights over every encounter: **800 casts, 800
-# SHIELDING, 4,111 BLOCKED.**
-#
-# The tests above already prove the *item* grants the action. These prove the
-# whole path: worn by default, cast by a plan, and stopping real shots.
-# ---------------------------------------------------------------------------
 
 const BLOCK_SEEDS := 6
 const BLOCK_ROOM := &"floor1_chokepoint"

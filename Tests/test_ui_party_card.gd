@@ -117,12 +117,6 @@ func test_a_healer_and_a_ranged_class_read_differently() -> void:
 ## PLAYTEST-NOTES-2 item 15. `UIArt.draw_border`, `draw_nine_slice` and
 ## `has_art` were written for it and had no game caller at all -- sable found
 ## that in #103 and flagged rather than deleted it. They have callers now.
-##
-## **The name is the part that can silently be wrong.** A border drawn through
-## `draw_border` under a name nothing looks for is exactly as unreachable as no
-## border at all, and it would look completely correct in a diff. So this
-## asserts the string the screens ask for is the string the pipeline promises,
-## and then proves a file under that name is actually found.
 func test_the_panel_border_drop_in_is_reachable_under_the_advertised_name() -> void:
 	var path := "res://Assets/UI/panel_border.png"
 	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
@@ -164,11 +158,6 @@ func test_a_dropped_in_border_cannot_erase_the_selection_ring() -> void:
 ## `case.call(name)` is synchronous and a viewport texture needs a frame. So
 ## this asserts only that the wiring is still present, and it cannot tell a
 ## correct `draw_border` call from a broken one.
-##
-## The pixel claim was verified by hand instead, on a real launch with a
-## magenta test border dropped in: `Screenshots/wren_border_dropped_in_*.png`
-## against `wren_border_default_*.png`. Stated in the PR as verified manually,
-## not by the suite.
 func test_both_wired_screens_still_draw_their_frame_through_the_pipeline() -> void:
 	var party_card_source := FileAccess.get_file_as_string("res://Scripts/UI/PartyCard.gd")
 	var arena_source := FileAccess.get_file_as_string("res://Scripts/UI/ArenaFloor.gd")

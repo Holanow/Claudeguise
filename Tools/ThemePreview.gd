@@ -3,40 +3,11 @@ extends Control
 
 ## The theming half of `UIArt` (issue #115), rendered with art and without it,
 ## side by side, in the node types the real screens are actually built from.
-##
-##   godot --path . --resolution 1280x760 res://Tools/ThemePreview.tscn
-##
-## No --headless -- `get_viewport().get_texture()` never populates under it on
-## this machine. Written up in Tools/AttackFXPreview.gd.
-##
-## WHY THIS TOOL DRAWS BOTH STATES AND NOT JUST THE DEFAULT
-##
-## The failure this task can produce is theming that silently eats a state
-## signal, and it is invisible in the only instrument we normally use: a
-## screenshot of a themed screen with the state signal missing looks correct.
-## The `PartyCard` selection ring and the `EquipmentIcons` grant badge were both
-## found only by rendering **with a file dropped in**, not by looking at the
-## generated default.
-##
-## So this writes its own demo PNGs into a scratch folder, renders both columns
-## in one frame, and deletes them again. A caller comparing the two columns can
-## see what a dropped-in file takes away as well as what it adds.
 
 const CAPTURE_BARE := "res://Screenshots/ui_theming_no_file.png"
 const CAPTURE_THEMED := "res://Screenshots/ui_theming_dropped_in.png"
 
 ## TWO PASSES IN ONE PROCESS, AND THE FIRST VERSION OF THIS TOOL WAS WRONG.
-##
-## It drew both states side by side in one frame, a "no file" column and a "file
-## present" column, and the render showed **both columns themed**. The tool was
-## not broken; its premise was. The general file (`panel.png`) is global by
-## design -- one file re-skins every panel at once -- so there is no such thing
-## as an unthemed element while it exists on disk. A column asking for a name
-## nothing was written for still falls back to it, correctly.
-##
-## Which is the same class of mistake this project keeps paying for: a
-## measurement that answers a slightly different question than the one asked. So
-## the two states are two passes and two files, taken from the same scene.
 func _ready() -> void:
 	print("ThemePreview: logical viewport is ", get_viewport_rect().size)
 	_remove_demo_art()

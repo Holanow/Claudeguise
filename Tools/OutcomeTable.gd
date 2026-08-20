@@ -1,12 +1,6 @@
 extends SceneTree
 
 ## Every fight the balance tools measure, as one diffable line each.
-##
-##   godot --headless --path . --script res://Tools/OutcomeTable.gd > before.txt
-##
-## Written for issue 233, whose change ends a fight earlier than the old rule
-## did. "Earlier" is only acceptable if it is also "same result", and the only
-## way to know that is to take the whole table on both sides and diff it.
 
 
 const SEEDS := 40

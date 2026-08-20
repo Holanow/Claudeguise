@@ -2,10 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## #170: terrain that applies a status. The tar pit.
-##
-## `_tick_hazards` skipped any feature with no damage before it ever looked at
-## `applies_status`, so a pit whose whole effect is a status did nothing at all.
-## `test_a_pit_with_no_damage_still_slows` is the one that was failing.
 
 const _SEED := 8300
 const _TICKS := 20

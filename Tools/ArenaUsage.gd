@@ -1,66 +1,6 @@
 extends SceneTree
 
 ## How much of the arena does a fight actually use?
-##
-##   godot --headless --path . --script res://Tools/ArenaUsage.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## Issue 82, and the open question in issue 94. The player, looking at a
-## screenshot: the room "may have to get a little bigger by the looks of it".
-##
-## They are reading that off a screen where the fight sits in a corner, and
-## **a bigger box does not fix a fight that uses a fifth of the box** -- it
-## just makes the fraction smaller. So the question is not "is the arena big
-## enough" but "what does a fight actually cover", and nobody has measured it.
-##
-## I have already been wrong once on this issue by estimating from a
-## screenshot instead of measuring: I called units "perhaps 10px across" when
-## they are about 55px, an error of five times, stated as though it were a
-## finding. Hence this.
-##
-## Samples every unit position every tick, and reports the bounding box the
-## whole fight occupies as a fraction of the arena.
-##
-## ---
-##
-## **BOUNDING BOX ONLY WAS NOT ENOUGH, and the first fresh-eyes playtest is
-## what showed it.** A reader with no project context, looking at rendered
-## frames:
-##
-##   "All combat happens in a ~250x250 blob in the upper-left of a ~795x450
-##   arena. The right 40% is empty all fight."
-##
-## Ran against this tool, that reads as a contradiction: the box is 46% of the
-## arena, which is not a corner. Both are correct. **A blob that wanders and an
-## even spread that stays put have the same bounding box**, because a box is
-## decided by four extreme samples and says nothing about the other thousands.
-## So the tool answered "is the extent big enough" -- yes -- to a complaint
-## that was never about extent.
-##
-## Three columns added by heron, and each answers a different half of what the
-## reader actually said:
-##
-##   cover%   what fraction of the arena's cells EVER hold a unit. This is the
-##            "right 40% is empty" claim, directly. A wandering blob scores
-##            low here while its bounding box scores high.
-##   blob%    at a typical tick, how far the living units stand from their own
-##            centre of mass, as a fraction of the arena's half-diagonal.
-##            This is "a ~250x250 blob". Small means converged.
-##   at       where the fighting actually happens: the mean of every unit
-##            sample, as a percentage across and down the arena. 50/50 is dead
-##            centre. This is the "upper-left" claim and it is the one
-##            nobody had ever checked.
-##
-## Same fights, same loop, one extra pass over the units already being read --
-## the tool costs what it always did.
-##
-## **What this tool still cannot tell you** is whether a low cover% is bad. A
-## fight that resolves quickly covers little ground because it is short, not
-## because it is badly shaped. Read the columns beside the tick counts in
-## `SampleFights`, and hold the room fixed when comparing.
-
-
 const SEEDS := 10
 const CLASSES := ["warrior", "priest", "abomination", "geysermancer", "siege_master"]
 
@@ -141,19 +81,6 @@ const COVER_COLS := 24
 const COVER_ROWS := 14
 
 ## Everything this tool reports about one fight, from one run of it.
-##
-## `box`   the bounding box every unit visits, unchanged and still first.
-## `cover` fraction of the COVER_COLS x COVER_ROWS cells that ever hold a
-##         living unit's centre.
-## `blob`  mean over ticks of the mean distance from the living units to their
-##         own centroid, over the arena's half-diagonal. Per tick, not over the
-##         fight: a fight where two clusters approach and merge should read as
-##         converging, and a whole-fight figure would average that away.
-## `at_x`  where the fighting happens, as a fraction across (0 = left edge)
-## `at_y`  and down (0 = top edge), meaned over every unit sample. Weighted by
-##         samples rather than by unit, so a long standoff counts for more than
-##         a body that died in the first second -- which is what "where does
-##         the fight happen" means.
 func _fight_usage(ids: Array, enc_id: StringName, s: int) -> Dictionary:
 	var party: Array[PawnData] = []
 	for cid in ids:

@@ -4,8 +4,6 @@ class_name Palette
 
 ## Every colour, size and spacing value in the project. One file so that nobody
 ## picks a colour inline and nothing has to be hunted down later.
-##
-## MANAGER-OWNED. Do not edit. Propose the exact line in TEAM_LOG.md.
 
 const BACKGROUND := Color("14131a")
 const ARENA_FLOOR := Color("1e1c26")
@@ -20,25 +18,6 @@ const HP_FULL := Color("7cc46b")
 
 ## **`HP_LOW` is byte-identical to `TEAM_ENEMY`, and that aliasing has caused
 ## three separate defects.** Read this before using either.
-##
-## "This unit is nearly dead" and "this unit is an enemy" are different facts
-## sharing one value, so anything drawn in it says both and means one:
-##
-## - **Health bars** drew a badly hurt *party* pawn in the enemy's colour, at the
-##   moment the field most needs reading. Fixed by giving bars team colour.
-## - **Death text** announced every death in the enemy's colour regardless of who
-##   died, so losing your own pawn read as killing theirs. Not an omission --
-##   actively wrong. Fixed in #191.
-## - **The concentration badge** is a 33px filled circle in this colour on
-##   *player* pawns, and both fresh-eyes playtesters named it the most prominent
-##   thing on the field they could not interpret. Open as #198.
-##
-## The fourth instance is the one to prevent. **If you are about to draw
-## something in `HP_LOW` that is not a health level, you want a different
-## colour** -- and if it is on a unit, you are about to say "enemy" to a reader.
-##
-## Not split into two values here on purpose: that changes every screen at once,
-## and the three fixes above each chose a colour that suited their own use.
 const HP_LOW := Color("e0705f")
 const HP_BACK := Color("2a2733")
 
@@ -58,9 +37,6 @@ const SPACE_L := 32.0
 ## device". That is a forcing function rather than a port -- if a fight is
 ## readable at this size it is readable everywhere, and everything that only
 ## works at 11px was never carrying its weight.
-##
-## Raised from 14 / 11 / 22 / 18 on 2026-08-12 after looking at a rendered
-## fight and finding the names truncating and the log unreadable.
 const FONT_SIZE_BODY := 20
 const FONT_SIZE_SMALL := 16
 const FONT_SIZE_HEADING := 30

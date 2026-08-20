@@ -4,16 +4,6 @@ const CoreActions := preload("res://Scripts/Content/Modules/core_actions.gd")
 
 ## Issue 93: the Siege Engine as artillery -- unlimited reach, slow, immobile,
 ## and unable to choose its own targets.
-##
-## The two halves of this file answer different questions on purpose, because
-## issue 93 exists precisely because the previous version of this feature passed
-## every structural check while doing nothing in a real fight. The declaration
-## tests below assert what the content says. The whole-fight tests assert what a
-## real `CombatSim` running the real preset plans actually does with it, which is
-## the only thing that could have caught "65% of engines never fire".
-##
-## `siege_master` parties only. A party without one builds nothing and every
-## assertion here would pass vacuously.
 
 const SEEDS := 6
 const MARK_DURATION_TICKS := 150
@@ -31,11 +21,6 @@ func _party() -> Array[PawnData]:
 # ---------------------------------------------------------------------------
 
 ## The guard `core_actions.gd`'s own comment promises instead of a stale note.
-##
-## ARENA_SPAN is a literal because GDScript has no constant-expression `sqrt`,
-## so the thing that keeps it honest has to be a test that recomputes the real
-## diagonal from `CG`. Resize the arena and this fails loudly rather than leaving
-## artillery with a reach that quietly no longer covers the room.
 func test_arena_span_still_exceeds_the_real_arena_diagonal() -> void:
 	var diagonal := Vector2(CG.ARENA_HALF_WIDTH * 2.0, CG.ARENA_HALF_HEIGHT * 2.0).length()
 	assert_true(CoreActions.ARENA_SPAN > diagonal,
@@ -104,28 +89,6 @@ func test_no_other_action_is_capped_or_marked_only() -> void:
 ## Runs a real fight and reports (engines ever built, peak alive at once, shots
 ## committed, shots committed at an unmarked target, shots committed at a target
 ## inside the kite band).
-##
-## **Read off ACTION_START events, with the MARKED set snapshotted at the top of
-## the tick, and both halves of that are corrections to a version of this file
-## that passed while measuring nothing.**
-##
-## The first version read `unit.intent`. An intent is created in `_decide_phase`
-## and cleared in `_resolve_phase` of the *same* `step()`, so it is never visible
-## from outside the simulation: the unmarked-shot counter was structurally
-## incapable of counting anything and its assertion passed vacuously on every
-## seed. The kite-band test is what exposed it, by asserting the same source is
-## non-empty. That is the entire reason a positive assertion sits beside every
-## negative one here.
-##
-## The snapshot is taken before `step()` rather than after, because that is
-## exactly the state `_decide_phase` reads: `_tick_statuses` runs later in the
-## same tick, so a MARKED that expires this tick was still present when the
-## engine chose. Checking after would report a legal shot as illegal.
-##
-## Commit time, not landing time, is the right moment to judge "only fires at
-## marked enemies": the gate lives in the decision layer, and a target whose mark
-## lapses during the 45-tick wind-up is the same accepted case as one that walks
-## out of range mid-wind-up.
 func _run(seed_value: int, encounter_id: StringName) -> Dictionary:
 	var state := CombatSim.build(_party(), Registry.get_encounter(encounter_id), seed_value)
 	var known := state.units.size()
@@ -193,9 +156,6 @@ func test_an_engine_never_fires_at_an_unmarked_enemy() -> void:
 			"seed %d: engine committed %d shots at an unmarked target" % [s, r["unmarked"]])
 
 ## And the other direction, which is the one that would otherwise pass silently:
-## an engine that holds fire forever also never fires at an unmarked enemy. This
-## is the assertion that fails if `spotter_mark` stops reaching fights, which is
-## the risk the whole rebuild rests on.
 func test_engines_actually_fire_in_a_real_fight() -> void:
 	var shots := 0
 	for s in SEEDS:
@@ -204,11 +164,6 @@ func test_engines_actually_fire_in_a_real_fight() -> void:
 		"no engine fired a single shot across %d real fights -- marking is not reaching them" % SEEDS)
 
 ## The immobile-unit branch in `DefaultBehavior`, checked through a real fight.
-## With ARENA_SPAN range, `KITE_RANGE_FRACTION` (0.6) puts every target in the
-## game inside the kite band, so without that branch an engine answers every
-## marked target by trying to retreat, moves nowhere (move_speed 0.0) and never
-## fires. That failure is invisible to every declaration test above, and it is
-## why this file runs fights at all.
 func test_an_engine_fires_at_a_target_inside_its_kite_band() -> void:
 	var inside := 0
 	for s in SEEDS:

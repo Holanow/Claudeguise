@@ -5,9 +5,6 @@ extends "res://Tests/TestCase.gd"
 ## single-decision cases (heals fire only when needed), and a real
 ## CombatSim.step loop with a hand-built two-unit CombatState for the range
 ## behaviour, which needs many ticks of movement to become a "median distance"
-## rather than a single decision. CombatSim is real now that issue 1 has
-## landed; either way the state and its units are hand-built, per issue 2's
-## note not to depend on Registry's encounter or on CombatSim.build.
 
 func _unit(id: int, team: CG.Team, enemy_id: StringName, pos: Vector2) -> CombatUnit:
 	var def := Registry.get_enemy(enemy_id)
@@ -63,12 +60,6 @@ func test_ranged_default_behaviour_keeps_more_distance_than_melee() -> void:
 ## decide() calls throughout, not the private helper directly, matching how
 ## every other test in this file exercises DefaultBehavior -- through its
 ## one public entry point.
-##
-## goblin_archer's own kit (range 200, requires_line_of_sight) is used for
-## all four, positioned so the ranged commit window (dist in
-## [kite_min, commit_max] = [120, 170] for this action) is unambiguous:
-## a hit lands as USE_ACTION with a real target_id, not a MOVE_TO whose
-## destination has to be compared instead.
 
 func _taunter(id: int, pos: Vector2, radius: float) -> CombatUnit:
 	var u := _immobile_dummy(id, CG.Team.ENEMY, pos)
@@ -216,16 +207,6 @@ func test_healer_does_not_heal_full_health_allies() -> void:
 
 ## PLAYTEST-NOTES-2.md note 11: "The Abomination runs away a lot... tanks
 ## should move toward enemies." Root cause traced directly: `abomination_hook`
-## (range 140) is classified "ranged" by `MELEE_RANGE_THRESHOLD`, so it
-## inherited the standard kite-and-retreat behaviour built for a stay-at-
-## range weapon -- exactly wrong for a pull, whose entire point is closing
-## distance. 60 units away is inside hook's own 84-unit kite band (0.6 * 140)
-## and outside grapple's own melee commit range (22.5), so the old retreat
-## branch is exactly what would fire here; `resource` is drained on purpose
-## to rule out a plan (both `abomination_grapple_close`/`abomination_hook_far`
-## would be unaffordable) -- this exercises DefaultBehavior's fallback
-## directly, the same thing PlanInterpreter falls through to mid-fight once
-## Rage runs low.
 func test_a_pull_action_never_retreats_even_inside_its_own_kite_band() -> void:
 	var abom_pawn := PawnFactory.make_starter_pawn(&"abomination", &"a1", "Abomination")
 	var abom := CombatUnit.new()
@@ -271,13 +252,6 @@ func test_no_living_enemies_means_idle() -> void:
 
 
 ## Issue 87: geyser_cleanse is the first action in the game with `heals = true`
-## and no healing in it -- the flag routes it through _apply_action_effect's
-## heal branch so it emits no DAMAGE event at an ally, and says nothing about
-## hp. Before `_first_heal` also required `power_scale > 0.0`, a Geysermancer
-## standing next to any ally below HEAL_THRESHOLD_FRACTION answered by casting
-## a 0-power heal, or by walking toward that ally to get in range to cast one,
-## instead of attacking. This is the negative test for that: the fallback path
-## must not reach for this action at all, ever, whatever the party's hp.
 func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> void:
 	var geo_pawn := PawnFactory.make_starter_pawn(&"geysermancer", &"g1", "Geysermancer")
 	var geo := CombatUnit.new()
@@ -310,19 +284,6 @@ func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> voi
 # ---------------------------------------------------------------------------
 # Issue 129: the fallback picks the cheapest action that can deal damage,
 # not the first non-heal entry in the list.
-#
-# **This replaces a rule that cost three sessions time.** `geyser_spout` had to
-# be *placed first* in `starting_actions` to be used at all; `warden_chain_toss`
-# never fired once because the axe sat in front of it; every class in
-# `starting_classes.gd` carried a comment explaining the ordering. None of that
-# could survive the basic attack arriving from a weapon, because
-# `Registry.actions_for_pawn` and `CombatSim._collect_player_actions` both
-# append equipment grants *after* the class's own actions.
-#
-# Each case below is a decision the old rule got wrong, run through `decide()`
-# rather than through the private helper, so it fails if the rule is right and
-# unreachable.
-# ---------------------------------------------------------------------------
 
 ## **Issue 150: this helper is called `_pawn_unit_with` and did not make a pawn.**
 ## `u.pawn` was never set, so every unit it built read as an enemy to the two
@@ -330,13 +291,6 @@ func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> voi
 ## then, and the self-targeted branch now. It was invisible before because the
 ## enemy path in `_choose_target` falls through to `_nearest` for a unit with no
 ## `enemy_id` either, so both branches returned the same answer.
-##
-## It stopped being invisible the moment a branch behaved differently for the two,
-## and these tests then asserted the *enemy* fallback while their names and their
-## comments described a pawn's. Fixed here rather than by narrowing the new
-## branch: the tests were right about what they meant and wrong about what they
-## built. A bare `PawnData` is enough -- nothing in this file reads a pawn's
-## contents, only whether there is one.
 func _pawn_unit_with(actions: Array[StringName], resource: int) -> CombatUnit:
 	var u := CombatUnit.new()
 	u.pawn = PawnData.new()
@@ -425,18 +379,6 @@ func test_the_wardens_two_attacks_both_still_get_used() -> void:
 
 # ---------------------------------------------------------------------------
 # Issue 214: "usable" has to mean usable.
-#
-# `_usable_actions` returned every action a unit carried and filtered neither
-# cooldown nor resource cost, so a unit chose an action `CombatSim` then refused
-# at the cost/cooldown gate and **the tick was spent**. That is issue 22's
-# fall-through bug on the enemy side of the game: `PlanInterpreter` has refused
-# an unstartable action since issue 22, and a plan therefore falls through to the
-# next one, but no enemy has plans and nothing did the same job here.
-#
-# Measured before the fix, 480 fights over every encounter, all five buildable
-# parties, 12 seeds -- `Tools/SwarmProbe.gd`'s question asked over the whole
-# bestiary: **`stalker_dart` fired 0 times in 175,532 ticks.** After: 480.
-# ---------------------------------------------------------------------------
 
 ## The reproduction, at the smallest scale that can show it. The Stalker carries
 ## Mark (60-tick cooldown, first in its list) and Dart (free, no cooldown). With
@@ -464,12 +406,6 @@ func test_the_same_stalker_still_marks_when_the_cooldown_is_clear() -> void:
 ## stop kiting, approaching and retreating for the whole cooldown. heron's own
 ## content comment on `stalker_dart` names that as the reason the Stalker got a
 ## second action at all.
-##
-## Measured over 636,899 decisions in 480 fights: the filter emptied the list
-## **zero** times, because every unit in the game today carries something free
-## and uncooled. A branch nobody crosses is a branch nobody has tested, so this
-## crosses it deliberately: a Goblin owns exactly one action, and with that on
-## cooldown it must still walk toward the enemy.
 func test_a_unit_whose_only_action_is_cooling_still_approaches() -> void:
 	var goblin := _unit(0, CG.Team.PLAYER, &"goblin", Vector2.ZERO)
 	goblin.cooldowns[&"goblin_stab"] = 30

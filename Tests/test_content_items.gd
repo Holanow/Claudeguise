@@ -71,7 +71,6 @@ func test_equipment_ids_are_unique_and_sorted() -> void:
 	# Was `ids.duplicate().sort()`, which is the same sort the function under
 	# test calls -- the expectation was the output compared to itself and could
 	# not fail. `Array[StringName].sort()` compares interned pointers, not text.
-	# See `Registry._sort_ids`.
 	var as_text: Array[String] = []
 	for id in ids:
 		as_text.append(String(id))

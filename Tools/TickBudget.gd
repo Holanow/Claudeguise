@@ -1,28 +1,6 @@
 extends SceneTree
 
 ## Does any fight run out of tick budget?
-##
-##   godot --headless --path . --script res://Tools/TickBudget.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## Written to check a second-order effect of halving the fight speed that
-## nobody measured, including the session that made the change.
-##
-## `CG.MAX_TICKS` is `TICKS_PER_SECOND * 120` -- "two minutes of wall clock".
-## Halving the tick rate therefore halved the budget in *ticks*, 3600 -> 1800,
-## while every content tick value (wind-ups, cooldowns, travel) stayed exactly
-## where it was. The wall-clock cap is unchanged; the simulation budget is
-## half what it was.
-##
-## That matters because a fight which exceeds it does not report as a timeout.
-## `CombatSim` resolves it to DRAW, the same value a mutual wipe produces, so
-## every run tool in this repo counts it as "not a win" and nothing anywhere
-## says the fight was cut off. A budget cut in half is exactly the change that
-## would start producing them.
-##
-## Reports the worst case rather than an average: the longest fight seen, and
-## any fight that actually hit the ceiling.
 
 
 const SEEDS := 20

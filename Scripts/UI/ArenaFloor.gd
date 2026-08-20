@@ -5,18 +5,6 @@ class_name ArenaFloor
 ## The ground a fight happens on: a floor filling the play area, a boundary at
 ## the simulated bounds, a faint grid for a sense of scale, and whatever
 ## terrain the room carries.
-##
-## OWNER: pike.
-##
-## Attached to the Arena node itself, so it is drawn in the same local space
-## that _layout_arena positions and scales -- the drawn rectangle is
-## CG.ARENA_HALF_WIDTH/HEIGHT, the same constants the simulation places units
-## within, not a second guess at the same numbers. Terrain rects arrive in the
-## same space for the same reason: BattleView hands over CombatState.terrain
-## directly, not a converted copy.
-##
-## Kept quieter than the units on purpose: low alpha on the grid and centre
-## lines, and the boundary is a thin outline rather than a filled shape.
 
 const GRID_SPACING := 60.0
 const BOUNDARY_WIDTH := 2.0
@@ -29,14 +17,6 @@ const CENTER_LINE_ALPHA := 0.3
 var terrain: Array = []
 
 ## Set by BattleView from CombatState.projectiles every stepped tick.
-## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" -- issue 18
-## gave every ranged action a real travelling shot with a per-tick position,
-## and nothing drew it; UnitView kept drawing an instant source-to-target
-## line for the whole action instead. UnitView now suppresses that line once
-## a shot is actually in flight (see its _has_active_projectile), and this is
-## the shot itself: a small marker at the projectile's live position, not
-## the full path, so a slow shot visibly lags behind a fast one instead of
-## both reading as the same instant line.
 var projectiles: Array = []
 
 const _PROJECTILE_RADIUS := 5.0
@@ -45,7 +25,6 @@ func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH
 	var hh := CG.ARENA_HALF_HEIGHT
 
-	# Issue 237. `Assets/UI/README.md` has promised the player an
 	UIArt.draw_background(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		&"arena", Palette.ARENA_FLOOR)
 
@@ -68,7 +47,6 @@ func _draw() -> void:
 	for feature in terrain:
 		_draw_feature(feature)
 
-	# The frame around the arena, through the same drop-in pipeline as the
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
 
@@ -78,16 +56,6 @@ func _draw() -> void:
 ## One in-flight shot, shaped and coloured by damage type
 ## (Scripts/Art/AttackFX.gd, PR #69 sable) instead of the plain dot-with-
 ## trail this replaces. `Projectile` carries `action_id`, not `damage_type`
-## -- sable flagged this as the one open question their signature proposal
-## couldn't answer from Scripts/Art, and a `Registry.get_action` lookup from
-## here was the cheaper of the two options they posted (the other being a
-## new field on `Projectile` itself, Core, at spawn time). `Registry` is
-## already reachable from Scripts/UI elsewhere (PartySelect, InspectPanel),
-## so no Core change needed for this piece. Resolved shots are skipped --
-## BattleView hands over the live array every tick and a resolved entry
-## stays in place per Projectile.gd's own append-only contract, so this is
-## the filter that keeps a spent shot from drawing forever at its landing
-## point.
 func _draw_projectile(p) -> void:
 	if p.resolved:
 		return
@@ -106,20 +74,12 @@ func _projectile_damage_type(p) -> CG.DamageType:
 ## Four kinds, two axes (blocks movement / blocks sight), and no new Palette
 ## colours: everything below reuses tokens that already exist, distinguished
 ## by fill, footprint and pattern rather than a fifth colour nobody asked for.
-##
-## Issue 26's own requirement, quoted directly: "a pit must not look like a
-## wall -- they behave like exact opposites, one blocking movement and not
-## sight, the other the reverse." Wall is drawn as solid mass filling its
-## whole rect (blocks both). Pit is drawn as its opposite: a dark void with
-## only an edge, no fill, reading as "an absence" rather than "an object" --
-## you can see clean over it, you cannot walk into it.
 func _draw_feature(feature) -> void:
 	match feature.kind:
 		Terrain.Kind.WALL:
 			draw_rect(feature.rect, Palette.ARENA_EDGE)
 			draw_rect(feature.rect, Palette.TEXT_DIM, false, 2.0)
 		Terrain.Kind.PILLAR:
-			# A column, not a span: drawn as a circle inscribed in its rect
 			var center: Vector2 = feature.rect.get_center()
 			var radius: float = min(feature.rect.size.x, feature.rect.size.y) * 0.5
 			draw_circle(center, radius, Palette.ARENA_EDGE)
@@ -137,15 +97,6 @@ const _HAZARD_STRIPE_SPACING := 20.0
 
 ## Diagonal warning stripes, the same visual grammar as a hazard tile in most
 ## games: passable, but the floor itself is telling you not to stand there.
-##
-## Each stripe is the line from (t, 0) sliding down the top-then-right edge
-## to (0, t) sliding down the left-then-bottom edge, independently clamped
-## to the rect's own size on each axis -- the standard diagonal-hatch-in-a-
-## rect construction. An earlier version clamped two Vector2 *parameters* in
-## a helper function and never used the clamped result, since GDScript
-## passes Vector2 by value: the caller kept drawing with the original,
-## unclamped points, so a stripe on a wide short rect drew mostly outside
-## it. No helper now -- clamped directly at the call site.
 func _draw_hazard_stripes(rect: Rect2, base_color: Color) -> void:
 	var stripe_color := base_color
 	stripe_color.a = minf(base_color.a * 1.6, 0.7)

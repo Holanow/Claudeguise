@@ -6,65 +6,16 @@ const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
-## Issue 21b: look at your pawns between fights. A full-screen overlay added
-## as a child of whichever screen opens it (PartySelect or BattleView's end
+## Look at your pawns, and edit their plans. A full-screen overlay added as a
+## child of whichever screen opens it (PartySelect, or BattleView's end
 ## banner) rather than a Main-routed screen, so opening it never loses that
-## screen's state (an in-progress party selection, a just-finished fight).
-##
-## Issue 6: plans are now editable here, not just readable. A player can
-## reorder a pawn's plans (priority order — the earliest plan whose condition
-## holds is the one that fires, per PlanInterpreter), swap the targeting or
-## the action inside a block, and swap or retune the plan's own condition —
-## all picked from choices the pawn actually has: TARGETING from
-## PlanInterpreter.TARGETING_OPS, ACTION from the pawn's own
-## `starting_actions`, CONDITION from PlanInterpreter.CONDITION_OPS. All three
-## are whitelisted consts PlanInterpreter already exposed for this — no change
-## to Scripts/Core or Scripts/Plans was needed.
-##
-## Issue 95 / 96: a plan is now one row of blocks — skill, target, condition —
-## rather than a sentence with a stack of labelled dropdowns underneath, and
-## plans can be added and removed rather than only reordered. Every pawn also
-## carries an immutable final row describing what it does when no plan of its
-## own fires. See the block comments at `_plans_section` for the decisions.
-##
-## Each CONDITION op reads a differently-shaped argument: `always` reads
-## nothing, `self_hp_below_fraction`/`ally_below_hp_fraction` read a 0-1
-## `fraction`, `self_resource_at_least` reads an int `amount`,
-## `enemy_in_range` reads a float `range`. That mapping is
-## `PlanInterpreter.CONDITION_ARG_SHAPE` and it is read from there.
-##
-## It used to be a private copy in this file. Issue 22 added the public one and
-## its comment there says it was "moved here from InspectPanel.gd" — it was
-## copied, and this screen went on reading the stale copy, which never gained
-## `ally_has_harmful_status` when that op was added. Harmless by luck (the
-## lookup falls back to `{"kind": "none"}`, which is the right answer for that
-## particular op), and the next condition op that does read an argument would
-## have silently lost its value editor. The copy is gone; there is one table.
-##
-## Editing mutates the Plan/PlanBlock resources on the PawnData in place —
-## the same instance PartySelect and BattleView already hold and hand to
-## CombatState when a fight starts, so no new plumbing was needed to make a
-## change stick.
-##
-## OWNER: kite (was pike).
-##
-## `ActionDef.description` is on the trunk, empty on every action so far —
-## shows as "(no description yet)" below, correct and expected, not a bug.
-## `PlanInterpreter.describe_op(op, args)` (teal's, issue 21a) landed after
-## this screen first shipped with the plan's own `display_name` standing in
-## for the block-by-block sentence; now wired to the real thing.
-
+## screen's state.
 signal closed
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
 
 ## What one new plan costs against `Balance.plan_block_budget`. A plan needs a
 ## target block and a skill block to do anything at all, and `Plan.block_count`
-## counts exactly those two — the condition is not a block by that definition,
-## which is why the condition chip in a row is free. That definition lives in
-## `Scripts/Core/Plan.gd` and is not this screen's to change; the budget copy
-## below says which of the three chips costs, rather than leaving the player to
-## infer it from a number that moves by two.
 const NEW_PLAN_BLOCK_COST := 2
 
 ## Issue 269: how far an over-budget plan row fades. Dim enough to read as "this
@@ -102,9 +53,6 @@ const HOW_TO_PLAY := (
 ## three do not carry comparable strings: a skill is a name ("Guard", "Smite"),
 ## a target is a phrase ("the nearest ally with a harmful status"), and a
 ## condition may carry a SpinBox inside its own share as well as its text.
-## Measured against the real captions at 1280 wide rather than picked: at even
-## thirds, "The ally with the lowest hp" and "Self resource at least" both
-## clipped mid-word on a real capture.
 const SKILL_SHARE := 0.8
 const TARGET_SHARE := 1.1
 const CONDITION_SHARE := 1.4
@@ -116,9 +64,6 @@ var _list_box: VBoxContainer = null
 var _detail_box: VBoxContainer = null
 
 ## Issue 155. The fight this panel was opened over, or null when there is none.
-## Untyped on purpose: `CombatState` is not otherwise needed by this screen and
-## a typed field would make the between-fights caller (`PartySelect`) carry a
-## preload for a class it never touches.
 var _live_state = null
 
 ## The tree this screen is made of lives in `Scenes/InspectPanel.tscn`, so that
@@ -128,22 +73,6 @@ static func create() -> InspectPanel:
 	return (load("res://Scenes/InspectPanel.tscn") as PackedScene).instantiate()
 
 ## Everything a `.tscn` cannot say. Two kinds only:
-##
-## 1. **Palette values.** `Palette` is GDScript and a scene file cannot read a
-##    const, so a colour or a spacing written into the scene would be a second
-##    copy of the palette that drifts from the first. That is the split issue
-##    180 filed against a hand-written `.tres`, and `AppTheme` builds its Theme
-##    in code for the same reason.
-## 2. **The signal.**
-##
-## The anchors, the full-rect preset, `visible = false`, the container nesting,
-## the autowrap on the how-to-play paragraph, the list column's 220 minimum and
-## -- the two that were each found by a real launch rather than by reading --
-## `size_flags_vertical` on **both** scroll containers (without it the whole
-## body collapsed to nothing at any resolution) and
-## `horizontal_scroll_mode = 0` on the detail one (without it every plan row ran
-## off the right edge, taking the Remove button with it) are all in the scene now.
-## They are properties, and a property belongs where the player can see it.
 func _ready() -> void:
 	theme = AppTheme.shared()
 	%Backdrop.color = Palette.BACKGROUND
@@ -163,17 +92,6 @@ func _ready() -> void:
 	_detail_box = %DetailBox
 
 ## Issue 155's second half, and the answer to that issue's volume question.
-##
-## The log names the row that DID fire, once per decision. It cannot also carry
-## why the other rows did not: that is one fact per row per tick, on a log a
-## fresh reader already called the only way to follow the fight *and* the thing
-## that made them stop watching the arena. So the "why not" lives here, in the
-## pause inspection, where it costs the log nothing and sits in the screen where
-## the fix is made.
-##
-## `state` is a live `CombatState` or null. Null is the between-fights case --
-## `PartySelect` opens this screen with no fight in existence -- and the plan
-## rows then read exactly as they did before, with no verdicts on them.
 func open(pawns: Array[PawnData], state = null) -> void:
 	_pawns = pawns
 	_live_state = state
@@ -248,7 +166,6 @@ func _build_detail(pawn: PawnData) -> void:
 		# minimum width, so seven of them in one HBoxContainer render on
 		# top of each other instead of side by side. Found on a real
 		# launch — every attribute name overlapped into one garbled word.
-		# These seven short chips never need to wrap.
 		var chip := Label.new()
 		chip.set_script(GlossaryLabelScript)
 		chip.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -263,9 +180,6 @@ func _build_detail(pawn: PawnData) -> void:
 	# screen is for. Now the same chip-with-a-tooltip shape the attributes row
 	# above already uses and the party cards already use, because reading a
 	# description is exactly what hover is for now.
-	# Issue 100: the pawn's actions, not the class's. An action an item granted is
-	# one this pawn can use and plan with, so leaving it out of this row would
-	# have said the opposite of what the row beneath it now offers.
 	var available := _available_actions(pawn)
 	_detail_box.add_child(_section_header("Actions"))
 	if available.is_empty():
@@ -332,32 +246,6 @@ func _action_display_name(action_id: StringName) -> String:
 ## The whole plans section, as a flat list of controls the caller adds in
 ## order. Built as a list rather than one container so the section's parts stay
 ## individually testable and the detail column keeps one separation setting.
-##
-## Issue 96: a plan is a row of blocks, not a sentence with labelled dropdowns
-## stacked under it. Three chips per row: **skill, then target, then
-## condition.**
-##
-## The order was the implementer's call. Both were built and rendered before
-## choosing — `Screenshots/wren_plan_blocks_cond_first_warrior.png` against
-## `wren_plan_blocks_skill_first_warrior.png`, same pawn, same width — and
-## skill-first won on both of the two things the issue said should outweigh
-## taste:
-##
-## - **It survives a long row.** The condition is the only block that carries
-##   an inline selector, so putting it last puts the variable-width block on
-##   the end. In the condition-first capture the Warrior's own conditions
-##   clipped mid-word ("Self hp below", "Self resource a") because the SpinBox
-##   was eating the middle of the row; in the skill-first capture nothing
-##   clips at the same width.
-## - **It reads as a column.** Skill-first, the Warrior's first column is
-##   Guard / Taunt / Directional Block / Execute — four different things, all
-##   short. Condition-first it was Self hp below / Always / Always / Self
-##   resource a: two rows identical, and none of the four saying what the pawn
-##   does. Plans fire in priority order, so the column is what gets scanned.
-##
-## Issue 95: rows can be added and removed, against `plan_block_budget`, with
-## the budget stated in numbers. Issue 96 again: the last row is the pawn's
-## default behaviour, always present, never editable.
 func _plans_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 
@@ -402,7 +290,6 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## interpreter's own loop stops at the same index -- so a row this screen draws
 	## as inert is a row the pawn does not run, by construction rather than by two
 	## implementations happening to agree. `spent` below is a display number only:
-	## it is what the note quotes as the WIS the row would need.
 	var active := PlanInterpreter.active_plan_count(pawn)
 	var spent := 0
 	for i in pawn.plans.size():
@@ -460,10 +347,6 @@ func _add_plan_button(pawn: PawnData) -> Button:
 	return button
 
 ## Blocks this pawn has spent, by the same count `Balance.plan_block_budget`
-## bounds and `PresetPlans.total_blocks` reports: `Plan.block_count()` summed.
-## The default row is not counted — it is not something the player authored,
-## and charging WIS for a floor everyone has would change what every WIS value
-## is worth (issue 96's own instruction, agreed with).
 func _blocks_used(pawn: PawnData) -> int:
 	var total := 0
 	for plan in pawn.plans:
@@ -473,14 +356,6 @@ func _blocks_used(pawn: PawnData) -> int:
 ## One plan as a row of blocks. Rebuilds the whole detail panel on any change
 ## rather than patching one chip in place — plans are short and this screen is
 ## not on a hot path, so simplicity wins over an incremental update.
-##
-## Issue 269: `inert` is a row past the pawn's block budget. It is dimmed rather
-## than hidden, disabled or dropped, and every control on it still works -- the
-## player's own ruling is that a budget may legitimately shrink under a plan they
-## already wrote (armour comes off mid-floor), so the screen reports the state
-## instead of arguing with the edit. `modulate` fades the whole row, chips and
-## buttons together, without taking the buttons away: the row a player must be
-## able to delete is exactly the row that has gone inert.
 func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	if inert:
@@ -580,7 +455,6 @@ func _remove_plan(pawn: PawnData, index: int) -> void:
 # narrowing them to what a pawn has actually found is a change here and
 # nowhere else. Every picker below goes through them rather than reading
 # `TARGETING_OPS` / `starting_actions` directly.
-# ---------------------------------------------------------------------------
 
 func _available_conditions(_pawn: PawnData) -> Array:
 	return PlanInterpreter.CONDITION_OPS
@@ -589,35 +463,12 @@ func _available_targetings(_pawn: PawnData) -> Array:
 	return PlanInterpreter.TARGETING_OPS
 
 ## Issue 100: `Registry.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
-##
-## This one line is why equipment was untestable. `CombatSim._collect_player_actions`
-## already unioned the class's actions with every equipped piece's
-## `granted_actions`, so the fight knew a Warrior in plate could Directional
-## Block; this screen asked a different question and answered `starting_actions`
-## alone, so the block never appeared for the player to plan with. The action
-## fired and could not be planned, which is #98's principle exactly backwards.
-##
-## Registry owns the answer now so neither caller does. Nothing narrows here:
-## this returns a superset of what it returned before, and a pawn wearing
-## nothing gets a byte-identical list.
 func _available_actions(pawn: PawnData) -> Array:
 	return Registry.actions_for_pawn(pawn)
 
 ## Swaps two plans' priority by index and redraws. `pawn.plans` is the same
 ## array PartySelect/BattleView hand into CombatState, so this is the whole
 ## edit — no separate "apply" step and nothing to serialize back.
-##
-## Rebuild is deferred, not immediate: the control calling this (an Up/Down
-## button, or a picker in `_targeting_picker`/`_action_picker`) lives inside
-## `_detail_box` itself, and `_build_detail` frees every child of
-## `_detail_box` on rebuild. Freeing a node with `free()` while it is still
-## partway through emitting its own `pressed`/`item_selected` signal is a use-
-## after-free the engine warns loudly about — found by actually pressing the
-## buttons, not by reading the code. `queue_free()` in `_build_detail` would
-## fix it too, but would reopen the stale-node bug its own comment documents
-## for the case a rebuild fires twice before a queued deletion flushes.
-## Deferring the call, not the free, keeps both fixed at once: the signal
-## finishes emitting on its own node first, then this runs on a clean frame.
 func _move_plan(pawn: PawnData, index: int, delta: int) -> void:
 	var target := index + delta
 	if target < 0 or target >= pawn.plans.size():
@@ -630,8 +481,6 @@ func _move_plan(pawn: PawnData, index: int, delta: int) -> void:
 ## A TARGETING block's choices are PlanInterpreter.TARGETING_OPS — the same
 ## whitelist decide() itself checks against, so nothing this picker can select
 ## is a value the interpreter would reject. None of those ops read `args`
-## (checked against `_eval_targeting`), so swapping one clears args rather
-## than carrying over a value that meant something to a different op.
 func _targeting_picker(pawn: PawnData, block) -> Control:
 	var ops := _available_targetings(pawn)
 	var picker := _block_chip()
@@ -640,10 +489,6 @@ func _targeting_picker(pawn: PawnData, block) -> Control:
 		var op: StringName = ops[i]
 		# The block's own args for the entry it is already on, the same
 		# correction `_condition_editor` above carries and for the same reason:
-		# with `{}` here, `target_enemy_with_status` captioned itself "the
-		# nearest enemy with Shield" whatever status it was really aimed at,
-		# because `_status_arg` defaults to 0. An unselected entry previews its
-		# own default, which is what picking it sets.
 		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, block.args if op == block.op else {})))
 		if op == block.op:
 			current = i
@@ -767,24 +612,6 @@ func _set_condition_op(plan, op: StringName) -> void:
 ## that does not store what it shows: the control reads and writes whole
 ## percent (0-100) because that is what `describe_op` prints, and it is
 ## rescaled to the 0.0-1.0 `PlanInterpreter` actually reads on the way out.
-##
-## **A DEFECT FOUND BY RENDERING, ON THE TRUNK, WHILE BUILDING #155.** A "status"
-## shape carries no `min`/`max`/`step` -- it is a choice from an enum, not a
-## number -- and the `else` branch below read `shape["min"]` unconditionally.
-## That raises at runtime, and a GDScript error ABORTS THE METHOD AND RETURNS
-## NORMALLY (the board's rule 2, and the same mechanism that once let failing
-## tests count as passes), so `_condition_editor` simply returned without adding
-## its value editor and nothing anywhere went red.
-##
-## What that cost the player: **the Geysermancer's "when an enemy has Burn" and
-## the Abomination's "when an enemy has no Poison" had no control at all in the
-## plan editor.** The first of those gates the only combo in the game. It is the
-## pawn-behaviour principle broken in the screen the principle exists to
-## protect -- the player could not see where the condition was decided, because
-## the condition was not on the screen.
-##
-## Reproduced on `main` before it was fixed, with `git stash`, not reasoned
-## about: geysermancer and abomination raise, warrior does not.
 func _condition_value_editor(block, shape: Dictionary) -> Control:
 	var key: String = shape["key"]
 	if shape["kind"] == "status":
@@ -835,13 +662,6 @@ func _block_chip() -> OptionButton:
 	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Both of these, and neither is optional. `OptionButton.fit_to_longest_item`
-	# defaults to true, which makes the control report a minimum width big
-	# enough for its longest *unselected* entry -- so a row of three chips
-	# reported a minimum width wider than the screen and ran off the right
-	# edge, taking the Remove button with it, even with the container's
-	# horizontal scrolling disabled. `clip_text` alone does not help: it
-	# governs drawing, not minimum size. Found by looking at a real capture,
-	# not from the code.
 	picker.fit_to_longest_item = false
 	picker.clip_text = true
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
@@ -860,12 +680,6 @@ func _caption_tooltip(picker: OptionButton) -> void:
 ## a block, clearly not one of yours, and not a dropdown that refuses to open
 ## (issue 96's build note). Not greyed either — TEXT, not TEXT_DIM, because
 ## this row is describing behaviour that really happens, not a disabled one.
-##
-## Issue 268: through `UIArt.panel_style`, and with the one specific panel name
-## `Assets/UI/README.md` prints -- `panel/inspect.png` themes this and
-## `panel.png` themes it along with everything else. With no file present it is
-## the identical flat box. The corner radius is the fallback's own: a
-## nine-sliced PNG paints its corners and `StyleBoxTexture` has no radius.
 func _fixed_chip(text: String) -> Control:
 	var panel := PanelContainer.new()
 	var style := UIArt.panel_style(&"inspect", Palette.HP_BACK, Palette.ARENA_EDGE, 1)
@@ -885,46 +699,7 @@ func _fixed_chip(text: String) -> Control:
 	return panel
 
 # ---------------------------------------------------------------------------
-# The default row
-#
-# Issue 96: "every pawn gets an immutable final row: move into range, then
-# basic attack", and "it has to match what actually happens — check what that
-# code really does before writing the row's text."
-#
-# It does not match, in three ways, and the issue's own instruction is to
-# describe reality and raise the difference rather than reword either one. All
-# three are read out of `DefaultBehavior` here rather than restated, so the
-# numbers on this screen cannot drift from the numbers in the simulation:
-#
-# 1. **A pawn with a real heal checks its allies first.** `_first_heal` picks
-#    the first action with `heals` and `power_scale > 0.0`, and if any living
-#    ally is at or below `HEAL_THRESHOLD_FRACTION` of max hp, that is what it
-#    does — walking to the ally if it is out of range. Only the Priest has one
-#    today, so only the Priest grows this row.
-# 2. **A ranged pawn does not "move into range", it holds a band.** Closer than
-#    `KITE_RANGE_FRACTION` of its own range and it backs away; further than
-#    `RANGED_COMMIT_FRACTION` and it approaches; between the two it fires. This
-#    is the mechanism behind PLAYTEST-NOTES-2 item 11, so a player reading this
-#    row can now see the retreat rather than being surprised by it. An action
-#    with `pull_distance > 0.0` never backs off, and that exception shows too.
-# 3. **"The basic attack" is not what it picks.** `_choose_attack_action` takes
-#    the **cheapest action that can actually deal damage** on each side of
-#    `MELEE_RANGE_THRESHOLD`, then chooses between the two by the target's
-#    current distance; with only one of the two it uses that one whatever the
-#    distance. So the row names the actual action, from the actual rule, rather
-#    than a concept the code does not have.
-#
-#    **That rule used to be "first in `starting_actions` order", and issue 129
-#    ended it.** List order was why `warden_chain_toss` never fired and why
-#    `geyser_spout` had to be moved to the front of its class's list; it could
-#    not survive the basic attack arriving from the main-hand weapon, because
-#    equipment grants are appended after class actions and first-in-list would
-#    have named a Warrior's Guard — a self-buff with no damage in it.
-#
-# Target selection is the fourth thing this row states: a taunter in range wins
-# over distance (`_nearest_taunter`), otherwise the nearest enemy.
-# ---------------------------------------------------------------------------
-
+# The default row: what a pawn does when no plan of its own fires.
 func _default_rows(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 	var actions: Array[ActionDef] = []
@@ -985,17 +760,6 @@ func _default_heal_action(actions: Array[ActionDef]) -> ActionDef:
 	return null
 
 ## Issue 129: `DefaultBehavior` itself, not a mirror of it.
-##
-## This used to keep its own copy of the rule -- "the first non-heal action on
-## the requested side, in `starting_actions` order" -- and the copy is what
-## broke. When the basic attack moved onto the main-hand weapon, the fallback
-## stopped being about list order at all (equipment grants are appended *after*
-## class actions, so first-in-list would pick a Warrior's Guard), and this row
-## went on describing a rule the game no longer had. Same shape as the
-## `_CONDITION_ARG_SHAPE` copy this file already deleted once.
-##
-## `DefaultBehavior.default_attack_action` is public for exactly this caller, so
-## the screen and the simulation now read one definition.
 func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
 	return DefaultBehavior.default_attack_action(actions, want_ranged)
 
@@ -1033,45 +797,7 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	return label
 
-## A short fixed string sitting beside a SIZE_EXPAND_FILL control in an
-## HBoxContainer -- the plan row's priority number today. `_line`'s autowrap
-## makes a Label report a near-zero minimum width, the same bug already found
-## and worked around for the Attributes chips above, so the container gives it
-## ~0 width and the neighbour's text is drawn starting at the same x position.
-##
-## Issue 53 found this on a real launch when the prefixes were "Targeting:",
-## "Action:" and "Condition:" and one of them rendered as "TaSelfting:"
-## (Screenshots/sweep_inspect_plan_editor_*). Those three prefixes are gone --
-## issue 96 made each block a chip that says its own value, so there is nothing
-## left to label -- but the trap is a property of `_line`, not of those
-## strings, and the number label sits in exactly the same position.
-# ---------------------------------------------------------------------------
-# Issue 155: live verdicts, so a paused fight says why a row is not firing
-# ---------------------------------------------------------------------------
-#
-# The issue names four reasons a row a player wrote did not fire, and says the
-# game distinguishes none of them: the condition was false, the action was
-# unaffordable, the row was outranked, or nothing fired and the fallback
-# decided. Three of the four are separated here.
-#
-# **WHAT THIS DOES NOT DO, stated rather than implied.** "Unaffordable / out of
-# range / no line of sight" is the fourth, and it is NOT distinguished. Every
-# gate that produces it is a private static inside `PlanInterpreter._run_blocks`
-# (finch's file), and re-implementing those seven checks here would be a second
-# copy of the decision, which is exactly how the log and the sim would come to
-# disagree about why a pawn did something. The honest half is on screen: a row
-# reading `ready` while the fallback reads `acting` says the condition was true
-# and the row still lost, which narrows it to affordability, range, or being
-# outranked. The exact line needs `PlanInterpreter.why_not(state, unit, plan)`
-# and it is asked for on the board.
-#
-# `condition_holds` is the one piece of the decision that is already public and
-# already pure -- `_eval_condition` only reads -- so it can be asked live
-# without touching the fight. **Nothing here calls `decide()`**, which would
-# look like the more direct answer and is not: `decide()` writes `unit.focus_id`
-# as a side effect, so a player opening this panel would change the next tick of
-# the fight they are inspecting.
-
+## A short fixed string beside a SIZE_EXPAND_FILL control in an HBoxContainer.
 const VERDICT_ACTING := "acting"
 const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"
@@ -1103,10 +829,6 @@ func _live_fallback_verdict(pawn: PawnData) -> String:
 ## one `step()` and is null by the time anything can look at it -- rule 2 on the
 ## board, "X never happens is also passed by X can never be observed" -- so
 ## ACTION_START is the only place the answer survives.
-##
-## Returns &"" for the fallback, which is also what a unit that has not acted
-## yet returns. Those two read the same and that is correct: a pawn that has
-## done nothing is not being decided by any row of its own.
 func _last_source_plan(unit) -> StringName:
 	var events = _live_state.events
 	for i in range(events.size() - 1, -1, -1):

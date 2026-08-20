@@ -1,32 +1,6 @@
 extends SceneTree
 
 ## How far does a party get down a floor, rather than how one fight goes.
-##
-##   godot --headless --path . --script res://Tools/FloorRuns.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## Every balance number this project owns describes **one fight, from full
-## health**. The player pointed out the thing that makes those numbers
-## incomplete: a run is several fights in a row, and a party does not
-## necessarily heal between them.
-##
-## `FloorRun` carries hp and resource forward exactly and restores nothing --
-## checked in the file rather than assumed -- and a dead pawn stays dead. So a
-## party that wins a room on 23% of its health starts the next one on 23%. The
-## single-fight table says that is a good fight. This tool asks what it does to
-## a run, which is a different question and the one that decides whether a floor
-## is playable.
-##
-## Reports rooms cleared, not win rate, because "won the fight and then died in
-## the next one" is not a win in any sense the player cares about.
-##
-## **Read the clear rate, not just the depths.** Identical depth histograms
-## across different parties are correct output, not a bug: they mean the outcome
-## was decided by the floor's shape rather than by the party. That happens at
-## both extremes -- when every party clears (depth is just the seed's fight-room
-## count) and when every party dies at the same wall. Both were observed. The
-## column that separates parties is "cleared the whole floor".
 
 
 const SEEDS := 20
@@ -118,11 +92,6 @@ func _run_party(ids: Array, left_out: String) -> void:
 ## touches resource**, so a party can walk into a boss at 85% hp with its casters
 ## on 2 of 102 mana -- which is exactly what was happening to one real party for
 ## hours while this tool reported it as healthy.
-##
-## swift found it by writing a throwaway probe that printed resource per room,
-## because this tool printed only hp and was therefore hiding the cause. An
-## instrument that measures one of two things a run carries forward will
-## eventually attribute a failure to the one it can see.
 func _entry_resource_percent(run: FloorRun, party: Array[PawnData]) -> int:
 	var res := 0
 	var res_max := 0

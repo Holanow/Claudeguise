@@ -2,34 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## ISSUE 204, ARMED AND NOT YET FIRED. A TRIPWIRE, NOT A FIX.
-##
-## Since #121, BURN deals no flat damage: its whole rate is
-## `status_damage_per_magnitude(BURN) * status_magnitude[BURN]`, and the
-## magnitude is written by `CombatSim._apply_status` from the mitigated damage of
-## the hit that applied it.
-##
-## `Terrain.Feature` can also apply a status, through `_apply_hazard_status`.
-## **A patch of ground has no hit, so it writes no magnitude**, and its own doc
-## comment says so plainly: "nothing about it is a hit". A terrain-applied BURN
-## therefore burns for exactly zero -- a badge, a glossary entry and a tick loop,
-## all doing nothing, which is the fourth instance of the shape #150 lists three
-## of.
-##
-## Nothing applies BURN through terrain today, so there is nothing to fix and
-## fixing it speculatively would mean inventing a number nobody has asked for.
-## What is cheap is making sure the trap cannot be walked into silently. These
-## two tests are a matched pair and they are meant to be read together:
-##
-##   1. `test_no_authored_terrain_applies_a_magnitude_scaled_dot` is the
-##      tripwire. It goes red the moment content gives a hazard a status whose
-##      damage lives entirely in its magnitude, and names the issue.
-##   2. `test_the_reason_the_tripwire_exists_is_still_true` measures the reason.
-##      It goes red the moment a hazard-applied BURN starts hurting -- i.e. the
-##      moment somebody fixes #204 -- and says to delete the tripwire.
-##
-## Written this way because a comment explaining a deferred problem rots and a
-## test does not: the blocker clears, the comment stays, and the next person
-## reads a warning about something that was fixed a month ago.
 
 const _SEED := 20400
 
@@ -96,10 +68,6 @@ func test_no_authored_terrain_applies_a_magnitude_scaled_dot() -> void:
 
 ## THE REASON. Red the moment #204 is fixed, which is when the tripwire above
 ## should be deleted along with this file.
-##
-## Runs the real `SimDeps` rates on purpose. A fixture handing in its own rate
-## would pass throughout the entire period the mechanism is dead, which is
-## exactly what this is checking for.
 func test_the_reason_the_tripwire_exists_is_still_true() -> void:
 	var magnitude_only := _magnitude_only_statuses()
 	if magnitude_only.is_empty():

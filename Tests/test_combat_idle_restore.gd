@@ -4,25 +4,6 @@ extends "res://Tests/TestCase.gd"
 ## Issue 132: a unit that spends its tick idle recovers resource faster than one
 ## that spends it moving or fighting. The first thing in this game that trades
 ## time for resource.
-##
-## The two tests that matter most here are the negative ones, and they are not
-## the obvious pair:
-##
-##   test_the_default_scale_leaves_an_idle_unit_on_the_ordinary_rate
-##   test_the_default_scale_consumes_no_random_number
-##
-## The second is the one I would not have thought to write from the feature
-## description. `_stochastic_round` reads `state.rng`, and the rng stream is
-## shared by every damage roll in the fight -- so a mechanism that consumed one
-## extra random number per idle tick would silently change the outcome of every
-## fight this project has ever measured, while every assertion about resource
-## still passed. It is checked directly against a fresh generator on the same
-## seed, and `test_a_live_scale_does_consume_a_random_number` proves that check
-## is not inert.
-##
-## Every assertion is an exact number rather than an inequality, per announcement
-## rule 4: these fixtures are deterministic, so there is nothing to be gained by
-## weakening one to `> 0`.
 
 const _SEED := 4242
 const _RESOURCE_MAX := 100
@@ -53,9 +34,6 @@ func _arena(kind: CG.ResourceKind = CG.ResourceKind.MANA) -> CombatState:
 	return state
 
 ## `base` is deliberately a whole number in most tests: `_stochastic_round`
-## reads `state.rng` only for a fractional part, so a whole rate keeps the
-## resource assertions exact and keeps the rng question in the one pair of tests
-## written to ask it.
 func _deps(base: float, scale: float = -1.0, intent: Intent = null) -> SimDeps:
 	var deps := SimDeps.new()
 	deps.resource_regen_per_tick = func(_u: CombatUnit) -> float: return base

@@ -5,19 +5,6 @@ extends "res://Tests/TestCase.gd"
 ##
 ## Filed as a positioning defect -- "a unit may not end a step inside a blocking
 ## rect" -- and it is not one. `floor1_cover` has no blocking terrain at all:
-## every feature is a `PILLAR`, and `Terrain.Feature.blocks_movement()` is
-## `WALL or PIT`. Walking into a pillar is legal by design and units do it.
-##
-## The real defect was that standing inside cover made a unit blind and
-## invisible rather than protected. `Tools/StallProbe.gd` found the consequence:
-## `floor1_cover` reached the 3600-tick cap once in 2,000 fights, **seed 364**,
-## with three units on the same point inside the same pillar and sight BLOCKED
-## between them **at distance 0.0**. Nothing could resolve a shot, moving toward
-## a target you are standing on covers no ground, and the fight ran forever.
-##
-## Two levels of test, and both are needed: the geometry, because that is where
-## the change is, and the fight, because a predicate returning the right answer
-## in isolation is not the claim being made.
 
 const COVER := &"floor1_cover"
 const STALL_SEED := 364
@@ -44,12 +31,6 @@ func test_a_unit_can_see_another_standing_on_the_same_point() -> void:
 ## THE LIMIT OF THE RULE, and it is deliberate. A unit inside a pillar is still
 ## hidden from everyone outside it: cover keeps working, and standing *in* it
 ## does not become better than standing behind it.
-##
-## The first version of this change exempted a feature containing *either*
-## endpoint, and three tests I did not write went red for it -- a shot that had
-## flown into a wall carried on through, and `test_content_rooms.gd` measured the
-## colonnade denying far fewer shots. Both endpoints is the case the deadlock is
-## made of and nothing more.
 func test_a_unit_inside_a_pillar_is_still_hidden_from_outside_it() -> void:
 	var pillar := _pillar(Rect2(20.0, -250.0, 100.0, 100.0))
 	var inside := Vector2(70.0, -200.0)

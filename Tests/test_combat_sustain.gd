@@ -4,18 +4,6 @@ extends "res://Tests/TestCase.gd"
 ## Issue 61, the simulation half: an action a pawn HOLDS. It deals its effect
 ## and charges `sustain_cost_per_tick` on every tick, for as long as its
 ## decision layer keeps choosing it.
-##
-## Every assertion below is an exact count or an exact number, never `> 0`.
-## Announcement rule 4: an `> 0` assertion on a count cannot warn, only fail, and
-## it reads identically at six and at one. These fixtures are deterministic, so
-## there is no reason to weaken any of them to an inequality.
-##
-## The negative tests are the ones worth reading twice --
-## `test_a_fight_with_no_sustained_action_emits_no_sustain_events` and
-## `test_no_authored_action_is_sustained_yet`. A mechanism that fires when it
-## should not is worse than one that never fires, and the whole of this file
-## would pass on a build where `sustain_cost_per_tick` was ignored and something
-## else did the damage.
 
 const _WIND_UP := 1
 const _RADIUS := 50.0
@@ -52,7 +40,6 @@ func _aura(cost: int = _COST, radius: float = _RADIUS) -> ActionDef:
 ## condition still holds does. That IS the re-affirmation the channel lives on,
 ## so it has to come from the decision layer rather than from a hand-placed
 ## intent: a test that writes `unit.intent` directly never runs `_decide_phase`
-## and would measure nothing.
 func _deps(action: ActionDef, decide: Callable = Callable()) -> SimDeps:
 	var by_id := {action.id: action}
 	var deps := SimDeps.new()
@@ -234,9 +221,6 @@ func test_it_stops_the_tick_the_decision_layer_chooses_something_else() -> void:
 
 func test_re_choosing_a_held_action_does_not_re_commit_it() -> void:
 	# Without the early return in `_resolve_use_action` this pays `resource_cost`
-	# and restarts its wind-up every single tick, which would mean it never
-	# actually ticks. One ACTION_START for the whole channel is the assertion
-	# that catches that.
 	var action := _aura(1)
 	action.resource_cost = 2
 	var state := _arena(action)
@@ -450,10 +434,6 @@ func test_a_fight_with_no_sustained_action_emits_no_sustain_events() -> void:
 ## 219 is that moment, so the assertion is replaced with its live form rather
 ## than deleted -- the property worth guarding was never "nothing is sustained",
 ## it was "we know exactly what is".
-##
-## Exactly one, and it is named. A second sustained action is not forbidden, but
-## it changes what every measurement in the pull request that landed the first
-## one means, so it should arrive with somebody looking at this line.
 func test_immolate_is_the_one_authored_sustained_action() -> void:
 	var sustained: Array[StringName] = []
 	for id in Registry.all_action_ids():
@@ -467,13 +447,6 @@ func test_immolate_is_the_one_authored_sustained_action() -> void:
 
 func test_a_sustained_action_is_authored_with_a_reach_and_without_a_cooldown() -> void:
 	# Two ways to author one that quietly does nothing:
-	#   - a cost with no radius: charges the caster and reaches nobody.
-	#   - a cooldown: `PlanInterpreter.can_afford` refuses to re-choose it, so
-	#     the channel ends itself on the first free tick after ignition.
-	# Vacuously true today, and it is the guard that catches either one the
-	# first time content writes it. The registry assertion is not decoration:
-	# without it this method records zero assertions, and a check that walks an
-	# empty list is indistinguishable from a check that passed.
 	var ids := Registry.all_action_ids()
 	assert_true(ids.size() > 0, "there are actions to check at all")
 	for id in ids:

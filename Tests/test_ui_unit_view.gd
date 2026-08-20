@@ -120,8 +120,6 @@ func test_being_out_of_resource_is_not_a_badge() -> void:
 ## Harmful first, and each group in CG.Status declaration order -- never the
 ## Dictionary's own insertion order, which is the order they happened to land
 ## during a fight. Applied here by giving a unit a beneficial status *first*:
-## insertion order would put SHIELD in front, declaration order would too
-## (SHIELD is value 0), and only the harmful-first rule puts POISON there.
 func test_harmful_badges_come_before_beneficial_ones_whatever_order_they_landed() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	u.statuses[CG.Status.SHIELD] = 100
@@ -140,8 +138,6 @@ func test_badge_order_does_not_depend_on_which_status_landed_first() -> void:
 ## Issue 161: the cap is unchanged as a ROW WIDTH rule -- the row still occupies
 ## at most `MAX_STATUS_BADGES` slots -- but the last slot is now a "+N" chip
 ## rather than a fourth badge whenever something would otherwise be dropped.
-## Asserted as slots, which is the property that actually mattered; the old
-## `size() == MAX` was a proxy that stopped being true when the chip arrived.
 func test_a_badge_row_is_capped_so_it_never_grows_wider_than_the_unit() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	for s in CG.Status.values():
@@ -272,10 +268,6 @@ func test_an_action_with_no_wind_up_reads_as_full() -> void:
 ## Bar plus icon plus their gap is exactly the hp bar's width. A unit's chrome
 ## must not get wider at the moment the arena is most crowded -- that is issue
 ## #82's own failure mode.
-## Issue 82 made the bar width depend on the body, so the invariant is checked
-## across the real range of radii rather than at one number: a goblin (11) and a
-## party pawn (22), plus the extremes of the clamp. It is a stronger test than
-## the fixed-width version it replaces, which could only ever hold for one size.
 func test_the_wind_up_block_is_no_wider_than_the_hp_bar() -> void:
 	for radius in [4.0, 11.0, 16.5, 22.0, 33.0, 200.0]:
 		var display_radius: float = radius * UnitView.DISPLAY_SCALE
@@ -321,10 +313,6 @@ func test_a_bar_is_sized_to_the_drawn_body_not_the_collision_footprint() -> void
 ## and I had taken that from the same polygon-only measurement that also called
 ## the goblin the worst shape in the game.** A test whose premise comes from the
 ## bad data cannot catch the bad data.
-##
-## So: for every shipped shape, the bar must track the MEASURED fill, wide
-## shapes getting wide bars and narrow ones narrow. Read from
-## `Silhouettes.fill_ratio`, which is the thing being trusted.
 func test_every_bar_tracks_its_shapes_measured_fill() -> void:
 	var checked := 0
 	for row in [[&"goblin", 11.0, CG.Team.ENEMY], [&"ghoul", 11.0, CG.Team.ENEMY],
@@ -652,12 +640,6 @@ func test_has_active_projectile_ignores_another_units_shot() -> void:
 
 # ---------------------------------------------------------------------------
 # Issue 82: the bars have to answer "am I ahead".
-#
-# The fresh-eyes playtest: "Every bar is the same green whether it belongs to me
-# or the enemy, so the field reads as green dashes and nothing else. The one
-# thing I need in an autobattler -- is my side ahead -- is exactly the thing the
-# bars refuse to tell me."
-# ---------------------------------------------------------------------------
 
 func _unit_at(team: CG.Team, fraction: float) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -681,9 +663,6 @@ func test_the_two_sides_bars_are_never_the_same_colour() -> void:
 			"at %.0f%% health both sides draw nearly the same colour (%s vs %s)" % [fraction * 100.0, mine, theirs])
 
 ## `Palette.HP_LOW` and `Palette.TEAM_ENEMY` are both `e0705f` -- the same value.
-## So the old red-to-green ramp drew a badly hurt PARTY pawn in the enemy's own
-## colour, which is worse than not colouring by team at all: it is colouring by
-## team wrongly, at the moment the player most needs to read the field.
 func test_a_badly_hurt_party_pawn_is_not_drawn_in_the_enemys_colour() -> void:
 	var hurt := UnitView.hp_fill_color(_unit_at(CG.Team.PLAYER, 0.1))
 	assert_true(_distance(hurt, Palette.TEAM_PLAYER) < _distance(hurt, Palette.TEAM_ENEMY),
@@ -709,20 +688,6 @@ func test_damage_still_darkens_the_fill() -> void:
 # ---------------------------------------------------------------------------
 
 ## THE GUARD, and it is the point of #208 rather than the constant.
-##
-## `#190` made the badge scale with the drawn body, which was right, and the
-## clamp floor it landed on put **every ordinary enemy in the game at 8.7 px on
-## screen** -- goblin, goblin_archer, cultist, ghoul, rat, stalker, all pinned to
-## the same floor. Nothing failed. `BADGE-LEGIBILITY.md` went on arguing about
-## 17.4 px for months while nothing was drawn at 17.4 px, and that document had
-## already recorded that *"at 9.4 px there is no badge design that works"*.
-##
-## So the size is asserted where it is experienced: in screen pixels, at the real
-## desktop resolution, through `BattleView.compute_layout`'s own arena scale and
-## `status_badge_size`, walked over every unit the registry can put on a field.
-## Both halves of that matter -- a world-unit assertion would have passed
-## throughout the defect, and a hardcoded list of enemies would go stale the
-## first time content adds one.
 const _LEGIBLE_BADGE_PX := 16.0
 
 func _every_drawable_shape() -> Array:
@@ -778,11 +743,6 @@ func test_the_badge_cap_is_two_and_a_third_status_is_counted_not_dropped() -> vo
 
 ## `UnitView` drew `facing_left = (team == ENEMY)`, so every enemy was
 ## permanently mirrored and no unit was ever drawn facing where it was looking.
-##
-## **That is not cosmetic.** `CombatSim._shot_is_blocked` reads `facing` to
-## decide whether the Warrior's guard stops an attack, so the game decided an
-## outcome on a fact it then refused to draw, and a player watching the guard
-## fail could not see why.
 func test_the_body_is_drawn_from_the_facing_the_simulation_uses() -> void:
 	var enemy := CombatUnit.new()
 	enemy.team = CG.Team.ENEMY
