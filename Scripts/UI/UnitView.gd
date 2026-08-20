@@ -96,34 +96,21 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 	var body := radius * 2.0 if shape_id == &"" else drawn_half_width(shape_id, team, radius) * 2.0
 	return clampf(body, MIN_BAR_WIDTH, BAR_WIDTH * DISPLAY_SCALE)
 
-## Issue 31: units read too small, worse now that sable's real art carries
-## detail invisible at the old size (a real rendered fight: ten units in
-## roughly the middle fifth of a 1280x720 arena, sprites about twenty
-## pixels across). A view-only scale, deliberately not a change to
-## `CombatUnit.radius`/`EnemyDef.radius` themselves: those read as "drawing
-## only" in their own doc comments, and that comment is wrong -- checked
-## rather than trusted, `CombatSim._move_toward` calls
-## `Terrain.point_is_blocked(state.terrain, candidate, unit.radius)` for real
-## movement collision. Changing the stored radius would be a balance change
-## in a UI issue's clothes. Flagged to rook rather than corrected here since
-## `CombatUnit.gd` is Core.
+## A view-only scale, deliberately not a change to `CombatUnit.radius`:
+## `CombatSim._move_toward` passes that radius to `Terrain.point_is_blocked`
+## for real movement collision, so changing it would be a balance change in a
+## UI issue's clothes.
 ##
-## Applied uniformly to everything drawn around a unit -- the body, its bars,
-## its labels, its badges -- so a bigger silhouette does not leave suddenly-
-## tiny text stranded next to it. `BattleView.gd` imports this same constant
-## for the floating numbers and death markers that spawn at a unit's
-## position, so the whole visual footprint of a unit grows together.
-## 2.0 was tried first and measured against a real ten-enemy room
-## (floor1_room1): bodies read well, but row spacing there is tuned for the
-## old footprint (rows 100-140 world units apart) and doubling every bar and
-## the name font on top of a doubled body pushed adjacent rows' chrome into
-## each other -- worse than the problem this issue exists to fix. 1.5 still
-## roughly doubles the on-screen diameter after the arena's own ~0.5-0.95
-## viewport scale (bigger than the raw multiplier suggests, since a bigger
-## body also means a wider silhouette bounding box), while leaving enough
-## headroom that CROWD_RADIUS (scaled below) can actually keep labels apart
-## in a room this dense. Re-measure against a real launch before raising it
-## again, not by eye against a single sprite.
+## Applied uniformly to everything drawn around a unit -- body, bars, labels,
+## badges -- so a bigger silhouette does not strand tiny text beside it.
+## `BattleView` imports the same constant for floating numbers and death
+## markers, so a unit's whole visual footprint grows together.
+##
+## 2.0 was measured against a real ten-enemy room and rejected: row spacing
+## there is tuned for the old footprint, so doubled chrome collided between
+## adjacent rows. 1.5 still roughly doubles on-screen diameter after the
+## arena's own scale. Re-measure against a real launch before raising it,
+## not by eye against a single sprite.
 const DISPLAY_SCALE := 1.5
 
 static func display_radius(u: CombatUnit) -> float:
@@ -132,16 +119,16 @@ static func display_radius(u: CombatUnit) -> float:
 var unit_id: int = -1
 var _state: CombatState = null
 
-## Issue 53 sweep / PLAYTEST-NOTES 20: the Goblin Archer's name flickered and
-## some enemies never got one at all, both a direct consequence of
-## should_show_label's trigger (focused, or mid wind-up) being a per-tick
-## on/off condition with nothing to smooth it. An attacker refocuses or
-## finishes winding up several times a second, so the label blinked in and
-## out at the same rate. Kept as a per-instance tick, not folded into the
-## static predicate: should_show_label stays a pure function other code
-## (and tests) can call without a live fight, and the hysteresis is a
-## rendering decision layered on top of it, the same split _draw_status_tags
-## and _draw_targeting_line already use for read-only state.
+## `should_show_label`'s trigger, plus a hold: once true, stays true for
+## LABEL_HOLD_TICKS more, so the name does not blink out the instant the
+## trigger flickers. An attacker refocuses or finishes winding up several
+## times a second, which is what made the name blink.
+##
+## Also holds the name up when a unit's own hp or resource just changed, which
+## is how a fodder unit that never focuses or winds up gets a name at all.
+##
+## Kept as a per-instance tick rather than folded into the static predicate:
+## `should_show_label` stays pure so tests can call it without a live fight.
 const LABEL_HOLD_TICKS := int(CG.TICKS_PER_SECOND * 1.5)
 var _label_last_active_tick: int = -1000000000
 ## Also holds the name up when a unit's own hp or resource just changed --
@@ -180,14 +167,15 @@ func _label_visible(u: CombatUnit) -> bool:
 		return true
 	return _state.tick - _label_last_active_tick <= LABEL_HOLD_TICKS
 
-## The melee scrum: several units standing close enough that bodies occlude
-## each other, called out in issue 15 as "the most important square inch of
-## the screen is the least legible one". A view-only nudge, never fed back
-## into CombatState -- the simulation's positions are wren's and this changes
-## nothing about range, targeting or movement, only where a body is drawn.
-## Each overlapping pair pushes apart along the line between them; capped so
-## a crowded unit never reads somewhere misleadingly far from where it
-## actually is.
+## The melee scrum: bodies standing close enough to occlude each other. A
+## view-only nudge, never fed back into CombatState -- this changes nothing
+## about range, targeting or movement, only where a body is drawn.
+##
+## Each overlapping pair pushes apart along the line between them, capped so a
+## crowded unit never reads somewhere misleadingly far from where it is.
+##
+## Uses `display_radius`, not `u.radius`: the point is to keep drawn bodies
+## from occluding, so it reasons about the size actually drawn.
 const _SEPARATION_PADDING := 1.3
 const _SEPARATION_STRENGTH := 0.5
 
@@ -214,36 +202,19 @@ static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
 	return push.limit_length(u_radius * 1.5)
 
-## Which way the body is drawn, from `CombatUnit.facing` -- the same quantity the
-## simulation uses to decide whether the Warrior's guard stops a shot.
+## Which way the body is drawn, from `CombatUnit.facing` -- the same quantity
+## `_shot_is_blocked` reads to decide whether the Warrior's guard stops a shot,
+## so drawing anything else decides an outcome on a fact it refuses to show.
 ##
-## Issue 256. This used to be `u.team == CG.Team.ENEMY`, so **every enemy was
-## permanently mirrored and no unit was ever drawn facing where it was looking.**
-## That is not a cosmetic gap: `_shot_is_blocked` reads `facing` to decide
-## whether an attack gets through, so the game was deciding an outcome on a fact
-## it then refused to draw, and a player watching the guard fail could not see
-## why. `CombatSim` maintains `facing` from movement and from target commitment.
+## **Zero means "no facing yet"**, which is every unit before anything moves.
+## The team pose covers that case: the party deploys left and looks right.
 ##
-## **Zero means "no facing yet"**, per the field's own doc comment, and it is
-## every unit before anything moves -- the whole first tick of every fight. The
-## team guess is kept for exactly that case, where it is a fair starting pose
-## rather than a lie: the party deploys on the left and looks right, the room is
-## on the right and looks back.
+## Static, and no memory. Holding the previous pose across a zero-x facing was
+## written and then deleted: 99,285 living unit-ticks found that case exactly
+## 0 times.
 ##
-## A facing with no horizontal component says nothing about which way to mirror,
-## and falls back to the same team pose. **I wrote state into this view to hold
-## the previous pose across that case, then measured it and deleted it:
-## `Tools/FacingLoad.gd`, 99,285 living unit-ticks over three rooms and thirty
-## fights, found it exactly 0 times.** A unit is committed to something beside it
-## or walking toward it; landing on a facing of exactly zero x is possible and
-## does not happen. Static, and no memory.
-##
-## **What the same measurement says about this change, because it is smaller than
-## it sounds: the team rule was already right 98.1% of the time** -- 735 of
-## 42,398 unit-ticks wrong on `floor1_room1`, 587 of 30,840 on `floor1_cover`, 20
-## of 26,047 on `floor1_warden`. Units mostly do face the way their side started.
-## The 1.7% is the whole of the turning, which is the part a player is trying to
-## read, and it is the part the Warrior's guard is decided on.
+## The team rule alone was already right 98.1% of the time. The 1.7% is the
+## whole of the turning, which is the part a player is trying to read.
 static func facing_left(u: CombatUnit) -> bool:
 	if u.facing.x != 0.0:
 		return u.facing.x < 0.0
@@ -620,30 +591,20 @@ const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
 ## row, and the row belongs to the unit rather than to the thing above it.
 const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
 
-## A unit can in principle carry every status at once. **Two**, on the player's
-## ruling in issue 208, and the reason is that the reservation was being paid
-## for in width by every unit and earned by almost none.
+## A unit can in principle carry every status at once. Two are shown.
 ##
-## sable's `Tools/StatusLoad.gd`, 2,201,587 unit-ticks over real parties and
-## every encounter at 20 seeds:
+## Measured over 2,201,587 unit-ticks: the row is empty 79.1% of the time,
+## and of the ticks carrying anything, 88.2% carry one or two. No enemy ever
+## carried five. Four slots were reserved always, earned on 1.0% of ticks,
+## and charged in width to every goblin.
 ##
-##   statuses at once      0     1     2     3     4     5     6     7
-##   share            79.14 12.63  5.76  1.38  0.74  0.25  0.07  0.03  %
-##   enemies at 5+                                          0     0     0
+## A cap of two hides something on 2.5% of unit-ticks, which the "+N" chip
+## reports truthfully. One would have hidden something on 8.2% -- the
+## difference between an overflow chip that is rare and one a player learns
+## to distrust.
 ##
-## **The row is empty 79.1% of the time, and of the ticks carrying anything,
-## 88.2% carry one or two.** No enemy in two million unit-ticks ever carried
-## five. Four slots were reserved always and earned on 1.0% of ticks, and the
-## width was charged to every goblin -- exactly where the row is worst, at 2.7x
-## the drawn body.
-##
-## **A cap of two hides something on 2.5% of unit-ticks** and #161's "+N" chip
-## reports that truthfully. One would have hidden something on 8.2%, and the
-## difference between those two is an overflow chip that is rare and one a
-## player learns to distrust.
-##
-## Harmful first (see status_badges), so the two shown are the two a player most
-## needs: what is being done *to* this unit.
+## Harmful first (see `status_badges`), so the two shown are what is being
+## done *to* this unit.
 const MAX_STATUS_BADGES := 2
 
 ## Which badges this unit gets, in draw order. Split out from the drawing for
@@ -693,34 +654,17 @@ static func hidden_status_count(u: CombatUnit) -> int:
 		return 0
 	return total - (MAX_STATUS_BADGES - 1)
 
-## The floor, and issue 208 is entirely about this number.
+## The floor. Expressed the same way as the ceiling two constants up, so the
+## two move together.
 ##
-## It was `7.0 * DISPLAY_SCALE`, and **every ordinary enemy in the game was
-## pinned to it** -- goblin, goblin_archer, cultist, ghoul, rat and stalker all
-## measured **8.7 px on screen at 1280x720**, and 4.7 px at 844x390. That is
-## #190's downstream consequence: making the decoration fit the drawn body was
-## right, and nobody measured what it did to the badges.
+## `13.0 * DISPLAY_SCALE` is 19.5 world units, about 16 px at 1280x720. The
+## floor sits close to the ceiling on purpose: a badge is fixed iconography
+## rather than a scaled decoration, and all thirteen glyphs read at 16 px
+## while below it no drawing rescues them.
 ##
-## `BADGE-LEGIBILITY.md` has been arguing about 17.4 px since February and
-## nothing on the field has been drawn at 17.4 px for months. That same document
-## already said *"at 9.4 px there is no badge design that works"*, and the
-## DESKTOP size was below it.
-##
-## **sable rendered all thirteen glyphs at every rung and the set reads at 16 px**
-## (`Screenshots/badge_legibility.png`), so the fix is the size and not the
-## drawing -- which overturned the assignment they were given, and they said so
-## rather than redrawing something that was never the problem.
-##
-## `13.0 * DISPLAY_SCALE` is 19.5 world units, which the arena's own fit puts at
-## **~16 px at 1280x720**, expressed the same way as the ceiling two constants
-## up so the two move together. The floor is now close to the ceiling on purpose:
-## a badge is a fixed piece of iconography rather than a scaled decoration, and
-## below 16 px there is no drawing that rescues it.
-##
-## AND DO NOT REACH FOR THE DISCRIMINATION METRIC TO APPROVE A SMALLER ONE. It
-## runs backwards -- 24.0% at 4.7 px against 13.2% at 32 px -- because at small
-## sizes it is measuring the plate rather than the glyph. sable found that and it
-## is the sort of number that reads as permission.
+## DO NOT REACH FOR THE DISCRIMINATION METRIC TO APPROVE A SMALLER ONE. It
+## runs backwards -- 24.0% at 4.7 px against 13.2% at 32 px -- because at
+## small sizes it measures the plate rather than the glyph.
 const STATUS_BADGE_MIN := 13.0 * DISPLAY_SCALE
 
 ## Issue 190: sable measured a row of four badges at 84px against a 27px goblin,
