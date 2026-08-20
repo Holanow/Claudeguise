@@ -301,9 +301,13 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 			out.append(_inert_note(spent, budget))
 
 	var fallback_header := HBoxContainer.new()
-	fallback_header.add_child(_line(
+	var fallback_title := _line(
 		"Fallback, always last and not yours to change:",
-		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	## Autowrap with no share of the row wraps this to one word per line the
+	## moment a verdict sits beside it (issue 308's screenshot).
+	fallback_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fallback_header.add_child(fallback_title)
 	var fallback_verdict := _live_fallback_verdict(pawn)
 	if fallback_verdict != "":
 		fallback_header.add_child(_verdict_label(fallback_verdict))
