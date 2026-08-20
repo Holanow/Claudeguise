@@ -4,30 +4,8 @@ class_name CombatLogView
 
 ## The scrolling record of the fight, in words. One line per CombatEvent worth
 ## showing.
-##
-## OWNER: pike.
-##
-## This is half of how the combat gets judged. "That felt bad" has to be
-## traceable to a cause, so a line names the actor, the action, the target, the
-## number and the mitigation when there was any. A line reading "Warrior hits
-## Rat for 7" is not enough to tell a tuning problem from a targeting problem.
 
 ## Screen-space, not world-space, so neither scales with the arena.
-## `BattleView.compute_layout` reserves exactly one of these (whichever
-## matches the orientation) before fitting the arena into what is left, so a
-## change here has to be matched there.
-##
-## Landscape reserves a side column, portrait a bottom strip. A 16:9 arena in
-## a wider window already leaves side margins it can never use, so landscape
-## spends those on the log; width is portrait's scarce dimension, not height,
-## so a side column would cost far more there.
-##
-## The log is one box, `LOG_WIDTH` x `LOG_HEIGHT`, pinned to the bottom of
-## whichever strip the orientation reserves.
-##
-## The reservation stays the full column because the team status panel is in
-## the top of it, and the column costs the arena nothing: at 1280x720 the fit
-## is 0.932 by width against 0.828 by height, so the arena is height-limited.
 const LOG_WIDTH := 260.0
 const LOG_HEIGHT := 200.0
 const LOG_MARGIN := -20.0
@@ -53,7 +31,6 @@ func _ready() -> void:
 	_label = RichTextLabel.new()
 	_label.bbcode_enabled = true
 	_label.scroll_following = true
-	# RichTextLabel does not clip to its own rect by default: without this,
 	_label.clip_contents = true
 	_label.add_theme_color_override("default_color", Palette.TEXT)
 	add_child(_label)
@@ -72,13 +49,6 @@ func set_landscape(landscape: bool) -> void:
 ## One box, two anchorings. It was two nine-line branches that differed only in
 ## which preset and which pair of offsets they set, and the `_top_inset` the
 ## landscape branch carried is gone with the full-height column it belonged to:
-## the log is pinned to the bottom now, so nothing has to be told where the team
-## status panel ends.
-##
-## The seam is the box's own top edge in both orientations. That is the edge
-## facing the fight -- the arena is above the log in landscape and in portrait
-## alike -- and it is what says the transition is deliberate rather than the
-## backdrop's translucent edge fading out over the arena's boundary.
 func _apply_orientation() -> void:
 	var preset := Control.PRESET_BOTTOM_RIGHT if _landscape else Control.PRESET_BOTTOM_WIDE
 	for node in [_backdrop, _seam, _label]:
@@ -113,15 +83,12 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "[b]The fight ends.[/b]"
 		CG.EventKind.DAMAGE:
 			var color := Palette.damage_color(e.damage_type).to_html()
-			# Issue 33: a poison/burn tick and a hazard tick both carry no
 			if e.source_id == -1:
-				# Issue 24: a poison/burn tick fires once per afflicted unit
 				if e.status != CG.Status.SHIELD:
 					return ""
 				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
 					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
 				]
-			# Issue 74: a summon or a buff still resolves through
 			if e.amount == 0 and e.amount_before_mitigation == 0:
 				return ""
 			var mitigation := ""
@@ -144,13 +111,11 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.ACTION_FIRE:
 			return "%s's %s fires" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.STATUS_APPLIED:
-			# PLAYTEST-NOTES-2 item 6: a beneficial status ("the Warrior is
 			var strength := _magnitude_text(e)
 			if CG.is_harmful(e.status):
 				return "%s is afflicted with %s%s" % [target_name, _status_name(e.status), strength]
 			return "%s gains %s%s" % [target_name, _status_name(e.status), strength]
 		CG.EventKind.STATUS_EXPIRED:
-			# Issue 186: three different things end a status and all three used
 			if e.source_id != -1:
 				var action := Registry.get_action(e.action_id)
 				if action != null and action.consumes_status_enabled and action.consumes_status == e.status:
@@ -158,7 +123,6 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 						Palette.damage_color(CG.DamageType.FIRE).to_html(),
 						source_name, _action_name(e.action_id), target_name, _status_name(e.status)
 					]
-				# The other sourced ending is a cleanse (`_cleanse_harmful`), and
 				return "%s's %s lifts %s's %s" % [
 					source_name, _action_name(e.action_id), target_name, _status_name(e.status)
 				]
@@ -175,7 +139,6 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# is exactly the case where firing is not the end of it.
 			return "%s holds %s" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.SUSTAIN_END:
-			# `amount` is the ticks it was held for, and it is the one thing a
 			return "%s stops %s after %s" % [
 				source_name, _action_name(e.action_id), _seconds(e.amount)
 			]
@@ -186,7 +149,6 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				_action_name(e.action_id), _seconds(e.amount)
 			]
 		CG.EventKind.SUMMONED:
-			# `target_id` is the NEW unit, not a foe. swift's shape, with
 			return "%s summons %s" % [source_name, target_name]
 		CG.EventKind.RESOURCE_SPENT:
 			# Deliberate. See SILENT_KINDS below -- the list is what makes this
@@ -196,27 +158,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 
 ## Every CG.EventKind either produces a line above or is named here, and
 ## `Tests/test_ui_combat_log.gd::test_every_event_kind_speaks_or_is_named_silent`
-## walks the real enum to enforce it.
-##
-## Issue 151, and this guard is the point of that issue rather than the lines.
-## `line_for_event` is a `match` with `return ""` underneath, so a kind added to
-## the enum renders nothing at all, in real fights, with the gate green
-## throughout. That happened FIVE times to THREE people -- BLOCKED,
-## SUSTAIN_START, SUSTAIN_END, INTERRUPTED, and SUMMONED -- including from a
-## pull request whose entire purpose was to stop the Warrior's block being
-## invisible.
-##
-## Adding a `CG.Status` has never been able to happen invisibly: three gate
-## tests refuse a status with no glyph and no glossary entry. This is that guard
-## for the other enum. The working precedent is swift's
-## `test_audio.gd::test_the_replacement_instructions_name_every_event_kind`,
-## which caught a missing kind on its own first gate run.
-##
-## A deliberate silence goes in this list, and that is what makes it
-## distinguishable from an oversight -- which is the whole difference the guard
-## buys.
 const SILENT_KINDS := [
-	# The spend is already on screen twice: the resource bar drops on the same
 	CG.EventKind.RESOURCE_SPENT,
 ]
 
@@ -225,49 +167,11 @@ const SILENT_KINDS := [
 ## varied from fight to fight for a reason the player could not see. The whole
 ## design only works if it can be learned: hit hard, get a big burn, eat it for
 ## a big Blast.
-##
-## `STATUS_APPLIED.amount` already carries the resulting magnitude
-## (`CombatSim._apply_status` sets it for exactly this), so nothing new is read.
-##
-## THE NUMBER MEANS TWO DIFFERENT THINGS AND IS THEREFORE WORDED TWO DIFFERENT
-## WAYS. A stacking status counts applications; a hit-scaled one carries the
-## damage of the hit that set it. Printing a bare "(3)" for both would invite
-## reading a burn's strength as a stack count.
-##
-## And it is silent for every other status ON PURPOSE, by walking CombatSim's
-## own two sets rather than a list typed here. TAUNTED stores **the taunter's
-## unit id** in the same field, and SUSTAINING stores an action -- a generic
-## "print amount when non-zero" would have published a unit id to the player as
-## if it were a strength. That is the trap this shape avoids, and it is the
-## reason the sets are read from where they are defined.
-##
-## Issue 245: the wording moved to `Glossary.status_magnitude_text` and this
-## calls it. The status popup on the team panel has to say the same thing about
-## the same badge, and this rule -- which statuses may show a number at all, and
-## in which of two units -- is the part that must not exist twice. The output is
-## unchanged; only the parentheses are still this function's.
 func _magnitude_text(e: CombatEvent) -> String:
 	var text := Glossary.status_magnitude_text(e.status, e.amount)
 	return "" if text == "" else " (%s)" % text
 
 ## Which plan row chose the action -- the "and why" half of the log.
-##
-## Volume decisions, all four load-bearing:
-##
-##   - **In the line, not a hover.** A reason you have to ask for is one
-##     nobody reads while a fight is running.
-##   - **On ACTION_START only.** One tag per decision, not per consequence;
-##     the damage, status and death below it inherit their reason.
-##   - **On pawns only.** An enemy has no plans, so `[fallback]` on a goblin
-##     names nothing the player can change. Enemies are about half of every
-##     fight's actions, so this is also where the volume is.
-##   - **Why the other rows did not fire is not here.** That is four facts
-##     per row per tick. `InspectPanel` marks each row with its live verdict
-##     instead, which puts the answer in the screen where the fix is made.
-##
-## The number is the row number the plan editor shows, so "plan 2" in the log
-## and row 2 in the editor are the same row by construction. An id with no row
-## -- a plan removed while its action was still winding up -- prints the id.
 func _plan_tag(source, e: CombatEvent) -> String:
 	if source == null or source.pawn == null:
 		return ""

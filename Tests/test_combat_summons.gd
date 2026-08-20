@@ -2,9 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Issue 12, the simulation half: a resolving action with `summons_unit_id`
-## set adds a unit to `state.units`, on the caster's team, at or near the
-## caster. `CombatSim.build()` used to be the only place `state.units` grew;
-## this is the first thing in the project that appends to it mid-fight.
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -269,10 +266,6 @@ func test_unknown_summon_id_still_appends_a_unit_rather_than_crashing() -> void:
 # `_spawn_summon` appended a unit and emitted nothing, so the only way to know a
 # summon had happened was to watch `state.units` grow -- which is exactly what
 # heron had to do to count the Rat King's rats.
-#
-# This is a step further back than an event that renders as an empty line:
-# wren's EventKind guard checks that every declared kind renders, and it cannot
-# check for a kind nobody declared.
 
 ## Builds `count` summons from one caster and returns the finished state.
 func _summon_fight(count: int, summons: StringName = &"engine") -> CombatState:

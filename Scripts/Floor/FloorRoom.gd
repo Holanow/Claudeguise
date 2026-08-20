@@ -5,8 +5,6 @@ class_name FloorRoom
 ## what it connects to; never what it contains. `Scripts/Content/**` fills a
 ## room in from `type` and `difficulty` -- a FloorRoom says "this is an enemy
 ## room with difficulty 3", never which enemies.
-##
-## OWNER: wren, issue 5.
 
 enum Type {
 	ENEMY,

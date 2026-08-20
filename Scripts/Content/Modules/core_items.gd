@@ -3,17 +3,6 @@ extends RefCounted
 
 ## Base equipment types, filtered to the tag combinations the five starting
 ## classes carry. See Registry.gd for the module contract. OWNER: teal.
-##
-## Weapons and accessories are percent, armor is flat plus an occasional CON
-## percent; `Balance.attribute()` applies them, this file only declares.
-##
-## `allowed_methods` gates martial versus magical only. Declaring is content's
-## job, refusing is the equip screen's, so a pawn meets an unusable piece as
-## an absence rather than an error.
-##
-## Every weapon grants exactly one basic attack and a test asserts it: a
-## weapon granting nothing leaves a pawn with no free action, which is the
-## resource-exhaustion wall.
 static func classes() -> Array[ClassDef]:
 	return []
 
@@ -30,15 +19,12 @@ static func items() -> Array[EquipmentDef]:
 	return [
 		# --- Weapons: Str/Int/Dex percent, per README's advanced tier -----
 		_weapon(&"sword", "Sword", "A straight blade. Increases STR by 15%, and its wielder attacks with a Strike.", {CG.Attribute.STR: 0.15}, [CG.Method.MARTIAL], [&"warrior_strike"]),
-		# Melee + Summoner. siege_master's own class is Ranged/Summoner in
 		_weapon(&"wrench", "Wrench", "A heavy spanner. Increases DEX by 12% and STR by 5%, and its wielder attacks with a Strike.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}, [CG.Method.MARTIAL], [&"warrior_strike"]),
 		# Melee + Magical. abomination.
 		_weapon(&"sickle", "Sickle", "A curved, filthy blade. Increases INT by 15%, and its wielder attacks with a poisoning Claw.", {CG.Attribute.INT: 0.15}, [CG.Method.MAGICAL], [&"abomination_claw"]),
 		# Ranged + Magical. geysermancer.
 		_weapon(&"orb", "Orb", "A sphere of trapped water. Increases INT by 18%, and its wielder attacks with a Spout.", {CG.Attribute.INT: 0.18}, [CG.Method.MAGICAL], [&"geyser_spout"]),
-		# Ranged + Martial. siege_master. Issue 129: the player asked for a bow
 		_weapon(&"bow", "Bow", "A recurve bow. Increases DEX by 15%, and its wielder attacks with a Shot at range.", {CG.Attribute.DEX: 0.15}, [CG.Method.MARTIAL], [&"siege_master_shot"]),
-		# Ranged + Magical. priest. Issue 129: the player asked for a staff by
 		_weapon(&"staff", "Staff", "A long carved stave. Increases INT by 12%, and its wielder attacks with a Bolt at range.", {CG.Attribute.INT: 0.12}, [CG.Method.MAGICAL], [&"priest_bolt"]),
 
 		# --- Armor: flat, occasional CON percent, per README -------------

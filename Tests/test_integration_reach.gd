@@ -1,31 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
 ## Does a feature the code contains actually reach the game?
-##
-## MANAGER-OWNED.
-##
-## **Every other test file in this repository passed all nine times we shipped
-## something the player could not reach.** `EquipmentDef`, the wrong-room
-## encounter, treasure drops, the unreachable floor, uncalled resource
-## recovery, two class abilities, the projectile visuals, hover on the Inspect
-## screen, and a summoned unit that never gets drawn. Nine. Each one was
-## built, tested, reviewed and merged, and each one looked finished from the
-## inside because the tests covering it called it directly.
-##
-## `test_ui_battle_view.gd` says the quiet part in its own header: it builds a
-## `CombatState` by hand and bypasses `begin()`. That is a reasonable unit
-## test and it is precisely why it could never have caught any of this. A test
-## that constructs the thing it is testing has assumed away the only question
-## that matters, which is whether anything constructs it in the real game.
-##
-## So the rule for this file, and it is the whole point of it:
-##
-##   **Never build the fixture. Drive the real path and watch what happens.**
-##
-## A test here starts from something the player actually does -- pick a party,
-## start a fight -- and asserts on observable output. If a test in this file
-## needs to reach inside and set something up, it belongs in one of the other
-## files instead.
 
 
 ## Enough seeds that a genuinely reachable action shows up, few enough that
@@ -58,17 +33,6 @@ func test_every_starting_action_fires_in_a_real_fight() -> void:
 ## A class whose actions all cost resource, in a party that cannot generate
 ## it, stands still. The player hit this twice -- the Abomination, then the
 ## Priest and Siege Master -- and both times the class looked complete.
-## A pawn that cannot afford anything stands still.
-##
-## **This asked about the class and had to be rewritten**, because issue 129
-## moved the basic attack onto the main-hand weapon. A *class* no longer owns a
-## free action and a *pawn* does -- so the old assertion started failing on four
-## classes the moment weapons started granting attacks, reporting a working
-## feature as broken. finch's change is what made it wrong, and the test was
-## right to notice.
-##
-## Asks about the pawn `PawnFactory` actually builds, which is the only version
-## of the question that was ever meaningful.
 func test_every_starting_pawn_has_an_action_it_can_always_afford() -> void:
 	for cid in CLASSES:
 		var c := StringName(cid)
@@ -87,17 +51,6 @@ func test_every_starting_pawn_has_an_action_it_can_always_afford() -> void:
 ## Each of these fields gates a whole mechanism. The test is not that the
 ## field exists -- the parser proves that. It is that some action a real
 ## fight can reach actually sets it.
-##
-## The failure message says "nothing can reach it" rather than "built and
-## unreachable", because the first version assumed the mechanism existed and
-## one of them did not. `cleanses_harmful` was declared on ActionDef, given a
-## doc comment, set by no action *and read by nothing in CombatSim* -- a
-## field and a description with no mechanism under either. finch found that
-## by looking when the fix would have been to add an action, which would have
-## turned this assertion green while shipping an ability that does nothing.
-## That is precisely the failure this file exists to catch, so the assertion
-## should not have been phrased in a way that told the reader what they would
-## find.
 func test_every_action_mechanism_is_reachable_from_some_class_or_enemy() -> void:
 	var reachable := _reachable_action_ids()
 
@@ -119,16 +72,6 @@ func test_every_action_mechanism_is_reachable_from_some_class_or_enemy() -> void
 
 ## A status nothing can inflict is a badge, a glossary entry and a rules
 ## paragraph describing something that cannot happen.
-##
-## Added after swift measured the cleanse window and found it was POISON and
-## nothing else. That prompted counting the rest: of twelve declared
-## statuses, four -- BLEED, ENRAGE, BURN and STUN -- are applied by no action
-## in the game. sable drew badges for all twelve, the glossary explains all
-## twelve, and four of them have never once happened to anybody.
-##
-## The mechanism check above could not see this: it walks `ActionDef` fields,
-## and `applies_status` is set on plenty of actions. The gap is in which
-## *values* it is ever set to.
 func test_every_declared_status_can_actually_be_inflicted() -> void:
 	var appliable := {}
 	for action_id in _reachable_action_ids():
@@ -138,14 +81,6 @@ func test_every_declared_status_can_actually_be_inflicted() -> void:
 
 	## Statuses no *action* applies because a **mechanism** does. Each needs a
 	## named reason, and the reason has to say what applies it.
-	##
-	## This list exists because the check cried wolf twice. SHIELDING went
-	## "impossible" the moment Directional Block moved onto plate armour, while
-	## being reachable through the equip screen the whole time. TAUNTED and
-	## SUSTAINING are the same shape: applied by `CombatSim`, not by an
-	## `applies_status` field. **A checker that reports working features as
-	## broken gets deleted by the next person**, so the allowlist is the price
-	## of the check surviving.
 	var applied_by_mechanism := {
 		CG.Status.TAUNTED: "CombatSim stamps it when a taunt lands; the compulsion reads it, no action sets it",
 		CG.Status.SUSTAINING: "CombatSim holds it for the duration of a sustained action",
@@ -161,25 +96,8 @@ func test_every_declared_status_can_actually_be_inflicted() -> void:
 # ---------------------------------------------------------------------------
 # The screen is part of the real path. A thing that fights invisibly is not
 # in the game either.
-# ---------------------------------------------------------------------------
 
 ## Catches issue 75 directly, and every future summon with it.
-##
-## `BattleView` built its unit views once, at fight start, from the unit list
-## as it stood at that instant. A siege engine summoned thirty seconds in
-## fought, dealt damage, took damage and died without ever being drawn. The
-## player reported it three times. I "fixed" it twice by confirming the
-## silhouette existed in the registry, which is exactly the mistake this whole
-## file exists to stop: I checked the artefact instead of the screen.
-## Whatever a real fight can put on the field must have something to draw.
-##
-## A summoned unit appears in no encounter, so a check that walks encounters
-## cannot see it -- that is how the siege engine reached the player with no
-## silhouette at all. This walks the units a fight actually produced.
-##
-## The other half of issue 75, that `BattleView` never gives a mid-fight
-## summon a view node to draw *into*, is wren's to fix and to test: it needs a
-## live scene tree, which this file deliberately does not build.
 func test_every_unit_a_real_fight_produces_has_art_to_draw() -> void:
 	var state := _run_fight(_party_without("warrior"), &"floor1_room1", 0)
 	assert_true(state.units.size() > 0, "fixture produced no units at all")
@@ -208,22 +126,6 @@ func test_the_summon_path_is_live_in_a_real_fight() -> void:
 		"no summoning action fired in %d real fights, so nothing above actually checks a summoned unit." % _fight_count())
 
 ## Art nothing calls is art the player never sees.
-##
-## Added after the **eleventh** built-and-unreachable feature on this project:
-## `Scripts/Art/EquipmentIcons.gd` shipped an icon for each of seventeen
-## equipment items, and `EquipPanel` referenced it zero times. The equip screen
-## drew none of them. Nobody did anything wrong -- the screen landed before the
-## art -- and **nothing in this file could see it**, because every other check
-## here asks about the simulation.
-##
-## sable found it by reading another session's diff. That is not a check, it is
-## luck, and it is the same luck that failed the other ten times.
-##
-## Deliberately crude: it asks whether the module's name appears anywhere under
-## `Scripts/UI`, not whether it is called correctly. A wrong call site still
-## passes. That is fine -- **zero call sites is the failure that keeps
-## happening**, and a cheap check that catches it beats an exact one nobody
-## writes.
 func test_every_art_module_has_a_caller_in_the_interface() -> void:
 	var art_dir := DirAccess.open("res://Scripts/Art")
 	assert_true(art_dir != null, "cannot open Scripts/Art")
@@ -252,10 +154,6 @@ func test_every_art_module_has_a_caller_in_the_interface() -> void:
 		var seen := callers.contains(needle)
 		if not seen:
 			# Reaching the screen through another art module is a real path:
-			# UnitArt has no interface caller and is perfectly reachable via
-			# Silhouettes, which does. The first version failed it and was
-			# wrong -- a crude check is fine, a crude check that cries wolf is
-			# not, because the next person deletes it.
 			for path in art_files:
 				if path.get_file() == name:
 					continue

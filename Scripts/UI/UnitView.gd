@@ -4,16 +4,6 @@ class_name UnitView
 
 ## One combatant on screen: body, health bar, resource bar, name, tags, and the
 ## wind-up indicator that says an action is coming.
-##
-## OWNER: pike.
-##
-## The wind-up indicator is not decoration. ActionDef.wind_up_ticks exists so a
-## fight can be read rather than watched, and that only works if the screen
-## shows it.
-##
-## Positions and bars read CombatUnit directly. Anything that *happened* (a
-## death being announced, a number floating) comes from a CombatEvent instead,
-## handled by BattleView and DamageFloater.
 
 ## Scaled for CombatUnit.radius's phone-legibility pass (12.0 -> 22.0) and
 ## Palette.FONT_SIZE_SMALL going 11 -> 16 alongside it.
@@ -32,35 +22,10 @@ const BAR_GAP := 3.0
 ## prior knowledge reported. **Tying the bar to the body is what makes it
 ## legible as belonging to one**, and it matters more now that names default
 ## off and cannot disambiguate.
-##
-## Floored so a small unit's chrome stays usable -- the wind-up block below
-## shares this width and has a fixed-size icon to fit inside it.
-## Issue 190: was 44, and **44 was the whole defect for every enemy in the
-## game.** Measured: a goblin's drawn body is 18.5px wide, so sizing the bar
-## from the drawn shape changed nothing at all while this floor held -- it
-## clamped straight back up to 44 and stayed 2.4x the creature. The floor
-## existed so the wind-up block's fixed-size icon still fitted; that icon scales
-## now instead, which is what lets this come down to "a bar is still a bar".
 const MIN_BAR_WIDTH := 20.0
 
 ## Everything a unit wears -- bar width, the bar stack's anchor, the badge row
 ## -- measures from the **drawn** body, not from `CombatUnit.radius`.
-##
-## The radius is the collision footprint and the art fills a fraction of it,
-## so sizing from it gave a goblin a 44px bar over 15px of body. The player's
-## own pawns are the narrowest on the field (priest 0.50, warrior 0.54), and
-## the vertical axis is worse: `siege_master` fills 0.33 of its box.
-##
-## Uses `Silhouettes.drawn_extent` / `fill_ratio`, sable's, so this cannot
-## drift from the art. Deriving it from `build_parts` here measured the
-## polygons instead, which ten shapes with real PNGs never render.
-##
-## Do NOT reach for the texture's `get_width()`: pixel art carries margin --
-## `siege_master.png` is 24x14 with 20x8 opaque -- so that path fixes a third
-## of the error while looking like it fixed all of it. `opaque_rect` scans.
-##
-## Cached per shape and team at a reference radius: PNG art is per-team, and
-## both paths scale linearly with radius, so one measurement rescales.
 static var _extents := {}
 const _EXTENT_REFERENCE_RADIUS := 100.0
 
@@ -97,20 +62,6 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 	return clampf(body, MIN_BAR_WIDTH, BAR_WIDTH * DISPLAY_SCALE)
 
 ## A view-only scale, deliberately not a change to `CombatUnit.radius`:
-## `CombatSim._move_toward` passes that radius to `Terrain.point_is_blocked`
-## for real movement collision, so changing it would be a balance change in a
-## UI issue's clothes.
-##
-## Applied uniformly to everything drawn around a unit -- body, bars, labels,
-## badges -- so a bigger silhouette does not strand tiny text beside it.
-## `BattleView` imports the same constant for floating numbers and death
-## markers, so a unit's whole visual footprint grows together.
-##
-## 2.0 was measured against a real ten-enemy room and rejected: row spacing
-## there is tuned for the old footprint, so doubled chrome collided between
-## adjacent rows. 1.5 still roughly doubles on-screen diameter after the
-## arena's own scale. Re-measure against a real launch before raising it,
-## not by eye against a single sprite.
 const DISPLAY_SCALE := 1.5
 
 static func display_radius(u: CombatUnit) -> float:
@@ -123,12 +74,6 @@ var _state: CombatState = null
 ## LABEL_HOLD_TICKS more, so the name does not blink out the instant the
 ## trigger flickers. An attacker refocuses or finishes winding up several
 ## times a second, which is what made the name blink.
-##
-## Also holds the name up when a unit's own hp or resource just changed, which
-## is how a fodder unit that never focuses or winds up gets a name at all.
-##
-## Kept as a per-instance tick rather than folded into the static predicate:
-## `should_show_label` stays pure so tests can call it without a live fight.
 const LABEL_HOLD_TICKS := int(CG.TICKS_PER_SECOND * 1.5)
 var _label_last_active_tick: int = -1000000000
 ## Also holds the name up when a unit's own hp or resource just changed --
@@ -170,12 +115,6 @@ func _label_visible(u: CombatUnit) -> bool:
 ## The melee scrum: bodies standing close enough to occlude each other. A
 ## view-only nudge, never fed back into CombatState -- this changes nothing
 ## about range, targeting or movement, only where a body is drawn.
-##
-## Each overlapping pair pushes apart along the line between them, capped so a
-## crowded unit never reads somewhere misleadingly far from where it is.
-##
-## Uses `display_radius`, not `u.radius`: the point is to keep drawn bodies
-## from occluding, so it reasons about the size actually drawn.
 const _SEPARATION_PADDING := 1.3
 const _SEPARATION_STRENGTH := 0.5
 
@@ -205,16 +144,6 @@ static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 ## Which way the body is drawn, from `CombatUnit.facing` -- the same quantity
 ## `_shot_is_blocked` reads to decide whether the Warrior's guard stops a shot,
 ## so drawing anything else decides an outcome on a fact it refuses to show.
-##
-## **Zero means "no facing yet"**, which is every unit before anything moves.
-## The team pose covers that case: the party deploys left and looks right.
-##
-## Static, and no memory. Holding the previous pose across a zero-x facing was
-## written and then deleted: 99,285 living unit-ticks found that case exactly
-## 0 times.
-##
-## The team rule alone was already right 98.1% of the time. The 1.7% is the
-## whole of the turning, which is the part a player is trying to read.
 static func facing_left(u: CombatUnit) -> bool:
 	if u.facing.x != 0.0:
 		return u.facing.x < 0.0
@@ -254,13 +183,11 @@ func _draw() -> void:
 
 	_draw_concentration_badge(u, radius)
 
-	# Everything below the body is stacked here, in order, because these used to
 	var body_bottom := drawn_bottom(_shape_id(u), u.team, radius)
 	var below := _draw_wind_up(u, radius, body_bottom)
 	below += _draw_status_badges(u, radius, body_bottom, below)
 	_draw_status_tags(u, body_bottom, below)
 
-	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
 	var width := bar_width(radius, _shape_id(u), u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
 	var bar_gap := BAR_GAP * DISPLAY_SCALE
@@ -282,39 +209,16 @@ func _draw() -> void:
 	_draw_bar_tether(u, stack_bottom)
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	# Issue 82: name plates are a toggle now, defaulting off, and this is the
 	if DisplayOptions.enabled(&"name_plates") and _label_visible(u):
 		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
 
 ## Issue 187, and TWO independent cold readers reported it before it was filed:
-## *"twenty floating dashes with insects underneath"*, and *"nothing tying a bar
-## to a body"*. In a crowd one unit's bar sits directly over another's body.
-##
-## **The distance itself is not mine to close and I want that on the record
-## rather than implied.** The bars are anchored to `CombatUnit.radius`, which is
-## the unit's real footprint -- the same number the simulation collides with --
-## so they sit just clear of the space a unit occupies, which is correct. What a
-## reader compares them against is the **ink**, and the art does not fill its
-## canvas: a ~66px footprint carrying ~14px of drawn pixels leaves a ~30px empty
-## band that reads as the bar floating. sable has that half. Anchoring to a
-## guess at the ink instead would collide with the art the moment they fix it.
-##
-## So this is the half that works either way: **a tether.** A thin line from the
-## bar stack down to the body says which body, at any gap, and it keeps saying
-## it when the gap closes. It is drawn in the unit's team colour so a bar, its
-## tether and its body are one object in one colour, which is what "belongs to"
-## has to look like when twenty of them overlap.
-##
-## Deliberately thin and low-alpha: it is a relationship, not a thing. A solid
-## line would become the twenty-first mark on a screen two readers have now
-## asked to have marks REMOVED from.
 const TETHER_WIDTH := 1.0 * DISPLAY_SCALE
 const TETHER_ALPHA := 0.55
 
 func _draw_bar_tether(u: CombatUnit, stack_bottom: float) -> void:
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
-	# Stops at the body's centre rather than its edge: the ink is somewhere
 	draw_line(Vector2(0.0, stack_bottom), Vector2.ZERO, color, TETHER_WIDTH)
 
 ## Issue 82, and the finding that forced it: **`Palette.HP_LOW` and
@@ -323,14 +227,6 @@ func _draw_bar_tether(u: CombatUnit, stack_bottom: float) -> void:
 ## the enemy's own colour, and a fresh reader reported the field as "green
 ## dashes" that never answered *am I ahead* -- the first question a spectator
 ## has.
-##
-## The fill is the unit's **team** colour, and damage is carried by the bar's
-## length and by the fill darkening toward the trough. Team identity therefore
-## survives at every health level, where before it was never present at all.
-## Two channels, the same rule sable's badges follow.
-##
-## Not put in `Palette.hp_color`: that is `Scripts/Core`, rook's, and this needs
-## no new shared function -- `team_color` and `HP_BACK` already exist.
 static func hp_fill_color(u: CombatUnit) -> Color:
 	var team := Palette.team_color(u.team)
 	# Floored well above zero so a nearly-dead unit is still legibly its own
@@ -374,16 +270,6 @@ func _crowding_stagger(u: CombatUnit) -> float:
 ## -- see Screenshots/label_crowd_before_1280x720.png. Raising DISPLAY_SCALE
 ## further (2.0x, tried in issue 31) made it worse, not better: this is a
 ## count problem, not a spacing constant to retune again.
-##
-## Design call, not a bug fix: the party is at most four pawns and the player
-## has to track all of them for the whole fight, so they keep a permanent
-## label. An enemy's identity only matters at the moment it is actually
-## relevant -- something the party is currently focusing (concentration_count
-## already answers "is anyone fighting this"), or something about to land a
-## hit of its own (the wind-up ring is already drawn for exactly this). A
-## goblin standing untouched at the back of a ten-unit room does not need its
-## name floating the whole time; it gets one the instant it becomes either of
-## those two things.
 static func should_show_label(u: CombatUnit, units: Array) -> bool:
 	if u.team == CG.Team.PLAYER:
 		return true
@@ -405,16 +291,9 @@ static func crowd_rank(u: CombatUnit, units: Array) -> int:
 ## Who is this unit currently after. Answers "why is that side winning" by
 ## itself, before a single number changes: a target being focused by three
 ## units at once reads differently from one being ignored.
-##
-## Issue 15's finding: three units converging on one target looked identical
-## to three units standing near each other, and the line itself was too faint
-## to trace where several overlapped. A dark outline under the line gives it
-## contrast against any background; both colours are existing Palette tokens
-## at a different alpha, not new literals.
 func _draw_targeting_line(u: CombatUnit) -> void:
 	if u.focus_id < 0 or u.current_action == &"":
 		return
-	# Issue 18 gave ranged actions a real travelling shot
 	if _has_active_projectile(u):
 		return
 	var target := _state.unit(u.focus_id)
@@ -462,10 +341,8 @@ func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	var count := concentration_count(u, _state.units)
 	if count < CONCENTRATION_THRESHOLD:
 		return
-	# Issue 190, three fixes to one mark. Both cold readers called this the most
 	var shape := _shape_id(u)
 	var half := drawn_half_width(shape, u.team, radius)
-	# Issue 198, sable's prescription taken as written: an ARC at radius 8, not a
 	var badge_radius := clampf(half * 0.45, 5.0 * DISPLAY_SCALE, CONCENTRATION_BADGE_RADIUS)
 	var badge_center := Vector2(half, -drawn_top(shape, u.team, radius) + badge_radius)
 	draw_arc(badge_center, badge_radius, 0.0, TAU, 20, _concentration_color(u), CONCENTRATION_BADGE_WIDTH, true)
@@ -489,30 +366,12 @@ func _concentration_color(u: CombatUnit) -> Color:
 ## at the end showing what is coming", and the note's own reading of it --
 ## "the icon is the better half: a ring says something is coming, an icon says
 ## what."
-##
-## This replaces the wind-up ring and the raw tick number that used to sit
-## under it. The ring said "charging" and the number said "17", which is a
-## quantity in a unit the player has never seen. Neither said what was coming.
-##
-## The substrate is untouched: `wind_up_elapsed_ticks` still reads
-## `action_ticks_total` (PR #72), captured post-haste at the moment the wind-up
-## starts, so a hasted unit reads 0 at its own start and full at its own end.
-## This is a ratio, never an absolute tick count, which is why halving
-## `CG.TICKS_PER_SECOND` to 15 moved nothing here -- checked rather than
-## assumed, and `test_a_wind_up_bar_is_a_ratio_not_a_tick_count` holds it.
-##
-## The whole block is exactly as wide as the hp bar above it, icon included,
-## so a unit's chrome stays one column instead of growing a wider row at the
-## exact moment the arena is most crowded.
 const WIND_UP_ICON_SIZE := 16.0 * DISPLAY_SCALE
 const WIND_UP_TOP_GAP := 4.0 * DISPLAY_SCALE
 const WIND_UP_ICON_GAP := 3.0 * DISPLAY_SCALE
 
 ## Takes a radius since issue 82: the whole block is still exactly as wide as
 ## the hp bar above it, but that width now depends on the body.
-## The icon scales with the block it sits in. Fixed at `WIND_UP_ICON_SIZE` it
-## was 24px inside what is now a 20px bar for a goblin -- wider than the whole
-## block, which is why the bar could not shrink before.
 static func wind_up_icon_size(radius: float, shape_id: StringName = &"", team: CG.Team = CG.Team.PLAYER) -> float:
 	return clampf(bar_width(radius, shape_id, team) * 0.34, 7.0 * DISPLAY_SCALE, WIND_UP_ICON_SIZE)
 
@@ -542,9 +401,6 @@ func _wind_up_damage_type(u: CombatUnit) -> int:
 
 ## Returns how much vertical room it took, so whatever stacks under it can
 ## clear it. Zero when nothing is winding up.
-## Issue 190: `radius` is still the footprint (it drives the width, which must
-## match the hp bar exactly) while `top_offset` is where the drawn body ends, so
-## the block sits under the creature rather than under its reservation.
 func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
 	if u.action_ticks_left <= 0 or u.current_action == &"":
 		return 0.0
@@ -571,17 +427,6 @@ func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
 	return WIND_UP_TOP_GAP + icon_size
 
 ## PLAYTEST-NOTES-2 item 2: "no clear visual for who is afflicted with what."
-## Statuses were legible only from the log, which scrolls, in a fight the same
-## notes call too fast to read.
-##
-## Below the unit, not above it. The whole existing stack -- resource bar, hp
-## bar, name label, and the crowding stagger that pushes names further up when
-## units bunch -- grows *upward* from the body, so the band above a unit is the
-## contested one and the band below it is empty. Issue #82 (five names in one
-## label's worth of space, death floaters crossing the arena) is about that
-## upward band specifically, so putting badges there would have added a
-## thirteenth thing to the pile. Death floaters spawn at the unit's own
-## position and rise, so they clear this band too.
 const STATUS_BADGE_SIZE := 14.0 * DISPLAY_SCALE
 const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
 
@@ -592,31 +437,11 @@ const STATUS_BADGE_GAP := Palette.SPACE_XS * DISPLAY_SCALE
 const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
 
 ## A unit can in principle carry every status at once. Two are shown.
-##
-## Measured over 2,201,587 unit-ticks: the row is empty 79.1% of the time,
-## and of the ticks carrying anything, 88.2% carry one or two. No enemy ever
-## carried five. Four slots were reserved always, earned on 1.0% of ticks,
-## and charged in width to every goblin.
-##
-## A cap of two hides something on 2.5% of unit-ticks, which the "+N" chip
-## reports truthfully. One would have hidden something on 8.2% -- the
-## difference between an overflow chip that is rare and one a player learns
-## to distrust.
-##
-## Harmful first (see `status_badges`), so the two shown are what is being
-## done *to* this unit.
 const MAX_STATUS_BADGES := 2
 
 ## Which badges this unit gets, in draw order. Split out from the drawing for
 ## the same reason status_tags is: Godot refuses draw_* outside _draw(), so a
 ## test that can only call the drawing wrapper logs errors and asserts nothing.
-##
-## Harmful before beneficial, each group in CG.Status declaration order.
-## CombatUnit.statuses is a Dictionary, so its own key order is insertion
-## order -- the order statuses happened to land during a fight, which would
-## make the same unit's badges reshuffle mid-fight for no reason a player
-## could read. CG.is_harmful() is the only thing consulted for the split,
-## the same single source of truth StatusIcons uses for the plate direction.
 static func status_badges(u: CombatUnit) -> Array:
 	var all := ordered_statuses(u)
 	if all.size() <= MAX_STATUS_BADGES:
@@ -643,11 +468,6 @@ static func ordered_statuses(u: CombatUnit) -> Array:
 ## Issue 161, sable's measurement: `MAX_STATUS_BADGES` is 4 and **a fifth status
 ## was dropped with nothing on screen saying so.** With bleed stacking and burn,
 ## five is reachable now.
-##
-## A silently truncated row is worse than a short one: the player reads four
-## badges as "this unit has four statuses", which is a statement the game is
-## making and it is false. `+2` is not as good as showing them, but it is true,
-## and it tells the player there is something they are not being shown.
 static func hidden_status_count(u: CombatUnit) -> int:
 	var total := ordered_statuses(u).size()
 	if total <= MAX_STATUS_BADGES:
@@ -656,15 +476,6 @@ static func hidden_status_count(u: CombatUnit) -> int:
 
 ## The floor. Expressed the same way as the ceiling two constants up, so the
 ## two move together.
-##
-## `13.0 * DISPLAY_SCALE` is 19.5 world units, about 16 px at 1280x720. The
-## floor sits close to the ceiling on purpose: a badge is fixed iconography
-## rather than a scaled decoration, and all thirteen glyphs read at 16 px
-## while below it no drawing rescues them.
-##
-## DO NOT REACH FOR THE DISCRIMINATION METRIC TO APPROVE A SMALLER ONE. It
-## runs backwards -- 24.0% at 4.7 px against 13.2% at 32 px -- because at
-## small sizes it measures the plate rather than the glyph.
 const STATUS_BADGE_MIN := 13.0 * DISPLAY_SCALE
 
 ## Issue 190: sable measured a row of four badges at 84px against a 27px goblin,
@@ -716,12 +527,6 @@ func _draw_status_tags(u: CombatUnit, radius: float, below: float) -> void:
 ## Renders text centred on its own width with a small backdrop chip behind
 ## it, rather than a fixed draw width that truncates. Found by rendering a
 ## real fight through six frames (Tools/ContactSheet.gd): "geysermancer"
-## silently lost its last letter at the old fixed width, which reads like a
-## data bug rather than a rendering limit, and neighbouring labels overlapped
-## illegibly whenever units bunched together mid-fight. Full names never
-## truncate now; the chip is what keeps an overlapping label readable rather
-## than fixing the overlap itself, which needs real layout space this view
-## does not have.
 func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: int) -> void:
 	var font := ThemeDB.fallback_font
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
@@ -733,11 +538,6 @@ func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: 
 
 ## Split out for testing, same reasoning as status_tags below: the part of
 ## the wind-up draw call that is pure arithmetic rather than a draw_* call.
-## action_ticks_total (issue, PR #72) is captured post-haste at the moment
-## the wind-up starts, so this stays correct for a hasted unit -- deriving
-## a denominator from the action's own base wind_up_ticks instead would
-## have silently desynced against a HASTE-scaled action_ticks_left, for
-## exactly the pawns (Priest grants HASTE) where it would have mattered.
 static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 	return u.action_ticks_total - u.action_ticks_left
 
@@ -745,12 +545,6 @@ static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 ## canvas: Godot refuses draw_* calls outside _draw(), so a test that calls a
 ## drawing function directly logs errors and asserts nothing, which is
 ## exactly the trap Silhouettes.build_parts's own doc comment names.
-##
-## STUN used to be listed here as text as well. It is a CG.Status, so it now
-## draws as a badge like every other status, and leaving the word next to its
-## own badge would have been the same fact twice in the most crowded part of
-## the screen. Its own test in Tests/test_ui_unit_view.gd moved to
-## status_badges rather than being deleted -- disclosed in the PR.
 static func status_tags(u: CombatUnit) -> Array[String]:
 	var tags: Array[String] = []
 	if u.resource_max > 0 and u.resource <= 0:

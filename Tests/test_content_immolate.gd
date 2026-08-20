@@ -6,18 +6,6 @@ extends "res://Tests/TestCase.gd"
 ## the channel in #61 and left every action's `sustain_cost_per_tick` at 0 on
 ## purpose, so the mechanism shipped, passed its own suite, satisfied #151's
 ## exhaustiveness guard, and fired zero times in 100 fights.
-##
-## `abomination_immolate` is the content that makes them happen, and this file is
-## what stops it going quietly back to zero. **The load-bearing test is the
-## behavioural one: it runs real fights, through the real registry and the real
-## preset plans, and counts the two events.** A structural check on the
-## `ActionDef` would pass on a build where nothing ever chose the action, which
-## is the exact failure #219 exists to end -- and it is the failure this project
-## has now shipped fourteen times.
-##
-## The negative half is here too, because a detector that only ever fires is not
-## a detector: with the one plan removed the count must be **zero**, which also
-## proves `DefaultBehavior` cannot reach a sustained action on its own.
 
 const IMMOLATE := &"abomination_immolate"
 const IMMOLATE_PLAN := &"abomination_immolate_dump"
@@ -31,9 +19,6 @@ const SEEDS := 8
 # ---------------------------------------------------------------------------
 
 ## `IMMOLATE_TICK_POWER_SCALE` is Grapple's own power over Grapple's own cycle.
-## Recomputed here from the registry rather than retyped, so repricing Grapple
-## and leaving the aura behind is red instead of silent. Two artifacts, which is
-## the only version of this check that can fail.
 func test_a_tick_of_the_channel_is_worth_a_tick_of_grapple() -> void:
 	var grapple := Registry.get_action(GRAPPLE)
 	var immolate := Registry.get_action(IMMOLATE)
@@ -87,9 +72,6 @@ func test_real_fights_ignite_and_end_the_channel() -> void:
 		SEEDS, r["starts"], r["ends"], r["held"], r["damage"]])
 	# Not `> 0`: announcement rule 4 says an `> 0` on an emergent count reads the
 	# same at twenty and at one and can only fail once it is already too late.
-	# 3.08 a fight was measured over 120 seeds with `Tools/ImmolateWindow.gd`;
-	# the floor is a third of that, so a real slide is red while the mechanism is
-	# still alive.
 	assert_true(r["starts"] >= SEEDS, "the channel should ignite about three times a fight, got %d in %d" % [r["starts"], SEEDS])
 	# **Not `ends == starts`, and the gap is a finding rather than a tolerance.**
 	# A fight stops the tick its outcome resolves, so a channel still burning at
@@ -104,8 +86,6 @@ func test_real_fights_ignite_and_end_the_channel() -> void:
 
 ## The negative half, fed known-good input. Removing the one plan must take the
 ## count to exactly zero -- which is also the live proof that `DefaultBehavior`
-## cannot light a channel, because `abomination_immolate` is still in the
-## Abomination's action list in this arm.
 func test_without_its_plan_nothing_in_the_game_holds_a_channel() -> void:
 	var r := _run(false)
 	assert_eq(r["starts"], 0, "no channel should ignite without the plan")

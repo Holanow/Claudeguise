@@ -3,10 +3,6 @@ extends "res://Tests/TestCase.gd"
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 8: a death should land as an event, not as a unit quietly vanishing.
-## consume_events() spawns a marker into Arena on a DEATH event, the same way
-## it already spawns a floater on DAMAGE/HEAL. Needs the real Battle.tscn
-## (_ready() called directly, same reasoning as Tests/test_ui_battle_pause.gd)
-## because _spawn_death_marker adds a child to Arena.
 
 func test_a_death_event_spawns_a_marker_in_the_arena() -> void:
 	var state := CombatState.new(1)

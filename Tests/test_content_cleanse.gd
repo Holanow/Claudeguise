@@ -4,9 +4,6 @@ extends "res://Tests/TestCase.gd"
 ## Issue 87, the content half: does the Geysermancer's cleanse reach a real
 ## fight, and does it strip anything when it gets there?
 
-## **Fixture headroom, and why both constants below moved (heron found this,
-## finch measured and fixed it).** `test_..._stripping_harm_from_an_ally`'s
-## `on_ally` count drifted **6 -> 2 -> 3 -> 1** across four builds with nobody
 const SEEDS := 24
 const ENCOUNTER := &"floor1_rat_king"
 
@@ -43,9 +40,6 @@ func _run(fight_seed: int) -> CombatState:
 	return state
 
 
-## **This assertion used to name POISON, and issue 121 is the change that made
-## that wrong.** It read `assert_eq(e.status, CG.Status.POISON)` with the reason
-## *"POISON is the only harmful status anything applies to a player unit today"*,
 func test_a_real_fight_shows_a_geysermancer_stripping_harm_from_an_ally() -> void:
 	var strips := 0
 	var on_an_ally := 0
@@ -67,9 +61,6 @@ func test_a_real_fight_shows_a_geysermancer_stripping_harm_from_an_ally() -> voi
 				on_an_ally += 1
 	assert_true(strips > 0, "the cleanse stripped nothing in %d real fights" % SEEDS)
 	assert_true(on_an_ally > 0, "the cleanse only ever scrubbed its own caster; the ability is for the party")
-	# **The supply, said plainly, because it is what the fixture rests on.** Every
-	# other assertion in this file is worthless if nothing in the room ever
-	# afflicts a pawn -- such a room passes every "never strips a buff" check by
 	var harmful := 0
 	for k in by_status.keys():
 		if CG.is_harmful(k):
@@ -113,8 +104,6 @@ func test_the_ally_cleanse_fixture_still_has_headroom() -> void:
 		% [on_an_ally, SEEDS, ENCOUNTER, MIN_ALLY_CLEANSES])
 
 
-## The negative half, and the one the whole design turns on: **does the
-## condition actually gate the cast, or does it fire blind?**
 func test_the_cleanse_does_not_fire_blind() -> void:
 	var casts := 0
 	var strips := 0
@@ -170,8 +159,6 @@ func test_the_combat_log_reports_the_cleanse() -> void:
 	log_view.free()
 	assert_true(saw_the_cast and saw_the_strip)
 
-## **The poison-specific claim, moved here from the fight above in issue 160 and
-## made deterministic on the way.**
 func test_scour_strips_poison_specifically() -> void:
 	var party: Array[PawnData] = [
 		PawnFactory.make_starter_pawn(&"geysermancer", &"g0", "Geysermancer"),

@@ -7,13 +7,6 @@ extends Node
 ## full), inspect (which is also where the plan editor lives -- there is no
 ## separate plan-editor screen, see InspectPanel.gd), floor map, battle,
 ## end-of-fight banner, and the level editor.
-##
-##   godot --path . --resolution 1280x720 res://Tools/ScreenSweep.tscn
-##   godot --path . --resolution 844x390  res://Tools/ScreenSweep.tscn
-##
-## Screenshots land in Screenshots/ with a _<w>x<h> suffix matching the launch
-## resolution, so both passes can run into the same directory without
-## clobbering each other.
 
 
 const OUT_DIR := "res://Screenshots"
@@ -141,14 +134,6 @@ func _party_select_full_and_start_fight() -> void:
 	## Issue 145 put a deploy screen between party select and the fight, so
 	## "Start Fight" now means "go and place your party" and there is a second
 	## Start Fight on the deploy screen itself.
-	##
-	## **This sweep silently stopped covering the battle for several merges and
-	## nobody noticed**, because it prints a line and returns while the previous
-	## run's `sweep_battle_*.png` stay on disk looking current. A fresh-eyes
-	## playtester found it by trying to reach a fight and failing -- not by
-	## reading this file. That is the failure mode the whole project keeps
-	## hitting, pointed at its own instrument: **a harness that stops early and
-	## leaves stale output is indistinguishable from one that passed.**
 	if _current_screen_name() == "Deploy":
 		await _shot("sweep_deploy")
 		_press_named("start fight")
@@ -179,11 +164,6 @@ func _party_select_full_and_start_fight() -> void:
 	## fight simply had not finished inside the frame budget, and the sweep
 	## named the picture after the screen it wanted rather than the screen it
 	## got.
-	##
-	## Same failure as the deploy-screen one this file already carries: a
-	## harness that gives up and leaves plausible output is indistinguishable
-	## from one that succeeded. Twice now, in the instrument the whole project
-	## reviews itself with.
 	if battle.state.outcome == CombatState.Outcome.UNRESOLVED:
 		printerr("ScreenSweep: fight did not resolve in %d frames (tick %d) at %s --" % [
 			max_wait_frames, battle.state.tick, _res_tag])

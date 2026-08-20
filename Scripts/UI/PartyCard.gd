@@ -5,12 +5,6 @@ class_name PartyCard
 ## One selectable class: silhouette, name, role and style, coloured by its
 ## damage type. The whole card is the touch target — Palette.TOUCH_TARGET_MIN
 ## exists because a checkbox glyph in front of a word is nowhere near it.
-##
-## OWNER: pike.
-##
-## Issue 17: this is what a player chooses between, and choosing was
-## previously a checkbox next to a bare class name. `ClassDef` already
-## carries everything a card needs; nothing here is new game data.
 
 signal toggled(pressed: bool)
 
@@ -80,19 +74,6 @@ func _draw() -> void:
 ## NOTES-2 item 15 asked for a way to drop in artier interface elements, and
 ## `UIArt.draw_border` was written for it and had no game caller at all --
 ## found by sable in #103 and flagged rather than deleted, correctly.
-##
-## **Without a file this draws exactly the pixels it drew before**: same colour,
-## same rect, same thickness, passed straight through as `draw_border`'s
-## fallback. That is deliberate. This is a path for the player's art, not new
-## art from us.
-##
-## Selection is the one thing a dropped-in border must not be able to erase. A
-## nine-slice is drawn as painted, colour included, so it cannot carry the
-## selected/unselected distinction the fallback carries in `border_color`. When
-## art is present the selection ring is drawn inside it instead, in the same
-## Palette token, so the card still says which four you picked whatever the
-## border looks like. `UIArt.has_art` is what asks, and this is its first
-## caller too.
 func _draw_frame(rect: Rect2) -> void:
 	var border_color := Palette.TEAM_PLAYER if selected else Palette.ARENA_EDGE
 	var thickness := 3.0 if selected else 1.0
@@ -117,7 +98,6 @@ func _accent() -> int:
 ## Issue 19: "ANTI_SUPPORT" is a raw enum name with an underscore on the
 ## first screen of the game — the same developer-language problem as the
 ## win screen's tick count, found on this card the moment someone looked.
-## String's own capitalize() turns SCREAMING_SNAKE into Title Case.
 func _role_text() -> String:
 	return String(CG.Role.keys()[class_def.role_primary]).capitalize()
 

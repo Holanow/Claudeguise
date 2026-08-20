@@ -4,27 +4,6 @@ class_name UIArt
 
 ## The interface half of the drop-in art pipeline. `UnitArt.gd` does it for
 ## units; this does it for everything else.
-##
-## MANAGER-OWNED (`Scripts/Art/**`).
-##
-## To replace any piece of interface art, drop a PNG into `Assets/UI/` under
-## the name the code asks for:
-##
-##     Assets/UI/status/bleed.png            one status badge
-##     Assets/UI/action/warrior_execute.png  one ability icon
-##     Assets/UI/panel_border.png            the border around panels
-##
-## No code change, no scene edit, no re-import, no registration.
-## `Assets/UI/README.md` lists every name the game looks for and
-## `Tests/test_art.gd` keeps that list honest.
-##
-## Every function here works with no files on disk. A missing file means
-## "draw the generated default" and is never an error; a caller never asks
-## whether a file exists.
-##
-## Images load via `Image.load()` rather than `load()`, as in `UnitArt.gd`:
-## `load()` cannot produce a texture for a PNG the editor has never imported,
-## which is what makes this a drop-in at all.
 const ART_DIR := "res://Assets/UI"
 
 ## Textures live for the process, same as UnitArt's cache and for the same
@@ -49,22 +28,6 @@ static func has_art(name: StringName) -> bool:
 ## The screens build their chrome from `ColorRect` backdrops and
 ## `StyleBoxFlat` panels rather than `_draw()`, so this half hands back a
 ## NODE and a STYLEBOX, not only a draw call.
-##
-## Every lookup is two-level: `panel_style(&"inspect_panel", ...)` asks for
-## `Assets/UI/panel/inspect_panel.png` first and `Assets/UI/panel.png`
-## second. One `panel.png` re-skins every panel at once; a specific file
-## later overrides that one without disturbing the rest. Neither is a code
-## change.
-##
-## **A picture may replace decoration. It may not replace information.**
-## A nine-slice is drawn as painted, so a dropped-in border cannot carry
-## state -- one silently deleted the ring saying which pawns were picked, and
-## another deleted the badge saying an item teaches an ability. Both render
-## perfectly in a screenshot, which is this project's main instrument.
-##
-## So before theming anything, ask what its border or background says besides
-## "here is an edge" -- selected, focused, disabled, active, damaged -- and if
-## it says something, keep saying it.
 static func theme_name(kind: StringName, element: StringName) -> StringName:
 	if element != &"":
 		var specific := StringName("%s/%s" % [kind, element])
@@ -76,16 +39,6 @@ static func theme_name(kind: StringName, element: StringName) -> StringName:
 
 ## What `draw_border` will actually use, or `&""` when it will draw the flat
 ## fallback.
-##
-## Public because a caller has to be able to ask. `PartyCard` asks in order to
-## keep drawing its selection ring when the border can no longer carry it, and
-## that question has to be asked of the name the border really resolves to --
-## asking about a different name is the "measurement one file over" failure this
-## project keeps paying for.
-##
-## `panel_border` rather than `border` as the general name, because that is what
-## `Assets/UI/README.md` has told the player since #81 and a rename would break
-## a promise already made in writing.
 static func border_art_name(element: StringName) -> StringName:
 	if element != &"":
 		var specific := StringName("border/%s" % element)
@@ -96,14 +49,6 @@ static func border_art_name(element: StringName) -> StringName:
 	return &""
 
 ## A `StyleBox` for a panel, card, tooltip or chip.
-##
-## With no file present this is a `StyleBoxFlat` in exactly the colours the
-## caller passes -- the same object those screens build by hand today, so
-## swapping a call site over changes no pixels. `PartyCard` set that precedent
-## and it is what makes this safe to do across nine screens at once.
-##
-## With `Assets/UI/panel/<element>.png` or `Assets/UI/panel.png` present it is a
-## nine-sliced `StyleBoxTexture`, so corners stay corners at any panel size.
 static func panel_style(element: StringName, bg: Color, border: Color, thickness: int = 1, margin: float = 0.0) -> StyleBox:
 	var name := theme_name(&"panel", element)
 	if name != &"":
@@ -130,21 +75,6 @@ static func panel_style(element: StringName, bg: Color, border: Color, thickness
 	return flat
 
 ## A full-bleed background for a screen.
-##
-## With no file present this is the `ColorRect` those screens already build, in
-## the colour the caller passes. With `Assets/UI/background/<element>.png` or
-## `Assets/UI/background.png` present it is a `TextureRect` set to COVER the
-## rect, not to fit inside it.
-##
-## Cover and not fit, deliberately, and it is the one place this file departs
-## from `draw_fit`. An icon that does not quite fill its box looks slightly
-## small; a background that does not quite fill its screen has bars down the
-## sides, which looks broken. A background is the one element where cropping is
-## the correct compromise and letterboxing is not.
-##
-## The returned node is anchored full-rect and does not eat mouse input, because
-## a background that swallows clicks is a screen whose buttons stop working --
-## and that failure looks exactly like the buttons being broken.
 static func background_node(element: StringName, fallback: Color) -> Control:
 	var name := theme_name(&"background", element)
 	var node: Control
@@ -199,12 +129,6 @@ static func clear_cache() -> void:
 ## Reads a PNG off disk into a texture, or null when there is no file there. A
 ## missing file is the normal case and is silent; a file that exists and cannot
 ## be read is a real mistake and says so.
-##
-## Public and here rather than private and duplicated: `UnitArt` needs exactly
-## the same loader for `Assets/Units`, and it had its own byte-identical copy
-## until issue #85. The reason it cannot be `load()` is in this file's header
-## and in `UnitArt`'s -- Godot only produces a loadable texture for an image the
-## editor has imported, and the editor does not run on this machine.
 static func load_png(path: String) -> Texture2D:
 	if not FileAccess.file_exists(path):
 		return null
@@ -215,16 +139,6 @@ static func load_png(path: String) -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 ## A filled polygon with its own outline closed back to the first point.
-##
-## Four files drew this by hand -- `Silhouettes.draw_unit`, `AttackFX.
-## draw_projectile`, `StatusIcons.draw_status` and `ActionIcons.draw_action` --
-## each with its own `duplicate()` / `append(points[0])` pair, because Godot's
-## `draw_polyline` does not close a loop and a polygon without the closing
-## segment is missing exactly one edge. That is a defect nobody sees on the
-## shape they were looking at and everybody ships on the next one.
-##
-## `fill` may be transparent, for the parts of a silhouette that are outline
-## only.
 static func draw_outlined_polygon(canvas: CanvasItem, points: PackedVector2Array, fill: Color, outline: Color, width: float) -> void:
 	if points.size() < 2:
 		return
@@ -250,16 +164,6 @@ static func draw_fit(canvas: CanvasItem, tex: Texture2D, rect: Rect2) -> void:
 ## A border around `rect`. With `Assets/UI/panel_border.png` present it is drawn
 ## as a nine-slice so corners stay corners at any panel size; with no file it is
 ## the flat one-pixel outline the caller would have written by hand.
-##
-## Nine-slice rather than `draw_fit` because a border is the one piece of
-## interface art that must stretch non-uniformly, and stretching a decorated
-## frame uniformly is the failure everybody hits first.
-##
-## `element` is the two-level half added for #115: `border/arena.png` themes one
-## border and `panel_border.png` themes every border, and neither is a code
-## change. Optional and trailing, so the two existing call sites are untouched --
-## `panel_border.png` keeps meaning exactly what `Assets/UI/README.md` has been
-## telling the player it means since #81.
 static func draw_border(canvas: CanvasItem, rect: Rect2, fallback: Color, thickness: float = 1.0, element: StringName = &"") -> void:
 	var name := border_art_name(element)
 	var tex := texture_for(name) if name != &"" else null
@@ -303,5 +207,3 @@ static func draw_nine_slice(canvas: CanvasItem, tex: Texture2D, rect: Rect2) -> 
 ## and a `draw_glyph` loop, shared by the status, ability and item icons. All
 ## three now draw PNGs baked by `Tools/BakeGlyphs.tscn`, so it went with them. That tool is deleted too --
 ## `git log --diff-filter=D -- Tools/BakeGlyphs.gd`.
-## Player's ruling, 2026-08-19: *"we should do basically 0 drawing with code
-## ever"*.

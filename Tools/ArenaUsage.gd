@@ -1,24 +1,6 @@
 extends SceneTree
 
 ## How much of the arena does a fight actually use?
-##
-##   godot --headless --path . --script res://Tools/ArenaUsage.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## Samples every unit position every tick and reports four things, because a
-## bounding box alone cannot tell a wandering blob from an even spread:
-##
-##   box%     the bounding box the whole fight occupies.
-##   cover%   what fraction of the arena's cells ever hold a unit.
-##   blob%    at a typical tick, how far living units stand from their own
-##            centre of mass, over the arena's half-diagonal. Small means
-##            converged.
-##   at       the mean of every unit sample, across and down. 50/50 is centre.
-##
-## It cannot tell you whether a low cover% is bad: a fight that resolves
-## quickly covers little ground because it is short. Read these beside the
-## tick counts in `SampleFights`, and hold the room fixed when comparing.
 const SEEDS := 10
 const CLASSES := ["warrior", "priest", "abomination", "geysermancer", "siege_master"]
 
@@ -99,19 +81,6 @@ const COVER_COLS := 24
 const COVER_ROWS := 14
 
 ## Everything this tool reports about one fight, from one run of it.
-##
-## `box`   the bounding box every unit visits, unchanged and still first.
-## `cover` fraction of the COVER_COLS x COVER_ROWS cells that ever hold a
-##         living unit's centre.
-## `blob`  mean over ticks of the mean distance from the living units to their
-##         own centroid, over the arena's half-diagonal. Per tick, not over the
-##         fight: a fight where two clusters approach and merge should read as
-##         converging, and a whole-fight figure would average that away.
-## `at_x`  where the fighting happens, as a fraction across (0 = left edge)
-## `at_y`  and down (0 = top edge), meaned over every unit sample. Weighted by
-##         samples rather than by unit, so a long standoff counts for more than
-##         a body that died in the first second -- which is what "where does
-##         the fight happen" means.
 func _fight_usage(ids: Array, enc_id: StringName, s: int) -> Dictionary:
 	var party: Array[PawnData] = []
 	for cid in ids:

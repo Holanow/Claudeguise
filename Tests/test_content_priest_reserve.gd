@@ -7,23 +7,6 @@ extends "res://Tests/TestCase.gd"
 ## could pay for the heal on 119 of them. The other 2,013 were Mana, none were
 ## cooldown. Priority decides who gets a tick; it decides nothing about who gets
 ## the Mana, and the three plans *below* the heal had already spent it.
-##
-## So the ladder now carries a reserve, and this file is what stops that reserve
-## from being quietly removed or outgrown.
-##
-## **Two assertions, deliberately of different kinds, because either one alone
-## passes while the fix is broken:**
-##
-##  - The structural one compares `PRIEST_SPENDER_RESERVE` against the real
-##    `ActionDef` costs. It goes red if anyone reprices Heal, Ward, Haste or
-##    Smite and leaves the reserve behind -- the drift a comment cannot catch.
-##  - The behavioural one runs real fights and asserts no Priest ever *commits*
-##    to a lower spender while holding less than the reserve. That is the
-##    property the numbers above are about, and it cannot be satisfied by a
-##    constant that is merely arithmetically correct.
-##
-## Neither is a band on an emergent count. Both are invariants: a healthier
-## build cannot drift out of them and a broken one cannot pass by luck.
 
 const HEAL_ID := &"priest_heal"
 const HEAL_PLAN := &"priest_heal_hurt_ally"
@@ -83,13 +66,6 @@ func test_the_heal_is_still_first_and_every_plan_under_it_reserves() -> void:
 ## cannot replace this**: `PlanInterpreter` could stop reading conditions, or a
 ## fall-through could route a lower spender through `DefaultBehavior` instead,
 ## and every assertion above would still pass.
-##
-## Reads RESOURCE_SPENT rather than ACTION_START, because the reserve is a claim
-## about Mana leaving the pool and that event carries the amount. `amount` is
-## what was paid, so the pool before the cast is `resource_after + amount` --
-## except the sim does not publish `resource_after`, so the check runs the other
-## way round: a spender may only be *started* on a tick the Priest held the
-## reserve, which is read from the unit before the step that decides.
 func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 	var spender_actions := {}
 	for plan_id in SPENDER_PLANS:

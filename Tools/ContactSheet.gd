@@ -3,24 +3,6 @@ extends Node
 ## Renders one real fight through the real battle screen and saves a strip of
 ## frames from it, so the state of the game can be looked at rather than read
 ## about.
-##
-##   godot --path . --resolution 1280x720 res://Tools/ContactSheet.tscn
-##
-## Writes Tools/preview/fight_01.png .. fight_06.png and, alongside them,
-## Tools/preview/fight_sheet.png with all six stacked.
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## It drives `Scenes/Battle.tscn` — pike's real screen, with pike's real
-## `begin()` and `_process()` — rather than drawing its own version of a fight.
-## A parallel renderer written by the reviewer would be a picture of what I
-## think the game looks like, which is exactly the measurement that answers a
-## slightly different question than the one being asked. Using their screen is
-## fine; editing it is not, and this file does not.
-##
-## Frames are taken at fractions of the fight's own length rather than at fixed
-## times, so the strip covers the same arc whether a fight lasts four seconds or
-## forty.
 
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
@@ -77,9 +59,6 @@ func _party(ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in ids:
 		# `cls.display_name`, the same source PartySelect uses, not `String(cid)`.
-		# Passing the class id put "siege_master" on screen beside "Ghoul" in a
-		# sheet meant to show what the game looks like -- a defect this tool
-		# introduced and then displayed as though the game had it.
 		out.append(PawnFactory.make_starter_pawn(
 			cid, StringName("%s_%d" % [cid, out.size()]), Registry.get_class_def(cid).display_name
 		))

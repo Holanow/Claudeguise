@@ -3,16 +3,6 @@ class_name DisplayOptionsPanel
 
 
 ## The one place display toggles are shown, built from `DisplayOptions.OPTIONS`.
-##
-## OWNER: wren.
-##
-## Data-driven rather than a hand-built row per option, so the next thing taken
-## off the screen arrives with its checkbox and its explanation already wired.
-##
-## It sits on the battle screen because that is the screen being changed: the
-## whole point of turning the numbers off is to change what you are looking at
-## **while you are looking at it**, so a toggle behind a menu on another screen
-## would be the wrong control however tidy.
 
 signal changed()
 
@@ -79,11 +69,6 @@ func toggle_visible() -> void:
 ## Issue 268. Through `UIArt.panel_style`, so `Assets/UI/panel.png` re-skins
 ## this panel the way the README has always claimed it does. With no file
 ## present it is the identical `StyleBoxFlat` this built by hand.
-##
-## The rounded corner belongs to the fallback and not to the pipeline: a
-## nine-sliced PNG paints its own corners, and `StyleBoxTexture` has no corner
-## radius to set. Same rule as `PartyCard`'s selection ring -- what the
-## generated default draws is not automatically what a dropped-in picture must.
 func _panel_style() -> StyleBox:
 	var style := UIArt.panel_style(&"", Palette.BACKGROUND, Palette.ARENA_EDGE, 2)
 	if style is StyleBoxFlat:

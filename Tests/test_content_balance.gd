@@ -121,10 +121,6 @@ func test_plan_block_budget_tracks_wis() -> void:
 
 
 ## Issue 269. This was the one formula in the file reading `pawn.attribute()`
-## raw, and since it is the only reader of WIS anywhere in `Scripts/`, WIS on a
-## piece of equipment did nothing at all -- which made `robes` (2 WIS) and
-## `scrubs` (1 WIS) wholly and half inert. Asserted through the real function
-## with real equipment on the pawn, not against `Balance.attribute` restated.
 func test_plan_block_budget_counts_equipment_wis() -> void:
 	var pawn := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.WIS: 6})
 	assert_eq(Balance.plan_block_budget(pawn), 6, "the bare pawn is its class's WIS")

@@ -3,10 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 112: every popout outside a menu is pinnable and draggable, as one
 ## mechanism rather than per call site.
-##
-## The mechanism is the thing under test, not any one popout: a host that has a
-## glossary sentence gets pinning by being a GlossaryLabel, a GlossaryButton or
-## a PartyCard, which is every hoverable control the project has.
 
 ## A screen with a control on it. `PopoutLayer.of` walks to the outermost
 ## Control, so a host needs a real ancestor for the layer to land anywhere
@@ -190,7 +186,6 @@ func test_a_popout_cannot_be_dragged_off_the_screen() -> void:
 # ---------------------------------------------------------------------------
 # mouse_filter, which the issue names as the trap and which has already cost
 # this project one shipped-but-unreachable feature.
-# ---------------------------------------------------------------------------
 
 ## The layer covers the whole screen. STOP or PASS on it would put a
 ## transparent sheet over every control on every screen -- the same defect as

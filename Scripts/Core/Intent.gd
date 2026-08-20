@@ -10,12 +10,6 @@ const Self := preload("res://Scripts/Core/Intent.gd")
 ## What a decision layer wants a unit to do on one tick. The plan interpreter
 ## and the default behaviour both produce these and neither may touch a
 ## CombatUnit directly.
-##
-## The split exists so that "the pawn decided badly" and "the simulation
-## resolved badly" stay separable. When a fight reads wrong, the combat log
-## shows which one it was.
-##
-## MANAGER-OWNED SHAPE.
 
 var kind: CG.IntentKind = CG.IntentKind.IDLE
 
@@ -34,17 +28,6 @@ var target_id: int = -1
 var source_plan: StringName = &""
 
 ## Issue 155. The reserved `source_plan` for an intent NO decision layer chose:
-## the taunt compulsion in `CombatSim._compelled_intent`, which beats a stated
-## plan on purpose.
-##
-## It needs its own value because it is a third thing, not a shade of the other
-## two. Left at &"" it reads as "the fallback decided", which is wrong in the one
-## case a player is most likely to be confused by -- their pawn abandoning the row
-## they wrote. Issue 98's principle is exactly this: a pawn doing something that
-## is in no plan the player can see.
-##
-## The `@` prefix cannot collide with a real plan id: `Plan.id` values are
-## authored as identifiers in `PresetPlans`.
 const COMPELLED := &"@taunted"
 
 static func idle(plan: StringName = &"") -> Self:

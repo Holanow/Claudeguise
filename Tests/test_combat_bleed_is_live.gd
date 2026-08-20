@@ -5,12 +5,6 @@ extends "res://Tests/TestCase.gd"
 ## with no base. It was in `CombatSim._DOT_STATUSES` and multiplied correctly,
 ## and it multiplied **zero**, because `Balance.status_damage_per_tick` has no
 ## BLEED case and every magnitude seam defaulted to inert.
-##
-## Stacks that stack nothing look exactly like stacks nobody has used yet, which
-## is the disguise that hid regeneration at 0.0 for hours on this project. These
-## tests exercise the REAL `SimDeps` defaults rather than lambdas -- a fixture
-## that hands in its own rate would have passed happily throughout the whole
-## period the mechanism was dead, which is the entire point of the file.
 
 const _SEED := 6100
 
@@ -132,10 +126,6 @@ func test_a_bleed_tick_emits_a_damage_event_carrying_the_status() -> void:
 ## The placeholder is BLEED-only. BURN and POISON must return exactly what they
 ## returned before, because both are reachable from content and either would
 ## move every fight in the game through the shared rng.
-## Narrowed on #121: BURN left this list because finch moved its number onto the
-## magnitude side, which is the ruling landing rather than a regression. What the
-## test always meant is intact -- **a status that stores nothing is unaffected**
-## -- and that is still the half that keeps unrelated fights from moving.
 func test_the_seams_touch_no_status_that_stores_nothing() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
@@ -161,8 +151,6 @@ func test_burn_and_bleed_both_carry_a_live_magnitude_rate() -> void:
 ## the base side, and the message said so by name. finch moved it, this fired,
 ## and the real assertion is the opposite one: the player's ruling is that burn
 ## damage per tick is relative to the hit that applied it.
-##
-## Same fixture, opposite direction, so the two builds are directly comparable.
 func test_a_burn_from_a_bigger_hit_ticks_harder() -> void:
 	var plain := _arena()
 	plain.unit(1).statuses[CG.Status.BURN] = 999
@@ -183,15 +171,6 @@ func test_a_burn_from_a_bigger_hit_ticks_harder() -> void:
 ## day it failed was the day to re-measure. `rat_bite` is what failed it. The
 ## re-measurement is in that pull request; the assertion is deleted rather than
 ## loosened, because it was a statement about a moment and the moment passed.
-##
-## What replaces it is not another structural read. It is
-## `test_content_rooms.gd::test_the_rats_bleed_stacks_on_a_real_pawn`, which
-## runs real fights in `floor1_hazard` and counts stacks out of `state.events`
-## -- the thing this file could not do, since nothing here builds a room.
-##
-## Two expiring assertions in two files fired on the same commit, both written
-## by swift, both naming the next action instead of rotting into a comment.
-## Worth recording that the pattern works.
 
 func test_two_runs_from_one_seed_bleed_identically() -> void:
 	var a := _arena()

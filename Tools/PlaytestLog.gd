@@ -2,21 +2,6 @@ extends SceneTree
 
 ## Prints a whole fight the way a player would experience it: only what the
 ## screen shows, tick by tick, with nothing a viewer could not see.
-##
-##   godot --headless --path . --script res://Tools/PlaytestLog.gd
-##
-## MANAGER-OWNED. Not part of the game and not part of the gate.
-##
-## This is my substitute for sitting and watching, and I want to be honest about
-## what it is and is not. It reads the same `CombatEvent` stream the battle view
-## reads and nothing else — no peeking at intents, no reading a unit's internal
-## state — so what it prints is what a player could in principle follow. What it
-## cannot tell me is whether watching it in real time is any good, which is why
-## issue 11 exists and why a person is doing that part.
-##
-## The distinction matters because "I read the whole fight and understood it" is
-## a different claim from "the fight is readable", and only one of them is
-## evidence about the game.
 
 
 const SEED := 0x2A

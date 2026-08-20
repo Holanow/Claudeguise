@@ -2,9 +2,6 @@ extends RefCounted
 class_name PresetPlans
 
 
-## Preset plans, shipped on the pawn per issue 2. No editor, no
-## UI: issue 3 displays these read-only. Each is deliberately a specialty
-## override rather than an always-fire attack, so DefaultBehavior is what most
 
 ## Issue 138: the Mana a Priest's lower plans must leave standing, so the heal
 ## above them can still be paid for. `priest_heal` costs 25 and Ward, Haste and
@@ -22,10 +19,8 @@ static func total_blocks(class_id: StringName) -> int:
 
 static func for_class(class_id: StringName) -> Array[Plan]:
 	match class_id:
-		## Issue 30: warrior_execute_when_raging replaced by
 		&"warrior":
 			return [
-				# Issue 99: replaces `warrior_block_default`, which went with
 				_plan(&"warrior_second_wind_when_critical", "Second wind when critical",
 					_condition(&"self_hp_below_fraction", {"fraction": 0.35}),
 					[_targeting(&"target_self"), _action_block(&"warrior_second_wind")]),
@@ -35,7 +30,6 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"warrior_taunt_default", "Taunt",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
-				# Issue 79: fourth plan, and the restoration of the one issue
 				_plan(&"warrior_block_default", "Directional Block",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
@@ -59,14 +53,11 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),
 			]
-		# Issue 79: geyser_scald fired zero times in 210 real fights, and the
 		&"geysermancer":
 			return [
 				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
 					_condition(&"ally_has_harmful_status", {}),
 					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
-				## Issue 181: **Blast is now the payoff of a combo rather than a
-				## high-Mana opener, and the order is the whole fix.**
 				_plan(&"geyser_blast_the_burning", "Blast the burning",
 					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
 					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
@@ -74,7 +65,6 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
 			]
-		## Issue 12: rebuilt for spotter/engineer. Build first: Mana starts
 		&"siege_master":
 			return [
 				_plan(&"siege_master_build_when_ready", "Build the engine",
@@ -84,17 +74,14 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_in_range", {"range": 220.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
 			]
-		# Issue 52: rebuilt for the hook and grapple. Order matters here in a
 		&"abomination":
 			return [
-				## **Issue 206: Claw, and the first version of this row was wrong.**
 				_plan(&"abomination_claw_the_unpoisoned", "Claw whoever is not poisoned",
 					_condition(&"enemy_lacks_status", {"status": CG.Status.POISON}),
 					[_targeting(&"target_enemy_without_status", {"status": CG.Status.POISON}), _action_block(&"abomination_claw")]),
 				_plan(&"abomination_grapple_close", "Grapple",
 					_condition(&"enemy_in_range", {"range": 45.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_grapple")]),
-				## **Issue 219: Immolate, and this row is the only reason
 				_plan(&"abomination_immolate_dump", "Immolate what is close but not gripped",
 					_condition(&"enemy_in_range", {"range": 90.0}),
 					[_targeting(&"target_self"), _action_block(&"abomination_immolate")]),

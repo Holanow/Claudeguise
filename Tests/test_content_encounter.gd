@@ -50,28 +50,6 @@ func _assert_pair_differs(class_a: StringName, class_b: StringName, seed: int) -
 ## blind: seed 1 gives a clean opposite-outcome split (geysermancer ENEMY_WIN
 ## /538, warrior PLAYER_WIN/706). Not a real party either way -- mono-class,
 ## diagnostic only, same caveat this file states everywhere else.
-##
-## **Issue 132: seed 1 -> 2, the third rot and the second time it lands back
-## where it started.** Taunt became a compulsion, which is Warrior-adjacent
-## behaviour, and seed 1 collided into a near-tie (both PLAYER_WIN, 423 vs 406,
-## ratio 1.04). Swept 0-15: seed 2 is the strongest split on both axes at once,
-## opposite outcomes AND ratio 2.13 (geysermancer PLAYER_WIN/390, warrior
-## ENEMY_WIN/831), so it is the furthest from this test's band rather than
-## merely over it.
-##
-## **The number that explains all three rots, and it is worth more than the
-## fix: these two classes differ on only 9 of 16 seeds.** Barely better than a
-## coin toss, so any Warrior change re-rolls it and roughly half the seeds are
-## sitting near the boundary at any time. That is a fact about the content, not
-## about the test.
-##
-## **I considered replacing the single seed with "differs on most seeds" and
-## measured it before proposing it: it fails today, 3 of 8 on seeds 0-7.** It
-## would be a materially stricter claim than this test has ever made and one
-## nobody has asked for, so re-baselining is the correct scope and the sweep is
-## the whole justification. If this rots a fourth time, the honest fix is to
-## decide whether "geysermancer x4 and warrior x4 should fight differently" is
-## still a requirement, not to pick a fifth seed.
 func test_geysermancers_and_warriors_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"warrior", 2)
 
@@ -318,10 +296,6 @@ func test_the_chokepoint_room_resolves_instead_of_drawing() -> void:
 
 
 ## The known-bad input, constructed rather than borrowed from a defect (#268).
-## A fixture borrowed from a defect has an owner actively trying to destroy it:
-## the previous one stopped stalling the day #255 was fixed. This one is a
-## full-height WALL splitting the arena, and it reads DRAW at the tick cap on
-## both builds, so it does not depend on the defect it replaced.
 func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 	var enc := Encounter.new()
 	enc.id = &"a_wall_across_the_room"
@@ -348,10 +322,6 @@ func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 
 
 ## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`
-## placeholder that inverted the table (one comp free at 86%, another at 1/20).
-## Checked against all five real parties directly rather than through
-## `_win_rate`'s mono-class helper, since a boss fight is exactly the case where
-## a mono-class party is not what a player brings.
 const WARDEN_MAX_HEALTH_LEFT := 80.0
 
 ## Runs `ids` against `enc` over 20 seeds. Returns `[wins, median percent of the

@@ -6,13 +6,6 @@ class_name Projectile
 ## lets a target walk out of the way (issue 18). Resolves when it comes within
 ## the target's own radius of the target's live position, or on reaching
 ## aim_point, whichever is first.
-##
-## Append-only, as CombatState.units: id is the index and never changes, and a
-## resolved shot stays in place rather than being removed, so nothing iterating
-## mid-tick sees the array reshuffle.
-##
-## The hit check uses the target's own radius, so a Ghoul is genuinely easier to
-## hit than a Goblin without anybody choosing a second number.
 
 var id: int = -1
 

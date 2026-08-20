@@ -1,22 +1,6 @@
 extends SceneTree
 
 ## Find a fight that still sits on the tick cap.
-##
-##     godot --headless --path . --script res://Tools/StallHunt.gd
-##
-## A guard whose counter is never exercised is worthless, so the stall test
-## needs a known-bad input that stalls on a build with the fixes as well as
-## without. Probe 2 checks the other half: if the seed does nothing for the
-## party a guard samples, that guard's sample size is one whatever its loop
-## says.
-##
-## **There is no stalling input left to find.** 8 rooms x 10 parties x 500
-## seeds = 40,000 fights, 0 on the cap; longest was 2,338 ticks, 65% of the
-## cap, and only 2 fights got past half of it. That is why the stall test
-## builds its fixture instead of pinning one. Re-run this before assuming
-## otherwise.
-##
-## Measurement only, never gated.
 const ENCOUNTERS: Array[StringName] = [
 	&"floor1_room1", &"floor1_chokepoint", &"floor1_cover", &"floor1_hazard",
 	&"floor1_horde", &"floor1_ghoul_den", &"floor1_warden", &"floor1_rat_king",

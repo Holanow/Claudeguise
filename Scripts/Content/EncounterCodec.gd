@@ -8,16 +8,6 @@ class_name EncounterCodec
 ## agreed there before either side of issue 19 was built, so this is the
 ## decode half of a contract already fixed by the encoder, not a shape
 ## invented here.
-##
-## OWNER: dace. Pure and side-effect free, same reasoning as
-## `_encounter_dict` itself: a test can check the exact round trip without
-## touching a file, and `Modules/authored_rooms.gd` is the only thing that
-## reads a real file and calls this.
-##
-## `kind`/`damage_type` round-trip as the enum's own string name
-## (`Terrain.Kind.keys()[k]` / `CG.DamageType.keys()[d]`), not a raw int --
-## survives either enum being reordered, matching `describe_op`'s existing
-## reasoning for reading an enum back as text elsewhere in this codebase.
 
 static func encounter_to_dict(e: Encounter) -> Dictionary:
 	var enemies := []

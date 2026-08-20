@@ -3,29 +3,8 @@ class_name Terrain
 
 
 ## What a room contains besides its combatants: walls, hazards, chokepoints.
-##
-## MANAGER-OWNED SHAPE. Frozen like the rest of Scripts/Core. The simulation
-## side is wren's, the placement is teal's, the drawing is pike's, and this file
-## is the one thing all three agree on.
-##
-## Why it exists at all: every fight so far has been two clusters walking into
-## each other across an empty rectangle, and no fight has ever been close.
-## Terrain is the cheapest thing that makes position matter -- a wall means a
-## ranged unit can be denied line of sight, a chokepoint means four attackers
-## cannot all reach one target, a hazard means the shortest path is not always
-## the right one. Balance changes which side of a landslide you are on. Terrain
-## changes whether the fight is a landslide.
-##
-## Deliberately not a tile grid. The simulation is continuous 2D, and a grid
-## here would either force the movement code onto tiles or leave two
-## representations of the same space to disagree with each other.
 
 ## Axis-aligned only, in world units, in the same space as CombatUnit.position.
-## Rectangles rather than polygons because every consumer stays simple: the
-## simulation's blocking test, the plan interpreter's line-of-sight check and
-## pike's draw call are each a few lines against a Rect2 and each would be a
-## research project against arbitrary polygons. If a room needs a diagonal, it
-## gets one out of several rectangles.
 enum Kind {
 	WALL,    ## blocks movement and blocks line of sight
 	PILLAR,  ## blocks line of sight, does not block movement
@@ -42,7 +21,6 @@ class Feature extends RefCounted:
 	var damage_per_tick: int = 0
 	var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
-	## A status applied to a unit standing in this feature. The player's tar
 	var applies_status: CG.Status = CG.Status.SHIELD
 	var applies_status_enabled: bool = false
 	var status_duration_ticks: int = 0
@@ -70,22 +48,6 @@ static func hazard(rect: Rect2, damage_per_tick: int, damage_type: CG.DamageType
 
 ## True when the straight line from `a` to `b` crosses anything opaque. The one
 ## piece of geometry all three sessions would otherwise write separately.
-##
-## Uses `Rect2.intersects_segment` rather than a hand-rolled line-box test.
-##
-## A feature the units can stand in, containing *both* endpoints, does not
-## block: three units on the same point inside one pillar had sight BLOCKED
-## between them at distance 0.0, and the fight ran to the tick cap. The clause
-## is deliberately this narrow -- exempting on *either* endpoint makes standing
-## in cover beat standing behind it, and lets a shot already inside a wall fly
-## on through it.
-##
-## `blocks_movement()` is the difference: a WALL or a PIT cannot hold a unit,
-## so exempting one could only change a state the simulation cannot produce.
-## A PILLAR is the shape a unit really can stand in.
-##
-## Reads `contains_point`, the same `rect.has_point` that `_segment_hits_rect`
-## uses below, so the two agree on what "inside" means by construction.
 static func line_is_blocked(features: Array, a: Vector2, b: Vector2) -> bool:
 	for f in features:
 		if not f.blocks_sight():
@@ -115,16 +77,6 @@ static func hazards_at(features: Array, p: Vector2) -> Array:
 	return out
 
 ## Liang-Barsky segment/rectangle clip, and nothing else.
-##
-## The first version of this had a bounding-box early-out in front of it, on the
-## theory that most walls are nowhere near most lines. It was wrong for exactly
-## the case the game is full of: a horizontal segment has zero height, so
-## `Rect2(a, b - a)` had zero area and the check rejected every axis-aligned
-## line of sight before the real test ran. Both "a wall between two points
-## blocks sight" tests failed and nothing else did.
-##
-## The early-out was an optimisation for a cost nobody had measured, in front of
-## a function that is already a dozen arithmetic operations. It is gone.
 static func _segment_hits_rect(rect: Rect2, a: Vector2, b: Vector2) -> bool:
 	if rect.has_point(a) or rect.has_point(b):
 		return true

@@ -10,15 +10,6 @@ const OverlayScript := preload("res://Scripts/UI/LevelEditorOverlay.gd")
 ## in `BattleView`: same grid, same boundary, same terrain rendering — plus
 ## (via `LevelEditorOverlay`, a child of that same node) the party deploy
 ## zone and every enemy placed so far.
-##
-## OWNER: kite.
-##
-## Placement is exposed as plain methods (`place_enemy`, `place_terrain`),
-## not only reachable through `_gui_input` — same split InspectPanel's
-## editing methods used: a test drives placement directly rather than
-## synthesizing mouse events, and `LevelEditorView`'s side-panel pickers
-## (which know an id/kind but not a screen position) call the same methods
-## the canvas's own drag handling calls.
 
 signal enemy_placed(index: int)
 signal terrain_placed(index: int)
@@ -111,10 +102,6 @@ func _redraw_all() -> void:
 		_overlay.queue_redraw()
 
 ## Split out from `_relayout` for the same reason `BattleView.compute_layout`
-## is: checkable without a live viewport (`size` is a plain Vector2 argument
-## here rather than read from the tree). No `CombatLogView` reservation,
-## unlike `BattleView`'s version — this screen's side panel is a sibling
-## Control, not something the canvas itself has to leave room for.
 static func compute_layout(canvas_size: Vector2) -> Dictionary:
 	var fit_half_width := CG.ARENA_HALF_WIDTH + _MARGIN
 	var fit_half_height := CG.ARENA_HALF_HEIGHT + _MARGIN
@@ -188,17 +175,6 @@ func has_blocked_enemy() -> bool:
 
 # ---------------------------------------------------------------------------
 # Issue 145: moving a party spawn.
-#
-# Exposed as plain methods for the same reason `place_enemy` is, plus a harder
-# one measured on this project: **a pushed `InputEventMouseMotion` does not
-# carry the position it was pushed with.** The viewport takes a motion's
-# position from the real cursor, and nothing in a scripted run moves that, so
-# eight different pushed positions all arrive as the same local coordinate. A
-# drag driven through synthesized motion events therefore cannot be tested
-# end-to-end here at all -- it would assert a stationary cursor. The grab, the
-# move and the constraint are each callable and each tested; the drag itself is
-# verified on a real launch with a screenshot.
-# ---------------------------------------------------------------------------
 
 ## The rightmost x a party member may hold, accounting for its own radius so a
 ## marker cannot straddle the line it is constrained by. Static and derived from

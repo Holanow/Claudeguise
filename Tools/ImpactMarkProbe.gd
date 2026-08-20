@@ -1,24 +1,6 @@
 extends SceneTree
 
 ## Is the bearing of an inward impact mark still true by the time it fades?
-##
-##   godot --headless --path . --script res://Tools/ImpactMarkProbe.gd
-##
-## OWNED BY sable. Measurement only, never in the shipped path.
-##
-## The bearing is taken once, at the tick the hit lands. The flash is then
-## parented at a fixed position and lives 0.35s, about five ticks. So the
-## question is not "did anybody move" but: from that fixed point, has the
-## attacker moved far enough around it that the arc points somewhere the
-## attacker is not?
-##
-## A second column reports how far the TARGET moved. A target that walks out
-## from under its own mark is a separate problem that option B neither
-## creates nor fixes; it is printed so nobody reads the first column as
-## covering it.
-##
-## An arc of ~120 degrees spans 60 either side. Under 30 leaves the attacker
-## comfortably inside it; over 60 and it no longer covers the attacker.
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
 const SEEDS := 12

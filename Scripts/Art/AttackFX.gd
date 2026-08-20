@@ -6,21 +6,6 @@ class_name AttackFX
 ## vanishes at the size a unit or a 5px projectile mark actually draws, and
 ## every action already carries a damage type that the floating numbers
 ## already colour by.
-##
-## MANAGER-OWNED (`Scripts/Art/**`). Both call sites are wren's: `ArenaFloor`
-## draws the projectile marker, `ImpactFlash` draws the burst.
-##
-## Two pieces:
-##
-## 1. Projectile shape (`projectile_points` / `draw_projectile`) -- a small
-##    distinct silhouette per damage type.
-## 2. Impact flash (`impact_flash_radius` / `impact_flash_alpha` /
-##    `draw_impact_flash`) -- a brief radial burst where a DAMAGE or HEAL
-##    lands, so melee gets a visual and not just a number appearing.
-##
-## Geometry and colour are split from the `draw_*` calls, as in
-## `Silhouettes`: Godot refuses `draw_*` outside `_draw()`, so a test that
-## calls the wrapper logs a wall of errors and asserts nothing.
 const _PROJECTILE_SHAPES := {
 	# Arrow: a head and a shaft, the plainest "this is a shot" read.
 	CG.DamageType.PHYSICAL: [
@@ -73,8 +58,6 @@ const _PROJECTILE_SHAPES := {
 
 ## The points for one damage type, scaled to `size` and rotated so local +X
 ## points along `forward` (world space, not necessarily normalised).
-## Split from draw_projectile so a test can check the geometry without a
-## live canvas.
 static func projectile_points(damage_type: CG.DamageType, size: float, forward: Vector2) -> PackedVector2Array:
 	var raw: Array = _PROJECTILE_SHAPES.get(damage_type, _PROJECTILE_SHAPES[CG.DamageType.PHYSICAL])
 	var angle := forward.angle() if forward.length_squared() > 0.0001 else 0.0

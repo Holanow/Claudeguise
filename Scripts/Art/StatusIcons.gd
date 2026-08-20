@@ -3,30 +3,6 @@ class_name StatusIcons
 
 
 ## One badge per `CG.Status`, for PLAYTEST-NOTES-2 item 2:
-##
-##   "There needs to be a clearer visual representation of who is afflicted
-##    with what statuses."
-##
-## MANAGER-OWNED (`Scripts/Art/**`). Placement is `Scripts/UI/UnitView.gd`.
-##
-## **The badges are now PNGs in `Assets/UI/status/`.** They were polygons in
-## code, baked to files by `Tools/BakeGlyphs.tscn` and the geometry deleted --
-## player's ruling, 2026-08-19: *"we should do basically 0 drawing with code
-## ever"*. The pictures did not change; only where they live did.
-##
-## The bake tool went with the geometry, because it reads the geometry it bakes.
-## `git log --diff-filter=D -- Tools/BakeGlyphs.gd` finds it.
-##
-## The rule the art follows is still the rule, and a replacement must keep it:
-## a beneficial status sits on a plate POINTING UP with a green rim, a harmful
-## one on a plate POINTING DOWN with a red rim. Both channels carry the same
-## fact on purpose -- red against green is exactly the pair a colourblind player
-## cannot separate, so it is never the only channel. `Assets/UI/README.md` says
-## this to whoever paints the replacement.
-##
-## `CG.is_harmful()` is the single source of truth for which side a status is
-## on. It still decides the rim colour of the stack tab and which edge that tab
-## sits on, so a new status gets both right for free.
 
 ## The rim colour. The tab below inherits it rather than inventing a third
 ## colour, so a red tab can never appear on a helpful badge.
@@ -43,11 +19,6 @@ static func has_glyph(status: CG.Status) -> bool:
 
 ## One badge filling `rect`. On screen today it is 17.4px: `UnitView`'s
 ## `STATUS_BADGE_SIZE` of 14 through `DISPLAY_SCALE` and the arena's own scale.
-##
-## A status with no file draws a black square. Player's ruling: *"a missing
-## sprite can fall back to a black square"*. It is meant to be conspicuous --
-## the failure it stands for is a file that was never painted, and a blank looks
-## like the feature being broken.
 static func draw_status(canvas: CanvasItem, status: CG.Status, rect: Rect2, stacks: int = 1) -> void:
 	var tex := UIArt.texture_for(art_name(status))
 	if tex != null:
@@ -75,11 +46,6 @@ static func stack_text(stacks: int) -> String:
 
 ## Where the count tab sits: **on the plate's FLAT edge, never on its point, and
 ## never wider than the badge.** Both halves were found by rendering it.
-##
-## The point carries the colourblind-safe half of the good/bad read, so a tab in
-## the bottom-right corner rubbed it out on exactly the badges that stack. And a
-## tab overhanging to the right landed on the neighbouring status in a row, so
-## it is right-ALIGNED: it grows upward or downward, never outward.
 static func stack_count_rect(status: CG.Status, rect: Rect2, stacks: int) -> Rect2:
 	var unit := minf(rect.size.x, rect.size.y)
 	var height := unit * 0.58

@@ -3,19 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 132's content half: what a fight starts with, and the magic default
 ## attack that returns mana.
-##
-## **Both halves need a `Scripts/Combat` call site that does not exist yet, and
-## this file is honest about which of its assertions therefore prove anything.**
-## `Balance.starting_resource` is called by nothing and
-## `ActionDef.restores_resource` is read by nothing -- swift owns both wirings and
-## they are filed. So the declaration tests below are declarations, and the two
-## `..._is_still_unwired` tests are the ones that matter: they assert the gap is
-## still there and **go red the day it closes**, naming the end-to-end test that
-## should replace them.
-##
-## That pattern is deliberate and it is the one rook asked for after
-## `abomination_claw`. A comment explaining a gap rots the day the gap closes and
-## nobody deletes it; an assertion cannot.
 
 func _fresh_state(class_id: StringName) -> CombatState:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_id, &"p0", String(class_id))]
@@ -131,12 +118,6 @@ func test_a_rage_pawn_opens_empty_and_a_mana_pawn_opens_full() -> void:
 ## The enemy branch deliberately did NOT move, per rook: the ruling was about
 ## mana classes, and changing `_build_enemy_unit` because it is the same shape
 ## would be an unasked balance change while balance is frozen.
-##
-## **That decision cannot be observed in a fight today**, because no enemy in the
-## game has a resource pool at all -- a test reading a spawned enemy's `resource`
-## would compare 0 to 0 and pass whatever `CombatSim` did. So this asserts the
-## reason instead, and goes red the day an enemy gets a pool, which is exactly
-## when the ruling becomes checkable and someone should write the real assertion.
 func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() -> void:
 	var with_pools: Array[StringName] = []
 	for enemy_id in Registry.all_enemy_ids():
@@ -148,15 +129,6 @@ func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() 
 		+ "is finally observable. Delete this test and assert it directly on a spawned unit."))
 
 ## Wired at issue 165, replacing `test_the_mana_return_is_still_unwired`.
-##
-## That test read this file's source for the field name, because until it was
-## wired there was no runtime observation separating a restore from mana regen.
-## There is now, so these run a real fight instead -- and they turn off regen so
-## the only thing that can move the pool is the Bolt.
-##
-## `priest_bolt` is a PROJECTILE, which is the whole point of issue 165: a
-## restore wired into `_fire_action` rather than into the landing would pass a
-## hand-written test and return nothing here.
 func test_a_landed_bolt_returns_mana_and_a_miss_returns_none() -> void:
 	var bolt = Registry.get_action(&"priest_bolt")
 	assert_true(bolt.restores_resource > 0, "no restore authored, so this proves nothing")

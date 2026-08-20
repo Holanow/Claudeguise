@@ -3,16 +3,6 @@ extends "res://Tests/TestCase.gd"
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 75: the real cause of "siege engines are still invisible".
-##
-## `_rebuild_units()` has exactly one call site, at fight start, so it built one
-## view per unit in `state.units` *at that instant*. A unit appended mid-fight
-## never got a view node -- it fought, dealt and took damage, and died entirely
-## invisibly. A silhouette existing in a registry is not a unit being drawn.
-##
-## These drive the real per-frame path (`_process`, real `CombatSim.step`, real
-## registry action) rather than calling the new helper directly, because the
-## defect was never in the helper: it was that nothing on the frame path ever
-## asked the question.
 
 const _SIEGE_ENGINE := &"build_siege_engine"
 

@@ -1,14 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
 ## Every scene in the project loads and its script is attached.
-##
-## MANAGER-OWNED, and it is the check that stops the most embarrassing failure
-## this project can have: a green suite next to a window that shows nothing. The
-## test suite never opens a scene unless something makes it, and a .tscn with a
-## broken ext_resource path loads as an empty node with no error anyone reads.
-##
-## It does not prove the screen renders. Nothing automated here does. The
-## screenshot in the pull request is what proves that.
 
 const SCENES := [
 	"res://Scenes/Main.tscn",

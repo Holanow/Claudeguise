@@ -10,41 +10,8 @@ extends "res://Tests/TestCase.gd"
 ## everything against everything else. What nobody checked was the **prose**: a
 ## description reading "for 3 seconds" beside `status_duration_ticks = 90` was
 ## true at 30 ticks a second and has said 3 where the game means 6 ever since.
-##
-## It is not a rounding argument and it does not need one, because **the game
-## already tells the player the other number**. `CombatLogView._seconds` and
-## `TeamStatusView` both derive seconds from `CG.TICK_SECONDS`, so a Warrior's
-## Taunt reads "16.0s" on the team panel and "8 seconds" in the ability text on
-## the inspect screen. Two player-facing surfaces, one duration, two numbers.
-##
-## The same halving made `abomination_claw` and `cultist_bolt` overstate poison:
-## `POISON_DAMAGE_PERCENT_PER_TICK` is 0.30 a **tick**, which was 9% a second and
-## is now 4.5%.
-##
-## **This test is the thing that could not have been written as a comment.** The
-## expected value is derived from the `ActionDef`'s own ticks, so the two
-## artifacts are independent and the check fails the day either one moves. The
-## previous guard was that somebody would notice, and across sixty-odd merges
-## nobody did -- including me, twice, in files I was editing for other reasons.
-##
-## Every "N second" in a description must be claimed by one of the patterns
-## below. **An unrecognised phrasing fails rather than passing unchecked**,
-## which is the half that keeps this from rotting the moment somebody writes a
-## duration a new way.
 
 ## Phrase -> which of the action's own tick counts it is talking about.
-##
-## **The status pattern excludes "again for", and the exclusion earned itself
-## immediately.** `brute_roar` (#150) states two durations in one sentence -- how
-## long it holds, and how long before it can be cast again -- and the second one
-## is a cooldown. Without the lookbehind the generic pattern claimed it as a
-## status duration and failed a description that was correct.
-##
-## The patterns must not overlap for a second reason: the check at the bottom
-## counts every "N seconds" in the text against the number of patterns that
-## claimed one, and a phrase claimed twice reads there as a phrase written a way
-## nothing recognises. That check is what stops this file rotting, so it is worth
-## the lookbehind rather than a looser pattern.
 const _PATTERNS := [
 	{"re": "(?<!again )for ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "status"},
 	{"re": "again for (?:another )?([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "cooldown"},

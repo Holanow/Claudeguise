@@ -2,21 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Issues 130 and 121: a status that remembers something beyond when it ends.
-##
-## One mechanism, `CombatUnit.status_magnitude`, two meanings decided per status:
-## BLEED counts stacks, BURN carries the damage of the hit that applied it. The
-## same stored number is read at both ends for BURN -- it sets how hard the burn
-## ticks and what consuming the burn pays.
-##
-## THE TESTS THAT MATTER MOST are the inert ones at the bottom. Every seam here
-## defaults to a value that makes the new arithmetic vanish, and that is a
-## stronger claim than "no content wires it yet": the damage rate feeds
-## `_stochastic_round`, which draws from the fight's shared rng, so a rate that
-## moved by any amount would change the outcome of every fight in the game
-## rather than only the afflicted ones.
-##
-## Every assertion is an exact number. Announcement rule 4: these fixtures are
-## deterministic, so an inequality would only hide drift.
 
 const _SEED := 5150
 
@@ -72,7 +57,6 @@ func _deps(actions: Array, power: float = 10.0) -> SimDeps:
 	## the first action that applies it. Every fixture in this file is about the
 	## magnitude arithmetic, so it pins the rhythm and the decay to the neutral
 	## values and measures one thing at a time. `Tests/test_combat_bleed_is_live.gd`
-	## is where the shipped defaults themselves are asserted.
 	deps.status_tick_interval = func(_s: CG.Status) -> int: return 1
 	deps.status_stack_decay_ticks = func(_s: CG.Status) -> int: return 0
 	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
@@ -441,15 +425,6 @@ func test_status_applied_carries_the_resulting_magnitude() -> void:
 ## longer: BLEED carries live placeholder numbers so its stacking mechanism is
 ## not dead on arrival. It is my own test and it encoded a state the project has
 ## deliberately left, not a property that still holds.
-##
-## What it always meant is intact and is the half that matters -- the statuses
-## content can actually reach are untouched, so no fight in the game moves.
-## `Tests/test_combat_bleed_is_live.gd` asserts the BLEED side, including that
-## the placeholder reaches no other status.
-## Narrowed again on #121. BURN left this list because finch moved its number
-## onto the magnitude side, which is the ruling landing. POISON is what the
-## claim was always really about: **a status that stores nothing is unaffected**,
-## so no fight that does not involve a burn or a bleed moves.
 func test_the_seams_stay_inert_for_a_status_that_stores_nothing() -> void:
 	var deps := SimDeps.new()
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2.ZERO)
@@ -460,8 +435,6 @@ func test_the_seams_stay_inert_for_a_status_that_stores_nothing() -> void:
 
 ## **INVERTED ON #121.** It asserted a burn paid its base rate and nothing more,
 ## which was true while BURN's number sat on the base side and said so by name.
-## finch moved it; this is the opposite assertion on the same fixture, so the two
-## builds are directly comparable.
 func test_a_burn_under_the_real_seams_is_paid_for_the_hit_it_remembers() -> void:
 	var scald := _hit(&"scald", CG.Status.BURN, 999, 4.0)
 	var state := _arena()
@@ -480,9 +453,6 @@ func test_a_burn_under_the_real_seams_is_paid_for_the_hit_it_remembers() -> void
 ## The rng check, and the reason it is not paranoia: the damage rate feeds
 ## `_stochastic_round`, so a rate that moved by any amount would consume the
 ## shared stream differently and change every fight in the game.
-##
-## Pointed at POISON since #121 -- BURN now legitimately draws, so it can no
-## longer stand for "a status that stores nothing costs nothing".
 func test_a_status_that_stores_nothing_consumes_the_rng_exactly_as_before() -> void:
 	var jab := _hit(&"jab", CG.Status.POISON, 999, 4.0)
 	var state := _arena()
@@ -524,13 +494,6 @@ func test_a_live_magnitude_rate_does_consume_the_rng() -> void:
 
 ## **BOTH HALVES OF THIS TRIPWIRE HAVE NOW FIRED AND IT IS GONE.** The stacking
 ## half went on #130 (`rat_bite`), the consume half on #121 (`geyser_blast`).
-## Each named the moment to re-measure and each was deleted rather than loosened,
-## because both were statements about a moment and both moments passed.
-##
-## What replaces it is a live assertion rather than a structural read: the combo
-## has to actually fire in a real fight, which is
-## `Tests/test_content_burn_combo.gd`'s job in finch's branch -- 52 consumes in
-## 127 burns, measured, where this file could only ever say "nobody has wired it".
 func test_exactly_the_actions_that_should_consume_a_status_do() -> void:
 	var consuming: Array[StringName] = []
 	for id in Registry.all_action_ids():

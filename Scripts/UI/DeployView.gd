@@ -5,30 +5,6 @@ const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 const SCENE := "res://Scenes/Deploy.tscn"
 
 ## Issue 145: place your party before the fight starts.
-##
-## OWNER: wren.
-##
-## **Asked for three times** -- round one note 23, round two note 10, and again
-## in round three -- and it kept slipping because it lived as a bullet in a
-## notes file rather than as an issue. Nothing here is a new system. Every piece
-## already existed and none of them had been put in front of the player:
-##
-##   - `Encounter.party_spawns` already carries per-pawn positions and
-##     `CombatSim` already reads them.
-##   - `CG.party_deploy_max_x()` already defines the zone.
-##   - `LevelEditorCanvas` already draws that zone, the same arena a fight
-##     draws, and the room's terrain.
-##
-## So this screen is a canvas in `MOVE_PARTY` mode and a write, and the code
-## below is mostly wiring rather than mechanism. That is the point.
-##
-## **Why it is a decision and not a fiddle.** The rooms have walls, pillars,
-## hazards and pits, so the terrain has to be visible or the player is guessing.
-## And only one class can redirect an enemy while the Warden kills strictly
-## nearest-first, which means **who starts nearest currently decides a great
-## deal and is chosen by list order, invisibly.** This screen is the direct
-## answer to that: the player picks who is closest, and can see what they are
-## standing behind.
 
 signal deploy_confirmed(positions: Array[Vector2])
 signal back_requested()
@@ -107,9 +83,6 @@ func open(cfg: RunConfig, encounter = null) -> void:
 	_canvas.party_labels = _labels()
 	# `terrain` on the canvas is not the same thing as `terrain` on the
 	# `ArenaFloor` that draws it -- the canvas copies it across in `_relayout`.
-	# Setting the field alone left the room's walls in the data and off the
-	# screen, which is exactly the failure this issue exists to fix, and the
-	# terrain test caught it.
 	_canvas._relayout()
 	_authored = _authored_positions()
 	reset_placement()
@@ -126,15 +99,6 @@ func _authored_positions() -> Array[Vector2]:
 ## What the party is facing, in the shape `LevelEditorOverlay` already draws --
 ## which gives the enemy names for free, and those are the half of the decision
 ## the issue's four bullets do not mention.
-##
-## **The room's terrain was called out as the thing that stops placement being a
-## guess, and the enemies are the same argument only stronger.** Choosing who
-## stands nearest is choosing who meets the front rank first; without the enemy
-## line on screen the player is picking a formation against nothing. Two lines,
-## because the drawing already existed.
-##
-## `radius` comes from the same `EnemyDef` the fight builds the unit from, so a
-## big enemy reads big here rather than at a placeholder size.
 func _enemy_spawns() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for spawn in _encounter.enemy_spawns:

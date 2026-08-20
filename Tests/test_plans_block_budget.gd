@@ -7,21 +7,6 @@ extends "res://Tests/TestCase.gd"
 ## `unit.pawn.plans` with no reference to the budget at all, so the budget was
 ## enforced only by the plan editor refusing to *add* a row -- and a row the
 ## screen labelled "Inert" fired exactly like a live one.
-##
-## That is worse than the silent version it replaced. A pawn that runs eight rows
-## while the editor shows eight rows is at least consistent; a pawn that runs a
-## row the screen says is dead is `CLAUDE.md`'s pawn-behaviour principle
-## inverted, with the player looking straight at the wrong answer.
-##
-## **The route is reachable today**, which is why this is a defect and not a
-## hypothesis: `EquipPanel` offers every registered item, so a player can equip
-## Robes (2 WIS), author plans to the wider budget, take the Robes off again, and
-## strand rows. These fixtures do exactly that with a real `EquipmentDef` on a
-## real `PawnData`, rather than editing `base_attributes` under the pawn, because
-## the equipment path is the one a player walks.
-##
-## The last test is the one worth keeping longest: it asserts the screen and the
-## simulation agree, through both of them, at both budgets.
 
 func _block(kind: PlanBlock.Kind, op: StringName, args: Dictionary = {}) -> PlanBlock:
 	var b := PlanBlock.new()
@@ -39,11 +24,6 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 
 ## A pawn with two 2-block plans and 2 base WIS, so it needs 2 points of
 ## equipment WIS to pay for the second row.
-##
-## The top row never fires: its condition asks for 999 resource and the unit has
-## none. So whatever `decide` returns comes from the bottom row, which is the row
-## the budget is about -- if the guard is missing, this fixture fires row two and
-## the assertion catches it.
 func _pawn_with_two_plans() -> PawnData:
 	var pawn_class := ClassDef.new()
 	pawn_class.id = &"budgettest"
@@ -142,10 +122,6 @@ func test_nothing_is_skipped_when_the_plans_fit() -> void:
 ## **The deliverable.** Not "the guard exists" but "the guard and the mark are
 ## the same rule". Both sides are exercised through the real thing: the screen is
 ## built and its labels read, the intent is taken from `decide`, at both budgets.
-##
-## `PlanInterpreter.active_plan_count` is the single definition and `InspectPanel`
-## calls it, so this cannot drift into the two agreeing by coincidence -- but a
-## future edit that gives the panel its own copy again would land here.
 func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
 	var pawn := _pawn_with_two_plans()
 

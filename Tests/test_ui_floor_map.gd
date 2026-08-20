@@ -125,9 +125,6 @@ func test_a_fight_room_resolves_one_way_or_another() -> void:
 	view.free()
 
 ## Issue 41's routing: "the equip screen, once something can be equipped."
-## These build EquipmentDef/PawnData fixtures directly rather than reaching
-## into Registry content, since the assignment logic under test does not
-## care what a weapon does — only which slot it goes in and who may hold it.
 
 func _make_pawn(id: String, method: CG.Method) -> PawnData:
 	var pawn_class := ClassDef.new()

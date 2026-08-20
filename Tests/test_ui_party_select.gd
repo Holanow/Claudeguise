@@ -66,9 +66,6 @@ func test_two_different_selections_produce_different_configs() -> void:
 ## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
 ## first, not the encounter the game means — so every real playthrough
 ## fought whichever room happened to sort first once a second one existed.
-## Needs real Registry content (CG.DEFAULT_ENCOUNTER has to actually be
-## registered to prove anything), so this is a no-op rather than a false
-## pass while the registry is empty.
 func test_current_config_picks_the_default_encounter_not_the_alphabetically_first_one() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
@@ -142,11 +139,6 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 	screen.free()
 
 ## The real defect: hand-building PawnData in _build_roster left `plans`
-## empty, so every pawn a player has ever actually fielded ran on
-## DefaultBehavior only — no preset plan has fired outside a test or a
-## devtools script. Needs real Registry content (PresetPlans is keyed off
-## real class ids), so this is a no-op rather than a false pass while the
-## registry is empty.
 func test_every_roster_pawn_carries_its_preset_plans() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
@@ -176,9 +168,6 @@ func test_every_card_meets_the_minimum_touch_target() -> void:
 ## keeps its own minimum size and stays reachable regardless of how many
 ## classes the roster grows to. Asserted on the tree shape rather than only
 ## via a screenshot -- a real launch's rect check backs this in the PR.
-## PLAYTEST-NOTES 11 / hover-info-box system: "Start Fight and Start Run
-## don't say what they do." Same GlossaryButton mechanism as every other
-## hoverable term.
 func test_start_fight_and_start_run_carry_distinct_glossary_tooltips() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
@@ -198,36 +187,9 @@ func test_roster_is_scrollable_so_the_buttons_below_it_stay_reachable() -> void:
 # Issue 133, from the player: "The opening screen has a ton of horizontal space
 # to use but I still have to scroll the class selector. Make it fill the
 # available space instead."
-#
-# The roster was a `GridContainer` at a constant two columns, so five classes
-# sat in the left quarter of a 1280-wide screen and were clipped mid-row.
-#
-# These measure the geometry rather than the container's class name. A
-# `Container` lays its children out on NOTIFICATION_SORT_CHILDREN, which is
-# queued by the tree; sending it directly runs the same sort now, so the wrap
-# can be measured on a detached screen the way every other test here builds one.
-# ---------------------------------------------------------------------------
 
 ## THE WRAP ITSELF IS NOT ASSERTED HERE, AND THE REASON IS WORTH WRITING DOWN
 ## BECAUSE I SHIPPED THE INERT VERSION FIRST AND THE GATE WENT GREEN ON IT.
-##
-## I wrote `box.size = Vector2(w, 2000); box.notification(
-## Container.NOTIFICATION_SORT_CHILDREN)` and read the card positions back. The
-## wide case passed. It was measuring nothing: probed on a real launch, that
-## notification lays out nothing on a detached container -- `get_line_count()`
-## comes back 0 and every card's rect is `[P: (0,0), S: (0,0)]`, so all five
-## cards share y=0 and "one row" is what an unlaid-out container looks like, not
-## what a correct one looks like. A `Container` sorts on a frame inside a tree,
-## and these tests build detached screens.
-##
-## So the geometry is verified where it can be: `Tools/ScreenSweep.tscn` at both
-## required resolutions, captures in the PR. What is asserted below are the two
-## structural properties that the capture cannot regress-check, and neither is a
-## restatement of the container's own class name.
-##
-## Announcements rule 2: "X never happens" is also passed by "X can never be
-## observed." This was that, and I only found it by probing rather than trusting
-## a green line.
 
 ## `columns` is the thing that made five classes show as two. A flow container
 ## has no such field, and the assertion is on the absence of a fixed column
@@ -259,10 +221,6 @@ func test_the_roster_wraps_rather_than_scrolling_sideways() -> void:
 ## The half that actually stops the scrolling. Five full-width stacked buttons
 ## spent about 320 of 720 pixels of height, so the roster was left 175 for a
 ## 200-pixel card; widening the roster alone could not have fixed that.
-##
-## Start Fight stays on its own band: it is the primary action, and this asserts
-## the distinction rather than only the saving, because flowing all five would
-## have passed a height check while making the screen read as five equal choices.
 func test_the_secondary_destinations_share_a_row_and_start_fight_does_not() -> void:
 	var screen := PartySelect.create()
 	screen._ready()

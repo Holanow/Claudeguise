@@ -7,17 +7,6 @@ const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")
 const SCENE := "res://Scenes/PartySelect.tscn"
 
 ## Pick up to four pawns and a seed, then start the fight.
-##
-## OWNER: pike.
-##
-## Swapping the party between runs is an acceptance criterion for this slice, so
-## this screen is not a placeholder. It generates one pawn per class from
-## Registry.all_class_ids() and lets the player choose.
-##
-## Issue 17: the only decision in this slice happens here, and a checkbox next
-## to a bare class name did not let anyone make it. Each class is now a card
-## (PartyCard) showing its silhouette, role and style, and the whole card is
-## the touch target.
 
 signal battle_requested(config: RunConfig)
 signal run_requested(config: RunConfig)
@@ -68,10 +57,6 @@ func _build_roster() -> void:
 ## Registered encounters the picker does not offer, with the reason. Offered
 ## rooms are not listed here: `Encounter.pickable` is set where the room is
 ## declared and `offered_rooms()` reads it, in module order.
-##
-## The rule: offer any room whose point is a fight and which nothing else can
-## reach; exclude tuning fixtures. `floor1_warden` returns here on the day a
-## player can reach it by progressing (#300).
 const NOT_OFFERED := {
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
@@ -87,12 +72,6 @@ const TERRAIN_WORDS := {
 ## Everything a scene file cannot express: the art-swappable background, the
 ## per-class cards and per-room picker items (both loops), the panels built by
 ## `set_script`, and every signal connection.
-##
-## **The chrome around them is in `Scenes/PartySelect.tscn` and is edited there,
-## not here.** The margins, spacings, font sizes and dim colours in that file are
-## literals rather than reads of `Palette`, deliberately: re-applying `Palette`
-## at runtime would silently overwrite whatever the scene was edited to say,
-## which is the whole reason the tree moved out of code.
 func _bind_ui() -> void:
 	# Issue 237. `Assets/UI/README.md` promises the player that dropping in
 	# `background/party_select.png` (or `background.png` for every screen at once)
@@ -124,10 +103,6 @@ func _bind_ui() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	_start_run_button.pressed.connect(_on_start_run_pressed)
 	# Issue 21b: reachable before anyone has committed to a fight. Issue 100:
-	# equipment beside the plan editor rather than inside it -- the two screens
-	# answer different questions about the same pawn, and a granted skill is the
-	# seam. Issue 19: the level editor is where a player grows the room library,
-	# which has nothing to do with the party they are about to fight with.
 	%InspectButton.pressed.connect(_on_inspect_pressed)
 	%EquipButton.pressed.connect(_on_equip_pressed)
 	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
@@ -141,16 +116,6 @@ func _bind_ui() -> void:
 ## nothing, and `_ready()` aborts on the first one -- a blank screen behind a
 ## green test suite, because a detached screen never renders. `create()` is the
 ## constructor those panels expose.
-##
-## InspectPanel and EquipPanel are moving to scenes on other sessions' branches,
-## so this asks rather than assuming and builds correctly whichever lands first.
-## **Delete the second half and call `create()` directly once both are on the
-## trunk** -- it is a merge-order accommodation, not a pattern.
-##
-## The manual `_ready()` is the same reasoning as PartyCard's in `_fill_roster`:
-## this node may be built while PartySelect is not yet in a live tree (a test
-## calling `_ready()` directly), and `add_child` alone only triggers `_ready()`
-## automatically once the parent enters a real SceneTree.
 func _add_panel(script) -> Control:
 	var panel: Control
 	if script.has_method("create"):
@@ -199,16 +164,6 @@ func _fill_rooms() -> void:
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like
 ## something you can edit".
-##
-## **Deliberately NOT routed through `UIArt.panel_style` by issue 268**, which
-## routed the other four hand-built styles in `Scripts/UI`. The README promises
-## `panel.png` re-skins "every panel, card, tooltip and chip" and this is none
-## of those: it is an input. Its border is carrying information — issue 17's
-## whole point is that it says *you can type here* — and a dropped-in `panel.png`
-## would draw it identically to every static panel on the screen and take that
-## away, which is the `PartyCard` rule and would look perfectly fine in a
-## screenshot. If the seed field is ever meant to be themable it needs its own
-## documented name, not the panel one.
 func _seed_box_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Palette.ARENA_FLOOR
@@ -296,15 +251,6 @@ func _on_equip_pressed() -> void:
 ## missed. floor1_ghoul_den sorts before floor1_room1, so every real
 ## playthrough since encounters plural existed has fought the wrong room —
 ## wren measured 0 losses in 1000 samples on it.
-## Issue 176: the room the player picked, defaulting to `CG.DEFAULT_ENCOUNTER`.
-##
-## **The issue-32 protection above is kept, not replaced.** That fix was correct
-## and it also became a lid: it pinned the game to one room and nobody re-read
-## it when three more arrived, so four days of enemies and terrain shipped
-## unreachable. The rule it encodes -- never pick an encounter by index, because
-## `Array[StringName].sort()` orders by interned pointer and `floor1_ghoul_den`
-## sorts before `floor1_room1` -- is still live and still right. It now applies
-## to the *fallback* rather than to every case.
 func current_config() -> RunConfig:
 	var config := RunConfig.new()
 	config.party = _selected.duplicate()
@@ -327,15 +273,6 @@ func selected_room() -> StringName:
 
 ## Rooms the picker offers: every registered encounter whose content sets
 ## `pickable`, in registration order rather than sorted -- `Array[StringName]`
-## does not sort alphabetically and the order a player reads should not depend
-## on which StringNames the process interned first.
-##
-## Issue #180. This used to filter a `ROOM_ORDER` constant down to the rooms that
-## exist; the flag cannot name a room that does not exist, so the filter is gone
-## with it. **The cost, stated because a comment in `test_ui_room_picker.gd`
-## relied on it:** a room can no longer be classified before its content lands,
-## because the classification is now part of the content. They merge together or
-## not at all.
 static func offered_rooms() -> Array[StringName]:
 	return Registry.pickable_encounter_ids()
 

@@ -4,8 +4,6 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## PLAYTEST-NOTES 4: "every class needs an attack asset ... so I know what's
 ## up" -- melee had nothing but DamageFloater's number where a hit landed.
-## PR #69 (sable, Scripts/Art/AttackFX.gd) built the geometry; this wires it
-## in on a DAMAGE/HEAL event, the same event _spawn_floater already reads.
 
 func _make_view_with_target(pos: Vector2, hp: int = 10) -> Node2D:
 	var state := CombatState.new(1)
@@ -75,7 +73,6 @@ func test_a_miss_does_not_spawn_an_impact_flash() -> void:
 # ---------------------------------------------------------------------------
 # ImpactFlash itself: purely cosmetic, wall-clock driven, same shape as
 # DamageFloater.
-# ---------------------------------------------------------------------------
 
 func test_show_starts_the_clock_and_shows_visible() -> void:
 	var flash := ImpactFlash.new()

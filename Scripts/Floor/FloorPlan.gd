@@ -5,12 +5,6 @@ class_name FloorPlan
 ## One generated floor: its rooms and the connections between them. Named
 ## "FloorPlan" rather than "Floor" to keep the built-in `floor()` function
 ## unshadowed by any local `var floor := ...`.
-##
-## OWNER: wren, issue 5. Generated once by FloorGenerator and then reused for
-## the whole trip -- descent and ascent read the same instance rather than
-## regenerating, which is what makes "the layout is preserved on the way
-## back up" true by construction rather than by a rule someone has to
-## remember.
 
 var seed: int = 0
 var rooms: Array[FloorRoom] = []

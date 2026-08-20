@@ -2,14 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Issue 97: kiting as a MOVEMENT block the player controls. OWNER: heron.
-##
-## New file rather than more methods in `test_plans_interpreter.gd`, which is
-## another session's and already long.
-##
-## The property under test is not "the pawn retreats". It is **that the plan
-## decides where the pawn stands, and that nothing invisible overrules it** --
-## issue 98. So most of these assert on the intent the interpreter returns and
-## on which plan it says produced it, rather than on a position after a fight.
 
 const RANGE := 120.0
 
@@ -115,12 +107,6 @@ func test_keep_distance_closes_when_the_target_is_too_far() -> void:
 ## Standing where the player asked, with a firing action: attack. This is the
 ## "kite and attack" block the player asked for, and it is one block plus the
 ## action rather than a special kind.
-##
-## Disclosed rather than left looking stronger than it is: this one **also
-## passes with the movement dispatch disabled**, because a plan that fires at an
-## in-range target does that with or without a movement block. It is here to pin
-## the composed behaviour, not as evidence the block works — the band test and
-## the fall-through test carry that.
 func test_at_the_requested_distance_the_pawn_fires() -> void:
 	var plan := _plan([_targeting(), _movement(RANGE), _action(&"geyser_spout")])
 	var s := _situation(plan, Vector2(RANGE, 0.0))
@@ -137,20 +123,6 @@ func test_at_the_requested_distance_the_pawn_fires() -> void:
 ## Issue 94 turned up a two-tick limit cycle: a pawn between two rules that
 ## disagreed stepped three units, the situation flipped, it stepped back, and it
 ## did that for 2400 ticks without firing once. Positions were exactly period-2.
-##
-## A single instruction owning the position is what fixes that, but only if
-## arriving is sticky. Every distance inside the band must produce the same
-## answer, or the pawn oscillates across the boundary at one tick's travel per
-## step. Checked across the whole band rather than at its centre, because the
-## centre is the one place a missing band would not show.
-##
-## **The action here deliberately cannot fire.** The first version of this test
-## used a working attack and passed with the movement dispatch disabled — being
-## in the band and simply firing look identical from outside, so it was
-## asserting nothing about the band at all. I found that by breaking the
-## dispatch on purpose and reading which tests survived; three of eleven did,
-## and this was the one that mattered. With an unfirable action the only reason
-## not to move is having arrived, so IDLE here is the band and nothing else.
 func test_every_distance_inside_the_band_holds_still() -> void:
 	var plan := _plan([_targeting(), _movement(RANGE), _action(&"warrior_execute")])
 	for offset in [-14.0, -7.0, 0.0, 7.0, 14.0]:

@@ -5,22 +5,6 @@ class_name TeamStatusView
 ## The player's whole team in one place that does not move: health, resource,
 ## statuses and cooldowns in a fixed column, which is what makes comparing two
 ## party compositions possible.
-##
-## OWNER: wren.
-##
-## The cooldown quarter is sized from measurement, and all three follow from
-## it:
-##
-## 1. **Two slots, not one per action.** Nothing ever held more than two.
-## 2. **Two of the five classes own no action with a cooldown**, so their row
-##    says so in words. Empty boxes would read as the panel being broken.
-## 3. **The chip names the action and the seconds left.** A lamp reading
-##    "something is on cooldown" would be lit 98% of a Warrior's living ticks,
-##    which is a detector that always fires.
-##
-## Sized for 5 or 6 rows, not 4: the Siege Master's engines are player-team
-## units, and the player's side held more than four living units in 100 fights
-## out of 100.
 const MAX_PAWN_ROWS := 4
 const MAX_SUMMON_ROWS := 2
 const MAX_ROWS := MAX_PAWN_ROWS + MAX_SUMMON_ROWS
@@ -43,24 +27,6 @@ const ROW_SEPARATION := 6.0
 ## would be permanently empty on it. What a player needs to know about a summon
 ## is that it is there and how much of it is left, which is a name and a health
 ## bar.
-##
-## **What the panel is at its tallest: four pawns, two summons and the overflow
-## line.** `BattleView` insets the combat log by this rather than by the current
-## height, so the log does not jump down the screen every time an engine is built
-## and back up when it dies.
-##
-## **This is a measured number, not an arithmetic one, and the difference cost me
-## a wrong screenshot.** The first version computed the height from its own
-## constants and put a text line at 18 px because an `IconChip` is 18 px square.
-## A `Label` at `FONT_SIZE_SMALL` will not go below 23, so every pawn row was
-## really 72 rather than 66, the panel ran 36 px past the inset the log had been
-## given, and two rows drew underneath the log's text. Nineteen tests were green
-## through all of it, because not one of them asked Godot how tall a label is.
-##
-## So `panel_height` sums what the nodes report, and this constant is checked
-## against that measurement by `test_ui_team_status.gd` -- both that it is not
-## exceeded and that it is not slack by more than a row. A pure-arithmetic
-## version could not have had that test: both sides of it would have been mine.
 const MAX_PANEL_HEIGHT := 438.0
 
 var _rows: VBoxContainer = null
@@ -111,11 +77,6 @@ func _ready() -> void:
 
 ## The units that get a row, in the order they get one: the player's pawns in
 ## party order first, then whatever they have summoned that is still alive.
-##
-## A pawn is `u.pawn != null`; a player-team unit built from an `EnemyDef` has
-## `enemy_id != &""` and is a summon. `BattleView._cost_summary` already
-## separates the two the same way, and #75 is what happens when a view forgets
-## the second kind exists.
 static func rows_for(state: CombatState) -> Array:
 	var pawns := _player_pawns(state)
 	var summons := _live_summons(state)
@@ -147,11 +108,6 @@ static func _live_summons(state: CombatState) -> Array:
 	return out
 
 ## Whether this unit owns any action that is gated by a cooldown at all.
-##
-## The reason the panel has a third state rather than two. False for the
-## Abomination and the Siege Master on every tick of every fight measured, and
-## an empty slot cannot say "there is nothing to show here" -- it says "the
-## thing that should be here is missing".
 static func has_cooldown_actions(u: CombatUnit) -> bool:
 	for action_id in u.actions:
 		var a = Registry.get_action(action_id)
@@ -161,13 +117,6 @@ static func has_cooldown_actions(u: CombatUnit) -> bool:
 
 ## The cooldowns actually running on this unit right now, soonest ready first,
 ## capped at MAX_COOLDOWN_CHIPS.
-##
-## Soonest first because the question a player has while watching is "when does
-## it get its move back", and the answer to that is the smallest number.
-##
-## `ticks_left` is `cooldowns[id] - state.tick`, which is how `CombatSim` itself
-## gates the action (`state.tick < int(unit.cooldowns[action.id])`) -- read from
-## the same expression rather than a second copy of the rule.
 static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 	var running: Array = []
 	for action_id in u.actions:
@@ -194,11 +143,6 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 
 ## What the cooldown line says when there are no chips to draw on it. Empty
 ## string means chips are being drawn and this is not used.
-##
-## Three states, not two, and the third is the measured one:
-##   "No cooldowns"  -- this class has no gated action. Abomination, Siege Master.
-##   "All ready"     -- it has them and none is running.
-##   ""              -- chips.
 static func cooldown_summary(state: CombatState, u: CombatUnit) -> String:
 	if not cooldowns_for(state, u).is_empty():
 		return ""
@@ -214,11 +158,6 @@ static func seconds_text(ticks: int) -> String:
 ## Called every stepped tick from `BattleView._process`. Rows are added and
 ## removed only when the set of units changes; everything else is written into
 ## nodes that already exist.
-##
-## Not a rebuild per tick, for the reason `_ensure_unit_views` is not: a chip is
-## a `Control` a player can hover and pin, and a node replaced every tick can be
-## neither. It would also throw away the hover the moment the pointer settled on
-## it, 30 times a second.
 func sync(state: CombatState) -> void:
 	if state == null or _rows == null:
 		return
@@ -262,9 +201,6 @@ func sync(state: CombatState) -> void:
 ## computed from constants describing them. `state` is unused and kept because
 ## every caller has one and a height that silently stopped following the fight
 ## would be the hard kind of wrong.
-##
-## `_rows.get_combined_minimum_size()` is NOT used: a `Container` outside the
-## scene tree reports zero, which is exactly where the tests run.
 func panel_height(_state: CombatState = null) -> float:
 	var total := Palette.SPACE_S * 2.0
 	var shown := 0
@@ -281,9 +217,6 @@ func row_count() -> int:
 ## One row's nodes, built once. Every chip slot is created here and shown or
 ## hidden later rather than created on demand, so a chip the player is hovering
 ## survives the status it names being reapplied.
-##
-## A summon gets the short shape: one line, a name and a health bar. See
-## `MAX_PANEL_HEIGHT` for why that is honest rather than a saving.
 func _build_row(u: CombatUnit) -> Control:
 	if is_summon(u):
 		return _build_summon_row(u)
@@ -432,21 +365,6 @@ func _update_row(row: Control, state: CombatState, u: CombatUnit) -> void:
 
 ## The same two badges the unit itself carries, from the same ordering, so a
 ## player looking from the panel to the pawn is not shown two different answers.
-## `UnitView.status_badges` and `hidden_status_count` are read rather than
-## reimplemented for exactly that reason.
-##
-## Issue 245, the player: *"I should be able to mouse over a status icon in the
-## party overview and get a more indepth description of the status."*
-##
-## The hover and the pin were already here from #113 and so was the sentence.
-## **What was missing is the half that makes it an explanation rather than a
-## glossary: what this badge is carrying right now.** A Warrior at three stacks
-## of BLEED and a Warrior at one showed the same words, and the number the fight
-## is actually running on was on the unit the whole time.
-##
-## `Glossary.status_popup_text` owns both halves so the log and this cannot
-## describe one badge two ways, and it takes the tick because a duration is only
-## meaningful against a clock.
 func _update_status_chips(row: Control, state: CombatState, u: CombatUnit) -> void:
 	var badges := UnitView.status_badges(u)
 	var chips: Array = row.get_meta("status_chips")

@@ -3,12 +3,6 @@ extends "res://Tests/TestCase.gd"
 
 ## Covers issue 10's five acceptance criteria: BURN/POISON damage-over-time,
 ## HASTE, and the stun-interrupt decision.
-##
-## **That last one was overturned by the player in #121: a stun now DOES cancel
-## an action already committed.** The wind-up is lost, the resource is not
-## refunded, and CombatSim emits INTERRUPTED. The criterion-5 section below was
-## inverted rather than rewritten from scratch, so the same fixture that used to
-## prove the action fired now proves it does not.
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -221,11 +215,6 @@ func test_determinism_holds_with_dot_and_haste_in_play() -> void:
 ## is the same fixture, so the two behaviours are directly comparable: an
 ## identical setup that used to end with the target at 20 hp now ends with it
 ## untouched.
-##
-## Rewriting somebody else's assertion to go green is forbidden here. This one is
-## mine (`Tests/test_combat_*` is this session's), it encodes a decision the
-## player has since reversed rather than a property that still holds, and the PR
-## says so plainly.
 func test_stun_cancels_an_action_already_committed() -> void:
 	var atk := _melee(&"atk", 5, 1, 999.0)
 	var actions_by_id := {atk.id: atk}

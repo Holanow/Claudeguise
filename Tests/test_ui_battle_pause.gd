@@ -5,24 +5,6 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## Real time, with a pause: the view accumulates wall-clock delta and spends it
 ## in whole ticks, so frame rate cannot change fight speed, and pause just
 ## stops spending the accumulator rather than resetting it.
-##
-## These tests drive _process() directly with hand-picked deltas instead of
-## waiting on real frames, and check the accumulator. CombatSim is real now
-## (issue 1 merged), so a step can actually resolve the fight if both sides
-## are empty; the fixture below gives each side one idle unit (no registered
-## actions, so DefaultBehavior.decide's Intent.idle() is all that ever
-## happens) purely so the fight stays UNRESOLVED across every step these tests
-## drive, which is what the accumulator math assumes. Registry has no content
-## yet, so the encounter and party are hand-built rather than looked up.
-##
-## Instantiating the real Battle.tscn (rather than BattleView.new()) is
-## required: _ready() looks up the Arena and Hud/CombatLog children by name,
-## which only exist once the scene is instantiated. _ready() is called
-## directly rather than via add_child(), because the test runner
-## (Tests/run_tests.gd) is not reachable through Engine.get_main_loop() from
-## inside its own _init(). BattleView._ready() is written to tolerate this:
-## viewport-dependent layout is skipped when the node has no tree, which is
-## exactly the case here.
 
 func _make_party() -> Array[PawnData]:
 	var cls := ClassDef.new()

@@ -9,12 +9,6 @@ const AuthoredRooms := preload("res://Scripts/Content/Modules/authored_rooms.gd"
 ## `LevelEditorView._encounter_dict`, agreed on the board before this file
 ## was written -- `test_encounter_to_dict_matches_the_encoder_kite_already_
 ## shipped` below checks against that exact shape, not a re-derived one.
-##
-## No test here writes into `res://Assets/Rooms/` -- same reasoning
-## `Tests/test_ui_level_editor.gd` already states: a tracked directory a
-## gate run must not leave files in. Tests that need a real file write into
-## a scratch `user://` directory instead (outside the repo entirely) and
-## remove it in `teardown()`.
 
 var _scratch_dir: String = ""
 
@@ -113,7 +107,6 @@ func test_dict_to_encounter_returns_null_without_a_display_name() -> void:
 ## An unknown Terrain.Kind string (a hand-edited file, or a future kind an
 ## older build does not know about) skips that one feature rather than
 ## failing the whole room -- same "does nothing rather than crashes"
-## posture the rest of the content layer takes on a bad reference.
 func test_dict_to_encounter_skips_an_unknown_terrain_kind() -> void:
 	var d := {
 		"id": "bad_terrain", "display_name": "Bad Terrain",

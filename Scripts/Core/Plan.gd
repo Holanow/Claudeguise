@@ -6,10 +6,6 @@ class_name Plan
 ## blocks. Per README.md a plan is "when <condition>, do <blocks>", the number
 ## of blocks a pawn may carry is capped by its WIS, and only one plan fires per
 ## tick per pawn.
-##
-## MANAGER-OWNED SHAPE. The interpreter that runs these is Scripts/Plans/ and
-## belongs to the content session. There is no plan editor in this slice: plans
-## are authored in code as presets.
 
 @export var id: StringName = &""
 @export var display_name: String = ""

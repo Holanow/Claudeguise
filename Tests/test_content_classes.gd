@@ -40,9 +40,6 @@ func test_every_starting_action_resolves() -> void:
 ## no other path from the game to the player: `DefaultBehavior` cannot reach an
 ## ally-targeted action, a zero-power self-buff, or a sustained one, so without
 ## a preset plan those fire zero times.
-##
-## Each extra plan came with a WIS raise, since `Balance.plan_block_budget` is
-## the only reader of WIS and two blocks per plan is the cost.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 5,
 	&"priest": 4,
@@ -185,9 +182,6 @@ func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
 
 
 ## Issue 13b criterion 2: no room may spawn a unit inside a WALL or PIT.
-## `Terrain.point_is_blocked` is the same check the simulation itself uses for
-## movement, at radius 0 -- a spawn point exactly inside a wall's rect fails
-## this the same way it would fail to walk there.
 func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 	var checked := 0
 	for encounter_id in Registry.all_encounter_ids():
@@ -238,7 +232,6 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	# enemy re-deciding afterward, which tests a different thing (what
 	# happens once the tank is gone) than what this test is checking (does
 	# taunt redirect while both are alive). 100 ticks was checked directly:
-	# Warrior alive at 163/246 hp, no false failure from this effect.
 	for i in 100:
 		CombatSim.step(state)
 	var warrior_unit := state.unit(0)
@@ -258,23 +251,11 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	# across a real room, and one far enough away to be outside the
 	# Warrior's own taunt_radius is a legitimate case, not a bug -- taunt
 	# reaches what it reaches, it does not blanket the whole encounter.
-	# The real claim is that taunt clearly wins the room, not that it wins
-	# every single enemy regardless of distance.
 	assert_true(enemies_focused_on_warrior > enemies_focused_on_geysermancer, "a taunting Warrior in range should pull most of the room off the Geysermancer, got %d on the Warrior vs %d still on the Geysermancer" % [enemies_focused_on_warrior, enemies_focused_on_geysermancer])
 
 
 ## Issue 30, second pass: a taunting Warrior that dies inside its own taunt
 ## window is a worse tank than one that never taunted (rook's framing).
-## `no_abomination`'s own boss fight measured the Warrior dying to The
-## Warden at tick 203 of a 240-tick taunt, both before and after several
-## CON values up to 35 -- proof CON alone does not fix that specific comp,
-## reported in the PR rather than a claim this test could cheaply stand in
-## for (a single pawn vs a real boss is a different, larger scenario). What
-## this test checks instead, cheaply and directly: warrior_guard's own
-## trigger. Raised 0.35->0.65 so a Warrior takes real proactive cover after
-## one meaningful hit rather than needing to already be almost dead --
-## checked against the exact number rather than trusting the comment above
-## the constant to stay true.
 func test_warrior_guards_proactively_not_only_when_nearly_dead() -> void:
 	var warrior := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
 	var plans := PresetPlans.for_class(&"warrior")

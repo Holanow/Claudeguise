@@ -3,20 +3,6 @@ extends "res://Tests/TestCase.gd"
 const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 
 ## Issue 145: place your party before the fight starts.
-##
-## The player asked three times. The acceptance criterion that matters is the
-## last one in the issue -- "positions used by the fight" -- so that is asserted
-## end to end here through the real `CombatSim.build`, and again on a real
-## launch with a screenshot. Everything else on this screen could be perfect and
-## the feature would still be worthless if the fight ignored the placement.
-##
-## **The drag itself is not driven through synthesized input and cannot be.**
-## Measured on this project: a pushed `InputEventMouseMotion` does not carry the
-## position it is pushed with -- the viewport reads a motion's position from the
-## real cursor, which no scripted run moves, so every pushed position arrives as
-## the same coordinate. A test that "drags" that way asserts a stationary
-## cursor. The grab, the move, the clamp and the terrain refusal are each
-## callable and each tested; the drag is verified by launching the game.
 
 func _party(n: int) -> Array[PawnData]:
 	var out: Array[PawnData] = []
@@ -118,10 +104,6 @@ func test_a_pawn_cannot_be_placed_past_the_deploy_line() -> void:
 
 	# Both directions: a position already legal must come back untouched, or a
 	# clamp that pinned everything to one spot would pass the check above.
-	# Inside the zone AND inside the arena: x in [-458, -182] once the 22-unit
-	# radius is taken off both ends. My first fixture used -500, which is
-	# outside the arena's own left wall -- the clamp was right and the test was
-	# wrong, which is worth a line rather than a silent edit.
 	var inside := Vector2(-300.0, 60.0)
 	assert_eq(CanvasScript.clamp_to_deploy_zone(inside, radius), inside,
 		"a legal position must not be moved")

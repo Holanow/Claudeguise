@@ -3,34 +3,6 @@ extends Node2D
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
 ## Issue #197's live options, drawn at the size a fight draws them.
-##
-##   godot --path . --resolution 1280x1110 res://Tools/ImpactMarkSheet.tscn
-##
-## That resolution is not a taste call. The project stretches a 1280-wide canvas
-## to fill the window, so any wider window captures the same canvas UPSCALED --
-## a 1500x1300 run writes a PNG 1.17x larger than life, which is the one thing a
-## sheet about legibility at true size must not do. At 1280 the capture is 1:1.
-##
-## No --headless: `get_viewport().get_texture()` never populates under
-## --headless on this machine, same note AttackFXPreview.gd and RatKingSheet.gd
-## both carry. A real window works.
-##
-## OWNED BY sable. **Nothing here is in the shipped path.** The candidate
-## geometry for options B and D lives in this file and not in
-## `Scripts/Art/AttackFX.gd` on purpose: the issue is labelled `for-owner` and
-## the choice is the player's, so shipping the function ahead of the decision
-## would be implementing an option while claiming to render one. What the game
-## draws today comes from the real `AttackFX.draw_impact_flash`, so the
-## "CURRENT" column is the live code and not a reproduction of it.
-##
-## WHY THIS SHEET EXISTS
-##
-## I wrote in #197: *"at goblin size (15px body) a 120-degree arc is a short
-## stroke. Needs rendering before anyone believes it. I would render it before
-## recommending it."* That is a claim about pixels and it cannot be settled by
-## reading coordinates. Every size below is asked of `BattleView.compute_layout`
-## and `Silhouettes.drawn_extent` -- the functions the real screen uses -- rather
-## than typed, because `ArtPreview` types its own scale factor and gets it wrong.
 
 ## Two pages, captured from one run: the option grid, and the scrum. They are
 ## split because the canvas is only ~1110 tall at 1:1 and both do not fit.
@@ -269,8 +241,6 @@ func _lifetime_strip(at: Vector2, bearing: float) -> void:
 
 ## Two things the grid cannot show at true size, magnified 3x and labelled as
 ## magnified so nobody reads them as evidence about legibility:
-## the goblin cells side by side, and the interrupt flash the game already
-## draws in `Palette.TEXT` -- which is the collision option A walks into.
 func _magnified(at: Vector2, bearing: float) -> void:
 	draw_string(_font, at, "3x MAGNIFIED (shape detail only -- judge legibility from the grid above)",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT)
@@ -302,17 +272,7 @@ func _ring_white(at: Vector2, radius: float, progress: float) -> void:
 
 ## The condition the mark has to survive, which no isolated cell tests: three
 ## hits landing at once inside a scrum, at true size.
-##
-## A single unit on an empty floor flatters every option here. The playtest note
-## that produced #197 was written about a fight, and the question it asks --
-## "whose event is this?" -- only exists when there is more than one unit the
-## mark could belong to.
-##
-## Hand-placed, not simulated: this is a still, and the positions come from what
-## a melee scrum looks like in `Tools/preview/fight_*.png`. It is the weakest
-## evidence on the sheet for that reason and it is labelled as a mock-up.
 const _SCRUM := [
-	# id, offset from panel centre in world units, team, hit-by (index) or -1
 	[&"goblin", Vector2(-46.0, -18.0), CG.Team.ENEMY, -1],
 	[&"warrior", Vector2(-4.0, -6.0), CG.Team.PLAYER, 0],
 	[&"cultist", Vector2(40.0, -30.0), CG.Team.ENEMY, -1],

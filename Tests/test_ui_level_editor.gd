@@ -5,13 +5,6 @@ extends "res://Tests/TestCase.gd"
 ## public methods (place_enemy/place_terrain), not through synthesized mouse
 ## events — same split InspectPanel's editing tests use, and for the same
 ## reason: this is the logic under the input handler, not a proxy for it.
-##
-## No test in this file writes to disk. `_encounter_dict` (the exact save
-## format agreed with dace on the board) is pure and checked directly;
-## `_on_save_pressed`'s disk-writing tail is only exercised by a real save
-## through the running game, not the gate — a JSON file under
-## res://Assets/Rooms/ left behind by every gate run would be a tracked-
-## directory side effect no test suite should have.
 
 # ---------------------------------------------------------------------------
 # LevelEditorCanvas
@@ -177,9 +170,6 @@ func test_save_refuses_a_blocked_enemy_without_touching_disk() -> void:
 
 ## The exact shape posted to TEAM_LOG.md and proposed to dace: flat x/y (and
 ## x/y/w/h for a rect), kind and damage_type as the enum's own string name.
-## This is the one thing that has to hold for a future Registry-side loader
-## to read what this screen writes -- checked directly rather than only
-## exercised through a real file.
 func test_encounter_dict_matches_the_agreed_save_format() -> void:
 	var v := _make_view()
 	v.get_node("%Canvas").place_enemy(&"goblin", Vector2(150.0, -80.0), 22.0)

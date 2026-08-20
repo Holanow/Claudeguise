@@ -5,30 +5,6 @@ const LevelEditorCanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd"
 
 ## Issue 19: author a room the generator can draw from, without leaving the
 ## editor to find out whether it plays well.
-##
-## OWNER: kite.
-##
-## Rooms are hand-written GDScript today, `Registry.all_encounter_ids()`
-## names five of them, and that is the whole pool the floor generator picks
-## a fight from. This is not a convenience tool on top of that — it is the
-## thing that makes "procedural" mean something, per the issue's own framing.
-##
-## Save format agreed with dace on the board before this was built against
-## it (see TEAM_LOG.md, kite's block): `res://Assets/Rooms/<id>.json`, one
-## `Encounter` per file, enum fields written as their string name so the
-## file survives either enum being reordered. `_encounter_dict` below is
-## that exact shape. **What Save does not yet do: reach the generator.**
-## `Registry` has no loader for these files — that half is dace's
-## (`Scripts/Content/**`, not touched here) and has not landed. The file
-## this screen writes is real and sits in the agreed place; nothing reads it
-## back yet. Said plainly rather than claimed, because a save button that
-## looks finished and is not reachable from anywhere else is exactly the
-## "worked and did not meet" failure the retrospective is about.
-##
-## Testing needs none of that: `_start_test_fight` builds an in-memory
-## `Encounter` straight from the canvas and hands it to a real `BattleView`
-## via `begin_with_encounter` (added to that file for this issue), so a room
-## is playable the instant it is placed, saved or not.
 
 signal back_requested
 
@@ -52,14 +28,6 @@ static func create() -> LevelEditorView:
 func _ready() -> void:
 	theme = AppTheme.shared()
 	# Issue 237. One line instead of three, and the point is not the two lines:
-	# `Assets/UI/README.md` promises the player that dropping in
-	# `background/level_editor.png` (or `background.png` for every screen at once)
-	# re-skins this screen, and until this call existed it did nothing at all.
-	# With no file present `background_node` returns exactly the ColorRect this
-	# replaced, in exactly this colour, so nothing shipped changes.
-	#
-	# Moved to index 0 rather than appended: it has to draw under the scene's own
-	# chrome, and `add_child` puts it last.
 	var background := UIArt.background_node(&"level_editor", Palette.BACKGROUND)
 	add_child(background)
 	move_child(background, 0)
@@ -86,12 +54,6 @@ func _ready() -> void:
 
 ## Registry has no `all_enemy_ids()` (only `all_class_ids`/`all_encounter_ids`/
 ## `all_equipment_ids`) — proposed to dace on the board as the clean fix.
-## Until it lands, this derives the bestiary from every enemy id already used
-## by a registered encounter, which is every enemy that exists today (five
-## enemies, five encounters between them, checked directly against
-## `floor1_enemies.gd`). The gap: an enemy Registry knows about but no
-## encounter has ever spawned would not appear here. Documented rather than
-## silently accepted.
 func _bestiary_ids() -> Array[StringName]:
 	var seen := {}
 	for encounter_id in Registry.all_encounter_ids():

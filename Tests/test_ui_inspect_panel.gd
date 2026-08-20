@@ -46,13 +46,6 @@ func _make_plan(display_name: String) -> Plan:
 ## overlapping their own pickers on a real launch ("TaSelfting:",
 ## Screenshots/sweep_inspect_plan_editor_*): `_line()`'s autowrap makes a Label
 ## report a near-zero minimum width beside a SIZE_EXPAND_FILL control.
-##
-## **Those three prefixes no longer exist** — issue 96 made each block a chip
-## captioned with its own value, so there is nothing left to label, and the
-## three tests that asserted each prefix's autowrap mode are replaced by these
-## two rather than deleted. The trap is a property of `_line`, not of those
-## strings: one short label still sits in that position (the priority number),
-## and it gets the same assertion. Disclosed in the pull request.
 func test_the_priority_number_label_does_not_autowrap() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always act")]
@@ -297,12 +290,6 @@ func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 ## tooltip that looks broken. Was asserted against `_action_line`, the
 ## name-over-description block issue 68 replaced with a hoverable chip; the
 ## guarantee is the same one and it now lives on the tooltip.
-##
-## **This test crashed silently for one gate run and the gate said PASS** --
-## it still called `_action_line` after that function was deleted, the method
-## aborted on a runtime error before reaching its assertion, and `run_tests.gd`
-## counted it as a passing test. See the pull request and TEAM_LOG: it is
-## issue #104's rule pointed at the runner itself.
 func test_an_empty_action_description_reads_as_pending_not_blank() -> void:
 	const ActionDefScript := preload("res://Scripts/Core/ActionDef.gd")
 	var panel := InspectPanel.create()
@@ -338,8 +325,6 @@ func test_an_unregistered_action_chip_says_so() -> void:
 ## every class's inspect. The general how to play has never replaced it."*
 ##
 ## Both halves asserted together, per #104 -- "the per-class heading is gone"
-## alone would also pass if the whole plans section vanished, and that is a
-## different screen, not a fix.
 func test_the_general_how_to_play_replaces_the_per_class_plans_explanation() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("only")]
@@ -710,9 +695,6 @@ func test_condition_picker_offers_every_condition_op() -> void:
 	panel.free()
 
 ## rook found this on a real launch: the dropdown read "Self hp below 50%"
-## while the spinbox right beside it read 65% -- every entry, including the
-## selected one, was captioned from the op's default args rather than the
-## plan's own. The label must agree with the setting it is labelling.
 func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 	var pawn := _make_pawn()
 	var condition := PlanBlock.new()
@@ -880,10 +862,6 @@ func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
 # the plans of action, so an inert row that looks like a live one is the purest
 # violation of it available. These assert the mark, its sentence, and that the
 # controls on the row still work.
-#
-# The fixture shrinks the budget after the plans are written, which is the only
-# way a pawn can be over budget at all: `_add_plan` refuses to put it there.
-# That is also exactly what taking WIS armour off does.
 func _pawn_over_budget() -> PawnData:
 	var pawn := _make_pawn(CG.Role.DPS, 8)
 	pawn.plans = []
@@ -1006,11 +984,6 @@ func test_the_default_row_costs_no_block_budget() -> void:
 ## named in the default row is the action `DefaultBehavior` really returns for
 ## that pawn at that distance -- run through the real fallback, not compared
 ## against a second list typed in this file.
-##
-## Two distances per class on purpose. A ranged pawn standing too close backs
-## away instead of firing, which is the behaviour behind PLAYTEST-NOTES-2 item
-## 11, and a row that only held at one distance would not catch a row naming
-## the wrong half of a two-action class.
 func test_the_default_row_names_the_action_default_behavior_really_picks() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -1112,19 +1085,6 @@ func _button_named(node: Node, text: String) -> Button:
 # ---------------------------------------------------------------------------
 
 ## THE DEFECT THIS FILE DID NOT HAVE A TEST FOR, and it was on the trunk.
-##
-## `CONDITION_ARG_SHAPE`'s "status" entries carry no `min`/`max`/`step`, and
-## `_condition_value_editor` read `shape["min"]` for every non-fraction kind.
-## The raise ABORTS THE METHOD AND RETURNS NORMALLY, so `_condition_editor`
-## quietly returned a row with no value editor in it and nothing went red.
-##
-## What it cost: the Geysermancer's "when an enemy has Burn" -- the gate on the
-## only combo in the game -- and the Abomination's "when an enemy has no Poison"
-## had NO CONTROL AT ALL in the plan editor. Reproduced on `main` with
-## `git stash` before it was fixed.
-##
-## Walks every real class rather than a fixture, because a fixture would have to
-## be written with a status condition in it by somebody who already knew.
 func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void:
 	var checked := 0
 	for class_id in Registry.all_class_ids():
@@ -1216,8 +1176,6 @@ func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() 
 	## Asserted per row rather than over the whole panel. **The whole-panel
 	## version was written first and it was vacuous:** the sentence explaining
 	## the verdicts contains every one of these words, so `text.contains("acting")`
-	## passes on a panel that marks nothing at all. Caught by the sibling test
-	## below going red for exactly that reason.
 	var rows := _plan_rows(panel)
 	assert_true(_all_label_text(rows[0]).contains(InspectPanel.VERDICT_WAITING), "row 1 is the one waiting")
 	assert_true(_all_label_text(rows[1]).contains(InspectPanel.VERDICT_ACTING), "row 2 is the one that acted")

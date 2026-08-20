@@ -3,26 +3,6 @@ class_name IconChip
 
 
 ## One small icon with a word beside it, hoverable and pinnable.
-##
-## OWNER: wren.
-##
-## Issue 113 asks for "mostly icons and bars **as long as definitions are
-## clear**", and the second half is the binding one. Everything the arena draws
-## today is drawn inside a `_draw()` on `UnitView`, which means no part of it can
-## be hovered, and a status badge on a pawn is a shape a player either already
-## knows or never learns. A `Control` can be hovered and, through `PopoutHost`,
-## right-clicked to pin -- so the team panel's icons are the first icons in this
-## game that answer a question about themselves.
-##
-## Two kinds, because the panel needs exactly two and a third would be
-## speculation: a status plate (`StatusIcons`) and an action plate
-## (`ActionIcons`). Both are the vocabulary already on screen, per the issue's
-## "it should reuse, not reinvent".
-##
-## `mouse_filter` is set to STOP in `_ready`. It is `Control`'s default, but the
-## eighth built-and-unreachable feature on this project was a `Label` whose
-## default was IGNORE, so on this project it gets written down rather than
-## assumed.
 
 enum Kind { STATUS, ACTION }
 
@@ -41,10 +21,6 @@ var text_color: Color = Palette.TEXT_DIM
 ## 0.0 to 1.0 of the icon darkened from the top down, the share of a cooldown
 ## still to run. Negative means "no sweep", which is every status chip and an
 ## action chip that is ready.
-##
-## Down from the top rather than up from the bottom because the shrinking dark
-## band is the thing a player is waiting on, and a band that shrinks toward the
-## floor reads as draining while one that grows up from it reads as filling.
 var sweep: float = -1.0
 
 func _ready() -> void:

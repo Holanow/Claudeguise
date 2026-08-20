@@ -2,18 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Issue 176: the room picker.
-##
-## Four rooms were authored, three could not be reached through the game at all,
-## and it stayed that way for four days across two sessions of careful numbers
-## about rooms nobody could select. Every test that measured those rooms fetched
-## an `Encounter` from the `Registry` and handed it to `CombatSim` -- so **"does
-## this room work" and "can anyone reach this room" are different questions and
-## only the first was ever asked.**
-##
-## These ask the second one. The end-to-end answer is `Tools/RoomPickerShot.gd`,
-## which drives the real picker through the real controls into a real fight and
-## compares the built `CombatState` against the chosen room; that is what heron
-## asked for before their lid test could be deleted, and it passes for all four.
 
 func _screen() -> PartySelect:
 	var screen := PartySelect.create()
@@ -26,12 +14,6 @@ func _screen() -> PartySelect:
 
 ## **The check that would have caught the original defect.** Every registered
 ## encounter must be either offered by the picker or listed in `NOT_OFFERED`
-## with a reason. A new room cannot appear without somebody deciding which it
-## is, which is precisely what nobody did when three rooms arrived.
-##
-## Measured against `Registry.all_encounter_ids()` -- the real registry, not a
-## second hand-written list. Two hand-written lists compared to each other is
-## the "both artifacts, one author" trap; this compares intent against reality.
 func test_every_registered_room_is_either_offered_or_explicitly_not() -> void:
 	var offered := PartySelect.offered_rooms()
 	var unclassified: Array[String] = []
@@ -92,8 +74,6 @@ func test_each_room_is_offered_under_its_display_name() -> void:
 
 ## The old fix was correct AND it became a lid. The rule it encodes is still
 ## live: never pick an encounter by index, because `Array[StringName].sort()`
-## compares interned pointers and `floor1_ghoul_den` sorts before
-## `floor1_room1`. It now governs the default and the fallback.
 func test_the_picker_starts_on_the_default_room_not_whatever_sorts_first() -> void:
 	var screen := _screen()
 	assert_eq(screen.selected_room(), CG.DEFAULT_ENCOUNTER)

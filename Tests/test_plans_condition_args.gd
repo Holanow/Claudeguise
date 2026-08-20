@@ -9,18 +9,6 @@ extends "res://Tests/TestCase.gd"
 ## screen lied, which is the worst version of it -- nothing in the simulation is
 ## wrong, so nothing could ever go red, and the player is reading a number the
 ## pawn is not using.
-##
-## `PlanInterpreter.CONDITION_ARG_SHAPE` is the contract between the content and
-## that editor and until now nothing checked that content honoured it. This walks
-## every preset plan of every class and asserts each condition argument is inside
-## its own min/max and lands exactly on its own step -- **the two things the
-## control cannot represent otherwise.**
-##
-## The "fraction" kinds are checked in the percent the editor edits in, not in
-## the 0.0-1.0 the interpreter reads, because the snapping happens in the
-## control's units. That conversion is `InspectPanel`'s own and is mirrored here
-## deliberately; if it ever changes, this file is one of the two places that has
-## to move, which is better than the silent version.
 
 func test_every_authored_condition_argument_is_drawable_in_the_editor() -> void:
 	var checked := 0

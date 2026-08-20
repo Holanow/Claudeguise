@@ -5,12 +5,6 @@ class_name FloorFightRunner
 ## Plays one fight-bearing room of a FloorRun for real, through CombatSim, and
 ## writes the result back. This is the connection issue 5 left for later: the
 ## floor graph and the party state existed, nothing ran a fight from them.
-##
-## OWNER: wren, issue 9.
-##
-## Does not touch Scripts/Combat/**: everything here is a caller of
-## CombatSim.build/run and a reader/writer of CombatUnit fields it already
-## has, exactly the surface those files already expose.
 
 enum Outcome {
 	## The party survived and the room was not the boss; the run continues.
@@ -36,7 +30,6 @@ static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
 		push_error("FloorFightRunner.play_treasure_room: room %d is a %s, not TREASURE" % [room.id, FloorRoom.type_name(room.type)])
 		return
 
-	## Same determinism rule as a fight's own seed: derived from the floor
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([run.plan.seed, room.id])
 	var item := LootTables.roll_drop(room.type, room.difficulty, rng)
@@ -49,13 +42,6 @@ static func play_treasure_room(run: FloorRun, room: FloorRoom) -> void:
 ## was that four different curves all land on the same two numbers, so a run
 ## that grinds a party down needs something other than a bigger heal. CELL
 ## replaces a loss; it does not undo one.
-##
-## Candidates are a real class the player has not already got a living pawn
-## of, same "one card per class" rule party select already enforces -- a
-## dead party member's own class is fair game again, since replacing that
-## slot is the whole point. Built entirely from Registry.all_class_ids() and
-## PawnFactory.make_starter_pawn, the same two calls PartySelect.gd already
-## uses to build its own roster -- no new content surface, nothing invented.
 const CELL_CANDIDATE_COUNT := 3
 
 static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnData]) -> Array[PawnData]:
@@ -83,7 +69,6 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 	for i in mini(CELL_CANDIDATE_COUNT, pool.size()):
 		var class_id: StringName = pool[i]
 		var cls := Registry.get_class_def(class_id)
-		## A distinct id, not the bare class id: two different CELL rooms (or
 		var pawn_id := StringName("%s_cell_%d" % [class_id, room.id])
 		out.append(PawnFactory.make_starter_pawn(class_id, pawn_id, cls.display_name))
 	return out
@@ -103,12 +88,6 @@ static func _shuffle(rng: RandomNumberGenerator, arr: Array) -> void:
 ## array the caller passed, same as record_result already mutates `run` in
 ## place. Replaces the party's first dead member. Returns whether anything
 ## changed, so a caller can tell a no-op CELL from a real one.
-##
-## Scoped to replacing a loss on purpose, per README's own framing and
-## rook's steer: if nobody in `party` is currently dead, this does not grow
-## the roster past whatever size the player chose at party select --
-## MAX_PARTY_SIZE is PartySelect's own cap (Scripts/UI) and this file does
-## not duplicate it. The room still resolves either way.
 static func resolve_cell(run: FloorRun, room: FloorRoom, party: Array[PawnData], chosen: PawnData) -> bool:
 	if room.type != FloorRoom.Type.CELL:
 		push_error("FloorFightRunner.resolve_cell: room %d is a %s, not CELL" % [room.id, FloorRoom.type_name(room.type)])
@@ -124,20 +103,12 @@ static func resolve_cell(run: FloorRun, room: FloorRoom, party: Array[PawnData],
 
 ## Builds a fight from `room` and the party's current condition in `run`,
 ## runs it to completion, and writes hp/resource/alive back into `run`.
-##
-## Returns `{"outcome": Outcome, "state": CombatState}` rather than the
-## `Outcome` alone -- pike's ask, issue 43: a live screen needs to show
-## what happened in the fight, not only whether it was won. `Outcome` is
-## pure branching over `state.outcome` and `room.id == run.plan.boss_id`,
-## which any caller can already derive, but it stays returned directly
-## so nothing that only wants win/loss has to reach into `state` for it.
 static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], deps: SimDeps = null) -> Dictionary:
 	if not is_fight_room(room.type):
 		push_error("FloorFightRunner.play_room: room %d is a %s, not a fight room" % [room.id, FloorRoom.type_name(room.type)])
 		return {"outcome": Outcome.DEFEAT, "state": null}
 
 	var encounter := _encounter_for(room)
-	## Derived from the floor seed and the room id, never from a fresh
 	var fight_seed: int = hash([run.plan.seed, room.id])
 	var state := CombatSim.build(party, encounter, fight_seed, deps)
 
@@ -156,7 +127,6 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 		if item != null:
 			run.add_loot(item)
 
-		## Issue 45's call site: a party that wins carries into the next room
 		_apply_between_room_recovery(run, party)
 
 	return {"outcome": _map_outcome(state.outcome, room.id == run.plan.boss_id), "state": state}
@@ -169,12 +139,6 @@ static func play_room(run: FloorRun, room: FloorRoom, party: Array[PawnData], de
 ## revived this way enters the next room alive but not fully healed
 ## (REVIVE_HP_FRACTION) and with no resource at all, same "second chance, not
 ## a free win back" reasoning Balance's own comment states.
-##
-## Resource had no recovery at all until this line: hp partially came back
-## between rooms, resource carried over fully depleted with nothing to refill
-## it but a caster's own regen mid-fight. That gap was invisible in FloorRuns'
-## own output (hp only) and is what let `no_warrior` arrive at the boss on 2
-## of 102 mana while reading as "85% healthy."
 static func _apply_between_room_recovery(run: FloorRun, party: Array[PawnData]) -> void:
 	var has_living_healer := false
 	for p in party:
@@ -230,15 +194,6 @@ static func _carry_party_condition_into(state: CombatState, run: FloorRun, party
 ## better ones exist. `enemy_spawns` *count* is still the only thing
 ## difficulty is allowed to scale, clamped to whichever encounter's own
 ## spawn list.
-##
-## First floor phase: MINIBOSS and BOSS no longer share an id. Issue 44:
-## BOSS now points at `floor1_warden`, a real boss encounter (README's
-## The Warden), replacing the `floor1_chokepoint` placeholder -- that
-## placeholder specifically rewarded the strongest real party (19/20 @
-## 86%) while punishing another (1/20), the exact shape a boss should
-## not have. The Warden was tuned against all five real parties instead.
-## `floor1_cover` and `floor1_hazard` remain unused by any room type;
-## flagged on the board rather than folded in here without asking.
 const _ENCOUNTER_FOR_TYPE := {
 	FloorRoom.Type.ENEMY: &"floor1_room1",
 	FloorRoom.Type.BIG_ENEMY: &"floor1_horde",

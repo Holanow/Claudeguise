@@ -2,10 +2,6 @@ extends "res://Tests/TestCase.gd"
 
 
 ## BattleView reads CombatEvent, never polls CombatUnit for "what happened".
-## These tests build a CombatState by hand, per the issue: CombatSim is wren's
-## stub today, so the fixture stands in for a real fight without waiting on it.
-## consume_events() is exercised directly, bypassing begin()/_ready(), because
-## begin() calls CombatSim.build() which is not implemented yet.
 
 func _make_state_with_units() -> CombatState:
 	var state := CombatState.new(1)
@@ -95,11 +91,6 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 
 # ---------------------------------------------------------------------------
 # Issue 187: the death and miss text.
-#
-# A cold reader called the death text "looks like an error message"; a second,
-# independently, found it and "Miss" overlapping each other in large type over
-# live units.
-# ---------------------------------------------------------------------------
 
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")

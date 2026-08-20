@@ -59,10 +59,6 @@ func test_poison_text_reads_the_real_damage_percent() -> void:
 ## fraction of the hit that lit it, so there is no single number to print -- a
 ## big hit burns harder. The line follows BLEED's precedent and states the rule
 ## in words, which was wren's own preference.
-##
-## The two assertions left are the ones that still mean something: burn does not
-## read like poison, and **it names the combo**. A player who cannot see that
-## Blast eats a burn cannot find the only combo in the game (#186).
 func test_burn_text_states_its_rule_and_names_the_combo() -> void:
 	var text := Glossary.status_text(CG.Status.BURN)
 	assert_true(text.to_lower().contains("blast"),

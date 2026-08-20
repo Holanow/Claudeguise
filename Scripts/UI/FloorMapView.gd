@@ -5,25 +5,6 @@ class_name FloorMapView
 ## Issue 43: the floor exists (Scripts/Floor/**, wren) and nothing in
 ## Scripts/UI ever referenced it. This is the smallest thing that makes a
 ## run a run: see the rooms, enter one, come back with damage carried.
-##
-## OWNER: lark (was pike).
-##
-## Every room type resolves through FloorFightRunner.play_room or
-## play_treasure_room, both already fully public and already correct
-## (real difficulty-scaled encounters, real seeded loot rolls) — no new
-## API needed. Fight rooms resolve instantly rather than animating live;
-## FloorRun.hp_for/is_alive (also already public) are what make the
-## carried damage visible afterward, on this same screen, which is the
-## thing issue 43 actually asks for. A live animated replay of a floor
-## fight is a real future improvement, not a requirement here.
-##
-## Issue 42: CELL resolved in Scripts/Floor (swift, issue 5) with a real
-## API -- FloorFightRunner.cell_candidates/resolve_cell -- but nothing
-## called either from the game, so README's "a selection of new pawns
-## (pick one)" never fired. That matters beyond a missing screen: the
-## floor is built to grind a party down with only partial between-room
-## recovery (issue 7/13), and the Cell replacing a lost pawn is the
-## design's stated counterweight to that attrition. Wired below.
 
 signal run_ended(victory: bool)
 signal back_requested
@@ -58,14 +39,6 @@ static func create() -> FloorMapView:
 func _ready() -> void:
 	theme = AppTheme.shared()
 	# Issue 237. One line instead of three, and the point is not the two lines:
-	# `Assets/UI/README.md` promises the player that dropping in
-	# `background/floor_map.png` (or `background.png` for every screen at once)
-	# re-skins this screen, and until this call existed it did nothing at all.
-	# With no file present `background_node` returns exactly the ColorRect this
-	# replaced, in exactly this colour, so nothing shipped changes.
-	#
-	# Moved to index 0 rather than appended: it has to draw under the scene's
-	# own chrome, and `add_child` puts it last.
 	var background := UIArt.background_node(&"floor_map", Palette.BACKGROUND)
 	add_child(background)
 	move_child(background, 0)
@@ -205,9 +178,6 @@ func _on_room_pressed(room: FloorRoom) -> void:
 		return
 	else:
 		# TRAP/LIBRARY: no mechanics built yet (issue 43's own scope).
-		# Entering is the smallest correct thing — the room becomes
-		# visited and the run continues — rather than inventing a trap or
-		# library effect nobody asked for.
 		run.enter(room.id)
 	_refresh()
 
@@ -221,11 +191,6 @@ func _outcome_text(outcome: int, room: FloorRoom) -> String:
 			return "Cleared the %s. %s" % [FloorRoom.type_name(room.type), _party_status_text()]
 
 ## Issue 41's routing: "the equip screen, once something can be equipped."
-## `run.loot` is the holding pen wren's fights already drop into; this is
-## the other half — assign a dropped item to a pawn's slot. No new Core API:
-## PawnData's weapon/armor/accessory are already public, and
-## EquipmentDef.allows() already says which pawn may wear a piece, so the
-## screen only has to ask the question and never has to enforce it twice.
 func _on_equip_pressed() -> void:
 	_equip_selected_item = null
 	%EquipPanel.visible = true
@@ -310,14 +275,6 @@ func _on_pawn_picked(pawn: PawnData, item: EquipmentDef) -> void:
 ## README's CELL: "a selection of new pawns (pick one)". FloorFightRunner
 ## already builds the offer and applies a pick (swift, issue 5) -- this is
 ## the other half, asking the question and showing the result.
-##
-## cell_candidates() always returns real offers regardless of whether
-## anyone is dead (it only excludes classes the party already has living),
-## but resolve_cell() only ever replaces a dead member and README frames
-## CELL as replacing a loss, not growing the roster past what party select
-## chose. Offering a pick that can provably do nothing would read as a
-## broken button, so this checks for a loss first and skips the panel
-## entirely when there is none to fill.
 func _on_cell_room_entered(room: FloorRoom) -> void:
 	var has_loss := false
 	for pawn in party:

@@ -3,30 +3,6 @@ class_name Glossary
 
 
 ## Explanatory copy for every game term with no description anywhere today:
-## class tags (Role/Style/Method), stats (CG.Attribute) and statuses
-## (CG.Status). Hover-info-box system, phase 1 (see TEAM_LOG.md, wren's
-## block) -- Control-based screens first, the battle arena (where statuses
-## actually appear on screen) second.
-##
-## OWNER: wren. Explanatory copy is presentation, not simulation -- same
-## reasoning Palette.gd already applies to colour.
-##
-## The one rule that matters more than the wording: **this file owns the
-## sentence, Balance owns the number.** Every numeric fact below is read
-## from a real Balance/Core constant at call time, never retyped as a
-## literal -- rook's own correction after the condition-editor bug (a UI
-## file captioned a control from the op's default instead of the plan's
-## real value, i.e. kept a second copy of a fact PlanInterpreter already
-## owned). A description here can go stale the moment a balance pass
-## changes a number; reading the constant instead of copying it is what
-## keeps that impossible.
-##
-## Percent constants in Balance are stored as whole numbers (e.g. `0.30`
-## already means "0.30%", not "30%" -- see POISON_DAMAGE_PERCENT_PER_TICK's
-## own doc comment) and some as fractions of 1.0 (e.g.
-## STATUS_SHIELD_REDUCTION). Each formatter below matches whichever the
-## constant it reads actually uses; nothing here re-derives a percent from
-## a fraction or vice versa.
 
 static func role_text(role: CG.Role) -> String:
 	match role:
@@ -118,7 +94,6 @@ static func status_text(s: CG.Status) -> String:
 			return "Deals damage each tick for a fixed duration."
 		CG.Status.TAUNTED:
 			return "Forced to attack whoever taunted this unit until it wears off or is cleansed."
-		# Issue 121, finch: no number, following BLEED's line above and wren's
 		CG.Status.BURN:
 			return "Burns for a share of the hit that lit it, each tick, until it wears off. A Geyser Blast snuffs it out and hits far harder for doing so."
 		CG.Status.POISON:
@@ -154,15 +129,6 @@ static func status_text(s: CG.Status) -> String:
 
 ## What a status is carrying beyond its expiry, in words, or "" for the statuses
 ## that carry nothing a player should be shown.
-##
-## **The two sets are read from `CombatSim`, not listed here**, and that is the
-## whole point of the function. A generic "print the magnitude when it is not
-## zero" is wrong and dangerously so: `TAUNTED` stores **the taunter's unit id**
-## in that same field and `SUSTAINING` stores an action, so the naive version
-## publishes a unit id to the player as if it were a strength. `CombatLogView`
-## worked this out once already and this is that rule with one owner instead of
-## two -- the log calls it now, so a line in the log and a popup on the panel
-## cannot describe the same badge two different ways.
 static func status_magnitude_text(status: CG.Status, magnitude: int) -> String:
 	if magnitude <= 0:
 		return ""
@@ -173,14 +139,6 @@ static func status_magnitude_text(status: CG.Status, magnitude: int) -> String:
 	return ""
 
 ## The live half of the popup: what `unit` is carrying of `status` at `tick`.
-##
-## Reads the unit rather than being handed numbers, because the two facts come
-## from two dictionaries (`statuses` holds the expiry tick, `status_magnitude`
-## holds the rest) and a caller assembling them itself is a second place for the
-## pairing to go wrong.
-##
-## Returns "" when the unit does not have the status at all, so a caller can tell
-## "nothing to add" from "carrying nothing", which are different sentences.
 static func status_now_text(unit, status: CG.Status, tick: int) -> String:
 	if unit == null or not unit.statuses.has(status):
 		return ""
@@ -188,21 +146,11 @@ static func status_now_text(unit, status: CG.Status, tick: int) -> String:
 	var magnitude := status_magnitude_text(status, int(unit.status_magnitude.get(status, 0.0)))
 	if magnitude != "":
 		parts.append(magnitude)
-	# Ticks the player reads as the clock reads them, the same unit the cooldown
 	var left := maxi(int(unit.statuses[status]) - tick, 0)
 	parts.append("%.1fs left" % (float(left) / float(CG.TICKS_PER_SECOND)))
 	return "On %s now: %s." % [unit.display_name, ", ".join(parts)]
 
 ## The whole popup for one status badge, general sentence and live numbers.
-##
-## One function because the panel and anything that describes a badge later must
-## not each assemble their own -- four screens calling one status three different
-## names is a failure this file already exists to prevent.
-##
-## **The body only. The name is the title**, on both surfaces -- `pin_title` on
-## the chip feeds `Popout`'s own title row and `GlossaryTooltip`'s heading. The
-## first version put the name in here as well and the pinned copy said "Taunting"
-## twice, which no test saw because the string was correct in both places.
 static func status_popup_text(unit, status: CG.Status, tick: int) -> String:
 	var lines: Array[String] = [status_text(status)]
 	var now := status_now_text(unit, status, tick)
@@ -211,10 +159,5 @@ static func status_popup_text(unit, status: CG.Status, tick: int) -> String:
 	return "\n\n".join(lines)
 
 ## The status's name, as every screen already spells it.
-##
-## `CG.Status.keys()` is what the combat log, the plan sentence, the condition
-## editor and the team panel all read. It lives here because the popup above
-## needs it and this file is where the words are; `TeamStatusView.status_name`
-## is kept as a call through to this, so nothing that already asks it changes.
 static func status_name(s: CG.Status) -> String:
 	return String(CG.Status.keys()[s]).capitalize()

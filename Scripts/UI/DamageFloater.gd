@@ -4,11 +4,6 @@ class_name DamageFloater
 
 ## A number that rises off a unit and fades. Coloured by damage type through
 ## Palette.damage_color.
-##
-## OWNER: pike.
-##
-## Purely cosmetic and driven by wall clock, not by ticks. It must never feed
-## anything back into the simulation.
 
 const LIFETIME_SECONDS := 0.9
 const RISE_SPEED := 40.0

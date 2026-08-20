@@ -3,24 +3,6 @@ class_name PlanInterpreter
 
 
 ## Turns a pawn's plans into one Intent per tick.
-##
-## OWNER: teal. Files under Scripts/Plans/ and Scripts/Content/ are teal's.
-##
-## Called by CombatSim once per unit per tick, before anything resolves. It may
-## read the state and it may write `unit.focus_id`. It may not write anything
-## else on a unit: every other change goes through the Intent it returns.
-##
-## Per README.md, when several plans would fire on the same tick exactly one
-## does, and it is the earliest one in `pawn.plans`. A unit with no plan that
-## fires falls through to DefaultBehavior.
-##
-## A plan runs its blocks once, in order, entirely within one call to decide():
-## a targeting block moves focus and an action block fires immediately after,
-## so "focus nearest enemy, then attack" never re-targets between the two.
-## There is no persistent per-plan progress stored anywhere (CombatUnit carries
-## none), so a DURATION block is a structural marker only; the actual "how long
-## does this repeat" is already governed by the fired action's own wind-up and
-## recovery, since decide() is not called again until the unit is free.
 
 ## Whitelists, one per PlanBlock.Kind. An op not listed here is unknown and
 ## fails loudly rather than being silently skipped, per the issue: a skipped
@@ -49,36 +31,9 @@ const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
 
 ## Issue 97. One op, not three.
-##
-## `keep_distance{range: float}` covers every case the issue lists, because all
-## of them are a distance the pawn wants to hold relative to its focus:
-##
-##   "keep 120 units away"  ->  keep_distance{range: 120}   (kite)
-##   "close to melee"       ->  keep_distance{range: 0}     (charge)
-##
-## The player's other suggestion -- *"move 25 units left and 25 units up"* --
-## is deliberately not built. An absolute vector does not know where the enemy
-## is, so the same block reads as a retreat or as a charge depending on which
-## side the enemy happens to be standing, and the arena has no fixed facing to
-## reason from. A distance from the target works from every side.
-##
-## "Hold position" is genuinely not a distance and is genuinely not here.
-## Nothing needs it yet; it is a second op when something does.
 const MOVEMENT_OPS := [&"keep_distance"]
 
 ## How close to the requested distance counts as arrived, in world units.
-##
-## **This is hysteresis and it is load-bearing, not a tolerance.** Without a
-## band, a pawn that overshoots by a single tick's movement is now on the wrong
-## side of the threshold and turns around, forever -- which is not a
-## hypothetical. Measured on issue 94: a pawn resting where two rules disagreed
-## alternated between them on a **two-tick cycle** for 2400 ticks and never
-## fired a shot, positions exactly period-2 at ticks 2000/2001/2002.
-##
-## 15 units, against a fastest pawn move of 6.25 units per tick (the
-## Abomination; the other four are 4.70 to 5.45, from `Balance.move_speed` on
-## real starter pawns). So the band is wider than two ticks of travel for every
-## pawn in the game, and a unit that steps into it stays in it.
 const KEEP_DISTANCE_BAND := 15.0
 
 ## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
@@ -89,8 +44,6 @@ const KEEP_DISTANCE_BAND := 15.0
 ## evaluate a condition. Moved here from InspectPanel.gd itself, which carried
 ## its own copy pending this issue -- see PR history for the "if the whitelist
 ## grows past its current five entries, it moves" call that opened it. "none"
-## carries no value editor. "fraction" is edited as a 0-100 percent by the
-## caller and rescaled to the 0.0-1.0 this interpreter actually reads.
 const CONDITION_ARG_SHAPE := {
 	&"always": {"kind": "none"},
 	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
@@ -107,7 +60,6 @@ const CONDITION_ARG_SHAPE := {
 ## push_error is the loud, real failure. This is a testable side channel: the
 ## test suite has no way to assert a push_error happened, so an unknown op also
 ## records here, naming the op and the plan, and a test can read and clear it.
-## Cleared at the start of every decide()/condition_holds() call.
 static var last_error: String = ""
 
 ## Issue 269: how many of a pawn's plans it can actually pay for, and **the one
@@ -119,19 +71,6 @@ static var last_error: String = ""
 ## defect it was written to fix: a row the screen calls inert that the pawn fires
 ## anyway, which is the pawn-behaviour principle inverted -- the player can see
 ## the mark and the pawn ignores it.
-##
-## The rule: rows are paid for in priority order, so the surplus is always at the
-## bottom. Walk the list adding each row's own `block_count()`, and the first row
-## whose running total passes `Balance.plan_block_budget` is where the pawn runs
-## out. That row and every row under it is inert. `spent` never decreases, so
-## stopping at the first overrun and marking everything after it inert are the
-## same thing -- a cheap row below an expensive one does not sneak back in.
-##
-## Guarding here rather than in the editor is deliberate. The editor already
-## refuses to *add* a row past the budget, and that was the whole enforcement:
-## the budget can also *shrink* under a plan the player already wrote, by taking
-## WIS armour off mid-floor, and `EquipPanel` offers every registered item today.
-## So the route is reachable now, not hypothetically.
 static func active_plan_count(pawn: PawnData) -> int:
 	if pawn == null:
 		return 0
@@ -223,18 +162,6 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 ## pawn stood was never visible in a plan, which is issue 98's principle, and
 ## kiting was its loudest symptom: a pawn backing out of a fight the player told
 ## it to join, with nowhere to go and change it.
-##
-## **A plan carrying a MOVEMENT block never falls through to
-## `DefaultBehavior`.** That is the whole point rather than a detail. A block
-## whose effect can be silently overruled by hidden code is not control, and
-## building it any other way would recreate issue 98 inside the fix for it.
-##
-## The one exception, and it is not a fall-through in spirit: **no focus at
-## all.** "Keep 120 units away" is relative to something, and with no target
-## there is nothing to be 120 units from. That happens only when the plan's
-## targeting found no enemy, which means the fight is over, so this returns null
-## and lets the ordinary path handle it rather than freezing the pawn at a
-## distance from nobody.
 static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock, action_id: StringName) -> Intent:
 	var target := state.unit(unit.focus_id)
 	if target == null or not target.alive:
@@ -244,7 +171,6 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 	var dist := unit.position.distance_to(target.position)
 	var away := unit.position - target.position
 	if away.length() < 0.0001:
-		# Standing exactly on the target. Any direction is "away"; pick one
 		away = Vector2(1.0, 0.0)
 
 	if dist < wanted - KEEP_DISTANCE_BAND:
@@ -252,16 +178,11 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 	if dist > wanted + KEEP_DISTANCE_BAND:
 		return Intent.move_to(target.position + away.normalized() * wanted, plan.id)
 
-	# Standing where the player asked. Fire if there is an action and it can
 	if action_id == &"" or not _action_can_fire(state, unit, action_id):
 		return Intent.idle(plan.id)
 	return Intent.use_action(action_id, unit.focus_id, plan.id)
 
 ## Every gate `_run_blocks` applies to an action, asked as one question.
-##
-## Extracted rather than duplicated: a movement block has to know whether the
-## action would fire in order to decide between firing and holding, and two
-## copies of a seven-clause list is how the two paths drift apart.
 static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	return _unit_has_action(unit, action_id) \
 		and _target_in_range(state, unit, action_id) \
@@ -271,30 +192,6 @@ static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: St
 		and _target_is_marked(state, unit, action_id)
 
 ## Issue 100: a plan may only fire an action the unit actually has.
-##
-## **Nothing anywhere checked this before, and it is what made `granted_actions`
-## meaningless.** `PlanInterpreter` resolved an action straight out of `Registry`
-## and `CombatSim._resolve_use_action` did the same, so any plan could fire any
-## action in the game regardless of whether the pawn owned it. A Warrior with no
-## Plate Mail and a Warrior wearing one would both have cast Directional Block,
-## which makes equipping the item worth nothing and makes the whole equipment
-## feature impossible to test: there is no observable difference between granted
-## and not granted.
-##
-## It is also the reverse of issue 98's principle -- *"pawns should never do
-## anything the player cannot see in the plans of action"* -- because a pawn
-## firing an ability it does not own is the same class of surprise seen from the
-## other side.
-##
-## `unit.actions` is the right list to read: `CombatSim._collect_player_actions`
-## builds it as the class's `starting_actions` plus every equipped piece's
-## `granted_actions`, so it is already the exact union of "everything this pawn
-## can do", equipment included, and it is what the plan editor should show.
-##
-## An empty `actions` list means "not a real unit yet", which several tests build
-## deliberately, so it is allowed through rather than treated as owning nothing.
-## Narrowing that is a change to fixtures other sessions own, and this gate is
-## about equipment rather than about test hygiene.
 static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
 	if unit.actions.is_empty():
 		return true
@@ -306,10 +203,6 @@ static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
 ## available together, regardless of which targeting op or condition (if any)
 ## picked the target. Out of range falls through (returns null from decide(),
 ## via _run_blocks) rather than trying to move into range itself:
-## PlanInterpreter has never handled movement, that is DefaultBehavior's whole
-## job, and a unit with no plan that fires already falls through to it. So an
-## over-eager plan just steps aside for a tick instead of ordering a shot at
-## nothing, and DefaultBehavior closes the distance the same way it always has.
 static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null:
@@ -343,13 +236,6 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 ## burning the tick. Falls through to the next plan (or DefaultBehavior)
 ## exactly like an out-of-range shot does, rather than special-casing Rage or
 ## rewriting the plan's own condition to route around the gap.
-## **Public since issue 214, on `DefaultBehavior.default_attack_action`'s
-## precedent: one definition, two callers.** `DefaultBehavior` needs exactly this
-## question and did not ask it, which is how `stalker_dart` reached the trunk
-## having never fired once -- `stalker_mark` was chosen on all 60 ticks of its own
-## cooldown and `CombatSim` spent the tick refusing it. A second copy of a
-## four-line gate is how the plan path and the fallback path drift into
-## disagreeing about what a unit can do.
 static func can_afford(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null:
@@ -362,22 +248,6 @@ static func can_afford(state: CombatState, unit: CombatUnit, action_id: StringNa
 
 ## Issue 93: the summon cap, and it is a gate on *choosing* the action rather
 ## than a refusal at spawn time. Same shape and same reasoning as `can_afford`
-## directly above -- a plan whose action cannot do anything right now must fall
-## through to the next plan instead of committing the unit to a wasted tick.
-##
-## Where this runs is the whole design, not an implementation detail. Refusing
-## inside `CombatSim._spawn_summon` would let a Siege Master pay 20 Mana and
-## stand through a 90-tick wind-up to produce nothing, on every tick it is
-## capped -- which would make `spotter_mark` rarer, and the engines now depend
-## entirely on `spotter_mark`. Falling through here is what turns "capped" into
-## "mark something instead", and it is why the cap and the marked-only gate are
-## one change rather than two.
-##
-## Counts live summons by `EnemyDef` id on the caster's own team, not by who
-## cast what: a second Siege Master's engines occupy the same field the first one
-## is looking at, and two players' worth of engines is exactly what the cap
-## exists to prevent. `max_active_summons` 0 means uncapped, which is every
-## action but one, so this returns true immediately for all of them.
 static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null or action.max_active_summons <= 0 or action.summons_unit_id == &"":
@@ -392,10 +262,6 @@ static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: S
 ## fall-through shape as the range and line-of-sight checks above: a plan aiming
 ## an engine at an unmarked target steps aside rather than ordering a shot the
 ## engine is not allowed to take.
-##
-## Checked against the *focused* target rather than "is anything marked
-## anywhere". A plan that chose its own target must not get to fire at that
-## target on the strength of some other enemy being marked somewhere else.
 static func _target_is_marked(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null or not action.requires_marked_target:
@@ -420,7 +286,6 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return false
 		&"self_resource_at_least":
 			return unit.resource >= int(block.args.get("amount", 0))
-		## Issue 206: the mirror of the op above, and it exists because a Rage
 		&"self_resource_below":
 			return unit.resource < int(block.args.get("amount", 0))
 		&"enemy_in_range":
@@ -532,19 +397,6 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 ## The nearest living ally carrying any status `CG.is_harmful` classifies as
 ## harmful, or null. `unit` counts as an ally at distance 0, so a poisoned
 ## caster scrubs itself first.
-##
-## Backs BOTH the `ally_has_harmful_status` condition and the
-## `target_ally_with_harmful_status` op from one function, because the two
-## must agree exactly. If the condition holds on an ally the op then declines,
-## `_eval_targeting` returns -1, `_run_blocks` leaves `focus_id` at whatever
-## the previous tick set -- an enemy, for this class -- and the plan fires an
-## ally-shaped action at an enemy.
-##
-## `CG.is_harmful` is the only thing consulted, the same source
-## `CombatSim._cleanse_harmful` and the status badges use.
-##
-## Nearest wins, ties by iteration order over `state.living`, fixed for a
-## seed. No rng.
 static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
@@ -580,16 +432,6 @@ static func _status_arg(block: PlanBlock) -> CG.Status:
 	return int(block.args.get("status", 0)) as CG.Status
 
 ## Player-facing name for a status, for the plan sentences.
-##
-## **Capitalised as a noun, and the first version was lowercase because I wrote
-## the sentence without reading it on the screen.** The plan editor rendered *"An
-## enemy is not poison"*, which is not English. Read as a noun -- "an enemy has
-## no Poison", "the nearest enemy without Poison" -- it needs no adjective table
-## and it matches what the badge and the glossary call the same thing.
-##
-## `CG.Status.keys()` is the same source `CombatLogView._status_name` uses, so
-## the plan editor and the combat log cannot call one status two different
-## things.
 static func _status_word(status: int) -> String:
 	return String(CG.Status.keys()[status]).capitalize()
 

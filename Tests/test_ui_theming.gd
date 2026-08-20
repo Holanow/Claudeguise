@@ -5,24 +5,6 @@ extends "res://Tests/TestCase.gd"
 ##
 ## The thirteenth built-and-unreachable thing on this project, and the only one
 ## whose false promise is written down in a file addressed to the player:
-## `Assets/UI/README.md` said dropping in `background.png` themes every screen,
-## and `background_node` had zero call sites outside `Tests/` and `Tools/`.
-##
-## `test_art.gd` already checks that the README's names and the call sites agree,
-## and it does it by searching `Scripts/UI/*.gd` for the literal `&"name"`. That
-## is the right check for *documentation drift* and it is the wrong one for
-## *reachability*: a screen that holds the string and never calls the function
-## passes it, which is the exact shape of the defect. sable wrote it and named
-## the limit; this is the other half.
-##
-## So these build each screen through its own `_ready()`, with a real PNG on
-## disk, and ask what the screen actually put in its tree.
-##
-## **The negative case is the load-bearing one.** With no file present every
-## screen must still hold a plain `ColorRect` in `Palette.BACKGROUND` -- the
-## shipped game is meant to be pixel-identical, and a test that only checks the
-## themed case would pass a change that themed every screen bright red by
-## default.
 
 const _SCRATCH := "res://Assets/UI/background/%s.png"
 var _ELEMENTS := {

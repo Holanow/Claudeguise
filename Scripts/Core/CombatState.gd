@@ -5,17 +5,6 @@ class_name CombatState
 ## The whole fight. Given the same seed and the same starting units this must
 ## step to the same state every time, because "change one thing and re-run the
 ## same fight" is how the combat gets judged.
-##
-## MANAGER-OWNED SHAPE.
-##
-## Determinism rules, which apply to every session touching this:
-##
-##  1. All randomness comes from `rng`. Never `randi()`, never `randf()`, never
-##     a new RandomNumberGenerator. Those read a global seed and the fight stops
-##     being reproducible without anything looking wrong.
-##  2. Never iterate a Dictionary to decide anything that affects the fight.
-##     Iterate `units`, which is ordered.
-##  3. No `delta`. The simulation advances one whole tick at a time.
 
 enum Outcome { UNRESOLVED, PLAYER_WIN, ENEMY_WIN, DRAW }
 
@@ -33,17 +22,6 @@ var rng: RandomNumberGenerator = null
 ## built without an encounter's terrain behaves exactly as it did before this
 ## existed -- which is what lets issue 13a land without invalidating a single
 ## tuning measurement teal has taken.
-##
-## Untyped `Array`, deliberately, matching `Terrain.gd`'s own public API exactly:
-## `point_is_blocked`, `line_is_blocked` and `hazards_at` all take and return
-## plain arrays, and `Tests/test_terrain.gd` never types one either. Typed arrays
-## of a RefCounted inner class with no `class_name` are an engine rough edge not
-## worth fighting for a container that three sessions pass around.
-##
-## This started as `Array[Terrain.Feature]`. wren proposed that, I applied it
-## verbatim, and wren then found it did not work and traced why. I own both
-## files and did not check the new line against the contract of the old one,
-## which is the part I should have caught.
 var terrain: Array = []
 
 ## Shots in flight or already resolved, in launch order. Append-only like
@@ -53,10 +31,6 @@ var projectiles: Array[Projectile] = []
 
 ## Index of the first unresolved entry in `projectiles`, so the per-tick scan
 ## does not walk thousands of already-resolved entries in a long fight.
-## Correctness does not depend on this: the scan always covers cursor..end in
-## full, so a projectile resolving out of launch order is still found. This
-## only buys speed, on the assumption that resolution is roughly in launch
-## order.
 var next_unresolved_projectile: int = 0
 
 ## Every event since the fight began, in tick order. The view reads from

@@ -2,26 +2,6 @@ extends Node
 
 ## Issue 269: equipment WIS buys plan blocks, and a row past the budget goes
 ## visibly inert. Both halves, through the controls a player uses.
-##
-##   godot --path . --resolution 1280x720 res://Tools/WisBudgetShot.tscn
-##
-## **The whole sequence is reachable today**, which is worth stating because the
-## issue reads as though it is not: no starter pawn wears WIS armour (#226 has
-## not landed), but `EquipPanel` offers every registered item, so a player can
-## put Robes on a pawn themselves. That makes this a real user route rather than
-## a harness posing as one.
-##
-## The route, and it is the issue's own scenario:
-##
-##   1. Geysermancer, preset plans, 6 of 6 blocks used. Exactly at budget.
-##   2. Equip Robes (+2 WIS). Budget 8. **Before this change that did nothing.**
-##   3. Add a plan. 8 of 8.
-##   4. Take the Robes off again -- the mid-floor edit the player's ruling is
-##      about. Budget falls to 6, 8 blocks are spent, and the fourth row is one
-##      the pawn can no longer pay for.
-##
-## Step 4 is the capture that matters. A green suite proves the row is marked;
-## only a capture proves the mark is readable next to the row it is about.
 
 const OUT_DIR := "res://Screenshots"
 

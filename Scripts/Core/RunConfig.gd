@@ -3,10 +3,6 @@ class_name RunConfig
 
 
 ## What the party select screen hands to the battle screen. Small on purpose:
-## these three fields are the entire input to a fight, and that is what makes
-## "change one thing and re-run" possible.
-##
-## MANAGER-OWNED SHAPE.
 
 var party: Array[PawnData] = []
 var encounter_id: StringName = &""

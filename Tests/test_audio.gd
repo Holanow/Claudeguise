@@ -5,8 +5,6 @@ extends "res://Tests/TestCase.gd"
 ## make sure the pipeline works", so the load-bearing tests here are the ones
 ## that write a real file onto disk and assert the game finds it. Reasoning about
 ## a drop-in proves nothing: the whole claim is about files.
-##
-## OWNED BY sable (`Scripts/Audio/**`, `Assets/Audio/**`).
 
 const SCRATCH := [
 	"res://Assets/Audio/event/damage.wav",
@@ -160,8 +158,6 @@ func test_every_event_kind_resolves_to_a_name() -> void:
 	# in the project, and swift found the cost of that twice: SUSTAIN_START,
 	# SUSTAIN_END and BLOCKED all render as '' in the combat log because a kind
 	# was appended and every hand-written match statement stayed as it was.
-	# Audio resolves names from the enum itself, so a new kind cannot be missed
-	# here -- and this test is what asserts that stays true.
 	for kind in CG.EventKind.values():
 		var name := SoundBank.sound_name(_event(kind))
 		assert_ne(String(name), "", "%s resolves to an empty sound name" % CG.EventKind.keys()[kind])
@@ -267,8 +263,6 @@ func test_the_replacement_instructions_name_every_event_kind() -> void:
 	# Assets/Audio/README.md is the file the player uses to drop sounds in. A
 	# kind missing from it is a sound they cannot name and therefore cannot
 	# replace, and they would find out by dropping a file in that never plays.
-	# Walked from the real enum, so appending a kind fails here rather than
-	# silently going undocumented.
 	var readme := FileAccess.get_file_as_string("res://Assets/Audio/README.md")
 	assert_ne(readme, "", "Assets/Audio/README.md is missing")
 	for kind in CG.EventKind.values():
@@ -286,16 +280,6 @@ func test_the_instructions_say_which_kinds_are_voiced() -> void:
 	# The test above only asks that a kind is NAMED somewhere in the README, and
 	# that is one degree off the question a player asks. They ask "does this one
 	# make a noise today", and the README answers it with two tables.
-	#
-	# It was wrong. `event/interrupted` sat in the table headed "the six with a
-	# placeholder today" -- a table of seven rows -- and INTERRUPTED has never
-	# been in `PLACEHOLDER_VOICES`. A player replacing that blip would have been
-	# adding the first sound that kind ever made, which is a different operation
-	# with a different result, and nothing went red.
-	#
-	# So this splits the README where the player's eye splits it and checks each
-	# side against the real dictionary. Both directions: a voiced kind under the
-	# silent heading fails too.
 	var readme := FileAccess.get_file_as_string("res://Assets/Audio/README.md")
 	assert_ne(readme, "", "Assets/Audio/README.md is missing")
 	var voiced_at := readme.find(_VOICED_HEADING)

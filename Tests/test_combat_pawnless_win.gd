@@ -6,13 +6,6 @@ extends "res://Tests/TestCase.gd"
 ## on saying it -- this changes nothing about `_check_outcome`. What it adds is
 ## the question the end banner has to ask to tell that ending apart from a real
 ## win: `CombatSim.is_pawnless_win`.
-##
-## The question rook asked me to answer first was whether the two endings are
-## distinguishable from `CombatState` alone, or whether telling them apart needs
-## a new field in Core. **They are distinguishable and it does not.** Dead units
-## stay in `state.units` with `alive == false`, and a pawn is the one player-team
-## unit with `pawn != null`. `test_the_ending_is_visible_in_a_real_fight` is the
-## proof, run against real content rather than a fixture.
 
 const ENCOUNTER := &"floor1_warden"
 const SEEDS := 40
@@ -87,10 +80,6 @@ func test_an_ordinary_win_is_not_a_pawnless_one() -> void:
 ## ending it names actually happens, in real content, and that the predicate
 ## sees it there -- the two are different claims, and only the second one can
 ## tell rook whether a Core field was needed.
-##
-## It also asserts every ordinary win in the same 40 fights answers false, which
-## is the negative half: a predicate that said true everywhere would pass a
-## one-sided version of this test and turn every victory into a defeat.
 func test_the_ending_is_visible_in_a_real_fight() -> void:
 	var encounter := Registry.get_encounter(ENCOUNTER)
 	assert_true(encounter != null, "floor1_warden is registered")

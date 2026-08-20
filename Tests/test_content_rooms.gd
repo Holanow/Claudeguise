@@ -3,34 +3,9 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue #94: the four rooms a player picks between, and the properties that
 ## make them four rooms rather than four skins. OWNER: heron.
-##
-## New file rather than more methods in `test_content_encounter.gd`, which is
-## already 500 lines of another session's balance history and is a conflict
-## site while several sessions are live.
-##
-## Every check here is a run-it-and-see, not a structural read of the room
-## definition, except the two that guard the headcount rule -- and those exist
-## precisely because they cannot be run: "these four rooms are comparable to
-## each other" is a property of the authoring, not of any one fight.
 
 ## The four rooms #94 built, and the set every headcount, stall and wall check
 ## in this file measures across.
-##
-## **This is NOT the set the picker offers, and issue #180 asked me to make it
-## query `Encounter.pickable` -- I did not, because they are different sets.**
-## The picker offers six: these four plus `floor1_rat_king` and
-## `floor1_warden`. These four exist to be *comparable to each other*, which is
-## why `test_all_four_pickable_rooms_field_the_same_number_of_enemies` asserts
-## ten enemies each; the Warden's room fields one, by design. Pointing this
-## constant at the flag would only be possible by weakening that assertion, so
-## the flag now owns "offered" and this list still owns "comparable".
-##
-## The name is the last thing left conflating the two. Renaming it to
-## `COMPARABLE` is heron's call, not mine -- reported to rook on the board with
-## the rest of #180.
-##
-## `floor1_horde`, `floor1_ghoul_den`, `floor1_rat_king` and `floor1_warden`
-## stay registered and are deliberately not in this list.
 const PICKABLE: Array[StringName] = [
 	&"floor1_room1",
 	&"floor1_cover",
@@ -99,9 +74,6 @@ func _without_terrain(enc: Encounter) -> Encounter:
 ## credited the geometry for the difference. Before issue #94 that was still
 ## live in the content: `floor1_cover` and `floor1_hazard` carried three
 ## enemies each while `floor1_room1` and `floor1_chokepoint` carried ten.
-##
-## This is a structural check because the property is structural. It cannot be
-## run: no single fight can tell you whether two rooms are comparable.
 func test_all_four_pickable_rooms_field_the_same_number_of_enemies() -> void:
 	var counts := {}
 	for id in PICKABLE:
@@ -265,22 +237,6 @@ func test_the_rat_king_is_almost_never_allowed_to_lash() -> void:
 ## **Issue #130's rats, and it replaces an assertion of swift's that fired.**
 ##
 ## `test_combat_bleed_is_live.gd::test_no_authored_action_applies_bleed_yet`
-## asserted that nothing in the game applied BLEED and said the day it failed
-## was the day to re-measure. `rat_bite` failed it. That file builds arenas by
-## hand and cannot run a room, so the replacement lives here: real fights, real
-## rats, counted out of `state.events`.
-##
-## **Stacks, not applications, is the whole point of the check.** A bleed that
-## refreshed instead of stacking would emit exactly the same number of
-## `STATUS_APPLIED` events and be a completely different mechanic, so counting
-## applications would pass against the thing #130 exists to rule out. The stack
-## count rides on `STATUS_APPLIED.amount`, and what this asserts is that a
-## single pawn is seen carrying **several at once**.
-##
-## Measured floors, not aspirational ones: the peak stack on one pawn across
-## these fights is in the doc of the pull request, and the floor here is 3 --
-## enough that a refresh-only mechanic cannot reach it, with margin, per board
-## rule 4.
 func test_the_rats_bleed_stacks_on_a_real_pawn() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var rats := 0
@@ -345,10 +301,6 @@ func test_no_pickable_room_stalls_for_any_buildable_party() -> void:
 
 ## The negative half, and the one almost nobody writes: the pits have to be
 ## the reason. The same roster with the terrain stripped is `floor1_room1`
-## exactly, and it also resolves -- so a passing test above would say nothing
-## about the pits if the stall were never there to begin with. What this
-## asserts is that the two rooms are genuinely different fights, which is the
-## claim "the chokepoint is a different room from the open one" rests on.
 func test_the_chokepoints_terrain_is_not_decoration() -> void:
 	var enc := Registry.get_encounter(&"floor1_chokepoint")
 	var bare := _without_terrain(enc)
@@ -378,16 +330,6 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 ## loop's first line is `if hazard.damage_per_tick <= 0: continue`, so a tar
 ## pit that deals no damage is skipped before anything could look at its
 ## status.
-##
-## This asserts the outcome rather than the field, which is the difference
-## between "content set a flag" and "a pawn was slowed". Counted out of
-## `state.events`: a terrain status arrives as `STATUS_APPLIED` with no action
-## id, the same shape hazard damage already uses, so it is distinguishable
-## from a status an ability applied without needing a second mechanism.
-##
-## **Left red on purpose rather than deleted or skipped.** A skip reads as a
-## pass in the summary line, and the point of writing it now is that whoever
-## next opens `_tick_hazards` is told what is waiting on it.
 func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
 	var enc := Registry.get_encounter(&"floor1_chokepoint")
 	var tar := 0
@@ -672,9 +614,6 @@ const WALL_FLOOR := 5
 ## The same room with every enemy spawned twice, the second copy offset so the
 ## pair does not start inside itself. Terrain, roster and party spawns are
 ## untouched: the only variable is how many bodies the party has to get through.
-##
-## The negative control for the wall detector, and the sibling of
-## `_without_terrain` above.
 func _doubled_roster(enc: Encounter) -> Encounter:
 	var e := Encounter.new()
 	e.id = enc.id
@@ -716,20 +655,6 @@ func test_no_pickable_room_is_a_wall_for_any_buildable_party() -> void:
 ## **0/40 for all five buildable parties** by `Tools/WallProbe.gd`; the gate
 ## runs the same seeds and the same floor constant as the assertion above, so a
 ## floor moved later is re-checked here without anybody remembering to.
-##
-## **Verified to fire rather than assumed to**, by pointing it at the
-## undoubled chokepoint: every party reaches the floor and all five assertions
-## go red. It is not passing because it cannot fail.
-##
-## The chokepoint rather than one of the other three, and the reason is a
-## finding rather than a preference. Doubling each room's roster walls 18 of the
-## 20 cells at 0/40. The exception is `floor1_hazard`, where
-## `[abomination, geysermancer, siege_master, warrior]` still wins **32/40**
-## while the other four parties fall to 3, 1, 0 and 0: twenty enemies crossing a
-## burn pit burn twice as much, so past some headcount the fire wins the room
-## for whoever can hold the far side of it. Reported to rook and not acted on --
-## it is a fact about the burn pit, not about this test. All five doubled
-## chokepoint cells are 0, so that is the honest control.
 func test_the_detector_fires_on_a_room_that_really_is_a_wall() -> void:
 	var wall := _doubled_roster(Registry.get_encounter(&"floor1_chokepoint"))
 	for ids in _buildable_parties():

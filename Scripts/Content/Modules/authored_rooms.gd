@@ -7,21 +7,6 @@ extends RefCounted
 ## generator. This module closes that gap the same way every other content
 ## module reaches `Registry` -- one file, one line in `Registry.MODULES`,
 ## `encounters()` is the only non-empty function.
-##
-## OWNER: dace.
-##
-## Reads every `*.json` directly under `Assets/Rooms/` with `FileAccess`
-## and `JSON.parse_string`, not `load()` -- `Registry._load()` runs before
-## the scene tree exists (`Tools/FloorRuns.gd` and friends call it from
-## `_init()`), and unlike a `Resource`, a plain-text JSON file was never
-## going to need the editor's import step anyway. `Scripts/Art/UnitArt.gd`
-## reads `Assets/Units/*.png` the same direct-file way for a different
-## reason (the editor cannot run on this machine at all); the reasoning
-## here is simpler but the shape is the same precedent.
-##
-## A malformed or unreadable file is skipped with a `push_error` naming the
-## path, never a crash -- one bad hand-edited JSON file should not take
-## every other authored room, or the whole game, down with it.
 
 const ROOMS_DIR := "res://Assets/Rooms"
 
@@ -39,7 +24,6 @@ static func enemies() -> Array[EnemyDef]:
 ## into `res://Assets/Rooms/` -- a tracked directory a gate run must not
 ## leave files in, same reasoning `Tests/test_ui_level_editor.gd` already
 ## states for why it never exercises the encoder's own disk-writing tail.
-## `Registry` calls this with no argument, so the real path is untouched.
 static func encounters(dir_path: String = ROOMS_DIR) -> Array[Encounter]:
 	var out: Array[Encounter] = []
 	var dir := DirAccess.open(dir_path)

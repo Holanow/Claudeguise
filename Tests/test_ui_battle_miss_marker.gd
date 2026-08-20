@@ -3,9 +3,6 @@ extends "res://Tests/TestCase.gd"
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 14c: "X's Y fires" with silence after it read as a broken game.
-## consume_events() spawns a marker into Arena on a MISS event, the same way
-## it already does for DAMAGE/HEAL/DEATH. See Tests/test_ui_battle_death_marker.gd
-## for why _ready() is called directly here.
 
 func test_a_miss_event_spawns_a_marker_in_the_arena() -> void:
 	var state := CombatState.new(1)
