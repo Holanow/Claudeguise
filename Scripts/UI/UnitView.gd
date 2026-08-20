@@ -171,6 +171,7 @@ func _draw() -> void:
 	var radius := display_radius(u)
 
 	_draw_targeting_line(u)
+	ShieldWall.draw_for(self, u, radius)
 
 	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
 
