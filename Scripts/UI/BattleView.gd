@@ -5,7 +5,6 @@ const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
-const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
@@ -285,8 +284,7 @@ func _build_end_banner() -> void:
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	buttons.add_child(inspect_button)
 
-	_inspect_panel = Control.new()
-	_inspect_panel.set_script(InspectPanelScript)
+	_inspect_panel = InspectPanel.create()
 	hud.add_child(_inspect_panel)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
