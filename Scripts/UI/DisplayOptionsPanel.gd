@@ -7,6 +7,13 @@ class_name DisplayOptionsPanel
 signal changed()
 
 var _rows: Array[CheckBox] = []
+var _scroll: ScrollContainer = null
+var _column: VBoxContainer = null
+
+## Every state a row can be drawn in. `hover_pressed` is the one a screenshot
+## caught missing: a ticked row under the pointer fell back to the engine's
+## empty box and lost its outline.
+const ROW_STATES := ["normal", "hover", "pressed", "hover_pressed", "focus"]
 
 func _ready() -> void:
 	theme = AppTheme.shared()
@@ -28,8 +35,17 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_M))
 	backdrop.add_child(margin)
 
+	## The list scrolls, because the list grows: two options fitted 720px and
+	## four do not, and a fourth option nobody can reach is the defect this
+	## panel exists to have fixed (issue 319).
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(_scroll)
+
 	var column := VBoxContainer.new()
-	margin.add_child(column)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(column)
+	_column = column
 
 	var title := Label.new()
 	title.text = "What to show"
@@ -37,11 +53,18 @@ func _ready() -> void:
 
 	for option in DisplayOptions.OPTIONS:
 		var box := CheckBox.new()
-		box.text = option.label
 		box.button_pressed = DisplayOptions.enabled(option.id)
+		box.text = row_text(option.label, box.button_pressed)
 		box.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+		## The engine's tick is dark art on this game's dark panel and no colour
+		## can lift it, so the row is given the look every other control on the
+		## battle screen has (issue 323).
+		for state in ROW_STATES:
+			box.add_theme_stylebox_override(state, _row_style(state.contains("hover")))
 		var id: StringName = option.id
+		var label: String = option.label
 		box.toggled.connect(func(pressed: bool):
+			box.text = row_text(label, pressed)
 			DisplayOptions.set_enabled(id, pressed)
 			changed.emit())
 		column.add_child(box)
@@ -59,12 +82,46 @@ func _ready() -> void:
 ## while the game is running on the player's choices.
 func refresh() -> void:
 	for i in mini(_rows.size(), DisplayOptions.OPTIONS.size()):
-		_rows[i].set_pressed_no_signal(DisplayOptions.enabled(DisplayOptions.OPTIONS[i].id))
+		var option = DisplayOptions.OPTIONS[i]
+		var on := DisplayOptions.enabled(option.id)
+		_rows[i].set_pressed_no_signal(on)
+		_rows[i].text = row_text(option.label, on)
+
+## The state of the option in words. The tick beside it was the whole report of
+## this control and it was measured at 2 points of luminance over the panel.
+static func row_text(label: String, on: bool) -> String:
+	return "%s: %s" % [label, "showing" if on else "hidden"]
+
+## A row that looks like the buttons the player has already pressed to get here.
+func _row_style(hover: bool) -> StyleBox:
+	var bg := Palette.BACKGROUND.lightened(0.12 if hover else 0.06)
+	var style := UIArt.panel_style(&"", bg, Palette.ARENA_EDGE, 1)
+	if style is StyleBoxFlat:
+		style.set_corner_radius_all(4)
+		style.content_margin_left = Palette.SPACE_S
+		style.content_margin_right = Palette.SPACE_S
+	return style
 
 func toggle_visible() -> void:
 	if not visible:
 		refresh()
+		fit_to_screen()
 	visible = not visible
+
+## As tall as its contents, or as tall as the room under it, whichever is less.
+## Measured rather than capped at a constant: 520 would fit 1280x720 and run off
+## the bottom of a 844x390 launch, which this panel has done before.
+func fit_to_screen() -> void:
+	if _scroll == null or not is_inside_tree():
+		return
+	fit_within(get_viewport_rect().size.y - position.y - Palette.SPACE_M * 2.0)
+
+## Split from the measurement so the arithmetic can be tested without a window.
+func fit_within(room: float) -> void:
+	if _scroll == null:
+		return
+	var wanted := _column.get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = maxf(Palette.TOUCH_TARGET_MIN, minf(wanted, room))
 
 ## Issue 268. Through `UIArt.panel_style`, so `Assets/UI/panel.png` re-skins
 ## this panel the way the README has always claimed it does. With no file

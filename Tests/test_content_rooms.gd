@@ -377,67 +377,56 @@ func test_the_colonnades_pillars_are_not_decoration() -> void:
 		diverging_fights += differs
 		party_fights += seeds
 	print("floor1_cover: largest single health effect %d points, total across five parties %d; fewest diverging fights for any party %d/%d; diverging fights overall %d/%d" % [largest, total, worst_divergence, seeds, diverging_fights, party_fights])
-	# finch, issue 121: 10 -> 8 and 25 -> 18, re-baselined not tuned. BURN and the
-	# Blast combo changed how a Geysermancer spends Mana and which enemy it aims
-	# at, and every room moved with it. Deltas 0, +8, -8, +4, +2; largest 8.
+	# Threshold unchanged since issue 121; with the pillars moved onto the battle
+	# line (#330) the room clears it at 50/50, health deltas +11 +5 +18 +10 -1.
 	assert_true(diverging_fights >= 25,
 		"the pillars should change the fight; only %d of %d party-fights diverged with them in, against 0 for a colonnade of paint" % [diverging_fights, party_fights])
 
 
-## Issue #234: the assertion the test above could not make. Everything the
-## colonnade had been measured by was a difference of two arms, which says the
-## room changed but never that the pillars did the changing.
-func test_the_colonnade_denies_shots_to_both_sides() -> void:
+## The player's metric for the colonnade, issue #330: fewer ranged attacks get
+## fired in a room with pillars than in the same room without them. It counts
+## attempts, so a unit that shoots into stone counts against the room.
+func test_the_colonnade_takes_ranged_attacks_out_of_the_fight() -> void:
 	var enc := Registry.get_encounter(&"floor1_cover")
 	var seeds := 10
-	var party_denied := 0
-	var enemy_denied := 0
-	for ids in _buildable_parties():
-		var d := _denied_shots(ids, enc, seeds)
-		print("floor1_cover, %s: shots denied by a pillar, party %d, enemy %d" % [ids, d[0], d[1]])
-		party_denied += d[0]
-		enemy_denied += d[1]
-	var control := _denied_shots(_buildable_parties()[1], _without_terrain(enc), seeds)
-	print("floor1_cover: shots denied over five parties, party %d, enemy %d; colonnade of paint control, party %d, enemy %d" % [
-		party_denied, enemy_denied, control[0], control[1],
+	var stone := _ranged_attack_rate(enc, seeds)
+	var paint := _ranged_attack_rate(_without_terrain(enc), seeds)
+	print("floor1_cover: ranged attacks %d over %d living unit-ticks = %.2f per 1000; colonnade of paint %d over %d = %.2f per 1000" % [
+		stone[0], stone[1], stone[2], paint[0], paint[1], paint[2],
 	])
-	assert_true(control[0] == 0 and control[1] == 0,
-		"a colonnade of paint must deny nothing; got party %d, enemy %d" % [control[0], control[1]])
-	assert_true(enemy_denied >= 1200,
-		"the pillars should be taking shots off the enemy; only %d denied over five parties" % enemy_denied)
-	assert_true(party_denied >= 1100,
-		"the pillars should be taking shots off the party too, or this is a one-sided room; only %d denied over five parties" % party_denied)
+	print("floor1_cover: the pillars take %.1f%% of the ranged attacks out of the fight" % [
+		100.0 * (paint[2] - stone[2]) / paint[2],
+	])
+	assert_true(stone[2] < paint[2],
+		("the pillars should mean fewer ranged attacks, normalised for fight length; got %.2f per 1000 with them "
+		+ "against %.2f without. Nothing seeks cover on purpose yet -- see #316 and #330.") % [stone[2], paint[2]])
+	assert_true(stone[0] < paint[0],
+		"and fewer in raw count too; got %d with the pillars against %d without" % [stone[0], paint[0]])
 
 
-## Ticks in which a unit had a line-of-sight shot inside its own reach and a
-## pillar in the way, as `[party, enemy]`.
-func _denied_shots(ids: Array, enc: Encounter, seeds: int) -> Array[int]:
-	var out: Array[int] = [0, 0]
-	for seed in seeds:
-		var state := CombatSim.build(_pawns(ids, seed), enc, seed)
-		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
-			CombatSim.step(state)
-			for u in state.units:
-				if not u.alive:
-					continue
-				var t := state.unit(u.focus_id)
-				if t == null or not t.alive:
-					continue
-				if not Terrain.line_is_blocked(state.terrain, u.position, t.position):
-					continue
-				if _has_a_shot_in_reach(u, t):
-					out[0 if u.team == CG.Team.PLAYER else 1] += 1
-	return out
+## Ranged attacks fired, living unit-ticks, and the rate per thousand of them.
+## Normalised because pillars change fight length, and a longer fight fires more
+## shots for reasons that have nothing to do with cover.
+func _ranged_attack_rate(enc: Encounter, seeds: int) -> Array:
+	var fires := 0
+	var unit_ticks := 0
+	for ids in _buildable_parties():
+		for seed in seeds:
+			var state := CombatSim.build(_pawns(ids, seed), enc, seed)
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				CombatSim.step(state)
+				for u in state.units:
+					if u.alive:
+						unit_ticks += 1
+			for e in state.events:
+				if e.kind == CG.EventKind.ACTION_FIRE and _is_a_ranged_attack(e.action_id):
+					fires += 1
+	return [fires, unit_ticks, 1000.0 * float(fires) / float(maxi(1, unit_ticks))]
 
 
-func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
-	for id in u.actions:
-		var a := Registry.get_action(id)
-		if a == null or a.heals or not a.requires_line_of_sight:
-			continue
-		if u.position.distance_to(t.position) <= a.range_units:
-			return true
-	return false
+func _is_a_ranged_attack(action_id: StringName) -> bool:
+	var a := Registry.get_action(action_id)
+	return a != null and not a.heals and a.requires_line_of_sight and a.range_units > 60.0
 
 
 ## The fire has to change the fight, and the control is the same roster with the

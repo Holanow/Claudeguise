@@ -122,9 +122,6 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
-	if enemy_def.spawn_taunt_radius > 0.0:
-		u.statuses[CG.Status.TAUNTING] = CG.MAX_TICKS
-		u.taunt_radius = enemy_def.spawn_taunt_radius
 	return u
 
 # ---------------------------------------------------------------------------
@@ -764,6 +761,12 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, target.id, action.id)
 	e.amount = applied
 	e.amount_before_mitigation = int(round(raw))
+	## Issue 344. The middle figure, so the gap the raw roll opens can be split:
+	## `amount_before_mitigation - amount_after_mitigation` was mitigated, and
+	## `amount_after_mitigation - amount` was overkill on a target already dying.
+	e.amount_after_mitigation = mitigated
+	if mitigated < e.amount_before_mitigation:
+		e.mitigation_cause = deps.damage_reduction_cause.call(target)
 	e.damage_type = action.damage_type
 	state.emit(e)
 	_on_damage_taken(state, target, applied, deps)

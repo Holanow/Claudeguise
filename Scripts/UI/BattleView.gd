@@ -163,6 +163,17 @@ func _build_top_bar() -> void:
 	# Under the control row it belongs to. Issue 145 taught me to add_child
 	# before any manual _ready(), or the engine runs a second one.
 	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
+	_display_options.changed.connect(_rebuild_log)
+
+## Issue 319. A log filter that only applies from now on cannot answer "what
+## killed my Siege Master", which is the question the ground ticks exist for, so
+## turning one on re-reads every event this fight has already produced.
+func _rebuild_log() -> void:
+	if _combat_log == null or state == null:
+		return
+	_combat_log.clear_log()
+	for i in mini(event_cursor, state.events.size()):
+		_combat_log.append_event(state, state.events[i])
 
 ## Issue 113: the player's whole team, in a fixed place, above the log.
 func _build_team_status() -> void:

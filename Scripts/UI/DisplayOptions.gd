@@ -20,6 +20,18 @@ const OPTIONS := [
 		"help": "The name above each unit. Off by default: with eight units in one scrum the plates collide and the top one wins, so \"Siege Engine\" lands over \"Siege Engine\" over \"Siege Master\". Team colour carries which side a unit is on.",
 		"default": false,
 	},
+	{
+		"id": &"log_hazard_ticks",
+		"label": "Ground damage in the log",
+		"help": "One line per tick for every pawn standing in fire or acid. On by default, and it is a lot: measured over a Burn Pit fight, 141 of the log's 402 lines. Turn it off when the room is on fire and you want to read what everyone did; turn it back on to find out what killed somebody.",
+		"default": true,
+	},
+	{
+		"id": &"log_status_damage",
+		"label": "Poison and burn ticks in the log",
+		"help": "One line per tick for every burn, poison and bleed. Off by default: a dozen of them can land inside one exchange and bury it. The floating numbers and the status badge still show them either way.",
+		"default": false,
+	},
 ]
 
 static var _values := {}

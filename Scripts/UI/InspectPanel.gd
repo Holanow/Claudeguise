@@ -104,6 +104,36 @@ func close() -> void:
 	visible = false
 	closed.emit()
 
+## Issue 351. The same panel laid into a column of another screen rather than
+## over the top of it: no backdrop, no Back button, and no pawn list, because
+## the screen it sits in IS the pawn list.
+var _embedded := false
+
+func embed() -> void:
+	_embedded = true
+	visible = true
+	%Backdrop.visible = false
+	%CloseButton.visible = false
+	%HowToPlay.visible = false
+	_list_box.get_parent().visible = false
+	%Margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top", "right", "bottom"]:
+		%Margin.add_theme_constant_override("margin_" + side, 0)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+## One pawn, in place, with the title naming who is being edited. The button
+## that used to open this said "Inspect classes" while the page said "Edit your
+## pawns' plans"; embedded there is no button and no mismatch.
+func show_pawn(pawn: PawnData, state = null) -> void:
+	_pawns = [pawn] as Array[PawnData]
+	_live_state = state
+	_selected_index = 0
+	visible = true
+	if _embedded:
+		%Title.visible = false
+	_build_detail(pawn)
+
 ## free() rather than queue_free(): this rebuild can run again (a second
 ## selection) before a deferred deletion would ever flush, which would leave
 ## stale nodes overlapping the new ones — found by a test that rebuilt and
@@ -746,8 +776,8 @@ func _ranged_text(action: ActionDef) -> String:
 	var commit := int(action.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)
 	if action.pull_distance > 0.0:
 		return "Close to within %d units and never back off, then %s" % [commit, action.display_name]
-	return "Hold between %d and %d units, then %s" % [
-		int(action.range_units * DefaultBehavior.KITE_RANGE_FRACTION), commit, action.display_name]
+	return "Close to within %d units, then %s. Back off to %d units from anything slower than it" % [
+		commit, action.display_name, int(action.range_units * DefaultBehavior.KITE_RANGE_FRACTION)]
 
 ## Mirrors `DefaultBehavior._first_heal`, including the `power_scale > 0.0`
 ## part: `geyser_cleanse` sets `heals` and restores nothing, and the fallback

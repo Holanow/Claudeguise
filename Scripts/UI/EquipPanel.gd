@@ -9,6 +9,10 @@ const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 signal closed
 
+## Issue 351. WIS from an item sets the plan block budget, so the screen beside
+## this one has to hear about a slot changing.
+signal equipment_changed(pawn: PawnData)
+
 const _TOUCH := Palette.TOUCH_TARGET_MIN
 
 ## The heading and the four-sentence how-to-play now live in
@@ -49,6 +53,31 @@ func close() -> void:
 	visible = false
 	closed.emit()
 
+## Issue 351, and the same shape as InspectPanel.embed(): laid into a column of
+## another screen, so the backdrop, the Back button and the pawn list all go.
+var _embedded := false
+
+func embed() -> void:
+	_embedded = true
+	visible = true
+	%Backdrop.visible = false
+	%CloseButton.visible = false
+	%HowToPlay.visible = false
+	%ListBox.get_parent().visible = false
+	%Margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top", "right", "bottom"]:
+		%Margin.add_theme_constant_override("margin_" + side, 0)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+func show_pawn(pawn: PawnData) -> void:
+	_pawns = [pawn] as Array[PawnData]
+	_selected_index = 0
+	visible = true
+	if _embedded:
+		%Title.text = "Equipment"
+	_build_detail(pawn)
+
 ## free() rather than queue_free(), same as InspectPanel: a second selection can
 ## rebuild before a deferred deletion flushes, leaving stale nodes overlapping
 ## the new ones.
@@ -80,7 +109,11 @@ func _select(index: int) -> void:
 func _build_detail(pawn: PawnData) -> void:
 	for child in %DetailBox.get_children():
 		child.free()
-	%DetailBox.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
+	## Embedded, the pawn's name and class are already on the panel above this
+	## one in the same column, and printing them twice is what the first
+	## capture of issue 351 showed.
+	if not _embedded:
+		%DetailBox.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
 	if pawn.pawn_class == null:
 		%DetailBox.add_child(_line("No class assigned, so nothing can be equipped.",
 			Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
@@ -101,7 +134,8 @@ func _build_detail(pawn: PawnData) -> void:
 	# this project was unhoverable until PR #76.
 	tags.mouse_filter = Control.MOUSE_FILTER_STOP
 	tags.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
-	%DetailBox.add_child(tags)
+	if not _embedded:
+		%DetailBox.add_child(tags)
 
 	%DetailBox.add_child(_section_header("Slots"))
 	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
@@ -229,6 +263,7 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 func _on_slot_selected(pawn: PawnData, slot: int, items: Array[EquipmentDef], index: int) -> void:
 	_set_equipped(pawn, slot, null if index == 0 else items[index - 1])
 	call_deferred("_refresh", pawn)
+	equipment_changed.emit(pawn)
 
 func _refresh(pawn: PawnData) -> void:
 	_rebuild_list()

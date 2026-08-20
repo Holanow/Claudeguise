@@ -102,28 +102,35 @@ func _bind_ui() -> void:
 	_room_picker.item_selected.connect(func(_i: int): _refresh_room_summary())
 	_start_button.pressed.connect(_on_start_pressed)
 	_start_run_button.pressed.connect(_on_start_run_pressed)
-	# Issue 21b: reachable before anyone has committed to a fight. Issue 100:
-	%InspectButton.pressed.connect(_on_inspect_pressed)
-	%EquipButton.pressed.connect(_on_equip_pressed)
 	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
 
-	_inspect_panel = _add_panel(InspectPanelScript)
-	# Added after the inspect panel so it draws above it if both are ever open.
-	_equip_panel = _add_panel(EquipPanelScript)
+	## Issue 351. Both panels live in the middle column rather than over the top
+	## of the screen, so the plan budget and the WIS that sets it are one glance
+	## apart.
+	_inspect_panel = _add_panel(InspectPanelScript, %MiddleColumn)
+	_inspect_panel.embed()
+	_inspect_panel.size_flags_stretch_ratio = 3.0
+	_equip_panel = _add_panel(EquipPanelScript, %MiddleColumn)
+	_equip_panel.embed()
+	_equip_panel.size_flags_stretch_ratio = 2.0
+	## WIS bought by an item changes the plan budget, and the row it un-inerts is
+	## on screen at the time.
+	_equip_panel.equipment_changed.connect(func(pawn): _inspect_panel.show_pawn(pawn))
+	focus_pawn(_available[0] if not _available.is_empty() else null)
 
 ## **A panel whose tree has moved into a `.tscn` cannot be built by setting the
 ## script on a bare Control**: it gets none of the tree, `%Name` resolves to
 ## nothing, and `_ready()` aborts on the first one -- a blank screen behind a
 ## green test suite, because a detached screen never renders. `create()` is the
 ## constructor those panels expose.
-func _add_panel(script) -> Control:
+func _add_panel(script, parent: Node = null) -> Control:
 	var panel: Control
 	if script.has_method("create"):
 		panel = script.create()
 	else:
 		panel = Control.new()
 		panel.set_script(script)
-	add_child(panel)
+	(parent if parent != null else self).add_child(panel)
 	if not panel.is_inside_tree():
 		panel._ready()
 	return panel
@@ -172,11 +179,29 @@ func _seed_box_style() -> StyleBoxFlat:
 	style.set_content_margin_all(Palette.SPACE_S)
 	return style
 
+## A card decides party membership and who the middle column is about, and the
+## second happens even when the first is refused.
 func _on_card_toggled(pressed: bool, pawn: PawnData) -> void:
+	focus_pawn(pawn)
 	if pressed and _selected.size() >= MAX_PARTY_SIZE and not _selected.has(pawn):
 		_flash_party_full()
 		return
 	toggle_pawn(pawn, pressed)
+
+## Who the middle column is showing.
+var _focused: PawnData = null
+
+func focus_pawn(pawn: PawnData) -> void:
+	_focused = pawn
+	if pawn == null:
+		return
+	if _inspect_panel != null:
+		_inspect_panel.show_pawn(pawn)
+	if _equip_panel != null:
+		_equip_panel.show_pawn(pawn)
+
+func focused_pawn() -> PawnData:
+	return _focused
 
 ## Trying to add a fifth pawn used to do nothing visible at all. A message
 ## that stands out (colour, not just a number changing) rather than the
@@ -231,18 +256,6 @@ func _on_start_pressed() -> void:
 
 func _on_start_run_pressed() -> void:
 	run_requested.emit(current_config())
-
-func _on_inspect_pressed() -> void:
-	if _inspect_panel != null:
-		_inspect_panel.open(_available)
-
-## `_available`, the same instances `current_config()` puts into
-## `RunConfig.party` -- so equipping a pawn here equips the pawn that fights,
-## with no apply step. The plan editor is opened the same way and for the same
-## reason.
-func _on_equip_pressed() -> void:
-	if _equip_panel != null:
-		_equip_panel.open(_available)
 
 ## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
 ## first, not the encounter the game actually means. CG.DEFAULT_ENCOUNTER

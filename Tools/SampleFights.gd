@@ -83,13 +83,13 @@ func _sample(party_ids: Array, encounter) -> void:
 			CombatState.Outcome.ENEMY_WIN: losses += 1
 			_: draws += 1
 		ticks.append(state.tick)
-		survivors.append(state.living(CG.Team.PLAYER).size())
+		survivors.append(_living_pawns(state))
 		margins.append(_losing_side_hp_percent(state, outcome))
 		# Cost is recorded for won fights only. See the comment on the cost line
 		# below for why the all-fights version of this was actively misleading.
 		if outcome == CombatState.Outcome.PLAYER_WIN:
 			party_hp.append(_team_hp_percent(state, CG.Team.PLAYER))
-			win_survivors.append(state.living(CG.Team.PLAYER).size())
+			win_survivors.append(_living_pawns(state))
 
 	print("")
 	print("party: ", _short(party_ids))
@@ -205,6 +205,16 @@ func _team_hp_percent(state, team: int) -> int:
 
 ## The verdict line, and its polarity is reversed from the version rook
 ## wrote it with.
+## Living pawns, not living player-team units. A Siege Engine is on the player
+## team, so counting units puts five or six in a party of four and every
+## survivor bucket lands out of range.
+static func _living_pawns(state: CombatState) -> int:
+	var n := 0
+	for u in state.living(CG.Team.PLAYER):
+		if u.pawn != null:
+			n += 1
+	return n
+
 func _cost_note(party_hp: int, survivors: int) -> String:
 	if party_hp >= 55 and survivors >= 4:
 		return "   <- COMFORTABLE WIN: matches the player's own single-fight target"
