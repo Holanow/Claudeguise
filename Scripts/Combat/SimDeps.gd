@@ -12,6 +12,10 @@ var move_speed: Callable = _default_move_speed
 
 var attack_power: Callable = _default_attack_power
 var damage_reduction: Callable = _default_damage_reduction
+
+## Issue 344. Which single thing removed the most of a hit, so the log can name
+## the cause beside the number. `(unit: CombatUnit) -> CG.MitigationCause`.
+var damage_reduction_cause: Callable = _default_damage_reduction_cause
 var wind_up_ticks: Callable = _default_wind_up_ticks
 var recover_ticks: Callable = _default_recover_ticks
 
@@ -95,6 +99,33 @@ static func _default_damage_reduction(unit: CombatUnit) -> float:
 	if enemy_def == null:
 		return 0.0
 	return enemy_def.damage_reduction
+
+## Names the largest single contributor to `_default_damage_reduction`, branch
+## for branch, so the cause can never name something the number did not use.
+static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCause:
+	var best := CG.MitigationCause.NONE
+	var best_v := 0.0
+	if unit.pawn == null:
+		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+		if enemy_def != null and enemy_def.damage_reduction > 0.0:
+			best = CG.MitigationCause.HIDE
+		return best
+
+	var toughness := clampf(
+		Balance.attribute(unit.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
+		0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)
+	if toughness > best_v:
+		best_v = toughness
+		best = CG.MitigationCause.TOUGHNESS
+	if unit.pawn.armor != null and unit.pawn.armor.damage_reduction > best_v:
+		best_v = unit.pawn.armor.damage_reduction
+		best = CG.MitigationCause.ARMOR
+	if unit.has_status(CG.Status.SHIELD) and Balance.STATUS_SHIELD_REDUCTION > best_v:
+		best_v = Balance.STATUS_SHIELD_REDUCTION
+		best = CG.MitigationCause.SHIELD
+	if unit.has_status(CG.Status.BLOCK) and Balance.STATUS_BLOCK_REDUCTION > best_v:
+		best = CG.MitigationCause.BLOCK
+	return best
 
 static func _default_wind_up_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:

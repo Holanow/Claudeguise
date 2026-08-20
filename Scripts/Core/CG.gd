@@ -109,6 +109,17 @@ enum EndReason {
 	CANNOT_ACT,
 }
 
+## Issue 344. Which single thing removed the most of an incoming hit, so the log
+## can name the cause beside the number. One cause, never a list.
+enum MitigationCause {
+	NONE,
+	TOUGHNESS,
+	ARMOR,
+	HIDE,
+	SHIELD,
+	BLOCK,
+}
+
 ## Everything the simulation reports outwards. The view and the combat log read
 ## these and nothing else: no reaching into CombatUnit for "what just happened".
 enum EventKind {

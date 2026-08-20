@@ -25,6 +25,14 @@ var status: CG.Status = CG.Status.SHIELD
 ## rather than leaving the player wondering why a hit landed small.
 var amount_before_mitigation: int = 0
 
+## Set on DAMAGE. What mitigation left, before the remaining-health clamp, so
+## the gap the raw roll opens can be split into what was mitigated and what was
+## overkill on a target already dying.
+var amount_after_mitigation: int = 0
+
+## Set on DAMAGE when mitigation took something off the raw roll.
+var mitigation_cause: CG.MitigationCause = CG.MitigationCause.NONE
+
 ## Issue 155. Which plan row chose this, copied off `Intent.source_plan` as the
 ## intent is consumed. **Set on ACTION_START only** -- the one event marking a
 ## decision rather than a consequence; a DAMAGE line inherits its reason from the
