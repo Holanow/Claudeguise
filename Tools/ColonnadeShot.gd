@@ -18,7 +18,9 @@ func _run() -> void:
 	var cfg := RunConfig.new()
 	cfg.encounter_id = &"floor1_cover"
 	cfg.seed = 3
-	var ids: Array[StringName] = [&"abomination", &"geysermancer", &"priest", &"siege_master"]
+	## Not an alphabetical prefix of the roster, which is how seven tools ended
+	## up unable to photograph a Warrior. See #350.
+	var ids: Array[StringName] = [&"warrior", &"abomination", &"geysermancer", &"priest"]
 	for i in ids.size():
 		cfg.party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
 	battle.begin_with_encounter(cfg, Registry.get_encounter(cfg.encounter_id))
