@@ -1,7 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## MANAGER-OWNED. Terrain geometry is the one piece of maths three sessions
 ## would otherwise each write, so it is written once and tested hard here rather

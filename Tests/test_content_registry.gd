@@ -1,6 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Registry.all_enemy_ids(): the missing fourth sibling of all_class_ids/
 ## all_encounter_ids/all_equipment_ids, added for the level editor's

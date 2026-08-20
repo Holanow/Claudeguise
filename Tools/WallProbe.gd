@@ -36,13 +36,6 @@ extends SceneTree
 ## Measurement only. The gate carries the one-room version of column 3 as
 ## `test_the_detector_fires_on_a_room_that_really_is_a_wall`.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
 
 const SEEDS := 40
 

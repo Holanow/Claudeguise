@@ -1,8 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Issue 39: the base equipment types. Real Registry content, same pattern as
 ## test_content_classes.gd -- walks what is actually registered rather than a

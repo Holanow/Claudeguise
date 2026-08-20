@@ -1,16 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## DefaultBehavior tested two ways: direct decide() calls for the precise,
 ## single-decision cases (heals fire only when needed), and a real

@@ -14,13 +14,6 @@ extends Node
 ## printed here also lands in Tools/preview/playtest_report.txt so the
 ## board write-up can quote it verbatim.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const OUT_DIR := "res://Tools/preview"
 const FIXED_SEED := "0000BEEF"

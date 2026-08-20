@@ -28,15 +28,6 @@ extends SceneTree
 ## count) and when every party dies at the same wall. Both were observed. The
 ## column that separates parties is "cleared the whole floor".
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
 
 const SEEDS := 20
 

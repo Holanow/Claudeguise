@@ -1,14 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## Issue 150. **A self-targeted action had no path through `DefaultBehavior`, and
 ## the units that need one have no plans at all.**

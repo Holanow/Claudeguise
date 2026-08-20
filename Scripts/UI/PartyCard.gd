@@ -1,13 +1,6 @@
 extends Control
+class_name PartyCard
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## One selectable class: silhouette, name, role and style, coloured by its
 ## damage type. The whole card is the touch target — Palette.TOUCH_TARGET_MIN

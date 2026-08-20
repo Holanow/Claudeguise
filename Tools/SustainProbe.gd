@@ -23,17 +23,6 @@ extends SceneTree
 ## that disciplined, so treat these as an upper bound on what the mechanism can
 ## contribute rather than as a forecast.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## Single room, per CLAUDE.md: `floor1_room1` is the instrument, and a floor-run
 ## measurement is not evidence for a single-room decision.

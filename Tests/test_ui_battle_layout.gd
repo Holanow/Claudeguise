@@ -1,8 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 
 ## Issue 18: the arena must not run off any edge at 844x390 (landscape phone,
 ## the size that "has to be good") and 390x844 (portrait, has to "not be

@@ -14,11 +14,6 @@ extends Node
 ## deliberately left out: PR #172 moves it and a picture of it now would be a
 ## picture of something the game is about to stop being.
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

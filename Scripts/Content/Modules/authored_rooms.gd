@@ -1,11 +1,5 @@
 extends RefCounted
 
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const EncounterCodec := preload("res://Scripts/Content/EncounterCodec.gd")
 
 ## Issue 19's other half: kite's level editor writes a real room to
 ## `res://Assets/Rooms/<id>.json` (`Scripts/UI/LevelEditorView.gd`); nothing

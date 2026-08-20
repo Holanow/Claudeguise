@@ -27,13 +27,6 @@ extends "res://Tests/TestCase.gd"
 ## needs to reach inside and set something up, it belongs in one of the other
 ## files instead.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 
 ## Enough seeds that a genuinely reachable action shows up, few enough that
 ## the gate stays quick. An action that needs more than this many attempts
@@ -245,18 +238,17 @@ func test_every_art_module_has_a_caller_in_the_interface() -> void:
 	var callers := ""
 	var art_files := _gd_files("res://Scripts/Art")
 	for path in _gd_files("res://Scripts/UI"):
-		callers += FileAccess.get_file_as_string(path)
+		callers += _code_only(FileAccess.get_file_as_string(path))
 	assert_true(callers.length() > 0, "read no interface source at all")
 
 	for name in art_dir.get_files():
 		if not name.ends_with(".gd"):
 			continue
-		# The `preload` path, not the bare name. The first version looked for
-		# the name and passed `EquipmentIcons` on the strength of **one word
-		# in a comment** in `UIArt` describing a bug they had both hit. A
-		# checker fooled by prose about the thing is worse than no checker,
-		# because it reports a clean bill on the exact case it was written for.
-		var needle := 'res://Scripts/Art/%s' % name
+		# Comments are stripped before searching, and the needle is a usage
+		# `Name.` rather than a bare mention. The first version looked for the
+		# bare name and passed `EquipmentIcons` on the strength of one word in a
+		# comment. A checker fooled by prose about the thing is worse than none.
+		var needle := '%s.' % name.get_basename()
 		var seen := callers.contains(needle)
 		if not seen:
 			# Reaching the screen through another art module is a real path:
@@ -267,7 +259,7 @@ func test_every_art_module_has_a_caller_in_the_interface() -> void:
 			for path in art_files:
 				if path.get_file() == name:
 					continue
-				if FileAccess.get_file_as_string(path).contains(needle):
+				if _code_only(FileAccess.get_file_as_string(path)).contains(needle):
 					seen = true
 					break
 		assert_true(seen,
@@ -377,3 +369,13 @@ func _run_fight(ids: Array, enc_id: StringName, s: int) -> CombatState:
 	var state := CombatSim.build(party, Registry.get_encounter(enc_id), s)
 	CombatSim.run(state)
 	return state
+
+## Source with whole-line comments removed, so a name mentioned in prose cannot
+## be mistaken for a call.
+func _code_only(src: String) -> String:
+	var out := ""
+	for line in src.split("\n"):
+		if line.strip_edges().begins_with("#"):
+			continue
+		out += line + "\n"
+	return out

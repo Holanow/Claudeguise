@@ -1,14 +1,9 @@
 extends RefCounted
+class_name EquipmentIcons
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
 ## Only for `draw_item_by_id`, which is a convenience for a caller holding an id
 ## rather than a def. No cycle: nothing under `Scripts/Content` reaches into
 ## `Scripts/Art`.
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## One icon per item, for issue #100's equip screen.
 ##

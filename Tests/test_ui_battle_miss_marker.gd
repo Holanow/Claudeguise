@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 14c: "X's Y fires" with silence after it read as a broken game.

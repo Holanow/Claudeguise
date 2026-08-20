@@ -1,11 +1,5 @@
 extends RefCounted
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## The five README classes: Warrior, Priest, Geysermancer, Siege Master,
 ## Abomination. Attribute spreads are original tuning, not a transcription of

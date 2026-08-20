@@ -1,6 +1,6 @@
 extends Resource
+class_name ClassDef
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## A pawn class: a bag of tags, a base attribute spread, a resource kind and a
 ## set of starting actions. Per README.md a class never changes after the pawn

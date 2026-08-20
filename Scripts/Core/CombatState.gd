@@ -1,10 +1,6 @@
 extends RefCounted
+class_name CombatState
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Projectile := preload("res://Scripts/Core/Projectile.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## The whole fight. Given the same seed and the same starting units this must
 ## step to the same state every time, because "change one thing and re-run the

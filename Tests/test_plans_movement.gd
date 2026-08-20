@@ -1,16 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## Issue 97: kiting as a MOVEMENT block the player controls. OWNER: heron.
 ##

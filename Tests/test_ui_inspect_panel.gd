@@ -1,19 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 
 ## Issue 21b: pawn inspection between fights. Issue 6 added editing: reorder a
 ## pawn's plans, swap the targeting or action inside a block, and swap or
@@ -123,7 +110,6 @@ func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 # ---------------------------------------------------------------------------
 
 func test_attribute_chips_carry_glossary_tooltips() -> void:
-	const Glossary := preload("res://Scripts/UI/Glossary.gd")
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 	var pawn := _make_pawn()
 	var panel := InspectPanel.new()
@@ -154,7 +140,6 @@ func test_attribute_chips_carry_glossary_tooltips() -> void:
 	panel.free()
 
 func test_class_tags_header_line_carries_a_glossary_tooltip() -> void:
-	const Glossary := preload("res://Scripts/UI/Glossary.gd")
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 	var pawn := _make_pawn(CG.Role.TANK)
 	var panel := InspectPanel.new()
@@ -394,9 +379,7 @@ func test_the_heading_is_about_editing_not_inspecting() -> void:
 ## wall of text is gone -- deleting the section entirely would also remove the
 ## wall and would lose the information.
 func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
-	const Registry := preload("res://Scripts/Content/Registry.gd")
 	const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
-	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
 	var panel := InspectPanel.new()
 	panel._ready()
@@ -430,8 +413,6 @@ func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 ## The skill chip inside a plan row is the other place an action is named, and
 ## it is the one a player is looking at while editing.
 func test_the_skill_block_hover_says_what_the_skill_does() -> void:
-	const Registry := preload("res://Scripts/Content/Registry.gd")
-	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
 	var panel := InspectPanel.new()
 	panel._ready()
@@ -1031,9 +1012,6 @@ func test_the_default_row_costs_no_block_budget() -> void:
 ## 11, and a row that only held at one distance would not catch a row naming
 ## the wrong half of a two-action class.
 func test_the_default_row_names_the_action_default_behavior_really_picks() -> void:
-	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-	const Registry := preload("res://Scripts/Content/Registry.gd")
 	var panel := InspectPanel.new()
 	panel._ready()
 	for class_id in [&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior"]:
@@ -1075,8 +1053,6 @@ func test_the_default_row_names_the_action_default_behavior_really_picks() -> vo
 ## shorter description of it. Asserted against the real thing: a Priest beside
 ## a badly hurt ally really heals.
 func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> void:
-	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
 	pawn.plans = []
 	var panel := InspectPanel.new()
@@ -1107,9 +1083,6 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 ## than typed here, so the screen cannot drift from the simulation. Asserted
 ## the only way that means anything: against the constants themselves.
 func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
-	const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-	const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-	const Registry := preload("res://Scripts/Content/Registry.gd")
 	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master")
 	pawn.plans = []
 	var panel := InspectPanel.new()

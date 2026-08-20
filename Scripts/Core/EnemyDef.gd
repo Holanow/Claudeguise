@@ -1,6 +1,6 @@
 extends Resource
+class_name EnemyDef
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## An enemy type. Enemies carry stats directly rather than deriving them through
 ## a class the way a pawn does.

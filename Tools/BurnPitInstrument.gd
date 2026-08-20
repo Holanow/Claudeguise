@@ -28,13 +28,6 @@ extends SceneTree
 ## Copy it into a detached checkout to compare builds. Measurement only, never
 ## gated.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
 
 const SAMPLES: Array[int] = [4, 20, 40]
 

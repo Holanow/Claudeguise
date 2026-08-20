@@ -1,19 +1,11 @@
 extends Node2D
+class_name BattleView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it

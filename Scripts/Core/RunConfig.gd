@@ -1,6 +1,6 @@
 extends RefCounted
+class_name RunConfig
 
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## What the party select screen hands to the battle screen. Small on purpose:
 ## these three fields are the entire input to a fight, and that is what makes

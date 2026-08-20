@@ -21,13 +21,6 @@ extends SceneTree
 ##
 ## Measurement only, not part of the gate.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 const SEEDS := 20
 ## A unit is "moving" on a tick if its centre travelled at least this far. Not

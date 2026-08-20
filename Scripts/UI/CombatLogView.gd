@@ -1,12 +1,6 @@
 extends Control
+class_name CombatLogView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
 
 ## The scrolling record of the fight, in words. One line per CombatEvent worth
 ## showing.

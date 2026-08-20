@@ -1,7 +1,6 @@
 extends Button
+class_name GlossaryButton
 
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
 
 ## A Button that shows a themed glossary popup on hover, same pattern and
 ## same reasoning as GlossaryLabel — a plain `Button.new()` needing the

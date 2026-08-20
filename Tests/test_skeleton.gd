@@ -1,13 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## The pattern to copy. Every test file looks like this: extend TestCase, name
 ## the file test_*.gd, put it in Tests/, and name each test method test_*.

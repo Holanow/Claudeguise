@@ -1,14 +1,6 @@
 extends Control
+class_name PartySelect
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 const PartyCardScript := preload("res://Scripts/UI/PartyCard.gd")
 const InspectPanelScript := preload("res://Scripts/UI/InspectPanel.gd")
 const EquipPanelScript := preload("res://Scripts/UI/EquipPanel.gd")

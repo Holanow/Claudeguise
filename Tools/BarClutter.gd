@@ -38,14 +38,6 @@ extends SceneTree
 ##                       rather than a per-pair one, because that is what
 ##                       somebody watching experiences.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]
 const SEEDS := 20

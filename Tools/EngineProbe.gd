@@ -41,13 +41,6 @@ extends SceneTree
 ## Determinism: the fight seed is the only randomness. `CombatSim.build(.., s)`
 ## seeds `state.rng`; this file never calls `randi()` or makes a generator.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 5
 const ENGINE_ID := &"siege_engine"

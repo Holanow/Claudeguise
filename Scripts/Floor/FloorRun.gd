@@ -1,7 +1,6 @@
 extends RefCounted
+class_name FloorRun
 
-const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Tracks one traversal of a generated FloorPlan: where the party is, which
 ## rooms have been visited, and what carried over from the last room each

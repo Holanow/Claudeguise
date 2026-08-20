@@ -1,14 +1,6 @@
 extends Control
+class_name FloorMapView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
-const LootTables := preload("res://Scripts/Content/LootTables.gd")
 
 ## Issue 43: the floor exists (Scripts/Floor/**, wren) and nothing in
 ## Scripts/UI ever referenced it. This is the smallest thing that makes a

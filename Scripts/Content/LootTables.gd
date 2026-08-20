@@ -1,8 +1,6 @@
 extends RefCounted
+class_name LootTables
 
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
 
 ## What drops, and how often. Issue 41's own outcome: items are loot, earned
 ## mid-run, not starting gear -- starting gear flattened all five real

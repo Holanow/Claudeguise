@@ -1,6 +1,6 @@
 extends RefCounted
+class_name Terrain
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## What a room contains besides its combatants: walls, hazards, chokepoints.
 ##

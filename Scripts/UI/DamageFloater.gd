@@ -1,6 +1,6 @@
 extends Node2D
+class_name DamageFloater
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
 
 ## A number that rises off a unit and fades. Coloured by damage type through
 ## Palette.damage_color.

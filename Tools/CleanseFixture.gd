@@ -29,13 +29,6 @@ extends SceneTree
 ## it did is the same trap one paragraph up. `harmful` is that assertion,
 ## per encounter: a room reading 0 there is a room the test would fail in.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const MAX_SEEDS := 24
 

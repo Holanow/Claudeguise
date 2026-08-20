@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Every test here builds CombatUnits and ActionDefs by hand and sets intents
 ## by hand, per issue 1: Balance and PlanInterpreter are teal's stubs and this

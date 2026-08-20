@@ -1,16 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Popout := preload("res://Scripts/UI/Popout.gd")
-const PopoutLayer := preload("res://Scripts/UI/PopoutLayer.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
-const GlossaryLabel := preload("res://Scripts/UI/GlossaryLabel.gd")
-const GlossaryButton := preload("res://Scripts/UI/GlossaryButton.gd")
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
-const PartyCard := preload("res://Scripts/UI/PartyCard.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Issue 112: every popout outside a menu is pinnable and draggable, as one
 ## mechanism rather than per call site.

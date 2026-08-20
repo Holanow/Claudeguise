@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const PartyCard := preload("res://Scripts/UI/PartyCard.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
 
 ## Issue 17: a class used to be a checkbox next to a bare word. PartyCard is
 ## the whole card — silhouette, name, role, style — and the whole thing is
@@ -117,8 +113,6 @@ func test_a_healer_and_a_ranged_class_read_differently() -> void:
 # The panel_border drop-in, wired
 # ---------------------------------------------------------------------------
 
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const ArenaFloor := preload("res://Scripts/UI/ArenaFloor.gd")
 
 ## PLAYTEST-NOTES-2 item 15. `UIArt.draw_border`, `draw_nine_slice` and
 ## `has_art` were written for it and had no game caller at all -- sable found

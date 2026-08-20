@@ -1,7 +1,6 @@
 extends RefCounted
+class_name UnitArt
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## Real art, if any exists, in place of the placeholder polygons.
 ##

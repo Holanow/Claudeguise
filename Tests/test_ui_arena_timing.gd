@@ -1,13 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Issue 6, criterion 3: wall-clock seconds from FIGHT_START to FIGHT_END must
 ## match ticks / CG.TICKS_PER_SECOND, on a fight that actually resolves, and

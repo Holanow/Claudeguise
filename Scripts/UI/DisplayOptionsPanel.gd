@@ -1,8 +1,6 @@
 extends Control
+class_name DisplayOptionsPanel
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The one place display toggles are shown, built from `DisplayOptions.OPTIONS`.
 ##

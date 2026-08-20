@@ -1,18 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const EXPECTED_CLASS_IDS := [
 	&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior",

@@ -1,6 +1,6 @@
 extends RefCounted
+class_name PopoutHost
 
-const PopoutLayer := preload("res://Scripts/UI/PopoutLayer.gd")
 
 ## Issue 112: the gesture that pins a popout, defined once.
 ##

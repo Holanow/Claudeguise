@@ -1,15 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Issue #94: the four rooms a player picks between, and the properties that
 ## make them four rooms rather than four skins. OWNER: heron.

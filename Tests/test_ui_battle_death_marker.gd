@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 8: a death should land as an event, not as a unit quietly vanishing.

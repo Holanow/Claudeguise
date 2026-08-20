@@ -1,11 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
 
 ## BattleView reads CombatEvent, never polls CombatUnit for "what happened".
 ## These tests build a CombatState by hand, per the issue: CombatSim is wren's
@@ -107,7 +101,6 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 # live units.
 # ---------------------------------------------------------------------------
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 

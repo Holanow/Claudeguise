@@ -28,13 +28,6 @@ extends SceneTree
 ## card per class, so four-of-a-kind parties are not parties and a number taken
 ## from them is a number about a team nobody can build.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
 
 const SEEDS := 20
 const MAX_TICKS := 3600

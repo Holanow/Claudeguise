@@ -27,16 +27,6 @@ extends SceneTree
 ## the ACTION_START it emitted on that same tick and attributed to the plan that
 ## chose it (`CombatEvent.source_plan`). "Nothing" means it moved or idled.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
 
 const SEEDS := 6
 const HEAL_ID := &"priest_heal"

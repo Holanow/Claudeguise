@@ -1,8 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const AttackFX := preload("res://Scripts/Art/AttackFX.gd")
 
 ## Draws AttackFX's two pieces standalone -- readable size and true on-screen
 ## size, side by side -- and saves a screenshot. Same reasoning as

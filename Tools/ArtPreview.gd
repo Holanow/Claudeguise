@@ -1,8 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
 
 ## Draws every placeholder silhouette once, at the size it will actually appear
 ## in a fight, and saves a screenshot.

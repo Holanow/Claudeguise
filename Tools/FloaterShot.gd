@@ -5,9 +5,7 @@ extends Node
 ## Runs one fight to mid, captures default (off), the panel, and the same
 ## fight with them on. Counts live floaters so the claim is measured, not eyed.
 
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 const OUT_DIR := "res://Screenshots"
 var _main: Node

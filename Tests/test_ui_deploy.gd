@@ -1,14 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const DeployView := preload("res://Scripts/UI/DeployView.gd")
 const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 
 ## Issue 145: place your party before the fight starts.

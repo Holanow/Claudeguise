@@ -1,6 +1,6 @@
 extends RefCounted
+class_name Intent
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## A script cannot name itself without `class_name`, and this project has none.
 ## `Self` is how a file refers to its own type in a return annotation or a

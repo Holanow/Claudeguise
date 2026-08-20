@@ -1,11 +1,5 @@
 extends RefCounted
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## **A DURATION IN A DESCRIPTION IS PLAYER-FACING COPY AND IT IS DERIVED FROM A
 ## TICK COUNT. Ten of them said exactly half the truth for sixty-odd merges.**

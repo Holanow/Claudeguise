@@ -21,14 +21,6 @@ extends SceneTree
 ## `line_for_event` returns "" for a great many events and counting `state.events`
 ## would overstate the log by several times.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 const SEEDS := 20
 

@@ -1,11 +1,6 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
-const BattleView := preload("res://Scripts/UI/BattleView.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The BLEED stack count, at the size a fight actually draws a status badge.
 ##

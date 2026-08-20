@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
 
 ## Hover-info-box system, phase 1 (see TEAM_LOG.md, wren's block). The rule
 ## that matters most: the glossary owns the sentence, Balance owns the

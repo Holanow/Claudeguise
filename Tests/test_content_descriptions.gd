@@ -1,7 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## **Every duration an ability's description told the player was exactly half the
 ## truth, on ten of the fourteen actions that state one.**

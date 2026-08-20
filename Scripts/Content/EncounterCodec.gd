@@ -1,8 +1,6 @@
 extends RefCounted
+class_name EncounterCodec
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 ## Converts an `Encounter` to and from the plain `Dictionary` shape kite's
 ## level editor (`Scripts/UI/LevelEditorView.gd::_encounter_dict`) already

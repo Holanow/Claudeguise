@@ -1,13 +1,6 @@
 extends Control
+class_name DeployView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 
 ## Issue 145: place your party before the fight starts.

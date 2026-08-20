@@ -14,13 +14,6 @@ extends SceneTree
 ## units on the player's side, a panel with one row each is a column of ten in a
 ## strip 260 px wide, and the design is wrong before it is written.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 const SEEDS := 10
 

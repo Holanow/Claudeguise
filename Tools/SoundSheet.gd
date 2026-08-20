@@ -1,8 +1,5 @@
 extends Node2D
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const SoundBank := preload("res://Scripts/Audio/SoundBank.gd")
 
 ## The six placeholder voices, drawn and named.
 ##

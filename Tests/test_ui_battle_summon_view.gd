@@ -1,11 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 75: the real cause of "siege engines are still invisible".

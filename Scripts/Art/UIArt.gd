@@ -1,6 +1,6 @@
 extends RefCounted
+class_name UIArt
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## The interface half of the drop-in art pipeline. PLAYTEST-NOTES-2 item 15:
 ##

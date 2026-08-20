@@ -1,7 +1,4 @@
 extends Node
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 ## Issue 190: the ratio between decoration and unit, per shape, both axes.
 func _ready() -> void:
 	print("shape           fill_w fill_h | footprint | bar  | top  | badge")

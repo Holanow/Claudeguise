@@ -1,14 +1,6 @@
 extends Node2D
+class_name UnitView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const DisplayOptions := preload("res://Scripts/UI/DisplayOptions.gd")
-const Silhouettes := preload("res://Scripts/Art/Silhouettes.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
-const ActionIcons := preload("res://Scripts/Art/ActionIcons.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## One combatant on screen: body, health bar, resource bar, name, tags, and the
 ## wind-up indicator that says an action is coming.

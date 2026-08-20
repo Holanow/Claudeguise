@@ -1,6 +1,6 @@
 extends RefCounted
+class_name FloorPlan
 
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
 
 ## One generated floor: its rooms and the connections between them. Named
 ## "FloorPlan" rather than "Floor" to keep the built-in `floor()` function

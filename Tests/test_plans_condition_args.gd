@@ -1,10 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
 ## **Every number a preset plan states must be a number the plan editor can
 ## draw.** Found by looking at a rendered screen rather than at the data: a

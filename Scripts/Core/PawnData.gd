@@ -1,9 +1,6 @@
 extends Resource
+class_name PawnData
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Plan := preload("res://Scripts/Core/Plan.gd")
 
 ## A pawn as it exists outside a fight: identity, class, equipment, plans. The
 ## simulation never mutates one of these. It reads it once when building the

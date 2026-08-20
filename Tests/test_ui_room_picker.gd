@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 
 ## Issue 176: the room picker.
 ##

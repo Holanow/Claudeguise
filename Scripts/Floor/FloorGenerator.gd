@@ -1,7 +1,6 @@
 extends RefCounted
+class_name FloorGenerator
 
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
 
 ## Builds a FloorPlan from a seed. Deterministic: same seed, same rooms, same
 ## types, same connections, every time — nothing here reads any source of

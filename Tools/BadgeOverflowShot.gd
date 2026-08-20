@@ -9,8 +9,6 @@ extends Node
 ## true size and a legibility claim made from a zoom is not a claim about the
 ## game.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const UnitView := preload("res://Scripts/UI/UnitView.gd")
 
 const OUT_DIR := "res://Screenshots"
 var _main: Node

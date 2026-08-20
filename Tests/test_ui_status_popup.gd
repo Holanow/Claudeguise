@@ -1,18 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Glossary := preload("res://Scripts/UI/Glossary.gd")
-const CombatLogView := preload("res://Scripts/UI/CombatLogView.gd")
-const TeamStatusView := preload("res://Scripts/UI/TeamStatusView.gd")
-const IconChip := preload("res://Scripts/UI/IconChip.gd")
-const PopoutLayer := preload("res://Scripts/UI/PopoutLayer.gd")
-const PopoutHost := preload("res://Scripts/UI/PopoutHost.gd")
-const GlossaryTooltip := preload("res://Scripts/UI/GlossaryTooltip.gd")
 
 ## Issue 245, the player: *"I should be able to mouse over a status icon in the
 ## party overview and get a more indepth description of the status."*

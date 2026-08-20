@@ -1,6 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const DamageFloater := preload("res://Scripts/UI/DamageFloater.gd")
 
 ## Cosmetic and wall-clock driven. It must never feed anything back into the
 ## simulation, so these tests only check its own rise-and-fade lifecycle.

@@ -1,8 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const SoundBank := preload("res://Scripts/Audio/SoundBank.gd")
 
 ## The audio hook, issue #125. The player asked for hooks and placeholders "to
 ## make sure the pipeline works", so the load-bearing tests here are the ones

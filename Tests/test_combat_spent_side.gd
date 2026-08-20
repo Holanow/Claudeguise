@@ -1,12 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## ISSUE 233. A side with nothing left that can act has lost now, not in
 ## twenty-five seconds.

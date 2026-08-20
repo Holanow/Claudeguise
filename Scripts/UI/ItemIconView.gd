@@ -1,7 +1,5 @@
 extends Control
 
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
 
 ## Issue 127: the one node that puts `EquipmentIcons` on a screen.
 ##

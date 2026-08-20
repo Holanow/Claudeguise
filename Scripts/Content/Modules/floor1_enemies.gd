@@ -1,11 +1,5 @@
 extends RefCounted
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
 
 ## Floor 1's bestiary: monsters, not mirrors of the five pawn classes.
 ## `EnemyDef` skips the attribute system on purpose, so nothing here is bound

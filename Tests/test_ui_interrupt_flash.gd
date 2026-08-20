@@ -1,12 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const ImpactFlash := preload("res://Scripts/UI/ImpactFlash.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
 
 ## Issue 151. The player asked for the stun interrupt twice over: "the stun icon
 ## should appear and the unit should flash white or something". The badge is

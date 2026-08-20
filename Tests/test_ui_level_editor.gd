@@ -1,10 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const LevelEditorCanvas := preload("res://Scripts/UI/LevelEditorCanvas.gd")
-const LevelEditorView := preload("res://Scripts/UI/LevelEditorView.gd")
 
 ## Issue 19: the level editor. Placement is asserted through the canvas's own
 ## public methods (place_enemy/place_terrain), not through synthesized mouse

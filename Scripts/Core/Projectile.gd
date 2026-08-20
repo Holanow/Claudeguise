@@ -1,6 +1,6 @@
 extends RefCounted
+class_name Projectile
 
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## A shot in flight, aimed at a point fixed at launch. No homing, which is what
 ## lets a target walk out of the way (issue 18). Resolves when it comes within

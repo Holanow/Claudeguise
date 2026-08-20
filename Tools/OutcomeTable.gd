@@ -8,12 +8,6 @@ extends SceneTree
 ## did. "Earlier" is only acceptable if it is also "same result", and the only
 ## way to know that is to take the whole table on both sides and diff it.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 40
 

@@ -1,9 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EncounterCodec := preload("res://Scripts/Content/EncounterCodec.gd")
 const AuthoredRooms := preload("res://Scripts/Content/Modules/authored_rooms.gd")
 
 ## Issue 19's other half: kite's level editor writes a room to

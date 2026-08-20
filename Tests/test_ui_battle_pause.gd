@@ -1,12 +1,5 @@
 ﻿extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Real time, with a pause: the view accumulates wall-clock delta and spends it

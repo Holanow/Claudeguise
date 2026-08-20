@@ -1,13 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
 const CoreActions := preload("res://Scripts/Content/Modules/core_actions.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
 
 ## Balance formulas, tested against hand-built PawnData so this file needs
 ## nothing from CombatSim or Registry to run.

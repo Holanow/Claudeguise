@@ -1,16 +1,6 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const EquipPanel := preload("res://Scripts/UI/EquipPanel.gd")
-const InspectPanel := preload("res://Scripts/UI/InspectPanel.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
 const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
-const EquipmentIcons := preload("res://Scripts/Art/EquipmentIcons.gd")
 
 ## Issue 100: the pre-fight equip screen.
 ##

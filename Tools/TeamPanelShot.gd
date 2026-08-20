@@ -19,10 +19,6 @@ extends Node
 ## The party carries the Siege Master (summons, so the row count has to change
 ## mid-fight) and the Warrior (five of the game's eight cooldowns).
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const TeamStatusView := preload("res://Scripts/UI/TeamStatusView.gd")
-const IconChip := preload("res://Scripts/UI/IconChip.gd")
 
 const OUT_DIR := "res://Screenshots"
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]

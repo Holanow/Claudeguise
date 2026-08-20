@@ -1,12 +1,5 @@
 extends RefCounted
 
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Floor 1's rooms. Issue 12: numbers and placement are levers independent of
 ## any single monster's stats. See Registry.gd for the module contract.

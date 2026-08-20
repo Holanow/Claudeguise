@@ -1,8 +1,6 @@
 extends RefCounted
+class_name Glossary
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
 
 ## Explanatory copy for every game term with no description anywhere today:
 ## class tags (Role/Style/Method), stats (CG.Attribute) and statuses

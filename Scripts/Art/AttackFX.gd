@@ -1,8 +1,6 @@
 extends RefCounted
+class_name AttackFX
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 ## The attack visuals PLAYTEST-NOTES item 4 asks for: "every class needs an
 ## attack asset or animation so I know what's up."

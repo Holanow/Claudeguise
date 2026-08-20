@@ -1,11 +1,6 @@
 extends RefCounted
+class_name Registry
 
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 ## The composition root, split. Every class, action, enemy and encounter lives
 ## in its own file under Scripts/Content/, and this file only composes them.

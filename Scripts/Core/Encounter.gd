@@ -1,4 +1,5 @@
 extends Resource
+class_name Encounter
 
 ## One room's worth of fight: which enemies, and where everyone starts.
 ## MANAGER-OWNED SHAPE. Spawn points are authored, not generated.

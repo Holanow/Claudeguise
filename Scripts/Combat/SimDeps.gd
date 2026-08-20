@@ -1,16 +1,6 @@
 extends RefCounted
+class_name SimDeps
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const Balance := preload("res://Scripts/Content/Balance.gd")
-const PlanInterpreter := preload("res://Scripts/Plans/PlanInterpreter.gd")
-const DefaultBehavior := preload("res://Scripts/Plans/DefaultBehavior.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
 
 ## Every place CombatSim needs a number or a lookup it does not own. Default
 ## values wire to the real content system (Balance, Registry); a test builds

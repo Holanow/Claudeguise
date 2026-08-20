@@ -1,11 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const PartySelect := preload("res://Scripts/UI/PartySelect.gd")
-const DeployView := preload("res://Scripts/UI/DeployView.gd")
-const FloorMapView := preload("res://Scripts/UI/FloorMapView.gd")
-const LevelEditorView := preload("res://Scripts/UI/LevelEditorView.gd")
 
 ## Issue 237. **Does a file the player drops in reach the screen?**
 ##
@@ -31,7 +25,7 @@ const LevelEditorView := preload("res://Scripts/UI/LevelEditorView.gd")
 ## default.
 
 const _SCRATCH := "res://Assets/UI/background/%s.png"
-const _ELEMENTS := {
+var _ELEMENTS := {
 	"party_select": PartySelect,
 	"deploy": DeployView,
 	"floor_map": FloorMapView,

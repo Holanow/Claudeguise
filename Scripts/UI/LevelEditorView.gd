@@ -1,14 +1,6 @@
 extends Control
+class_name LevelEditorView
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const RunConfig := preload("res://Scripts/Core/RunConfig.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
 const LevelEditorCanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 
 ## Issue 19: author a room the generator can draw from, without leaving the

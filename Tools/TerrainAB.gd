@@ -21,14 +21,6 @@ extends SceneTree
 ## difference. That is the only comparison that can answer the question, and
 ## the project did not have a way to run it.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
 
 const SEEDS := 20
 

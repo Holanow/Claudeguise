@@ -1,6 +1,6 @@
 extends Resource
+class_name Plan
 
-const PlanBlock := preload("res://Scripts/Core/PlanBlock.gd")
 
 ## One plan of action: a trigger condition followed by an ordered list of
 ## blocks. Per README.md a plan is "when <condition>, do <blocks>", the number

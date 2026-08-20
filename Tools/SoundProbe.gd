@@ -33,13 +33,6 @@ extends SceneTree
 ## house rule failing in my own file -- a picture may replace decoration and it
 ## may not replace information -- and it was invisible until I looked at it.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const SoundBank := preload("res://Scripts/Audio/SoundBank.gd")
 
 const OUT_DIR := "res://Screenshots/sound_placeholders"
 const SEEDS := 8

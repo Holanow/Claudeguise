@@ -1,17 +1,6 @@
 extends RefCounted
+class_name CombatSim
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
-const CombatEvent := preload("res://Scripts/Core/CombatEvent.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Encounter := preload("res://Scripts/Core/Encounter.gd")
-const Intent := preload("res://Scripts/Core/Intent.gd")
-const ActionDef := preload("res://Scripts/Core/ActionDef.gd")
-const EnemyDef := preload("res://Scripts/Core/EnemyDef.gd")
-const Terrain := preload("res://Scripts/Core/Terrain.gd")
-const Projectile := preload("res://Scripts/Core/Projectile.gd")
-const SimDeps := preload("res://Scripts/Combat/SimDeps.gd")
 
 ## The simulation. Owns every mutation of a CombatUnit and every event emitted.
 ##

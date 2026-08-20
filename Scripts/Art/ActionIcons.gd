@@ -1,9 +1,6 @@
 extends RefCounted
+class_name ActionIcons
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const Palette := preload("res://Scripts/Core/Palette.gd")
-const UIArt := preload("res://Scripts/Art/UIArt.gd")
-const StatusIcons := preload("res://Scripts/Art/StatusIcons.gd")
 
 ## One icon per action, for PLAYTEST-NOTES-2 item 3:
 ##

@@ -1,17 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const FloorMapView := preload("res://Scripts/UI/FloorMapView.gd")
-const FloorPlan := preload("res://Scripts/Floor/FloorPlan.gd")
-const FloorRoom := preload("res://Scripts/Floor/FloorRoom.gd")
-const FloorRun := preload("res://Scripts/Floor/FloorRun.gd")
-const FloorGenerator := preload("res://Scripts/Floor/FloorGenerator.gd")
-const FloorFightRunner := preload("res://Scripts/Floor/FloorFightRunner.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const ClassDef := preload("res://Scripts/Core/ClassDef.gd")
-const EquipmentDef := preload("res://Scripts/Core/EquipmentDef.gd")
-const CG := preload("res://Scripts/Core/CG.gd")
 
 ## Issue 43: the floor exists (Scripts/Floor/**) and nothing in Scripts/UI
 ## ever referenced it. These check the screen's own logic — room layout,

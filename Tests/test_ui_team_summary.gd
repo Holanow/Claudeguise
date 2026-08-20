@@ -1,8 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatUnit := preload("res://Scripts/Core/CombatUnit.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## Issue 15: "you cannot tell who is winning" without parsing seven small

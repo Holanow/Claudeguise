@@ -15,12 +15,6 @@ extends SceneTree
 ## a travelling shot aimed at an ally standing behind it". Whether those are
 ## the same thing is exactly what this counts.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const SEEDS := 20
 const PARTY := ["warrior", "priest", "geysermancer", "siege_master"]

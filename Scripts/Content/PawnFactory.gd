@@ -1,8 +1,6 @@
 extends RefCounted
+class_name PawnFactory
 
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PresetPlans := preload("res://Scripts/Content/PresetPlans.gd")
 
 ## Builds a starter PawnData: class definition, preset plans, starting gear.
 ## The only way a fightable pawn gets made right now. Not part of the Registry

@@ -21,12 +21,6 @@ extends SceneTree
 ## while this is being measured and a block rate without a speed beside it is
 ## not a number anybody can compare against later.
 
-const CG := preload("res://Scripts/Core/CG.gd")
-const CombatState := preload("res://Scripts/Core/CombatState.gd")
-const CombatSim := preload("res://Scripts/Combat/CombatSim.gd")
-const Registry := preload("res://Scripts/Content/Registry.gd")
-const PawnFactory := preload("res://Scripts/Content/PawnFactory.gd")
-const PawnData := preload("res://Scripts/Core/PawnData.gd")
 
 const ROOM := &"floor1_room1"
 const SEEDS := 30
