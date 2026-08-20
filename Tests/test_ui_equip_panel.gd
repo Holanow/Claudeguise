@@ -438,7 +438,7 @@ func test_a_naked_pawn_reads_as_empty_not_as_broken() -> void:
 ## opens the panel on the same pawn instances the fight is built from -- so an
 ## edit made here is an edit the fight sees, with no apply step to forget.
 func test_party_select_can_reach_the_equip_screen_and_edits_reach_the_fight() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var found: Button = null
 	for node in _all_nodes(screen):
