@@ -129,6 +129,31 @@ default row they can read but not edit satisfies it. The test is: **can the
 player see it happening and find where it is decided?** If not, it becomes a
 block, a visible default, or it goes. Audit and detail in issue #98.
 
+## Comments are one sentence, and the gate counts them
+
+The player, 2026-08-20:
+
+> "we should remove basically any comment that is a diary entry, we already
+> have the issue board"
+
+**A comment block keeps its first sentence.** 6,339 lines came out of the repo
+on that ruling: comment lines 12,889 -> 6,565 against 25,017 of code, and the
+longest block in the repo went from 82 lines to 10.
+
+`Tools/gate.ps1` fails any comment block over 10 lines. The older 2:1 ratio cap
+is still there and is now inert -- the repo sits at 0.26:1, so nothing can fail
+it. **The block cap is the live control.** A rule nobody can break is not a rule.
+
+Reasoning goes in the commit or the issue, where it can be read on demand and
+cannot rot against the code beside it. A measurement nobody has acted on is an
+issue, not a paragraph -- #299, #300 and #302 were all lifted out of comments
+during the sweep rather than deleted with them.
+
+**Cut at a sentence boundary, never by line count.** An earlier pass cut blocks
+by deleting trailing lines and left 207 comments ending mid-clause. A half
+sentence is worse than no comment: it reads as though it is still saying
+something.
+
 ## Roles
 
 - If you are the manager session, follow `.claude/MANAGER.md`.

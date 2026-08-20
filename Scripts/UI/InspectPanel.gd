@@ -445,17 +445,12 @@ func _remove_plan(pawn: PawnData, index: int) -> void:
 	call_deferred("_build_detail", pawn)
 
 # ---------------------------------------------------------------------------
-# What a block offers
+# What a block offers: the only place a picker learns what it may offer.
 #
-# Issue 96: "treat a block as a thing the pawn owns, not a menu entry" — the
-# player wants blocks to be findable later, in a Library that is out of scope
-# for one room. These three functions are that seam and the only place a
-# picker learns what it may offer. Today they return the interpreter's full
-# whitelists and the class's own actions, which is exactly the old behaviour;
-# narrowing them to what a pawn has actually found is a change here and
-# nowhere else. Every picker below goes through them rather than reading
+# Today these return the interpreter's full whitelists and the class's own
+# actions. Narrowing them to what a pawn has actually found is a change here
+# and nowhere else, so every picker goes through them rather than reading
 # `TARGETING_OPS` / `starting_actions` directly.
-
 func _available_conditions(_pawn: PawnData) -> Array:
 	return PlanInterpreter.CONDITION_OPS
 

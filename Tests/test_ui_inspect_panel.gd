@@ -117,17 +117,10 @@ func test_attribute_chips_carry_glossary_tooltips() -> void:
 					found = true
 					assert_eq(chip.get_script(), GlossaryLabelScript, "must be hoverable, same as every other glossary term")
 					assert_eq(chip.tooltip_text, Glossary.attribute_text(CG.Attribute.STR))
-					# PLAYTEST-NOTES-2 item 13: "hover is missing on Inspect
-					# classes -- the most important place for it to be." A
-					# real launch (throwaway probe, not this offline
-					# construction) found why: Label's own engine default
-					# mouse_filter is IGNORE, so the tooltip's own machinery
-					# never even sees the mouse arrive. A plain Control
-					# (PartyCard) defaults to STOP, which is why that one
-					# worked and every ad hoc Label built for hover never
-					# could. Set explicitly rather than left to
-					# GlossaryLabel's own _ready(), which never fires here
-					# since this test never puts InspectPanel in a live tree.
+					# Label's engine default `mouse_filter` is IGNORE, so the tooltip
+					# machinery never sees the mouse; a plain Control defaults to STOP.
+					# Set explicitly rather than left to GlossaryLabel's `_ready()`,
+					# which never fires in this offline construction.
 					assert_eq(chip.mouse_filter, Control.MOUSE_FILTER_STOP, "a Label defaults to MOUSE_FILTER_IGNORE and would never receive hover at all")
 	assert_true(found, "expected to find the STR chip")
 	panel.free()

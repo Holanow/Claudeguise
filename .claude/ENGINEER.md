@@ -551,9 +551,63 @@ The player, to rook, and it applies to every report you make:
 only job is to introduce another sentence, and never restate the brief back.
 
 This does **not** mean report less. It means put the detail where it belongs:
-**issues, commit messages and code comments**, which can be read on demand.
-Those should stay as thorough as they are -- that habit has caught real defects
-here. A status report is not the place for reasoning you can link to.
+**issues and commit messages**, which can be read on demand and cannot rot
+against the code beside them. **Not code comments** -- see the next section,
+which changed on 2026-08-20. A status report is not the place for reasoning you
+can link to.
 
 Findings, corrections and disclosures still get stated plainly. Just shorter.
 
+## Comments: one sentence, and the gate counts the lines
+
+**This changed on 2026-08-20 and it reverses what this file used to say.**
+Until then the advice was to put your reasoning in the code comment. It is now
+the opposite, on the player's ruling:
+
+> "we should remove basically any comment that is a diary entry, we already
+> have the issue board"
+
+> "I'm okay re-discovering some things and then noting them as one or two
+> liners"
+
+6,339 lines came out of the repo on that ruling. Comment lines went from 12,889
+to 6,565 against 25,017 of code. **The longest comment block in the repo was 82
+lines; it is now 10.**
+
+### The rule
+
+**A comment block keeps its first sentence.** What the next reader needs *at
+that line*, and nothing else.
+
+**`Tools/gate.ps1` fails any comment block over 10 lines**, exit 6, naming the
+file and line. It is falsifiable and was checked against a deliberate 12-line
+block before it landed. The old 2:1 ratio cap is still there and is now inert --
+the repo sits at 0.26:1, so nothing can fail it. **The block cap is the live
+control.**
+
+### What goes where instead
+
+| what | where |
+| --- | --- |
+| what this line does, the rule it enforces | the comment |
+| why you chose it, what you tried first | the commit message |
+| a measurement, an open question, a defect | an issue |
+| what an earlier version used to do | nowhere. It is in the history |
+
+**Do not write the decision diary in the source.** "I nearly shipped this
+wrong", "asked on the board rather than done here", "measured on 2026-08-13"
+are all valuable and all belong in the commit or the issue.
+
+### If you delete a comment carrying a real finding, file it
+
+Three blocks in that sweep were fact rather than history and became issues
+rather than deletions: **#299** the audio voicing set, **#300** the room picker
+rule, **#302** `spawn_taunt_radius` being unreachable. That is the pattern.
+**A measurement nobody has acted on is an issue, not a paragraph.**
+
+### The one trap
+
+**Cut at a sentence boundary, never by line count.** An earlier pass of mine cut
+blocks by deleting trailing lines and left **207 comments ending mid-clause**,
+which swift found in `CombatSim`. A half-sentence is worse than no comment: it
+reads as though it is still saying something.

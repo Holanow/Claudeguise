@@ -183,17 +183,10 @@ static func _carry_party_condition_into(state: CombatState, run: FloorRun, party
 		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
 
-## The only place this file touches content, and it is a lookup, not a
-## table. Issue 27 found that every room.type used to fall through to
-## `floor1_room1` regardless, so difficulty could only ever change *how
-## many* of that one melee-first spawn list showed up -- against a party
-## that outranges the front of that list, no difficulty number moved
-## anything. `_ENCOUNTER_FOR_TYPE` is the placeholder fix: which encounter
-## id a room.type maps to is a content decision and teal's to retune, not
-## wren's to guess well -- change the ids below, not this function, when
-## better ones exist. `enemy_spawns` *count* is still the only thing
-## difficulty is allowed to scale, clamped to whichever encounter's own
-## spawn list.
+## The only place this file touches content, and it is a lookup, not a table.
+## Which encounter id a `room.type` maps to is a content decision: change the
+## ids below, not this function. `enemy_spawns` count is the only thing
+## difficulty scales, clamped to that encounter's own spawn list.
 const _ENCOUNTER_FOR_TYPE := {
 	FloorRoom.Type.ENEMY: &"floor1_room1",
 	FloorRoom.Type.BIG_ENEMY: &"floor1_horde",

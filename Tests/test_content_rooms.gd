@@ -319,17 +319,10 @@ func test_the_chokepoints_terrain_is_not_decoration() -> void:
 	assert_true(differs, "the pits should change the fight, or they are decoration")
 
 
-## **Issue #121 item 7, the tar pit, and this test is red until swift wires
-## `CombatSim._tick_hazards`.**
-##
-## The field pair landed in `Scripts/Core/Terrain.gd` -- `applies_status`,
-## `applies_status_enabled`, `status_duration_ticks` -- and **nothing reads
-## it**. `_tick_hazards` loops `Terrain.hazards_at` and consults
-## `damage_per_tick` and nothing else, so a feature whose whole effect is a
-## status does nothing at all. Worse for this feature in particular: the
-## loop's first line is `if hazard.damage_per_tick <= 0: continue`, so a tar
-## pit that deals no damage is skipped before anything could look at its
-## status.
+## The tar pit's field pair in `Terrain.gd` -- `applies_status`,
+## `applies_status_enabled`, `status_duration_ticks` -- is read by nothing.
+## `_tick_hazards` consults `damage_per_tick` only, and skips any hazard
+## dealing no damage before it could look at a status. See #204.
 func test_the_chokepoints_tar_pit_slows_whoever_crosses_the_bridge() -> void:
 	var enc := Registry.get_encounter(&"floor1_chokepoint")
 	var tar := 0

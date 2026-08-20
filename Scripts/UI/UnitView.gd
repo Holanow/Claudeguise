@@ -11,17 +11,10 @@ const BAR_WIDTH := 60.0
 const BAR_HEIGHT := 7.0
 const BAR_GAP := 3.0
 
-## Issue 82 / the first fresh-eyes playtest: **"a green bar is roughly 70px
-## wide. The figure it belongs to is roughly 8px tall... often nearer to a
-## different figure than its own."**
-##
-## `BAR_WIDTH * DISPLAY_SCALE` is 90 for every unit in the game, while a goblin
-## is 33 across and a party pawn 66. A bar nearly three times the width of the
-## body under it does not read as that body's health; it reads as a floating
-## object that happens to be nearby, which is exactly what a reader with no
-## prior knowledge reported. **Tying the bar to the body is what makes it
-## legible as belonging to one**, and it matters more now that names default
-## off and cannot disambiguate.
+## The bar is tied to the drawn body, not to a fixed width. At
+## `BAR_WIDTH * DISPLAY_SCALE` every unit got 90 while a goblin is 33 across,
+## and a bar three times the width of its body reads as a floating object
+## rather than as that body's health.
 const MIN_BAR_WIDTH := 20.0
 
 ## Everything a unit wears -- bar width, the bar stack's anchor, the badge row

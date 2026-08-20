@@ -45,20 +45,11 @@ func _make_state() -> CombatState:
 	state.units.append(target)
 	return state
 
-## Issue 33 fixed the "?" (source_id = -1 on a poison/burn tick, same as a
-## hazard tick, per CombatSim.gd — the source may be dead, and attributing
-## the damage to it would be a worse lie than having none). Issue 24: that
-## made the line readable and did not make it usable — a real fight put
-## twelve of these one-per-tick lines in a ~20-line visible log, burying the
-## two events a player actually wants ("X dies", "Y hits Z for N"). Per
-## rook's own framing, this is presentation, not the event stream: dropped
-## from the log entirely rather than coalesced or summarised, because the
-## affliction is already visible without it — STATUS_APPLIED/STATUS_EXPIRED
-## still log once each ("Rat is afflicted with Poison" / "...fades"), and
-## every DAMAGE event still spawns a floating number on the unit regardless
-## of what the log shows (BattleView.consume_events spawns a floater from
-## the event itself, not from the log line). CombatSim's own stream is
-## unchanged; only what this file chooses to print from it moved.
+## DOT ticks are dropped from the log entirely rather than coalesced: a real
+## fight put twelve one-per-tick lines in a ~20-line log, burying the events a
+## player wants. The affliction stays visible without them -- STATUS_APPLIED
+## and STATUS_EXPIRED log once each, and every DAMAGE still spawns a floater
+## from the event itself. `CombatSim`'s stream is unchanged.
 func test_a_poison_tick_is_dropped_from_the_log() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
