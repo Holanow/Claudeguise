@@ -57,6 +57,12 @@ const CONDITION_ARG_SHAPE := {
 	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
 }
 
+## Issue 97: the same shape `CONDITION_ARG_SHAPE` carries, for the MOVEMENT ops,
+## so the plan editor can build a value editor for the distance a block holds.
+const MOVEMENT_ARG_SHAPE := {
+	&"keep_distance": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 120.0},
+}
+
 ## push_error is the loud, real failure. This is a testable side channel: the
 ## test suite has no way to assert a push_error happened, so an unknown op also
 ## records here, naming the op and the plan, and a test can read and clear it.
@@ -375,6 +381,9 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "use %s" % (action.display_name if action != null else String(action_id))
 		&"once":
 			return "once"
+		&"keep_distance":
+			var wanted := int(args.get("range", 0.0))
+			return "close to the target" if wanted <= 0 else "hold %d units from the target" % wanted
 	return "unknown op '%s'" % op
 
 static func _fail(plan: Plan, block: PlanBlock) -> void:
