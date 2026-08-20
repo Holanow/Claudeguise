@@ -634,7 +634,7 @@ func _show_outcome() -> void:
 		else Palette.TEAM_ENEMY if verdict == "Defeat"
 		else Palette.TEXT)
 	var reason := end_reason_sentence(state)
-	_end_cost_label.text = "%s  Â·  %s" % [_cost_summary(), duration]
+	_end_cost_label.text = "%s  ·  %s" % [_cost_summary(), duration]
 	if reason != "":
 		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
 	_end_banner.visible = true
