@@ -77,59 +77,19 @@ static func encounters() -> Array[Encounter]:
 static func items() -> Array[EquipmentDef]:
 	return [
 		# --- Weapons: Str/Int/Dex percent, per README's advanced tier -----
-		# Issue 40: allowed_methods set on every weapon -- this is the exact
-		# "caster in plate"-shaped mismatch the field exists for, a Warrior
-		# with an Orb or a Priest with a Sword. Armor and accessories are
-		# gated by role/damage-type per README, which this field does not
-		# reach (rook's own scope note), so they stay unrestricted.
-		#
-		# Melee + Martial. warrior.
 		_weapon(&"sword", "Sword", "A straight blade. Increases STR by 15%, and its wielder attacks with a Strike.", {CG.Attribute.STR: 0.15}, [CG.Method.MARTIAL], [&"warrior_strike"]),
 		# Melee + Summoner. siege_master's own class is Ranged/Summoner in
-		# practice (siege_shot, siege_barrage are both ranged), but README
-		# gates Wrench on Melee+Summoner tags specifically; kept as the
-		# closest base type to the class's Martial+Summoner combination
-		# rather than inventing a sixth weapon type for one class.
 		_weapon(&"wrench", "Wrench", "A heavy spanner. Increases DEX by 12% and STR by 5%, and its wielder attacks with a Strike.", {CG.Attribute.DEX: 0.12, CG.Attribute.STR: 0.05}, [CG.Method.MARTIAL], [&"warrior_strike"]),
 		# Melee + Magical. abomination.
 		_weapon(&"sickle", "Sickle", "A curved, filthy blade. Increases INT by 15%, and its wielder attacks with a poisoning Claw.", {CG.Attribute.INT: 0.15}, [CG.Method.MAGICAL], [&"abomination_claw"]),
 		# Ranged + Magical. geysermancer.
 		_weapon(&"orb", "Orb", "A sphere of trapped water. Increases INT by 18%, and its wielder attacks with a Spout.", {CG.Attribute.INT: 0.18}, [CG.Method.MAGICAL], [&"geyser_spout"]),
 		# Ranged + Martial. siege_master. Issue 129: the player asked for a bow
-		# by name, and README's table has had one from the start with no class
-		# whose tags fit it -- the note at the top of this file said as much.
-		# The Siege Master is MARTIAL and fights at 200 units, so it fits now.
-		# DEX because that is what `Balance.attack_power` reads for a Martial
-		# class that is not Melee, the same relationship Sword has to STR.
 		_weapon(&"bow", "Bow", "A recurve bow. Increases DEX by 15%, and its wielder attacks with a Shot at range.", {CG.Attribute.DEX: 0.15}, [CG.Method.MARTIAL], [&"siege_master_shot"]),
 		# Ranged + Magical. priest. Issue 129: the player asked for a staff by
-		# name. README's own table does not have one -- its Ranged+Magical entry
-		# is the Orb -- so this is a second weapon of the same base tags rather
-		# than a new tag combination, which is what lets the Priest and the
-		# Geysermancer hold different things. The player is writing real items
-		# into the design document later; this is not an attempt to guess that
-		# table.
 		_weapon(&"staff", "Staff", "A long carved stave. Increases INT by 12%, and its wielder attacks with a Bolt at range.", {CG.Attribute.INT: 0.12}, [CG.Method.MAGICAL], [&"priest_bolt"]),
 
 		# --- Armor: flat, occasional CON percent, per README -------------
-		# Tank.
-		# Issue 100: the first granted action in the game, and the whole point
-		# of the issue -- `granted_actions` had been on `EquipmentDef` since
-		# issue 39 with every one of the seventeen items leaving it empty, so
-		# nothing had ever proved the field reaches a fight.
-		#
-		# Block rather than a new action, because README's own armor table
-		# already says `Plate Mail | Tank | Block` -- this ability was always
-		# meant to come from armor. Issue 99 takes it off the Warrior class at
-		# the same time, so it does not exist in two places at once: a Warrior
-		# now gets Directional Block by *wearing plate*, not by being a Warrior.
-		#
-		# `allowed_methods` deliberately left empty, so any class may wear it.
-		# README gates armor by role (`Tank`) and `allowed_methods` only speaks
-		# martial-versus-magical, so gating here would say something the design
-		# does not -- the Abomination is a Tank and is MAGICAL. Per
-		# `EquipmentDef.allowed_methods`'s own note, an item nobody has a reason
-		# to refuse should not carry a restriction that means the wrong thing.
 		_armor(&"plate_mail", "Plate Mail", "Heavy plate. Adds 2 CON, increases CON by 10%, absorbs 5% of every hit, and teaches its wearer to raise a Directional Block.", {CG.Attribute.CON: 2}, {CG.Attribute.CON: 0.10}, 0.05, [&"warrior_block"]),
 		# DPS.
 		_armor(&"silk_wraps", "Silk Wraps", "Adds 2 AGI.", {CG.Attribute.AGI: 2}, {}, 0.0),
