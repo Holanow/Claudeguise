@@ -267,7 +267,7 @@ func test_the_hint_is_not_written_into_the_glossary_text_itself() -> void:
 ## control: right-click the button a player meets first and read the popout back
 ## off the screen's own tree.
 func test_a_popout_can_be_pinned_on_the_real_party_select_screen() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var host: Button = null
 	for node in _all(screen):

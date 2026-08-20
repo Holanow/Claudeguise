@@ -210,7 +210,7 @@ static func _the_horde() -> Encounter:
 	return e
 
 ## Issue 12 criterion 2, the "fewer and tougher" half: two ghouls. Slow,
-## hard to kill, hit hard Ã¢â‚¬â€ a wall rather than a swarm.
+## hard to kill, hit hard Ã¢â‚¬-- a wall rather than a swarm.
 static func _the_ghoul_den() -> Encounter:
 	var e := Encounter.new()
 	e.id = &"floor1_ghoul_den"

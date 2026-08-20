@@ -1,7 +1,7 @@
 # Dropping in interface art
 
-Every panel, border, button and icon in this game is currently drawn from code
-and colour constants. This folder is how you replace any of it with a real
+Every icon in this game is a PNG in this folder, and every panel, border and
+background can become one. This is how you replace any of it with your own
 picture, and it works exactly the way `Assets/Units/` already works for units.
 
 ## The whole procedure
@@ -17,15 +17,19 @@ Assets/UI/panel_border.png
 
 No code change. No scene to edit. No import step, no registration, no restart of
 anything but the game. The moment a file with the right name exists, the game
-draws it instead of the generated default.
+draws it.
 
-Delete the file and the generated one comes back, which makes it safe to try one
-and change your mind.
+**Every icon in this folder is already one of these files.** They were drawn from
+code until 2026-08-19; they were rendered out to PNGs and the drawing code was
+deleted, so there is no longer a generated version underneath. Overwrite a file
+to change a picture. **Delete one and the game draws a black square** -- on
+purpose, so a missing picture looks like a missing picture rather than like the
+feature being broken.
 
 ## Status badges
 
-One per status effect. These draw above a unit at about 12-16 pixels, so the
-generated ones are built around a shape you can still tell apart at that size.
+One per status effect. These draw above a unit at about 12-16 pixels, so they are
+built around a shape you can still tell apart at that size.
 
 | File | What it draws |
 | --- | --- |
@@ -46,7 +50,7 @@ generated ones are built around a shape you can still tell apart at that size.
 The first six are helpful and the last seven are harmful, which is the split the
 plate direction and rim colour below are drawn from.
 
-**The generated ones follow a rule, and a replacement should keep it.** Helpful
+**The badges follow a rule, and a replacement should keep it.** Helpful
 statuses sit on a plate that points **up** with a **green** rim. Harmful ones sit
 on a plate that points **down** with a **red** rim. Both cues carry the same
 information on purpose: the colour is faster to read, and the direction still
@@ -81,9 +85,16 @@ The filename is the action's id. **This list is checked by a test.**
 `Tests/test_art.gd` walks the real content registry and fails if an action ships
 without an icon, so nobody has to notice a blank square in a fight.
 
-The generated icons are coloured by the action's damage type, the same colour the
-floating damage numbers and the projectiles already use. A dropped-in PNG is
-drawn exactly as you painted it, colour included.
+The icons are coloured by the action's damage type, the same colour the floating
+damage numbers and the projectiles already use, and that colour is painted into
+the file. A replacement is drawn exactly as you painted it, colour included.
+
+**An action whose whole effect is a status carries that status's picture.** Guard
+is the Block wall, Ward the Shield, Haste the chevrons. One picture learned
+teaches both halves: the player sees what is coming, then sees the same thing
+land. Nothing checks this any more -- it was checked while both were the same
+array in code, and two PNGs cannot be compared that way -- so it is a rule for
+whoever repaints them.
 
 ## Equipment icons
 
@@ -100,8 +111,11 @@ The filename is the item's id, and **this list is checked by a test** the same
 way the ability icons are: an item added to the game without an icon fails the
 build rather than shipping as a blank square.
 
-**The generated ones follow two rules, and a replacement is worth keeping them
-for.**
+Three more are the empty plate on its own, one per slot, so an empty weapon slot
+still reads as a weapon slot rather than as a hole in the layout:
+`item/empty_weapon.png`, `item/empty_armor.png`, `item/empty_accessory.png`.
+
+**The icons follow two rules, and a replacement is worth keeping them for.**
 
 **The plate says which slot it is**, before you read anything inside it. A weapon
 sits on a **diamond**, armor on a **broad flat slab**, an accessory on a
@@ -117,8 +131,8 @@ the block is being raised, and again on the status badge once it is up. An item
 that only changes numbers has no badge.
 
 **The bottom-right corner is reserved, and your picture does not replace it.**
-Everything else here works the other way round: drop a file in and the generated
-version is gone. The badge is the exception because it is information rather
+Everything else here works the other way round: drop a file in and it is what
+you see. The badge is the exception because it is information rather
 than decoration — which item teaches an ability is something you need to know
 before you equip it, and a replacement picture that quietly removed it would
 look perfectly fine and would have taken something away. Leave the lower right

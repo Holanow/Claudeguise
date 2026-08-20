@@ -121,15 +121,15 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 ## roughly the middle fifth of a 1280x720 arena, sprites about twenty
 ## pixels across). A view-only scale, deliberately not a change to
 ## `CombatUnit.radius`/`EnemyDef.radius` themselves: those read as "drawing
-## only" in their own doc comments, and that comment is wrong â€” checked
+## only" in their own doc comments, and that comment is wrong -- checked
 ## rather than trusted, `CombatSim._move_toward` calls
 ## `Terrain.point_is_blocked(state.terrain, candidate, unit.radius)` for real
 ## movement collision. Changing the stored radius would be a balance change
 ## in a UI issue's clothes. Flagged to rook rather than corrected here since
 ## `CombatUnit.gd` is Core.
 ##
-## Applied uniformly to everything drawn around a unit â€” the body, its bars,
-## its labels, its badges â€” so a bigger silhouette does not leave suddenly-
+## Applied uniformly to everything drawn around a unit -- the body, its bars,
+## its labels, its badges -- so a bigger silhouette does not leave suddenly-
 ## tiny text stranded next to it. `BattleView.gd` imports this same constant
 ## for the floating numbers and death markers that spawn at a unit's
 ## position, so the whole visual footprint of a unit grows together.
@@ -137,7 +137,7 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 ## (floor1_room1): bodies read well, but row spacing there is tuned for the
 ## old footprint (rows 100-140 world units apart) and doubling every bar and
 ## the name font on top of a doubled body pushed adjacent rows' chrome into
-## each other â€” worse than the problem this issue exists to fix. 1.5 still
+## each other -- worse than the problem this issue exists to fix. 1.5 still
 ## roughly doubles the on-screen diameter after the arena's own ~0.5-0.95
 ## viewport scale (bigger than the raw multiplier suggests, since a bigger
 ## body also means a wider silhouette bounding box), while leaving enough
@@ -203,7 +203,7 @@ func _label_visible(u: CombatUnit) -> bool:
 ## The melee scrum: several units standing close enough that bodies occlude
 ## each other, called out in issue 15 as "the most important square inch of
 ## the screen is the least legible one". A view-only nudge, never fed back
-## into CombatState â€” the simulation's positions are wren's and this changes
+## into CombatState -- the simulation's positions are wren's and this changes
 ## nothing about range, targeting or movement, only where a body is drawn.
 ## Each overlapping pair pushes apart along the line between them; capped so
 ## a crowded unit never reads somewhere misleadingly far from where it
@@ -388,7 +388,7 @@ static func hp_fill_color(u: CombatUnit) -> Color:
 
 ## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
 ## with the arena (InspectPanel's attribute chips, PartySelect), so it is
-## not something this file can change â€” scaled locally instead, the same
+## not something this file can change -- scaled locally instead, the same
 ## reasoning DISPLAY_SCALE itself exists for.
 static func _label_font_size() -> int:
 	return int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
@@ -397,14 +397,14 @@ static func _label_font_size() -> int:
 ## respect: a bigger body and taller bar/label stack means two units that
 ## used to read as merely "nearby" now have their chrome actually touch at
 ## the same world distance. Found by comparing a real before/after screenshot
-## of floor1_room1, not by reasoning about it â€” the first version of issue 31
+## of floor1_room1, not by reasoning about it -- the first version of issue 31
 ## left these fixed and rows of enemies spaced for the old, smaller footprint
 ## overlapped their neighbours' labels.
 const CROWD_RADIUS := 70.0 * DISPLAY_SCALE
 const CROWD_STEP := 20.0 * DISPLAY_SCALE
 
 ## Extra headroom for this unit's name label when another unit is standing
-## close enough for the two labels to land on the same spot â€” found in
+## close enough for the two labels to land on the same spot -- found in
 ## Tools/preview/fight_sheet.png, where "abomination" and "Grunt" overlapped
 ## illegibly the moment two units clashed in melee, which is exactly the
 ## moment reading who is who matters most. Deterministic by id (lower id
@@ -414,7 +414,7 @@ const CROWD_STEP := 20.0 * DISPLAY_SCALE
 func _crowding_stagger(u: CombatUnit) -> float:
 	if _state == null:
 		return 0.0
-	# CROWD_STEP already carries DISPLAY_SCALE â€” do not multiply twice.
+	# CROWD_STEP already carries DISPLAY_SCALE -- do not multiply twice.
 	return float(crowd_rank(u, _state.units)) * CROWD_STEP
 
 ## Issue 41: a dense room (floor1_room1, 10 enemies) piled every enemy's name
@@ -481,7 +481,7 @@ func _has_active_projectile(u: CombatUnit) -> bool:
 			return true
 	return false
 
-## How many other living units currently have this one as their focus â€”
+## How many other living units currently have this one as their focus --
 ## "is this unit under fire from more than one thing at once", which issue 15
 ## found was completely invisible: a scrum of three attackers on one pawn
 ## looked identical to three attackers merely standing near it. Split out for

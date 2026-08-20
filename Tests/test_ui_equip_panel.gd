@@ -39,7 +39,7 @@ func _make_item(id: String, slot: int, methods: Array[CG.Method] = []) -> Equipm
 	return e
 
 func _panel() -> EquipPanel:
-	var panel := EquipPanel.new()
+	var panel := EquipPanel.create()
 	panel._ready()
 	return panel
 
@@ -63,7 +63,7 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 	var granted: StringName = plate.granted_actions[0]
 
 	var pawn := _make_pawn()
-	var editor := InspectPanel.new()
+	var editor := InspectPanel.create()
 	editor._ready()
 	assert_false(editor._available_actions(pawn).has(granted),
 		"before equipping, the plan editor must not offer the item's action")
@@ -90,7 +90,7 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 ## exactly what it was offered before issue 100 touched this.
 func test_an_unequipped_pawn_is_offered_exactly_its_class_actions() -> void:
 	var pawn := _make_pawn()
-	var editor := InspectPanel.new()
+	var editor := InspectPanel.create()
 	editor._ready()
 	assert_eq(Array(editor._available_actions(pawn)), Array(pawn.pawn_class.starting_actions),
 		"equipment must widen this list and nothing else")
@@ -103,7 +103,7 @@ func test_the_actions_row_shows_a_granted_action() -> void:
 	var pawn := _make_pawn()
 	pawn.armor = Registry.get_equipment(&"plate_mail")
 	var granted: StringName = pawn.armor.granted_actions[0]
-	var editor := InspectPanel.new()
+	var editor := InspectPanel.create()
 	editor._ready()
 	editor.open([pawn])
 	assert_true(_text_of(editor).contains(Registry.get_action(granted).display_name),
@@ -438,7 +438,7 @@ func test_a_naked_pawn_reads_as_empty_not_as_broken() -> void:
 ## opens the panel on the same pawn instances the fight is built from -- so an
 ## edit made here is an edit the fight sees, with no apply step to forget.
 func test_party_select_can_reach_the_equip_screen_and_edits_reach_the_fight() -> void:
-	var screen := PartySelect.new()
+	var screen := PartySelect.create()
 	screen._ready()
 	var found: Button = null
 	for node in _all_nodes(screen):

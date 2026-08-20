@@ -19,14 +19,14 @@ class_name CombatLogView
 ##
 ## Issue 29: landscape used to reserve LOG_HEIGHT along the bottom, same as
 ## portrait still does here. That fixed a real overlap (three of seven units
-## drawn behind the log's text) at the cost of the arena's own size â€” rook
+## drawn behind the log's text) at the cost of the arena's own size -- rook
 ## measured the fix at "about a quarter of the screen", a real regression
 ## against "everything larger and more readable". A 16:9 arena in a
 ## wider-than-16:9 window already leaves empty side margins it can never
 ## use; landscape now spends those on the log instead, side rather than
 ## below. Portrait keeps the bottom strip: width is portrait's scarce
 ## dimension, not height, so a side column would cost far more there than a
-## thin bottom strip does â€” confirmed by the regression this file's own
+## thin bottom strip does -- confirmed by the regression this file's own
 ## history includes, where applying the side reservation unconditionally
 ## dropped the pinned portrait height fraction under its floor.
 ##
@@ -292,7 +292,7 @@ func _magnitude_text(e: CombatEvent) -> String:
 ##     every fight's actions, so this is also where the volume is.
 ##   - **Why the other rows did not fire is NOT here.** That is four facts per
 ##     row per tick and it would bury the log. It lives in the pause inspection
-##     instead â€” `InspectPanel` marks every row with its live verdict â€” which
+##     instead -- `InspectPanel` marks every row with its live verdict -- which
 ##     costs the log nothing and puts the answer in the screen where the fix is
 ##     made.
 ##
@@ -332,7 +332,7 @@ func _seconds(ticks: int) -> String:
 ## the win screen's tick count was, in a quieter place. Prefers the real
 ## ActionDef's display_name; falls back to humanizing the raw id (String's
 ## own capitalize() turns snake_case into Title Case) so a hand-built test
-## fixture using a synthetic action id â€” not a real registered one â€” still
+## fixture using a synthetic action id -- not a real registered one -- still
 ## reads as words rather than crashing or showing nothing.
 func _action_name(action_id: StringName) -> String:
 	var action := Registry.get_action(action_id)

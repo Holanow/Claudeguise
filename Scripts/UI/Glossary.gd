@@ -5,16 +5,16 @@ class_name Glossary
 ## Explanatory copy for every game term with no description anywhere today:
 ## class tags (Role/Style/Method), stats (CG.Attribute) and statuses
 ## (CG.Status). Hover-info-box system, phase 1 (see TEAM_LOG.md, wren's
-## block) â€” Control-based screens first, the battle arena (where statuses
+## block) -- Control-based screens first, the battle arena (where statuses
 ## actually appear on screen) second.
 ##
-## OWNER: wren. Explanatory copy is presentation, not simulation â€” same
+## OWNER: wren. Explanatory copy is presentation, not simulation -- same
 ## reasoning Palette.gd already applies to colour.
 ##
 ## The one rule that matters more than the wording: **this file owns the
 ## sentence, Balance owns the number.** Every numeric fact below is read
 ## from a real Balance/Core constant at call time, never retyped as a
-## literal â€” rook's own correction after the condition-editor bug (a UI
+## literal -- rook's own correction after the condition-editor bug (a UI
 ## file captioned a control from the op's default instead of the plan's
 ## real value, i.e. kept a second copy of a fact PlanInterpreter already
 ## owned). A description here can go stale the moment a balance pass
@@ -22,7 +22,7 @@ class_name Glossary
 ## keeps that impossible.
 ##
 ## Percent constants in Balance are stored as whole numbers (e.g. `0.30`
-## already means "0.30%", not "30%" â€” see POISON_DAMAGE_PERCENT_PER_TICK's
+## already means "0.30%", not "30%" -- see POISON_DAMAGE_PERCENT_PER_TICK's
 ## own doc comment) and some as fractions of 1.0 (e.g.
 ## STATUS_SHIELD_REDUCTION). Each formatter below matches whichever the
 ## constant it reads actually uses; nothing here re-derives a percent from

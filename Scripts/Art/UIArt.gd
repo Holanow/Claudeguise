@@ -341,75 +341,9 @@ static func draw_nine_slice(canvas: CanvasItem, tex: Texture2D, rect: Rect2) -> 
 				Rect2(dst_x[i], dst_y[j], dst_w[i], dst_h[j]),
 				Rect2(src_x[i], src_y[j], src_w[i], src_h[j]))
 
-## ---------------------------------------------------------------------------
-## GENERATED GLYPHS
-##
-## The defaults a dropped-in PNG replaces. A glyph is an Array of parts, each a
-## Dictionary with exactly one shape key:
-##
-##     {"poly": [[x, y], ...]}                filled polygon
-##     {"line": [[x, y], ...], "w": 0.18}     stroked polyline
-##     {"arc":  [cx, cy, r], "w": 0.18}       stroked circle
-##     {"arc":  [cx, cy, r, from, to], ...}   stroked partial arc, radians
-##     {"dot":  [cx, cy, r]}                  filled circle
-##
-## Any part may also carry `"rot": <radians>`, rotating it about the glyph's
-## centre. It exists because an upright sword drawn thin enough to be a sword
-## reads as a plus sign, and tilting it fixes that completely -- measured on the
-## first rendered sheet, where `warrior_strike` and `priest_heal` came out as
-## the same cross. Authoring a shape upright and tilting it beats hand-computing
-## rotated vertices and getting them slightly wrong.
-##
-## Coordinates are in a -1..1 box with +Y down and stroke widths in the same
-## units, so one glyph scales to any icon size. Same convention as
-## `AttackFX._PROJECTILE_SHAPES`, deliberately, so the two files read alike.
-##
-## Geometry is data and the draw call is a loop over it, for the reason
-## `Silhouettes.build_parts` is split from `Silhouettes.draw_unit`: Godot
-## refuses `draw_*` outside `_draw()`, so a test that can only call the drawing
-## wrapper logs a wall of errors and asserts nothing.
-
-## Points of one `poly` or `line` part mapped into `rect`. Split out so a test
-## can check a glyph lands inside its own box without a live canvas.
-static func glyph_points(part: Dictionary, rect: Rect2) -> PackedVector2Array:
-	var center := rect.get_center()
-	var half := minf(rect.size.x, rect.size.y) * 0.5
-	var raw: Array = part.get("poly", part.get("line", []))
-	var rot := float(part.get("rot", 0.0))
-	var out := PackedVector2Array()
-	for p in raw:
-		var v := Vector2(p[0], p[1])
-		if rot != 0.0:
-			v = v.rotated(rot)
-		out.append(center + v * half)
-	return out
-
-## Where a `dot` or `arc` part's centre lands, honouring the same `rot`.
-static func glyph_center(part: Dictionary, at: Array, rect: Rect2) -> Vector2:
-	var v := Vector2(at[0], at[1])
-	var rot := float(part.get("rot", 0.0))
-	if rot != 0.0:
-		v = v.rotated(rot)
-	return rect.get_center() + v * minf(rect.size.x, rect.size.y) * 0.5
-
-static func _stroke(part: Dictionary, half: float) -> float:
-	# Never below a pixel: a 0.18-unit stroke on a 12px icon is 1.08px, and the
-	# next size down would vanish entirely rather than merely thin out.
-	return maxf(1.0, float(part.get("w", 0.18)) * half)
-
-static func draw_glyph(canvas: CanvasItem, glyph: Array, rect: Rect2, color: Color) -> void:
-	var half := minf(rect.size.x, rect.size.y) * 0.5
-	for part in glyph:
-		if part.has("poly"):
-			canvas.draw_colored_polygon(glyph_points(part, rect), color)
-		elif part.has("line"):
-			canvas.draw_polyline(glyph_points(part, rect), color, _stroke(part, half), true)
-		elif part.has("dot"):
-			var d: Array = part["dot"]
-			canvas.draw_circle(glyph_center(part, d, rect), d[2] * half, color)
-		elif part.has("arc"):
-			var a: Array = part["arc"]
-			var rot := float(part.get("rot", 0.0))
-			var from := (float(a[3]) if a.size() > 3 else 0.0) + rot
-			var to := (float(a[4]) if a.size() > 4 else TAU) + rot
-			canvas.draw_arc(glyph_center(part, a, rect), a[2] * half, from, to, 24, color, _stroke(part, half), true)
+## Glyph geometry used to live below this line: a part format, a points mapper
+## and a `draw_glyph` loop, shared by the status, ability and item icons. All
+## three now draw PNGs baked by `Tools/BakeGlyphs.tscn`, so it went with them. That tool is deleted too --
+## `git log --diff-filter=D -- Tools/BakeGlyphs.gd`.
+## Player's ruling, 2026-08-19: *"we should do basically 0 drawing with code
+## ever"*.

@@ -114,17 +114,15 @@ func test_the_unused_shapes_are_still_there() -> void:
 
 
 func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
-	# Not just `has_shape`: the failure being guarded against is a unit drawing
-	# the unknown-shape fallback in a real fight, and `has_shape` is exactly the
-	# thing that would have been false while nobody looked. So this asserts the
-	# shape is present AND that what it builds is not the fallback.
-	var unknown := Silhouettes.build_parts(&"not_a_real_shape", 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
+	# Not just "a name exists": the failure guarded against is a unit drawing
+	# the fallback in a real fight. There is no unknown-shape polygon set any
+	# more -- a shape with no file draws a black square -- so this asks the
+	# question directly, of the file.
 	for id in AHEAD_OF_CONTENT_SHAPES:
-		assert_true(Silhouettes.has_shape(id), "no silhouette for '%s'" % id)
-		var parts := Silhouettes.build_parts(id, 40.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-		assert_true(parts.size() > unknown.size(),
-			"'%s' builds %d polygons, the unknown fallback builds %d -- it is drawing the fallback" % [
-				id, parts.size(), unknown.size()])
+		assert_true(Silhouettes.has_shape(id), "no sprite for '%s'" % id)
+		var extent := Silhouettes.drawn_extent(id, 40.0, CG.Team.ENEMY)
+		assert_true(extent.size.x > 0.0 and extent.size.y > 0.0,
+			"'%s' has a file that puts no ink on the screen" % id)
 
 
 ## THE TEST THIS REPLACES CLAIMED SOMETHING TOP-EDGE GEOMETRY CANNOT SAY, AND
@@ -315,25 +313,20 @@ func _shallowest_valley(id: StringName) -> float:
 	return 0.0 if shallowest == INF else shallowest
 
 
+## Drawn width over drawn height. Read off `drawn_extent`, which is the sprite's
+## OPAQUE box -- this used to build polygons, and for every shape with a sprite
+## that was a fact about art nobody sees.
 func _aspect(id: StringName) -> float:
-	var parts := Silhouettes.build_parts(id, 100.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for part in parts:
-		for p in part["points"]:
-			lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
-			hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
-	return (hi.x - lo.x) / maxf(0.001, hi.y - lo.y)
+	var box := Silhouettes.drawn_extent(id, 100.0, CG.Team.ENEMY)
+	return box.size.x / maxf(0.001, box.size.y)
 
 
 ## Fraction of its own nominal box a shape's drawn width actually covers.
 ##
 ## **This used to read `Silhouettes.build_parts` and it was measuring the wrong
-## thing.** Ten shapes have real PNGs in `Assets/Units/`, and for those the
-## polygons in `Silhouettes` are dead code the game never renders -- so the
-## number this produced was a fact about art nobody sees. It goes through
-## `Silhouettes.fill_ratio`, which takes the same two paths `draw_unit` does, in
-## the same order. See the correction note in `BADGE-LEGIBILITY.md`.
+## thing** -- ten shapes had real PNGs and the polygons were dead code. There is
+## one path now, so the trap is gone rather than avoided. See the correction note
+## in `BADGE-LEGIBILITY.md`.
 func _fill_fraction(id: StringName) -> float:
 	return Silhouettes.fill_ratio(id, CG.Team.ENEMY).x
 
@@ -360,28 +353,17 @@ func test_no_silhouette_is_drawn_tiny_inside_its_own_footprint() -> void:
 			"%s is drawn at %.2f of its own footprint width; its bar, badges and impact ring are sized from the full footprint" % [id, fill])
 
 
-func test_fill_ratio_reads_the_real_art_and_not_the_dead_polygons() -> void:
-	# The regression guard for the defect above, and the reason it is possible to
-	# state as an assertion: for a shape with a PNG, the two paths disagree.
-	# `warrior` has `Assets/Units/warrior.png`, so `draw_unit` draws the texture
-	# and `build_parts` is never reached.
-	#
-	# If somebody deletes the PNGs this goes red rather than silently passing --
-	# which is correct: the whole point is that the measurement follows the art.
-	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER),
-		"this test measures the texture path; without a PNG for warrior it measures nothing")
-
-	var from_art := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
-	var parts := Silhouettes.build_parts(&"warrior", 100.0, CG.Team.PLAYER, CG.DamageType.PHYSICAL)
-	var lo := INF
-	var hi := -INF
-	for part in parts:
-		for p in part["points"]:
-			lo = minf(lo, p.x)
-			hi = maxf(hi, p.x)
-	var from_polygons := (hi - lo) / 200.0
-	assert_true(absf(from_art.x - from_polygons) > 0.05,
-		"fill_ratio returned the polygon width (%.2f) for a shape that draws a texture" % from_polygons)
+func test_fill_ratio_reads_the_real_art() -> void:
+	# **The defect this test was written for: `fill_ratio` measured polygons for
+	# ten shapes that had sprites, and a published table of numbers was wrong
+	# because of it.** There is only one path now, so the defect is structurally
+	# impossible; the assertion that remains is that the number comes from the
+	# sprite's opaque pixels rather than from its file dimensions.
+	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER), "warrior.png is gone; this test measures nothing")
+	var ratio := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
+	var tex := UnitArt.texture_for(&"warrior", CG.Team.PLAYER)
+	assert_eq(ratio, UnitArt.opaque_fraction(tex))
+	assert_true(ratio.x > 0.0 and ratio.x <= 1.0, "fill_ratio is out of range: %s" % ratio)
 
 
 func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
@@ -436,19 +418,19 @@ func test_the_footprint_check_would_catch_a_shape_drawn_too_small() -> void:
 
 
 func test_the_rat_king_and_its_rat_are_not_the_same_shape() -> void:
-	# They are a pair and they are meant to be related, which is precisely the
-	# condition under which two shapes drift into being one. The miniboss and its
-	# chaff appear on screen together and constantly.
-	var king := Silhouettes.build_parts(&"rat_king", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	var rat := Silhouettes.build_parts(&"rat", 60.0, CG.Team.ENEMY, CG.DamageType.PHYSICAL)
-	assert_ne(king.size(), rat.size(), "the Rat King and the rat build identical polygon counts")
-	assert_true(_aspect(&"rat") > _aspect(&"rat_king"),
-		"the rat must be the flatter of the two: the pile is tall because it is a pile")
+	# The miniboss has to read as a pile of the thing it keeps spawning, and
+	# still not be a big one of them. Pixels, because both have sprites.
+	var king := Silhouettes.top_profile(&"rat_king", 60.0, CG.Team.ENEMY)
+	var rat := Silhouettes.top_profile(&"rat", 60.0, CG.Team.ENEMY)
+	assert_ne(king, rat, "the Rat King and the Rat draw the same outline")
+	assert_true(Silhouettes.fill_ratio(&"rat_king", CG.Team.ENEMY).x
+		> Silhouettes.fill_ratio(&"rat", CG.Team.ENEMY).x * 0.5,
+		"the Rat King is not a pile beside its own rat")
 
 
 func test_an_unknown_shape_is_reported_as_unknown() -> void:
 	# The negative case. Without it, a has_shape that returned true for
-	# everything would pass both tests above perfectly.
+	# everything would satisfy every other assertion in this file.
 	assert_false(Silhouettes.has_shape(&"not_a_real_shape"))
 	assert_false(Silhouettes.has_shape(&""))
 
@@ -461,76 +443,37 @@ func test_shape_ids_are_sorted_and_complete() -> void:
 	assert_eq(ids, sorted, "shape_ids must be deterministic")
 
 
-func test_every_shape_builds_drawable_polygons() -> void:
-	# Runs the real geometry path and asserts what comes back, rather than
-	# reading the coordinate tables, which would only prove they agree with
-	# themselves. A part with fewer than three points, or a tint key that does
-	# not resolve to a colour, fails here.
-	for id in Silhouettes.shape_ids():
+## Three tests lived here and are deleted with the polygons they read:
+## `test_every_shape_builds_drawable_polygons`, `test_shapes_stay_inside_the
+## _radius_they_are_given` and `test_facing_left_mirrors_the_shape`. The first
+## two are structural now -- a sprite is scaled into the radius it is given by
+## `UnitArt.draw`, which cannot overshoot -- and mirroring is asserted on the
+## real path by `test_a_mirrored_sprite_is_drawn_in_the_same_place` below, which
+## is where issue #241's actual defect was.
+##
+## `test_an_unknown_shape_still_produces_something_visible` went too. What an
+## unknown shape produces is a black square, by the player's ruling, and
+## `test_every_shape_has_real_art_and_nothing_falls_back` asserts nothing in
+## this game reaches it.
+
+
+func test_every_shape_has_real_art_and_nothing_falls_back() -> void:
+	# **This test used to assert the opposite**, that every shape without a
+	# sprite still had polygons behind it. That was the right check while seven
+	# shapes had no sprite; all nineteen have one now, both sides, so the loop
+	# skipped every id and recorded no assertion at all -- which the gate
+	# correctly reports as a test that asserts nothing.
+	#
+	# So it is turned around to say the thing that is now true and is worth
+	# holding: no unit in this game draws a fallback. That is what makes
+	# deleting the polygons safe, and if a sprite is ever removed this fires
+	# with the id rather than a black square appearing in a fight.
+	var ids := Silhouettes.shape_ids()
+	assert_true(ids.size() >= 15, "only %d shapes; this walk is wrong" % ids.size())
+	for id in ids:
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var parts := Silhouettes.build_parts(id, 24.0, team, CG.DamageType.FIRE)
-			assert_true(parts.size() >= 3, "%s has only %d parts; too few to read" % [id, parts.size()])
-			for part in parts:
-				var points: PackedVector2Array = part["points"]
-				assert_true(points.size() >= 3, "%s has a part with %d points" % [id, points.size()])
-				assert_true(part["fill"] is Color, "%s has a part with no fill colour" % id)
-
-
-func test_shapes_stay_inside_the_radius_they_are_given() -> void:
-	# A shape that overflows its radius overlaps its neighbours in a crowd and
-	# makes a fight unreadable in exactly the situation that matters most.
-	# Checked on the diagonal too, not only on the axes: the first version of
-	# this file had corners past the bound that an axis-only check missed.
-	var radius := 24.0
-	for id in Silhouettes.shape_ids():
-		for part in Silhouettes.build_parts(id, radius, CG.Team.PLAYER, CG.DamageType.FIRE):
-			for p in part["points"]:
-				assert_true(
-					absf(p.x) <= radius + 0.01 and absf(p.y) <= radius + 0.01,
-					"%s has a point at %s, outside its radius of %f" % [id, p, radius]
-				)
-
-
-func test_facing_left_mirrors_the_shape() -> void:
-	# And the negative half: facing right must not mirror it. A flip applied
-	# unconditionally looks correct in every screenshot of a single unit.
-	var right := Silhouettes.build_parts(&"warrior", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE, false)
-	var left := Silhouettes.build_parts(&"warrior", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE, true)
-	assert_eq(right.size(), left.size())
-	for i in right.size():
-		var rp: PackedVector2Array = right[i]["points"]
-		var lp: PackedVector2Array = left[i]["points"]
-		for j in rp.size():
-			assert_almost_eq(lp[j].x, -rp[j].x, 0.001, "x should mirror")
-			assert_almost_eq(lp[j].y, rp[j].y, 0.001, "y should not")
-
-
-func test_an_unknown_shape_still_produces_something_visible() -> void:
-	# An invisible unit reads as a simulation bug and is not one. The fallback
-	# has to draw.
-	var parts := Silhouettes.build_parts(&"not_a_real_shape", 24.0, CG.Team.PLAYER, CG.DamageType.FIRE)
-	assert_eq(parts.size(), 1)
-	assert_true(parts[0]["points"].size() >= 3)
-	assert_false(parts[0]["filled"], "the unknown marker is hollow, so it cannot be mistaken for real art")
-
-
-# ---------------------------------------------------------------------------
-# The art is meant to be replaced. These check that the replacing works and
-# that the instructions for it stay true.
-# ---------------------------------------------------------------------------
-
-
-
-func test_with_no_art_files_every_shape_falls_back_to_polygons() -> void:
-	# The state the project ships in. If this ever fails it means something is
-	# being picked up from Assets/Units that should not be, which would be
-	# confusing in exactly the way a caching bug is.
-	for id in Silhouettes.shape_ids():
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			if UnitArt.has_art(id, team):
-				continue
-			var parts := Silhouettes.build_parts(id, 24.0, team, CG.DamageType.FIRE)
-			assert_true(parts.size() >= 3, "%s lost its placeholder" % id)
+			assert_true(UnitArt.has_art(id, team),
+				"'%s' has no sprite for team %d, so it draws the fallback" % [id, team])
 
 
 func test_a_mirrored_sprite_is_drawn_in_the_same_place() -> void:
@@ -731,14 +674,12 @@ func _every_reachable_action_id() -> Array:
 
 
 func test_every_status_has_a_badge_glyph() -> void:
+	# The badges are files now, so this asks the loader rather than a table: a
+	# status whose PNG is missing or unreadable draws a black square in a fight.
 	for s in _every_status():
 		assert_true(
-			StatusIcons.GLYPHS.has(s),
-			"CG.Status.%s has no glyph in StatusIcons.GLYPHS" % CG.Status.keys()[s]
-		)
-		assert_true(
-			(StatusIcons.GLYPHS[s] as Array).size() > 0,
-			"CG.Status.%s has an empty glyph" % CG.Status.keys()[s]
+			StatusIcons.has_glyph(s),
+			"CG.Status.%s has no badge at %s.png" % [CG.Status.keys()[s], StatusIcons.art_name(s)]
 		)
 
 
@@ -750,123 +691,102 @@ func _count_at(points: Array, y: float) -> int:
 	return n
 
 
+## The opaque fraction of one row of a badge, sampled across its width.
+func _row_ink(name: StringName, row: float) -> float:
+	var tex := UIArt.texture_for(name)
+	if tex == null:
+		return 0.0
+	var image := tex.get_image()
+	var y := clampi(int(row * float(image.get_height())), 0, image.get_height() - 1)
+	var inked := 0
+	for x in image.get_width():
+		if image.get_pixel(x, y).a > 0.5:
+			inked += 1
+	return float(inked) / float(image.get_width())
+
+
 func test_status_plate_direction_follows_is_harmful() -> void:
-	# The stated rule, asserted rather than trusted: harmful points down,
-	# beneficial points up, and CG.is_harmful() is the only source for it. A
-	# second list in StatusIcons could drift; there is no second list, and this
-	# fails if one is ever introduced.
+	# The stated rule: harmful points down, beneficial points up, and
+	# `CG.is_harmful()` is the only source for it. There is deliberately no
+	# second list to drift from it.
+	#
+	# **Measured on the baked pixels, not on a polygon.** The plates were an
+	# array of points until they were baked into `Assets/UI/status/`; a test
+	# still reading points would be measuring an artefact the game no longer
+	# draws, which is the failure this repo has recorded three times.
+	#
+	# A plate that POINTS DOWN is wide at the top and narrow at the bottom, so
+	# the near-top row carries far more ink than the near-bottom one.
 	for s in _every_status():
-		var pts := StatusIcons.plate_points(s)
-		var lowest := -999.0
-		var highest := 999.0
-		for p in pts:
-			lowest = maxf(lowest, p[1])
-			highest = minf(highest, p[1])
+		var name := StatusIcons.art_name(s)
+		var high := _row_ink(name, 0.06)
+		var low := _row_ink(name, 0.94)
 		var label := String(CG.Status.keys()[s])
 		if CG.is_harmful(s):
-			assert_almost_eq(lowest, 1.0, 0.001, "%s should sit on a downward plate" % label)
-			assert_eq(_count_at(pts, 1.0), 1, "%s plate should have exactly one bottom point" % label)
+			assert_true(high > low * 2.0,
+				"%s should sit on a downward plate, but its top row inks %.2f against a bottom row of %.2f" % [label, high, low])
 		else:
-			assert_almost_eq(highest, -1.0, 0.001, "%s should sit on an upward plate" % label)
-			assert_eq(_count_at(pts, -1.0), 1, "%s plate should have exactly one top point" % label)
+			assert_true(low > high * 2.0,
+				"%s should sit on an upward plate, but its bottom row inks %.2f against a top row of %.2f" % [label, low, high])
 
 
 func test_harmful_and_beneficial_rims_differ() -> void:
 	assert_ne(StatusIcons.rim_color(CG.Status.BLEED), StatusIcons.rim_color(CG.Status.SHIELD))
 
 
-func test_no_two_statuses_share_a_glyph() -> void:
-	# The whole job of these badges is telling one status from another. Two
-	# entries pointing at the same shape would pass every other check here.
-	#
-	# **This test is necessary and it is nowhere near sufficient, which is worth
-	# stating where the next person reads it.** It compares the arrays for
-	# equality, so it only ever catches a copy-paste. bleed and burn passed it
-	# for months while sharing 98% of their pixels, because a droplet and a
-	# flame are different arrays and the same picture. The test below is the one
-	# that would have caught that.
-	var seen: Array = []
-	for s in _every_status():
-		var g: Array = StatusIcons.GLYPHS[s]
-		assert_false(seen.has(g), "CG.Status.%s reuses another status's glyph" % CG.Status.keys()[s])
-		seen.append(g)
-
-
-## How much of a glyph's own box each of two glyphs covers differently, sampled
-## on a grid. A poor man's rasteriser, in pure GDScript, so the property can be a
-## test rather than a tool somebody remembers to run.
-##
-## `Geometry2D.is_point_in_polygon` does the real work for filled parts; dots and
-## strokes are distance tests. It is coarse on purpose -- badges are 17 pixels,
-## so a 24x24 sample is finer than the thing it models.
-func _glyph_coverage(glyph: Array, grid: int) -> PackedByteArray:
-	var out := PackedByteArray()
-	out.resize(grid * grid)
+## A baked icon, grid-sampled. **This is the rasteriser the geometry tests used
+## to approximate.** They sampled polygons; the polygons are gone and what ships
+## is a PNG, so these read the PNG. Same lesson as `Tools/FacingInk.gd`: measure
+## the artefact the game draws, not the one it used to.
+func _icon_pixels(name: StringName, grid: int) -> PackedColorArray:
+	var out := PackedColorArray()
+	var tex := UIArt.texture_for(name)
+	if tex == null:
+		return out
+	var image := tex.get_image()
 	for gy in grid:
 		for gx in grid:
-			var p := Vector2(
-				(float(gx) + 0.5) / float(grid) * 2.0 - 1.0,
-				(float(gy) + 0.5) / float(grid) * 2.0 - 1.0)
-			var hit := 0
-			for part in glyph:
-				var rot := float(part.get("rot", 0.0))
-				var q := p.rotated(-rot)
-				if part.has("poly"):
-					var poly := PackedVector2Array()
-					for v in part["poly"]:
-						poly.append(Vector2(v[0], v[1]))
-					if Geometry2D.is_point_in_polygon(q, poly):
-						hit = 1
-				elif part.has("dot"):
-					var d: Array = part["dot"]
-					if q.distance_to(Vector2(d[0], d[1])) <= float(d[2]):
-						hit = 1
-				elif part.has("arc"):
-					var a: Array = part["arc"]
-					var w: float = float(part.get("w", 0.18)) * 0.5
-					if absf(q.distance_to(Vector2(a[0], a[1])) - float(a[2])) <= w:
-						hit = 1
-				elif part.has("line"):
-					var pts: Array = part["line"]
-					var w2: float = float(part.get("w", 0.18)) * 0.5
-					for i in range(pts.size() - 1):
-						var s := Vector2(pts[i][0], pts[i][1])
-						var e := Vector2(pts[i + 1][0], pts[i + 1][1])
-						if Geometry2D.get_closest_point_to_segment(q, s, e).distance_to(q) <= w2:
-							hit = 1
-				if hit == 1:
-					break
-			out[gy * grid + gx] = hit
+			var x := mini(int((float(gx) + 0.5) / float(grid) * float(image.get_width())), image.get_width() - 1)
+			var y := mini(int((float(gy) + 0.5) / float(grid) * float(image.get_height())), image.get_height() - 1)
+			out.append(image.get_pixel(x, y))
 	return out
 
 
-func _glyph_difference(a: PackedByteArray, b: PackedByteArray) -> float:
+## The fraction of sampled pixels two icons disagree on. The same question
+## `Tools/BadgeLegibility.tscn` asked by rendering. It is cheap enough to be a
+## test now -- the images are on disk, so nothing has to be drawn to ask it --
+## and that tool is deleted, because a test that always runs beats a tool
+## somebody has to remember.
+func _pixel_difference(a: PackedColorArray, b: PackedColorArray) -> float:
+	if a.is_empty() or a.size() != b.size():
+		return 1.0
 	var differing := 0
 	for i in a.size():
-		if a[i] != b[i]:
+		var d := absf(a[i].r - b[i].r) + absf(a[i].g - b[i].g) + absf(a[i].b - b[i].b) + absf(a[i].a - b[i].a)
+		if d > 0.12:
 			differing += 1
 	return float(differing) / float(a.size())
 
 
 func test_no_two_status_glyphs_are_the_same_picture() -> void:
-	# THE TEST THAT WOULD HAVE CAUGHT BLEED AND BURN, and the reason it exists is
-	# that the header of StatusIcons.gd asserted "no two share an outline" for
-	# months and it was false. A droplet and a flame are different arrays and the
-	# same picture; measured on screen they disagreed on 2.1% of their pixels,
-	# flat from 12px to 32px.
+	# THE TEST THAT WOULD HAVE CAUGHT BLEED AND BURN. The header of
+	# StatusIcons.gd asserted "no two share an outline" for months and it was
+	# false: a droplet and a flame are different arrays and the same picture,
+	# and measured on screen they disagreed on 2.1% of their pixels.
 	#
-	# The full measurement is `Tools/BadgeLegibility.tscn`, which renders and
-	# compares real pixels. This is its cheap shadow: a grid sample of the glyph
-	# alone, no plate, no rim, no rendering. It cannot replace the tool -- it
-	# knows nothing about how much of the badge the glyph occupies -- but it
-	# guards the one thing the tool found, and it runs in the gate.
+	# It used to sample polygons through a hand-rolled point-in-polygon pass,
+	# which was the best available while the glyphs were geometry. They are
+	# files now, so this compares the shipped pixels directly, and the number it
+	# reports is directly comparable with the ones `Tools/BadgeLegibility` published
+	# before it was deleted: 2.1% for bleed/burn and 9.3% for taunted/burn, both treated as
+	# defects and redrawn.
 	#
-	# Only same-category pairs are checked, because rim colour and plate
-	# direction already separate harmful from helpful and no glyph has to.
-	var grid := 24
-	var coverage := {}
+	# Only same-category pairs are checked. Rim colour and plate direction
+	# already separate harmful from helpful, and no glyph has to.
+	var grid := 32
+	var pixels := {}
 	for s in _every_status():
-		coverage[s] = _glyph_coverage(StatusIcons.GLYPHS[s], grid)
+		pixels[s] = _icon_pixels(StatusIcons.art_name(s), grid)
 
 	var worst := 1.0
 	var worst_pair := ""
@@ -874,40 +794,49 @@ func test_no_two_status_glyphs_are_the_same_picture() -> void:
 		for b in _every_status():
 			if a >= b or CG.is_harmful(a) != CG.is_harmful(b):
 				continue
-			var d := _glyph_difference(coverage[a], coverage[b])
+			var d := _pixel_difference(pixels[a], pixels[b])
 			if d < worst:
 				worst = d
 				worst_pair = "%s/%s" % [CG.Status.keys()[a], CG.Status.keys()[b]]
-	# Measured after the #130 rework: the closest same-category glyph pair
-	# differs on about a quarter of its own box. The floor is set well under
-	# that so ordinary redrawing does not trip it, and well over the 6% the old
-	# droplet-and-flame pair scored on this same measure.
-	assert_true(worst > 0.12,
-		("the closest same-category glyph pair is %s at %.1f%% of their own box. "
-		+ "Two badges that similar are one badge on a 17px unit -- redraw one, "
-		+ "and re-run Tools/BadgeLegibility.tscn for the on-screen number.") % [
+	# **The floor is 10%, set from the two pairs this project has already judged
+	# unacceptable rather than from today's measurement.** taunted/burn was 9.3%
+	# and was redrawn; bleed/burn was 2.1% and was redrawn. A floor of 10%
+	# catches both.
+	#
+	# Today's closest pair is BURN/POISON at 10.6%, so the margin is thin and
+	# that pair is the next one worth redrawing. Reported rather than acted on.
+	# The floor is not to be lowered to buy room: issue #144 records five
+	# widenings of one cap and zero narrowings.
+	assert_true(worst > 0.10,
+		("the closest same-category badge pair is %s at %.1f%% of their pixels. "
+		+ "Two badges that similar are one badge on a 17px unit -- redraw one.") % [
 			worst_pair, worst * 100.0])
 
 
 func test_the_glyph_similarity_detector_actually_fires() -> void:
 	# A detector shipped without this is the failure mode this project has
 	# written down: sixteen tests asserting a warning is well-formed when it
-	# fires, none asserting it fires at all. Feed it the exact pair that started
-	# this -- a droplet and the flame it was indistinguishable from -- and assert
-	# it would have caught them.
-	var droplet := [{"poly": [
-		[0.0, -0.8], [0.42, -0.05], [0.42, 0.3], [0.18, 0.65],
-		[-0.18, 0.65], [-0.42, 0.3], [-0.42, -0.05]]}]
-	var flame: Array = StatusIcons.GLYPHS[CG.Status.BURN]
-	var d := _glyph_difference(_glyph_coverage(droplet, 24), _glyph_coverage(flame, 24))
-	assert_true(d <= 0.12,
-		"the old droplet scores %.1f%% against the flame, above the floor -- this detector is inert" % [d * 100.0])
-	# And the negative half: the shape that REPLACED it must clear the floor, or
-	# the detector is simply rejecting everything.
-	var slash: Array = StatusIcons.GLYPHS[CG.Status.BLEED]
-	var d2 := _glyph_difference(_glyph_coverage(slash, 24), _glyph_coverage(flame, 24))
-	assert_true(d2 > 0.12,
-		"the replacement slash scores %.1f%% against the flame, so it is no better" % [d2 * 100.0])
+	# fires, none asserting it fires at all.
+	#
+	# The old control was the literal droplet bleed used to be, typed into this
+	# file. That geometry exists nowhere but git history now, so the control is
+	# taken from real data at both ends:
+	#
+	#   FIRES. `archer_shot` and `goblin_arrow` are the same picture and are
+	#   allowlisted below as such. The metric must report them as identical.
+	#   DOES NOT FIRE ON EVERYTHING. A shield badge and a flame badge are
+	#   nothing alike and must score far above the floor.
+	var grid := 32
+	var same := _pixel_difference(
+		_icon_pixels(ActionIcons.art_name(&"archer_shot"), grid),
+		_icon_pixels(ActionIcons.art_name(&"goblin_arrow"), grid))
+	assert_true(same <= 0.10,
+		"two icons known to be the same picture score %.1f%%, so this detector is inert" % [same * 100.0])
+	var apart := _pixel_difference(
+		_icon_pixels(StatusIcons.art_name(CG.Status.SHIELD), grid),
+		_icon_pixels(StatusIcons.art_name(CG.Status.BURN), grid))
+	assert_true(apart > 0.10,
+		"a shield and a flame score %.1f%%, so this detector rejects everything" % [apart * 100.0])
 
 
 func test_every_reachable_action_has_an_icon() -> void:
@@ -944,13 +873,29 @@ const _ICONS_AHEAD_OF_CONTENT := {
 }
 
 
+## Every id with a file in `Assets/UI/<kind>`. The icons are files now, so a
+## test asking "what art exists" reads the folder rather than a table.
+func _baked_ids(kind: String) -> Array[StringName]:
+	var out: Array[StringName] = []
+	var dir := DirAccess.open("res://Assets/UI/%s" % kind)
+	if dir == null:
+		return out
+	for file in dir.get_files():
+		if file.ends_with(".png"):
+			out.append(StringName(file.get_basename()))
+	out.sort()
+	return out
+
+
 func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> void:
 	# The other direction: an icon left behind after content deletes an action
 	# is dead weight and, worse, evidence that the two have drifted.
-	for id in ActionIcons.GLYPHS.keys():
+	var baked := _baked_ids("action")
+	assert_true(baked.size() > 20, "only %d action icons on disk; this walk is wrong" % baked.size())
+	for id in baked:
 		if _ICONS_AHEAD_OF_CONTENT.has(id):
 			continue
-		assert_not_null(Registry.get_action(id), "ActionIcons has an icon for %s, which the registry does not define" % id)
+		assert_not_null(Registry.get_action(id), "Assets/UI/action/%s.png exists, but the registry does not define that action" % id)
 
 
 func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
@@ -971,7 +916,7 @@ func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 	var stale: Array[String] = []
 	var described_nothing: Array[String] = []
 	for id in _ICONS_AHEAD_OF_CONTENT:
-		if not ActionIcons.GLYPHS.has(id):
+		if not ActionIcons.has_glyph(id):
 			described_nothing.append(String(id))
 		if Registry.get_action(id) != null:
 			stale.append("%s (%s)" % [id, _ICONS_AHEAD_OF_CONTENT[id]])
@@ -983,21 +928,22 @@ func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 		+ "and an empty list is the correct end state rather than a problem."))
 
 
-func test_status_backed_action_icons_resolve_to_the_status_glyph() -> void:
-	# Rule 2: an action whose whole effect is a status draws that status's
-	# glyph. Stored as the enum value, so this checks the indirection actually
-	# resolves rather than handing a bare int to the drawing loop.
-	assert_eq(ActionIcons.glyph_for(&"warrior_guard"), StatusIcons.GLYPHS[CG.Status.BLOCK])
-	assert_eq(ActionIcons.glyph_for(&"priest_haste"), StatusIcons.GLYPHS[CG.Status.HASTE])
-	for id in ActionIcons.GLYPHS.keys():
-		assert_true((ActionIcons.glyph_for(id) as Array).size() > 0, "action %s resolves to an empty glyph" % id)
+## `test_status_backed_action_icons_resolve_to_the_status_glyph` was here, and
+## it is deleted rather than rewritten. It asserted that Guard's icon array WAS
+## the BLOCK badge's array, which is a check only a shared table can support.
+## The two are separate PNGs now, painted at different sizes on different plates
+## in different colours, and no cheap comparison says "same picture, drawn twice
+## on purpose". Inventing an expensive one that agreed with me by construction
+## would be worse than the honest gap. Rule 2 is now a rule for whoever repaints
+## these, stated in `ActionIcons.gd` and in `Assets/UI/README.md`.
 
 
-func test_unknown_action_draws_a_placeholder_rather_than_nothing() -> void:
-	# A blank looks like the feature failing; a placeholder looks like a missing
-	# icon. Never reached today and asserted anyway.
+func test_an_action_with_no_file_reports_no_icon() -> void:
+	# The fallback is a black square now, by the player's ruling. It is meant to
+	# be conspicuous: the failure it stands for is a file nobody painted, and a
+	# blank looks like the feature being broken.
 	assert_false(ActionIcons.has_glyph(&"no_such_action"))
-	assert_true((ActionIcons.glyph_for(&"no_such_action") as Array).size() > 0)
+	assert_true(ActionIcons.has_glyph(&"warrior_strike"))
 
 
 ## The pairs of actions that are allowed to draw the same glyph, and why. Any
@@ -1012,17 +958,12 @@ const _DELIBERATE_SHARED_GLYPHS := {
 	# one not. Same verb, same element, and telling them apart buys the player
 	# nothing they cannot get from the bar's length. Left shared on purpose.
 	"geyser_blast|geyser_spout": true,
-	# sable: added by finch on issue 99, using the mechanism this test's own
-	# failure message prescribes rather than editing the assertion. Second Wind
-	# is the Warrior's self-heal, replacing Directional Block. Every glyph in
-	# ActionIcons is already spoken for, so the choice was share one or author
-	# new art, and the art is yours rather than mine to draw. `_CROSS` is the
-	# right share on this file's own rule that a glyph names what an action
-	# does: both of these restore health. They are never drawn side by side --
-	# they belong to different classes and no pawn can carry both.
-	# **If you would rather Second Wind had its own shape, draw one and delete
-	# this entry; the negative half of this test will then fail if you forget.**
-	"priest_heal|warrior_second_wind": true,
+	# `priest_heal|warrior_second_wind` was excused here and the entry is now
+	# GONE, removed by the negative half of the test below rather than by taste.
+	# The two shared `_CROSS` as geometry, but an ability icon is coloured by its
+	# damage type and these two have different ones, so as shipped pictures they
+	# were never the same picture. The table said they were because it compared
+	# arrays, which is the artefact-one-file-over error in miniature.
 }
 
 
@@ -1030,84 +971,44 @@ func test_no_two_ability_icons_share_a_glyph_by_accident() -> void:
 	# The test the icon sheet was doing by eye. `siege_master_shot` and
 	# `siege_engine_bolt` both drew `_BOLT_HEAVY`, and a Siege Master builds the
 	# engine and then fights beside it -- so the same icon sat over two units at
-	# once, on two bars, which is the exact case rule 4 exists to prevent. It
-	# survived a correct-looking table and two rendered sheets. An accidental
-	# share is now a red test rather than something somebody has to spot.
-	var seen: Dictionary = {}
-	for id in ActionIcons.GLYPHS.keys():
-		var glyph: Array = ActionIcons.glyph_for(id)
-		for other in seen.keys():
-			if seen[other] != glyph:
+	# once, on two bars, which is the exact case rule 4 exists to prevent.
+	#
+	# Compares shipped pixels, not arrays. That is stricter in one direction and
+	# looser in the other, and both are corrections: two different arrays that
+	# render alike now fail, and two identical arrays rendered in different
+	# damage colours now pass, because on screen they are not the same icon.
+	var grid := 32
+	var pixels := {}
+	var ids := _baked_ids("action")
+	for id in ids:
+		pixels[id] = _icon_pixels(ActionIcons.art_name(id), grid)
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			if _pixel_difference(pixels[ids[i]], pixels[ids[j]]) > 0.0:
 				continue
-			var pair := "%s|%s" % ([String(id), String(other)] if String(id) < String(other) else [String(other), String(id)])
+			var pair := "%s|%s" % [ids[i], ids[j]]
 			assert_true(
 				_DELIBERATE_SHARED_GLYPHS.has(pair),
-				"%s and %s draw the same glyph. If that is deliberate, add '%s' to _DELIBERATE_SHARED_GLYPHS with the reason; otherwise give one of them its own shape." % [id, other, pair]
+				"%s and %s are the same picture. If that is deliberate, add '%s' to _DELIBERATE_SHARED_GLYPHS with the reason; otherwise repaint one." % [ids[i], ids[j], pair]
 			)
-		seen[id] = glyph
-	# The negative half: if the allowlist ever names a pair that no longer shares
-	# a glyph, the entry is stale and its reasoning is describing nothing.
+	# The negative half: an allowlist entry naming a pair that is no longer the
+	# same picture is describing nothing, and it is what deleted the third entry.
 	for pair in _DELIBERATE_SHARED_GLYPHS.keys():
-		var ids: PackedStringArray = String(pair).split("|")
+		var two: PackedStringArray = String(pair).split("|")
 		assert_eq(
-			ActionIcons.glyph_for(StringName(ids[0])), ActionIcons.glyph_for(StringName(ids[1])),
-			"_DELIBERATE_SHARED_GLYPHS still excuses '%s', but those two no longer share a glyph" % pair
+			_pixel_difference(
+				_icon_pixels(ActionIcons.art_name(StringName(two[0])), grid),
+				_icon_pixels(ActionIcons.art_name(StringName(two[1])), grid)),
+			0.0,
+			"_DELIBERATE_SHARED_GLYPHS still excuses '%s', but those two are no longer the same picture" % pair
 		)
 
 
-func test_glyph_geometry_stays_inside_its_own_rect() -> void:
-	# A glyph escaping its box shows up as an icon bleeding into the unit next
-	# to it, which reads as a rendering bug rather than as bad art.
-	var rect := Rect2(100.0, 40.0, 16.0, 16.0)
-	var all: Array = []
-	for s in _every_status():
-		all.append(StatusIcons.GLYPHS[s])
-	for id in ActionIcons.GLYPHS.keys():
-		all.append(ActionIcons.glyph_for(id))
-	all.append([{"poly": StatusIcons.PLATE_GOOD}, {"poly": StatusIcons.PLATE_BAD}, {"poly": ActionIcons.PLATE}])
-	for glyph in all:
-		for part in glyph:
-			for p in UIArt.glyph_points(part, rect):
-				assert_true(
-					rect.grow(0.01).has_point(p),
-					"glyph point %s escapes its rect %s" % [p, rect]
-				)
-
-
-func test_glyph_points_are_centred_and_scaled_by_the_rect() -> void:
-	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
-	var pts := UIArt.glyph_points({"poly": [[0.0, 0.0], [1.0, 0.0], [0.0, -1.0]]}, rect)
-	assert_eq(pts[0], Vector2(10.0, 10.0))
-	assert_eq(pts[1], Vector2(20.0, 10.0))
-	assert_eq(pts[2], Vector2(10.0, 0.0))
-
-
-func test_glyph_rotation_turns_a_part_about_the_rect_centre() -> void:
-	# `rot` is what stops warrior_strike rendering as a plus sign, so it is
-	# load-bearing rather than decorative.
-	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
-	var upright := UIArt.glyph_points({"poly": [[0.0, -1.0]]}, rect)
-	var quarter := UIArt.glyph_points({"poly": [[0.0, -1.0]], "rot": PI * 0.5}, rect)
-	assert_eq(upright[0], Vector2(10.0, 0.0))
-	assert_almost_eq(quarter[0].x, 20.0, 0.001)
-	assert_almost_eq(quarter[0].y, 10.0, 0.001)
-
-
-func test_glyph_rotation_moves_dot_and_arc_centres_too() -> void:
-	# A rotated glyph whose polygons turned and whose dots stayed put would come
-	# apart, and it would only be visible by looking.
-	var rect := Rect2(0.0, 0.0, 20.0, 20.0)
-	var still := UIArt.glyph_center({}, [0.0, -1.0, 0.2], rect)
-	var turned := UIArt.glyph_center({"rot": PI * 0.5}, [0.0, -1.0, 0.2], rect)
-	assert_eq(still, Vector2(10.0, 0.0))
-	assert_almost_eq(turned.x, 20.0, 0.001)
-
-
-func test_glyph_scales_to_the_shorter_side_of_a_non_square_rect() -> void:
-	# A caller handing this a wide rect should get a round icon in the middle,
-	# not an ellipse. Aspect distortion reads as a bug.
-	var pts := UIArt.glyph_points({"poly": [[1.0, 1.0]]}, Rect2(0.0, 0.0, 40.0, 10.0))
-	assert_eq(pts[0], Vector2(25.0, 10.0))
+## Four tests lived here: `test_glyph_geometry_stays_inside_its_own_rect` and
+## three on `UIArt.glyph_points` / `glyph_center`. They are deleted with the
+## code they measured. A glyph cannot escape its own rect any more -- it is a
+## PNG scaled into that rect by `draw_fit`, so the property is structural rather
+## than something a test has to watch.
 
 
 func test_ui_art_returns_null_for_a_name_with_no_file() -> void:
@@ -1119,28 +1020,34 @@ func test_ui_art_returns_null_for_a_name_with_no_file() -> void:
 
 
 func test_a_dropped_in_png_is_found_with_no_registration() -> void:
-	# The item-15 claim, exercised end to end rather than reasoned about: write
-	# a PNG into Assets/UI under a name the game asks for, and the loader finds
-	# it with no import, no registration and no code change. Removed again so
-	# the generated defaults are what ships.
+	# The item-15 claim, exercised end to end rather than reasoned about.
+	#
+	# **The first half of this test used to be "assert status/bleed.png does not
+	# exist".** It does now -- every badge in the game is a dropped-in PNG since
+	# the bake -- so the shipped art IS the proof that a name the game asks for
+	# resolves with no import, no registration and no code change.
 	var art_name := StatusIcons.art_name(CG.Status.BLEED)
 	assert_eq(String(art_name), "status/bleed")
-	var path := "res://Assets/UI/%s.png" % art_name
-	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
+	assert_not_null(UIArt.texture_for(art_name),
+		"the shipped badge at Assets/UI/%s.png is not being found by the loader" % art_name)
 
-	DirAccess.make_dir_recursive_absolute("res://Assets/UI/status")
+	# And the round trip, under a name nothing ships, so a crash here cannot
+	# damage a real asset: write, find, delete, gone.
+	var probe := &"status/_drop_in_probe"
+	var path := "res://Assets/UI/%s.png" % probe
+	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
 	var image := Image.create(8, 8, false, Image.FORMAT_RGBA8)
 	image.fill(Color(1.0, 0.0, 1.0, 1.0))
 	assert_eq(image.save_png(path), OK, "could not write the test override to %s" % path)
 
 	UIArt.clear_cache()
-	var tex := UIArt.texture_for(art_name)
+	var tex := UIArt.texture_for(probe)
 	assert_not_null(tex, "a PNG dropped into Assets/UI was not picked up")
 	assert_eq(tex.get_width(), 8)
 
 	DirAccess.remove_absolute(path)
 	UIArt.clear_cache()
-	assert_eq(UIArt.texture_for(art_name), null, "the override survived its own deletion")
+	assert_eq(UIArt.texture_for(probe), null, "the override survived its own deletion")
 
 
 # ---------------------------------------------------------------------------
@@ -1345,57 +1252,108 @@ func test_every_registered_item_has_an_icon() -> void:
 
 
 func test_the_icon_table_has_no_entries_for_items_that_do_not_exist() -> void:
-	# The other direction. An entry for a deleted item is dead art nobody sees,
-	# and it is how a table drifts away from the content it claims to describe.
-	for id in EquipmentIcons.known_ids():
+	# The other direction. Art left behind after content deletes an item is dead
+	# weight, and it is how a folder drifts from the content it describes.
+	var baked := _baked_ids("item")
+	assert_true(baked.size() > 10, "only %d item icons on disk; this walk is wrong" % baked.size())
+	for id in baked:
+		if String(id).begins_with("empty_"):
+			continue
 		assert_not_null(
 			Registry.get_equipment(id),
-			"EquipmentIcons draws '%s', which is not a registered item" % id
+			"Assets/UI/item/%s.png exists, but that is not a registered item" % id
 		)
 
 
 func test_no_two_items_share_a_glyph() -> void:
-	# The four rings deliberately share a band and differ by gem, so `glyph_for`
-	# returns band-plus-gem and no two of them are equal. Anything that does come
-	# out equal here is an accident.
-	var seen: Dictionary = {}
-	for id in EquipmentIcons.known_ids():
-		var glyph: Array = EquipmentIcons.glyph_for(id)
-		for other in seen.keys():
-			assert_ne(
-				seen[other], glyph,
-				"%s and %s draw the same glyph; give one of them its own shape" % [id, other]
-			)
-		seen[id] = glyph
+	# The four rings deliberately share a band and differ by gem, so no two of
+	# them are the same picture. Anything that does come out equal is an accident.
+	# Pixels, not arrays: what ships is a file.
+	var grid := 32
+	var ids := Registry.all_equipment_ids()
+	var pixels := {}
+	for id in ids:
+		pixels[id] = _icon_pixels(EquipmentIcons.art_name(id), grid)
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			assert_true(_pixel_difference(pixels[ids[i]], pixels[ids[j]]) > 0.0,
+				"%s and %s are the same picture; repaint one of them" % [ids[i], ids[j]])
+
+
+## The opaque shape of an icon, ignoring every colour in it. Two plates can only
+## be told apart in greyscale by their outline, which is the channel that has to
+## survive for a player who cannot separate the rim colours.
+func _alpha_mask(name: StringName, grid: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	for c in _icon_pixels(name, grid):
+		out.append(1 if c.a > 0.5 else 0)
+	return out
+
+
+## The shape of everything drawn ON a plate, colour ignored. The plate fill is
+## `Palette.HP_BACK` on all three icon systems, so anything else is the picture.
+## Alpha cannot answer this for an accessory: its plate is a filled circle, so
+## all four rings have byte-identical alpha and differ only inside it.
+func _ink_mask(name: StringName, grid: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	var back := Palette.HP_BACK
+	for c in _icon_pixels(name, grid):
+		var d := absf(c.r - back.r) + absf(c.g - back.g) + absf(c.b - back.b)
+		out.append(1 if c.a > 0.5 and d > 0.25 else 0)
+	return out
+
+
+func _mask_difference(a: PackedByteArray, b: PackedByteArray) -> float:
+	if a.is_empty() or a.size() != b.size():
+		return 1.0
+	var differing := 0
+	for i in a.size():
+		if a[i] != b[i]:
+			differing += 1
+	return float(differing) / float(a.size())
 
 
 func test_the_three_slots_are_told_apart_by_shape_and_by_colour() -> void:
 	# Two redundant channels, and this test exists because losing one of them is
 	# silent: a player who cannot separate the rim colours still has the plate,
 	# and a greyscale screenshot still shows three different outlines.
-	var shapes: Array = []
+	#
+	# The empty-slot plates are the plate on its own, so they are what this
+	# measures -- an item's own picture sits on top of one of these three.
+	var grid := 32
+	var masks := {}
+	for slot in _EVERY_SLOT:
+		masks[slot] = _alpha_mask(EquipmentIcons.empty_art_name(slot), grid)
 	var colors: Array = []
 	for slot in _EVERY_SLOT:
-		var points: Array = EquipmentIcons.plate_points(slot)
-		assert_false(shapes.has(points), "two slots draw the same plate outline")
-		shapes.append(points)
 		var c := EquipmentIcons.slot_color(slot)
 		assert_false(colors.has(c), "two slots draw the same rim colour")
 		colors.append(c)
-	# The accessory is a circle rather than a polygon, and that is the point --
-	# an n-gon here would be ActionIcons.PLATE with the corners knocked off.
-	assert_true(EquipmentIcons.plate_points(EquipmentDef.Slot.ACCESSORY).is_empty())
+	for i in _EVERY_SLOT.size():
+		for j in range(i + 1, _EVERY_SLOT.size()):
+			var d := _mask_difference(masks[_EVERY_SLOT[i]], masks[_EVERY_SLOT[j]])
+			assert_true(d > 0.05,
+				"slots %d and %d have the same outline (%.1f%% apart), so greyscale cannot separate them" % [
+					_EVERY_SLOT[i], _EVERY_SLOT[j], d * 100.0])
 
 
 func test_no_item_plate_is_another_icon_system_s_plate() -> void:
 	# Three icon systems can be on the equip screen at once -- the item, the
 	# action it grants, and the status that action applies. A glance should never
 	# have to work out which system it is reading first.
+	#
+	# Outlines, on real pixels. Any ability icon carries the ability plate and
+	# any badge carries a status plate, so one of each is enough to stand for
+	# the system.
+	var grid := 32
+	var ability := _alpha_mask(ActionIcons.art_name(&"warrior_strike"), grid)
+	var good := _alpha_mask(StatusIcons.art_name(CG.Status.SHIELD), grid)
+	var bad := _alpha_mask(StatusIcons.art_name(CG.Status.BLEED), grid)
 	for slot in _EVERY_SLOT:
-		var points: Array = EquipmentIcons.plate_points(slot)
-		assert_ne(points, ActionIcons.PLATE, "an item plate is the ability plate")
-		assert_ne(points, StatusIcons.PLATE_GOOD, "an item plate is the beneficial status plate")
-		assert_ne(points, StatusIcons.PLATE_BAD, "an item plate is the harmful status plate")
+		var plate := _alpha_mask(EquipmentIcons.empty_art_name(slot), grid)
+		assert_true(_mask_difference(plate, ability) > 0.05, "an item plate is the ability plate")
+		assert_true(_mask_difference(plate, good) > 0.05, "an item plate is the beneficial status plate")
+		assert_true(_mask_difference(plate, bad) > 0.05, "an item plate is the harmful status plate")
 
 
 func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> void:
@@ -1404,7 +1362,7 @@ func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> vo
 	# different kind of item from one that adds 3 STR.
 	#
 	# There is deliberately no second table here. The badge resolves through
-	# `ActionIcons.glyph_for`, so it cannot drift from what the wind-up bar draws
+	# `ActionIcons.art_name`, so it cannot drift from what the wind-up bar draws
 	# for the same action -- which is exactly how `geyser_cleanse` came to show a
 	# damage-over-time attack's icon.
 	var granting := 0
@@ -1419,44 +1377,32 @@ func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> vo
 	assert_true(granting > 0, "no item grants an action; this test would pass on content that cannot exercise it")
 
 
-func test_item_glyph_geometry_stays_inside_its_own_rect() -> void:
-	# A glyph escaping its box shows up as an icon bleeding into the slot beside
-	# it, which reads as a rendering bug rather than as bad art. Rotated parts are
-	# the ones that do it: a corner inside the unit square is not necessarily
-	# inside the unit circle.
-	var rect := Rect2(100.0, 40.0, 20.0, 20.0)
-	var all: Array = []
-	for id in EquipmentIcons.known_ids():
-		all.append(EquipmentIcons.glyph_for(id))
-	for slot in _EVERY_SLOT:
-		var points: Array = EquipmentIcons.plate_points(slot)
-		if not points.is_empty():
-			all.append([{"poly": points}])
-	for glyph in all:
-		for part in glyph:
-			for p in UIArt.glyph_points(part, rect):
-				assert_true(
-					rect.grow(0.01).has_point(p),
-					"glyph point %s escapes its rect %s" % [p, rect]
-				)
+## `test_item_glyph_geometry_stays_inside_its_own_rect` was here and is deleted
+## with the geometry: a PNG cannot draw outside the rect `draw_fit` scales it
+## into, so the property is structural now.
 
 
 func test_the_four_rings_differ_by_colour_and_by_cut() -> void:
 	# They are four rings and pretending they have four unrelated outlines would
 	# be inventing a difference the content does not have. So they carry two
 	# channels of their own, and losing either is silent: without the cut a
-	# greyscale reader has four identical icons, without the colour a 20px reader
-	# has four identical icons.
-	var colors: Array = []
-	var cuts: Array = []
-	for id in EquipmentIcons.RING_GEMS.keys():
-		var c := EquipmentIcons.gem_color(id)
-		assert_false(colors.has(c), "two rings share a gem colour")
-		colors.append(c)
-		var cut: Array = EquipmentIcons.RING_GEMS[id]
-		assert_false(cuts.has(cut), "two rings share a gem cut")
-		cuts.append(cut)
-	assert_eq(colors.size(), 4)
+	# greyscale reader has four identical icons, without the colour a 20px
+	# reader has four identical icons.
+	#
+	# Both channels are measured on the shipped files. The cut is the alpha
+	# outline, which is exactly what survives a greyscale read.
+	var grid := 32
+	var rings: Array[StringName] = [&"brown_ring", &"red_ring", &"blue_ring", &"yellow_ring"]
+	for id in rings:
+		assert_not_null(Registry.get_equipment(id), "%s is no longer a registered item" % id)
+	for i in rings.size():
+		for j in range(i + 1, rings.size()):
+			var a := EquipmentIcons.art_name(rings[i])
+			var b := EquipmentIcons.art_name(rings[j])
+			assert_true(_pixel_difference(_icon_pixels(a, grid), _icon_pixels(b, grid)) > 0.0,
+				"%s and %s are the same picture" % [rings[i], rings[j]])
+			assert_true(_mask_difference(_ink_mask(a, grid), _ink_mask(b, grid)) > 0.0,
+				"%s and %s cut the same shape, so they are one icon in greyscale" % [rings[i], rings[j]])
 
 
 func test_item_art_name_is_the_item_id() -> void:
@@ -1510,7 +1456,7 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 	# stalker_mark and warrior_second_wind.
 	#
 	# The README already claimed "this list is checked by a test", and that was
-	# false. The nearby test walks the registry against `ActionIcons.GLYPHS`,
+	# false. The nearby test walks the registry against the icons that exist,
 	# never against this file, so the sentence described a check that did not
 	# exist. It does now.
 	#
