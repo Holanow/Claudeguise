@@ -121,15 +121,15 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 ## roughly the middle fifth of a 1280x720 arena, sprites about twenty
 ## pixels across). A view-only scale, deliberately not a change to
 ## `CombatUnit.radius`/`EnemyDef.radius` themselves: those read as "drawing
-## only" in their own doc comments, and that comment is wrong — checked
+## only" in their own doc comments, and that comment is wrong â€” checked
 ## rather than trusted, `CombatSim._move_toward` calls
 ## `Terrain.point_is_blocked(state.terrain, candidate, unit.radius)` for real
 ## movement collision. Changing the stored radius would be a balance change
 ## in a UI issue's clothes. Flagged to rook rather than corrected here since
 ## `CombatUnit.gd` is Core.
 ##
-## Applied uniformly to everything drawn around a unit — the body, its bars,
-## its labels, its badges — so a bigger silhouette does not leave suddenly-
+## Applied uniformly to everything drawn around a unit â€” the body, its bars,
+## its labels, its badges â€” so a bigger silhouette does not leave suddenly-
 ## tiny text stranded next to it. `BattleView.gd` imports this same constant
 ## for the floating numbers and death markers that spawn at a unit's
 ## position, so the whole visual footprint of a unit grows together.
@@ -137,7 +137,7 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 ## (floor1_room1): bodies read well, but row spacing there is tuned for the
 ## old footprint (rows 100-140 world units apart) and doubling every bar and
 ## the name font on top of a doubled body pushed adjacent rows' chrome into
-## each other — worse than the problem this issue exists to fix. 1.5 still
+## each other â€” worse than the problem this issue exists to fix. 1.5 still
 ## roughly doubles the on-screen diameter after the arena's own ~0.5-0.95
 ## viewport scale (bigger than the raw multiplier suggests, since a bigger
 ## body also means a wider silhouette bounding box), while leaving enough
@@ -203,7 +203,7 @@ func _label_visible(u: CombatUnit) -> bool:
 ## The melee scrum: several units standing close enough that bodies occlude
 ## each other, called out in issue 15 as "the most important square inch of
 ## the screen is the least legible one". A view-only nudge, never fed back
-## into CombatState — the simulation's positions are wren's and this changes
+## into CombatState â€” the simulation's positions are wren's and this changes
 ## nothing about range, targeting or movement, only where a body is drawn.
 ## Each overlapping pair pushes apart along the line between them; capped so
 ## a crowded unit never reads somewhere misleadingly far from where it
@@ -230,8 +230,6 @@ static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 			push += delta.normalized() * (min_dist - dist) * _SEPARATION_STRENGTH
 		else:
 			# Exactly coincident: distance has no direction to push along.
-			# Deterministic by id so two views of the same fight agree,
-			# rather than depending on iteration order.
 			var angle := float(u.id) * 2.4
 			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
 	return push.limit_length(u_radius * 1.5)
@@ -306,24 +304,12 @@ func _draw() -> void:
 	_draw_concentration_badge(u, radius)
 
 	# Everything below the body is stacked here, in order, because these used to
-	# be written independently and two of them landed on the same pixels: the
-	# old wind-up countdown number sat at radius + 4 + a text height, which is
-	# exactly where a badge row goes. Caught on a real 3x capture of a real
-	# fight, not by reading the code -- both draws were correct on their own.
-	#
-	# The wind-up is closest to the body because it is the only one of the
-	# three that is about to happen; the badges describe a state and the OOM
-	# chip describes a condition.
-	# Issue 190: measured from the drawn body's bottom, not the footprint's, so
-	# the badge row sits under the creature rather than under its reservation.
 	var body_bottom := drawn_bottom(_shape_id(u), u.team, radius)
 	var below := _draw_wind_up(u, radius, body_bottom)
 	below += _draw_status_badges(u, radius, body_bottom, below)
 	_draw_status_tags(u, body_bottom, below)
 
 	# Stacked bottom-up, closest to the unit first: resource, then hp, then the
-	# name. draw_string's position is a baseline, not a top-left corner, so the
-	# label sits an extra font-height above where the last bar was drawn.
 	var width := bar_width(radius, _shape_id(u), u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
 	var bar_gap := BAR_GAP * DISPLAY_SCALE
@@ -346,11 +332,6 @@ func _draw() -> void:
 	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
 	# Issue 82: name plates are a toggle now, defaulting off, and this is the
-	# only gate on them. `_label_visible` -- the focused-or-winding-up trigger
-	# plus its hold, which exists because the trigger flickers several times a
-	# second -- is deliberately left intact underneath: that flicker rule is a
-	# third state somebody may want, and deleting it to implement "off" would
-	# throw away the harder half.
 	if DisplayOptions.enabled(&"name_plates") and _label_visible(u):
 		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
 
@@ -383,8 +364,6 @@ func _draw_bar_tether(u: CombatUnit, stack_bottom: float) -> void:
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
 	# Stops at the body's centre rather than its edge: the ink is somewhere
-	# inside the footprint and nobody knows where, so ending at the centre
-	# guarantees the line reaches whatever is actually drawn.
 	draw_line(Vector2(0.0, stack_bottom), Vector2.ZERO, color, TETHER_WIDTH)
 
 ## Issue 82, and the finding that forced it: **`Palette.HP_LOW` and
@@ -409,7 +388,7 @@ static func hp_fill_color(u: CombatUnit) -> Color:
 
 ## Palette.FONT_SIZE_SMALL is shared with screens that have nothing to do
 ## with the arena (InspectPanel's attribute chips, PartySelect), so it is
-## not something this file can change — scaled locally instead, the same
+## not something this file can change â€” scaled locally instead, the same
 ## reasoning DISPLAY_SCALE itself exists for.
 static func _label_font_size() -> int:
 	return int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
@@ -418,14 +397,14 @@ static func _label_font_size() -> int:
 ## respect: a bigger body and taller bar/label stack means two units that
 ## used to read as merely "nearby" now have their chrome actually touch at
 ## the same world distance. Found by comparing a real before/after screenshot
-## of floor1_room1, not by reasoning about it — the first version of issue 31
+## of floor1_room1, not by reasoning about it â€” the first version of issue 31
 ## left these fixed and rows of enemies spaced for the old, smaller footprint
 ## overlapped their neighbours' labels.
 const CROWD_RADIUS := 70.0 * DISPLAY_SCALE
 const CROWD_STEP := 20.0 * DISPLAY_SCALE
 
 ## Extra headroom for this unit's name label when another unit is standing
-## close enough for the two labels to land on the same spot — found in
+## close enough for the two labels to land on the same spot â€” found in
 ## Tools/preview/fight_sheet.png, where "abomination" and "Grunt" overlapped
 ## illegibly the moment two units clashed in melee, which is exactly the
 ## moment reading who is who matters most. Deterministic by id (lower id
@@ -435,7 +414,7 @@ const CROWD_STEP := 20.0 * DISPLAY_SCALE
 func _crowding_stagger(u: CombatUnit) -> float:
 	if _state == null:
 		return 0.0
-	# CROWD_STEP already carries DISPLAY_SCALE — do not multiply twice.
+	# CROWD_STEP already carries DISPLAY_SCALE â€” do not multiply twice.
 	return float(crowd_rank(u, _state.units)) * CROWD_STEP
 
 ## Issue 41: a dense room (floor1_room1, 10 enemies) piled every enemy's name
@@ -485,13 +464,6 @@ func _draw_targeting_line(u: CombatUnit) -> void:
 	if u.focus_id < 0 or u.current_action == &"":
 		return
 	# Issue 18 gave ranged actions a real travelling shot
-	# (CombatState.projectiles, drawn by ArenaFloor); PLAYTEST-NOTES 2: this
-	# line used to be drawn for the whole action regardless, so a real shot
-	# still read as an instant beam covering the same ground the projectile
-	# was travelling. Once this unit has launched one, the shot itself is
-	# the targeting read and the beam would just double it; keep drawing the
-	## line during wind-up, before anything has launched, and for melee
-	# actions (no projectile ever spawns for those).
 	if _has_active_projectile(u):
 		return
 	var target := _state.unit(u.focus_id)
@@ -509,7 +481,7 @@ func _has_active_projectile(u: CombatUnit) -> bool:
 			return true
 	return false
 
-## How many other living units currently have this one as their focus —
+## How many other living units currently have this one as their focus â€”
 ## "is this unit under fire from more than one thing at once", which issue 15
 ## found was completely invisible: a scrum of three attackers on one pawn
 ## looked identical to three attackers merely standing near it. Split out for
@@ -540,26 +512,9 @@ func _draw_concentration_badge(u: CombatUnit, radius: float) -> void:
 	if count < CONCENTRATION_THRESHOLD:
 		return
 	# Issue 190, three fixes to one mark. Both cold readers called this the most
-	# prominent thing on the field they could not identify.
-	#
-	# **Colour was `Palette.HP_LOW`, which is the same value as
-	# `Palette.TEAM_ENEMY` -- the third instance of that collision after the
-	# health bars and the death text.** So an enemy being swarmed by the party
-	# was flagged in the enemy's own colour, pointing at the wrong side. It is
-	# now the colour of **whoever is doing the attacking**, which is the fact
-	# the badge exists to report.
-	#
-	# Size and position now come from the drawn body rather than the footprint:
-	# at a fixed 16.5px radius this was a 33px disc on a 15px goblin, one of the
-	# clearest cases of the decoration outweighing the unit.
 	var shape := _shape_id(u)
 	var half := drawn_half_width(shape, u.team, radius)
 	# Issue 198, sable's prescription taken as written: an ARC at radius 8, not a
-	# filled disc at 11. Re-measured against a current frame it was 28x25 --
-	# **2.8x the widest enemy and larger than the enemy health bars** -- with two
-	# on screen at once, both on player pawns, both occluding a body. An outline
-	# marks without covering, which is what a "you are being focused" flag has to
-	# do: the thing it is about is underneath it.
 	var badge_radius := clampf(half * 0.45, 5.0 * DISPLAY_SCALE, CONCENTRATION_BADGE_RADIUS)
 	var badge_center := Vector2(half, -drawn_top(shape, u.team, radius) + badge_radius)
 	draw_arc(badge_center, badge_radius, 0.0, TAU, 20, _concentration_color(u), CONCENTRATION_BADGE_WIDTH, true)
