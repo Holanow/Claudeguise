@@ -322,6 +322,11 @@ static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2
 			best = candidate
 	return best
 
+## Whether standing at `p` would cost a unit anything, for callers outside this
+## file.
+static func standing_harms(state: CombatState, p: Vector2) -> bool:
+	return _hazard_harms(state, p)
+
 ## Whether standing at `p` costs a unit anything. Damage or a status -- a tar pit
 ## deals no damage at all and is still somewhere a unit should rather not stand,
 ## so both count, and a decorative hazard authored with neither is correctly

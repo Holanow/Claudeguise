@@ -233,12 +233,16 @@ func test_a_summoned_unit_can_fight_and_be_killed() -> void:
 
 	assert_eq(target.hp, target.hp_max - 20, "a summoned unit's attack must land like any other unit's")
 
-	# And it dies like any other unit: no special-cased survival path in
-	# CombatSim -- damage that drops it to 0 hp kills it the same way as
-	# anything else's DAMAGE resolution does.
-	engine.hp = 0
-	engine.alive = false
+	# And it dies like any other unit: the enemy strikes it for more than its
+	# hp and CombatSim's own DAMAGE resolution is what kills it.
+	assert_true(engine.alive, "sanity: the engine is alive before it is struck")
+	target.intent = Intent.use_action(strike.id, engine.id)
+	for i in 2:
+		CombatSim.step(state, deps)
+
 	assert_false(engine.alive, "a summoned unit must be able to die like any other")
+	assert_eq(engine.hp, 0, "and its hp floors at 0 rather than going negative")
+	assert_false(state.living(CG.Team.PLAYER).has(engine), "a dead summon leaves the living list")
 
 # ---------------------------------------------------------------------------
 # an unknown summon id fails the same way an unknown enemy spawn already does
