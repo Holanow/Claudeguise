@@ -9,7 +9,7 @@ class_name ActionDef
 @export var display_name: String = ""
 
 ## One or two sentences a player reads on the inspect screen, in their language
-## rather than ours: what this does and when it is worth using. Not the numbers ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+## rather than ours: what this does and when it is worth using. Not the numbers ÃƒÂ¢Ã¢--Â¬Ã¢â‚¬Â
 ## the screen can read those off the fields below and they change every time
 @export var description: String = ""
 

@@ -9,7 +9,7 @@ class_name ArenaFloor
 ## OWNER: pike.
 ##
 ## Attached to the Arena node itself, so it is drawn in the same local space
-## that _layout_arena positions and scales — the drawn rectangle is
+## that _layout_arena positions and scales -- the drawn rectangle is
 ## CG.ARENA_HALF_WIDTH/HEIGHT, the same constants the simulation places units
 ## within, not a second guess at the same numbers. Terrain rects arrive in the
 ## same space for the same reason: BattleView hands over CombatState.terrain
@@ -29,7 +29,7 @@ const CENTER_LINE_ALPHA := 0.3
 var terrain: Array = []
 
 ## Set by BattleView from CombatState.projectiles every stepped tick.
-## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" — issue 18
+## PLAYTEST-NOTES 2: "I'm still seeing beams and not projectiles" -- issue 18
 ## gave every ranged action a real travelling shot with a per-tick position,
 ## and nothing drew it; UnitView kept drawing an instant source-to-target
 ## line for the whole action instead. UnitView now suppresses that line once
@@ -46,10 +46,6 @@ func _draw() -> void:
 	var hh := CG.ARENA_HALF_HEIGHT
 
 	# Issue 237. `Assets/UI/README.md` has promised the player an
-	# `Assets/UI/background/arena.png` since the drop-in pipeline was built, and
-	# this `draw_rect` is the whole reason that file did nothing. With no art
-	# present `draw_background` draws exactly this rect in exactly this colour,
-	# so the shipped screen is unchanged.
 	UIArt.draw_background(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		&"arena", Palette.ARENA_FLOOR)
 
@@ -73,22 +69,6 @@ func _draw() -> void:
 		_draw_feature(feature)
 
 	# The frame around the arena, through the same drop-in pipeline as the
-	# party cards: `Assets/UI/panel_border.png` if it is there, nine-sliced,
-	# and the flat outline this line used to draw if it is not. Byte-identical
-	# with no file present -- same colour, same rect, same thickness, handed to
-	# `draw_border` as its fallback.
-	#
-	# Drawn last on purpose, after terrain and before projectiles, exactly
-	# where the flat outline was: the boundary has to sit on top of a hazard
-	# rect that runs to the wall.
-	#
-	# Issue 237: it now passes `&"arena"` as well, which `Assets/UI/README.md`
-	# has documented as `border/arena.png` = "just the frame around the arena"
-	# the whole time. `test_art.gd`'s own build note records reproducing this by
-	# rendering -- a real yellow-cornered `border/arena.png` was dropped in and
-	# the frame kept the general file's green corners, because no element name
-	# was passed. `panel_border.png` is unaffected; it is still the fallback the
-	# specific name resolves past.
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
 
@@ -128,10 +108,10 @@ func _projectile_damage_type(p) -> CG.DamageType:
 ## by fill, footprint and pattern rather than a fifth colour nobody asked for.
 ##
 ## Issue 26's own requirement, quoted directly: "a pit must not look like a
-## wall — they behave like exact opposites, one blocking movement and not
+## wall -- they behave like exact opposites, one blocking movement and not
 ## sight, the other the reverse." Wall is drawn as solid mass filling its
 ## whole rect (blocks both). Pit is drawn as its opposite: a dark void with
-## only an edge, no fill, reading as "an absence" rather than "an object" —
+## only an edge, no fill, reading as "an absence" rather than "an object" --
 ## you can see clean over it, you cannot walk into it.
 func _draw_feature(feature) -> void:
 	match feature.kind:
@@ -140,9 +120,6 @@ func _draw_feature(feature) -> void:
 			draw_rect(feature.rect, Palette.TEXT_DIM, false, 2.0)
 		Terrain.Kind.PILLAR:
 			# A column, not a span: drawn as a circle inscribed in its rect
-			# rather than filling the rect, so it reads as a discrete
-			# obstacle you can walk around even though it blocks sight
-			# through the same footprint a wall would.
 			var center: Vector2 = feature.rect.get_center()
 			var radius: float = min(feature.rect.size.x, feature.rect.size.y) * 0.5
 			draw_circle(center, radius, Palette.ARENA_EDGE)
@@ -163,12 +140,12 @@ const _HAZARD_STRIPE_SPACING := 20.0
 ##
 ## Each stripe is the line from (t, 0) sliding down the top-then-right edge
 ## to (0, t) sliding down the left-then-bottom edge, independently clamped
-## to the rect's own size on each axis — the standard diagonal-hatch-in-a-
+## to the rect's own size on each axis -- the standard diagonal-hatch-in-a-
 ## rect construction. An earlier version clamped two Vector2 *parameters* in
 ## a helper function and never used the clamped result, since GDScript
 ## passes Vector2 by value: the caller kept drawing with the original,
 ## unclamped points, so a stripe on a wide short rect drew mostly outside
-## it. No helper now — clamped directly at the call site.
+## it. No helper now -- clamped directly at the call site.
 func _draw_hazard_stripes(rect: Rect2, base_color: Color) -> void:
 	var stripe_color := base_color
 	stripe_color.a = minf(base_color.a * 1.6, 0.7)

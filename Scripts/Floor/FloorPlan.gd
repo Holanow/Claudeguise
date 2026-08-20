@@ -7,7 +7,7 @@ class_name FloorPlan
 ## unshadowed by any local `var floor := ...`.
 ##
 ## OWNER: wren, issue 5. Generated once by FloorGenerator and then reused for
-## the whole trip â€” descent and ascent read the same instance rather than
+## the whole trip -- descent and ascent read the same instance rather than
 ## regenerating, which is what makes "the layout is preserved on the way
 ## back up" true by construction rather than by a rule someone has to
 ## remember.

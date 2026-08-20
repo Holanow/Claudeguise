@@ -3,7 +3,7 @@ class_name FloorGenerator
 
 
 ## Builds a FloorPlan from a seed. Deterministic: same seed, same rooms, same
-## types, same connections, every time â€” nothing here reads any source of
+## types, same connections, every time -- nothing here reads any source of
 ## randomness but the RandomNumberGenerator this file seeds itself.
 ##
 ## OWNER: wren, issue 5.
@@ -12,7 +12,7 @@ class_name FloorGenerator
 ## always-connected graph rooted at the entrance; exactly one of them is
 ## picked as the sole gate into a MINIBOSS room; the MINIBOSS is the sole
 ## connection into the BOSS room, a dead end. That makes "the boss is
-## unreachable without passing the miniboss" true by construction â€” remove
+## unreachable without passing the miniboss" true by construction -- remove
 ## the miniboss node and the boss becomes unreachable, which
 ## FloorPlan.reachable_excluding proves directly rather than the generator
 ## promising it.
@@ -25,10 +25,10 @@ const _ORDINARY_ROOM_COUNT := FLOOR_1_ROOM_COUNT - _GATE_TYPE_COUNT
 
 ## Issue 5's own finding: picking each of the 6 ordinary rooms uniformly at
 ## random from all six types let a seed produce a floor with zero fights
-## (`Library, Cell, Library, Treasure, Treasure, Cell` â€” measured, not
+## (`Library, Cell, Library, Treasure, Treasure, Cell` -- measured, not
 ## hypothetical) or zero plain Enemy rooms at all. A floor needs a shape:
 ## mostly fights, a few rewards. These two constants are that shape, not a
-## tunable knob â€” three of the six ordinary rooms are guaranteed fights every
+## tunable knob -- three of the six ordinary rooms are guaranteed fights every
 ## seed, the other three are rolled from the reward pool. Which *specific*
 ## room ids land which type still varies by seed (`_room_types` shuffles the
 ## combined list), so the floor still reads differently seed to seed; it can
@@ -41,7 +41,7 @@ const _GUARANTEED_FIGHTS: Array[FloorRoom.Type] = [
 
 ## TRAP, LIBRARY and TREASURE are already wired or explicitly scoped by this
 ## issue (TREASURE: play_treasure_room; CELL: play_cell_room). TRAP has no
-## resolution path yet, same as it did before this change â€” not this issue's
+## resolution path yet, same as it did before this change -- not this issue's
 ## gap to close, so it stays in the pool rather than being pulled out, on the
 ## same footing content already treats it.
 const _REWARD_POOL: Array[FloorRoom.Type] = [

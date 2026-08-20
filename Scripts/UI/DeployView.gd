@@ -2,6 +2,7 @@ extends Control
 class_name DeployView
 
 const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
+const SCENE := "res://Scenes/Deploy.tscn"
 
 ## Issue 145: place your party before the fight starts.
 ##
@@ -36,51 +37,36 @@ var _canvas: Control = null
 var _encounter = null
 var _party: Array[PawnData] = []
 var _authored: Array[Vector2] = []
-var _hint: Label = null
 var _encounter_label: Label = null
 
+## The tree this screen needs lives in `Scenes/Deploy.tscn`; `new()` gives a bare
+## Control with none of it. Always build this screen with `create()`.
+static func create() -> DeployView:
+	return (load(SCENE) as PackedScene).instantiate() as DeployView
+
+## Only what the scene file cannot express. The heading, the hint sentence and
+## the three buttons are in `Scenes/Deploy.tscn` and are edited there; their
+## margins, font sizes and dim colours are literals in that file rather than
+## reads of `Palette`, so editing the scene is not silently undone at runtime.
 func _ready() -> void:
 	theme = AppTheme.shared()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	# Issue 237. One line instead of three, and the point is not the two lines:
-	# `Assets/UI/README.md` promises the player that dropping in
+	# Issue 237. `Assets/UI/README.md` promises the player that dropping in
 	# `background/deploy.png` (or `background.png` for every screen at once)
-	# re-skins this screen, and until this call existed it did nothing at all.
-	# With no file present `background_node` returns exactly the ColorRect this
-	# replaced, in exactly this colour, so nothing shipped changes.
-	add_child(UIArt.background_node(&"deploy", Palette.BACKGROUND))
+	# re-skins this screen. With no file present `background_node` returns exactly
+	# a ColorRect in `Palette.BACKGROUND`. Built here rather than in the scene
+	# because which node it is depends on whether that file exists; moved to index
+	# 0 because it has to draw behind the tree the scene already brought.
+	var background := UIArt.background_node(&"deploy", Palette.BACKGROUND)
+	add_child(background)
+	move_child(background, 0)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_top", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_right", int(Palette.SPACE_L))
-	margin.add_theme_constant_override("margin_bottom", int(Palette.SPACE_L))
-	add_child(margin)
+	_encounter_label = %EncounterLabel
 
-	var column := VBoxContainer.new()
-	margin.add_child(column)
-
-	var title := Label.new()
-	title.text = "Place your party"
-	title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
-	column.add_child(title)
-
-	_encounter_label = Label.new()
-	_encounter_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(_encounter_label)
-
-	# States the constraint in words as well as drawing it. The shaded band says
-	# *where*; only a sentence says *why the pawn stopped moving*, which is the
-	# thing a player hits first and cannot deduce from a colour.
-	_hint = Label.new()
-	_hint.text = "Drag a pawn to move it. The shaded band is as far forward as your party may start, and nobody can stand inside a wall or a pit."
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_hint.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(_hint)
-
+	# `mode` is a plain var, not an @export, so the canvas cannot be a scene node:
+	# a scene child's _ready() runs before this one and would build the arena in
+	# the wrong mode. It is built here and slotted in above the button row.
 	_canvas = Control.new()
 	_canvas.set_script(CanvasScript)
 	_canvas.mode = CanvasScript.Mode.MOVE_PARTY
@@ -94,34 +80,17 @@ func _ready() -> void:
 	# one plus a ghost at a stale layout, drawn over the heading. Visible only
 	# on a screenshot; every test passed with the ghost present, because a
 	# detached screen never gets the engine's second call.
-	column.add_child(_canvas)
+	%Column.add_child(_canvas)
+	%Column.move_child(_canvas, %Buttons.get_index())
 	if not _canvas.is_inside_tree():
 		_canvas._ready()
 
-	var buttons := HFlowContainer.new()
-	buttons.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
-	column.add_child(buttons)
-
-	var fight := Button.new()
-	fight.text = "Start Fight"
-	fight.custom_minimum_size = Vector2(220.0, Palette.TOUCH_TARGET_MIN)
-	fight.pressed.connect(_on_fight_pressed)
-	buttons.add_child(fight)
-
+	%FightButton.pressed.connect(_on_fight_pressed)
 	# Getting back to where you started has to be one press. Without it the
 	# only way to undo a bad placement is to leave the screen and come back,
 	# which also throws away the party and the seed.
-	var reset := Button.new()
-	reset.text = "Reset placement"
-	reset.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	reset.pressed.connect(reset_placement)
-	buttons.add_child(reset)
-
-	var back := Button.new()
-	back.text = "Back"
-	back.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	back.pressed.connect(func(): back_requested.emit())
-	buttons.add_child(back)
+	%ResetButton.pressed.connect(reset_placement)
+	%BackButton.pressed.connect(func(): back_requested.emit())
 
 ## `encounter` is passed rather than looked up so the level editor's unsaved
 ## room can use this screen too, exactly as `BattleView.begin_with_encounter`

@@ -38,14 +38,14 @@ const AGI_TICK_SCALE_PER_POINT := 0.015
 const MAX_AGI_TICK_SCALE := 0.5
 
 ## Issue 20: percent of max resource per second. Mana large and slow, Energy
-## small and fast, per README.md. Rage is never read here on a timer Ã¢â‚¬â€ wren's
+## small and fast, per README.md. Rage is never read here on a timer Ã¢â‚¬-- wren's
 ## simulation already refuses to call this for a RAGE unit, and this function
 ## returns 0.0 for one anyway as a second guard.
 const MANA_REGEN_PERCENT_PER_SECOND := 4.0
 const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
 
 ## Issue 20: percent of max Rage gained per landed attack. README.md: Rage
-## "fills as the pawn attacks" and nothing else Ã¢â‚¬â€ wren's simulation only calls
+## "fills as the pawn attacks" and nothing else Ã¢â‚¬-- wren's simulation only calls
 ## this on a hit that actually lands, never on commit and never on a miss.
 const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 
