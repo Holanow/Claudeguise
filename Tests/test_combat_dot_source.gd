@@ -297,3 +297,33 @@ func test_naming_the_source_draws_nothing_from_the_rng() -> void:
 	fresh.seed = _SEED
 	assert_eq(state.rng.randf(), fresh.randf(),
 		"whole-number rates reach no roll, and attribution reaches none either")
+
+# ---------------------------------------------------------------------------
+# the seam this change lands on, and it is not mine to fix
+# ---------------------------------------------------------------------------
+
+## RED ON PURPOSE. `CombatLogView.line_for_event` tests `e.source_id == -1`
+## before `e.status`, so a DOT tick that now carries an applier falls through
+## to the "X hits Y" line and escapes the `log_status_damage` switch. The fix
+## is two lines in `Scripts/UI/CombatLogView.gd`, which is wren's: swap the two
+## conditions, because `e.status != SHIELD` is already an exact test for a DOT
+## tick and a direct hit never sets it. Measured on `floor1_hazard` seed 1: the
+## default log goes from 465 shown lines to 581, all 116 of them poison.
+func test_the_dot_switch_still_silences_a_dot_tick_that_has_a_source() -> void:
+	DisplayOptions.reset()
+	var view = CombatLogView.new()
+	var state := _arena()
+	var e := CombatEvent.new()
+	e.kind = CG.EventKind.DAMAGE
+	e.tick = 10
+	e.source_id = 0
+	e.target_id = 1
+	e.amount = 3
+	e.damage_type = CG.DamageType.PROFANE
+	e.status = CG.Status.POISON
+	assert_eq(view.line_for_event(state, e), "",
+		("a poison tick is a poison tick whoever applied it, and `log_status_damage` is "
+		+ "off by default. Fix in Scripts/UI/CombatLogView.gd, wren's: test `e.status` "
+		+ "before `e.source_id`."))
+	DisplayOptions.reset()
+	view.free()
