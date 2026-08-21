@@ -14,21 +14,50 @@ const SEEDS := 6
 const CLASSES := ["warrior", "priest", "abomination", "geysermancer", "siege_master"]
 
 # ---------------------------------------------------------------------------
-# The core one: an ability that exists but never fires is not in the game.
+# The core one: an ability no player can reach is not in the game.
 # ---------------------------------------------------------------------------
 
-## Catches the failure that hit twice: the Warrior's block and the
-## Abomination's hook existed as mechanisms in the simulation, fully tested,
-## while no action set the field and no plan ever chose one. The unit tests
-## for the mechanisms passed the whole time, because they called the mechanism.
-func test_every_starting_action_fires_in_a_real_fight() -> void:
+## **Issue 399 WEAKENED this test on purpose, and the weakening is the point of
+## the entry.** It used to demand that every starting action FIRES in a real
+## fight. A class now ships with no plan rows, so an ally-targeted, zero-power
+## or sustained action fires zero times until the player adds a row for it, and
+## the old assertion could only be met by putting the rows back. What is left is
+## "a player can reach it": fired by the shipped party, or offered by that
+## class's preset library. **A library-only action is one nobody who never opens
+## the library will ever see**, which is why the partition is printed.
+func test_every_starting_action_is_reachable_by_a_player() -> void:
 	var fired := _collect_fired_action_ids()
+	var library_only: Array[String] = []
 	for cid in CLASSES:
-		var def := Registry.get_class_def(StringName(cid))
+		var c := StringName(cid)
+		var def := Registry.get_class_def(c)
 		for action_id in def.starting_actions:
-			assert_true(fired.has(action_id),
-				"%s lists action '%s' and it never fired in %d real fights. It is in the game's data and not in the game."
+			if fired.has(action_id):
+				continue
+			library_only.append("%s/%s" % [cid, action_id])
+			assert_true(_preset_offering(c, action_id) != &"",
+				("%s lists action '%s'. It never fired in %d real fights AND no preset in its "
+				+ "library offers it, so neither the shipped party nor the library reaches it.")
 					% [cid, action_id, _fight_count()])
+	print("library-only actions (nothing fires these until the player adds a row): ", library_only)
+
+## The preset in `class_id`'s library that uses `action_id`, or `&""`.
+func _preset_offering(class_id: StringName, action_id: StringName) -> StringName:
+	for plan in PresetPlans.for_class(class_id):
+		for block in plan.blocks:
+			if block.kind == PlanBlock.Kind.ACTION and block.args.get("action_id", &"") == action_id:
+				return plan.id
+	return &""
+
+## The negative half: the library is a real path only while the plans in it are
+## ones a player can actually pay for and the interpreter can actually run.
+func test_a_pawn_that_adds_its_whole_library_can_run_all_of_it() -> void:
+	for cid in CLASSES:
+		var c := StringName(cid)
+		var pawn := PawnFactory.make_preset_pawn(c, c, String(cid))
+		assert_true(pawn.plans.size() > 0, "%s's library is empty, so nothing above can be reached from it" % cid)
+		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size(),
+			"a %s that adds every preset cannot pay for them all" % cid)
 
 ## A class whose actions all cost resource, in a party that cannot generate
 ## it, stands still. The player hit this twice -- the Abomination, then the

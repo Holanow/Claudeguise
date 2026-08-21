@@ -46,7 +46,7 @@ func _buildable_parties() -> Array:
 func _pawns(ids: Array, seed: int) -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for i in ids.size():
-		out.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d_%d" % [ids[i], seed, i]), String(ids[i])))
+		out.append(PawnFactory.make_preset_pawn(ids[i], StringName("%s_%d_%d" % [ids[i], seed, i]), String(ids[i])))
 	return out
 
 

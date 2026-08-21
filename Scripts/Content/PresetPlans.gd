@@ -1,6 +1,8 @@
 extends RefCounted
 class_name PresetPlans
 
+## The library of plan rows a player can add. Issue 399: a class ships with no
+## rows, so nothing here is on a pawn until the player puts it there.
 
 
 ## Issue 138: the Mana a Priest's lower plans must leave standing, so the heal
@@ -12,9 +14,8 @@ const PRIEST_SPENDER_RESERVE := 40
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
 
-## Total block count across a class's preset plans. Used by
-## Tests/test_content_classes.gd to check every class stays within its own
-## Balance.plan_block_budget.
+## Total block count across a class's library. It is what adding every preset
+## would cost, checked against Balance.plan_block_budget.
 static func total_blocks(class_id: StringName) -> int:
 	var total := 0
 	for p in for_class(class_id):

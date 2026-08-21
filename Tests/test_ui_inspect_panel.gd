@@ -1081,7 +1081,7 @@ func _button_named(node: Node, text: String) -> Button:
 func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void:
 	var checked := 0
 	for class_id in Registry.all_class_ids():
-		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
+		var pawn := PawnFactory.make_preset_pawn(class_id, class_id, String(class_id))
 		var panel := InspectPanel.create()
 		panel._ready()
 		panel.open([pawn])

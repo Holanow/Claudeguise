@@ -6,10 +6,14 @@ extends "res://Tests/TestCase.gd"
 ## balance-affecting fix lands; see TEAM_LOG for the history rather than
 ## restating it inline.
 
+## Issue 399: preset pawns, because "these two classes fight differently" is a
+## claim about class content including its authored rows. Measured with no rows
+## at all, the Geysermancer and the Priest produce the same outcome and
+## near-identical length on seed 14 -- reported in the PR, not tuned.
 func _party_of(class_id: StringName, count: int) -> Array[PawnData]:
 	var party: Array[PawnData] = []
 	for i in count:
-		party.append(PawnFactory.make_starter_pawn(class_id, &"%s_%d" % [class_id, i], "%s %d" % [class_id, i]))
+		party.append(PawnFactory.make_preset_pawn(class_id, &"%s_%d" % [class_id, i], "%s %d" % [class_id, i]))
 	return party
 
 func _run(class_id: StringName, seed: int) -> Dictionary:
