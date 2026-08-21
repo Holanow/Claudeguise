@@ -190,14 +190,24 @@ func test_a_pit_does_not_steal_a_burn_a_pawn_lit() -> void:
 	pit.applies_status_enabled = true
 	pit.status_duration_ticks = 20
 
+	## The pit is laid AFTER the hit: everything in this fixture stands inside
+	## its rect, so a pit present from tick 1 lights the victim before the scald
+	## resolves and the first tick is honestly the pit's.
 	var state := _arena()
-	state.terrain = [pit]
 	var deps := _deps([scald])
 	_strike(state, deps, scald, 2)
+	state.terrain = [pit]
 	for _i in 3:
 		CombatSim.step(state, deps)
 
-	for s in _sources(state, CG.Status.BURN):
+	## Unit 1 only: everybody is standing in the pit, and the pit's own burns on
+	## units 0 and 2 are the anonymous ones the test above already covers.
+	var on_victim: Array[int] = []
+	for e in _dot_ticks(state, CG.Status.BURN):
+		if e.target_id == 1:
+			on_victim.append(e.source_id)
+	assert_true(on_victim.size() > 0, "the victim is burning")
+	for s in on_victim:
 		assert_eq(s, 2, "unit 2 lit it and it stays unit 2's")
 
 # ---------------------------------------------------------------------------
