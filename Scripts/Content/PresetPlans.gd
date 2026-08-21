@@ -61,17 +61,20 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
 					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
 			]
+		## Issue 406: the fire pair leads, because the library is priority order once
+		## added and Scour is the least Geysermancer row in it. Blast stays above
+		## Scald: swapping them is measured at 18 Blast casts against 481.
 		&"geysermancer":
 			return [
-				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
-					_condition(&"ally_has_harmful_status", {}),
-					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
 				_plan(&"geyser_blast_the_burning", "Blast the burning",
 					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
 					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
 					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
+				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
+					_condition(&"ally_has_harmful_status", {}),
+					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
 				_plan(&"geyser_channel_when_dry", "Channel when dry",
 					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
 					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
