@@ -42,8 +42,8 @@ func test_every_starting_action_resolves() -> void:
 ## a preset plan those fire zero times.
 const _EXPECTED_PLAN_COUNT := {
 	&"warrior": 5,
-	&"priest": 4,
-	&"geysermancer": 3,
+	&"priest": 5,
+	&"geysermancer": 4,
 	&"abomination": 4,
 }
 

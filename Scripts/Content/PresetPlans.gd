@@ -8,6 +8,10 @@ class_name PresetPlans
 ## Smite each cost 15, so 40 is "my own cost, plus the heal's, or I do not cast".
 const PRIEST_SPENDER_RESERVE := 40
 
+## Issue 166: the Mana below which a Channel is worth standing still for. It is
+## the Channel's own restore, so a Channel never overfills and is never wasted.
+const CHANNEL_WHEN_BELOW := 25
+
 ## Total block count across a class's preset plans. Used by
 ## Tests/test_content_classes.gd to check every class stays within its own
 ## Balance.plan_block_budget.
@@ -52,6 +56,9 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"priest_smite_nearest", "Smite",
 					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),
+				_plan(&"priest_channel_when_dry", "Channel when dry",
+					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
+					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
 			]
 		&"geysermancer":
 			return [
@@ -64,6 +71,9 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
 					_condition(&"enemy_in_range", {"range": 200.0}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
+				_plan(&"geyser_channel_when_dry", "Channel when dry",
+					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
+					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
 			]
 		&"siege_master":
 			return [

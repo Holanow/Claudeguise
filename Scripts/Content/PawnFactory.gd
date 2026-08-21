@@ -16,16 +16,17 @@ const STARTING_WEAPON := {
 	&"abomination": &"sickle",
 }
 
-## The armour a class starts wearing, and **it has exactly one entry on
-## purpose.**
+## The armour a class starts wearing.
 ##
 ## **Issue 160: a starter pawn wearing nothing made every measurement tool in
 ## this repo blind to any armour-granted ability**, and there is exactly one of
-## those -- `plate_mail` grants `warrior_block`, which fired zero times across 40
-## seeds of 7 encounters against 9,000+ enemy shots. Arming the Warrior closes
-## the whole of that gap today.
+## those -- `plate_mail` grants `warrior_block`. Issue 166 adds the two Mana
+## casters for the same reason at one remove: the Robes carry the two points of
+## WIS that pay for their Channel row.
 const STARTING_ARMOR := {
 	&"warrior": &"plate_mail",
+	&"priest": &"robes",
+	&"geysermancer": &"robes",
 }
 
 static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display_name: String) -> PawnData:
