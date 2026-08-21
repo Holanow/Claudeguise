@@ -138,15 +138,24 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 	assert_true(screen._seed_edit.custom_minimum_size.y >= Palette.TOUCH_TARGET_MIN)
 	screen.free()
 
-## The real defect: hand-building PawnData in _build_roster left `plans`
-func test_every_roster_pawn_carries_its_preset_plans() -> void:
+## **Issue 399 REVERSED this assertion.** It demanded that every roster pawn
+## carry its preset plans; the ruling is that a class ships with none and the
+## player adds them, so the empty list is now the requirement rather than the
+## defect. The half worth keeping is that the roster pawn is a real
+## `PawnFactory` pawn -- class, gear and a non-empty library to add from -- which
+## is what the original hand-built `PawnData` was not.
+func test_every_roster_pawn_starts_with_no_plans_and_a_library_to_add_from() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
 	var class_ids := Registry.all_class_ids()
 	if class_ids.is_empty():
 		return
 	for pawn in screen.available_pawns():
-		assert_false(pawn.plans.is_empty(), "%s has no plans" % pawn.display_name)
+		assert_true(pawn.plans.is_empty(),
+			"%s ships with %d plan rows; issue 399 starts the editor empty" % [pawn.display_name, pawn.plans.size()])
+		assert_not_null(pawn.pawn_class, "%s is not a real class pawn" % pawn.display_name)
+		assert_false(PresetPlans.for_class(pawn.pawn_class.id).is_empty(),
+			"%s has an empty preset library, so there is nothing for the player to add" % pawn.display_name)
 	screen.free()
 
 func test_every_card_meets_the_minimum_touch_target() -> void:

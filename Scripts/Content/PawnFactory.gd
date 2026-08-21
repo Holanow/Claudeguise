@@ -2,7 +2,7 @@ extends RefCounted
 class_name PawnFactory
 
 
-## Builds a starter PawnData: class definition, preset plans, starting gear.
+## Builds a starter PawnData: class definition, starting gear, and no plan rows.
 
 ## The weapon each class starts holding. Every entry must satisfy
 ## `EquipmentDef.allows(class.method)` -- MARTIAL takes Sword and Bow, MAGICAL
@@ -34,9 +34,16 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 	pawn.id = pawn_id
 	pawn.display_name = display_name
 	pawn.pawn_class = Registry.get_class_def(class_id)
-	pawn.plans = PresetPlans.for_class(class_id)
 	if STARTING_WEAPON.has(class_id):
 		pawn.weapon = Registry.get_equipment(STARTING_WEAPON[class_id])
 	if STARTING_ARMOR.has(class_id):
 		pawn.armor = Registry.get_equipment(STARTING_ARMOR[class_id])
+	return pawn
+
+## The same pawn with every preset in its library added, which is the state a
+## player reaches by adding all of them. Nothing in the game calls this; it is
+## how a test measures authored behaviour now that a starter pawn has none.
+static func make_preset_pawn(class_id: StringName, pawn_id: StringName, display_name: String) -> PawnData:
+	var pawn := make_starter_pawn(class_id, pawn_id, display_name)
+	pawn.plans = PresetPlans.for_class(class_id)
 	return pawn

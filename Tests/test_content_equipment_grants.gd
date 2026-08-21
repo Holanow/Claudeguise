@@ -460,7 +460,7 @@ func _block_counts(strip_armor: bool) -> Dictionary:
 	for s in BLOCK_SEEDS:
 		var party: Array[PawnData] = []
 		for cid in Registry.all_class_ids():
-			var p := PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
+			var p := PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
 			if strip_armor:
 				p.armor = null
 			party.append(p)

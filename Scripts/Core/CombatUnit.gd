@@ -83,6 +83,13 @@ var statuses: Dictionary = {}
 ## every status that does not store anything.
 var status_magnitude: Dictionary = {}
 
+## Which unit applied each status, keyed by CG.Status. Absent means nothing
+## applied it: terrain, or a status the sim stamps on itself.
+##
+## Read by key and never iterated, so it exposes no new order. A DOT tick can
+## name its author, which `-1` on the event could not.
+var status_source: Dictionary = {}
+
 ## Action ids available to this unit, from class, equipment and enemy
 ## definition combined at build time.
 var actions: Array[StringName] = []

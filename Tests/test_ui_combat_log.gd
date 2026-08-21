@@ -732,7 +732,7 @@ func test_an_enemys_action_carries_no_plan_tag_at_all() -> void:
 ## "plan 3" can go to row 3 and find it. Checked against real preset plans.
 func test_the_row_number_is_the_editors_row_number() -> void:
 	var view := CombatLogView.new()
-	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
+	var pawn := PawnFactory.make_preset_pawn(&"warrior", &"w", "Warrior")
 	assert_true(pawn.plans.size() > 1, "a one-plan pawn cannot detect an off-by-one")
 	for i in pawn.plans.size():
 		assert_eq(view.plan_row_number(pawn, pawn.plans[i].id), i + 1)
@@ -810,7 +810,7 @@ func test_the_compulsion_stamps_its_own_sentinel_on_both_intents() -> void:
 func _real_fight() -> CombatState:
 	var party: Array[PawnData] = []
 	for cid in Registry.all_class_ids().slice(0, 4):
-		party.append(PawnFactory.make_starter_pawn(
+		party.append(PawnFactory.make_preset_pawn(
 			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	CombatSim.run(state)

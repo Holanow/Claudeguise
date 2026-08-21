@@ -19,7 +19,7 @@ func _party() -> Array[PawnData]:
 	for cid in Registry.all_class_ids():
 		if cid == &"abomination":
 			continue
-		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
+		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
 	return out
 
 ## Every STATUS_EXPIRED naming a caster and an action -- the shape only a
@@ -161,8 +161,8 @@ func test_the_combat_log_reports_the_cleanse() -> void:
 
 func test_scour_strips_poison_specifically() -> void:
 	var party: Array[PawnData] = [
-		PawnFactory.make_starter_pawn(&"geysermancer", &"g0", "Geysermancer"),
-		PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest"),
+		PawnFactory.make_preset_pawn(&"geysermancer", &"g0", "Geysermancer"),
+		PawnFactory.make_preset_pawn(&"priest", &"p0", "Priest"),
 	]
 	var deps := SimDeps.new()
 	var state := CombatSim.build(party, Registry.get_encounter(ENCOUNTER), 0, deps)

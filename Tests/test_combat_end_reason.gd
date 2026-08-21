@@ -92,7 +92,7 @@ func _party() -> Array[PawnData]:
 	for cid in Registry.all_class_ids():
 		if cid == &"abomination":
 			continue
-		out.append(PawnFactory.make_starter_pawn(
+		out.append(PawnFactory.make_preset_pawn(
 			cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
 	return out
 

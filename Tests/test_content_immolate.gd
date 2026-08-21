@@ -110,7 +110,7 @@ func _run(with_plan: bool) -> Dictionary:
 	for s in SEEDS:
 		var party: Array[PawnData] = []
 		for cid in PARTY:
-			var pawn := PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
+			var pawn := PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
 			if not with_plan:
 				var kept: Array = []
 				for p in pawn.plans:
