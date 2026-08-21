@@ -451,12 +451,19 @@ const BLOCK_ROOM := &"floor1_chokepoint"
 ## Floors at roughly a third of the measured counts on this room, which is
 ## announcement rule 4: an `> 0` on an emergent count cannot warn, only fail.
 const MIN_BLOCK_CASTS := 10
-const MIN_BLOCKED := 100
+
+## The blocked count is asserted as a SHARE of everything the enemy fires, not
+## as a raw count, because the raw count moves with the length of the fight and
+## the share does not. Measured with `Tools/BlockShare.gd`; the denominator is
+## every enemy ACTION_FIRE, so an enemy gaining a non-attack action would dilute
+## it.
+const MIN_BLOCKED_SHARE := 0.15
 
 func _block_counts(strip_armor: bool) -> Dictionary:
 	var casts := 0
 	var shieldings := 0
 	var blocked := 0
+	var enemy_shots := 0
 	for s in BLOCK_SEEDS:
 		var party: Array[PawnData] = []
 		for cid in Registry.all_class_ids():
@@ -473,7 +480,11 @@ func _block_counts(strip_armor: bool) -> Dictionary:
 				shieldings += 1
 			elif e.kind == CG.EventKind.BLOCKED:
 				blocked += 1
-	return {"casts": casts, "shieldings": shieldings, "blocked": blocked}
+			if e.kind == CG.EventKind.ACTION_FIRE and e.source_id >= 0:
+				var src := state.unit(e.source_id)
+				if src != null and src.team == CG.Team.ENEMY:
+					enemy_shots += 1
+	return {"casts": casts, "shieldings": shieldings, "blocked": blocked, "enemy_shots": enemy_shots}
 
 func test_the_warrior_starts_wearing_the_plate_that_teaches_the_block() -> void:
 	var w := _warrior()
@@ -483,14 +494,17 @@ func test_the_warrior_starts_wearing_the_plate_that_teaches_the_block() -> void:
 
 func test_the_block_is_cast_and_stops_real_shots_in_a_real_fight() -> void:
 	var c := _block_counts(false)
-	print("%s over %d seeds: block casts %d, SHIELDING %d, BLOCKED %d" % [
-		BLOCK_ROOM, BLOCK_SEEDS, c["casts"], c["shieldings"], c["blocked"]])
+	var shots := int(c["enemy_shots"])
+	var share := float(int(c["blocked"])) / maxf(1.0, float(shots))
+	print("%s over %d seeds: block casts %d, SHIELDING %d, BLOCKED %d of %d enemy shots (%.3f)" % [
+		BLOCK_ROOM, BLOCK_SEEDS, c["casts"], c["shieldings"], c["blocked"], shots, share])
 	assert_true(int(c["casts"]) >= MIN_BLOCK_CASTS,
 		"warrior_block fired %d times in %d fights, under its floor of %d" % [int(c["casts"]), BLOCK_SEEDS, MIN_BLOCK_CASTS])
-	assert_true(int(c["blocked"]) >= MIN_BLOCKED,
-		("the shield caught %d shots in %d fights, under its floor of %d. Casting is not the same as "
-		+ "blocking: SHIELDING existed in the simulation for months with nothing ever passing through it.")
-		% [int(c["blocked"]), BLOCK_SEEDS, MIN_BLOCKED])
+	assert_true(shots > 0, "the enemy fired nothing, so there was no shot to block and the share below is vacuous")
+	assert_true(share >= MIN_BLOCKED_SHARE,
+		("the shield caught %d of the %d shots the enemy fired (%.3f), under its floor of %.2f. Casting is "
+		+ "not the same as blocking: SHIELDING existed in the simulation for months with nothing ever "
+		+ "passing through it.") % [int(c["blocked"]), shots, share, MIN_BLOCKED_SHARE])
 
 ## **The control, and the counts above are worth nothing without it.** Strip the
 ## armour and the same party in the same room on the same seeds must produce
