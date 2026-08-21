@@ -33,7 +33,10 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 		return Intent.idle()
 
 	var candidates := _actions_that_can_fire_now(state, unit)
-	if candidates.is_empty():
+	## Issue 166: widened from `candidates.is_empty()`. The Channel is free, so a
+	## dry caster can now pay for something that neither attacks nor heals, and
+	## the old test read that as "I have options" and stood still.
+	if _first_heal(candidates) == null and _attack_candidates(candidates).is_empty():
 		candidates = _all_actions(unit)
 	if candidates.is_empty():
 		return Intent.idle()
