@@ -206,6 +206,47 @@ The same asymmetry applies beyond schemas. Widening an interface, adding an
 optional field, writing a new file: safe. Narrowing, deleting, renaming: only
 once everything that depends on the old shape is gone.
 
+### Sample the simulation before `step()` returns, never after
+
+**This misread cost three sessions in one day.** It is the single most
+productive source of wrong numbers this project has.
+
+`CombatSim.step()` advances a unit through decide, resolve and tick. A unit
+whose recovery ends *inside* the tick reads as **not busy** once `step()` has
+returned. So a probe that samples `is_busy()` or `intent` afterwards sees a
+free unit that was never free.
+
+What it produced:
+
+- swift's `HazardProbe` reported a population of units "blocked while standing
+  in fire". The real count is **0**; the 671 was recovery mistaken for
+  blockage. A defect, an issue and a session's work, all from one sampling
+  point.
+- finch's first pass on #379 read **22-32** free payable ticks where the truth
+  is **2-8**.
+
+**Sample before the step, and say in the probe's header which moment it
+samples.** If you are asking a counterfactual ("what would this unit have
+chosen?"), advance `state.tick` by one around it so cooldown readiness compares
+against the tick `_decide_phase` will actually use.
+
+**Then re-run every fight unprobed and confirm nothing moved.** swift did that
+on #379 and reported `0 perturbed`. It is the step almost nobody does and it is
+what separates a measurement from a guess.
+
+### Observing is not free: `decide()` and `focus_id`
+
+`Tests/test_probe_does_not_perturb.gd` fails any tool that steps a fight and
+calls `decide`. Two different vectors, and the distinction matters:
+
+- `DefaultBehavior.decide` draws from `state.rng` in `_choose_target`'s
+  `focus_bias` branch, so asking changes the stream.
+- `PlanInterpreter.decide` does **not** touch `state.rng`. It writes
+  `unit.focus_id`. Restore it and the fight is bit-identical -- measured, 434
+  ticks against 434.
+
+**Read what a probe writes, not only what it reads.**
+
 ### Never use `git stash`
 
 **The stash is per-repository, not per-worktree.** Every session on this box
