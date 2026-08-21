@@ -1274,11 +1274,11 @@ func _plan_rows(panel) -> Array:
 				break
 	return out
 
-## The row carrying the "Fallback, always last..." label, which is where the
-## fallback's own verdict hangs.
+## The row carrying InspectPanel.DEFAULT_ROW_TITLE, which is where the default
+## row's own verdict hangs.
 func _fallback_header(panel) -> Node:
 	for child in panel._detail_box.get_children():
-		if _all_label_text(child).contains("Fallback, always last"):
+		if _all_label_text(child).contains(InspectPanel.DEFAULT_ROW_TITLE):
 			return child
 	return null
 
