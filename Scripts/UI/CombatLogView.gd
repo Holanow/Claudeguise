@@ -74,6 +74,43 @@ func clear_log() -> void:
 	if _label != null:
 		_label.clear()
 
+## Issue 344. "(28 before mitigation)" told the player something huge had
+## happened and refused to say what, and swift then measured (#362) that in
+## 13.4% of 22,562 hits part or all of that gap was **overkill, which nothing
+## caused**: the issue's own headline case was a 29-damage swing landing for 1
+## on a Rat with 1 hp left. So the gap splits in two, and only the mitigated
+## half gets a cause.
+static func gap_text(e: CombatEvent) -> String:
+	var raw := e.amount_before_mitigation if e.amount_before_mitigation > 0 else e.amount
+	# An emitter that never filled the middle figure knows only the whole gap,
+	# and must not claim the target ran out of health.
+	var after := e.amount_after_mitigation if e.amount_after_mitigation > 0 else e.amount
+	var parts: Array[String] = []
+	if raw > after:
+		var cause := mitigation_cause_text(e.mitigation_cause)
+		parts.append("%d stopped" % (raw - after) if cause == "" else "%d stopped by %s" % [raw - after, cause])
+	if after > e.amount:
+		parts.append("%d more than it had left" % (after - e.amount))
+	if parts.is_empty():
+		return ""
+	return " (%d raw, %s)" % [raw, ", ".join(parts)]
+
+## What took the mitigated half, in the words a player would use. Never called
+## for the overkill half, because nothing caused that.
+static func mitigation_cause_text(cause: CG.MitigationCause) -> String:
+	match cause:
+		CG.MitigationCause.TOUGHNESS:
+			return "its toughness"
+		CG.MitigationCause.ARMOR:
+			return "its armor"
+		CG.MitigationCause.HIDE:
+			return "its hide"
+		CG.MitigationCause.SHIELD:
+			return "its shield"
+		CG.MitigationCause.BLOCK:
+			return "its block"
+	return ""
+
 ## Pure formatting, split out so it can be tested without a live RichTextLabel.
 func line_for_event(state: CombatState, e: CombatEvent) -> String:
 	var source := state.unit(e.source_id)
@@ -106,12 +143,9 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				]
 			if e.amount == 0 and e.amount_before_mitigation == 0:
 				return ""
-			var mitigation := ""
-			if e.amount_before_mitigation > e.amount:
-				mitigation = " (%d before mitigation)" % e.amount_before_mitigation
 			return "%s hits %s for [color=%s]%d[/color] %s damage%s" % [
 				source_name, target_name, color, e.amount,
-				CG.damage_type_name(e.damage_type), mitigation
+				CG.damage_type_name(e.damage_type), gap_text(e)
 			]
 		CG.EventKind.MISS:
 			return "[color=%s]%s's %s misses %s[/color]" % [
