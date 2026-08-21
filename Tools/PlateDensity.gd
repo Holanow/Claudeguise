@@ -73,6 +73,7 @@ func _start_run() -> void:
 		"reads_as_wrong": 0, "reads_as_nobody": 0,
 		"home_reads_as_wrong": 0, "home_reads_as_nobody": 0, "moved": 0,
 		"b_wrong": 0, "b_nobody": 0, "b_home_wrong": 0, "b_home_nobody": 0,
+		"tether_px": [], "tether_crossings": 0, "tether_crosses_a_body": 0,
 		"dist": [], "travel": [], "worst_dist": 0.0, "worst_dist_line": "",
 		"tightest": Vector2(1e9, 1e9), "tightest_tick": 0, "tightest_n": 0,
 		"worst": 0, "worst_tick": 0, "worst_lines": [],
@@ -187,6 +188,17 @@ func _sample_ownership(state) -> void:
 			_room["home_reads_as_nobody"] += 1
 		elif home_reads.id != u.id:
 			_room["home_reads_as_wrong"] += 1
+		var tether := UnitView.plate_tether(u, state.units, chip)
+		_room["tether_px"].append(tether[0].distance_to(tether[1]))
+		var crossed := 0
+		for other in state.units:
+			if other.id == u.id or not other.alive:
+				continue
+			if _segment_hits(tether[0], tether[1], body_box_of(other, state.units)):
+				crossed += 1
+		_room["tether_crossings"] += crossed
+		if crossed > 0:
+			_room["tether_crosses_a_body"] += 1
 		var b = reader_owner_b(chip, state)
 		if b == null:
 			_room["b_nobody"] += 1
@@ -202,6 +214,17 @@ func _sample_ownership(state) -> void:
 			_room["worst_dist_line"] = "\"%s\" %.0f px from its own unit, tick %d, reads as %s" % [
 				u.display_name, dist, state.tick,
 				"nobody" if reads_as == null else "\"%s\"" % reads_as.display_name]
+
+## Godot has no segment-rect test, and a leader line that runs through three
+## other pawns is the cost this device has to be judged on.
+static func _segment_hits(a: Vector2, b: Vector2, box: Rect2) -> bool:
+	if box.has_point(a) or box.has_point(b):
+		return true
+	var c := [box.position, Vector2(box.end.x, box.position.y), box.end, Vector2(box.position.x, box.end.y)]
+	for i in 4:
+		if Geometry2D.segment_intersects_segment(a, b, c[i], c[(i + 1) % 4]) != null:
+			return true
+	return false
 
 static func body_box_of(u, units: Array) -> Rect2:
 	var at := UnitView.drawn_position(u, units)
@@ -314,6 +337,9 @@ func _print_room(r: Dictionary) -> void:
 		% [r["b_wrong"], _pct(r["b_wrong"], r["plates"]), r["b_nobody"], _pct(r["b_nobody"], r["plates"]),
 			r["b_home_wrong"], _pct(r["b_home_wrong"], r["plates"]),
 			r["b_home_nobody"], _pct(r["b_home_nobody"], r["plates"])])
+	print("  tether px: %s | crosses another body %d (%.1f%%), %d crossings"
+		% [_percentiles(r["tether_px"]), r["tether_crosses_a_body"],
+			_pct(r["tether_crosses_a_body"], r["plates"]), r["tether_crossings"]])
 	print("  distance plate->own unit px: %s" % _percentiles(r["dist"]))
 	print("  travel from home row px:     %s" % _percentiles(r["travel"]))
 	if r["worst_dist_line"] != "":
@@ -358,6 +384,9 @@ func _report() -> void:
 	var bn := 0
 	var bhw := 0
 	var bhn := 0
+	var tether_px: Array = []
+	var tcross := 0
+	var tbody := 0
 	var moved := 0
 	var worst := {}
 	for r in _rooms:
@@ -369,6 +398,8 @@ func _report() -> void:
 		home_nobody += int(r["home_reads_as_nobody"])
 		bw += int(r["b_wrong"]); bn += int(r["b_nobody"])
 		bhw += int(r["b_home_wrong"]); bhn += int(r["b_home_nobody"])
+		tether_px.append_array(r["tether_px"])
+		tcross += int(r["tether_crossings"]); tbody += int(r["tether_crosses_a_body"])
 		moved += int(r["moved"])
 		dist.append_array(r["dist"])
 		travel.append_array(r["travel"])
@@ -389,6 +420,8 @@ func _report() -> void:
 			moved, _pct(moved, plates), onbody, _pct(onbody, plates)])
 	print("MODEL B over the same plate-ticks: wrong %d (%.1f%%), nobody %d (%.1f%%); at home row wrong %d (%.1f%%), nobody %d (%.1f%%)"
 		% [bw, _pct(bw, plates), bn, _pct(bn, plates), bhw, _pct(bhw, plates), bhn, _pct(bhn, plates)])
+	print("TETHER px: %s | crosses another body %d (%.1f%%), %d crossings in all"
+		% [_percentiles(tether_px), tbody, _pct(tbody, plates), tcross])
 	print("DISTANCE plate->own unit px: %s" % _percentiles(dist))
 	print("TRAVEL from home row px:     %s" % _percentiles(travel))
 	if not worst.is_empty():

@@ -262,6 +262,11 @@ func _draw_plate_tether(u: CombatUnit, chip: Rect2) -> void:
 	var points := plate_tether(u, _state.units, chip)
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
+	# Backed, the way `_draw_targeting_line` is: the bar tether is ten pixels
+	# long and this one crosses the scrum, so it needs the same dark stroke
+	# under it to stay a line over a body.
+	draw_line(points[0] - position, points[1] - position,
+		Color(Palette.BACKGROUND, 0.5), TETHER_WIDTH * 3.0)
 	draw_line(points[0] - position, points[1] - position, color, TETHER_WIDTH)
 
 ## The tether's two ends in ARENA-local pixels: the middle of the plate's
