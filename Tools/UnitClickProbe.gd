@@ -111,6 +111,16 @@ func _run() -> bool:
 	await _settle()
 	await _shot("wren_click_before")
 
+	## Issue 428, and it only happens to a player who has NEVER opened a card:
+	## the hint stays up, and the plans screen prints its own bottom row through
+	## it. Six playtesters were in exactly that state the whole session.
+	battle._open_plans(null)
+	await _settle()
+	print("UnitClickProbe: with the plans screen open, the hint is visible=%s" % battle._click_hint.visible)
+	await _shot("wren_click_hint_under_plans")
+	battle._inspect_panel.close()
+	await _settle()
+
 	var failures := 0
 	for u in battle.state.units:
 		if not u.alive:
@@ -135,6 +145,7 @@ func _run() -> bool:
 	if after != "":
 		failures += 1
 
+	failures += await _plate_clicks(battle)
 	failures += await _plans_route(battle)
 
 	print("UnitClickProbe: %d click(s) did nothing" % failures)
@@ -162,4 +173,26 @@ func _plans_route(battle) -> int:
 		await _shot("wren_plans_from_%s" % String(u.display_name).to_lower().replace(" ", "_"))
 		panel.close()
 		await _settle()
+	return bad
+
+## Issue 428, and it is the pass this probe did not have. Every click above
+## lands on the sprite's exact centre, which no human aims at: the name plate
+## is the biggest and most legible mark on a unit and it is what a player
+## points at. Six blind playtesters clicked and opened nothing.
+func _plate_clicks(battle) -> int:
+	var bad := 0
+	var layout: Dictionary = UnitView.plate_layout(battle.state)
+	for u in battle.state.units:
+		if not u.alive or not layout.has(u.id):
+			continue
+		var chip: Rect2 = layout[u.id]
+		var at: Vector2 = battle._arena.get_global_transform() * chip.get_center()
+		await _click(at)
+		var text := _card_text(battle)
+		var took := text.begins_with(u.display_name)
+		print("UnitClickProbe: PLATE %-16s at %s  opened=%s" % [u.display_name, at, took])
+		if not took:
+			bad += 1
+	await _shot("wren_click_plates")
+	print("UnitClickProbe: %d plate click(s) opened the wrong thing or nothing" % bad)
 	return bad
