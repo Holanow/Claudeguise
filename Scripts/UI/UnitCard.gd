@@ -17,6 +17,19 @@ const MAX_WIDTH := 320.0
 ## back by hand.
 const MAX_BODY_HEIGHT := 380.0
 
+## The floor under that, for a window too short to give the card its share:
+## about four lines, which is enough to show that scrolling is the answer.
+const MIN_BODY_HEIGHT := 160.0
+
+## Issue 396. What the card's own chrome costs above and below the scrolling
+## body: the title, the side line, the button row, three separations and the
+## panel's top and bottom margins.
+const CHROME_HEIGHT := 2.0 * Palette.SPACE_M + 3.0 * Palette.SPACE_XS + Palette.TOUCH_TARGET_MIN + 46.0
+
+## How tall the body may grow, set by whoever knows how much screen is free
+## below the toolbar. Left at MAX_BODY_HEIGHT until it is told otherwise.
+var body_ceiling: float = MAX_BODY_HEIGHT
+
 var unit_id: int = -1
 
 var _title: Label = null
@@ -109,8 +122,18 @@ func _fill(state: CombatState, u: CombatUnit) -> void:
 	_title.text = title_text(u)
 	_side.text = side_text(u)
 	_body.text = "\n".join(lines(state, u))
-	_scroll.custom_minimum_size.y = minf(_body.get_combined_minimum_size().y, MAX_BODY_HEIGHT)
+	_scroll.custom_minimum_size.y = body_height(_body.get_combined_minimum_size().y, body_ceiling,
+		float(_body.get_line_height()))
 	_plans_button.visible = u.pawn != null
+
+## Issue 396: `Shielding (5.0s left): Stops an` was cut by the card's bottom
+## edge, because the cap was a round number of pixels and landed in the middle
+## of a glyph. Snapped down to a whole number of lines instead, so what the
+## card shows is always a line the player can finish reading.
+static func body_height(wanted: float, ceiling: float, line: float) -> float:
+	if line <= 0.0:
+		return minf(wanted, ceiling)
+	return minf(wanted, maxf(floorf(ceiling / line), 1.0) * line)
 
 func close() -> void:
 	dismiss()

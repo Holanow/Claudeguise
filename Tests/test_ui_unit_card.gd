@@ -377,3 +377,30 @@ func test_the_hint_keeps_clear_of_the_combat_log_in_both_orientations() -> void:
 	assert_true(view._click_hint.offset_bottom <= CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT,
 		"portrait: the log is the bottom band")
 	view.free()
+
+## ---------------------------------------------------------------------------
+## Issue 396: the card cut `Shielding (5.0s left): Stops an` at its bottom edge
+
+## The cut has to land between lines, not through one.
+func test_the_body_is_a_whole_number_of_lines() -> void:
+	assert_eq(UnitCard.body_height(1000.0, 380.0, 24.0), 360.0,
+		"380 over a 24px line is 15.8 lines, and the 0.8 is the clipped sentence")
+	assert_eq(UnitCard.body_height(48.0, 380.0, 24.0), 48.0,
+		"a card shorter than the ceiling stays its own height")
+	assert_eq(UnitCard.body_height(1000.0, 10.0, 24.0), 24.0,
+		"a ceiling under one line still shows one whole line")
+
+## A flat 380 is exactly right at 720 and wrong at every other height.
+func test_the_body_ceiling_follows_the_window() -> void:
+	assert_true(BattleView.card_body_ceiling(900.0) > BattleView.card_body_ceiling(720.0),
+		"180 more pixels of window must reach the card")
+	assert_true(BattleView.card_body_ceiling(400.0) >= UnitCard.MIN_BODY_HEIGHT,
+		"a short window still shows a few lines rather than none")
+	assert_true(BattleView.card_body_ceiling(720.0) <= 720.0)
+
+func test_the_card_takes_the_ceiling_the_view_gives_it() -> void:
+	var view = _spawn_battle_view()
+	view.select_unit_at(view.state.units[0].position)
+	assert_true(view._unit_card.body_ceiling > 0.0,
+		"the card was never told how much screen it has")
+	view.free()

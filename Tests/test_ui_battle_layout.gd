@@ -72,3 +72,20 @@ func test_portrait_height_fraction_is_a_known_geometric_limit_not_a_regression()
 	var layout := BattleView.compute_layout(size)
 	var fraction := _arena_height(layout) / size.y
 	assert_true(fraction > 0.2, "should not have regressed below the measured ~24%%, got %f" % fraction)
+
+## Issue 396: the top bar's bottom counted one summary row while two are drawn,
+## so the "What to show" panel opened on top of the Enemies bar. Measured off
+## the real nodes rather than off the constant, or the check restates the bug.
+func test_the_top_bar_clears_both_summary_bars() -> void:
+	var view = preload("res://Scenes/Battle.tscn").instantiate()
+	view._ready()
+	var lowest := 0.0
+	for child in view.get_node("Hud").get_children():
+		if child is VBoxContainer:
+			lowest = maxf(lowest, child.offset_top + child.get_combined_minimum_size().y)
+	assert_true(lowest > 0.0, "the fixture found no summary column")
+	assert_true(BattleView._TOP_BAR_BOTTOM >= lowest,
+		"the bar ends at %.1f and the bars it covers end at %.1f" % [BattleView._TOP_BAR_BOTTOM, lowest])
+	assert_true(view._display_options.position.y >= BattleView._TOP_BAR_BOTTOM,
+		"the options panel opens under the bar, not over it")
+	view.free()
