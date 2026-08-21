@@ -2,6 +2,10 @@ extends "res://Tests/TestCase.gd"
 
 const BattleScene := preload("res://Scenes/Battle.tscn")
 
+## The size a damage number is really drawn at. Probing at any other size asks
+## a question about a number the game never draws (issue 378).
+const FLOATER_SIZE := int(Palette.FONT_SIZE_FLOATER * UnitView.DISPLAY_SCALE)
+
 ## Issue 26 item 3: in a scrum, several floating numbers used to spawn at the
 ## literal same point and read as one garbled string
 ## (Tools/preview/fight_04.png: "Cultist dies", a floating 2 and a unit label
@@ -26,7 +30,7 @@ func _make_view_with_target(pos: Vector2) -> Node2D:
 
 func test_no_stagger_with_nothing_nearby() -> void:
 	var view := _make_view_with_target(Vector2.ZERO)
-	assert_eq(view._floater_stagger_offset(Vector2.ZERO), Vector2.ZERO)
+	assert_eq(view._floater_stagger_offset(Vector2.ZERO, "5", FLOATER_SIZE), Vector2.ZERO)
 	DisplayOptions.reset()
 	view.free()
 
@@ -39,7 +43,7 @@ func test_each_additional_nearby_floater_spreads_further() -> void:
 	e1.amount_before_mitigation = 5
 	view.state.emit(e1)
 	view.consume_events()
-	var offset_after_one: Vector2 = view._floater_stagger_offset(Vector2.ZERO)
+	var offset_after_one: Vector2 = view._floater_stagger_offset(Vector2.ZERO, "5", FLOATER_SIZE)
 	assert_ne(offset_after_one, Vector2.ZERO, "a second floater near the first must not land on it")
 
 	var e2 := CombatEvent.make(CG.EventKind.DAMAGE, 1)
@@ -48,7 +52,7 @@ func test_each_additional_nearby_floater_spreads_further() -> void:
 	e2.amount_before_mitigation = 3
 	view.state.emit(e2)
 	view.consume_events()
-	var offset_after_two: Vector2 = view._floater_stagger_offset(Vector2.ZERO)
+	var offset_after_two: Vector2 = view._floater_stagger_offset(Vector2.ZERO, "5", FLOATER_SIZE)
 	assert_ne(offset_after_two, offset_after_one,
 		"a third floater must not land on either of the first two")
 	assert_ne(offset_after_two, Vector2.ZERO)
@@ -69,15 +73,20 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	view.consume_events()
 
 	var arena := view.get_node("Arena")
-	var floater_x: float = _last_with_script(arena, DamageFloaterScript).position.x
+	var floater_box: Rect2 = _last_with_script(arena, DamageFloaterScript).extent()
 
 	var death := CombatEvent.make(CG.EventKind.DEATH, 1)
 	death.target_id = 0
 	view.state.emit(death)
 	view.consume_events()
-	var marker_x: float = _last_with_script(arena, DamageFloaterScript).position.x
+	var marker_box: Rect2 = _last_with_script(arena, DamageFloaterScript).extent()
 
-	assert_ne(floater_x, marker_x, "the death marker must not land on the same x as the damage floater it follows")
+	# Issue 378 changed this from "not the same x", which was a proxy for the
+	# property that actually matters and could not see two plates sharing an x
+	# while sitting a hundred pixels apart.
+	assert_false(floater_box.intersects(marker_box),
+		"the death marker %s must not print through the damage floater %s it follows"
+			% [marker_box, floater_box])
 	DisplayOptions.reset()
 	view.free()
 

@@ -196,10 +196,10 @@ func _all(node: Node) -> Array[Node]:
 # ---------------------------------------------------------------------------
 
 
-func test_name_plates_are_off_by_default() -> void:
+func test_name_plates_are_on_by_default() -> void:
 	_reset()
-	assert_false(DisplayOptions.enabled(&"name_plates"),
-		"plates default off: eight units in one scrum collide and the top plate wins")
+	assert_true(DisplayOptions.enabled(&"name_plates"),
+		"plates default on: issue 378 fixed the collision, so hiding every name is no longer the answer to it")
 
 ## The rule that decides *when* a plate would show -- focused or winding up,
 ## plus a hold because that trigger flickers several times a second -- must

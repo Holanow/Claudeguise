@@ -17,8 +17,8 @@ const OPTIONS := [
 	{
 		"id": &"name_plates",
 		"label": "Name plates on units",
-		"help": "The name above each unit. Off by default: with eight units in one scrum the plates collide and the top one wins, so \"Siege Engine\" lands over \"Siege Engine\" over \"Siege Master\". Team colour carries which side a unit is on.",
-		"default": false,
+		"help": "The name above each unit. On by default: plates take the first row that is free of every other plate, so a fourteen-unit scrum stacks them into a column instead of printing them through each other. Turn it off when you would rather read the shapes.",
+		"default": true,
 	},
 	{
 		"id": &"log_hazard_ticks",
