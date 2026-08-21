@@ -16,17 +16,25 @@ var _current: Node = null
 func _ready() -> void:
 	show_party_select()
 
-## The seed round-trips: coming back from a fight re-shows the seed that
-## fight actually ran on, rather than a fresh random one on every visit,
-## which would make "run the same fight again" a lie the moment a player
-## glances away from the screen and back.
+## The roster of pawns the player has been editing, held here rather than on
+## the screen: issue 380, and the seed below is the pattern it copies.
+var _roster: Array[PawnData] = []
+
+## Everything the player set on this screen round-trips: the pawns themselves
+## (and so their plans and their gear), which of them are picked, the room and
+## the seed. Rebuilding any of it would make "run the same fight again" a lie
+## the moment a player glances away from the screen and back.
 func show_party_select() -> void:
 	_swap_to(SCENE_PARTY_SELECT, func(screen):
 		screen.battle_requested.connect(start_battle)
 		screen.run_requested.connect(start_run)
 		screen.level_editor_requested.connect(show_level_editor)
+		screen.restore_roster(_roster)
 		if run_config != null:
 			screen.prefill_seed(run_config.seed_text())
+			screen.restore_selection(run_config.party)
+			screen.select_room(run_config.encounter_id)
+		_roster = screen.available_pawns()
 	)
 
 ## Issue 19: the level editor is its own screen (not an overlay like
@@ -94,5 +102,9 @@ func _swap_to(scene_path: String, wire: Callable) -> void:
 	var packed: PackedScene = load(scene_path)
 	var screen := packed.instantiate()
 	add_child(screen)
+	# The engine runs `_ready` on add_child only when this node is itself in a
+	# tree, and a test builds Main outside one.
+	if not screen.is_inside_tree() and screen.has_method("_ready"):
+		screen._ready()
 	_current = screen
 	wire.call(screen)

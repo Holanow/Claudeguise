@@ -235,6 +235,39 @@ func prefill_seed(seed_text: String) -> void:
 	if _seed_edit != null:
 		_seed_edit.text = seed_text
 
+## Issue 380. "Change party" swaps in a new PartySelect and `_ready()` rebuilds
+## every pawn, so the plans, gear and party the player just wrote were thrown
+## away. `Main` keeps the roster and hands the same objects back, which is what
+## the seed has always done.
+func restore_roster(pawns: Array[PawnData]) -> void:
+	if pawns.is_empty():
+		return
+	_available = pawns.duplicate()
+	_selected.clear()
+	_cards.clear()
+	for child in _roster_box.get_children():
+		_roster_box.remove_child(child)
+		child.queue_free()
+	_fill_roster()
+	_update_status()
+	focus_pawn(_available[0])
+
+## Matched by identity, not by id: the point is that these are the same objects
+## the player edited, so a pawn from anywhere else does not belong here.
+func restore_selection(pawns: Array[PawnData]) -> void:
+	for pawn in pawns:
+		if _available.has(pawn):
+			toggle_pawn(pawn, true)
+
+func select_room(id: StringName) -> void:
+	if _room_picker == null:
+		return
+	for i in _room_picker.item_count:
+		if _room_picker.get_item_metadata(i) == id:
+			_room_picker.selected = i
+			_refresh_room_summary()
+			return
+
 func _update_status() -> void:
 	if _status_label != null:
 		_status_label.text = "Party: %d/%d" % [_selected.size(), MAX_PARTY_SIZE]

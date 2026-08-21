@@ -403,3 +403,67 @@ func test_the_plans_overlay_still_states_the_attributes_itself() -> void:
 		"nothing else is on screen to state them, so the overlay must keep doing it")
 	panel.free()
 	screen.free()
+
+## ---------------------------------------------------------------------------
+## Issue 380: the roster has to outlive the screen.
+
+func test_restore_roster_takes_the_pawns_it_is_given_rather_than_building_new_ones() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var mine: Array[PawnData] = [_make_pawn("warrior", "Warrior"), _make_pawn("priest", "Priest")]
+	screen.restore_roster(mine)
+	assert_eq(screen.available_pawns().size(), 2)
+	assert_true(screen.available_pawns()[0] == mine[0], "a rebuilt pawn is a different object")
+	assert_eq(screen._roster_box.get_child_count(), 2, "the cards must match the roster")
+	screen.free()
+
+func test_restore_roster_ignores_an_empty_roster() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var before := screen.available_pawns().size()
+	var none: Array[PawnData] = []
+	screen.restore_roster(none)
+	assert_eq(screen.available_pawns().size(), before,
+		"nothing to restore must leave the screen's own roster alone")
+	screen.free()
+
+func test_restore_selection_reselects_the_party_and_its_cards() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var mine: Array[PawnData] = [_make_pawn("warrior", "Warrior"), _make_pawn("priest", "Priest")]
+	screen.restore_roster(mine)
+	var wanted: Array[PawnData] = [mine[1]]
+	screen.restore_selection(wanted)
+	assert_eq(screen.selected_pawns().size(), 1)
+	assert_true(screen.selected_pawns()[0] == mine[1])
+	assert_true(screen._cards[mine[1].id].selected, "the card must show it is picked")
+	assert_false(screen._cards[mine[0].id].selected)
+	screen.free()
+
+## A pawn from some other roster is not in this one and must not join the party.
+func test_restore_selection_ignores_a_pawn_that_is_not_on_the_roster() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var mine: Array[PawnData] = [_make_pawn("warrior", "Warrior")]
+	screen.restore_roster(mine)
+	var stranger: Array[PawnData] = [_make_pawn("ghost", "Ghost")]
+	screen.restore_selection(stranger)
+	assert_eq(screen.selected_pawns().size(), 0)
+	screen.free()
+
+func test_select_room_picks_the_room_by_id() -> void:
+	var screen := PartySelect.create()
+	screen._ready()
+	var other: StringName = &""
+	for id in PartySelect.offered_rooms():
+		if id != CG.DEFAULT_ENCOUNTER:
+			other = id
+			break
+	if other == &"":
+		screen.free()
+		return
+	screen.select_room(other)
+	assert_eq(screen.selected_room(), other)
+	screen.select_room(&"no_such_room")
+	assert_eq(screen.selected_room(), other, "an unknown id must not clear the picker")
+	screen.free()
