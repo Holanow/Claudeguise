@@ -89,7 +89,7 @@ func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 	var row := panel._plan_row(plan, pawn, 0)
 	assert_true(row is HBoxContainer, "a plan is one row")
 	var chips := _find_option_buttons(row)
-	assert_eq(chips.size(), 3, "condition, target and skill, all in the one row")
+	assert_eq(chips.size(), 4, "condition, movement, target and skill, all in the one row")
 	# The only Label in the row is the priority number. "Targeting:",
 	# "Action:" and "Condition:" are gone.
 	var labels := _labels_in(row)
