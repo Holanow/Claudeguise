@@ -33,10 +33,20 @@ const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
 
 ## Issue 97. One op, not three.
-const MOVEMENT_OPS := [&"keep_distance", &"move_into_cover"]
+const MOVEMENT_OPS := [&"keep_distance", &"move_into_cover", &"leave_harmful_ground"]
 
 ## Issue 316: how far behind a piece of cover a pawn stands, in world units.
 const COVER_STANDOFF := 20.0
+
+## Issue 420: how far a pawn will look for ground that does not hurt it. 240 is
+## wider than the widest authored hazard band (200, the Burn Pit), so a pawn
+## standing in the middle of one can always see out of it.
+const SAFE_GROUND_REACH := 240.0
+
+## The radius and angle granularity of that search, in world units and in
+## directions around the pawn.
+const SAFE_GROUND_STEP := 20.0
+const SAFE_GROUND_DIRECTIONS := 16
 
 ## How close to the requested distance counts as arrived, in world units.
 const KEEP_DISTANCE_BAND := 15.0
@@ -73,6 +83,11 @@ const CONDITION_ARG_SHAPE := {
 const MOVEMENT_ARG_SHAPE := {
 	&"keep_distance": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 120.0},
 	&"move_into_cover": {"kind": "none"},
+	## Issue 420: no argument, for the same reason `self_on_harmful_ground` has
+	## none -- `CombatSim.standing_harms` is the only place "does this ground
+	## cost me anything" is answered, and a distance would invite the player to
+	## tune a number the room, not the pawn, decides.
+	&"leave_harmful_ground": {"kind": "none"},
 }
 
 ## push_error is the loud, real failure. This is a testable side channel: the
@@ -156,6 +171,8 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 	if movement != null:
 		if movement.op == &"move_into_cover":
 			return _run_into_cover(state, unit, plan, action_id)
+		if movement.op == &"leave_harmful_ground":
+			return _run_leave_harmful_ground(state, unit, plan, action_id)
 		return _run_movement(state, unit, plan, movement, action_id)
 	if action_id == &"" or unit.focus_id == -1:
 		return null
@@ -227,6 +244,43 @@ static func _run_into_cover(state: CombatState, unit: CombatUnit, plan: Plan, ac
 	if spot == null:
 		return null
 	return Intent.move_to(spot, plan.id)
+
+## Issue 420: the only movement op that is not defined relative to a target.
+##
+## `keep_distance` holds a distance from the focus and `move_into_cover` puts
+## something between the pawn and the focus, so neither can say anything about
+## the ground underfoot -- which is the one thing that matters when the threat
+## is the floor. Falls through when nothing in reach is clear, the same way
+## `_run_into_cover` steps aside when the room offers no cover.
+static func _run_leave_harmful_ground(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
+	if not CombatSim.standing_harms(state, unit.position):
+		if action_id == &"" or not _action_can_fire(state, unit, action_id):
+			return Intent.idle(plan.id)
+		return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
+	var spot = safe_spot(state, unit)
+	if spot == null:
+		return null
+	return Intent.move_to(spot, plan.id)
+
+## The nearest standing spot within `SAFE_GROUND_REACH` that does not harm, or
+## null when everything in reach does. Deterministic: radius outward, then a
+## fixed ring of directions, first match wins.
+static func safe_spot(state: CombatState, unit: CombatUnit):
+	var radius := SAFE_GROUND_STEP
+	while radius <= SAFE_GROUND_REACH:
+		for i in SAFE_GROUND_DIRECTIONS:
+			var angle := TAU * float(i) / float(SAFE_GROUND_DIRECTIONS)
+			var spot := unit.position + Vector2.RIGHT.rotated(angle) * radius
+			spot = Vector2(
+				clampf(spot.x, -CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
+				clampf(spot.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT))
+			if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+				continue
+			if CombatSim.standing_harms(state, spot):
+				continue
+			return spot
+		radius += SAFE_GROUND_STEP
+	return null
 
 ## True when the action can only be used with a clear line to its target.
 static func _action_needs_line_of_sight(action_id: StringName) -> bool:
@@ -492,6 +546,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "close to the target" if wanted <= 0 else "hold %d units from the target" % wanted
 		&"move_into_cover":
 			return "move into cover from the target"
+		&"leave_harmful_ground":
+			return "move off harmful ground"
 	return "unknown op '%s'" % op
 
 static func _fail(plan: Plan, block: PlanBlock) -> void:

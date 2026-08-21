@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/HarmfulGroundShot.gd" id="1_hg"]
+
+[node name="HarmfulGroundShot" type="Node"]
+script = ExtResource("1_hg")
