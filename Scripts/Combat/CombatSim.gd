@@ -221,6 +221,9 @@ static func _broadcast_taunt(state: CombatState, taunter: CombatUnit, ticks: int
 			continue
 		victim.statuses[CG.Status.TAUNTED] = state.tick + ticks
 		victim.status_magnitude[CG.Status.TAUNTED] = float(taunter.id)
+		## The one status applied outside `_apply_status`, so it stamps its own
+		## source rather than leaving the field lying about who taunted.
+		victim.status_source[CG.Status.TAUNTED] = taunter.id
 		var e := _event(CG.EventKind.STATUS_APPLIED, state.tick, taunter.id, victim.id, &"")
 		e.status = CG.Status.TAUNTED
 		state.emit(e)
@@ -569,15 +572,18 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		var amount := _stochastic_round(state, rate)
 		if amount <= 0:
 			continue
+		## Whoever applied the status, or -1 when terrain did. Read by key, never
+		## iterated, so it adds no order for a seed to diverge on.
+		var source := int(unit.status_source.get(status, -1))
 		var before := unit.hp
 		unit.hp = maxi(0, unit.hp - amount)
 		var applied := before - unit.hp
-		var e := _event(CG.EventKind.DAMAGE, state.tick, -1, unit.id, &"")
+		var e := _event(CG.EventKind.DAMAGE, state.tick, source, unit.id, &"")
 		e.amount = applied
 		e.damage_type = _DOT_STATUSES[status]
 		e.status = status
 		state.emit(e)
-		if _kill_if_dead(state, unit, -1, &""):
+		if _kill_if_dead(state, unit, source, &""):
 			return
 
 ## A tar pit: terrain that applies a status rather than dealing damage.
@@ -585,6 +591,8 @@ static func _apply_hazard_status(state: CombatState, unit: CombatUnit, hazard) -
 	if not hazard.applies_status_enabled or hazard.status_duration_ticks <= 0:
 		return
 	var status: CG.Status = hazard.applies_status
+	## No `status_source` write: terrain has no unit id, and a hazard refreshing
+	## a burn somebody else lit leaves that burn theirs, as `maxf` does below.
 	var entering := not unit.has_status(status)
 	unit.statuses[status] = state.tick + hazard.status_duration_ticks
 	## `maxf`, so standing in a weak fire never waters down a fiercer burn a hit
@@ -815,6 +823,8 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 		target.status_magnitude[status] = maxf(carried, float(dealt))
 
 	target.statuses[status] = state.tick + action.status_duration_ticks
+	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
+	target.status_source[status] = caster.id
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = action.taunt_radius
 		_broadcast_taunt(state, target, action.status_duration_ticks)
@@ -847,6 +857,7 @@ static func _consume_status(state: CombatState, caster: CombatUnit, target: Comb
 static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 	unit.statuses.erase(status)
 	unit.status_magnitude.erase(status)
+	unit.status_source.erase(status)
 	if status == CG.Status.TAUNTING:
 		unit.taunt_radius = 0.0
 	elif status == CG.Status.SUSTAINING:
