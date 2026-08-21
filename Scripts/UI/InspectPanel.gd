@@ -46,6 +46,7 @@ const HOW_TO_PLAY := (
 	"The last row is its fallback and always matches, so a pawn always does something. " +
 	"Reorder rows with the arrows, change a block by picking from it, and add or remove rows " +
 	"within the pawn's block budget. " +
+	"Library offers this class's ready-made rows; + Add a plan starts a blank one. " +
 	"Nothing is locked yet: every action and every block is available to every pawn this slice."
 )
 
@@ -148,6 +149,7 @@ func show_pawn(pawn: PawnData, state = null) -> void:
 	_pawns = [pawn] as Array[PawnData]
 	_live_state = state
 	_selected_index = 0
+	_library_open = pawn.plans.is_empty()
 	visible = true
 	if _embedded:
 		%Title.visible = false
@@ -175,6 +177,7 @@ func _select(index: int) -> void:
 	if index < 0 or index >= _pawns.size():
 		return
 	_selected_index = index
+	_library_open = _pawns[index].plans.is_empty()
 	for i in _list_box.get_child_count():
 		_list_box.get_child(i).button_pressed = i == index
 	_build_detail(_pawns[index])
@@ -315,8 +318,22 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	var heading := _section_header("Plans")
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
-	header.add_child(_add_plan_button(pawn))
-	out.append(header)
+	## Issue 412, and the same split `_assemble_row` already makes: two buttons
+	## and a heading do not fit the party screen's column, and "+ Add a plan"
+	## rendered clipped on a real capture the moment the second one arrived.
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	buttons.add_child(_library_button(pawn))
+	buttons.add_child(_add_plan_button(pawn))
+	if _embedded:
+		var stack := VBoxContainer.new()
+		stack.add_child(header)
+		stack.add_child(buttons)
+		out.append(stack)
+	else:
+		header.add_child(buttons)
+		out.append(header)
 
 	var used := _blocks_used(pawn)
 	var budget := Balance.plan_block_budget(pawn)
@@ -366,6 +383,9 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		out.append(_plan_row(plan, pawn, i, inert))
 		if inert:
 			out.append(_inert_note(spent, budget))
+
+	for control in _library_section(pawn):
+		out.append(control)
 
 	var fallback_header := HBoxContainer.new()
 	var fallback_title := _line(
@@ -571,6 +591,150 @@ func _remove_plan(pawn: PawnData, index: int) -> void:
 	if index < 0 or index >= pawn.plans.size():
 		return
 	pawn.plans.remove_at(index)
+	call_deferred("_build_detail", pawn)
+
+# ---------------------------------------------------------------------------
+# Issue 412: the library. A class ships with no rows, so without a door here
+# fifteen starting actions are reachable only by composing them from blank
+# pickers.
+const LIBRARY_HEADING := "Library: ready-made rows for this class"
+const LIBRARY_OPEN := "Library (%d)"
+const LIBRARY_CLOSE := "Hide library"
+const LIBRARY_EMPTY_STATE := "No plans yet. Take a ready-made row from the library below, or press + Add a plan to build one from blank."
+const LIBRARY_EXHAUSTED := "Every row this class's library offers is already on this pawn."
+const LIBRARY_NONE := "This class has no library rows."
+const LIBRARY_ADD := "Add"
+const LIBRARY_COST := "%d blocks"
+
+## Why an Add is dead rather than silently refusing, the same rule the movement
+## picker follows (issue 392).
+const LIBRARY_NO_ROOM := "%d block(s) free, and this row costs %d. Remove a row, or raise this pawn's WIS."
+
+## Open by default on a pawn with no rows: the empty state is where the screen
+## has to teach, and it was showing nothing.
+var _library_open := false
+
+## The class's presets this pawn has not already taken, matched by plan id.
+## `PresetPlans.for_class` builds fresh `Plan` objects on every call, so a row
+## here is safe to append and then mutate.
+func _library_rows(pawn: PawnData) -> Array[Plan]:
+	if pawn.pawn_class == null:
+		return []
+	var taken := {}
+	for p in pawn.plans:
+		taken[p.id] = true
+	var out: Array[Plan] = []
+	for p in PresetPlans.for_class(pawn.pawn_class.id):
+		if not taken.has(p.id):
+			out.append(p)
+	return out
+
+func _library_button(pawn: PawnData) -> Button:
+	var button := Button.new()
+	var rows := _library_rows(pawn)
+	button.custom_minimum_size = Vector2(0.0, _TOUCH)
+	button.text = LIBRARY_CLOSE if _library_open else LIBRARY_OPEN % rows.size()
+	if rows.is_empty():
+		button.disabled = true
+		button.tooltip_text = _library_empty_reason(pawn)
+	else:
+		button.tooltip_text = "Rows written for this class, added at the cost they would cost to build by hand."
+		button.pressed.connect(_toggle_library.bind(pawn))
+	return button
+
+func _library_empty_reason(pawn: PawnData) -> String:
+	if pawn.pawn_class == null or PresetPlans.for_class(pawn.pawn_class.id).is_empty():
+		return LIBRARY_NONE
+	return LIBRARY_EXHAUSTED
+
+func _toggle_library(pawn: PawnData) -> void:
+	_library_open = not _library_open
+	call_deferred("_build_detail", pawn)
+
+func _library_section(pawn: PawnData) -> Array[Control]:
+	var out: Array[Control] = []
+	if pawn.plans.is_empty():
+		out.append(_line(LIBRARY_EMPTY_STATE, Palette.FONT_SIZE_SMALL, Palette.TEXT))
+	if not _library_open:
+		return out
+	out.append(_section_header(LIBRARY_HEADING))
+	var rows := _library_rows(pawn)
+	if rows.is_empty():
+		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		return out
+	for plan in rows:
+		out.append(_library_row(pawn, plan))
+	return out
+
+## One library row: what it would do, in the same words the editable row above
+## prints, plus what it costs and a button to take it.
+func _library_row(pawn: PawnData, plan) -> Control:
+	var cost: int = plan.block_count()
+	var free_blocks := Balance.plan_block_budget(pawn) - _blocks_used(pawn)
+
+	var add := Button.new()
+	add.text = LIBRARY_ADD
+	add.custom_minimum_size = Vector2(_TOUCH * 1.6, _TOUCH)
+	if free_blocks < cost:
+		add.disabled = true
+		add.tooltip_text = LIBRARY_NO_ROOM % [maxi(0, free_blocks), cost]
+	else:
+		add.tooltip_text = "Add \"%s\" as a new last row. It costs %d blocks." % [plan.display_name, cost]
+		add.pressed.connect(_add_preset.bind(pawn, plan))
+
+	var price := _tag_label(LIBRARY_COST % cost)
+	var texts := _library_row_texts(plan)
+	var row := _assemble_library_row(add, price, texts)
+	if free_blocks < cost:
+		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
+	return row
+
+## Wide, the three columns line up with the editable rows above. Embedded they
+## cannot: `_fixed_chip` autowraps, and in the party screen's column one row
+## stood five lines tall and two of them filled the panel.
+func _assemble_library_row(add: Button, price: Label, texts: Array[String]) -> Control:
+	if not _embedded:
+		var row := HBoxContainer.new()
+		row.add_child(add)
+		for i in texts.size():
+			var chip := _fixed_chip(texts[i])
+			chip.size_flags_stretch_ratio = [SKILL_SHARE, TARGET_SHARE, CONDITION_SHARE][i]
+			row.add_child(chip)
+		price.custom_minimum_size = Vector2(_TOUCH + Palette.SPACE_S, 0.0)
+		row.add_child(price)
+		return row
+
+	var narrow := HBoxContainer.new()
+	narrow.add_child(add)
+	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	narrow.add_child(sentence)
+	narrow.add_child(price)
+	return narrow
+
+## Skill, target, condition -- the same three columns, in the same order, as an
+## editable row and as the fallback row, so the screen reads straight down.
+func _library_row_texts(plan) -> Array[String]:
+	var skill := "Nothing"
+	var target := "No target"
+	for block in plan.blocks:
+		if block.kind == PlanBlockScript.Kind.ACTION and block.op == &"use_action":
+			skill = _action_display_name(block.args.get("action_id", &""))
+		elif block.kind == PlanBlockScript.Kind.TARGETING:
+			target = _cap_first(PlanInterpreter.describe_op(block.op, block.args))
+		elif block.kind == PlanBlockScript.Kind.MOVEMENT:
+			skill = "%s, then %s" % [_cap_first(PlanInterpreter.describe_op(block.op, block.args)), skill]
+	var condition_op: StringName = plan.condition.op if plan.condition != null else &"always"
+	var condition_args: Dictionary = plan.condition.args if plan.condition != null else {}
+	return [skill, target, _cap_first(PlanInterpreter.describe_op(condition_op, condition_args))] as Array[String]
+
+## Takes the row as-is. It is charged exactly what its blocks total, which is
+## what building the same row by hand charges -- no special case, or the budget
+## stops being checkable.
+func _add_preset(pawn: PawnData, plan) -> void:
+	if Balance.plan_block_budget(pawn) - _blocks_used(pawn) < plan.block_count():
+		return
+	pawn.plans.append(plan)
 	call_deferred("_build_detail", pawn)
 
 # ---------------------------------------------------------------------------
