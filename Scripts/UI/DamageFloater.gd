@@ -70,6 +70,23 @@ func _process(delta: float) -> void:
 func extent() -> Rect2:
 	return extent_of(_text, _font_size, position, _plate != null)
 
+## The column a death plate still has to sweep: it rises for 2.4 seconds and
+## 96 pixels, so a placement that only clears what is under it now walks into a
+## name plate half a second later. A damage number is not swept -- it is a
+## third of the life and a third of the rise, and sweeping every number pushed
+## every one of them off its own unit.
+func swept_extent() -> Rect2:
+	var box := extent()
+	if not death_marker or box.size.x <= 0.0:
+		return box
+	return box.grow_individual(0.0, RISE_SPEED * maxf(0.0, _lifetime - _age), 0.0, 0.0)
+
+static func swept_extent_of(text: String, font_size: int, at: Vector2, plate: bool, lifetime: float) -> Rect2:
+	var box := extent_of(text, font_size, at, plate)
+	if not plate or box.size.x <= 0.0:
+		return box
+	return box.grow_individual(0.0, RISE_SPEED * lifetime, 0.0, 0.0)
+
 static func extent_of(text: String, font_size: int, at: Vector2, plate: bool) -> Rect2:
 	if text == "":
 		return Rect2(at, Vector2.ZERO)
