@@ -248,17 +248,27 @@ func test_fill_ratio_reads_the_real_art() -> void:
 
 func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
 	# The trap this exists to close, and the reason `opaque_rect` scans pixels
-	# instead of reading `get_width`. Pixel art carries margin: `siege_master.png`
-	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
-		"this test measures the texture path; without a PNG for siege_master it measures nothing")
-	var tex := UnitArt.texture_for(&"siege_master", CG.Team.PLAYER)
+	# instead of reading `get_width`. The margined image is built here rather
+	# than borrowed from a shipping sprite: every one of those can be re-cut,
+	# and #437 re-cut the one this used to name.
+	var image := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	for x in 8:
+		for y in range(3, 5):
+			image.set_pixel(x, y, Color.WHITE)
+	var tex := ImageTexture.create_from_image(image)
 	var file_fraction := Vector2(tex.get_width(), tex.get_height()) / maxf(tex.get_width(), tex.get_height())
 	var opaque := UnitArt.opaque_fraction(tex)
 	assert_true(opaque.y < file_fraction.y - 0.1,
 		"opaque_fraction returned the file's height (%.2f), margin included" % file_fraction.y)
-	# And the extent must agree with the fraction, or the two answers drift.
+	assert_eq(opaque, Vector2(1.0, 0.25), "opaque_fraction is not the opaque band")
+	# And on a real sprite the extent must agree with the fraction, or the two
+	# answers drift.
+	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
+		"this half measures the texture path; without a PNG for siege_master it measures nothing")
+	var shipped := UnitArt.opaque_fraction(UnitArt.texture_for(&"siege_master", CG.Team.PLAYER))
 	var extent := Silhouettes.drawn_extent(&"siege_master", 100.0, CG.Team.PLAYER)
-	assert_true(absf(extent.size.y / 200.0 - opaque.y) < 0.01,
+	assert_true(absf(extent.size.y / 200.0 - shipped.y) < 0.01,
 		"drawn_extent and opaque_fraction disagree about the same sprite")
 
 

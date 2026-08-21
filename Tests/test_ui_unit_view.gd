@@ -336,9 +336,9 @@ func test_every_bar_tracks_its_shapes_measured_fill() -> void:
 ## bar stack to `radius` put it two thirds of a body above the art.
 func test_the_bar_anchor_follows_art_that_sits_low_in_its_canvas() -> void:
 	var radius := 22.0 * UnitView.DISPLAY_SCALE
-	var fill: Vector2 = Silhouettes.fill_ratio(&"siege_master", CG.Team.PLAYER)
-	assert_true(fill.y < 0.5, "fixture check: siege_master must under-fill vertically, got %.2f" % fill.y)
-	var top := UnitView.drawn_top(&"siege_master", CG.Team.PLAYER, radius)
+	var fill: Vector2 = Silhouettes.fill_ratio(&"rat", CG.Team.ENEMY)
+	assert_true(fill.y < 0.75, "fixture check: rat must under-fill vertically, got %.2f" % fill.y)
+	var top := UnitView.drawn_top(&"rat", CG.Team.ENEMY, radius)
 	assert_true(top < radius * 0.75,
 		"the stack still anchors to the footprint at %.1f of %.1f" % [top, radius])
 
