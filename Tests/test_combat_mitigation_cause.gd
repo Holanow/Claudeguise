@@ -129,14 +129,18 @@ func test_a_pawn_with_nothing_names_nothing() -> void:
 ## taking it away and asserting the reduction drops.
 func test_every_named_cause_really_lowers_the_reduction() -> void:
 	var checked := 0
+	var unnamed := 0
+	var cells := 0
 	for con in [0, 5, 30]:
 		for shield in [false, true]:
 			for block in [false, true]:
+				cells += 1
 				var u := _pawn_with(con, shield, block)
 				var cause: CG.MitigationCause = SimDeps._default_damage_reduction_cause(u)
 				var with_it: float = SimDeps._default_damage_reduction(u)
 				if cause == CG.MitigationCause.NONE:
 					assert_eq(with_it, 0.0, "no cause was named, so nothing may be reduced")
+					unnamed += 1
 					continue
 				var without := _pawn_with(
 					0 if cause == CG.MitigationCause.TOUGHNESS else con,
@@ -146,7 +150,10 @@ func test_every_named_cause_really_lowers_the_reduction() -> void:
 				assert_true(lost < with_it,
 					"cause %d was named but removing it left the reduction at %f" % [cause, with_it])
 				checked += 1
-	assert_true(checked >= 8, "the matrix must actually reach the named-cause branch, got %d" % checked)
+	assert_eq(checked + unnamed, cells,
+		"every cell of the matrix must land in one branch or the other, not fall through both")
+	assert_eq(unnamed, 1,
+		"only the bare pawn -- CON 0, no shield, no block -- may name nothing; %d cells did" % unnamed)
 
 ## An enemy's own toughness is its hide, and it must not be reported as armour
 ## a player could have taken off it.
@@ -234,7 +241,8 @@ func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 			assert_almost_eq(SimDeps._default_damage_reduction(u), Balance.damage_reduction(u),
 				0.0001, "seam disagrees with Balance for %s (marked %s)" % [id, marked])
 			checked += 1
-	assert_true(checked >= 10, "only %d enemy cases reached" % checked)
+	assert_eq(checked, Registry.all_enemy_ids().size() * 2,
+		"'every enemy in content' is the claim, so the count must be the roster, not a floor under it")
 
 # ---------------------------------------------------------------------------
 # issue 364: why ARMOR is never the cause
