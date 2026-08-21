@@ -37,7 +37,8 @@ $SKIP = 'size\(\) > 0|is_empty|\.x |\.y |position|Palette\.'
 $inverted = 0
 Get-ChildItem (Join-Path $repo 'Tests') -Filter *.gd | ForEach-Object {
     $text = Get-Content $_.FullName
-    if (-not ($text -match 'CombatSim')) { return }
+    # A file that never runs a fight has no emergent quantity to drift.
+    if (-not ($text -match 'CombatSim\.(run|step)\(')) { return }
     $out = foreach ($line in $text) {
         if ($line -match 'assert_true\(' -and $line -notmatch $SKIP -and $line -match ' (>=|<=|>|<) ') {
             $script:inverted++
