@@ -370,9 +370,23 @@ func test_an_unknown_action_falls_back_to_the_class_accent() -> void:
 	view.free()
 
 
-func test_crowd_rank_is_zero_when_units_are_far_apart() -> void:
-	var a := _make_unit(0, Vector2.ZERO)
-	var b := _make_unit(1, Vector2(500.0, 0.0))
+## Issue 378. `crowd_rank` used to count neighbours inside CROWD_RADIUS, a
+## radius around a POINT, and what collides is a chip as wide as the name. It
+## also measured the SIMULATED position while the plate hangs over the DRAWN
+## one, which the scrum nudge moves by up to 1.5 radii. Rows are now taken by
+## rectangle overlap of the real chips.
+
+## Small bodies, so `visual_offset` does not push them apart before their
+## plates can collide. A goblin is radius 12; the default here is 22.
+func _make_small(id: int, pos: Vector2, alive: bool = true) -> CombatUnit:
+	var u := _make_unit(id, pos, alive)
+	u.radius = 6.0
+	u.display_name = "Goblin Archer"
+	return u
+
+func test_crowd_rank_is_zero_when_plates_do_not_overlap() -> void:
+	var a := _make_small(0, Vector2.ZERO)
+	var b := _make_small(1, Vector2(400.0, 0.0))
 	assert_eq(UnitView.crowd_rank(a, [a, b]), 0)
 	assert_eq(UnitView.crowd_rank(b, [a, b]), 0)
 
@@ -380,21 +394,34 @@ func test_crowd_rank_only_moves_the_higher_id() -> void:
 	# Deterministic by id: two views of the same fight must agree on which
 	# of two overlapping units' labels moves, not on whichever happened to
 	# be iterated or drawn first.
-	var a := _make_unit(0, Vector2.ZERO)
-	var b := _make_unit(1, Vector2(5.0, 0.0))
+	var a := _make_small(0, Vector2.ZERO)
+	var b := _make_small(1, Vector2(20.0, 0.0))
 	assert_eq(UnitView.crowd_rank(a, [a, b]), 0, "the lower id must not move")
 	assert_eq(UnitView.crowd_rank(b, [a, b]), 1, "the higher id steps up once")
 
-func test_crowd_rank_stacks_with_each_additional_close_lower_id() -> void:
-	var a := _make_unit(0, Vector2.ZERO)
-	var b := _make_unit(1, Vector2(5.0, 0.0))
-	var c := _make_unit(2, Vector2(-5.0, 0.0))
+func test_crowd_rank_stacks_with_each_additional_overlapping_plate() -> void:
+	var a := _make_small(0, Vector2.ZERO)
+	var b := _make_small(1, Vector2(20.0, 0.0))
+	var c := _make_small(2, Vector2(-20.0, 0.0))
 	assert_eq(UnitView.crowd_rank(c, [a, b, c]), 2)
 
 func test_crowd_rank_ignores_dead_units() -> void:
-	var a := _make_unit(0, Vector2.ZERO, false)
-	var b := _make_unit(1, Vector2(5.0, 0.0))
+	var a := _make_small(0, Vector2.ZERO, false)
+	var b := _make_small(1, Vector2(20.0, 0.0))
 	assert_eq(UnitView.crowd_rank(b, [a, b]), 0, "a dead unit's old label is gone too, nothing to avoid")
+
+## The defect in the playtester's own words: two Goblins whose CENTRES are 120
+## apart -- outside the old 105-unit radius -- whose plates overlap by most of
+## their width. The old rule scored both at row 0 and printed one through the
+## other.
+func test_two_plates_wider_than_the_old_radius_no_longer_share_a_row() -> void:
+	var a := _make_small(0, Vector2.ZERO)
+	var b := _make_small(1, Vector2(120.0, 0.0))
+	assert_true(UnitView.plate_rect(a, [a, b], 0).intersects(UnitView.plate_rect(b, [a, b], 0)),
+		"sanity: at row 0 these two chips do overlap, which a 105-unit radius could not see")
+	assert_eq(UnitView.crowd_rank(b, [a, b]), 1)
+	assert_false(UnitView.plate_rect(a, [a, b]).intersects(UnitView.plate_rect(b, [a, b])),
+		"and once ranked they must not overlap at all")
 
 # ---------------------------------------------------------------------------
 # concentration_count (issue 15)
@@ -527,7 +554,7 @@ func test_should_show_label_is_false_for_an_enemy_with_stale_action_but_no_ticks
 # ---------------------------------------------------------------------------
 
 ## should_show_label's own trigger is a per-tick on/off condition (focused,
-## or mid wind-up); _label_visible is the rendering decision layered on top
+## or mid wind-up); label_visible is the rendering decision layered on top
 ## that keeps a name up for a while after the trigger clears, so it does not
 ## blink out the instant an attacker refocuses or finishes winding up.
 func test_label_stays_visible_for_a_hold_after_the_trigger_clears() -> void:
@@ -539,11 +566,11 @@ func test_label_stays_visible_for_a_hold_after_the_trigger_clears() -> void:
 	state.units.append(enemy)
 	var view := UnitView.new()
 	view.bind(state, 0)
-	assert_true(view._label_visible(enemy), "must be visible while the trigger holds")
+	assert_true(UnitView.label_visible(enemy, state), "must be visible while the trigger holds")
 
 	enemy.current_action = &""
 	enemy.action_ticks_left = 0
-	assert_true(view._label_visible(enemy), "must not blink out the instant the trigger clears")
+	assert_true(UnitView.label_visible(enemy, state), "must not blink out the instant the trigger clears")
 	view.free()
 
 func test_label_hides_once_the_hold_expires() -> void:
@@ -555,12 +582,12 @@ func test_label_hides_once_the_hold_expires() -> void:
 	state.units.append(enemy)
 	var view := UnitView.new()
 	view.bind(state, 0)
-	view._label_visible(enemy)
+	UnitView.label_visible(enemy, state)
 
 	enemy.current_action = &""
 	enemy.action_ticks_left = 0
 	state.tick = UnitView.LABEL_HOLD_TICKS + 1
-	assert_false(view._label_visible(enemy), "the hold must actually expire, not hold forever")
+	assert_false(UnitView.label_visible(enemy, state), "the hold must actually expire, not hold forever")
 	view.free()
 
 ## PLAYTEST-NOTES 20's other half: "some enemies never get names" — a fodder
@@ -581,7 +608,7 @@ func test_taking_damage_holds_the_label_even_with_no_other_trigger() -> void:
 
 	enemy.hp = 6
 	view.sync(state)
-	assert_true(view._label_visible(enemy), "getting hit must surface the name even with nothing else triggering it")
+	assert_true(UnitView.label_visible(enemy, state), "getting hit must surface the name even with nothing else triggering it")
 	view.free()
 
 # ---------------------------------------------------------------------------

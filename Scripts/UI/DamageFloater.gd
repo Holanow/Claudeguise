@@ -58,8 +58,29 @@ func _process(delta: float) -> void:
 	if _age >= _lifetime:
 		queue_free()
 		return
+	# Issue 378: a number that rises off a unit near the top of the arena used
+	# to keep rising onto the page background and into the toolbar.
+	position += UnitView.into_arena(extent())
 	modulate.a = alpha_at(_age, _lifetime, _hold)
 	queue_redraw()
+
+## What this floater actually covers, in arena-local pixels. The thing that
+## collides is a plate as wide as the text, not the point it spawned at --
+## which is the whole of issue 378's third part.
+func extent() -> Rect2:
+	return extent_of(_text, _font_size, position, _plate != null)
+
+static func extent_of(text: String, font_size: int, at: Vector2, plate: bool) -> Rect2:
+	if text == "":
+		return Rect2(at, Vector2.ZERO)
+	var font := ThemeDB.fallback_font
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var ascent := font.get_ascent(font_size)
+	var descent := font.get_descent(font_size)
+	var pad := PLATE_PAD if plate else Vector2.ZERO
+	return Rect2(
+		at + Vector2(-text_size.x * 0.5 - pad.x, -ascent - pad.y),
+		Vector2(text_size.x + pad.x * 2.0, ascent + descent + pad.y * 2.0))
 
 ## Full opacity until `hold` of the lifetime has passed, then linear to zero.
 ## `hold` of 0 is the plain fade a damage number has always had.
