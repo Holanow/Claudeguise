@@ -17,6 +17,8 @@ const CONDITION_OPS := [
 	&"ally_has_harmful_status",
 	&"enemy_has_status",
 	&"enemy_lacks_status",
+	&"self_on_harmful_ground",
+	&"self_on_safe_ground",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
@@ -58,6 +60,12 @@ const CONDITION_ARG_SHAPE := {
 	&"ally_has_harmful_status": {"kind": "none"},
 	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
 	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
+	## Issue 384: no argument on purpose -- `CombatSim.standing_harms` is the one
+	## place "does this ground cost me anything" is answered, so an op that named
+	## a hazard or a damage type would be a second table to keep in step with
+	## content.
+	&"self_on_harmful_ground": {"kind": "none"},
+	&"self_on_safe_ground": {"kind": "none"},
 }
 
 ## Issue 97: the same shape `CONDITION_ARG_SHAPE` carries, for the MOVEMENT ops,
@@ -396,6 +404,10 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return _nearest_enemy_with_status(state, unit, _status_arg(block)) != null
 		&"enemy_lacks_status":
 			return _nearest_enemy_without_status(state, unit, _status_arg(block)) != null
+		&"self_on_harmful_ground":
+			return CombatSim.standing_harms(state, unit.position)
+		&"self_on_safe_ground":
+			return not CombatSim.standing_harms(state, unit.position)
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -451,6 +463,10 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "an enemy has %s" % _status_word(int(args.get("status", 0)))
 		&"enemy_lacks_status":
 			return "an enemy has no %s" % _status_word(int(args.get("status", 0)))
+		&"self_on_harmful_ground":
+			return "standing on harmful ground"
+		&"self_on_safe_ground":
+			return "standing on safe ground"
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
