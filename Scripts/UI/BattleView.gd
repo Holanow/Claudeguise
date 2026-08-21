@@ -707,12 +707,8 @@ func _make_room_for_a_floater() -> void:
 		plain[i].queue_free()
 		_arena.remove_child(plain[i])
 
-## The first offset at which this floater's own extent, once clamped into the
-## arena, touches nothing already on screen. The STEP comes from the extent
-## too: a fixed 27 pixels cannot move a 150-pixel "Goblin Archer dies" plate
-## clear of another one, which is why three of them still shared the ceiling.
 ## Every pixel of arena text already spoken for: the live floaters AND the name
-## plates, which used to be two row searches with no knowledge of each other.
+## plates, which used to be two searches with no knowledge of each other.
 func _occupied_arena_text() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	for child in _arena.get_children():
@@ -726,10 +722,12 @@ func _occupied_arena_text() -> Array[Rect2]:
 			out.append(chip)
 	return out
 
+## The offset at which this floater's own extent, once clamped into the arena,
+## covers the least of what is already on it -- the first free one wins, and
+## past that the least-bad one does. Returning the unstaggered base position
+## when nothing is free is what quadrupled floater-on-floater overlap the first
+## time this took name plates as obstacles: 6041 pairs to 24846.
 func _floater_stagger_offset(base_position: Vector2, text: String, font_size: int, plate: bool = false) -> Vector2:
-	# A floater with no text yet covers nothing. Godot's Rect2.intersects
-	# treats a zero-size rect as hitting anything it sits inside, so without
-	# this the first number of a fight staggers away from itself.
 	var live: Array[Rect2] = _occupied_arena_text()
 
 	var own := DamageFloaterScript.extent_of(text, font_size, base_position, plate)
@@ -737,19 +735,20 @@ func _floater_stagger_offset(base_position: Vector2, text: String, font_size: in
 		maxf(_FLOATER_STAGGER_STEP, own.size.x * 0.6),
 		maxf(_FLOATER_STAGGER_STEP, own.size.y * 0.75))
 	var lifetime := DamageFloaterScript.DEATH_LIFETIME if plate else DamageFloaterScript.LIFETIME_SECONDS
+	var best := UnitViewScript.into_arena(own)
+	var best_area := INF
 	for candidate in _FLOATER_CANDIDATES:
 		var at: Vector2 = base_position + candidate * step
 		var box := DamageFloaterScript.extent_of(text, font_size, at, plate)
 		at += UnitViewScript.into_arena(box)
 		box = DamageFloaterScript.swept_extent_of(text, font_size, at, plate, lifetime)
-		var clear := true
-		for other in live:
-			if box.intersects(other):
-				clear = false
-				break
-		if clear:
-			return at - base_position
-	return UnitViewScript.into_arena(own)
+		var area := UnitViewScript.overlap_area(box, live)
+		if area < best_area:
+			best_area = area
+			best = at - base_position
+		if area <= 0.0:
+			break
+	return best
 
 ## Issue 136: off by default, and the guard is here rather than at the call site
 ## so nothing can spawn a damage number without passing it.

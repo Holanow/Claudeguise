@@ -102,9 +102,9 @@ func test_the_row_chosen_is_never_worse_than_another_row_available_to_it() -> vo
 	for id in sorted_ids:
 		var u: CombatUnit = units[id]
 		var chosen := UnitView.plate_rect(u, units, int(ranks[id]))
-		var chosen_area := UnitView._overlap_area(chosen, placed)
+		var chosen_area := UnitView.overlap_area(chosen, placed)
 		for row in UnitView.PLATE_ROWS.size():
-			var area := UnitView._overlap_area(UnitView.plate_rect(u, units, row), placed)
+			var area := UnitView.overlap_area(UnitView.plate_rect(u, units, row), placed)
 			assert_true(chosen_area <= area,
 				"unit %d took a row losing %.0f px2 when row %d loses %.0f" % [id, chosen_area, row, area])
 		placed.append(chosen)

@@ -388,7 +388,7 @@ static func plate_ranks(units: Array, state: CombatState = null) -> Dictionary:
 		var best_area := INF
 		for row in PLATE_ROWS.size():
 			var chip := plate_rect(u, units, row)
-			var area := _overlap_area(chip, placed)
+			var area := overlap_area(chip, placed)
 			if area < best_area:
 				best_area = area
 				best_row = row
@@ -401,7 +401,7 @@ static func plate_ranks(units: Array, state: CombatState = null) -> Dictionary:
 ## Total area this chip loses to what is already placed. Zero is a free row;
 ## past that the least-bad row wins, because a fourteen-unit scrum can exhaust
 ## every row and falling off the end onto the last one is the worst of them.
-static func _overlap_area(chip: Rect2, placed: Array[Rect2]) -> float:
+static func overlap_area(chip: Rect2, placed: Array[Rect2]) -> float:
 	var area := 0.0
 	for p in placed:
 		var hit := chip.intersection(p)
