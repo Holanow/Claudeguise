@@ -284,7 +284,14 @@ static func plate_rect(u: CombatUnit, units: Array, row: int = -1) -> Rect2:
 	var chip := Rect2(
 		at + Vector2(-text_size.x * 0.5 - pad.x, label_baseline(u) - text_size.y),
 		text_size + pad * 2.0)
-	return Rect2(chip.position + into_arena(chip), chip.size)
+	chip.position += into_arena(chip)
+	# `into_arena` is a subtraction, and subtracting a float from itself lands
+	# a plate pushed off the right edge at 480.00006 against a border at 480.
+	chip.position.x = clampf(chip.position.x, ARENA_BOUNDS.position.x,
+		maxf(ARENA_BOUNDS.position.x, ARENA_BOUNDS.end.x - chip.size.x))
+	chip.position.y = clampf(chip.position.y, ARENA_BOUNDS.position.y,
+		maxf(ARENA_BOUNDS.position.y, ARENA_BOUNDS.end.y - chip.size.y))
+	return chip
 
 ## Where a plate goes when the row under it is taken: x in CROWD_STEP, y in
 ## whole rows.
@@ -296,6 +303,8 @@ const PLATE_ROWS := [
 	Vector2(1.0, 0.0), Vector2(-1.0, 0.0), Vector2(1.0, -1.0), Vector2(-1.0, -1.0),
 	Vector2(1.0, -2.0), Vector2(-1.0, -2.0), Vector2(0.0, -4.0), Vector2(0.0, -5.0),
 	Vector2(2.0, 0.0), Vector2(-2.0, 0.0), Vector2(2.0, -2.0), Vector2(-2.0, -2.0),
+	Vector2(3.0, 0.0), Vector2(-3.0, 0.0), Vector2(3.0, -1.0), Vector2(-3.0, -1.0),
+	Vector2(4.0, 0.0), Vector2(-4.0, 0.0), Vector2(4.0, -1.0), Vector2(-4.0, -1.0),
 ]
 
 ## `get_string_size` is called once per plate per candidate row per unit per
