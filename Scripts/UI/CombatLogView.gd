@@ -125,17 +125,18 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "[b]The fight ends.[/b]"
 		CG.EventKind.DAMAGE:
 			var color := Palette.damage_color(e.damage_type).to_html()
-			## No source means the ground or a status doing it, and `e.status`
-			## is the only thing telling the two apart: `_tick_hazards` never
-			## sets it, `_tick_statuses` always does. Each is the player's to
-			## silence, and neither is silenced for them (issue 319).
+			## `e.status` decides which of the two silent kinds this is, and it
+			## must be tested before the source. A status tick names its applier
+			## since #410, so `source_id == -1` first let a poisoned tick escape
+			## the switch meant to silence it. `_tick_hazards` never sets
+			## `status`; `_tick_statuses` always does.
+			if e.status != CG.Status.SHIELD:
+				if not DisplayOptions.enabled(&"log_status_damage"):
+					return ""
+				return "%s suffers [color=%s]%d[/color] damage from %s" % [
+					target_name, color, e.amount, _status_name(e.status)
+				]
 			if e.source_id == -1:
-				if e.status != CG.Status.SHIELD:
-					if not DisplayOptions.enabled(&"log_status_damage"):
-						return ""
-					return "%s suffers [color=%s]%d[/color] damage from %s" % [
-						target_name, color, e.amount, _status_name(e.status)
-					]
 				if not DisplayOptions.enabled(&"log_hazard_ticks"):
 					return ""
 				return "%s takes [color=%s]%d[/color] %s damage from the ground" % [
