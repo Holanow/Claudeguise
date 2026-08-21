@@ -48,17 +48,35 @@
 # longest honest run.
 
 param(
-    [int[]]$Id = @(),
+    [string[]]$Id = @(),
     [int]$Minutes = 15,
     [switch]$WhatIf
 )
+
+# -Id arrives as one string when the script is run with -File: PowerShell does
+# not split `-Id 1,2` into an array there, and [int[]] then fails the whole
+# invocation. wren hit it mid-hang, and a false "already gone" pushes the
+# reader toward the age sweep -- the machine-wide kill this flag exists to
+# avoid. Split and parse here so both `-Id 1,2` and `-Id 1 2` work.
+$ids = @()
+foreach ($chunk in $Id) {
+    foreach ($part in ($chunk -split '[,;\s]+')) {
+        if ($part -eq '') { continue }
+        $n = 0
+        if ([int]::TryParse($part, [ref]$n)) {
+            $ids += $n
+        } else {
+            Write-Host ("IGNORED '{0}': not a process id" -f $part)
+        }
+    }
+}
 
 $now = Get-Date
 
 # -Id: surgical. Kills exactly what you name, at any age, and refuses anything
 # that is not a Godot process so a mistyped id cannot take out your shell.
-if ($Id.Count -gt 0) {
-    foreach ($wanted in $Id) {
+if ($ids.Count -gt 0) {
+    foreach ($wanted in $ids) {
         $p = Get-Process -Id $wanted -ErrorAction SilentlyContinue
         if (-not $p) {
             Write-Host ("no process {0} -- already gone" -f $wanted)
