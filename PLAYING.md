@@ -1,8 +1,12 @@
 # Playing the slice
 
+**This is a cut. It is frozen at tag `cut-1`, it is green, and it is worth
+your morning.** Seven people who had never seen the code have played it. The
+last four finished a fight, formed a complaint, acted on it, and got a
+different fight back.
+
 Written so the first five minutes go on whether you like it, rather than on
 whether it works.
-
 ## Run it
 
 ```
@@ -76,3 +80,43 @@ why it cost them.
 - **Deaths name the casualty.** "You lost Warrior", not "3 of 4 survived".
 - **A plan can talk about the ground** - "Standing on harmful ground", and "Move
   off harmful ground" to answer it.
+
+## Five things I did not decide, on purpose
+
+None of these blocks the cut. Each is a design call, each is measured, and each
+is easier to make while looking at the game than before.
+
+1. **How many enemies a room holds.** The fight collapses into about 200 x 210
+   world units whatever the room, because ranged pawns settle 160-165 from their
+   nearest opponent. Ten enemies land in the space five do. Fewer enemies thins
+   the knot rather than widening it. #421.
+2. **Whether a boss should be physically bigger.** The Warden has the same
+   radius as a Warrior; only its art made it look big, and the re-cut evened
+   that out. A stranger: *"it is the boss of the room, it has 1000 hp, and it
+   reads as one more guy."* The only lever left feeds collision. #437.
+3. **Whether a Siege Engine is part of "your party."** Four readers have each
+   answered separately. The contradiction on screen is fixed; the definition is
+   not. #445.
+4. **How much the fallback should do for a pawn with no plans.** Making it stop
+   healing moves a one-row party up and costs an unedited one 87.7% to 80.8%.
+   #433.
+5. **Whether `keep_distance` should refuse a destination that burns.** Today a
+   player who writes the obvious kiting row in a hazard room does worse than
+   writing nothing. #424.
+
+## What the numbers say
+
+Measured over 7,800 fights, six rooms, five parties, twenty seeds:
+
+| | wins | party health |
+| --- | --- | --- |
+| no plans | 87.7% | 42% |
+| one row per pawn | 89.0% | 46% |
+| the whole library | 99.2% | 62% |
+
+**Authoring plans is the game, and it is worth 11 points of win rate and 20 of
+health.** The middle arm used to be *worse* than doing nothing, at 79.7%; that
+was row order and it is fixed.
+
+Determinism holds: the same seed, party and plans produce a byte-identical
+fight. Checked on this cut.
