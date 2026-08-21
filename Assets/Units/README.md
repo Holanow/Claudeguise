@@ -172,13 +172,6 @@ the Abomination rendered as that image in the fight. The file was then deleted
 and the polygon came back. `Tools/preview/` no longer contains that render, but
 the procedure above is the one that was exercised.
 
-**One place is still catching up.** The party select cards currently draw
-placeholders through a different code path and will keep doing so until pike
-switches them over — so with art dropped in, you will see it in the fight and not
-yet on the class cards. The function they need now exists. If you are reading
-this after that has landed, this paragraph should be gone; if it is still here,
-it is still true.
-
 ## One thing worth knowing
 
 These images are read with `Image.load()` and turned into textures at runtime,
