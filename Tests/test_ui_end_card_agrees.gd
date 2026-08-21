@@ -146,7 +146,8 @@ func _visible_cooldown_chips(panel: TeamStatusView) -> int:
 ## the panel's left edge. Checked as arithmetic at the two sizes the project
 ## ships, the way `compute_layout` is.
 func test_the_end_cards_prose_never_reaches_the_team_panel() -> void:
-	for size in [Vector2(1280.0, 720.0), Vector2(1600.0, 900.0), Vector2(844.0, 390.0)]:
+	var sizes: Array[Vector2] = [Vector2(1280.0, 720.0), Vector2(1600.0, 900.0), Vector2(844.0, 390.0)]
+	for size in sizes:
 		var width := BattleView.end_text_width(size)
 		var right_edge := size.x * 0.5 + width * 0.5
 		var panel_left: float = size.x + CombatLogView.LOG_MARGIN - TeamStatusView.PANEL_WIDTH
@@ -179,9 +180,9 @@ func test_the_duration_is_not_on_the_casualty_lists_line() -> void:
 	for line in view._end_cost_label.text.split("\n"):
 		if line.contains("You lost"):
 			carried = true
-			assert_false(line.contains("·"),
-				"the casualty list carries the duration on its own line: %s" % line)
+			assert_false(line.contains("lasted"),
+				"the duration belongs on its own line: %s" % line)
 	assert_true(carried, "no casualty list, so the overlap case went unexercised")
-	assert_true(view._end_cost_label.text.contains("·"),
-		"the duration still has to be on the card somewhere: %s" % view._end_cost_label.text)
+	assert_true(view._end_cost_label.text.contains("The fight lasted"),
+		"the duration still has to be on the card: %s" % view._end_cost_label.text)
 	view.free()

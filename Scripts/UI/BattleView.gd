@@ -239,8 +239,18 @@ const _PANEL_TOP := Palette.SPACE_M
 ## prominent version: a full-screen backdrop shown only once the fight
 ## actually resolves (built hidden here, shown from _show_outcome, hidden
 ## again in begin()), so it cannot compete with anything mid-fight.
-## How wide the end card's prose is allowed to run before it wraps.
+## How wide the end card's prose is allowed to run before it wraps, and the
+## floor below which wrapping it further would be worse than the overlap.
 const _END_TEXT_WIDTH := 440.0
+const _END_TEXT_MIN := 200.0
+
+## The card's prose is centred and the team panel is pinned to the right, so
+## the prose may be at most twice the gap from the screen's centre to the
+## panel's left edge (issue 442). Static and taking the size, like
+## `compute_layout`, so the fit can be checked without a live viewport.
+static func end_text_width(size: Vector2) -> float:
+	var panel_left := size.x + CombatLogView.LOG_MARGIN - TeamStatusView.PANEL_WIDTH
+	return clampf(panel_left * 2.0 - size.x, _END_TEXT_MIN, _END_TEXT_WIDTH)
 
 func _build_end_banner() -> void:
 	var hud := get_node("Hud")
@@ -278,6 +288,11 @@ func _build_end_banner() -> void:
 	_end_cost_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_end_cost_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_end_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	## Issue 442: the casualty list arrived in #367 and nobody re-measured the
+	## line against the panel beside it, so three strings shared one set of
+	## pixels on the defeat screen.
+	_end_cost_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_end_cost_label.custom_minimum_size = Vector2(_END_TEXT_WIDTH, 0.0)
 	column.add_child(_end_cost_label)
 
 	## Issue 441. The one place the game says plans exist, shown only to a
@@ -485,8 +500,10 @@ static func _hits(state: CombatState, u: CombatUnit, point: Vector2, min_radius:
 static func _format_duration(ticks: int) -> String:
 	return "%.1fs" % (float(ticks) / float(CG.TICKS_PER_SECOND))
 
-## What the fight cost, without asking the player to count bars themselves:
-## how many of the player's own party made it out.
+## What the fight cost, without asking the player to count bars themselves.
+## Issue 442: it says pawns because pawns are what it counts. It said "party"
+## while two Siege Engines stood at full health on the same screen, and whether
+## a summon is part of your party is not this label's question to answer.
 func _cost_summary() -> String:
 	var alive := 0
 	var total := 0
@@ -501,8 +518,9 @@ func _cost_summary() -> String:
 		else:
 			fallen.append(u.display_name)
 	if alive == total:
-		return "Your whole party survived."
-	var count := "None of your party survived." if alive == 0 else "%d of %d survived." % [alive, total]
+		return "Every one of your pawns survived."
+	var count := "None of your pawns survived." if alive == 0 \
+		else "%d of your %d pawns survived." % [alive, total]
 	return "%s  You lost %s." % [count, name_list(fallen)]
 
 ## Issue 320. "3 of 4 survived" named nobody, so the playtester restarted the
@@ -600,6 +618,10 @@ func _layout_arena() -> void:
 	_place_click_hint(size.x >= size.y)
 	if _unit_card != null:
 		_unit_card.body_ceiling = card_body_ceiling(size.y)
+	var text_width := end_text_width(size)
+	for label in [_end_cost_label, _end_prompt_label]:
+		if label != null:
+			label.custom_minimum_size.x = text_width
 
 ## Issue 396. The card sits between the toolbar and the bottom margin and may
 ## have all of it. The flat 380 happens to be exactly right at 720 and is wrong
@@ -1007,10 +1029,14 @@ func _show_outcome() -> void:
 		Palette.TEAM_PLAYER if verdict == "Victory"
 		else Palette.TEAM_ENEMY if verdict == "Defeat"
 		else Palette.TEXT)
+	## Each sentence on its own line. The duration used to ride on the end of
+	## the casualty list and printed through the last name in it (issue 442).
+	var lines: Array[String] = [_cost_summary()]
 	var reason := end_reason_sentence(state)
-	_end_cost_label.text = "%s  ·  %s" % [_cost_summary(), duration]
 	if reason != "":
-		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
+		lines.append(reason)
+	lines.append("The fight lasted %s." % duration)
+	_end_cost_label.text = "\n".join(lines)
 	var prompt := plans_prompt(state)
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
