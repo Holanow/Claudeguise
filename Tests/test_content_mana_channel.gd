@@ -89,10 +89,12 @@ func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 		("A class's presets no longer exactly fill its WIS budget: %s. That slack is what "
 		+ "issue 166 did not have, so a preset row now costs nothing to add.") % [over])
 
-## Both casters run every row they ship, the Channel included.
+## Both casters run every row in their library, the Channel included. Issue 399:
+## a starter pawn ships with none, so the rows are added here the way a player
+## adds them.
 func test_both_casters_run_every_row_including_the_channel() -> void:
 	for cid in [&"priest", &"geysermancer"]:
-		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
+		var pawn := PawnFactory.make_preset_pawn(cid, cid, String(cid))
 		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size(),
 			"a starter %s cannot pay for its own last row" % cid)
 		assert_eq(pawn.plans[pawn.plans.size() - 1].blocks[1].args.get("action_id", &""), CHANNEL,
@@ -102,7 +104,7 @@ func test_both_casters_run_every_row_including_the_channel() -> void:
 ## the row strands. This is the screen's own "Inert: needs %d WIS" case.
 func test_taking_the_robes_off_strands_the_channel_row() -> void:
 	for cid in [&"priest", &"geysermancer"]:
-		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
+		var pawn := PawnFactory.make_preset_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.armor, "a starter %s no longer wears anything" % cid)
 		pawn.armor = null
 		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size() - 1,

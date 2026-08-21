@@ -81,7 +81,7 @@ func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 			fights += 1
 			var party: Array[PawnData] = []
 			for cid in [&"priest", &"warrior", &"abomination", &"geysermancer"]:
-				party.append(PawnFactory.make_starter_pawn(cid, StringName("p%d" % party.size()), String(cid)))
+				party.append(PawnFactory.make_preset_pawn(cid, StringName("p%d" % party.size()), String(cid)))
 			var deps := SimDeps.new()
 			var state := CombatSim.build(party, Registry.get_encounter(encounter_id), fight_seed, deps)
 			var mana_before := {}
