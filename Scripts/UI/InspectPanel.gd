@@ -315,11 +315,15 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 
 	## Issue 155. One sentence, and only while a fight exists to read -- between
 	## fights every verdict would be blank and the sentence would explain nothing.
-	if _live_unit(pawn) != null:
+	if _live_unit(pawn) != null and _taunt_banner(pawn) == null:
 		out.append(_line(
 			"Right now: %s chose what this pawn last did, %s means the row's condition is true. A %s row that is not %s lost to a row above it, or its skill could not fire." % [
 				VERDICT_ACTING, VERDICT_READY, VERDICT_READY, VERDICT_ACTING],
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+
+	var banner := _taunt_banner(pawn)
+	if banner != null:
+		out.append(banner)
 
 	## Issue 269. Rows are paid for in priority order, so the surplus is always at
 	## the bottom, and **which rows those are is not decided here.**
@@ -352,6 +356,29 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	for row in _default_rows(pawn):
 		out.append(row)
 	return out
+
+## Issue 379. One banner over all five rows, not a mark per row: while TAUNTED
+## the pawn's plans are not outranked, they are **not consulted**, so there is
+## one fact here and it belongs to the whole block.
+const TAUNT_BANNER_MARK := "Taunted by"
+const TAUNT_BANNER := "%s %s for %s. None of the rows below are read while that lasts: this pawn moves into range and uses its default attack on the taunter."
+
+## Who is compelling this pawn, in words. The taunter can be dead for a tick
+## before the status clears, so it is named only when it is still there.
+const TAUNT_BANNER_UNKNOWN := "something"
+
+func _taunt_banner(pawn: PawnData) -> Control:
+	var unit = _live_unit(pawn)
+	if unit == null or not unit.has_status(CG.Status.TAUNTED):
+		return null
+	var taunter = _live_state.unit(int(unit.status_magnitude.get(CG.Status.TAUNTED, -1.0)))
+	var who: String = taunter.display_name if taunter != null else TAUNT_BANNER_UNKNOWN
+	var left := maxi(int(unit.statuses[CG.Status.TAUNTED]) - _live_state.tick, 0)
+	var note := _line(TAUNT_BANNER % [TAUNT_BANNER_MARK, who,
+		"%.1fs" % (float(left) / float(CG.TICKS_PER_SECOND))],
+		Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return note
 
 ## The sentence under an inert row. Indented under the row it belongs to, in the
 ## warning colour rather than the dim one -- dim is what this screen uses for
@@ -839,12 +866,17 @@ const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"
 const VERDICT_TAUNTED := "taunted"
 
-## One word for one plan row, or "" when there is no live fight to read.
+## One word for one plan row, or "" when there is no live fight to read, and
+## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
+## the compulsion before it calls the plan layer, so a `ready` beside a row is
+## a claim about a row nothing consults. Issue 379.
 func _live_verdict(pawn: PawnData, plan) -> String:
 	var unit = _live_unit(pawn)
 	if unit == null:
 		return ""
-	if not unit.has_status(CG.Status.TAUNTED) and _last_source_plan(unit) == plan.id:
+	if unit.has_status(CG.Status.TAUNTED):
+		return ""
+	if _last_source_plan(unit) == plan.id:
 		return VERDICT_ACTING
 	return VERDICT_READY if PlanInterpreter.condition_holds(_live_state, unit, plan) else VERDICT_WAITING
 
