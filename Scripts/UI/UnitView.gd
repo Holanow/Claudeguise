@@ -68,16 +68,33 @@ var _state: CombatState = null
 ## trigger flickers. An attacker refocuses or finishes winding up several
 ## times a second, which is what made the name blink.
 const LABEL_HOLD_TICKS := int(CG.TICKS_PER_SECOND * 1.5)
-var _label_last_active_tick: int = -1000000000
-## Also holds the name up when a unit's own hp or resource just changed --
-## "some enemies never get names" was every unit that neither focuses nor
-## winds up while a plan-driven pawn's default behaviour attacks it (a
-## fodder unit standing in melee range gets hit without ever being the one
-## "mid wind-up" itself). UnitView deliberately reads CombatUnit only, never
-## CombatEvent (see file header), so this is read off the unit's own state
-## rather than consuming the event stream BattleView already owns.
-var _last_seen_hp: int = -1
-var _last_seen_resource: int = -1
+
+## The hold, and the hp/resource watch that also arms it, keyed by unit id
+## rather than held per view. Issue 378 needs plate *visibility* to be a shared
+## fact: the row a plate lands on is decided against every other visible plate
+## at once, which one view's private timer cannot answer.
+## The hp/resource half is why "some enemies never get names" -- a fodder unit
+## standing in melee range is hit without ever focusing or winding up itself.
+static var _hold_tick := {}
+static var _last_hp := {}
+static var _last_resource := {}
+static var _hold_epoch := -1
+
+## A fight restarts at tick 0 and reuses unit ids, so the holds are dropped
+## whenever the clock goes backwards.
+static func _watch_holds(state: CombatState) -> void:
+	if state.tick == _hold_epoch:
+		return
+	if state.tick < _hold_epoch:
+		_hold_tick.clear()
+		_last_hp.clear()
+		_last_resource.clear()
+	_hold_epoch = state.tick
+	for u in state.units:
+		if _last_hp.has(u.id) and (u.hp != _last_hp[u.id] or u.resource != _last_resource[u.id]):
+			_hold_tick[u.id] = state.tick
+		_last_hp[u.id] = u.hp
+		_last_resource[u.id] = u.resource
 
 func bind(state: CombatState, id: int) -> void:
 	unit_id = id
@@ -85,25 +102,45 @@ func bind(state: CombatState, id: int) -> void:
 
 func sync(state: CombatState) -> void:
 	_state = state
+	_watch_holds(state)
 	var u := _unit()
 	if u == null:
 		return
-	if _last_seen_hp != -1 and (u.hp != _last_seen_hp or u.resource != _last_seen_resource):
-		_label_last_active_tick = state.tick
-	_last_seen_hp = u.hp
-	_last_seen_resource = u.resource
-	position = u.position + visual_offset(u, state.units)
+	position = drawn_position(u, state.units)
 	visible = u.alive
 	queue_redraw()
+
+## The arena's own rectangle, in the local space every UnitView and floater is
+## a child of. Issue 378: nothing the arena draws may leave it.
+const ARENA_BOUNDS := Rect2(
+	Vector2(-CG.ARENA_HALF_WIDTH, -CG.ARENA_HALF_HEIGHT),
+	Vector2(CG.ARENA_HALF_WIDTH * 2.0, CG.ARENA_HALF_HEIGHT * 2.0))
+
+## The shift that brings `rect` back inside the arena, zero when it already is.
+## Something wider than the arena is pinned to the left/top edge rather than
+## fought over.
+static func into_arena(rect: Rect2) -> Vector2:
+	return Vector2(
+		maxf(0.0, ARENA_BOUNDS.position.x - rect.position.x) - maxf(0.0, rect.end.x - ARENA_BOUNDS.end.x),
+		maxf(0.0, ARENA_BOUNDS.position.y - rect.position.y) - maxf(0.0, rect.end.y - ARENA_BOUNDS.end.y))
+
+## Where the body is drawn: the simulated position, the scrum nudge, and then
+## whatever it takes to keep the drawn body inside the arena. The playtester
+## measured a Siege Engine at y=550-645 against a border at y=633 -- the
+## simulation clamps a unit's centre, and a body has a radius.
+static func drawn_position(u: CombatUnit, units: Array) -> Vector2:
+	var at := u.position + visual_offset(u, units)
+	var body := drawn_box(shape_id(u), u.team, display_radius(u))
+	return at + into_arena(Rect2(at + body.position, body.size))
 
 ## should_show_label's immediate trigger, plus a hold: once true, stays true
 ## for LABEL_HOLD_TICKS more so the name does not blink out the instant the
 ## trigger condition itself flickers.
-func _label_visible(u: CombatUnit) -> bool:
-	if should_show_label(u, _state.units):
-		_label_last_active_tick = _state.tick
+static func label_visible(u: CombatUnit, state: CombatState) -> bool:
+	if should_show_label(u, state.units):
+		_hold_tick[u.id] = state.tick
 		return true
-	return _state.tick - _label_last_active_tick <= LABEL_HOLD_TICKS
+	return state.tick - int(_hold_tick.get(u.id, -1000000000)) <= LABEL_HOLD_TICKS
 
 ## The melee scrum: bodies standing close enough to occlude each other. A
 ## view-only nudge, never fed back into CombatState -- this changes nothing
@@ -179,10 +216,17 @@ func _draw() -> void:
 
 	_draw_concentration_badge(u, radius)
 
+	# The wind-up bar, the badge row and the OOM tag hang under the body, so a
+	# unit on the bottom edge drew them past the border (issue 378). The block
+	# is measured first and lifted as one, rather than the body moving whenever
+	# a status lands.
 	var body_bottom := drawn_bottom(_shape_id(u), u.team, radius)
-	var below := _draw_wind_up(u, radius, body_bottom)
-	below += _draw_status_badges(u, radius, body_bottom, below)
-	_draw_status_tags(u, body_bottom, below)
+	var lift := into_arena(Rect2(
+		position + Vector2(-bar_width(radius, _shape_id(u), u.team) * 0.5, body_bottom),
+		Vector2(bar_width(radius, _shape_id(u), u.team), below_block_height(u, radius)))).y
+	var below := _draw_wind_up(u, radius, body_bottom + lift)
+	below += _draw_status_badges(u, radius, body_bottom + lift, below)
+	_draw_status_tags(u, body_bottom + lift, below)
 
 	var width := bar_width(radius, _shape_id(u), u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
@@ -203,10 +247,66 @@ func _draw() -> void:
 	draw_rect(Rect2(hp_pos, Vector2(width, bar_height)), Palette.HP_BACK)
 	draw_rect(Rect2(hp_pos, Vector2(width * u.hp_fraction(), bar_height)), hp_fill_color(u))
 	_draw_bar_tether(u, stack_bottom)
-	y -= bar_gap + _label_font_size() + _crowding_stagger(u)
 
-	if DisplayOptions.enabled(&"name_plates") and _label_visible(u):
-		_draw_label_chip(u.display_name, y, Palette.TEXT, _label_font_size())
+	if DisplayOptions.enabled(&"name_plates") and label_visible(u, _state):
+		var chip: Rect2 = plate_layout(_state).get(u.id, plate_rect(u, _state.units, 0))
+		_draw_label_chip(chip.position - position, u.display_name, Palette.TEXT, _label_font_size())
+
+## The baseline the name plate's text sits on, in this view's local space:
+## clear of the body, the resource bar and the hp bar. Split out because
+## `plate_rect` and `_draw` must agree.
+static func label_baseline(u: CombatUnit) -> float:
+	var radius := display_radius(u)
+	var shape := shape_id(u)
+	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
+	var bar_gap := BAR_GAP * DISPLAY_SCALE
+	var y := -drawn_top(shape, u.team, radius) - bar_gap
+	if u.resource_max > 0:
+		y -= bar_height + bar_gap
+	y -= bar_height
+	return y - bar_gap - float(_label_font_size())
+
+## The chip a name plate occupies, in ARENA-local pixels, clamped into the
+## arena. This is the one place the plate's geometry exists: `_draw` renders
+## it, `plate_ranks` de-collides against it and `Tools/ArenaSpill.gd` measures
+## it, so an instrument cannot drift from what ships.
+static func plate_rect(u: CombatUnit, units: Array, row: int = -1) -> Rect2:
+	var which := row if row >= 0 else crowd_rank(u, units)
+	var step: Vector2 = PLATE_ROWS[clampi(which, 0, PLATE_ROWS.size() - 1)]
+	var text_size := _measure(u.display_name, _label_font_size())
+	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
+	# Sideways in units of this plate's own width: a fixed step cannot move
+	# "Goblin Archer" clear of "Goblin Archer".
+	var nudge := Vector2(
+		step.x * maxf(CROWD_STEP, (text_size.x + pad.x * 2.0) * 0.6),
+		step.y * plate_row_height())
+	var at := drawn_position(u, units) + nudge
+	var chip := Rect2(
+		at + Vector2(-text_size.x * 0.5 - pad.x, label_baseline(u) - text_size.y),
+		text_size + pad * 2.0)
+	return Rect2(chip.position + into_arena(chip), chip.size)
+
+## Where a plate goes when the row under it is taken: x in CROWD_STEP, y in
+## whole rows.
+## The last four step sideways on purpose: near the arena's ceiling every
+## upward row clamps back to the same y, so lifting alone stops separating
+## anything and only a horizontal move does.
+const PLATE_ROWS := [
+	Vector2(0.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, -2.0), Vector2(0.0, -3.0),
+	Vector2(1.0, 0.0), Vector2(-1.0, 0.0), Vector2(1.0, -1.0), Vector2(-1.0, -1.0),
+	Vector2(1.0, -2.0), Vector2(-1.0, -2.0), Vector2(0.0, -4.0), Vector2(0.0, -5.0),
+	Vector2(2.0, 0.0), Vector2(-2.0, 0.0), Vector2(2.0, -2.0), Vector2(-2.0, -2.0),
+]
+
+## `get_string_size` is called once per plate per candidate row per unit per
+## frame; there are a handful of distinct names in a fight.
+static var _text_sizes := {}
+
+static func _measure(text: String, size: int) -> Vector2:
+	var key := "%s|%d" % [text, size]
+	if not _text_sizes.has(key):
+		_text_sizes[key] = ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	return _text_sizes[key]
 
 ## Issue 187, and TWO independent cold readers reported it before it was filed:
 const TETHER_WIDTH := 1.0 * DISPLAY_SCALE
@@ -236,29 +336,15 @@ static func hp_fill_color(u: CombatUnit) -> Color:
 static func _label_font_size() -> int:
 	return int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
 
-## Both world-space-ish quantities that grew a real bigger footprint needs to
-## respect: a bigger body and taller bar/label stack means two units that
-## used to read as merely "nearby" now have their chrome actually touch at
-## the same world distance. Found by comparing a real before/after screenshot
-## of floor1_room1, not by reasoning about it -- the first version of issue 31
-## left these fixed and rows of enemies spaced for the old, smaller footprint
-## overlapped their neighbours' labels.
-const CROWD_RADIUS := 70.0 * DISPLAY_SCALE
+## One sideways step of crowding nudge.
 const CROWD_STEP := 20.0 * DISPLAY_SCALE
 
-## Extra headroom for this unit's name label when another unit is standing
-## close enough for the two labels to land on the same spot -- found in
-## Tools/preview/fight_sheet.png, where "abomination" and "Grunt" overlapped
-## illegibly the moment two units clashed in melee, which is exactly the
-## moment reading who is who matters most. Deterministic by id (lower id
-## never moves, each higher id crowded into the same spot stacks one step
-## higher) rather than by draw order, so two views of the same fight agree
-## on where a label lands.
-func _crowding_stagger(u: CombatUnit) -> float:
-	if _state == null:
-		return 0.0
-	# CROWD_STEP already carries DISPLAY_SCALE -- do not multiply twice.
-	return float(crowd_rank(u, _state.units)) * CROWD_STEP
+## One row of upward lift. Derived from the font rather than fixed: a step
+## shorter than a chip cannot clear the chip below it, which is how a 30-pixel
+## step under a 40-pixel plate sent every crowded name two rows up instead of
+## one.
+static func plate_row_height() -> float:
+	return _measure("X", _label_font_size()).y + 4.0 * DISPLAY_SCALE + 2.0
 
 ## Issue 41: a dense room (floor1_room1, 10 enemies) piled every enemy's name
 ## into the top-middle of the screen at once, and no amount of vertical
@@ -273,16 +359,65 @@ static func should_show_label(u: CombatUnit, units: Array) -> bool:
 		return true
 	return u.action_ticks_left > 0 and u.current_action != &""
 
-## Split out for testing, same reasoning as status_tags: how many other
-## living units with a lower id are within CROWD_RADIUS of this one.
+## Which row this unit's plate sits on. Issue 378, and it is the same defect
+## #367 fixed for death plates: this compared two POINTS against a 105-unit
+## radius, and what collides is a chip as wide as the name. That radius could
+## not see two Goblins 120 apart whose 110-pixel plates overlap by 81, which is
+## where `AbRatnation` and `SiegSiege Engine` came from.
 static func crowd_rank(u: CombatUnit, units: Array) -> int:
-	var rank := 0
-	for other in units:
-		if other.id == u.id or not other.alive:
-			continue
-		if other.id < u.id and u.position.distance_to(other.position) < CROWD_RADIUS:
-			rank += 1
-	return rank
+	return int(plate_ranks(units).get(u.id, 0))
+
+## The first free row for every plate that could be up, assigned in id order so
+## two views of the same fight agree on where a name lands. Rows are tested as
+## rectangles, which is the whole point.
+static func plate_ranks(units: Array) -> Dictionary:
+	var candidates: Array = []
+	for u in units:
+		if u.alive:
+			candidates.append(u)
+	candidates.sort_custom(func(a, b): return a.id < b.id)
+
+	var placed: Array[Rect2] = []
+	var ranks := {}
+	for u in candidates:
+		var row := 0
+		var chip := plate_rect(u, units, 0)
+		while row < PLATE_ROWS.size() - 1 and _hits_any(chip, placed):
+			row += 1
+			chip = plate_rect(u, units, row)
+		placed.append(chip)
+		ranks[u.id] = row
+	return ranks
+
+static func _hits_any(chip: Rect2, placed: Array[Rect2]) -> bool:
+	for p in placed:
+		if chip.intersects(p):
+			return true
+	return false
+
+## Every plate's final chip, laid out against each other and clamped into the
+## arena. Cached: `_draw` asks once per unit per frame and the layout is O(n^2)
+## in a fourteen-unit scrum, so it is computed once per distinct world state.
+static var _layout_key := ""
+static var _layout := {}
+
+static func plate_layout(state: CombatState) -> Dictionary:
+	var key := _layout_key_for(state)
+	if key != _layout_key:
+		_layout_key = key
+		_layout = {}
+		var ranks := plate_ranks(state.units)
+		for u in state.units:
+			if u.alive:
+				_layout[u.id] = plate_rect(u, state.units, int(ranks.get(u.id, 0)))
+	return _layout
+
+## Everything the layout reads: who is alive and where they are standing.
+static func _layout_key_for(state: CombatState) -> String:
+	var h := 17
+	for u in state.units:
+		h = h * 31 + hash([u.id, u.alive, roundi(u.position.x), roundi(u.position.y)])
+	return "%d|%d" % [state.units.size(), h]
 
 ## Who is this unit currently after. Answers "why is that side winning" by
 ## itself, before a single number changes: a target being focused by three
@@ -395,6 +530,28 @@ func _wind_up_damage_type(u: CombatUnit) -> int:
 	var action = Registry.get_action(u.current_action)
 	return action.damage_type if action != null else _accent(u)
 
+## Everything drawn under the body, as one height. Each part is measured by
+## the same function that draws it, so the two cannot drift.
+static func below_block_height(u: CombatUnit, radius: float) -> float:
+	return wind_up_height(u, radius) + status_badge_row_height(u, radius) + status_tag_height(u)
+
+static func wind_up_height(u: CombatUnit, radius: float) -> float:
+	if u.action_ticks_left <= 0 or u.current_action == &"":
+		return 0.0
+	return WIND_UP_TOP_GAP + wind_up_icon_size(radius, shape_id(u), u.team)
+
+static func status_badge_row_height(u: CombatUnit, radius: float) -> float:
+	if status_badges(u).is_empty() and hidden_status_count(u) == 0:
+		return 0.0
+	return STATUS_BADGE_TOP_GAP + status_badge_size(shape_id(u), u.team, radius)
+
+## The tag's baseline sits 14 under the block above it and its chip reaches
+## one vertical pad below that baseline.
+static func status_tag_height(u: CombatUnit) -> float:
+	if status_tags(u).is_empty():
+		return 0.0
+	return 18.0 * DISPLAY_SCALE
+
 ## Returns how much vertical room it took, so whatever stacks under it can
 ## clear it. Zero when nothing is winding up.
 func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
@@ -420,7 +577,7 @@ func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
 	ActionIcons.draw_action(self, u.current_action, damage_type,
 		Rect2(Vector2(block_left + width + WIND_UP_ICON_GAP, top),
 			Vector2(icon_size, icon_size)))
-	return WIND_UP_TOP_GAP + icon_size
+	return wind_up_height(u, radius)
 
 ## PLAYTEST-NOTES-2 item 2: "no clear visual for who is afflicted with what."
 const STATUS_BADGE_SIZE := 14.0 * DISPLAY_SCALE
@@ -495,7 +652,7 @@ func _draw_status_badges(u: CombatUnit, radius: float, top_offset: float, below:
 		StatusIcons.draw_status(self, badges[i], rects[i])
 	if hidden > 0:
 		_draw_overflow_chip(rects[slots - 1], hidden)
-	return STATUS_BADGE_TOP_GAP + size
+	return status_badge_row_height(u, radius)
 
 ## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
 ## status is on this unit", and a plate meaning "there are more" would be the
@@ -514,23 +671,28 @@ func _draw_overflow_chip(rect: Rect2, count: int) -> void:
 ## just doesn't do anything, and a viewer with no access to CombatUnit cannot
 ## tell a stalled decision from a disabled one. It is not a CG.Status, so it
 ## has no badge and stays text, drawn under whatever is already below the body.
-func _draw_status_tags(u: CombatUnit, radius: float, below: float) -> void:
+func _draw_status_tags(u: CombatUnit, body_bottom: float, below: float) -> void:
 	var tags := status_tags(u)
 	if tags.is_empty():
 		return
-	_draw_label_chip(" ".join(tags), radius + below + 14.0 * DISPLAY_SCALE, Palette.HP_LOW, _label_font_size())
-
-## Renders text centred on its own width with a small backdrop chip behind
-## it, rather than a fixed draw width that truncates. Found by rendering a
-## real fight through six frames (Tools/ContactSheet.gd): "geysermancer"
-func _draw_label_chip(text: String, baseline_y: float, color: Color, font_size: int) -> void:
-	var font := ThemeDB.fallback_font
-	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var pos := Vector2(-text_size.x * 0.5, baseline_y)
+	var text := " ".join(tags)
+	var size := _label_font_size()
+	var text_size := _measure(text, size)
 	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
-	var chip := Rect2(pos - Vector2(pad.x, text_size.y), text_size + pad * 2.0)
-	draw_rect(chip, Color(Palette.BACKGROUND, 0.65))
-	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+	var baseline := body_bottom + below + 14.0 * DISPLAY_SCALE
+	var at := Vector2(-text_size.x * 0.5 - pad.x, baseline - text_size.y)
+	_draw_label_chip(at, text, Palette.HP_LOW, size)
+
+## Renders text centred on its own width with a small backdrop chip behind it,
+## rather than a fixed draw width that truncates. `at` is the chip's top-left
+## in this view's local space: the caller decides where it goes, because issue
+## 378 needs that decision made against every other plate at once.
+func _draw_label_chip(at: Vector2, text: String, color: Color, font_size: int) -> void:
+	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
+	var text_size := _measure(text, font_size)
+	draw_rect(Rect2(at, text_size + pad * 2.0), Color(Palette.BACKGROUND, 0.65))
+	draw_string(ThemeDB.fallback_font, at + Vector2(pad.x, text_size.y), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 ## Split out for testing, same reasoning as status_tags below: the part of
 ## the wind-up draw call that is pure arithmetic rather than a draw_* call.

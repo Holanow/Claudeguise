@@ -568,19 +568,75 @@ func consume_events() -> void:
 ## there rather than landing on top of them. Deterministic by spawn order
 ## within a frame, not by anything read off CombatState, so it changes
 ## nothing about what a player can infer from position.
-const _FLOATER_STAGGER_RADIUS := 40.0 * UnitViewScript.DISPLAY_SCALE
 const _FLOATER_STAGGER_STEP := 18.0 * UnitViewScript.DISPLAY_SCALE
 
-func _floater_stagger_offset(base_position: Vector2) -> Vector2:
-	var count := 0
+## Issue 378. This counted floaters within a RADIUS OF A POINT and spread the
+## new one by that count, which is the defect #367 fixed for death plates and
+## did not cover here: what collides is a number as wide as its text, so `22`,
+## `2` and `2` stacked into one smear and a gold `0` covered a whole sprite.
+## The candidates are tried in a fixed order, so the same fight staggers the
+## same way twice.
+const _FLOATER_CANDIDATES := [
+	Vector2(0.0, 0.0),
+	Vector2(1.0, 0.0), Vector2(-1.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, 1.0),
+	Vector2(1.0, -1.0), Vector2(-1.0, -1.0), Vector2(1.0, 1.0), Vector2(-1.0, 1.0),
+	Vector2(2.0, 0.0), Vector2(-2.0, 0.0), Vector2(0.0, -2.0), Vector2(0.0, 2.0),
+	Vector2(2.0, -1.0), Vector2(-2.0, -1.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0),
+	Vector2(1.0, -2.0), Vector2(-1.0, -2.0), Vector2(1.0, 2.0), Vector2(-1.0, 2.0),
+	Vector2(3.0, 0.0), Vector2(-3.0, 0.0), Vector2(0.0, -3.0), Vector2(0.0, 3.0),
+]
+
+## How many floating numbers may be on screen at once. Measured on issue 378's
+## instrument: a Burn Pit fight with damage numbers on reached 40 live at one
+## tick, and past about sixteen no stagger can separate them because there is
+## nowhere left to put one. The same reasoning as MAX_STATUS_BADGES.
+const MAX_LIVE_FLOATERS := 10
+
+## Frees the oldest numbers until there is room for one more. Deaths and misses
+## are exempt: a death is the event the player most needs to see, and there are
+## never many at once.
+func _make_room_for_a_floater() -> void:
+	var plain: Array = []
 	for child in _arena.get_children():
-		if child.get_script() == DamageFloaterScript and child.position.distance_to(base_position) < _FLOATER_STAGGER_RADIUS:
-			count += 1
-	if count == 0:
-		return Vector2.ZERO
-	var side := 1.0 if count % 2 == 1 else -1.0
-	var step := float((count + 1) / 2) * _FLOATER_STAGGER_STEP
-	return Vector2(side * step, 0.0)
+		if child.get_script() == DamageFloaterScript and not child.death_marker:
+			plain.append(child)
+	for i in maxi(0, plain.size() - (MAX_LIVE_FLOATERS - 1)):
+		plain[i].queue_free()
+		_arena.remove_child(plain[i])
+
+## The first offset at which this floater's own extent, once clamped into the
+## arena, touches nothing already on screen. The STEP comes from the extent
+## too: a fixed 27 pixels cannot move a 150-pixel "Goblin Archer dies" plate
+## clear of another one, which is why three of them still shared the ceiling.
+func _floater_stagger_offset(base_position: Vector2, text: String, font_size: int, plate: bool = false) -> Vector2:
+	# A floater with no text yet covers nothing. Godot's Rect2.intersects
+	# treats a zero-size rect as hitting anything it sits inside, so without
+	# this the first number of a fight staggers away from itself.
+	var live: Array[Rect2] = []
+	for child in _arena.get_children():
+		if child.get_script() != DamageFloaterScript:
+			continue
+		var box: Rect2 = child.extent()
+		if box.size.x > 0.0 and box.size.y > 0.0:
+			live.append(box)
+
+	var own := DamageFloaterScript.extent_of(text, font_size, base_position, plate)
+	var step := Vector2(
+		maxf(_FLOATER_STAGGER_STEP, own.size.x * 0.6),
+		maxf(_FLOATER_STAGGER_STEP, own.size.y * 0.75))
+	for candidate in _FLOATER_CANDIDATES:
+		var at: Vector2 = base_position + candidate * step
+		var box := DamageFloaterScript.extent_of(text, font_size, at, plate)
+		at += UnitViewScript.into_arena(box)
+		box = DamageFloaterScript.extent_of(text, font_size, at, plate)
+		var clear := true
+		for other in live:
+			if box.intersects(other):
+				clear = false
+				break
+		if clear:
+			return at - base_position
+	return UnitViewScript.into_arena(own)
 
 ## Issue 136: off by default, and the guard is here rather than at the call site
 ## so nothing can spawn a damage number without passing it.
@@ -590,12 +646,15 @@ func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
+	_make_room_for_a_floater()
+	var size := int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE))
+	var at := target.position + _floater_stagger_offset(target.position, str(e.amount), size)
 	var floater := Node2D.new()
 	floater.set_script(DamageFloaterScript)
 	_arena.add_child(floater)
-	floater.position = target.position + _floater_stagger_offset(target.position)
+	floater.position = at
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
-	floater.show_amount(e.amount, color, int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE)))
+	floater.show_amount(e.amount, color, size)
 
 ## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
 ## needs an attack asset ... so I know what's up" -- melee had nothing but a
@@ -659,14 +718,15 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
-	var at := target.position + _DEATH_MARKER_OFFSET \
-		+ _floater_stagger_offset(target.position) + _death_stack_offset(target.position)
+	var text := "%s dies" % target.display_name
+	var size := _death_font_size(target)
+	var base := target.position + _DEATH_MARKER_OFFSET + _death_stack_offset(target.position)
+	var at := base + _floater_stagger_offset(base, text, size, true)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
 	marker.position = at
-	marker.show_death("%s dies" % target.display_name, Palette.team_color(target.team),
-		_death_font_size(target))
+	marker.show_death(text, Palette.team_color(target.team), size)
 
 ## "X's Y fires" with silence after it is what made a miss read as a broken
 ## game rather than a whiffed shot (issue 14's own finding). A quiet, dim
@@ -678,12 +738,13 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
+	var size := int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE))
+	var at := target.position + _floater_stagger_offset(target.position, "Miss", size)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
-	marker.position = target.position + _floater_stagger_offset(target.position)
-	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS,
-		int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE)))
+	marker.position = at
+	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS, size)
 
 func _show_outcome() -> void:
 	var verdict := outcome_word(state)
