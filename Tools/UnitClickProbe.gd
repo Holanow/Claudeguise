@@ -155,7 +155,7 @@ func _plans_route(battle) -> int:
 		await _settle()
 		var panel = battle._inspect_panel
 		var landed: String = panel._pawns[panel._selected_index].display_name
-		var covered := battle._unit_card.is_visible_in_tree()
+		var covered: bool = battle._unit_card.is_visible_in_tree()
 		print("UnitClickProbe: Plans on %-16s opened %-16s card still up=%s" % [u.display_name, landed, covered])
 		if landed != u.display_name or covered:
 			bad += 1
