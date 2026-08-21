@@ -173,9 +173,8 @@ static func _interrupt_on_stun(state: CombatState, unit: CombatUnit) -> void:
 # The player: *"Taunted pawns should be forced to move into range and use their
 # default attack on the enemy that taunted them."*
 #
-# WHY THIS IS IN THE SIMULATION AND NOT IN THE DECISION LAYER. Taunt already
-# influenced targeting, in `DefaultBehavior._choose_target`, under an earlier
-# ruling of rook's: *taunt overrides the default fallback, never a stated plan*.
+# As built it also beats a stated plan: while TAUNTED, `_decide_phase` never
+# reaches the plan layer at all. Issue 379.
 
 ## Who this unit is compelled by, or null.
 static func _compelling_taunter(state: CombatState, unit: CombatUnit) -> CombatUnit:
@@ -190,9 +189,9 @@ static func _compelling_taunter(state: CombatState, unit: CombatUnit) -> CombatU
 	state.emit(e)
 	return null
 
-## Move into range, then use the default attack on the taunter. Exactly the
-## player's sentence, and nothing else -- a compelled unit is not made to stop
-## healing itself or to walk into a pit, it is made to pick one target.
+## Move into range, then use the default attack on the taunter, and nothing
+## else: a compelled pawn IS made to stop healing itself, because the branch
+## that calls this never reaches the plan layer. Issue 379.
 static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDeps) -> Intent:
 	var defs: Array[ActionDef] = []
 	for id in unit.actions:
