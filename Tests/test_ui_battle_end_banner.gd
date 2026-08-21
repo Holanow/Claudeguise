@@ -42,7 +42,7 @@ func test_a_full_survival_reads_as_a_whole_party() -> void:
 	state.units.append(_make_unit(1, CG.Team.PLAYER, 4, 10))
 	state.units.append(_make_unit(2, CG.Team.ENEMY, 0, 10, false))
 	view.state = state
-	assert_eq(view._cost_summary(), "Your whole party survived.")
+	assert_eq(view._cost_summary(), "Every one of your pawns survived.")
 	view.free()
 
 func test_a_total_wipe_reads_as_none_survived() -> void:
@@ -51,7 +51,7 @@ func test_a_total_wipe_reads_as_none_survived() -> void:
 	state.units.append(_make_unit(0, CG.Team.PLAYER, 0, 10, false, "Warrior"))
 	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false, "Priest"))
 	view.state = state
-	assert_eq(view._cost_summary(), "None of your party survived.  You lost Warrior and Priest.")
+	assert_eq(view._cost_summary(), "None of your pawns survived.  You lost Warrior and Priest.")
 	view.free()
 
 func test_a_partial_loss_counts_survivors_against_the_starting_party() -> void:
@@ -61,7 +61,7 @@ func test_a_partial_loss_counts_survivors_against_the_starting_party() -> void:
 	state.units.append(_make_unit(1, CG.Team.PLAYER, 0, 10, false, "Warrior"))
 	state.units.append(_make_unit(2, CG.Team.PLAYER, 3, 10))
 	view.state = state
-	assert_eq(view._cost_summary(), "2 of 3 survived.  You lost Warrior.")
+	assert_eq(view._cost_summary(), "2 of your 3 pawns survived.  You lost Warrior.")
 	view.free()
 
 ## Issue 320, the playtester's own words: "Fight 1 said '3 of 4 survived' and
@@ -92,7 +92,7 @@ func test_a_dead_summon_is_not_named_as_a_casualty() -> void:
 	summon.enemy_id = &"siege_engine"
 	state.units.append(summon)
 	view.state = state
-	assert_eq(view._cost_summary(), "None of your party survived.  You lost Warrior.")
+	assert_eq(view._cost_summary(), "None of your pawns survived.  You lost Warrior.")
 	view.free()
 
 func test_name_list_reads_as_a_sentence_at_one_two_and_three() -> void:
@@ -120,7 +120,7 @@ func test_cost_summary_does_not_count_a_summoned_unit_as_a_party_member() -> voi
 	summon.enemy_id = &"siege_engine"
 	state.units.append(summon)
 	view.state = state
-	assert_eq(view._cost_summary(), "Your whole party survived.", "one real pawn, full health -- the summon must not appear as a second party member")
+	assert_eq(view._cost_summary(), "Every one of your pawns survived.", "one real pawn, full health -- the summon must not appear as a second party member")
 	view.free()
 
 func test_cost_summary_does_not_let_a_dead_summon_read_as_a_party_loss() -> void:
@@ -131,7 +131,7 @@ func test_cost_summary_does_not_let_a_dead_summon_read_as_a_party_loss() -> void
 	summon.enemy_id = &"siege_engine"
 	state.units.append(summon)
 	view.state = state
-	assert_eq(view._cost_summary(), "Your whole party survived.", "the summon dying must not read as the player losing a pawn")
+	assert_eq(view._cost_summary(), "Every one of your pawns survived.", "the summon dying must not read as the player losing a pawn")
 	view.free()
 
 func test_end_banner_shows_and_names_the_outcome_on_resolution() -> void:
@@ -176,7 +176,7 @@ func test_a_win_with_every_pawn_dead_reads_as_a_defeat() -> void:
 	view._show_outcome()
 	assert_eq(view._end_outcome_label.text, "Defeat",
 		"the party is gone and the engines finished the room; the banner still called it a win")
-	assert_true(view._end_cost_label.text.contains("None of your party survived."),
+	assert_true(view._end_cost_label.text.contains("None of your pawns survived."),
 		"the two halves of the banner must agree: %s" % view._end_cost_label.text)
 	assert_eq(view._end_outcome_label.get_theme_color("font_color"), Palette.TEAM_ENEMY,
 		"a Defeat drawn in the player's own colour is the contradiction in a second costume")

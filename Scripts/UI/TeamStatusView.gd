@@ -119,6 +119,8 @@ static func has_cooldown_actions(u: CombatUnit) -> bool:
 ## capped at MAX_COOLDOWN_CHIPS.
 static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 	var running: Array = []
+	if state.outcome != CombatState.Outcome.UNRESOLVED:
+		return running
 	for action_id in u.actions:
 		var a = Registry.get_action(action_id)
 		if a == null or a.cooldown_ticks <= 0:
@@ -144,6 +146,11 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 ## What the cooldown line says when there are no chips to draw on it. Empty
 ## string means chips are being drawn and this is not used.
 static func cooldown_summary(state: CombatState, u: CombatUnit) -> String:
+	## Issue 442: a cooldown is a statement about what this unit does next, and
+	## a resolved fight has no next. A blind playtester read a 29.1s countdown
+	## beside a card saying the fight took 15.6s and had ended.
+	if state.outcome != CombatState.Outcome.UNRESOLVED:
+		return ""
 	if not cooldowns_for(state, u).is_empty():
 		return ""
 	if not has_cooldown_actions(u):
