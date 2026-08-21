@@ -15,7 +15,7 @@ extends "res://Tests/TestCase.gd"
 const _PATTERNS := [
 	{"re": "(?<!again )for ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "status"},
 	{"re": "again for (?:another )?([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "cooldown"},
-	{"re": "Spends ([0-9]+(?:\\.[0-9]+)?) seconds? building", "field": "wind_up"},
+	{"re": "Spends ([0-9]+(?:\\.[0-9]+)?) seconds? (?:building|drawing)", "field": "wind_up"},
 	{"re": "once every ([0-9]+(?:\\.[0-9]+)?) seconds?", "field": "cycle"},
 ]
 
