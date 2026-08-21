@@ -248,7 +248,7 @@ func test_a_fully_mitigated_real_attack_still_shows_the_raw_roll() -> void:
 	e.amount_before_mitigation = 12
 	var line := view.line_for_event(state, e)
 	assert_false(line.is_empty(), "a fully-mitigated real attack must still be visible")
-	assert_true(line.contains("before mitigation"), line)
+	assert_true(line.contains("raw"), line)
 	view.free()
 
 ## Checked rather than assumed, per the issue's own instruction: MISS is
@@ -303,7 +303,7 @@ func test_unmitigated_hit_does_not_mention_a_second_number() -> void:
 	e.amount = 7
 	e.amount_before_mitigation = 7
 	var line := view.line_for_event(state, e)
-	assert_false(line.contains("before mitigation"), line)
+	assert_false(line.contains("("), line)
 	view.free()
 
 func test_death_line_names_the_unit() -> void:
@@ -376,7 +376,7 @@ func test_miss_reads_differently_from_a_landed_hit_and_a_fully_mitigated_one() -
 	assert_ne(landed_line, absorbed_line)
 	assert_true(miss_line.contains("misses"))
 	assert_false(landed_line.contains("misses"))
-	assert_true(absorbed_line.contains("before mitigation"), "a fully absorbed hit must still show the raw roll, not read like a miss")
+	assert_true(absorbed_line.contains("raw"), "a fully absorbed hit must still show the raw roll, not read like a miss")
 	view.free()
 
 # ---------------------------------------------------------------------------
