@@ -79,6 +79,15 @@ big; the only mass available to it is the box, and the file's *longest* side is
 what spans the unit's diameter. The old file was 24x19 and threw away a fifth of
 the height it was allowed. Replace it with a square one.
 
+**And that applies to every class sprite, which is what issue #437 measured.**
+The Warrior's ink used to take 0.18 of the box it is handed and the Warden's
+took 0.75, at the identical collision radius; the boss read bigger purely
+because its art filled the file. The five class sprites are now 24x24 and fill
+it, and a Warrior went from 550 to 1858 ink pixels on screen with nothing in the
+simulation touched. **A replacement that leaves transparent margin gives that
+back.** The name plate is text at a fixed size, so it does not shrink with the
+body: sprite fill is the only thing that moves the plate-to-body ratio.
+
 **The chain is gone from the sprite and that is a deliberate loss.** It was the
 one silhouette detail no other unit had, for the 270-range chain toss. At 24
 pixels every version of it came out as two or three cream pixels beside the body
@@ -162,13 +171,6 @@ magenta PNG was placed here as `abomination.png`, the real game was launched, an
 the Abomination rendered as that image in the fight. The file was then deleted
 and the polygon came back. `Tools/preview/` no longer contains that render, but
 the procedure above is the one that was exercised.
-
-**One place is still catching up.** The party select cards currently draw
-placeholders through a different code path and will keep doing so until pike
-switches them over — so with art dropped in, you will see it in the fight and not
-yet on the class cards. The function they need now exists. If you are reading
-this after that has landed, this paragraph should be gone; if it is still here,
-it is still true.
 
 ## One thing worth knowing
 
