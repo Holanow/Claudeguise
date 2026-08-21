@@ -250,7 +250,36 @@ func _draw() -> void:
 
 	if DisplayOptions.enabled(&"name_plates") and label_visible(u, _state):
 		var chip: Rect2 = plate_layout(_state).get(u.id, plate_rect(u, _state.units, 0))
+		_draw_plate_tether(u, chip)
 		_draw_label_chip(chip.position - position, u.display_name, Palette.TEXT, _label_font_size())
+
+## Issue 440: the line that says which pawn this name belongs to. Same device
+## as the bar tether below, for the same reason -- measured over 24,735 drawn
+## plate-ticks, a plate reads as the wrong pawn 45.7% of the time and as nobody
+## 10.5%, and 52.7% of that is already true at the un-moved home row, so
+## nearness to a body cannot be the cue that ties a name to its owner.
+func _draw_plate_tether(u: CombatUnit, chip: Rect2) -> void:
+	var points := plate_tether(u, _state.units, chip)
+	var color := Palette.team_color(u.team)
+	color.a = TETHER_ALPHA
+	# Backed, the way `_draw_targeting_line` is: the bar tether is ten pixels
+	# long and this one crosses the scrum, so it needs the same dark stroke
+	# under it to stay a line over a body.
+	draw_line(points[0] - position, points[1] - position,
+		Color(Palette.BACKGROUND, 0.5), TETHER_WIDTH * 3.0)
+	draw_line(points[0] - position, points[1] - position, color, TETHER_WIDTH)
+
+## The tether's two ends in ARENA-local pixels: the middle of the plate's
+## bottom edge, and the top of its own unit's bar stack.
+static func plate_tether(u: CombatUnit, units: Array, chip: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(chip.get_center().x, chip.end.y),
+		drawn_position(u, units) + Vector2(0.0, bar_stack_top(u))])
+
+## Where the bars end and the plate's gap begins, read back out of
+## `label_baseline` so the two cannot drift apart.
+static func bar_stack_top(u: CombatUnit) -> float:
+	return label_baseline(u) + BAR_GAP * DISPLAY_SCALE + float(_label_font_size())
 
 ## The baseline the name plate's text sits on, in this view's local space:
 ## clear of the body, the resource bar and the hp bar. Split out because

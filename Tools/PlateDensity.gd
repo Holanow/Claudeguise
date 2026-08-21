@@ -69,6 +69,12 @@ func _start_run() -> void:
 		"ticks": 0, "skipped": 0,
 		"max_plates": 0, "plate_pairs": 0, "cross_pairs": 0, "floater_pairs": 0,
 		"exhausted": 0,
+		"plates": 0, "on_other_body": 0,
+		"reads_as_wrong": 0, "reads_as_nobody": 0,
+		"home_reads_as_wrong": 0, "home_reads_as_nobody": 0, "moved": 0,
+		"b_wrong": 0, "b_nobody": 0, "b_home_wrong": 0, "b_home_nobody": 0,
+		"tether_px": [], "tether_crossings": 0, "tether_crosses_a_body": 0,
+		"dist": [], "travel": [], "worst_dist": 0.0, "worst_dist_line": "",
 		"tightest": Vector2(1e9, 1e9), "tightest_tick": 0, "tightest_n": 0,
 		"worst": 0, "worst_tick": 0, "worst_lines": [],
 	}
@@ -126,6 +132,8 @@ func _sample(state) -> void:
 		if int(ranks[id]) >= last_row:
 			_room["exhausted"] += 1
 
+	_sample_ownership(state)
+
 	var box := _body_box(state)
 	if box.size.x * box.size.y < _room["tightest"].x * _room["tightest"].y and _live(state) >= 4:
 		_room["tightest"] = box.size
@@ -143,6 +151,124 @@ func _sample(state) -> void:
 		_room["worst"] = pp + cp + ff
 		_room["worst_tick"] = state.tick
 		_room["worst_lines"] = lines.slice(0, 6)
+
+## Issue 440: where a plate ends up RELATIVE TO ITS OWNER. Which pawn a reader
+## would say it names, how far it travelled from its home row to get there, and
+## the same question asked of the home row so the row search can be told apart
+## from the offset every plate carries.
+func _sample_ownership(state) -> void:
+	var layout := UnitView.plate_layout(state)
+	for u in state.units:
+		if not u.alive or not layout.has(u.id):
+			continue
+		var chip: Rect2 = layout[u.id]
+		var at: Vector2 = chip.get_center()
+		var own := UnitView.drawn_position(u, state.units)
+		var dist := at.distance_to(own)
+		var home: Rect2 = UnitView.plate_rect(u, state.units, 0)
+		var travel := at.distance_to(home.get_center())
+		_room["plates"] += 1
+		_room["dist"].append(dist)
+		_room["travel"].append(travel)
+		if travel > 1.0:
+			_room["moved"] += 1
+		for other in state.units:
+			if other.id == u.id or not other.alive:
+				continue
+			var hit := chip.intersection(body_box_of(other, state.units))
+			if hit.size.x > 0.0 and hit.size.y > 0.0:
+				_room["on_other_body"] += 1
+		var reads_as = reader_owner(chip, state)
+		if reads_as == null:
+			_room["reads_as_nobody"] += 1
+		elif reads_as.id != u.id:
+			_room["reads_as_wrong"] += 1
+		var home_reads = reader_owner(home, state)
+		if home_reads == null:
+			_room["home_reads_as_nobody"] += 1
+		elif home_reads.id != u.id:
+			_room["home_reads_as_wrong"] += 1
+		var tether := UnitView.plate_tether(u, state.units, chip)
+		_room["tether_px"].append(tether[0].distance_to(tether[1]))
+		var crossed := 0
+		for other in state.units:
+			if other.id == u.id or not other.alive:
+				continue
+			if _segment_hits(tether[0], tether[1], body_box_of(other, state.units)):
+				crossed += 1
+		_room["tether_crossings"] += crossed
+		if crossed > 0:
+			_room["tether_crosses_a_body"] += 1
+		var b = reader_owner_b(chip, state)
+		if b == null:
+			_room["b_nobody"] += 1
+		elif b.id != u.id:
+			_room["b_wrong"] += 1
+		var b_home = reader_owner_b(home, state)
+		if b_home == null:
+			_room["b_home_nobody"] += 1
+		elif b_home.id != u.id:
+			_room["b_home_wrong"] += 1
+		if dist > _room["worst_dist"]:
+			_room["worst_dist"] = dist
+			_room["worst_dist_line"] = "\"%s\" %.0f px from its own unit, tick %d, reads as %s" % [
+				u.display_name, dist, state.tick,
+				"nobody" if reads_as == null else "\"%s\"" % reads_as.display_name]
+
+## Godot has no segment-rect test, and a leader line that runs through three
+## other pawns is the cost this device has to be judged on.
+static func _segment_hits(a: Vector2, b: Vector2, box: Rect2) -> bool:
+	if box.has_point(a) or box.has_point(b):
+		return true
+	var c := [box.position, Vector2(box.end.x, box.position.y), box.end, Vector2(box.position.x, box.end.y)]
+	for i in 4:
+		if Geometry2D.segment_intersects_segment(a, b, c[i], c[(i + 1) % 4]) != null:
+			return true
+	return false
+
+static func body_box_of(u, units: Array) -> Rect2:
+	var at := UnitView.drawn_position(u, units)
+	var box := UnitView.drawn_box(UnitView.shape_id(u), u.team, UnitView.display_radius(u))
+	return Rect2(at + box.position, box.size)
+
+## Which pawn a reader would say the plate names: the nearest body BELOW it
+## whose columns overlap the chip's, because a plate is drawn above its unit
+## and that is the only cue tying the two together. `null` is the playtester's
+## "floats in empty space with no unit under or near it".
+const READER_REACH := 120.0
+
+## A second reader model, because the first is a judgement call and a finding
+## that only holds under one model is not a finding: nearest body centre to the
+## point the plate hangs from, rather than nearest body below its columns.
+static func reader_owner_b(chip: Rect2, state):
+	var stem := Vector2(chip.get_center().x, chip.end.y)
+	var best = null
+	var best_d := READER_REACH
+	for u in state.units:
+		if not u.alive:
+			continue
+		var d: float = stem.distance_to(body_box_of(u, state.units).get_center())
+		if d < best_d:
+			best_d = d
+			best = u
+	return best
+
+static func reader_owner(chip: Rect2, state):
+	var best = null
+	var best_gap := INF
+	for u in state.units:
+		if not u.alive:
+			continue
+		var box := body_box_of(u, state.units)
+		if box.end.x < chip.position.x or box.position.x > chip.end.x:
+			continue
+		var gap: float = box.position.y - chip.end.y
+		if gap < -box.size.y or gap > READER_REACH:
+			continue
+		if absf(gap) < best_gap:
+			best_gap = absf(gap)
+			best = u
+	return best
 
 ## Every overlapping pair between two lists of labelled rects; `a == b` means
 ## the list against itself, and each pair is counted once either way.
@@ -199,11 +325,46 @@ func _print_room(r: Dictionary) -> void:
 	print("  max plates up at once %d | rows exhausted %d plate-ticks" % [r["max_plates"], r["exhausted"]])
 	print("  tightest body box %.0f x %.0f px at tick %d with %d alive"
 		% [r["tightest"].x, r["tightest"].y, r["tightest_tick"], r["tightest_n"]])
+	print("  plate-ticks %d | reads as the WRONG pawn %d (%.1f%%) | reads as NOBODY %d (%.1f%%)"
+		% [r["plates"], r["reads_as_wrong"], _pct(r["reads_as_wrong"], r["plates"]),
+			r["reads_as_nobody"], _pct(r["reads_as_nobody"], r["plates"])])
+	print("  at home row: wrong %d (%.1f%%), nobody %d (%.1f%%) | relocated %d (%.1f%%) | chip on another body %d (%.1f%%)"
+		% [r["home_reads_as_wrong"], _pct(r["home_reads_as_wrong"], r["plates"]),
+			r["home_reads_as_nobody"], _pct(r["home_reads_as_nobody"], r["plates"]),
+			r["moved"], _pct(r["moved"], r["plates"]),
+			r["on_other_body"], _pct(r["on_other_body"], r["plates"])])
+	print("  model B: wrong %d (%.1f%%), nobody %d (%.1f%%) | at home row wrong %d (%.1f%%), nobody %d (%.1f%%)"
+		% [r["b_wrong"], _pct(r["b_wrong"], r["plates"]), r["b_nobody"], _pct(r["b_nobody"], r["plates"]),
+			r["b_home_wrong"], _pct(r["b_home_wrong"], r["plates"]),
+			r["b_home_nobody"], _pct(r["b_home_nobody"], r["plates"])])
+	print("  tether px: %s | crosses another body %d (%.1f%%), %d crossings"
+		% [_percentiles(r["tether_px"]), r["tether_crosses_a_body"],
+			_pct(r["tether_crosses_a_body"], r["plates"]), r["tether_crossings"]])
+	print("  distance plate->own unit px: %s" % _percentiles(r["dist"]))
+	print("  travel from home row px:     %s" % _percentiles(r["travel"]))
+	if r["worst_dist_line"] != "":
+		print("      worst: %s" % r["worst_dist_line"])
 	print("  collisions summed over every tick: plate/plate %d, plate/floater %d, floater/floater %d"
 		% [r["plate_pairs"], r["cross_pairs"], r["floater_pairs"]])
 	print("  worst tick %d with %d overlapping pairs:" % [r["worst_tick"], r["worst"]])
 	for line in r["worst_lines"]:
 		print("      %s" % line)
+
+static func _pct(n, of) -> float:
+	return 0.0 if int(of) == 0 else 100.0 * float(n) / float(of)
+
+## Percentiles rather than a mean: the complaint is about the tail, and a mean
+## over every quiet tick hides it.
+static func _percentiles(values: Array) -> String:
+	if values.is_empty():
+		return "no plates"
+	var sorted := values.duplicate()
+	sorted.sort()
+	var out := PackedStringArray()
+	for p in [50, 75, 90, 95, 99, 100]:
+		var i := clampi(int(round(float(p) / 100.0 * (sorted.size() - 1))), 0, sorted.size() - 1)
+		out.append("p%d %.0f" % [p, sorted[i]])
+	return " | ".join(out)
 
 func _report() -> void:
 	var pp := 0
@@ -211,8 +372,37 @@ func _report() -> void:
 	var ff := 0
 	var ticks := 0
 	var ex := 0
+	var plates := 0
+	var mis := 0
+	var onbody := 0
+	var dist: Array = []
+	var travel: Array = []
+	var home_mis := 0
+	var nobody := 0
+	var home_nobody := 0
+	var bw := 0
+	var bn := 0
+	var bhw := 0
+	var bhn := 0
+	var tether_px: Array = []
+	var tcross := 0
+	var tbody := 0
+	var moved := 0
 	var worst := {}
 	for r in _rooms:
+		plates += int(r["plates"])
+		mis += int(r["reads_as_wrong"])
+		nobody += int(r["reads_as_nobody"])
+		onbody += int(r["on_other_body"])
+		home_mis += int(r["home_reads_as_wrong"])
+		home_nobody += int(r["home_reads_as_nobody"])
+		bw += int(r["b_wrong"]); bn += int(r["b_nobody"])
+		bhw += int(r["b_home_wrong"]); bhn += int(r["b_home_nobody"])
+		tether_px.append_array(r["tether_px"])
+		tcross += int(r["tether_crossings"]); tbody += int(r["tether_crosses_a_body"])
+		moved += int(r["moved"])
+		dist.append_array(r["dist"])
+		travel.append_array(r["travel"])
 		pp += int(r["plate_pairs"])
 		cp += int(r["cross_pairs"])
 		ff += int(r["floater_pairs"])
@@ -223,6 +413,17 @@ func _report() -> void:
 	print("")
 	print("TOTALS over %d runs, %d ticks: plate/plate %d, plate/floater %d, floater/floater %d, rows exhausted %d"
 		% [_rooms.size(), ticks, pp, cp, ff, ex])
+	print("OWNERSHIP over %d drawn plate-ticks: reads as the WRONG pawn %d (%.1f%%), reads as NOBODY %d (%.1f%%)"
+		% [plates, mis, _pct(mis, plates), nobody, _pct(nobody, plates)])
+	print("AT HOME ROW: wrong %d (%.1f%%), nobody %d (%.1f%%). Relocated %d (%.1f%%). Chip on another body %d (%.1f%%)"
+		% [home_mis, _pct(home_mis, plates), home_nobody, _pct(home_nobody, plates),
+			moved, _pct(moved, plates), onbody, _pct(onbody, plates)])
+	print("MODEL B over the same plate-ticks: wrong %d (%.1f%%), nobody %d (%.1f%%); at home row wrong %d (%.1f%%), nobody %d (%.1f%%)"
+		% [bw, _pct(bw, plates), bn, _pct(bn, plates), bhw, _pct(bhw, plates), bhn, _pct(bhn, plates)])
+	print("TETHER px: %s | crosses another body %d (%.1f%%), %d crossings in all"
+		% [_percentiles(tether_px), tbody, _pct(tbody, plates), tcross])
+	print("DISTANCE plate->own unit px: %s" % _percentiles(dist))
+	print("TRAVEL from home row px:     %s" % _percentiles(travel))
 	if not worst.is_empty():
 		print("WORST TICK anywhere: %s tick %d, %d overlapping pairs"
 			% [worst["id"], worst["worst_tick"], worst["worst"]])
