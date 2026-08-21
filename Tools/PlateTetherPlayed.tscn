@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/PlateTetherPlayed.gd" id="1_played"]
+
+[node name="PlateTetherPlayed" type="Node"]
+script = ExtResource("1_played")
