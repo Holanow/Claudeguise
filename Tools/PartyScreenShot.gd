@@ -86,6 +86,31 @@ func _run() -> void:
 	print("PartyScreenShot: after,  %s" % _budget_line(select))
 	await _shot("wren_party_wis_moves_the_budget")
 
+	## Issue 396: six entries ran past the bottom of the window with no scroll,
+	## so a player could not tell whether the list went on.
+	var armor_picker := _armor_picker(select)
+	if armor_picker != null:
+		armor_picker.show_popup()
+		await _settle()
+		var popup := armor_picker.get_popup()
+		var screen := int(get_viewport().get_visible_rect().size.y)
+		var bottom: int = popup.position.y + popup.size.y
+		print("PartyScreenShot: armor popup items=%d top=%d bottom=%d screen=%d fits=%s" % [
+			popup.item_count, popup.position.y, bottom, screen, bottom <= screen])
+		await _shot("wren_party_armor_popup")
+		popup.hide()
+
+## The picker on the row whose label is "Armor", by the label rather than by
+## index: the slot order is EquipPanel's to change.
+func _armor_picker(select) -> OptionButton:
+	var seen_armor := false
+	for n in _walk(select._equip_panel):
+		if n is Label and n.text == "Armor":
+			seen_armor = true
+		elif seen_armor and n is OptionButton:
+			return n
+	return null
+
 func _budget_line(select) -> String:
 	for n in _walk(select._inspect_panel):
 		if n is Label and n.text.contains("plan blocks used"):

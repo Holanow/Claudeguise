@@ -1358,3 +1358,103 @@ func _all_label_text(node: Node) -> String:
 	for child in node.get_children():
 		out += _all_label_text(child)
 	return out
+
+## ---------------------------------------------------------------------------
+## Issue 396: the party screen's copy of this editor
+
+func _embedded_panel(pawn: PawnData) -> InspectPanel:
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.embed()
+	panel.show_pawn(pawn)
+	return panel
+
+## "Two of six columns per row render completely empty -- just a chevron."
+func test_no_chip_can_render_as_a_bare_chevron() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always act")]
+	var panel := _embedded_panel(pawn)
+	for row in _plan_rows(panel):
+		var chips := _find_option_buttons(row)
+		assert_true(chips.size() > 0, "the row has chips to check")
+		for chip in chips:
+			assert_true(chip.custom_minimum_size.x >= InspectPanel.CHIP_MIN_WIDTH,
+				"%s may shrink to a bare chevron" % chip.name)
+	panel.free()
+
+## The Plans screen's one-row shape is what issue 96 asked for and what the
+## playtester called readable, so only the embedded copy wraps.
+func test_the_row_stays_one_line_on_the_full_width_plans_screen() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always act")]
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn])
+	assert_true(panel._plan_row(pawn.plans[0], pawn, 0) is HBoxContainer,
+		"the full-width screen is the known-good reference and must not change")
+	panel.free()
+
+## Embedded there is about 480px and the number, arrows and X take 168 of it.
+func test_the_row_wraps_onto_two_lines_in_a_column() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always act")]
+	var panel := _embedded_panel(pawn)
+	var row: Control = _plan_rows(panel)[0]
+	assert_true(row is VBoxContainer, "the chips need a line of their own in a column")
+	assert_eq(row.get_child_count(), 2, "one line of controls, one of chips")
+	var all_chips := _find_option_buttons(row).size()
+	assert_true(all_chips > 0, "the fixture has chips to place")
+	assert_eq(_find_option_buttons(row.get_child(0)).size(), 0,
+		"no chip shares the line with the arrows")
+	assert_eq(_find_option_buttons(row.get_child(1)).size(), all_chips,
+		"every chip is on the second line")
+	panel.free()
+
+## Both lines still belong to one row: the X and the arrows must still act on it.
+func test_the_wrapped_row_keeps_its_controls() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("A"), _make_plan("B")]
+	var panel := _embedded_panel(pawn)
+	var rows := _plan_rows(panel)
+	assert_eq(rows.size(), 2)
+	var texts := []
+	for b in _find_buttons(rows[0]):
+		texts.append(b.text)
+	for want in ["^", "v", "X"]:
+		assert_true(texts.has(want), "the wrapped row lost %s: %s" % [want, str(texts)])
+	panel.free()
+
+## Five wrapped lines of rules in a column that fits two plan rows.
+func test_the_budget_rules_move_to_hover_in_a_column() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always act")]
+	var embedded := _embedded_panel(pawn)
+	var full := InspectPanel.create()
+	full._ready()
+	full.open([pawn])
+
+	var short := _budget_label(embedded)
+	assert_true(short.text.contains("plan blocks used"), short.text)
+	assert_false(short.text.contains("A condition costs 0"),
+		"the rules are five wrapped lines here: " + short.text)
+	assert_true(short.tooltip_text.contains("A condition costs 0"),
+		"and they have to still be readable somewhere: " + short.tooltip_text)
+	assert_true(_budget_label(full).text.contains("A condition costs 0"),
+		"the full-width screen keeps them in place")
+	embedded.free()
+	full.free()
+
+func _budget_label(panel) -> Label:
+	for child in panel._detail_box.get_children():
+		if child is Label and child.text.contains("plan blocks used"):
+			return child
+	return null
+
+## Issue 396: six armor entries ran past the bottom of a 720px window.
+func test_a_dropdown_is_capped_below_the_screen_it_opens_on() -> void:
+	var control := Control.new()
+	assert_true(AppTheme.popup_max_height(control) < 720,
+		"a popup allowed the whole screen has nowhere to put its scrollbar")
+	assert_true(AppTheme.popup_max_height(control) > 200,
+		"and one capped too hard shows nothing")
+	control.free()

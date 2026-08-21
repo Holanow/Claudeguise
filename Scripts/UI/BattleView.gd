@@ -166,7 +166,7 @@ func _build_top_bar() -> void:
 	var view_button := Button.new()
 	view_button.text = "What to show"
 	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	view_button.pressed.connect(func(): _display_options.toggle_visible())
+	view_button.pressed.connect(_on_view_options_pressed)
 	controls.add_child(view_button)
 
 	var plans_button := Button.new()
@@ -182,8 +182,15 @@ func _build_top_bar() -> void:
 		_display_options._ready()
 	# Under the control row it belongs to. Issue 145 taught me to add_child
 	# before any manual _ready(), or the engine runs a second one.
-	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
+	_display_options.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
 	_display_options.changed.connect(_rebuild_log)
+
+## The hint sits at the bottom of the arena band and the options panel opens
+## across it, so one of them has to give and it is not the panel.
+func _on_view_options_pressed() -> void:
+	_display_options.toggle_visible()
+	if _click_hint != null:
+		_click_hint.visible = not card_discovered and not _display_options.visible
 
 ## Issue 319. A log filter that only applies from now on cannot answer "what
 ## killed my Siege Master", which is the question the ground ticks exist for, so
@@ -211,7 +218,10 @@ func _build_team_status() -> void:
 
 ## Where the top bar's backdrop ends. Still the bar's own height; the panel no
 ## longer sits under it.
-const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_S
+## Issue 396: this counted ONE summary row while two are drawn, so the backdrop
+## stopped 20px above the Enemies bar and the "What to show" panel opened on top
+## of it.
+const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + 2.0 * _SUMMARY_ROW_HEIGHT + Palette.SPACE_XS + Palette.SPACE_S
 
 const _PANEL_TOP := Palette.SPACE_M
 
@@ -543,6 +553,16 @@ func _layout_arena() -> void:
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
 	_place_click_hint(size.x >= size.y)
+	if _unit_card != null:
+		_unit_card.body_ceiling = card_body_ceiling(size.y)
+
+## Issue 396. The card sits between the toolbar and the bottom margin and may
+## have all of it. The flat 380 happens to be exactly right at 720 and is wrong
+## at every other height -- too tall to fit at 600, and 190 pixels of unused
+## screen at 900.
+static func card_body_ceiling(viewport_height: float) -> float:
+	var free := viewport_height - _TOP_BAR_BOTTOM - 2.0 * Palette.SPACE_M - UnitCard.CHROME_HEIGHT
+	return maxf(free, UnitCard.MIN_BODY_HEIGHT)
 
 ## Out of the log's way in either orientation: the log is a right-hand column in
 ## landscape and a full-width band across the bottom in portrait.

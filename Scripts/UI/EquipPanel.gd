@@ -236,6 +236,7 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	picker.fit_to_longest_item = false
 	picker.clip_text = true
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	AppTheme.keep_popup_on_screen(picker)
 	picker.add_item(EMPTY_CHOICE)
 	var current := 0
 	for i in items.size():
