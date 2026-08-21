@@ -404,3 +404,89 @@ func test_the_card_takes_the_ceiling_the_view_gives_it() -> void:
 	assert_true(view._unit_card.body_ceiling > 0.0,
 		"the card was never told how much screen it has")
 	view.free()
+
+## ---------------------------------------------------------------------------
+## Issue 428: the inspector worked and no human could hit it. The click target
+## was the drawn body, about 11x22 pixels, under a name plate twice its size.
+
+const _PICK := Palette.TOUCH_TARGET_MIN * 0.5
+
+func test_a_point_on_a_name_plate_picks_that_unit() -> void:
+	DisplayOptions.reset()
+	var view = _spawn_battle_view()
+	var u: CombatUnit = view.state.units[0]
+	var plate: Rect2 = UnitView.plate_layout(view.state).get(u.id, Rect2())
+	assert_true(plate.size.x > 0.0, "the party's plate is always up, so there is one to aim at")
+	assert_eq(BattleView.unit_at(view.state, plate.get_center()), u.id,
+		"the biggest, most legible mark on the unit answered for nobody")
+	view.free()
+
+## The negative: a name nobody can see is not a target. Aimed at the far end of
+## a long plate so the point is outside the body's own touch box either way.
+func test_a_name_plate_that_is_not_drawn_is_not_a_target() -> void:
+	DisplayOptions.reset()
+	var view = _spawn_battle_view()
+	var u: CombatUnit = view.state.units[0]
+	u.display_name = "A Considerably Longer Name Than That"
+	view.state.tick += 1
+	var plate: Rect2 = UnitView.plate_layout(view.state).get(u.id, Rect2())
+	var edge := Vector2(plate.position.x + 2.0, plate.get_center().y)
+	assert_true(absf(edge.x - BattleView.drawn_position(view.state, u).x) > _PICK,
+		"sanity: this point must be outside the body's own target")
+	assert_eq(BattleView.unit_at(view.state, edge), u.id)
+	DisplayOptions.set_enabled(&"name_plates", false)
+	view.state.tick += 1
+	assert_eq(BattleView.unit_at(view.state, edge), -1,
+		"a plate that is not drawn must not answer for anybody")
+	DisplayOptions.reset()
+	view.free()
+
+func test_a_small_body_still_gets_a_touch_sized_target() -> void:
+	DisplayOptions.reset()
+	var view = _spawn_battle_view()
+	var u: CombatUnit = view.state.units[0]
+	u.radius = 8.0
+	var at := BattleView.drawn_position(view.state, u)
+	assert_eq(BattleView.unit_at(view.state, at + Vector2(_PICK - 1.0, 0.0)), u.id,
+		"an 11-pixel goblin must not be an 11-pixel target")
+	assert_eq(BattleView.unit_at(view.state, at + Vector2(_PICK * 4.0, 0.0)), -1,
+		"and the target must still end somewhere")
+	view.free()
+
+## Five pawns in a 40-pixel knot need a stated tie-break, rather than child
+## order deciding it. Nearest drawn centre wins.
+func test_the_nearest_drawn_centre_wins_when_two_targets_overlap() -> void:
+	DisplayOptions.reset()
+	var view = _spawn_battle_view()
+	var a: CombatUnit = view.state.units[0]
+	var b: CombatUnit = view.state.units[1]
+	a.radius = 8.0
+	b.radius = 8.0
+	b.position = a.position + Vector2(30.0, 0.0)
+	var pa := BattleView.drawn_position(view.state, a)
+	var pb := BattleView.drawn_position(view.state, b)
+	assert_true(pa.distance_to(pb) < _PICK * 2.0, "sanity: the two targets must overlap")
+	assert_eq(BattleView.unit_at(view.state, pa.lerp(pb, 0.2)), a.id)
+	assert_eq(BattleView.unit_at(view.state, pa.lerp(pb, 0.8)), b.id)
+	view.free()
+
+## The arena is drawn at about 0.83 at 1280x720, so a target measured in world
+## pixels reads smaller than that on screen.
+func test_the_minimum_target_is_measured_on_screen_not_in_world_pixels() -> void:
+	assert_true(BattleView.pick_radius_for_scale(0.5) > BattleView.pick_radius_for_scale(1.0),
+		"a shrunk arena needs a wider world-space target to stay the same size on screen")
+	assert_eq(BattleView.pick_radius_for_scale(1.0), _PICK)
+	assert_eq(BattleView.pick_radius_for_scale(0.0), _PICK, "a degenerate scale must not divide by zero")
+
+## The hint and the plans screen's fallback row printed through each other at
+## y~688, which is the one place the promise is read.
+func test_the_click_hint_is_hidden_while_the_plans_screen_is_open() -> void:
+	BattleView.card_discovered = false
+	var view = _spawn_battle_view()
+	assert_true(view._click_hint.visible, "sanity: the hint starts up")
+	view._open_plans(null)
+	assert_false(view._click_hint.visible,
+		"the hint printed through the plans screen's own bottom row")
+	view._inspect_panel.close()
+	assert_true(view._click_hint.visible, "and it comes back once the screen is shut")
+	view.free()

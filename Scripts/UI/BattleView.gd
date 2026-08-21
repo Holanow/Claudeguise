@@ -185,12 +185,20 @@ func _build_top_bar() -> void:
 	_display_options.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
 	_display_options.changed.connect(_rebuild_log)
 
-## The hint sits at the bottom of the arena band and the options panel opens
-## across it, so one of them has to give and it is not the panel.
+## The hint sits at the bottom of the arena band and the options panel and the
+## plans screen both open across it, so one of them has to give and it is not
+## them. Issue 428: the plans screen's fallback row and this hint printed
+## through each other at y~688.
+func _sync_click_hint() -> void:
+	if _click_hint == null:
+		return
+	var covered := (_display_options != null and _display_options.visible)
+	covered = covered or (_inspect_panel != null and _inspect_panel.visible)
+	_click_hint.visible = not card_discovered and not covered
+
 func _on_view_options_pressed() -> void:
 	_display_options.toggle_visible()
-	if _click_hint != null:
-		_click_hint.visible = not card_discovered and not _display_options.visible
+	_sync_click_hint()
 
 ## Issue 319. A log filter that only applies from now on cannot answer "what
 ## killed my Siege Master", which is the question the ground ticks exist for, so
@@ -312,6 +320,7 @@ func _open_plans(focus: PawnData) -> void:
 		_unit_card.dismiss()
 	if _inspect_panel != null and config != null:
 		_inspect_panel.open(config.party, state, focus)
+	_sync_click_hint()
 
 ## Issue 397: this used to call _on_inspect_pressed, which always opened the
 ## party's first pawn whichever card the button was on.
@@ -365,7 +374,7 @@ static var card_discovered: bool = false
 func select_unit_at(point: Vector2) -> void:
 	if state == null or _unit_card == null:
 		return
-	var id := unit_at(state, point)
+	var id := unit_at(state, point, _pick_radius())
 	if id < 0:
 		_unit_card.close()
 		return
@@ -378,6 +387,7 @@ func select_unit_at(point: Vector2) -> void:
 		_click_hint.visible = false
 
 func _on_card_closed() -> void:
+	_sync_click_hint()
 	if _card_owns_pause:
 		_card_owns_pause = false
 		set_paused(false)
@@ -394,21 +404,32 @@ func _place_unit_card() -> void:
 	_unit_card.offset_top = -Palette.SPACE_M
 	_unit_card.offset_bottom = -Palette.SPACE_M
 
+## Half a touch target, in the arena's own world pixels. The arena is drawn at
+## about 0.83 at 1280x720, so a target measured in world pixels reads smaller
+## than that on screen, which is the size a finger and a mouse both care about.
+static func pick_radius_for_scale(arena_scale: float) -> float:
+	return Palette.TOUCH_TARGET_MIN * 0.5 / (arena_scale if arena_scale > 0.0 else 1.0)
+
+func _pick_radius() -> float:
+	return pick_radius_for_scale(_arena.scale.x if _arena != null else 1.0)
+
 ## Which unit a click at `point` (arena-local, which is world space) lands on.
-## The shield plate counts as part of its shielder: the playtester could not
-## tell it from terrain, so it has to answer for the unit holding it.
-##
-## Everything here measures from where the unit is **drawn**, not from
-## `CombatUnit.position`. A melee scrum nudges bodies apart by up to one and a
-## half radii (`UnitView.visual_offset`), and a click on the sprite is a click
-## on the sprite.
-static func unit_at(state: CombatState, point: Vector2) -> int:
+## Bodies answer first, grown to at least `min_radius` so an 11-pixel goblin is
+## not an 11-pixel target; a drawn name plate answers only where no body does,
+## because a 40-pixel plate reaches over the pawn standing behind it. Within
+## either pass the nearest DRAWN centre wins, which is the tie-break in a knot.
+## The shield plate counts as part of its shielder.
+static func unit_at(state: CombatState, point: Vector2, min_radius: float = Palette.TOUCH_TARGET_MIN * 0.5) -> int:
+	var on_body := _nearest(state, point, func(u): return _hits(state, u, point, min_radius))
+	if on_body >= 0:
+		return on_body
+	return _nearest(state, point, func(u): return _hits_plate(state, u, point))
+
+static func _nearest(state: CombatState, point: Vector2, hits: Callable) -> int:
 	var best := -1
 	var best_distance := INF
 	for u in state.units:
-		if not u.alive:
-			continue
-		if not _hits(state, u, point):
+		if not u.alive or not hits.call(u):
 			continue
 		var distance := drawn_position(state, u).distance_to(point)
 		if distance < best_distance:
@@ -416,13 +437,21 @@ static func unit_at(state: CombatState, point: Vector2) -> int:
 			best = u.id
 	return best
 
+## The name plate's own chip, and only when it is actually on screen: a name
+## nobody can see must not answer for anybody.
+static func _hits_plate(state: CombatState, u: CombatUnit, point: Vector2) -> bool:
+	if not DisplayOptions.enabled(&"name_plates"):
+		return false
+	var chip: Rect2 = UnitView.plate_layout(state).get(u.id, Rect2())
+	return chip.size.x > 0.0 and chip.has_point(point)
+
 static func drawn_position(state: CombatState, u: CombatUnit) -> Vector2:
 	return u.position + UnitView.visual_offset(u, state.units)
 
-static func _hits(state: CombatState, u: CombatUnit, point: Vector2) -> bool:
+static func _hits(state: CombatState, u: CombatUnit, point: Vector2, min_radius: float) -> bool:
 	var at := drawn_position(state, u)
-	var radius := UnitView.display_radius(u)
-	var box := UnitView.drawn_box(UnitView.shape_id(u), u.team, radius)
+	var radius := maxf(UnitView.display_radius(u), min_radius)
+	var box := UnitView.drawn_box(UnitView.shape_id(u), u.team, UnitView.display_radius(u))
 	box.position += at
 	var grow_x := maxf(radius - box.size.x * 0.5, 0.0)
 	var grow_y := maxf(radius - box.size.y * 0.5, 0.0)
@@ -634,8 +663,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_end_dim.visible = false
 	if _unit_card != null:
 		_unit_card.dismiss()
-	if _click_hint != null:
-		_click_hint.visible = not card_discovered
+	_sync_click_hint()
 	_card_owns_pause = false
 	_update_team_summary()
 	if _team_status != null:
@@ -667,7 +695,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	## The other half of issue 397's discoverability: the pointer changes over
 	## anything you can open, which is the affordance every other program uses.
 	if event is InputEventMouseMotion and _arena != null and state != null:
-		_set_hand_cursor(unit_at(state, _arena.make_input_local(event).position) >= 0)
+		_set_hand_cursor(unit_at(state, _arena.make_input_local(event).position, _pick_radius()) >= 0)
 
 func _set_hand_cursor(hand: bool) -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if hand else Input.CURSOR_ARROW)
