@@ -43,6 +43,11 @@ var _inspect_panel = null
 var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
 
+var _unit_card: UnitCard = null
+## Whether the pause currently in force is one a unit click put there, so
+## closing the card gives the fight back only when the card took it.
+var _card_owns_pause: bool = false
+
 func _ready() -> void:
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
@@ -56,6 +61,7 @@ func _ready() -> void:
 	_build_top_bar()
 	_build_team_status()
 	_build_end_banner()
+	_build_unit_card()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
 	# added scene to reach the HUD nodes begin() needs, without a live viewport.
 	if is_inside_tree():
@@ -286,6 +292,88 @@ func _on_inspect_pressed() -> void:
 	if _inspect_panel != null and config != null:
 		_inspect_panel.open(config.party, state)
 
+## Issue 377: a blind playtester clicked and hovered a sprite four times and got
+## nothing back, so the arena was not a way in to anything the game knows.
+func _build_unit_card() -> void:
+	_unit_card = UnitCard.create()
+	get_node("Hud").add_child(_unit_card)
+	_unit_card.closed.connect(_on_card_closed)
+	_unit_card.plans_requested.connect(_on_inspect_pressed)
+	_place_unit_card()
+
+## Clicking pauses. Reading a unit takes longer than the fight gives you, and
+## the alternative -- a card whose every number moves while you read it -- is
+## the thing the issue is about.
+func select_unit_at(point: Vector2) -> void:
+	if state == null or _unit_card == null:
+		return
+	var id := unit_at(state, point)
+	if id < 0:
+		_unit_card.close()
+		return
+	if not paused:
+		set_paused(true)
+		_card_owns_pause = true
+	_unit_card.show_unit(state, state.unit(id))
+
+func _on_card_closed() -> void:
+	if _card_owns_pause:
+		_card_owns_pause = false
+		set_paused(false)
+
+## Docked bottom-left, not beside the unit. Beside was the first version and the
+## click probe caught it: a card placed over the field ate the next click, so
+## eight of eleven sprites still reported "nothing happened" -- the exact
+## complaint the issue is about, reintroduced by the fix for it.
+func _place_unit_card() -> void:
+	_unit_card.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_unit_card.grow_horizontal = Control.GROW_DIRECTION_END
+	_unit_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_unit_card.offset_left = Palette.SPACE_M
+	_unit_card.offset_top = -Palette.SPACE_M
+	_unit_card.offset_bottom = -Palette.SPACE_M
+
+## Which unit a click at `point` (arena-local, which is world space) lands on.
+## The shield plate counts as part of its shielder: the playtester could not
+## tell it from terrain, so it has to answer for the unit holding it.
+##
+## Everything here measures from where the unit is **drawn**, not from
+## `CombatUnit.position`. A melee scrum nudges bodies apart by up to one and a
+## half radii (`UnitView.visual_offset`), and a click on the sprite is a click
+## on the sprite.
+static func unit_at(state: CombatState, point: Vector2) -> int:
+	var best := -1
+	var best_distance := INF
+	for u in state.units:
+		if not u.alive:
+			continue
+		if not _hits(state, u, point):
+			continue
+		var distance := drawn_position(state, u).distance_to(point)
+		if distance < best_distance:
+			best_distance = distance
+			best = u.id
+	return best
+
+static func drawn_position(state: CombatState, u: CombatUnit) -> Vector2:
+	return u.position + UnitView.visual_offset(u, state.units)
+
+static func _hits(state: CombatState, u: CombatUnit, point: Vector2) -> bool:
+	var at := drawn_position(state, u)
+	var radius := UnitView.display_radius(u)
+	var box := UnitView.drawn_box(UnitView.shape_id(u), u.team, radius)
+	box.position += at
+	var grow_x := maxf(radius - box.size.x * 0.5, 0.0)
+	var grow_y := maxf(radius - box.size.y * 0.5, 0.0)
+	if box.grow_individual(grow_x, grow_y, grow_x, grow_y).has_point(point):
+		return true
+	if not ShieldWall.is_up(u):
+		return false
+	# The plate is drawn from `u.position`, not from the nudged draw position:
+	# `ShieldWall.draw_all` sets the canvas transform to the unit's own place.
+	var plate := ShieldWall.wall_points(u.facing, ShieldWall.half_width(), u.radius * UnitView.DISPLAY_SCALE)
+	return Geometry2D.is_point_in_polygon(point - u.position, plate)
+
 ## e.g. 197 ticks at 30 ticks/second reads as "6.6s" -- a player has never
 ## seen a tick, and won't start now.
 static func _format_duration(ticks: int) -> String:
@@ -462,6 +550,10 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_outcome_label.text = ""
 	_end_banner.visible = false
 	_end_dim.visible = false
+	if _unit_card != null:
+		_unit_card.visible = false
+		_unit_card.unit_id = -1
+	_card_owns_pause = false
 	_update_team_summary()
 	if _team_status != null:
 		_team_status.sync(state)
@@ -477,6 +569,15 @@ func set_paused(p: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
 		set_paused(not paused)
+		if is_inside_tree():
+			get_viewport().set_input_as_handled()
+		return
+	# Left button only, and only a press: a Control that wanted this click has
+	# already taken it before _unhandled_input ever runs.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _arena == null or state == null:
+			return
+		select_unit_at(_arena.make_input_local(event).position)
 		if is_inside_tree():
 			get_viewport().set_input_as_handled()
 
@@ -535,6 +636,8 @@ func _process(delta: float) -> void:
 	# Issue 113. Same place and same trigger as the unit views: "live means live"
 	if _team_status != null:
 		_team_status.sync(state)
+	if _unit_card != null:
+		_unit_card.refresh(state)
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_show_outcome()
 		set_process(false)
