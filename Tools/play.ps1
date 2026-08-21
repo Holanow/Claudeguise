@@ -23,20 +23,33 @@ if (-not (Test-Path $godot)) {
 $cache = Join-Path $repo ".godot\global_script_class_cache.cfg"
 
 # Stale means: absent, or older than the newest script declaring a class_name.
+# Stale means: absent, or older than the newest thing an import would pick up.
+#
+# Scripts alone is not enough. A blind playtester launched into a flat empty
+# window for over two minutes and assumed the app had hung: the class cache was
+# current, so this skipped the import, and Godot then imported a newly baked PNG
+# at startup with nothing drawn. Assets and scenes count too.
 $needsImport = -not (Test-Path $cache)
 if (-not $needsImport) {
     $cacheTime = (Get-Item $cache).LastWriteTimeUtc
-    $newest = Get-ChildItem -Path (Join-Path $repo 'Scripts') -Recurse -Include *.gd |
-        Where-Object { (Select-String -Path $_.FullName -Pattern '^class_name ' -Quiet) } |
-        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    $newest = $null
+    foreach ($dir in @('Scripts', 'Assets', 'Scenes')) {
+        $path = Join-Path $repo $dir
+        if (-not (Test-Path $path)) { continue }
+        $candidate = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -ne '.import' } |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        if ($candidate -and (-not $newest -or $candidate.LastWriteTimeUtc -gt $newest.LastWriteTimeUtc)) {
+            $newest = $candidate
+        }
+    }
     if ($newest -and $newest.LastWriteTimeUtc -gt $cacheTime) {
         $needsImport = $true
-        Write-Host ("class cache is older than {0}" -f $newest.Name)
+        Write-Host ("import is older than {0}" -f $newest.Name)
     }
 }
-
 if ($needsImport) {
-    Write-Host "Rebuilding the class cache (about a minute the first time)..."
+    Write-Host "Importing (about a minute the first time). The game will not start until this finishes."
     $log = Join-Path $env:TEMP ("claudeguise-play-import-" + [guid]::NewGuid().ToString('N') + ".txt")
     cmd /c "`"$godot`" --headless --editor --quit --path `"$repo`" > `"$log`" 2>&1"
     Remove-Item $log -ErrorAction SilentlyContinue
