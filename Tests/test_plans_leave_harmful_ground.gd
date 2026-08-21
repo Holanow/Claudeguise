@@ -1,0 +1,235 @@
+extends "res://Tests/TestCase.gd"
+
+
+## Issue 420: `leave_harmful_ground`, the third MOVEMENT op and the first that
+## is not defined relative to a target.
+
+## A band 200 wide, the width of the Burn Pit's, centred on the pawn's spot.
+const BAND := Rect2(-100.0, -270.0, 200.0, 540.0)
+
+func _fire(rect: Rect2) -> Terrain.Feature:
+	return Terrain.hazard(rect, 2, CG.DamageType.FIRE)
+
+
+func _plan(action_id: StringName = &"", gated: bool = false) -> Plan:
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_nearest_enemy"
+	var movement := PlanBlock.new()
+	movement.kind = PlanBlock.Kind.MOVEMENT
+	movement.op = &"leave_harmful_ground"
+	var blocks: Array[PlanBlock] = [targeting, movement]
+	if action_id != &"":
+		var action := PlanBlock.new()
+		action.kind = PlanBlock.Kind.ACTION
+		action.op = &"use_action"
+		action.args = {"action_id": action_id}
+		blocks.append(action)
+	var p := Plan.new()
+	p.id = &"off_the_fire"
+	p.display_name = "Off the fire"
+	p.blocks = blocks
+	if gated:
+		var condition := PlanBlock.new()
+		condition.kind = PlanBlock.Kind.CONDITION
+		condition.op = &"self_on_harmful_ground"
+		p.condition = condition
+	return p
+
+
+## One pawn, one living enemy, and whatever terrain the case is about.
+func _situation(plan: Plan, pawn_at: Vector2, foe_at: Vector2, features: Array) -> Array:
+	var pawn := PawnFactory.make_starter_pawn(&"geysermancer", &"p0", "P")
+	pawn.plans = [plan]
+	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var me: CombatUnit = null
+	var foe: CombatUnit = null
+	for u in state.units:
+		if u.team == CG.Team.PLAYER and me == null:
+			me = u
+		elif u.team == CG.Team.ENEMY and foe == null:
+			foe = u
+	for u in state.units:
+		if u.team == CG.Team.ENEMY and u != foe:
+			u.alive = false
+	me.position = pawn_at
+	me.resource = me.resource_max
+	foe.position = foe_at
+	state.terrain = features
+	return [state, me, foe]
+
+
+func test_a_pawn_standing_in_fire_is_sent_to_ground_that_does_not_harm() -> void:
+	var s := _situation(_plan(), Vector2(0.0, 0.0), Vector2(300.0, 0.0), [_fire(BAND)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_not_null(intent, "a movement block owns the tick; it must not fall through silently")
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_eq(intent.source_plan, &"off_the_fire", "the log must name the plan that moved the pawn")
+	assert_false(CombatSim.standing_harms(state, intent.destination),
+		"the destination must not itself harm, got %s" % intent.destination)
+
+
+## **The negative half.** Ground that costs nothing is not somewhere to run from.
+func test_a_pawn_on_safe_ground_does_not_walk_anywhere() -> void:
+	var s := _situation(_plan(), Vector2(-300.0, 0.0), Vector2(300.0, 0.0), [_fire(BAND)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_not_null(intent)
+	assert_ne(intent.kind, CG.IntentKind.MOVE_TO, "safe ground is not a reason to move")
+
+
+## A room with no hazard in it at all must never move a pawn either.
+func test_a_room_with_no_hazard_never_moves_the_pawn() -> void:
+	var s := _situation(_plan(), Vector2(0.0, 0.0), Vector2(300.0, 0.0), [])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_not_null(intent)
+	assert_ne(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_eq(PlanInterpreter.last_error, "")
+
+
+## Everything in reach harms: the row steps aside for the next one rather than
+## walking somewhere that is no better, the same as `move_into_cover` in a room
+## with no cover.
+func test_a_pawn_with_nowhere_clear_falls_through_to_the_next_plan() -> void:
+	var everywhere := _fire(Rect2(-CG.ARENA_HALF_WIDTH, -CG.ARENA_HALF_HEIGHT,
+		CG.ARENA_HALF_WIDTH * 2.0, CG.ARENA_HALF_HEIGHT * 2.0))
+	var s := _situation(_plan(), Vector2(0.0, 0.0), Vector2(300.0, 0.0), [everywhere])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	assert_true(PlanInterpreter.decide(state, me) == null,
+		"with no clear ground the block must let the next row try")
+	assert_eq(PlanInterpreter.last_error, "", "nowhere to go is not an error")
+
+
+## The nearest way out, not just any way out: from 40 units inside the western
+## edge of a band the pawn leaves westward.
+func test_the_pawn_takes_the_nearest_way_out() -> void:
+	var s := _situation(_plan(), Vector2(-60.0, 0.0), Vector2(300.0, 0.0), [_fire(BAND)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_true(intent.destination.x < -100.0,
+		"the western edge is 40 units away and the eastern 160, got %s" % intent.destination)
+
+
+## A hazard that costs nothing is not harmful ground -- the same rule
+## `_hazard_harms` applies to the condition, applied to the consequence.
+func test_a_decorative_hazard_is_not_a_reason_to_move() -> void:
+	var decoration := Terrain.make(Terrain.Kind.HAZARD, BAND)
+	var s := _situation(_plan(), Vector2(0.0, 0.0), Vector2(300.0, 0.0), [decoration])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_not_null(intent)
+	assert_ne(intent.kind, CG.IntentKind.MOVE_TO)
+
+
+## Never inside a wall: a spot the pawn could not stand in is not an escape.
+func test_the_destination_is_never_inside_terrain() -> void:
+	var features := [
+		_fire(Rect2(-100.0, -100.0, 200.0, 200.0)),
+		Terrain.make(Terrain.Kind.PILLAR, Rect2(-300.0, -300.0, 200.0, 600.0)),
+	]
+	var s := _situation(_plan(), Vector2(0.0, 0.0), Vector2(300.0, 0.0), features)
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_false(Terrain.point_is_blocked(state.terrain, intent.destination, me.radius),
+		"walked into a wall at %s" % intent.destination)
+	assert_false(CombatSim.standing_harms(state, intent.destination))
+
+
+## The destination is inside the arena, so the sim's own clamp never has to
+## quietly rewrite where the plan said to stand.
+func test_the_destination_is_inside_the_arena() -> void:
+	var s := _situation(_plan(), Vector2(-CG.ARENA_HALF_WIDTH, -CG.ARENA_HALF_HEIGHT),
+		Vector2(300.0, 0.0), [_fire(Rect2(-CG.ARENA_HALF_WIDTH, -CG.ARENA_HALF_HEIGHT, 200.0, 200.0))])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_true(absf(intent.destination.x) <= CG.ARENA_HALF_WIDTH
+		and absf(intent.destination.y) <= CG.ARENA_HALF_HEIGHT,
+		"destination outside the arena: %s" % intent.destination)
+
+
+## Same state, same answer, every time: no rng in the search.
+func test_the_search_is_deterministic() -> void:
+	var first := Vector2.INF
+	for i in 5:
+		var s := _situation(_plan(), Vector2(10.0, -30.0), Vector2(300.0, 0.0), [_fire(BAND)])
+		var intent := PlanInterpreter.decide(s[0], s[1])
+		if i == 0:
+			first = intent.destination
+		assert_eq(intent.destination, first)
+
+
+## Standing clear with an action in the row: the pawn acts from where it is.
+func test_a_clear_pawn_fires_the_action_in_its_own_row() -> void:
+	var s := _situation(_plan(&"geyser_blast"), Vector2(-300.0, 0.0), Vector2(-260.0, 0.0), [_fire(BAND)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION, "clear ground plus a live action means act")
+	assert_eq(intent.action_id, &"geyser_blast")
+
+
+## The whole row the issue asks for, end to end: gated on the condition, the
+## pawn walks off the fire, and a tick later it is standing on ground that does
+## not hurt it.
+func test_the_gated_row_actually_gets_the_pawn_out_of_the_fire() -> void:
+	var s := _situation(_plan(&"", true), Vector2(0.0, 0.0), Vector2(300.0, 0.0), [_fire(BAND)])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	assert_true(CombatSim.standing_harms(state, me.position), "the fixture must start the pawn in the fire")
+	for i in 60:
+		if not CombatSim.standing_harms(state, me.position):
+			break
+		CombatSim.step(state)
+	assert_false(CombatSim.standing_harms(state, me.position),
+		"still in the fire after 60 ticks, at %s" % me.position)
+
+
+## The op is one block, so the row costs the same as any other movement row.
+func test_the_op_takes_no_argument_and_costs_one_block() -> void:
+	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE[&"leave_harmful_ground"]
+	assert_eq(shape.get("kind"), "none", "an argument here would be a number the room decides, not the pawn")
+	assert_eq(_plan().block_count(), 2, "targeting plus movement, and the movement half is one block")
+
+
+## **The defect the issue was filed on, stated as a test.** The playtester's own
+## row drifted back onto the fire because `keep_distance` names its destination
+## from the target and never looks at the ground there. `_avoid_hazard` diverts
+## a step that lands in fire, not a goal that sits in it, so the pawn is pulled
+## back every tick. Delete this only when `keep_distance` stops doing it.
+func test_the_kite_band_will_happily_name_a_destination_that_burns() -> void:
+	var targeting := PlanBlock.new()
+	targeting.kind = PlanBlock.Kind.TARGETING
+	targeting.op = &"target_nearest_enemy"
+	var movement := PlanBlock.new()
+	movement.kind = PlanBlock.Kind.MOVEMENT
+	movement.op = &"keep_distance"
+	movement.args = {"range": 210.0}
+	var kite := Plan.new()
+	kite.id = &"kite_210"
+	kite.display_name = "Hold 210"
+	kite.blocks = [targeting, movement]
+
+	var s := _situation(kite, Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
+		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
+	var intent := PlanInterpreter.decide(s[0], s[1])
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
+	assert_true(CombatSim.standing_harms(s[0], intent.destination),
+		"the fixture no longer reproduces the drift; pick a band the kite anchor lands in")
+
+
+func test_the_op_has_a_sentence_and_is_offered_to_the_editor() -> void:
+	assert_true(PlanInterpreter.MOVEMENT_OPS.has(&"leave_harmful_ground"))
+	assert_eq(PlanInterpreter.describe_op(&"leave_harmful_ground", {}), "move off harmful ground")
