@@ -370,30 +370,44 @@ static func crowd_rank(u: CombatUnit, units: Array) -> int:
 ## The first free row for every plate that could be up, assigned in id order so
 ## two views of the same fight agree on where a name lands. Rows are tested as
 ## rectangles, which is the whole point.
-static func plate_ranks(units: Array) -> Dictionary:
+##
+## `state` restricts the search to the plates that are actually drawn: without
+## it a plate gives way to a name nobody can see, and a row spent on an unseen
+## plate is a row the next visible one cannot have.
+static func plate_ranks(units: Array, state: CombatState = null) -> Dictionary:
 	var candidates: Array = []
 	for u in units:
-		if u.alive:
+		if u.alive and (state == null or label_visible(u, state)):
 			candidates.append(u)
 	candidates.sort_custom(func(a, b): return a.id < b.id)
 
 	var placed: Array[Rect2] = []
 	var ranks := {}
 	for u in candidates:
-		var row := 0
-		var chip := plate_rect(u, units, 0)
-		while row < PLATE_ROWS.size() - 1 and _hits_any(chip, placed):
-			row += 1
-			chip = plate_rect(u, units, row)
-		placed.append(chip)
-		ranks[u.id] = row
+		var best_row := 0
+		var best_area := INF
+		for row in PLATE_ROWS.size():
+			var chip := plate_rect(u, units, row)
+			var area := _overlap_area(chip, placed)
+			if area < best_area:
+				best_area = area
+				best_row = row
+			if area <= 0.0:
+				break
+		placed.append(plate_rect(u, units, best_row))
+		ranks[u.id] = best_row
 	return ranks
 
-static func _hits_any(chip: Rect2, placed: Array[Rect2]) -> bool:
+## Total area this chip loses to what is already placed. Zero is a free row;
+## past that the least-bad row wins, because a fourteen-unit scrum can exhaust
+## every row and falling off the end onto the last one is the worst of them.
+static func _overlap_area(chip: Rect2, placed: Array[Rect2]) -> float:
+	var area := 0.0
 	for p in placed:
-		if chip.intersects(p):
-			return true
-	return false
+		var hit := chip.intersection(p)
+		if hit.size.x > 0.0 and hit.size.y > 0.0:
+			area += hit.size.x * hit.size.y
+	return area
 
 ## Every plate's final chip, laid out against each other and clamped into the
 ## arena. Cached: `_draw` asks once per unit per frame and the layout is O(n^2)
@@ -406,18 +420,20 @@ static func plate_layout(state: CombatState) -> Dictionary:
 	if key != _layout_key:
 		_layout_key = key
 		_layout = {}
-		var ranks := plate_ranks(state.units)
+		var ranks := plate_ranks(state.units, state)
 		for u in state.units:
-			if u.alive:
-				_layout[u.id] = plate_rect(u, state.units, int(ranks.get(u.id, 0)))
+			if ranks.has(u.id):
+				_layout[u.id] = plate_rect(u, state.units, int(ranks[u.id]))
 	return _layout
 
-## Everything the layout reads: who is alive and where they are standing.
+## Everything the layout reads: who is alive, where they are standing, and
+## which names are up.
 static func _layout_key_for(state: CombatState) -> String:
 	var h := 17
 	for u in state.units:
-		h = h * 31 + hash([u.id, u.alive, roundi(u.position.x), roundi(u.position.y)])
-	return "%d|%d" % [state.units.size(), h]
+		h = h * 31 + hash([u.id, u.alive, roundi(u.position.x), roundi(u.position.y),
+			u.alive and label_visible(u, state)])
+	return "%d|%d|%d" % [state.units.size(), h, state.tick]
 
 ## Who is this unit currently after. Answers "why is that side winning" by
 ## itself, before a single number changes: a target being focused by three

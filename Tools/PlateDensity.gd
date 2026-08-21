@@ -8,11 +8,10 @@ extends Node
 ## SAMPLING MOMENT: the top of each frame, before BattleView's own `_process`
 ## runs, so the plates and floaters read here are the ones the previous frame
 ## actually drew. Nothing here touches `state.rng` or `CombatSim`.
-##
-## Three collision classes, because they are three different row searches:
-## plate vs plate (`UnitView.plate_ranks`), floater vs floater
-## (`BattleView._floater_stagger_offset`), and plate vs floater, which NOTHING
-## de-collides. Exits 0 always; it is an instrument, not a gate.
+
+## Three collision classes, because they were three different row searches:
+## plate vs plate, floater vs floater, and plate vs floater. Exits 0 always; it
+## is an instrument, not a gate.
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
@@ -121,7 +120,7 @@ func _sample(state) -> void:
 	_room["ticks"] += 1
 	_room["max_plates"] = maxi(_room["max_plates"], plates.size())
 
-	var ranks := UnitView.plate_ranks(state.units)
+	var ranks := UnitView.plate_ranks(state.units, state)
 	var last_row := UnitView.PLATE_ROWS.size() - 1
 	for id in ranks:
 		if int(ranks[id]) >= last_row:
