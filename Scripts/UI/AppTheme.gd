@@ -17,3 +17,21 @@ static func shared() -> Theme:
 	t.set_constant("separation", "VBoxContainer", int(Palette.SPACE_S))
 	_shared = t
 	return _shared
+
+## Issue 396: the armor dropdown's six entries ran past the bottom of a 720px
+## window with no scrollbar, so a player could not tell whether the list went
+## on. A PopupMenu scrolls once its height is capped and overflows the screen
+## until it is.
+const POPUP_SCREEN_SHARE := 0.7
+
+static func keep_popup_on_screen(picker: OptionButton) -> void:
+	var popup := picker.get_popup()
+	popup.about_to_popup.connect(func(): popup.max_size = Vector2i(0, popup_max_height(picker)))
+
+## Measured at popup time, not at build time: the picker is usually built
+## before it is in a tree, where there is no viewport to ask.
+static func popup_max_height(control: Control) -> int:
+	var height := 720.0
+	if control.is_inside_tree():
+		height = control.get_viewport_rect().size.y
+	return int(height * POPUP_SCREEN_SHARE)

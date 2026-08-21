@@ -6,6 +6,8 @@ class_name DisplayOptionsPanel
 
 signal changed()
 
+const PANEL_WIDTH := 420.0
+
 var _rows: Array[CheckBox] = []
 var _scroll: ScrollContainer = null
 var _column: VBoxContainer = null
@@ -21,7 +23,9 @@ func _ready() -> void:
 	# Sized to its contents and placed by the caller. Not a full-rect overlay:
 	# it must be possible to watch the fight change as a box is ticked, which a
 	# panel covering the arena would prevent.
-	custom_minimum_size = Vector2(360.0, 0.0)
+	## Issue 396: 360 was narrow enough that "Poison and burn ticks in the log:
+	## hidden" ran into the panel's own right edge.
+	custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
 
 	var backdrop := PanelContainer.new()
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -114,14 +118,20 @@ func toggle_visible() -> void:
 func fit_to_screen() -> void:
 	if _scroll == null or not is_inside_tree():
 		return
-	fit_within(get_viewport_rect().size.y - position.y - Palette.SPACE_M * 2.0)
+	fit_within(get_viewport_rect().size.y - position.y - Palette.SPACE_M)
+
+## Issue 396: `room` is room for the whole panel, and the scroll is not the
+## whole panel. The margin around it and the two-pixel border were not
+## subtracted, so the panel overshot the bottom of the screen by its own chrome
+## and lost its border and its last line.
+const CHROME_HEIGHT := 2.0 * Palette.SPACE_M + 4.0
 
 ## Split from the measurement so the arithmetic can be tested without a window.
 func fit_within(room: float) -> void:
 	if _scroll == null:
 		return
 	var wanted := _column.get_combined_minimum_size().y
-	_scroll.custom_minimum_size.y = maxf(Palette.TOUCH_TARGET_MIN, minf(wanted, room))
+	_scroll.custom_minimum_size.y = maxf(Palette.TOUCH_TARGET_MIN, minf(wanted, room - CHROME_HEIGHT))
 
 ## Issue 268. Through `UIArt.panel_style`, so `Assets/UI/panel.png` re-skins
 ## this panel the way the README has always claimed it does. With no file

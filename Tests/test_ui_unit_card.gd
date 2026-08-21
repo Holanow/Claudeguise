@@ -265,3 +265,142 @@ func test_the_card_is_docked_rather_than_placed_over_the_field() -> void:
 	assert_almost_eq(view._unit_card.anchor_top, 1.0, 0.0001, "docked to the bottom edge")
 	assert_almost_eq(view._unit_card.anchor_left, 0.0, 0.0001, "docked to the left edge")
 	view.free()
+
+## ---------------------------------------------------------------------------
+## Issue 397: the Plans button, the leaving-the-arena close, and the hint
+
+## Two pawns, so "opened the wrong one" is a thing the assertion can see. The
+## one-pawn fixture above cannot fail this test at all.
+func _make_pair() -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for id in [&"first_pawn", &"second_pawn"]:
+		var cls := ClassDef.new()
+		cls.id = id
+		cls.display_name = String(id).capitalize()
+		var pawn := PawnData.new()
+		pawn.id = id
+		pawn.display_name = String(id).capitalize()
+		pawn.pawn_class = cls
+		out.append(pawn)
+	return out
+
+func _spawn_battle_view_with_pair():
+	var view = BattleScene.instantiate()
+	view._ready()
+	var config := RunConfig.new()
+	config.seed = 1
+	config.party = _make_pair()
+	var e := _make_encounter()
+	e.party_spawns = [Vector2(-300.0, 0.0), Vector2(-300.0, 120.0)]
+	view.config = config
+	view.begin_with_encounter(config, e)
+	return view
+
+## The playtester clicked Plans on the Warrior's card and got the Geysermancer.
+func test_the_plans_button_opens_the_pawn_whose_card_it_is() -> void:
+	var view = _spawn_battle_view_with_pair()
+	for u in view.state.units:
+		if u.pawn == null:
+			continue
+		view.select_unit_at(u.position)
+		view._on_card_plans_requested()
+		assert_eq(view.config.party[view._inspect_panel._selected_index].id, u.pawn.id,
+			"%s's card must open %s's plans" % [u.display_name, u.display_name])
+		view._inspect_panel.close()
+	view.free()
+
+## Docked bottom-left, which is where the plans screen puts its pawn selector.
+func test_opening_the_plans_screen_puts_the_card_away() -> void:
+	var view = _spawn_battle_view_with_pair()
+	view.select_unit_at(view.state.units[0].position)
+	assert_true(view._unit_card.visible)
+	view._on_card_plans_requested()
+	assert_false(view._unit_card.visible,
+		"a card left open covers the selector you need to correct it")
+	view.free()
+
+func test_the_toolbar_plans_button_also_puts_the_card_away() -> void:
+	var view = _spawn_battle_view_with_pair()
+	view.select_unit_at(view.state.units[0].position)
+	view._on_inspect_pressed()
+	assert_false(view._unit_card.visible)
+	view.free()
+
+## Dismissing rather than closing: the pause the card took has to survive the
+## trip through the plans screen, or the fight runs on behind the overlay.
+func test_the_fight_stays_held_while_the_plans_screen_is_up_and_resumes_after() -> void:
+	var view = _spawn_battle_view_with_pair()
+	view.select_unit_at(view.state.units[0].position)
+	view._on_card_plans_requested()
+	assert_true(view.paused, "the plans screen is not a reason to let the fight run")
+	view._inspect_panel.close()
+	assert_false(view.paused)
+	view.free()
+
+## focus_id pointing at self is legitimate -- PlanInterpreter.action_target_id
+## aims a targets_self action at the caster -- so the card must not report it
+## as "Aiming at <its own name>".
+func test_a_self_targeted_unit_does_not_read_as_aiming_at_itself() -> void:
+	var view = _spawn_battle_view()
+	var u: CombatUnit = view.state.units[0]
+	u.focus_id = u.id
+	var text := "\n".join(UnitCard.lines(view.state, u))
+	assert_true(text.find("Aiming at %s" % u.display_name) < 0,
+		"self-focus must not read as aiming at itself: %s" % text)
+	assert_true(text.findn("itself") >= 0, text)
+	view.free()
+
+func test_the_hint_says_units_are_clickable_until_one_has_been_clicked() -> void:
+	BattleView.card_discovered = false
+	var view = _spawn_battle_view()
+	assert_true(view._click_hint.visible, "three of four fights were played without finding the card")
+	assert_true(view._click_hint.text.findn("click") >= 0, view._click_hint.text)
+	view.select_unit_at(view.state.units[0].position)
+	assert_false(view._click_hint.visible, "the hint costs no space once it has been read")
+	view.free()
+
+func test_the_hint_does_not_come_back_for_a_player_who_has_used_the_card() -> void:
+	BattleView.card_discovered = true
+	var view = _spawn_battle_view()
+	assert_false(view._click_hint.visible)
+	BattleView.card_discovered = false
+	view.free()
+
+## The log owns the right column in landscape and the bottom band in portrait,
+## and the hint is the size of a line of text in the other place.
+func test_the_hint_keeps_clear_of_the_combat_log_in_both_orientations() -> void:
+	var view = _spawn_battle_view()
+	view._place_click_hint(true)
+	assert_true(view._click_hint.offset_right <= -CombatLogView.LOG_WIDTH,
+		"landscape: the log is the right-hand column")
+	view._place_click_hint(false)
+	assert_true(view._click_hint.offset_bottom <= CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT,
+		"portrait: the log is the bottom band")
+	view.free()
+
+## ---------------------------------------------------------------------------
+## Issue 396: the card cut `Shielding (5.0s left): Stops an` at its bottom edge
+
+## The cut has to land between lines, not through one.
+func test_the_body_is_a_whole_number_of_lines() -> void:
+	assert_eq(UnitCard.body_height(1000.0, 380.0, 24.0), 360.0,
+		"380 over a 24px line is 15.8 lines, and the 0.8 is the clipped sentence")
+	assert_eq(UnitCard.body_height(48.0, 380.0, 24.0), 48.0,
+		"a card shorter than the ceiling stays its own height")
+	assert_eq(UnitCard.body_height(1000.0, 10.0, 24.0), 24.0,
+		"a ceiling under one line still shows one whole line")
+
+## A flat 380 is exactly right at 720 and wrong at every other height.
+func test_the_body_ceiling_follows_the_window() -> void:
+	assert_true(BattleView.card_body_ceiling(900.0) > BattleView.card_body_ceiling(720.0),
+		"180 more pixels of window must reach the card")
+	assert_true(BattleView.card_body_ceiling(400.0) >= UnitCard.MIN_BODY_HEIGHT,
+		"a short window still shows a few lines rather than none")
+	assert_true(BattleView.card_body_ceiling(720.0) <= 720.0)
+
+func test_the_card_takes_the_ceiling_the_view_gives_it() -> void:
+	var view = _spawn_battle_view()
+	view.select_unit_at(view.state.units[0].position)
+	assert_true(view._unit_card.body_ceiling > 0.0,
+		"the card was never told how much screen it has")
+	view.free()

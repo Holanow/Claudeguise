@@ -345,3 +345,16 @@ func test_the_panel_never_grows_past_the_screen_it_is_on() -> void:
 	assert_true(panel._scroll.custom_minimum_size.y < 100000.0,
 		"the panel must not stretch to fill a screen it does not need")
 	panel.free()
+
+## Issue 396: the panel ran 34px past the bottom of a 720px window and lost its
+## border and its last line, because `room` was spent entirely on the scroll
+## and none of it on the margin and border around it.
+func test_the_panel_leaves_room_for_its_own_border() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	panel.fit_within(500.0)
+	assert_true(panel._scroll.custom_minimum_size.y <= 500.0 - DisplayOptionsPanel.CHROME_HEIGHT,
+		"the whole panel is scroll plus chrome, and 500 is the room for the whole panel")
+	panel.free()

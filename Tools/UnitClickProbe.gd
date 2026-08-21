@@ -83,9 +83,12 @@ func _run() -> bool:
 	for n in _walk(_main):
 		if is_instance_valid(n) and n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
 			cards.append(n)
-	for card in cards:
-		if is_instance_valid(card) and card.class_def != null and card.class_def.id == &"warrior":
-			card.toggled.emit(true)
+	## Two pawns, and the Warrior deliberately not the first one: issue 397's
+	## Plans button always opened party[0], which a one-pawn party cannot show.
+	for want in [&"geysermancer", &"warrior"]:
+		for card in cards:
+			if is_instance_valid(card) and card.class_def != null and card.class_def.id == want:
+				card.toggled.emit(true)
 	await _settle()
 	if not _press("start fight"):
 		return false
@@ -132,5 +135,31 @@ func _run() -> bool:
 	if after != "":
 		failures += 1
 
+	failures += await _plans_route(battle)
+
 	print("UnitClickProbe: %d click(s) did nothing" % failures)
 	return failures == 0
+
+## Issue 397. Press Plans on each player pawn's own card and read back which
+## pawn the plans screen landed on, and whether the card got out of its way.
+func _plans_route(battle) -> int:
+	var bad := 0
+	print("UnitClickProbe: party order is %s" % str(battle.config.party.map(func(p): return p.display_name)))
+	for u in battle.state.units:
+		if not u.alive or u.pawn == null:
+			continue
+		await _click(battle._arena.get_global_transform() * BattleView.drawn_position(battle.state, u))
+		if _card_text(battle) == "":
+			continue
+		battle._unit_card._plans_button.emit_signal("pressed")
+		await _settle()
+		var panel = battle._inspect_panel
+		var landed: String = panel._pawns[panel._selected_index].display_name
+		var covered: bool = battle._unit_card.is_visible_in_tree()
+		print("UnitClickProbe: Plans on %-16s opened %-16s card still up=%s" % [u.display_name, landed, covered])
+		if landed != u.display_name or covered:
+			bad += 1
+		await _shot("wren_plans_from_%s" % String(u.display_name).to_lower().replace(" ", "_"))
+		panel.close()
+		await _settle()
+	return bad

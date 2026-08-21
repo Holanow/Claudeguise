@@ -44,6 +44,7 @@ var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
 
 var _unit_card: UnitCard = null
+var _click_hint: Label = null
 ## Whether the pause currently in force is one a unit click put there, so
 ## closing the card gives the fight back only when the card took it.
 var _card_owns_pause: bool = false
@@ -165,7 +166,7 @@ func _build_top_bar() -> void:
 	var view_button := Button.new()
 	view_button.text = "What to show"
 	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	view_button.pressed.connect(func(): _display_options.toggle_visible())
+	view_button.pressed.connect(_on_view_options_pressed)
 	controls.add_child(view_button)
 
 	var plans_button := Button.new()
@@ -181,8 +182,15 @@ func _build_top_bar() -> void:
 		_display_options._ready()
 	# Under the control row it belongs to. Issue 145 taught me to add_child
 	# before any manual _ready(), or the engine runs a second one.
-	_display_options.position = Vector2(Palette.SPACE_M, _SUMMARY_ROW_TOP + _INFO_ROW_HEIGHT + Palette.SPACE_M)
+	_display_options.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
 	_display_options.changed.connect(_rebuild_log)
+
+## The hint sits at the bottom of the arena band and the options panel opens
+## across it, so one of them has to give and it is not the panel.
+func _on_view_options_pressed() -> void:
+	_display_options.toggle_visible()
+	if _click_hint != null:
+		_click_hint.visible = not card_discovered and not _display_options.visible
 
 ## Issue 319. A log filter that only applies from now on cannot answer "what
 ## killed my Siege Master", which is the question the ground ticks exist for, so
@@ -210,7 +218,10 @@ func _build_team_status() -> void:
 
 ## Where the top bar's backdrop ends. Still the bar's own height; the panel no
 ## longer sits under it.
-const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + _SUMMARY_ROW_HEIGHT + Palette.SPACE_S
+## Issue 396: this counted ONE summary row while two are drawn, so the backdrop
+## stopped 20px above the Enemies bar and the "What to show" panel opened on top
+## of it.
+const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + 2.0 * _SUMMARY_ROW_HEIGHT + Palette.SPACE_XS + Palette.SPACE_S
 
 const _PANEL_TOP := Palette.SPACE_M
 
@@ -287,10 +298,32 @@ func _build_end_banner() -> void:
 	hud.add_child(_inspect_panel)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
+	_inspect_panel.closed.connect(_on_card_closed)
 
 func _on_inspect_pressed() -> void:
+	_open_plans(null)
+
+## The card is docked bottom-left and the plans screen puts its pawn list in the
+## same place, so a card left open covers the control you need to correct it.
+## It is dismissed rather than closed: the pause it took stays in force until
+## the plans screen is shut again.
+func _open_plans(focus: PawnData) -> void:
+	if _unit_card != null:
+		_unit_card.dismiss()
 	if _inspect_panel != null and config != null:
-		_inspect_panel.open(config.party, state)
+		_inspect_panel.open(config.party, state, focus)
+
+## Issue 397: this used to call _on_inspect_pressed, which always opened the
+## party's first pawn whichever card the button was on.
+func _on_card_plans_requested() -> void:
+	_open_plans(card_pawn())
+
+## The pawn the open card is about, or null.
+func card_pawn() -> PawnData:
+	if state == null or _unit_card == null or _unit_card.unit_id < 0:
+		return null
+	var u := state.unit(_unit_card.unit_id)
+	return u.pawn if u != null else null
 
 ## Issue 377: a blind playtester clicked and hovered a sprite four times and got
 ## nothing back, so the arena was not a way in to anything the game knows.
@@ -298,8 +331,33 @@ func _build_unit_card() -> void:
 	_unit_card = UnitCard.create()
 	get_node("Hud").add_child(_unit_card)
 	_unit_card.closed.connect(_on_card_closed)
-	_unit_card.plans_requested.connect(_on_inspect_pressed)
+	_unit_card.plans_requested.connect(_on_card_plans_requested)
 	_place_unit_card()
+	_build_click_hint()
+
+## Issue 397: three of four fights played without finding the card, because
+## nothing said a unit was clickable. A line that removes itself the first time
+## a card opens costs no permanent space on a screen that has none to give.
+func _build_click_hint() -> void:
+	_click_hint = Label.new()
+	_click_hint.text = CLICK_HINT
+	_click_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_click_hint.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_click_hint.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_click_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_click_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_click_hint.offset_left = Palette.SPACE_M
+	_click_hint.offset_right = -(CombatLogView.LOG_WIDTH + Palette.SPACE_M)
+	_click_hint.offset_top = -(Palette.SPACE_M + _INFO_ROW_HEIGHT)
+	_click_hint.offset_bottom = -Palette.SPACE_M
+	_click_hint.visible = not card_discovered
+	get_node("Hud").add_child(_click_hint)
+
+const CLICK_HINT := "Click any unit to see what it is doing, and why."
+
+## Session-wide, not per fight: a player who has opened one card does not need
+## telling again on the next.
+static var card_discovered: bool = false
 
 ## Clicking pauses. Reading a unit takes longer than the fight gives you, and
 ## the alternative -- a card whose every number moves while you read it -- is
@@ -315,6 +373,9 @@ func select_unit_at(point: Vector2) -> void:
 		set_paused(true)
 		_card_owns_pause = true
 	_unit_card.show_unit(state, state.unit(id))
+	card_discovered = true
+	if _click_hint != null:
+		_click_hint.visible = false
 
 func _on_card_closed() -> void:
 	if _card_owns_pause:
@@ -491,6 +552,27 @@ func _layout_arena() -> void:
 	_arena.scale = layout.scale
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
+	_place_click_hint(size.x >= size.y)
+	if _unit_card != null:
+		_unit_card.body_ceiling = card_body_ceiling(size.y)
+
+## Issue 396. The card sits between the toolbar and the bottom margin and may
+## have all of it. The flat 380 happens to be exactly right at 720 and is wrong
+## at every other height -- too tall to fit at 600, and 190 pixels of unused
+## screen at 900.
+static func card_body_ceiling(viewport_height: float) -> float:
+	var free := viewport_height - _TOP_BAR_BOTTOM - 2.0 * Palette.SPACE_M - UnitCard.CHROME_HEIGHT
+	return maxf(free, UnitCard.MIN_BODY_HEIGHT)
+
+## Out of the log's way in either orientation: the log is a right-hand column in
+## landscape and a full-width band across the bottom in portrait.
+func _place_click_hint(landscape: bool) -> void:
+	if _click_hint == null:
+		return
+	_click_hint.offset_right = -(CombatLogView.LOG_WIDTH + Palette.SPACE_M) if landscape else -Palette.SPACE_M
+	var floor_y := -Palette.SPACE_M if landscape else CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT - Palette.SPACE_M
+	_click_hint.offset_top = floor_y - _INFO_ROW_HEIGHT
+	_click_hint.offset_bottom = floor_y
 
 ## Where the log's box begins, so the team status panel above it can be checked
 ## against something measured rather than against a constant.
@@ -551,8 +633,9 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_end_banner.visible = false
 	_end_dim.visible = false
 	if _unit_card != null:
-		_unit_card.visible = false
-		_unit_card.unit_id = -1
+		_unit_card.dismiss()
+	if _click_hint != null:
+		_click_hint.visible = not card_discovered
 	_card_owns_pause = false
 	_update_team_summary()
 	if _team_status != null:
@@ -580,6 +663,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_unit_at(_arena.make_input_local(event).position)
 		if is_inside_tree():
 			get_viewport().set_input_as_handled()
+		return
+	## The other half of issue 397's discoverability: the pointer changes over
+	## anything you can open, which is the affordance every other program uses.
+	if event is InputEventMouseMotion and _arena != null and state != null:
+		_set_hand_cursor(unit_at(state, _arena.make_input_local(event).position) >= 0)
+
+func _set_hand_cursor(hand: bool) -> void:
+	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if hand else Input.CURSOR_ARROW)
+
+## The cursor is a global setting, so leaving the fight has to put it back.
+func _exit_tree() -> void:
+	_set_hand_cursor(false)
 
 func _rebuild_units() -> void:
 	for child in _arena.get_children():

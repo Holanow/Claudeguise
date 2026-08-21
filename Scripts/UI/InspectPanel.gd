@@ -99,13 +99,25 @@ func _ready() -> void:
 	_detail_box = %DetailBox
 
 ## Issue 155's second half, and the answer to that issue's volume question.
-func open(pawns: Array[PawnData], state = null) -> void:
+## `focus` is the pawn to land on. Without it the panel always opened on the
+## party's first pawn, so the unit card's Plans button showed somebody else.
+func open(pawns: Array[PawnData], state = null, focus: PawnData = null) -> void:
 	_pawns = pawns
 	_live_state = state
-	_selected_index = 0
+	_selected_index = index_of(pawns, focus)
 	visible = true
 	_rebuild_list()
-	_select(0)
+	_select(_selected_index)
+
+## By id, not by reference: a fight may be running pawns rebuilt from the same
+## data. Missing or unknown lands on the first pawn, which is the old behaviour.
+static func index_of(pawns: Array[PawnData], focus: PawnData) -> int:
+	if focus == null:
+		return 0
+	for i in pawns.size():
+		if pawns[i] != null and pawns[i].id == focus.id:
+			return i
+	return 0
 
 func close() -> void:
 	visible = false
@@ -315,10 +327,17 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## report of it.
 	var over := used - budget
 	var standing := ("%d free" % maxi(0, budget - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
-	out.append(_line(
-		"%d of %d plan blocks used, %s. A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % [
-			used, budget, standing, NEW_PLAN_BLOCK_COST],
-		Palette.FONT_SIZE_SMALL, Palette.TEXT if over <= 0 else Palette.HP_LOW))
+	## Issue 396: the rules half is five wrapped lines in the party screen's
+	## column, which is a whole plan row's worth of the little height there is.
+	## Embedded it moves to the hover the rest of that screen already uses.
+	var standing_line := "%d of %d plan blocks used, %s." % [used, budget, standing]
+	var rules := "A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % NEW_PLAN_BLOCK_COST
+	var summary := _line(standing_line if _embedded else "%s %s" % [standing_line, rules],
+		Palette.FONT_SIZE_SMALL, Palette.TEXT if over <= 0 else Palette.HP_LOW)
+	if _embedded:
+		summary.mouse_filter = Control.MOUSE_FILTER_STOP
+		summary.tooltip_text = rules
+	out.append(summary)
 
 	## Issue 155. One sentence, and only while a fight exists to read -- between
 	## fights every verdict would be blank and the sentence would explain nothing.
@@ -432,34 +451,33 @@ func _blocks_used(pawn: PawnData) -> int:
 ## rather than patching one chip in place — plans are short and this screen is
 ## not on a hot path, so simplicity wins over an incremental update.
 func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control:
-	var row := HBoxContainer.new()
-	if inert:
-		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
+	var handle := HBoxContainer.new()
 
 	var number := _tag_label("%d." % (index + 1))
 	number.custom_minimum_size = Vector2(24.0, 0.0)
-	row.add_child(number)
+	handle.add_child(number)
 
 	## Issue 155. Same number the combat log prints ("plan 3"), same order, from
 	## the same array -- so a player who reads a tag in the log can find the row.
 	var verdict := _live_verdict(pawn, plan)
 	if verdict != "":
-		row.add_child(_verdict_label(verdict))
+		handle.add_child(_verdict_label(verdict))
 
 	var up := Button.new()
 	up.text = "^"
 	up.custom_minimum_size = Vector2(_TOUCH, _TOUCH)
 	up.disabled = index == 0
 	up.pressed.connect(_move_plan.bind(pawn, index, -1))
-	row.add_child(up)
+	handle.add_child(up)
 
 	var down := Button.new()
 	down.text = "v"
 	down.custom_minimum_size = Vector2(_TOUCH, _TOUCH)
 	down.disabled = index == pawn.plans.size() - 1
 	down.pressed.connect(_move_plan.bind(pawn, index, 1))
-	row.add_child(down)
+	handle.add_child(down)
 
+	var chips := HBoxContainer.new()
 	# Skill, then target, then condition. Two passes over `plan.blocks` rather
 	# than one, because the row's order is a reading decision and the array's
 	# order is the interpreter's execution order (targeting before action, so
@@ -469,22 +487,57 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 		if block.kind == PlanBlockScript.Kind.ACTION and block.op == &"use_action":
 			var skill := _action_picker(pawn, block)
 			skill.size_flags_stretch_ratio = SKILL_SHARE
-			row.add_child(skill)
+			chips.add_child(skill)
 	for block in plan.blocks:
 		if block.kind == PlanBlockScript.Kind.TARGETING and PlanInterpreter.TARGETING_OPS.has(block.op):
 			var target := _targeting_picker(pawn, block)
 			target.size_flags_stretch_ratio = TARGET_SHARE
-			row.add_child(target)
-	row.add_child(_movement_editor(pawn, plan))
-	row.add_child(_condition_editor(plan))
+			chips.add_child(target)
+	chips.add_child(_movement_editor(pawn, plan))
+	chips.add_child(_condition_editor(plan))
+	chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var remove := Button.new()
 	remove.text = "X"
 	remove.custom_minimum_size = Vector2(_TOUCH, _TOUCH)
 	remove.tooltip_text = "Remove this plan and give its %d blocks back." % plan.block_count()
 	remove.pressed.connect(_remove_plan.bind(pawn, index))
-	row.add_child(remove)
+
+	var row := _assemble_row(handle, chips, remove)
+	if inert:
+		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
 	return row
+
+## Issue 396. Embedded in the party screen's middle column the row has about
+## 480px, of which the number, the two arrows and the X take 168 -- so four
+## chips got 50 to 90px each and two of six columns rendered as a bare chevron.
+## The chips get their own line there, which is the only way they see a width
+## comparable to the full-width Plans screen the playtester called readable.
+func _assemble_row(handle: HBoxContainer, chips: HBoxContainer, remove: Button) -> Control:
+	if not _embedded:
+		var row := handle
+		for chip in chips.get_children():
+			chips.remove_child(chip)
+			row.add_child(chip)
+		chips.free()
+		row.add_child(remove)
+		return row
+
+	var stack := VBoxContainer.new()
+	var top := handle
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(spacer)
+	top.add_child(remove)
+	stack.add_child(top)
+
+	var indented := HBoxContainer.new()
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(24.0, 0.0)
+	indented.add_child(gutter)
+	indented.add_child(chips)
+	stack.add_child(indented)
+	return stack
 
 ## A new plan is the smallest one that does anything: no condition (which
 ## `PlanInterpreter.condition_holds` reads as always), the nearest enemy, and
@@ -811,8 +864,14 @@ func _condition_value_editor(block, shape: Dictionary) -> Control:
 ## so the editor, the log and the plan sentence cannot call one status three
 ## different things.
 func _condition_status_editor(block, key: String, fallback: int) -> Control:
+	## Issue 396: 140 fixed took a fifth of the party screen's row for a word as
+	## short as "Burn", and the chip beside it paid for it in blank chevrons.
 	var picker := OptionButton.new()
-	picker.custom_minimum_size = Vector2(140.0, _TOUCH)
+	picker.custom_minimum_size = Vector2(CHIP_MIN_WIDTH, _TOUCH)
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	picker.fit_to_longest_item = false
+	picker.clip_text = true
+	AppTheme.keep_popup_on_screen(picker)
 	var current := int(block.args.get(key, fallback))
 	for i in CG.Status.keys().size():
 		picker.add_item(String(CG.Status.keys()[i]).capitalize(), i)
@@ -826,18 +885,24 @@ func _set_condition_arg(block, key: String, value) -> void:
 	block.args[key] = value
 	call_deferred("_build_detail", _pawns[_selected_index])
 
+## Issue 396: a chip narrower than this renders as a bare chevron with no text
+## at all, which is two of the six columns the playtester read off the party
+## screen. A share of the row is not a floor, so the floor is stated.
+const CHIP_MIN_WIDTH := 72.0
+
 ## One editable block in a plan row. `SIZE_EXPAND_FILL` on all three chips
 ## rather than a fixed width: they share the row's width in proportion to the
 ## text they carry, which is what keeps a long condition from pushing the skill
 ## chip off the end.
 func _block_chip() -> OptionButton:
 	var picker := OptionButton.new()
-	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
+	picker.custom_minimum_size = Vector2(CHIP_MIN_WIDTH, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Both of these, and neither is optional. `OptionButton.fit_to_longest_item`
 	picker.fit_to_longest_item = false
 	picker.clip_text = true
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	AppTheme.keep_popup_on_screen(picker)
 	return picker
 
 ## Clipping is what stops one long block from pushing the others off the row,
