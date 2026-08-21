@@ -113,9 +113,14 @@ func _fill(state: CombatState, u: CombatUnit) -> void:
 	_plans_button.visible = u.pawn != null
 
 func close() -> void:
+	dismiss()
+	closed.emit()
+
+## Off the screen, but without the `closed` side effects: the caller is taking
+## over what the card was holding rather than handing it back.
+func dismiss() -> void:
 	visible = false
 	unit_id = -1
-	closed.emit()
 
 ## ---------------------------------------------------------------------------
 ## What it says. Static and string-only, so every sentence below can be checked
@@ -167,7 +172,11 @@ static func action_name(id: StringName) -> String:
 static func focus_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 	var out: Array[String] = []
 	var target := state.unit(u.focus_id) if u.focus_id >= 0 else null
-	if target != null and target.alive:
+	if u.focus_id == u.id:
+		## Legitimate: `PlanInterpreter.action_target_id` aims a targets_self
+		## action at the caster, and CombatSim writes that into focus_id.
+		out.append("Acting on itself.")
+	elif target != null and target.alive:
 		out.append("Aiming at %s." % target.display_name)
 	var incoming := UnitView.concentration_count(u, state.units)
 	if incoming > 0:

@@ -99,13 +99,25 @@ func _ready() -> void:
 	_detail_box = %DetailBox
 
 ## Issue 155's second half, and the answer to that issue's volume question.
-func open(pawns: Array[PawnData], state = null) -> void:
+## `focus` is the pawn to land on. Without it the panel always opened on the
+## party's first pawn, so the unit card's Plans button showed somebody else.
+func open(pawns: Array[PawnData], state = null, focus: PawnData = null) -> void:
 	_pawns = pawns
 	_live_state = state
-	_selected_index = 0
+	_selected_index = index_of(pawns, focus)
 	visible = true
 	_rebuild_list()
-	_select(0)
+	_select(_selected_index)
+
+## By id, not by reference: a fight may be running pawns rebuilt from the same
+## data. Missing or unknown lands on the first pawn, which is the old behaviour.
+static func index_of(pawns: Array[PawnData], focus: PawnData) -> int:
+	if focus == null:
+		return 0
+	for i in pawns.size():
+		if pawns[i] != null and pawns[i].id == focus.id:
+			return i
+	return 0
 
 func close() -> void:
 	visible = false
