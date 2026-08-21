@@ -196,13 +196,21 @@ func test_the_panel_badges_are_spread_across_the_whole_frontage() -> void:
 		"the badges do not span the frontage they are meant to name")
 
 
-func test_the_name_sits_clear_of_the_plate_and_in_front_of_it() -> void:
-	# Over the plate the chip would cover the badges; behind it, the shielder.
-	for facing in [Vector2.RIGHT, Vector2.UP, Vector2(-0.6, 0.8).normalized()]:
+func test_the_name_never_lies_over_the_plate_it_names() -> void:
+	# Centring the chip on a point in front of the lip is not enough: the chip
+	# is upright while the plate turns, so at an eastward facing half of it lay
+	# back over the badges.
+	for facing in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2(0.983, 0.182).normalized()]:
 		var half := ShieldWall.half_width()
 		var wall := ShieldWall.wall_points(facing, half, STANDOFF)
-		var anchor := ShieldWall.label_anchor(facing, STANDOFF)
-		assert_false(Geometry2D.is_point_in_polygon(anchor, wall),
-			"the name is drawn on top of the plate at facing %s" % facing)
-		assert_almost_eq(anchor.dot(facing), _extent(wall, facing)["along_hi"] + ShieldWall.LABEL_STANDOFF,
-			0.01, "the name is not in front of the lip at facing %s" % facing)
+		var chip := ShieldWall.label_chip(facing, STANDOFF)
+		var lip: float = _extent(wall, facing)["along_hi"]
+		var corners := PackedVector2Array([chip.position, chip.position + Vector2(chip.size.x, 0.0),
+			chip.position + Vector2(0.0, chip.size.y), chip.end])
+		for c in corners:
+			assert_true(c.dot(facing.normalized()) >= lip - 0.01,
+				"the name chip reaches back over the plate at facing %s" % facing)
+			assert_false(Geometry2D.is_point_in_polygon(c, wall),
+				"a corner of the name chip is on the plate at facing %s" % facing)
+		assert_almost_eq(_extent(corners, facing)["along_lo"], lip + ShieldWall.LABEL_STANDOFF, 0.01,
+			"the name is not standing off the lip at facing %s" % facing)

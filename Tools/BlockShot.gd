@@ -6,6 +6,15 @@ extends Node
 
 const OUT_DIR := "res://Screenshots"
 
+## Since #399 a starter pawn has NO plan rows, so a Warrior picked out of the
+## roster never casts anything and this tool photographed 262 ticks of nothing.
+## It adds the class's presets, which is the state a player reaches by adding
+## every row in the library; it does not author a plan the game cannot.
+const SHOT_NAME := "sable_block_named"
+
+## A fixed seed, so a before and an after are the same fight at the same tick.
+const SEED := "81F7614F"
+
 var _main: Node
 var _res_tag: String = ""
 
@@ -21,6 +30,8 @@ func _run() -> void:
 	add_child(_main)
 	await _settle()
 
+	_add_presets()
+	_set_seed()
 	var cards := _party_cards()
 	var warrior_card := _warrior_card(cards)
 	if warrior_card == null:
@@ -52,11 +63,26 @@ func _run() -> void:
 		frames += 1
 		var shielder := _shielder(battle.state)
 		if shielder != null:
-			await _shot("swift_315_shield_up")
+			await _shot(SHOT_NAME)
 			print("BlockShot: %s is SHIELDING at tick %d, position %s, facing %s" % [
 				shielder.display_name, battle.state.tick, shielder.position, shielder.facing])
 			return
 	printerr("BlockShot: no shield went up before the fight ended (tick %d)" % battle.state.tick)
+
+func _set_seed() -> void:
+	for n in _walk(_main):
+		if n is PartySelect:
+			(n as PartySelect).prefill_seed(SEED)
+			return
+
+func _add_presets() -> void:
+	for n in _walk(_main):
+		if not (n is PartySelect):
+			continue
+		for pawn in (n as PartySelect)._available:
+			pawn.plans = PresetPlans.for_class(pawn.pawn_class.id)
+		return
+	printerr("BlockShot: no PartySelect to add presets to")
 
 func _shielder(state: CombatState) -> CombatUnit:
 	for u in state.living(CG.Team.PLAYER):
@@ -80,7 +106,8 @@ func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	var path := "%s/%s_%s.png" % [OUT_DIR, name, _res_tag]
+	var tag := OS.get_environment("BLOCKSHOT_TAG")
+	var path := "%s/%s_%s%s.png" % [OUT_DIR, name, _res_tag, "" if tag == "" else "_" + tag]
 	image.save_png(path)
 	print("BlockShot: %s" % path)
 
