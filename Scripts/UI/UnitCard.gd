@@ -12,11 +12,17 @@ signal plans_requested
 ## it is a panel beside the fight rather than a takeover of it.
 const MAX_WIDTH := 320.0
 
+## How tall the body may grow before it scrolls instead. A card long enough to
+## reach the toolbar is the #343 failure -- a panel eating the controls -- put
+## back by hand.
+const MAX_BODY_HEIGHT := 380.0
+
 var unit_id: int = -1
 
 var _title: Label = null
 var _side: Label = null
 var _body: Label = null
+var _scroll: ScrollContainer = null
 var _plans_button: Button = null
 
 static func create() -> UnitCard:
@@ -51,7 +57,11 @@ func _build() -> void:
 	_body.custom_minimum_size = Vector2(MAX_WIDTH - Palette.SPACE_M * 2.0, 0.0)
 	_body.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	_body.add_theme_color_override("font_color", Palette.TEXT)
-	column.add_child(_body)
+
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.add_child(_body)
+	column.add_child(_scroll)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", int(Palette.SPACE_S))
@@ -99,6 +109,7 @@ func _fill(state: CombatState, u: CombatUnit) -> void:
 	_title.text = title_text(u)
 	_side.text = side_text(u)
 	_body.text = "\n".join(lines(state, u))
+	_scroll.custom_minimum_size.y = minf(_body.get_combined_minimum_size().y, MAX_BODY_HEIGHT)
 	_plans_button.visible = u.pawn != null
 
 func close() -> void:

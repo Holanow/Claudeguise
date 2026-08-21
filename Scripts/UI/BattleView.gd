@@ -299,6 +299,7 @@ func _build_unit_card() -> void:
 	get_node("Hud").add_child(_unit_card)
 	_unit_card.closed.connect(_on_card_closed)
 	_unit_card.plans_requested.connect(_on_inspect_pressed)
+	_place_unit_card()
 
 ## Clicking pauses. Reading a unit takes longer than the fight gives you, and
 ## the alternative -- a card whose every number moves while you read it -- is
@@ -314,29 +315,32 @@ func select_unit_at(point: Vector2) -> void:
 		set_paused(true)
 		_card_owns_pause = true
 	_unit_card.show_unit(state, state.unit(id))
-	_place_unit_card(state.unit(id))
 
 func _on_card_closed() -> void:
 	if _card_owns_pause:
 		_card_owns_pause = false
 		set_paused(false)
 
-## Beside the unit rather than in a fixed corner, so the card reads as that
-## unit's answer, and clamped inside the viewport so it never lands off-screen.
-func _place_unit_card(u: CombatUnit) -> void:
-	if not is_inside_tree():
-		return
-	var at := _arena.get_global_transform() * u.position
-	var card_size := _unit_card.get_combined_minimum_size()
-	at += Vector2(UnitView.display_radius(u) * _arena.scale.x + Palette.SPACE_M, -card_size.y * 0.5)
-	var bounds := get_viewport_rect().size - Vector2(CombatLogView.LOG_WIDTH, 0.0)
-	_unit_card.position = Vector2(
-		clampf(at.x, Palette.SPACE_M, maxf(bounds.x - card_size.x, Palette.SPACE_M)),
-		clampf(at.y, _TOP_BAR_BOTTOM, maxf(bounds.y - card_size.y, _TOP_BAR_BOTTOM)))
+## Docked bottom-left, not beside the unit. Beside was the first version and the
+## click probe caught it: a card placed over the field ate the next click, so
+## eight of eleven sprites still reported "nothing happened" -- the exact
+## complaint the issue is about, reintroduced by the fix for it.
+func _place_unit_card() -> void:
+	_unit_card.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_unit_card.grow_horizontal = Control.GROW_DIRECTION_END
+	_unit_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_unit_card.offset_left = Palette.SPACE_M
+	_unit_card.offset_top = -Palette.SPACE_M
+	_unit_card.offset_bottom = -Palette.SPACE_M
 
 ## Which unit a click at `point` (arena-local, which is world space) lands on.
 ## The shield plate counts as part of its shielder: the playtester could not
 ## tell it from terrain, so it has to answer for the unit holding it.
+##
+## Everything here measures from where the unit is **drawn**, not from
+## `CombatUnit.position`. A melee scrum nudges bodies apart by up to one and a
+## half radii (`UnitView.visual_offset`), and a click on the sprite is a click
+## on the sprite.
 static func unit_at(state: CombatState, point: Vector2) -> int:
 	var best := -1
 	var best_distance := INF
@@ -345,24 +349,28 @@ static func unit_at(state: CombatState, point: Vector2) -> int:
 			continue
 		if not _hits(state, u, point):
 			continue
-		var distance := u.position.distance_to(point)
+		var distance := drawn_position(state, u).distance_to(point)
 		if distance < best_distance:
 			best_distance = distance
 			best = u.id
 	return best
 
+static func drawn_position(state: CombatState, u: CombatUnit) -> Vector2:
+	return u.position + UnitView.visual_offset(u, state.units)
+
 static func _hits(state: CombatState, u: CombatUnit, point: Vector2) -> bool:
+	var at := drawn_position(state, u)
 	var radius := UnitView.display_radius(u)
 	var box := UnitView.drawn_box(UnitView.shape_id(u), u.team, radius)
-	box.position += u.position + UnitView.visual_offset(u, state.units)
-	if box.size.x < radius * 2.0 or box.size.y < radius * 2.0:
-		box = box.grow_individual(
-			maxf(radius - box.size.x * 0.5, 0.0), maxf(radius - box.size.y * 0.5, 0.0),
-			maxf(radius - box.size.x * 0.5, 0.0), maxf(radius - box.size.y * 0.5, 0.0))
-	if box.has_point(point):
+	box.position += at
+	var grow_x := maxf(radius - box.size.x * 0.5, 0.0)
+	var grow_y := maxf(radius - box.size.y * 0.5, 0.0)
+	if box.grow_individual(grow_x, grow_y, grow_x, grow_y).has_point(point):
 		return true
 	if not ShieldWall.is_up(u):
 		return false
+	# The plate is drawn from `u.position`, not from the nudged draw position:
+	# `ShieldWall.draw_all` sets the canvas transform to the unit's own place.
 	var plate := ShieldWall.wall_points(u.facing, ShieldWall.half_width(), u.radius * UnitView.DISPLAY_SCALE)
 	return Geometry2D.is_point_in_polygon(point - u.position, plate)
 

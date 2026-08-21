@@ -250,3 +250,18 @@ func test_the_card_does_not_cover_the_whole_screen() -> void:
 	assert_true(view._unit_card.get_combined_minimum_size().x <= UnitCard.MAX_WIDTH + 1.0,
 		"the screen is already crowded; the card is a panel, not a takeover")
 	view.free()
+
+## The defect the click probe found in the first version: a card placed beside
+## the unit covered the field and ate the next click, so eight of eleven
+## sprites still reported "nothing happened".
+func test_the_card_is_docked_rather_than_placed_over_the_field() -> void:
+	var view = _spawn_battle_view()
+	var first: CombatUnit = view.state.units[0]
+	view.select_unit_at(first.position)
+	var where: Vector2 = view._unit_card.position
+	view.select_unit_at(view.state.units[-1].position)
+	assert_eq(view._unit_card.position, where,
+		"the card must not move to whichever unit was clicked")
+	assert_almost_eq(view._unit_card.anchor_top, 1.0, 0.0001, "docked to the bottom edge")
+	assert_almost_eq(view._unit_card.anchor_left, 0.0, 0.0001, "docked to the left edge")
+	view.free()
