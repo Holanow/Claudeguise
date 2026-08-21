@@ -170,3 +170,39 @@ func test_the_trim_leaves_the_plate_alone_in_open_ground() -> void:
 	var e := _extent(pieces[0], Vector2.RIGHT)
 	assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH, 0.01,
 		"the trim narrowed a plate that was nowhere near a wall")
+
+
+func test_a_badge_sits_inside_every_panel_of_the_plate() -> void:
+	# Three strangers in a row read the plate as terrain, a blade or an
+	# artifact, so each panel now carries the SHIELDING badge; a badge whose
+	# centre is off the plate is a badge floating beside it.
+	var half := ShieldWall.half_width()
+	var wall := ShieldWall.wall_points(Vector2.RIGHT, half, STANDOFF)
+	var centers := ShieldWall.panel_centers(Vector2.RIGHT, half, STANDOFF)
+	assert_eq(centers.size(), ShieldWall.PANELS, "one badge per panel")
+	for c in centers:
+		assert_true(Geometry2D.is_point_in_polygon(c, wall),
+			"a panel badge is centred at %s, which is not on the plate" % c)
+
+
+func test_the_panel_badges_are_spread_across_the_whole_frontage() -> void:
+	# The negative half: five badges stacked at the middle would pass the test
+	# above and say nothing about the plate's length.
+	var half := ShieldWall.half_width()
+	var centers := ShieldWall.panel_centers(Vector2.RIGHT, half, STANDOFF)
+	var e := _extent(centers, Vector2.RIGHT)
+	var step := CombatSim.SHIELD_WIDTH / float(ShieldWall.PANELS)
+	assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH - step, 0.01,
+		"the badges do not span the frontage they are meant to name")
+
+
+func test_the_name_sits_clear_of_the_plate_and_in_front_of_it() -> void:
+	# Over the plate the chip would cover the badges; behind it, the shielder.
+	for facing in [Vector2.RIGHT, Vector2.UP, Vector2(-0.6, 0.8).normalized()]:
+		var half := ShieldWall.half_width()
+		var wall := ShieldWall.wall_points(facing, half, STANDOFF)
+		var anchor := ShieldWall.label_anchor(facing, STANDOFF)
+		assert_false(Geometry2D.is_point_in_polygon(anchor, wall),
+			"the name is drawn on top of the plate at facing %s" % facing)
+		assert_almost_eq(anchor.dot(facing), _extent(wall, facing)["along_hi"] + ShieldWall.LABEL_STANDOFF,
+			0.01, "the name is not in front of the lip at facing %s" % facing)

@@ -34,6 +34,14 @@ const LIP_WIDTH := 6.0
 const SEAM_WIDTH := 2.0
 const SEAM_ALPHA := 0.75
 
+## The plate says what it is, because three strangers in a row could not name
+## it: the same SHIELDING badge the shielder's own status row carries, stamped
+## once per panel, and the ability's name in front of the lip.
+const BADGE_SIZE := 26.0
+const LABEL := "Directional Block"
+const LABEL_FONT_SIZE := 15
+const LABEL_STANDOFF := 9.0
+
 ## Half the frontage the simulation protects, in world units, read from the
 ## same constant `CombatSim._find_shielder` measures a shot against rather than
 ## copied: a drawn width that can drift teaches the player a false place to
@@ -95,6 +103,20 @@ static func seam_points(facing: Vector2, half: float, standoff: float) -> Array:
 		]))
 	return out
 
+## The centre of each panel, in the shielder's local space: half way through
+## that panel's own depth, on the line through the middle of its frontage.
+static func panel_centers(facing: Vector2, half: float, standoff: float) -> PackedVector2Array:
+	var out := []
+	for i in PANELS:
+		var t := -1.0 + (2.0 * float(i) + 1.0) / float(PANELS)
+		out.append(Vector2((standoff + _front(standoff, t, PANEL_BOW)) * 0.5, t * half))
+	return _to_world(_rot(facing), out)
+
+## Where the name sits: clear of the front lip, on the plate's centre line, so
+## it never covers the panel badges and never sits on the shielder's own body.
+static func label_anchor(facing: Vector2, standoff: float) -> Vector2:
+	return _rot(facing) * Vector2(_front(standoff, 0.0, PANEL_BOW) + LABEL_STANDOFF, 0.0)
+
 static func haft_points(facing: Vector2, standoff: float) -> PackedVector2Array:
 	var front := standoff + DEPTH * 0.6
 	return _to_world(_rot(facing), [
@@ -146,6 +168,27 @@ static func draw_for(canvas: CanvasItem, u: CombatUnit, standoff: float, room: P
 	for line in seam_points(u.facing, half, standoff):
 		_line_clipped(canvas, line, room, seam, SEAM_WIDTH)
 	_line_clipped(canvas, lip_points(u.facing, half, standoff), room, edge, LIP_WIDTH)
+	_draw_name(canvas, u.facing, half, standoff, room, edge)
+
+## The badges and the name, both drawn upright whatever the shielder faces: a
+## glyph rotated with the plate is a shape again rather than an icon.
+static func _draw_name(canvas: CanvasItem, facing: Vector2, half: float, standoff: float, room: PackedVector2Array, edge: Color) -> void:
+	var badge := Vector2(BADGE_SIZE, BADGE_SIZE)
+	for center in panel_centers(facing, half, standoff):
+		if Geometry2D.is_point_in_polygon(center, room):
+			StatusIcons.draw_status(canvas, CG.Status.SHIELDING, Rect2(center - badge * 0.5, badge))
+
+	var anchor := label_anchor(facing, standoff)
+	if not Geometry2D.is_point_in_polygon(anchor, room):
+		return
+	var font := ThemeDB.fallback_font
+	var text_size := font.get_string_size(LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_FONT_SIZE)
+	var pad := Vector2(4.0, 3.0)
+	var top_left := anchor - Vector2(text_size.x * 0.5, text_size.y * 0.5) - pad
+	canvas.draw_rect(Rect2(top_left, text_size + pad * 2.0), Color(Palette.BACKGROUND, 0.8))
+	canvas.draw_rect(Rect2(top_left, text_size + pad * 2.0), edge, false, 1.0)
+	canvas.draw_string(font, top_left + pad + Vector2(0.0, text_size.y - font.get_descent(LABEL_FONT_SIZE)),
+		LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_FONT_SIZE, edge)
 
 ## Every shielder on the field, drawn from the arena rather than from each
 ## unit's own node: `UnitView`s are siblings, so a plate drawn inside one of
