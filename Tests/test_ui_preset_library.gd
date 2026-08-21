@@ -176,9 +176,56 @@ func test_a_row_taken_from_the_library_changes_the_fight() -> void:
 	assert_ne(bare["signature"], taken["signature"],
 		"the same seed produced the same event stream with and without the row, so the library never reached the simulation")
 
+## Embedded in the party screen's column the three chips cannot line up:
+## `_fixed_chip` autowraps, and on a real capture one row stood five lines tall
+## and two of them filled the panel. One sentence instead, carrying every fact
+## the three columns carry.
+func test_the_embedded_row_is_one_sentence_and_the_wide_row_is_three_columns() -> void:
+	var pawn := _pawn(&"abomination")
+	var immolate = _preset(&"abomination", &"abomination_immolate_dump")
+
+	var wide := _panel(pawn)
+	var wide_row := wide._library_row(pawn, immolate)
+	assert_eq(_panels_in(wide_row).size(), 3, "wide, skill/target/condition are three chips")
+
+	var narrow := InspectPanel.create()
+	narrow._ready()
+	narrow.embed()
+	narrow.show_pawn(pawn)
+	var narrow_row := narrow._library_row(pawn, immolate)
+	assert_eq(_panels_in(narrow_row).size(), 0, "embedded, no autowrapping chips")
+	var sentence := _text_of(narrow_row)
+	for fact in ["Immolate", "Self", "An enemy within 90 units"]:
+		assert_true(sentence.contains(fact), "the sentence must still carry '%s': %s" % [fact, sentence])
+
+	wide_row.free()
+	narrow_row.free()
+	wide.free()
+	narrow.free()
+
+## Both doors are on the embedded screen too, where the column is narrow enough
+## that a third control in the header pushed "+ Add a plan" off the edge.
+func test_both_buttons_are_on_the_embedded_screen() -> void:
+	var pawn := _pawn(&"warrior")
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.embed()
+	panel.show_pawn(pawn)
+	var texts := _buttons(panel._detail_box).map(func(b): return b.text)
+	assert_true(texts.has("+ Add a plan"), "found: %s" % str(texts))
+	assert_true(texts.has(InspectPanel.LIBRARY_CLOSE), "found: %s" % str(texts))
+	panel.free()
+
 # ---------------------------------------------------------------------------
 
 const _SEED := 11
+
+func _panels_in(node: Node, out: Array = []) -> Array:
+	if node is PanelContainer:
+		out.append(node)
+	for c in node.get_children():
+		_panels_in(c, out)
+	return out
 
 func _preset(class_id: StringName, plan_id: StringName):
 	for p in PresetPlans.for_class(class_id):

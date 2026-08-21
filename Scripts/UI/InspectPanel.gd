@@ -318,9 +318,22 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	var heading := _section_header("Plans")
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
-	header.add_child(_library_button(pawn))
-	header.add_child(_add_plan_button(pawn))
-	out.append(header)
+	## Issue 412, and the same split `_assemble_row` already makes: two buttons
+	## and a heading do not fit the party screen's column, and "+ Add a plan"
+	## rendered clipped on a real capture the moment the second one arrived.
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	buttons.add_child(_library_button(pawn))
+	buttons.add_child(_add_plan_button(pawn))
+	if _embedded:
+		var stack := VBoxContainer.new()
+		stack.add_child(header)
+		stack.add_child(buttons)
+		out.append(stack)
+	else:
+		header.add_child(buttons)
+		out.append(header)
 
 	var used := _blocks_used(pawn)
 	var budget := Balance.plan_block_budget(pawn)
@@ -656,7 +669,6 @@ func _library_section(pawn: PawnData) -> Array[Control]:
 ## One library row: what it would do, in the same words the editable row above
 ## prints, plus what it costs and a button to take it.
 func _library_row(pawn: PawnData, plan) -> Control:
-	var row := HBoxContainer.new()
 	var cost: int = plan.block_count()
 	var free_blocks := Balance.plan_block_budget(pawn) - _blocks_used(pawn)
 
@@ -669,20 +681,36 @@ func _library_row(pawn: PawnData, plan) -> Control:
 	else:
 		add.tooltip_text = "Add \"%s\" as a new last row. It costs %d blocks." % [plan.display_name, cost]
 		add.pressed.connect(_add_preset.bind(pawn, plan))
-	row.add_child(add)
-
-	var texts := _library_row_texts(plan)
-	for i in texts.size():
-		var chip := _fixed_chip(texts[i])
-		chip.size_flags_stretch_ratio = [SKILL_SHARE, TARGET_SHARE, CONDITION_SHARE][i]
-		row.add_child(chip)
 
 	var price := _tag_label(LIBRARY_COST % cost)
-	price.custom_minimum_size = Vector2(_TOUCH + Palette.SPACE_S, 0.0)
-	row.add_child(price)
+	var texts := _library_row_texts(plan)
+	var row := _assemble_library_row(add, price, texts)
 	if free_blocks < cost:
 		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
 	return row
+
+## Wide, the three columns line up with the editable rows above. Embedded they
+## cannot: `_fixed_chip` autowraps, and in the party screen's column one row
+## stood five lines tall and two of them filled the panel.
+func _assemble_library_row(add: Button, price: Label, texts: Array[String]) -> Control:
+	if not _embedded:
+		var row := HBoxContainer.new()
+		row.add_child(add)
+		for i in texts.size():
+			var chip := _fixed_chip(texts[i])
+			chip.size_flags_stretch_ratio = [SKILL_SHARE, TARGET_SHARE, CONDITION_SHARE][i]
+			row.add_child(chip)
+		price.custom_minimum_size = Vector2(_TOUCH + Palette.SPACE_S, 0.0)
+		row.add_child(price)
+		return row
+
+	var narrow := HBoxContainer.new()
+	narrow.add_child(add)
+	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	narrow.add_child(sentence)
+	narrow.add_child(price)
+	return narrow
 
 ## Skill, target, condition -- the same three columns, in the same order, as an
 ## editable row and as the fallback row, so the screen reads straight down.
