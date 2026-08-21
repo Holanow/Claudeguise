@@ -1,7 +1,7 @@
 extends Node
 
-## Issue 406: the Priest's and the Geysermancer's libraries as the screen draws
-## them, through the real pawn tab a player clicks.
+## Issue 406: a class's library as the screen draws it, through the real pawn tab
+## a player clicks. Takes class ids on the command line.
 
 const OUT_DIR := "res://Screenshots"
 
@@ -61,7 +61,7 @@ func _run() -> void:
 		_failures += 1
 		return
 	var panel = select._inspect_panel
-	for class_id in [&"geysermancer", &"priest"]:
+	for class_id in _wanted():
 		var pawn: PawnData = null
 		for p in select.available_pawns():
 			if p.pawn_class.id == class_id:
@@ -74,4 +74,11 @@ func _run() -> void:
 		await _settle()
 		print("CasterLibraryShot: showing %s, library open=%s" % [
 			panel._pawns[panel._selected_index].pawn_class.id, panel._library_open])
-		await _shot("issue406_library_%s" % class_id)
+		await _shot("library_%s" % class_id)
+
+## The classes to shoot, from the command line, or both casters by default.
+func _wanted() -> Array:
+	var out := []
+	for a in OS.get_cmdline_user_args():
+		out.append(StringName(String(a).strip_edges()))
+	return out if not out.is_empty() else [&"geysermancer", &"priest"]

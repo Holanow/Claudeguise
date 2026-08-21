@@ -79,14 +79,16 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
 					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
 			]
+		## Issue 432: Mark leads. `siege_engine_bolt` is marked-only, so an engine
+		## built before anything carries MARKED has nothing to shoot at.
 		&"siege_master":
 			return [
-				_plan(&"siege_master_build_when_ready", "Build the engine",
-					_condition(&"self_resource_at_least", {"amount": 25}),
-					[_targeting(&"target_self"), _action_block(&"build_siege_engine")]),
 				_plan(&"siege_master_mark_default", "Mark the target",
 					_condition(&"enemy_in_range", {"range": 220.0}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
+				_plan(&"siege_master_build_when_ready", "Build the engine",
+					_condition(&"self_resource_at_least", {"amount": 25}),
+					[_targeting(&"target_self"), _action_block(&"build_siege_engine")]),
 			]
 		&"abomination":
 			return [

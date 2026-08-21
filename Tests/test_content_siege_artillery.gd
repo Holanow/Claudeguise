@@ -170,3 +170,27 @@ func test_an_engine_fires_at_a_target_inside_its_kite_band() -> void:
 		inside += int(_run(s, &"floor1_room1")["kite_band"])
 	assert_true(inside > 0,
 		"no engine ever committed a shot inside 0.6 of its own range -- the kite branch is swallowing them")
+
+## Issue 432: the top library row, on its own, has to be one the class can act
+## on from the opening tick. A player who takes one row takes this one.
+func test_the_top_library_row_alone_marks_rather_than_builds() -> void:
+	var top: Plan = PresetPlans.for_class(&"siege_master")[0]
+	var started := {}
+	for s in SEEDS:
+		var party: Array[PawnData] = []
+		for cid in Registry.all_class_ids():
+			var pid := StringName("%s_%d" % [cid, party.size()])
+			if cid != &"siege_master":
+				party.append(PawnFactory.make_starter_pawn(cid, pid, String(cid)))
+				continue
+			var pawn := PawnFactory.make_preset_pawn(cid, pid, String(cid))
+			var one: Array[Plan] = [top]
+			pawn.plans = one
+			party.append(pawn)
+		var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), s)
+		CombatSim.run(state)
+		for e in state.events:
+			if e.kind == CG.EventKind.ACTION_START and e.source_plan == top.id:
+				started[e.action_id] = int(started.get(e.action_id, 0)) + 1
+	assert_true(int(started.get(&"spotter_mark", 0)) > 0,
+		"the Siege Master's top library row fired %s across %d fights; siege_engine_bolt is marked-only, so a row that builds before anything is marked leaves the engine with nothing to shoot at" % [started, SEEDS])
