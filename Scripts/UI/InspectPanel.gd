@@ -56,6 +56,13 @@ const HOW_TO_PLAY := (
 const SKILL_SHARE := 0.8
 const TARGET_SHARE := 1.1
 const CONDITION_SHARE := 1.4
+## Issue 386, and it is the narrowest share on the row on purpose: a fourth
+## block shrinks the other three, and the condition is the one that had least
+## room to give. A block carrying a SpinBox gets the condition's share instead:
+## a fixed 96px control inside a 0.8 share clipped "Hold 120 units from the
+## target" down to the letter H on a real capture.
+const MOVEMENT_SHARE := 0.8
+const MOVEMENT_WITH_VALUE_SHARE := CONDITION_SHARE
 
 var _pawns: Array[PawnData] = []
 var _selected_index: int = 0
@@ -309,7 +316,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	var over := used - budget
 	var standing := ("%d free" % maxi(0, budget - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
 	out.append(_line(
-		"%d of %d plan blocks used, %s. A target block and a skill block cost 1 each, so a new plan costs %d. A condition costs 0. The budget is this pawn's WIS, equipment included." % [
+		"%d of %d plan blocks used, %s. A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % [
 			used, budget, standing, NEW_PLAN_BLOCK_COST],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT if over <= 0 else Palette.HP_LOW))
 
@@ -468,6 +475,7 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 			var target := _targeting_picker(pawn, block)
 			target.size_flags_stretch_ratio = TARGET_SHARE
 			row.add_child(target)
+	row.add_child(_movement_editor(pawn, plan))
 	row.add_child(_condition_editor(plan))
 
 	var remove := Button.new()
@@ -521,6 +529,9 @@ func _remove_plan(pawn: PawnData, index: int) -> void:
 # `TARGETING_OPS` / `starting_actions` directly.
 func _available_conditions(_pawn: PawnData) -> Array:
 	return PlanInterpreter.CONDITION_OPS
+
+func _available_movements(_pawn: PawnData) -> Array:
+	return PlanInterpreter.MOVEMENT_OPS
 
 func _available_targetings(_pawn: PawnData) -> Array:
 	return PlanInterpreter.TARGETING_OPS
@@ -602,6 +613,105 @@ func _action_picker(pawn: PawnData, block) -> Control:
 func _set_action(block, action_id: StringName) -> void:
 	block.args = {"action_id": action_id}
 	call_deferred("_build_detail", _pawns[_selected_index])
+
+## Issue 386. `keep_distance` and `move_into_cover` were built, tested and
+## correct, and no player could create either: nothing outside `CoverProbe` and
+## the tests ever constructed a `PlanBlock.Kind.MOVEMENT`, so where a pawn stood
+## was `DefaultBehavior`'s to decide for every plan a player could write.
+const NO_MOVEMENT := &""
+const NO_MOVEMENT_CAPTION := "default movement"
+
+## Why the picker is dead rather than silently doing nothing, which is issue
+## 95's own failure.
+const MOVEMENT_NO_ROOM := "No plan block free, and a movement block costs 1. Remove a row, or raise this pawn's WIS."
+
+## The movement block on this plan, or null. There is at most one:
+## `_run_blocks` keeps the last MOVEMENT block it walks past, so a second would
+## be paid for and never read.
+static func movement_block_of(plan):
+	for block in plan.blocks:
+		if block.kind == PlanBlockScript.Kind.MOVEMENT:
+			return block
+	return null
+
+## The row's movement chip. Never disabled for a plan that already carries a
+## block, whatever the budget says: taking it off again is the way back under.
+func _movement_picker(pawn: PawnData, plan) -> OptionButton:
+	var block = movement_block_of(plan)
+	var ops := _available_movements(pawn)
+	var picker := _block_chip()
+	picker.add_item(NO_MOVEMENT_CAPTION)
+	var current := 0
+	for i in ops.size():
+		var op: StringName = ops[i]
+		var preview: Dictionary = block.args if block != null and op == block.op else _default_movement_args(op)
+		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, preview)))
+		if block != null and op == block.op:
+			current = i + 1
+	picker.selected = current
+	_caption_tooltip(picker)
+	if block == null and Balance.plan_block_budget(pawn) - _blocks_used(pawn) < 1:
+		picker.disabled = true
+		picker.tooltip_text = MOVEMENT_NO_ROOM
+		return picker
+	picker.item_selected.connect(func(idx): _set_movement(pawn, plan,
+		NO_MOVEMENT if idx == 0 else ops[idx - 1]))
+	return picker
+
+func _default_movement_args(op: StringName) -> Dictionary:
+	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE.get(op, {"kind": "none"})
+	if shape.get("kind") == "none":
+		return {}
+	return {shape["key"]: shape["default"]}
+
+## Deferred for the same reason as `_move_plan`. A swap replaces the block in
+## place, so only going from none to some costs a block and only going back
+## refunds one.
+func _set_movement(pawn: PawnData, plan, op: StringName) -> void:
+	var block = movement_block_of(plan)
+	if op == NO_MOVEMENT:
+		if block != null:
+			plan.blocks.erase(block)
+	else:
+		if block == null:
+			block = PlanBlockScript.new()
+			block.kind = PlanBlockScript.Kind.MOVEMENT
+			plan.blocks.append(block)
+		block.op = op
+		block.args = _default_movement_args(op)
+	call_deferred("_build_detail", pawn)
+
+## Deferred for the same reason as `_move_plan`.
+func _set_movement_arg(block, key: String, value) -> void:
+	block.args[key] = value
+	call_deferred("_build_detail", _pawns[_selected_index])
+
+## The distance a `keep_distance` block holds, beside the chip that named it.
+## Shaped from `PlanInterpreter.MOVEMENT_ARG_SHAPE`, the same way the condition
+## editor is shaped from `CONDITION_ARG_SHAPE`.
+func _movement_value_editor(block) -> Control:
+	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE.get(block.op, {"kind": "none"})
+	var spin := SpinBox.new()
+	spin.custom_minimum_size = Vector2(96.0, _TOUCH)
+	spin.min_value = shape["min"]
+	spin.max_value = shape["max"]
+	spin.step = shape["step"]
+	spin.value = float(block.args.get(shape["key"], shape["default"]))
+	spin.value_changed.connect(func(v): _set_movement_arg(block, shape["key"], v))
+	return spin
+
+## The chip plus its value editor, sharing the row the way the condition does.
+func _movement_editor(pawn: PawnData, plan) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_movement_picker(pawn, plan))
+	var block = movement_block_of(plan)
+	var has_value: bool = block != null and PlanInterpreter.MOVEMENT_ARG_SHAPE.get(block.op, {"kind": "none"}).get("kind") != "none"
+	row.size_flags_stretch_ratio = MOVEMENT_WITH_VALUE_SHARE if has_value else MOVEMENT_SHARE
+	if has_value:
+		row.add_child(_movement_value_editor(block))
+	return row
 
 ## A plan's trigger: "when <condition>". `plan.condition == null` and a block
 ## whose op is `&"always"` mean the same thing to PlanInterpreter (see
