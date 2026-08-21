@@ -43,12 +43,16 @@ const HEADING := "Edit your pawns' plans"
 ## explains, and a paragraph nobody finishes is worse than a shorter one.
 const HOW_TO_PLAY := (
 	"A pawn runs the first row whose condition holds, checked from the top down. " +
-	"The last row is its fallback and always matches, so a pawn always does something. " +
+	"The last row is its default and always matches, so a pawn always does something. " +
 	"Reorder rows with the arrows, change a block by picking from it, and add or remove rows " +
 	"within the pawn's block budget. " +
 	"Library offers this class's ready-made rows; + Add a plan starts a blank one. " +
 	"Nothing is locked yet: every action and every block is available to every pawn this slice."
 )
+
+## The same word the log's tag uses, so a player who reads "[default]" in the
+## log can find the row it names on this screen (issue 441).
+const DEFAULT_ROW_TITLE := "This pawn's default, always last and not yours to change:"
 
 ## How the three blocks share a row's width. Not equal thirds, because the
 ## three do not carry comparable strings: a skill is a name ("Guard", "Smite"),
@@ -389,7 +393,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 
 	var fallback_header := HBoxContainer.new()
 	var fallback_title := _line(
-		"Fallback, always last and not yours to change:",
+		DEFAULT_ROW_TITLE,
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	## Autowrap with no share of the row wraps this to one word per line the
 	## moment a verdict sits beside it (issue 308's screenshot).

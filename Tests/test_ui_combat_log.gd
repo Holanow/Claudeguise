@@ -695,16 +695,16 @@ func test_a_real_fight_names_the_plan_row_behind_a_pawns_action() -> void:
 		if source == null or source.pawn == null:
 			continue
 		var line := view.line_for_event(state, e)
-		if line.contains("[fallback]"):
+		if line.contains("[default]"):
 			fallback += 1
 			continue
 		var row := view.plan_row_number(source.pawn, e.source_plan)
-		assert_true(row > 0, "a pawn action with no fallback tag must name a real row: %s" % line)
+		assert_true(row > 0, "a pawn action with no default tag must name a real row: %s" % line)
 		assert_true(line.contains("[plan %d]" % row), line)
 		tagged += 1
 	assert_true(tagged > 0, "no pawn action in a whole fight named its plan")
 	assert_true(fallback > 0,
-		"no pawn action fell through to the fallback, so that wording went unexercised")
+		"no pawn action fell through to the default, so that wording went unexercised")
 	view.free()
 
 ## The negative half, and it is where the volume argument lives. An enemy has no
@@ -775,8 +775,8 @@ func test_a_taunted_pawn_says_so_instead_of_blaming_the_fallback() -> void:
 	var fell_through := CombatEvent.make(CG.EventKind.ACTION_START, 4)
 	fell_through.source_id = 0
 	fell_through.action_id = &"warrior_strike"
-	assert_true(view.line_for_event(state, fell_through).contains("[fallback]"),
-		"and an unstamped intent still reads as the fallback")
+	assert_true(view.line_for_event(state, fell_through).contains("[no plan]"),
+		"and an unstamped intent on a pawn with an empty editor says it has no plan")
 	view.free()
 
 ## The simulation's half: `CombatSim._compelled_intent` has to stamp the

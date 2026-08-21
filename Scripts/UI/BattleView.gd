@@ -38,6 +38,7 @@ var _enemy_summary_fill: ColorRect = null
 var _end_banner: Control = null
 var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
+var _end_prompt_label: Label = null
 var _inspect_panel = null
 
 var _pause_dim: ColorRect = null
@@ -238,6 +239,9 @@ const _PANEL_TOP := Palette.SPACE_M
 ## prominent version: a full-screen backdrop shown only once the fight
 ## actually resolves (built hidden here, shown from _show_outcome, hidden
 ## again in begin()), so it cannot compete with anything mid-fight.
+## How wide the end card's prose is allowed to run before it wraps.
+const _END_TEXT_WIDTH := 440.0
+
 func _build_end_banner() -> void:
 	var hud := get_node("Hud")
 
@@ -275,6 +279,18 @@ func _build_end_banner() -> void:
 	_end_cost_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_end_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_end_cost_label)
+
+	## Issue 441. The one place the game says plans exist, shown only to a
+	## player who has none, at the moment they have just watched what that
+	## costs. The field stays clear of it: this is the end card only.
+	_end_prompt_label = Label.new()
+	_end_prompt_label.add_theme_color_override("font_color", Palette.TEXT)
+	_end_prompt_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	_end_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_end_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_end_prompt_label.custom_minimum_size = Vector2(_END_TEXT_WIDTH, 0.0)
+	_end_prompt_label.visible = false
+	column.add_child(_end_prompt_label)
 
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -995,8 +1011,28 @@ func _show_outcome() -> void:
 	_end_cost_label.text = "%s  ·  %s" % [_cost_summary(), duration]
 	if reason != "":
 		_end_cost_label.text = "%s\n%s" % [_end_cost_label.text, reason]
+	var prompt := plans_prompt(state)
+	_end_prompt_label.text = prompt
+	_end_prompt_label.visible = prompt != ""
 	_end_banner.visible = true
 	_end_dim.visible = true
+
+## Issue 441. After #399 the editor starts empty, so a new player's first fight
+## is entirely unplanned and nothing on the fight screen ever said so.
+static func plans_prompt(state: CombatState) -> String:
+	var pawns := 0
+	var planless := 0
+	for u in state.units:
+		if u.team != CG.Team.PLAYER or u.pawn == null:
+			continue
+		pawns += 1
+		if u.pawn.plans.is_empty():
+			planless += 1
+	if planless == 0:
+		return ""
+	if planless == pawns:
+		return "None of your pawns has a plan, so each one fought on its own default. Press Plans to write one."
+	return "%d of your pawns had no plan and fought on their defaults. Press Plans to write one." % planless
 
 ## Issue 218. **The banner used to contradict the line under it**: a fight where
 ## every pawn died and the siege engines finished the room off printed "Victory"

@@ -239,7 +239,10 @@ func _plan_tag(source, e: CombatEvent) -> String:
 	if e.source_plan == Intent.COMPELLED:
 		text = "taunted"
 	elif e.source_plan == &"":
-		text = "fallback"
+		## Issue 441: an empty editor and a set of rows that all missed are
+		## different answers to "why did that happen", and "fallback" was the
+		## same word for both.
+		text = "no plan" if source.pawn.plans.is_empty() else "default"
 	else:
 		var index := plan_row_number(source.pawn, e.source_plan)
 		text = "plan %d" % index if index > 0 else String(e.source_plan)
