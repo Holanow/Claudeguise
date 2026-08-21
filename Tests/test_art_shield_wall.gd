@@ -170,3 +170,47 @@ func test_the_trim_leaves_the_plate_alone_in_open_ground() -> void:
 	var e := _extent(pieces[0], Vector2.RIGHT)
 	assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH, 0.01,
 		"the trim narrowed a plate that was nowhere near a wall")
+
+
+func test_a_badge_sits_inside_every_panel_of_the_plate() -> void:
+	# Three strangers in a row read the plate as terrain, a blade or an
+	# artifact, so each panel now carries the SHIELDING badge; a badge whose
+	# centre is off the plate is a badge floating beside it.
+	var half := ShieldWall.half_width()
+	var wall := ShieldWall.wall_points(Vector2.RIGHT, half, STANDOFF)
+	var centers := ShieldWall.panel_centers(Vector2.RIGHT, half, STANDOFF)
+	assert_eq(centers.size(), ShieldWall.PANELS, "one badge per panel")
+	for c in centers:
+		assert_true(Geometry2D.is_point_in_polygon(c, wall),
+			"a panel badge is centred at %s, which is not on the plate" % c)
+
+
+func test_the_panel_badges_are_spread_across_the_whole_frontage() -> void:
+	# The negative half: five badges stacked at the middle would pass the test
+	# above and say nothing about the plate's length.
+	var half := ShieldWall.half_width()
+	var centers := ShieldWall.panel_centers(Vector2.RIGHT, half, STANDOFF)
+	var e := _extent(centers, Vector2.RIGHT)
+	var step := CombatSim.SHIELD_WIDTH / float(ShieldWall.PANELS)
+	assert_almost_eq(e["across_hi"] - e["across_lo"], CombatSim.SHIELD_WIDTH - step, 0.01,
+		"the badges do not span the frontage they are meant to name")
+
+
+func test_the_name_never_lies_over_the_plate_it_names() -> void:
+	# Centring the chip on a point in front of the lip is not enough: the chip
+	# is upright while the plate turns, so at an eastward facing half of it lay
+	# back over the badges.
+	for facing in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2(0.983, 0.182).normalized()]:
+		var half := ShieldWall.half_width()
+		var wall := ShieldWall.wall_points(facing, half, STANDOFF)
+		var chip := ShieldWall.label_chip(facing, STANDOFF)
+		var lip: float = _extent(wall, facing)["along_hi"]
+		var corners := PackedVector2Array([chip.position, chip.position + Vector2(chip.size.x, 0.0),
+			chip.position + Vector2(0.0, chip.size.y), chip.end])
+		for c in corners:
+			assert_true(c.dot(facing.normalized()) >= lip - 0.01,
+				"the name chip reaches back over the plate at facing %s" % facing)
+			assert_false(Geometry2D.is_point_in_polygon(c, wall),
+				"a corner of the name chip is on the plate at facing %s" % facing)
+		assert_almost_eq(_extent(corners, facing)["along_lo"], lip + ShieldWall.LABEL_STANDOFF, 0.01,
+			"the name is not standing off the lip at facing %s" % facing)

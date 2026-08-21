@@ -34,6 +34,15 @@ const LIP_WIDTH := 6.0
 const SEAM_WIDTH := 2.0
 const SEAM_ALPHA := 0.75
 
+## The plate says what it is, because three strangers in a row could not name
+## it: the same SHIELDING badge the shielder's own status row carries, stamped
+## once per panel, and the ability's name in front of the lip.
+const BADGE_SIZE := 26.0
+const LABEL := "Directional Block"
+const LABEL_FONT_SIZE := 16
+const LABEL_STANDOFF := 8.0
+const LABEL_PAD := Vector2(5.0, 3.0)
+
 ## Half the frontage the simulation protects, in world units, read from the
 ## same constant `CombatSim._find_shielder` measures a shot against rather than
 ## copied: a drawn width that can drift teaches the player a false place to
@@ -95,6 +104,31 @@ static func seam_points(facing: Vector2, half: float, standoff: float) -> Array:
 		]))
 	return out
 
+## The centre of each panel, in the shielder's local space: half way through
+## that panel's own depth, on the line through the middle of its frontage.
+static func panel_centers(facing: Vector2, half: float, standoff: float) -> PackedVector2Array:
+	var out := []
+	for i in PANELS:
+		var t := -1.0 + (2.0 * float(i) + 1.0) / float(PANELS)
+		out.append(Vector2((standoff + _front(standoff, t, PANEL_BOW)) * 0.5, t * half))
+	return _to_world(_rot(facing), out)
+
+## The chip carrying the name, in the shielder's local space. It is drawn
+## upright while the plate turns, so it is pushed along `facing` until no
+## corner of it is behind the lip -- centring it on a point in front of the lip
+## still laid half the chip over the badges at an eastward facing.
+static func label_chip(facing: Vector2, standoff: float) -> Rect2:
+	var f := facing.normalized()
+	var size := ThemeDB.fallback_font.get_string_size(LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_FONT_SIZE) + LABEL_PAD * 2.0
+	var anchor := f * (_front(standoff, 0.0, PANEL_BOW) + LABEL_STANDOFF)
+	var chip := Rect2(anchor - size * 0.5, size)
+	var behind := 0.0
+	for corner in [chip.position, chip.position + Vector2(chip.size.x, 0.0),
+			chip.position + Vector2(0.0, chip.size.y), chip.end]:
+		behind = maxf(behind, (anchor - corner).dot(f))
+	chip.position += f * behind
+	return chip
+
 static func haft_points(facing: Vector2, standoff: float) -> PackedVector2Array:
 	var front := standoff + DEPTH * 0.6
 	return _to_world(_rot(facing), [
@@ -146,6 +180,24 @@ static func draw_for(canvas: CanvasItem, u: CombatUnit, standoff: float, room: P
 	for line in seam_points(u.facing, half, standoff):
 		_line_clipped(canvas, line, room, seam, SEAM_WIDTH)
 	_line_clipped(canvas, lip_points(u.facing, half, standoff), room, edge, LIP_WIDTH)
+	_draw_name(canvas, u.facing, half, standoff, room, edge)
+
+## The badges and the name, both drawn upright whatever the shielder faces: a
+## glyph rotated with the plate is a shape again rather than an icon.
+static func _draw_name(canvas: CanvasItem, facing: Vector2, half: float, standoff: float, room: PackedVector2Array, edge: Color) -> void:
+	var badge := Vector2(BADGE_SIZE, BADGE_SIZE)
+	for center in panel_centers(facing, half, standoff):
+		if Geometry2D.is_point_in_polygon(center, room):
+			StatusIcons.draw_status(canvas, CG.Status.SHIELDING, Rect2(center - badge * 0.5, badge))
+
+	var chip := label_chip(facing, standoff)
+	if not Geometry2D.is_point_in_polygon(chip.get_center(), room):
+		return
+	canvas.draw_rect(chip, Color(Palette.BACKGROUND, 0.92))
+	canvas.draw_rect(chip, edge, false, 1.0)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(font, chip.position + LABEL_PAD + Vector2(0.0, chip.size.y - LABEL_PAD.y - font.get_descent(LABEL_FONT_SIZE)),
+		LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_FONT_SIZE, edge)
 
 ## Every shielder on the field, drawn from the arena rather than from each
 ## unit's own node: `UnitView`s are siblings, so a plate drawn inside one of
