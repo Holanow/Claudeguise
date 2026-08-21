@@ -13,7 +13,7 @@ func _party() -> Array[PawnData]:
 	for cid in Registry.all_class_ids():
 		if cid == &"geysermancer":
 			continue
-		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
+		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
 	return out
 
 # ---------------------------------------------------------------------------

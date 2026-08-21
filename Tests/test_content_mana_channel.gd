@@ -115,7 +115,7 @@ func test_taking_the_robes_off_strands_the_channel_row() -> void:
 # ---------------------------------------------------------------------------
 
 func test_the_channel_fires_in_a_real_encounter_and_returns_its_mana() -> void:
-	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")]
+	var party: Array[PawnData] = [PawnFactory.make_preset_pawn(&"priest", &"p0", "Priest")]
 	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 7)
 	var priest := state.unit(0)
 	assert_not_null(priest, "no Priest was built")
@@ -147,7 +147,7 @@ func test_the_channel_fires_in_a_real_encounter_and_returns_its_mana() -> void:
 ## The "sit idle for it" half, asserted rather than assumed: the caster does not
 ## move for the whole wind-up.
 func test_the_caster_stands_still_for_the_whole_wind_up() -> void:
-	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")]
+	var party: Array[PawnData] = [PawnFactory.make_preset_pawn(&"priest", &"p0", "Priest")]
 	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 7)
 	var priest := state.unit(0)
 	priest.resource = 0
@@ -180,7 +180,7 @@ func test_the_caster_stands_still_for_the_whole_wind_up() -> void:
 ## A stun breaks it, which is the counterplay the wind-up buys. Asserted on a
 ## hand-built fight because no floor-1 enemy stuns.
 func test_a_stun_during_the_wind_up_returns_no_mana() -> void:
-	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")]
+	var party: Array[PawnData] = [PawnFactory.make_preset_pawn(&"priest", &"p0", "Priest")]
 	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 7)
 	var priest := state.unit(0)
 	priest.resource = 0

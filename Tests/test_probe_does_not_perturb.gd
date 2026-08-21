@@ -155,8 +155,8 @@ func _tool_scripts() -> Array[String]:
 func _run_plan_fight(observe: bool, restore: bool) -> String:
 	var enc := Registry.get_encounter(&"floor1_room1")
 	var pawns: Array[PawnData] = [
-		PawnFactory.make_starter_pawn(&"warrior", &"p0", "P0"),
-		PawnFactory.make_starter_pawn(&"priest", &"p1", "P1"),
+		PawnFactory.make_preset_pawn(&"warrior", &"p0", "P0"),
+		PawnFactory.make_preset_pawn(&"priest", &"p1", "P1"),
 	]
 	var state := CombatSim.build(pawns, enc, 7, SimDeps.new())
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:

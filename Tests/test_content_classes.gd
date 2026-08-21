@@ -218,8 +218,8 @@ func test_warrior_taunt_action_shape() -> void:
 ## the Siege Master's own engine, checked against the mechanism it borrows
 ## rather than assumed to work because the pieces exist.
 func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
-	var warrior := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
-	var geysermancer := PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "Geysermancer")
+	var warrior := PawnFactory.make_preset_pawn(&"warrior", &"warrior", "Warrior")
+	var geysermancer := PawnFactory.make_preset_pawn(&"geysermancer", &"geysermancer", "Geysermancer")
 	var party: Array[PawnData] = [warrior, geysermancer]
 	var encounter := Registry.get_encounter(&"floor1_room1")
 	var state := CombatSim.build(party, encounter, 1)

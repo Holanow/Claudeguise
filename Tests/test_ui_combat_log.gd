@@ -810,7 +810,7 @@ func test_the_compulsion_stamps_its_own_sentinel_on_both_intents() -> void:
 func _real_fight() -> CombatState:
 	var party: Array[PawnData] = []
 	for cid in Registry.all_class_ids().slice(0, 4):
-		party.append(PawnFactory.make_starter_pawn(
+		party.append(PawnFactory.make_preset_pawn(
 			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	CombatSim.run(state)

@@ -7,7 +7,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 const _WARRIOR := &"warrior"
 
 func _pawn(class_id: StringName) -> PawnData:
-	return PawnFactory.make_starter_pawn(class_id, class_id, Registry.get_class_def(class_id).display_name)
+	return PawnFactory.make_preset_pawn(class_id, class_id, Registry.get_class_def(class_id).display_name)
 
 func _party(class_ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
