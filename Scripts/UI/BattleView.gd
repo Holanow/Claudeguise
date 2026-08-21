@@ -394,6 +394,10 @@ func _place_unit_card() -> void:
 	_unit_card.offset_top = -Palette.SPACE_M
 	_unit_card.offset_bottom = -Palette.SPACE_M
 
+## STUB for issue 428, red-first: the real one converts to world pixels.
+static func pick_radius_for_scale(_arena_scale: float) -> float:
+	return 0.0
+
 ## Which unit a click at `point` (arena-local, which is world space) lands on.
 ## The shield plate counts as part of its shielder: the playtester could not
 ## tell it from terrain, so it has to answer for the unit holding it.
