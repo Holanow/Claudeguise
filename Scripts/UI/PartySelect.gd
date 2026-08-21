@@ -235,6 +235,16 @@ func prefill_seed(seed_text: String) -> void:
 	if _seed_edit != null:
 		_seed_edit.text = seed_text
 
+## STUBS for issue 380, red-first.
+func restore_roster(_pawns: Array[PawnData]) -> void:
+	pass
+
+func restore_selection(_pawns: Array[PawnData]) -> void:
+	pass
+
+func select_room(_id: StringName) -> void:
+	pass
+
 func _update_status() -> void:
 	if _status_label != null:
 		_status_label.text = "Party: %d/%d" % [_selected.size(), MAX_PARTY_SIZE]
