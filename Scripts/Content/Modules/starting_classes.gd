@@ -18,7 +18,7 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.DIVINE, CG.DamageType.AIR],
 			CG.ResourceKind.MANA,
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 8},
-			[&"priest_heal", &"priest_smite", &"priest_haste", &"priest_ward"]
+			[&"priest_heal", &"priest_smite", &"priest_haste", &"priest_ward", &"channel_mana"]
 		),
 		_class(
 			&"geysermancer", "Geysermancer",
@@ -26,7 +26,7 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.WATER, CG.DamageType.FIRE],
 			CG.ResourceKind.MANA,
 			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 6},
-				[&"geyser_blast", &"geyser_scald", &"geyser_cleanse"]
+				[&"geyser_blast", &"geyser_scald", &"geyser_cleanse", &"channel_mana"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
 		_class(

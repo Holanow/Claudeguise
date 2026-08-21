@@ -69,6 +69,7 @@ is coming rather than only that something is.
 `action/priest_haste.png`, `action/priest_ward.png`,
 `action/geyser_blast.png`, `action/geyser_scald.png`,
 `action/geyser_spout.png`, `action/geyser_cleanse.png`,
+`action/channel_mana.png`,
 `action/siege_master_shot.png`, `action/siege_engine_bolt.png`,
 `action/build_siege_engine.png`, `action/abomination_claw.png`,
 `action/abomination_hook.png`, `action/abomination_grapple.png`,
