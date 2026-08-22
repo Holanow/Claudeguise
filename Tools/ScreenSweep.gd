@@ -186,10 +186,9 @@ func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 	_press_named("start fight")
 	await _settle()
 
-	## Issue 145 put a deploy screen between party select and the fight, so
-	## "Start Fight" now means "go and place your party" and there is a second
-	## Start Fight on the deploy screen itself.
-	if _current_screen_name() == "Deploy":
+	## The battle screen opens held before its first tick with the party
+	## draggable, and its own button carries the same words.
+	if _screen_is_in_setup():
 		await _shot("sweep_deploy_%s" % tag)
 		_press_named("start fight")
 		await _settle()
@@ -310,3 +309,9 @@ func _floor_map_and_end_of_fight() -> void:
 		print("ScreenSweep: did not reach FloorMap from Start Run at %s" % _res_tag)
 		return
 	await _shot("sweep_floor_map")
+
+## True while the battle screen is held before its first tick with the party
+## draggable, which is where "Start Fight" means "begin" rather than "place".
+func _screen_is_in_setup() -> bool:
+	var screen = _main._current if _main != null else null
+	return screen != null and "setup" in screen and screen.setup

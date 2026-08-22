@@ -204,9 +204,9 @@ func _current_screen_name() -> String:
 func _phase_full_fight() -> void:
 	_press_named("start fight")
 	await _settle()
-	## Issue 145 put a deploy screen between party select and the fight, with a
-	## second Start Fight on it.
-	if _current_screen_name() == "Deploy":
+	## The battle screen opens held before its first tick with the party
+	## draggable, and its own button carries the same words.
+	if _screen_is_in_setup():
 		await _shot("play_03b_deploy")
 		_press_named("start fight")
 		await _settle()
@@ -354,3 +354,9 @@ func _write_report() -> void:
 	f.store_string("\n".join(_report))
 	f.close()
 	print("PlaytestRun: report written to ", path)
+
+## True while the battle screen is held before its first tick with the party
+## draggable, which is where "Start Fight" means "begin" rather than "place".
+func _screen_is_in_setup() -> bool:
+	var screen = _main._current if _main != null else null
+	return screen != null and "setup" in screen and screen.setup

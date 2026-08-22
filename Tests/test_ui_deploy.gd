@@ -1,8 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
 const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
+const BattleScene := preload("res://Scenes/Battle.tscn")
+const MainScene := preload("res://Scenes/Main.tscn")
 
-## Issue 145: place your party before the fight starts.
+## Placement, on the screen the fight happens on. The player: "I need to be able
+## to place units on the same screen as I battle, I should basically be moving
+## them around in a paused battle screen and then unpausing it."
 
 func _party(n: int) -> Array[PawnData]:
 	var out: Array[PawnData] = []
@@ -19,11 +23,20 @@ func _cfg(n: int = 4) -> RunConfig:
 	cfg.seed = 12345
 	return cfg
 
-func _screen(cfg: RunConfig, encounter = null) -> DeployView:
-	var screen := DeployView.create()
-	screen._ready()
-	screen.open(cfg, encounter)
-	return screen
+## A battle screen held before its first tick, which is what `Main` now opens.
+func _held(cfg: RunConfig, positions: Array[Vector2] = []):
+	var view = BattleScene.instantiate()
+	view._ready()
+	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), positions)
+	return view
+
+## Everything a fight can differ by, in one comparable string.
+func _signature(state: CombatState) -> String:
+	CombatSim.run(state)
+	var parts: Array[String] = ["t%d o%d" % [state.tick, state.outcome]]
+	for u in state.units:
+		parts.append("%d:%d:%.2f,%.2f" % [u.id, u.hp, u.position.x, u.position.y])
+	return " ".join(parts)
 
 # ---------------------------------------------------------------------------
 # The criterion that matters: the fight uses the positions.
@@ -52,7 +65,7 @@ func test_the_fight_starts_the_party_where_the_player_put_them() -> void:
 ## And the negative half, because "the fight used my positions" also passes if
 ## the fight uses *any* positions and the authored ones happen to match. Built
 ## from the same room with no placement, the party must NOT be standing there.
-func test_without_the_deploy_screen_the_party_stands_somewhere_else() -> void:
+func test_without_placement_the_party_stands_somewhere_else() -> void:
 	var cfg := _cfg()
 	var base = Registry.get_encounter(cfg.encounter_id)
 	var chosen: Array[Vector2] = [
@@ -115,175 +128,310 @@ func test_a_pawn_cannot_be_placed_outside_the_arena() -> void:
 	var left := CanvasScript.clamp_to_deploy_zone(Vector2(-99999.0, 0.0), radius)
 	assert_almost_eq(left.x, -CG.ARENA_HALF_WIDTH + radius, 0.001)
 
-## heron's rooms have walls and pits, and dropping a pawn inside one would start
-## the fight with a unit stuck in terrain. Refused using the same
+## The same band the level editor draws, on the arena the fight is drawn on, and
+## only while the fight is held.
+func test_the_band_is_drawn_while_placing_and_gone_once_the_fight_starts() -> void:
+	var view = _held(_cfg())
+	assert_true(view._deploy_band != null, "no band on the arena at all")
+	assert_true(view._deploy_band.visible, "the band must be visible while placing")
+	assert_eq(view._deploy_band.get_parent(), view._arena,
+		"the band has to share the arena's transform or it is drawn somewhere else")
+	assert_eq(view._arena.get_child(0), view._deploy_band, "the band draws behind the units")
+	view.start_fight()
+	assert_true(view._deploy_band == null or not view._deploy_band.visible,
+		"the band must go when the fight starts")
+	view.free()
+
+## Dragged past the line, the pawn is pulled back to it -- measured on the real
+## screen and not only on the static clamp.
+func test_dragging_past_the_line_pulls_the_pawn_back() -> void:
+	var cfg := _cfg()
+	var view = _held(cfg)
+	var id := _first_pawn_id(view.state)
+	view._grabbed_unit_id = id
+	view._move_grabbed_to(Vector2(9999.0, 0.0))
+	assert_true(view.placements()[0].x <= CG.party_deploy_max_x() + 0.001,
+		"dragged to x=%.1f, past the line %.1f" % [view.placements()[0].x, CG.party_deploy_max_x()])
+	assert_eq(view.state.unit(id).position, view.placements()[0],
+		"the unit on screen must stand where the placement says")
+	view.free()
+
+## heron's rooms have walls and pits. Refused with the same
 ## `Terrain.point_is_blocked` the simulation's own movement uses, so the screen
 ## and the fight cannot disagree about what counts as blocked.
 func test_a_pawn_cannot_be_dropped_inside_a_wall() -> void:
-	var canvas := Control.new()
-	canvas.set_script(CanvasScript)
-	canvas._ready()
-	canvas.mode = CanvasScript.Mode.MOVE_PARTY
-	canvas.party_radius = 22.0
+	var cfg := _cfg(1)
 	var wall_rect := Rect2(Vector2(-420.0, -60.0), Vector2(120.0, 120.0))
-	canvas.terrain = [Terrain.make(Terrain.Kind.WALL, wall_rect)]
-	var start := Vector2(-250.0, 200.0)
-	var spawns: Array[Vector2] = [start]
-	canvas.party_spawns = spawns
+	var room := Encounter.new()
+	room.id = &"wren_wall_fixture"
+	room.party_spawns = [Vector2(-250.0, 200.0)]
+	room.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(200.0, 0.0)}]
+	room.terrain = [Terrain.make(Terrain.Kind.WALL, wall_rect)]
 
-	assert_eq(canvas.grab_party_spawn(start), 0, "the pawn must be grabbable where it stands")
-	var into_wall := wall_rect.get_center()
-	assert_false(canvas.move_held_party_spawn(into_wall), "a move into a wall must be refused")
-	assert_eq(canvas.party_spawns[0], start, "a refused move keeps the last good position")
+	var view = BattleScene.instantiate()
+	view._ready()
+	view.begin_setup(cfg, room)
+	var id := _first_pawn_id(view.state)
+	view._grabbed_unit_id = id
+	view._move_grabbed_to(wall_rect.get_center())
+	assert_eq(view.placements()[0], Vector2(-250.0, 200.0),
+		"a refused move keeps the last good position")
 
-	# And the same canvas must still accept a legal move, or "refuses
+	# And the same screen must still accept a legal move, or "refuses
 	# everything" would pass the assertion above.
-	var clear := Vector2(-250.0, -180.0)
-	assert_true(canvas.move_held_party_spawn(clear), "a clear position must be accepted")
-	assert_eq(canvas.party_spawns[0], clear)
-	canvas.free()
-
-func test_grabbing_picks_the_nearest_pawn_and_misses_cleanly() -> void:
-	var canvas := Control.new()
-	canvas.set_script(CanvasScript)
-	canvas._ready()
-	canvas.party_radius = 22.0
-	var spawns: Array[Vector2] = [Vector2(-400.0, 0.0), Vector2(-400.0, 100.0)]
-	canvas.party_spawns = spawns
-	assert_eq(canvas.grab_party_spawn(Vector2(-395.0, 96.0)), 1, "nearest wins")
-	assert_eq(canvas.grab_party_spawn(Vector2(0.0, 0.0)), -1, "empty ground grabs nothing")
-	assert_false(canvas.move_held_party_spawn(Vector2(-400.0, 0.0)),
-		"with nothing held, a move must do nothing rather than move pawn 0")
-	canvas.free()
+	view._move_grabbed_to(Vector2(-250.0, -180.0))
+	assert_eq(view.placements()[0], Vector2(-250.0, -180.0), "a clear position must be accepted")
+	view.free()
 
 # ---------------------------------------------------------------------------
 # The screen
 # ---------------------------------------------------------------------------
 
+func _first_pawn_id(state: CombatState) -> int:
+	for u in state.units:
+		if u.team == CG.Team.PLAYER and u.enemy_id == &"":
+			return u.id
+	return -1
+
 ## It must open on the status quo -- exactly where the fight would have put the
-## party with no deploy screen at all -- and it takes those from
-## `CombatSim.party_spawn_position` rather than reimplementing the overflow
-## rule, so the two cannot drift.
+## party with no placement at all -- taken from `CombatSim.party_spawn_position`
+## rather than reimplementing the overflow rule, so the two cannot drift.
 func test_the_screen_opens_where_the_fight_would_have_started_the_party() -> void:
 	var cfg := _cfg()
-	var screen := _screen(cfg)
+	var view = _held(cfg)
 	var encounter = Registry.get_encounter(cfg.encounter_id)
-	var got := screen.placements()
-	assert_eq(got.size(), cfg.party.size(), "one marker per party member")
+	var got: Array[Vector2] = view.placements()
+	assert_eq(got.size(), cfg.party.size(), "one placement per party member")
 	for i in cfg.party.size():
 		assert_eq(got[i], CombatSim.party_spawn_position(encounter, i),
-			"marker %d must open on the authored spawn" % i)
-	screen.free()
+			"pawn %d must open on the authored spawn" % i)
+	view.free()
 
 ## A party larger than the room's authored spawn list is the overflow case, and
-## it is the one a reimplementation would have got wrong. Every marker must
-## still land inside the deploy zone the screen draws.
-func test_every_opening_marker_is_inside_the_zone_the_screen_draws() -> void:
+## it is the one a reimplementation would have got wrong.
+func test_every_opening_position_is_inside_the_band() -> void:
 	for encounter_id in Registry.all_encounter_ids():
 		var cfg := _cfg()
 		cfg.encounter_id = encounter_id
-		var screen := _screen(cfg)
-		for i in screen.placements().size():
-			var p: Vector2 = screen.placements()[i]
+		var view = _held(cfg)
+		for i in view.placements().size():
+			var p: Vector2 = view.placements()[i]
 			assert_true(p.x <= CG.party_deploy_max_x() + 0.001,
-				"%s marker %d opens at x=%.1f, past the deploy line %.1f" % [encounter_id, i, p.x, CG.party_deploy_max_x()])
-		screen.free()
+				"%s pawn %d opens at x=%.1f, past the deploy line %.1f" % [encounter_id, i, p.x, CG.party_deploy_max_x()])
+		view.free()
 
-## Four identical dots would place a party without answering the question the
-## screen exists for. Only one class can redirect an enemy and the Warden kills
-## nearest-first, so which pawn is which is the decision.
-func test_each_marker_is_named_so_the_player_knows_who_stands_where() -> void:
-	var cfg := _cfg()
-	var screen := _screen(cfg)
-	var labels: Array = screen._canvas.party_labels
-	assert_eq(labels.size(), cfg.party.size(), "one name per pawn")
-	for i in cfg.party.size():
-		assert_eq(labels[i], cfg.party[i].display_name)
-	screen.free()
+## The screen opens held, not running, and the button says so. A screen that
+## opened running would place nothing and the player would never see the band.
+func test_the_screen_opens_held_and_the_button_offers_the_fight() -> void:
+	var view = _held(_cfg())
+	assert_true(view.setup, "the fight must open held")
+	assert_true(view.paused, "held means paused")
+	assert_eq(view._pause_button.text, "Start Fight")
+	assert_true(view._setup_hint.visible, "the player has to be told they can drag")
+	assert_true(view._reset_button.visible, "placement's only undo")
+	## The pause dim is for a fight that is held. This one has not begun, and
+	## dimming the arena you are placing on is the opposite of what it is for.
+	assert_false(view._pause_dim.visible, "the arena must be legible while placing")
+	view.start_fight()
+	assert_false(view.setup)
+	assert_false(view.paused, "Start Fight must actually run the fight")
+	assert_eq(view._pause_button.text, "Pause")
+	assert_false(view._setup_hint.visible)
+	assert_false(view._reset_button.visible)
+	view.free()
 
-## The room's terrain has to reach the canvas or the player is placing blind,
-## which the issue calls out as the thing that makes this a decision rather than
-## a fiddle. Asserted against a room that actually has terrain, or it proves
-## nothing.
-func test_the_rooms_terrain_reaches_the_screen() -> void:
-	var with_terrain: StringName = &""
-	for encounter_id in Registry.all_encounter_ids():
-		var e = Registry.get_encounter(encounter_id)
-		if not e.terrain.is_empty():
-			with_terrain = encounter_id
-			break
-	assert_true(with_terrain != &"", "no registered room has terrain, so this check would be vacuous")
+## The party does not jump when the fight starts. `start_fight` rebuilds the
+## state through `begin_with_encounter`, and a rebuild that landed anywhere else
+## would move every pawn at the instant the player pressed go.
+func test_starting_the_fight_does_not_move_anybody() -> void:
 	var cfg := _cfg()
-	cfg.encounter_id = with_terrain
-	var screen := _screen(cfg)
-	assert_eq(screen._canvas.terrain.size(), Registry.get_encounter(with_terrain).terrain.size(),
-		"every feature in the room must reach the canvas")
-	assert_true(screen._canvas._floor.terrain.size() > 0,
-		"and reach the ArenaFloor that draws it, not only the canvas")
-	screen.free()
-
-## Not one of the issue's four bullets, and it should have been. Choosing who
-## stands nearest is choosing who meets the front rank first, so a screen that
-## hides the enemy line asks the player to pick a formation against nothing --
-## the same argument the issue makes for terrain, only stronger.
-func test_the_enemy_line_is_on_the_screen_to_place_against() -> void:
-	var cfg := _cfg()
-	var screen := _screen(cfg)
-	var room = Registry.get_encounter(cfg.encounter_id)
-	assert_true(room.enemy_spawns.size() > 0, "the fixture room must have enemies")
-	assert_eq(screen._canvas.enemy_spawns.size(), room.enemy_spawns.size(),
-		"every enemy in the room must reach the screen")
-	for i in room.enemy_spawns.size():
-		assert_eq(screen._canvas.enemy_spawns[i].position, room.enemy_spawns[i].position,
-			"enemy %d must be shown where it will actually stand" % i)
-		assert_true(screen._canvas.enemy_spawns[i].radius > 0.0,
-			"a zero radius draws nothing, which is the same as not showing it")
-	screen.free()
+	var view = _held(cfg)
+	view._grabbed_unit_id = _first_pawn_id(view.state)
+	view._move_grabbed_to(Vector2(-300.0, -140.0))
+	var before: Array[Vector2] = view.placements()
+	view.start_fight()
+	var after: Array[Vector2] = []
+	for u in view.state.units:
+		if u.team == CG.Team.PLAYER and u.enemy_id == &"":
+			after.append(u.position)
+	assert_eq(after, before, "the fight started the party somewhere else than the screen showed")
+	view.free()
 
 func test_reset_puts_every_pawn_back() -> void:
 	var cfg := _cfg()
-	var screen := _screen(cfg)
-	# Terrain cleared so the move under test cannot be refused by whatever the
-	# room happens to contain. Reset is what is being measured here.
-	screen._canvas.terrain = []
-	var opened := screen.placements()
-	screen._canvas.grab_party_spawn(opened[0])
-	assert_true(screen._canvas.move_held_party_spawn(Vector2(-300.0, 190.0)))
-	assert_ne(screen.placements()[0], opened[0], "the pawn must really have moved first")
-	screen.reset_placement()
-	assert_eq(screen.placements(), opened, "reset returns to the authored placement")
-	screen.free()
+	var view = _held(cfg)
+	var opened: Array[Vector2] = view.placements()
+	view._grabbed_unit_id = _first_pawn_id(view.state)
+	view._move_grabbed_to(Vector2(-300.0, 190.0))
+	assert_ne(view.placements()[0], opened[0], "the pawn must really have moved first")
+	view.reset_placement()
+	assert_eq(view.placements(), opened, "reset returns to the authored placement")
+	assert_eq(view.state.unit(_first_pawn_id(view.state)).position, opened[0],
+		"and the unit on screen must go back with it")
+	view.free()
 
-## Confirming must hand out what is on the screen. The signal is what `Main`
-## turns into the fight, so a screen that emits stale positions would be
-## invisible until somebody watched a fight start in the wrong place.
-func test_confirming_emits_the_placement_currently_on_the_screen() -> void:
+## `Main` turns this into the fight it re-runs, so a screen that stayed quiet
+## would lose the placement the moment the player pressed Restart.
+func test_moving_a_pawn_reports_the_placement() -> void:
 	var cfg := _cfg()
-	var screen := _screen(cfg)
-	screen._canvas.terrain = []
-	var opened := screen.placements()
-	screen._canvas.grab_party_spawn(opened[0])
-	assert_true(screen._canvas.move_held_party_spawn(Vector2(-300.0, -140.0)))
-	assert_ne(screen.placements()[0], opened[0], "the pawn must really have moved first")
-
+	var view = _held(cfg)
 	# `seen.assign(...)` and not `seen = ...`: a GDScript lambda captures by
-	# value, so rebinding the local inside it leaves the outer array empty and
-	# the assertions below read as the signal never firing. It cost a red gate.
+	# value, so rebinding the local inside it leaves the outer array empty.
 	var seen: Array = []
-	screen.deploy_confirmed.connect(func(positions): seen.assign(positions))
-	screen._on_fight_pressed()
+	view.placement_changed.connect(func(positions): seen.assign(positions))
+	view._grabbed_unit_id = _first_pawn_id(view.state)
+	view._move_grabbed_to(Vector2(-300.0, -140.0))
 	assert_eq(seen.size(), cfg.party.size())
-	assert_eq(seen[0], screen.placements()[0], "the emitted placement must be the one on screen")
-	screen.free()
+	assert_eq(seen[0], view.placements()[0], "the reported placement must be the one on screen")
+	view.free()
 
-## The level editor shares this canvas and must be unchanged by issue 145: its
-## own mode still places enemies, and it passes no labels, so its party pins
-## draw as they always did.
-func test_the_level_editors_use_of_the_canvas_is_unchanged() -> void:
-	var canvas := Control.new()
-	canvas.set_script(CanvasScript)
-	canvas._ready()
-	assert_eq(canvas.mode, CanvasScript.Mode.PLACE_ENEMY, "the editor's default mode is untouched")
-	assert_eq(canvas.party_labels.size(), 0, "no labels unless a screen asks for them")
-	assert_almost_eq(canvas.party_radius, 6.0, 0.001, "the editor's pin size is unchanged")
-	canvas.free()
+# ---------------------------------------------------------------------------
+# Placing and inspecting are both a press on a pawn. This is what tells them
+# apart, and it is the design decision in the whole change.
+# ---------------------------------------------------------------------------
+
+func _press(view, at: Vector2) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = true
+	view._on_arena_button(e, at)
+
+func _release(view, at: Vector2) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = false
+	view._on_arena_button(e, at)
+
+func _drag_to(view, at: Vector2) -> void:
+	if at.distance_to(view._press_world) > view._drag_slop():
+		view._drag_moved = true
+	view._move_grabbed_to(at)
+
+## Where a pawn is DRAWN, which is where a player aims: `unit_at` hit-tests
+## against the nudged draw position, not the simulated one.
+func _drawn(view, unit_id: int) -> Vector2:
+	return BattleView.drawn_position(view.state, view.state.unit(unit_id))
+
+func test_a_press_that_travels_places_the_pawn_and_opens_nothing() -> void:
+	var view = _held(_cfg())
+	var id := _first_pawn_id(view.state)
+	var from: Vector2 = _drawn(view, id)
+	_press(view, from)
+	assert_eq(view._grabbed_unit_id, id, "a press on your own pawn must pick it up")
+	_drag_to(view, Vector2(-300.0, -140.0))
+	_release(view, Vector2(-300.0, -140.0))
+	assert_eq(view.placements()[0], Vector2(-300.0, -140.0), "the pawn must have moved")
+	assert_true(view._unit_card.unit_id < 0, "a drag must not also open the card")
+	view.free()
+
+func test_a_press_that_stays_put_opens_the_card_and_moves_nothing() -> void:
+	var view = _held(_cfg())
+	var was: Vector2 = view.placements()[0]
+	var from: Vector2 = _drawn(view, _first_pawn_id(view.state))
+	_press(view, from)
+	_release(view, from)
+	assert_eq(view.placements()[0], was, "a click must not move the pawn")
+	assert_eq(view._unit_card.unit_id, _first_pawn_id(view.state),
+		"a click on a pawn must still open its card while placing")
+	view.free()
+
+## The slop is the whole disambiguation, so a wobble under it has to read as a
+## click. Without this the two tests above pass with a threshold of zero, which
+## would make the card unreachable with a mouse.
+func test_a_wobble_under_the_threshold_is_still_a_click() -> void:
+	var view = _held(_cfg())
+	var from: Vector2 = _drawn(view, _first_pawn_id(view.state))
+	var nudge := from + Vector2(view._drag_slop() * 0.5, 0.0)
+	_press(view, from)
+	_drag_to(view, nudge)
+	_release(view, nudge)
+	assert_false(view._drag_moved, "a wobble under the slop is not a drag")
+	assert_eq(view._unit_card.unit_id, _first_pawn_id(view.state),
+		"a hand that wobbles must still open the card")
+	view.free()
+
+## An enemy is not yours to move. It still answers a click, because "what is
+## that thing and what is it about to do" is the question placement is for.
+func test_an_enemy_cannot_be_picked_up_but_still_answers_a_click() -> void:
+	var view = _held(_cfg())
+	var enemy: CombatUnit = null
+	for u in view.state.units:
+		if u.team == CG.Team.ENEMY:
+			enemy = u
+			break
+	assert_true(enemy != null, "the fixture room must have enemies")
+	var at: Vector2 = _drawn(view, enemy.id)
+	_press(view, at)
+	assert_eq(view._grabbed_unit_id, -1, "an enemy must not be draggable")
+	_release(view, at)
+	assert_eq(view._unit_card.unit_id, enemy.id, "an enemy must still open its card")
+	view.free()
+
+# ---------------------------------------------------------------------------
+# Determinism. The comparison control, and the reason any of this is worth
+# measuring at all.
+# ---------------------------------------------------------------------------
+
+## Two fights placed identically must be identical, tick for tick. This is the
+## property `rerun` depends on and the one a rebuild could quietly break.
+func test_the_same_placement_gives_the_same_fight() -> void:
+	var chosen: Array[Vector2] = [
+		Vector2(-400.0, -120.0), Vector2(-380.0, 40.0),
+		Vector2(-250.0, 150.0), Vector2(-420.0, -200.0),
+	]
+	var a := _cfg()
+	var b := _cfg()
+	var first = _held(a, chosen)
+	first.start_fight()
+	var second = _held(b, chosen)
+	second.start_fight()
+	assert_eq(_signature(first.state), _signature(second.state))
+	first.free()
+	second.free()
+
+## And the negative half: a different placement must produce a different fight,
+## or the assertion above passes on a screen that ignores placement entirely.
+func test_a_different_placement_gives_a_different_fight() -> void:
+	var near: Array[Vector2] = [
+		Vector2(-200.0, 0.0), Vector2(-200.0, 60.0),
+		Vector2(-200.0, -60.0), Vector2(-200.0, 120.0),
+	]
+	var far: Array[Vector2] = [
+		Vector2(-460.0, 0.0), Vector2(-460.0, 60.0),
+		Vector2(-460.0, -60.0), Vector2(-460.0, 120.0),
+	]
+	var first = _held(_cfg(), near)
+	first.start_fight()
+	var second = _held(_cfg(), far)
+	second.start_fight()
+	assert_ne(_signature(first.state), _signature(second.state),
+		"the whole party moved 260 units and the fight did not change")
+	first.free()
+	second.free()
+
+## Through `Main`, through the real Restart: party, room, seed AND placement.
+## The placement is the half that used to live on another screen, and it is the
+## one a change like this would lose without anybody noticing.
+func test_restart_replays_the_placement_the_player_dragged() -> void:
+	var main = MainScene.instantiate()
+	main._ready()
+	var select = main._current
+	for i in 2:
+		select.toggle_pawn(select.available_pawns()[i], true)
+	main.start_battle(select.current_config())
+
+	var view = main._current
+	assert_true(view.setup, "Start Fight must open the battle screen held, not the deploy screen")
+	view._grabbed_unit_id = _first_pawn_id(view.state)
+	view._move_grabbed_to(Vector2(-300.0, -140.0))
+	var dragged: Array[Vector2] = view.placements()
+	assert_eq(main._party_positions, dragged, "Main must have the placement to replay")
+	view.start_fight()
+	var first: String = _signature(view.state)
+
+	main.rerun()
+	var again = main._current
+	assert_eq(again.placements(), dragged, "the re-run opened on a different placement")
+	again.start_fight()
+	assert_eq(_signature(again.state), first, "the re-run is not the same fight")
+	main.free()

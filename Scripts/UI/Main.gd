@@ -8,7 +8,6 @@ const SCENE_PARTY_SELECT := "res://Scenes/PartySelect.tscn"
 const SCENE_BATTLE := "res://Scenes/Battle.tscn"
 const SCENE_FLOOR_MAP := "res://Scenes/FloorMap.tscn"
 const SCENE_LEVEL_EDITOR := "res://Scenes/LevelEditor.tscn"
-const SCENE_DEPLOY := "res://Scenes/Deploy.tscn"
 
 var run_config: RunConfig = null
 var _current: Node = null
@@ -46,29 +45,25 @@ func show_level_editor() -> void:
 		screen.back_requested.connect(show_party_select)
 	)
 
-## Issue 145: Start Fight goes to the deploy screen, not straight to the battle.
+## Start Fight opens the battle screen itself, held before its first tick with
+## the party draggable. There is no deploy screen: the player asked for
+## placement and the fight to be one screen, and "seamless" was the word.
 func start_battle(config: RunConfig) -> void:
-	run_config = config
-	_swap_to(SCENE_DEPLOY, func(screen):
-		screen.back_requested.connect(show_party_select)
-		screen.deploy_confirmed.connect(func(positions: Array[Vector2]):
-			start_battle_at(config, positions))
-		screen.open(config)
-	)
+	start_battle_at(config, [] as Array[Vector2])
 
 ## The placement the player chose, carried on this node rather than on
-## `RunConfig`.
+## `RunConfig`. Empty means "wherever the room authored", which is what the
+## battle screen opens on.
 var _party_positions: Array[Vector2] = []
 
 func start_battle_at(config: RunConfig, positions: Array[Vector2]) -> void:
 	run_config = config
 	_party_positions = positions
-	var encounter = DeployView.encounter_with_placement(
-		Registry.get_encounter(config.encounter_id), positions)
 	_swap_to(SCENE_BATTLE, func(screen):
 		screen.restart_requested.connect(rerun)
 		screen.back_requested.connect(show_party_select)
-		screen.begin_with_encounter(config, encounter)
+		screen.placement_changed.connect(func(p: Array[Vector2]): _party_positions = p)
+		screen.begin_setup(config, Registry.get_encounter(config.encounter_id), positions)
 	)
 
 ## Same party, same encounter, same seed **and same placement**. The comparison
