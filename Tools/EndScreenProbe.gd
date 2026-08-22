@@ -110,7 +110,8 @@ func _to_battle() -> Node:
 		return null
 	start.emit_signal("pressed")
 	await _settle()
-	if _node_with("DeployView.gd") != null:
+	var held = _node_with("BattleView.gd")
+	if held != null and held.setup:
 		start = _button("start fight")
 		if start == null:
 			return null

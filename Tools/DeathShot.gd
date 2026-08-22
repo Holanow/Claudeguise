@@ -87,7 +87,10 @@ func _to_battle() -> Node:
 	if not _press("start fight"):
 		return null
 	await _settle()
-	if _node_with("DeployView.gd") != null:
+	## The battle screen opens held before its first tick with the party
+	## draggable, and its own button carries the same words.
+	var held = _node_with("BattleView.gd")
+	if held != null and held.setup:
 		if not _press("start fight"):
 			return null
 		await _settle()

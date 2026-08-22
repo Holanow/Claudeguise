@@ -49,7 +49,7 @@ func _run() -> void:
 
 	_press_named("start fight")
 	await _settle()
-	if _current_screen_name() == "Deploy":
+	if _screen_is_in_setup():
 		_press_named("start fight")
 		await _settle()
 	if _current_screen_name() != "Battle":
@@ -137,3 +137,9 @@ func _current_screen_name() -> String:
 	for c in _main.get_children():
 		return c.name
 	return "<none>"
+
+## True while the battle screen is held before its first tick with the party
+## draggable, which is where "Start Fight" means "begin" rather than "place".
+func _screen_is_in_setup() -> bool:
+	var screen = _main._current if _main != null else null
+	return screen != null and "setup" in screen and screen.setup

@@ -6,17 +6,35 @@ const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
+const DeployViewScript := preload("res://Scripts/UI/DeployView.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
 
 signal restart_requested
 signal back_requested
+## Every accepted placement, so `Main` can replay the fight the player watched.
+signal placement_changed(positions: Array[Vector2])
 
 var state: CombatState = null
 var event_cursor: int = 0
 var config: RunConfig = null
 var paused: bool = false
+
+## Setup: the fight is built and held before its first tick, and the party is
+## draggable. The player's ask -- place them on the screen you fight on.
+var setup: bool = false
+
+var _placements: Array[Vector2] = []
+## The room WITHOUT the player's placement, so Reset has something to go back to.
+var _base_encounter = null
+var _deploy_band: Node2D = null
+var _setup_hint: Label = null
+var _reset_button: Button = null
+
+var _grabbed_unit_id: int = -1
+var _press_world: Vector2 = Vector2.ZERO
+var _drag_moved: bool = false
 
 var _tick_accumulator: float = 0.0
 
@@ -149,8 +167,17 @@ func _build_top_bar() -> void:
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"
 	_pause_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	_pause_button.pressed.connect(func(): set_paused(not paused))
+	_pause_button.pressed.connect(_on_pause_pressed)
 	controls.add_child(_pause_button)
+
+	## Getting back to where you started has to be one press: the deploy screen's
+	## own rule, kept. It is the only undo placement has.
+	_reset_button = Button.new()
+	_reset_button.text = "Reset placement"
+	_reset_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
+	_reset_button.pressed.connect(reset_placement)
+	_reset_button.visible = false
+	controls.add_child(_reset_button)
 
 	var restart_button := Button.new()
 	restart_button.text = "Restart (same seed)"
@@ -195,6 +222,8 @@ func _sync_click_hint() -> void:
 		return
 	var covered := (_display_options != null and _display_options.visible)
 	covered = covered or (_inspect_panel != null and _inspect_panel.visible)
+	# The setup hint stands on the same pixels and is the one a player needs first.
+	covered = covered or setup
 	_click_hint.visible = not card_discovered and not covered
 
 func _on_view_options_pressed() -> void:
@@ -393,7 +422,24 @@ func _build_click_hint() -> void:
 	_click_hint.visible = not card_discovered
 	get_node("Hud").add_child(_click_hint)
 
+	## Same band of pixels, shown instead of the click hint while placing.
+	_setup_hint = Label.new()
+	_setup_hint.text = SETUP_HINT
+	_setup_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_setup_hint.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_setup_hint.add_theme_color_override("font_color", Palette.TEXT)
+	_setup_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_setup_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_setup_hint.offset_left = Palette.SPACE_M
+	_setup_hint.offset_right = -(CombatLogView.LOG_WIDTH + Palette.SPACE_M)
+	_setup_hint.offset_top = -(Palette.SPACE_M + _INFO_ROW_HEIGHT)
+	_setup_hint.offset_bottom = -Palette.SPACE_M
+	_setup_hint.visible = false
+	get_node("Hud").add_child(_setup_hint)
+
 const CLICK_HINT := "Click any unit to see what it is doing, and why."
+
+const SETUP_HINT := "Drag your pawns to place them. The shaded band is as far forward as they may start. Press Start Fight when you are ready."
 
 ## Session-wide, not per fight: a player who has opened one card does not need
 ## telling again on the next.
@@ -634,12 +680,13 @@ static func card_body_ceiling(viewport_height: float) -> float:
 ## Out of the log's way in either orientation: the log is a right-hand column in
 ## landscape and a full-width band across the bottom in portrait.
 func _place_click_hint(landscape: bool) -> void:
-	if _click_hint == null:
-		return
-	_click_hint.offset_right = -(CombatLogView.LOG_WIDTH + Palette.SPACE_M) if landscape else -Palette.SPACE_M
 	var floor_y := -Palette.SPACE_M if landscape else CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT - Palette.SPACE_M
-	_click_hint.offset_top = floor_y - _INFO_ROW_HEIGHT
-	_click_hint.offset_bottom = floor_y
+	for hint in [_click_hint, _setup_hint]:
+		if hint == null:
+			continue
+		hint.offset_right = -(CombatLogView.LOG_WIDTH + Palette.SPACE_M) if landscape else -Palette.SPACE_M
+		hint.offset_top = floor_y - _INFO_ROW_HEIGHT
+		hint.offset_bottom = floor_y
 
 ## Where the log's box begins, so the team status panel above it can be checked
 ## against something measured rather than against a constant.
@@ -685,8 +732,12 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	state = CombatSim.build(cfg.party, encounter, cfg.seed)
 	event_cursor = 0
 	_tick_accumulator = 0.0
+	setup = false
+	_grabbed_unit_id = -1
+	_drag_moved = false
 	set_paused(false)
 	_rebuild_units()
+	_build_deploy_band()
 	_arena.terrain = state.terrain
 	_arena.projectiles = []
 	_arena.units = state.units
@@ -710,30 +761,183 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 
 func set_paused(p: bool) -> void:
 	paused = p
+	_sync_setup_ui()
+
+## The one place the setup phase reaches the chrome. The dim stays off while
+## placing: it exists to say "the fight is held", and a fight that has not
+## started is not held, it is being set up on a screen you need to see.
+func _sync_setup_ui() -> void:
 	if _pause_button != null:
-		_pause_button.text = "Resume" if paused else "Pause"
+		_pause_button.text = "Start Fight" if setup else ("Resume" if paused else "Pause")
+	if _reset_button != null:
+		_reset_button.visible = setup
+	if _setup_hint != null:
+		_setup_hint.visible = setup
+	if _deploy_band != null:
+		_deploy_band.visible = setup
 	if _pause_dim != null:
-		_pause_dim.visible = paused
+		_pause_dim.visible = paused and not setup
+	_sync_click_hint()
+
+func _on_pause_pressed() -> void:
+	if setup:
+		start_fight()
+	else:
+		set_paused(not paused)
+
+# ---------------------------------------------------------------------------
+# Placement, on this screen, before the first tick.
+
+## The fight, built and held before its first tick with the party draggable.
+## `begin_with_encounter` is deliberately untouched and still starts a running
+## fight: the level editor's test fight and fourteen probes call it, and none of
+## them has a player to press Start.
+func begin_setup(cfg: RunConfig, encounter, positions: Array[Vector2] = []) -> void:
+	_base_encounter = encounter
+	_placements = positions.duplicate() if not positions.is_empty() \
+		else DeployViewScript.authored_positions(encounter, cfg.party.size())
+	begin_with_encounter(cfg, DeployViewScript.encounter_with_placement(encounter, _placements))
+	setup = true
+	set_paused(true)
+
+## Rebuilt through the same `begin_with_encounter` every other caller uses, so
+## the fight that runs is built by one path rather than by whatever the setup
+## phase left lying in `state`.
+func start_fight() -> void:
+	if not setup:
+		return
+	var placed = DeployViewScript.encounter_with_placement(_base_encounter, _placements)
+	begin_with_encounter(config, placed)
+	placement_changed.emit(placements())
+
+func placements() -> Array[Vector2]:
+	return _placements.duplicate()
+
+func reset_placement() -> void:
+	if _base_encounter == null:
+		return
+	_apply_placements(DeployViewScript.authored_positions(_base_encounter, _placements.size()))
+
+## The band draws behind the units, so it is the arena's first child. Rebuilt
+## with them because `_rebuild_units` frees every child of the arena.
+func _build_deploy_band() -> void:
+	_deploy_band = Node2D.new()
+	_deploy_band.set_script(DeployViewScript)
+	_deploy_band.visible = false
+	_arena.add_child(_deploy_band)
+	_arena.move_child(_deploy_band, 0)
+
+## The player pawns in the order `CombatSim.build` placed them, which is the
+## order `_placements` is in. Summons are excluded and none exists yet anyway.
+func _placement_index(unit_id: int) -> int:
+	var i := 0
+	for u in state.units:
+		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
+			continue
+		if u.id == unit_id:
+			return i
+		i += 1
+	return -1
+
+## Which unit a press in setup picks up, or -1. Hit-tested with `unit_at`, the
+## same function a click uses, so grabbing and clicking cannot disagree about
+## what is under the pointer.
+func _grabbable_at(point: Vector2) -> int:
+	var id := unit_at(state, point, _pick_radius())
+	if id < 0:
+		return -1
+	var u := state.unit(id)
+	if u == null or u.team != CG.Team.PLAYER or u.enemy_id != &"":
+		return -1
+	return id
+
+## Clamped into the deploy band and refused outright inside blocking terrain,
+## using the same two functions the level editor and the simulation use.
+func _move_grabbed_to(point: Vector2) -> void:
+	var index := _placement_index(_grabbed_unit_id)
+	if index < 0:
+		return
+	var u := state.unit(_grabbed_unit_id)
+	var target := LevelEditorCanvas.clamp_to_deploy_zone(point, u.radius)
+	if Terrain.point_is_blocked(state.terrain, target, u.radius):
+		return
+	var next := placements()
+	next[index] = target
+	_apply_placements(next)
+
+func _apply_placements(positions: Array[Vector2]) -> void:
+	_placements = positions
+	var i := 0
+	for u in state.units:
+		if u.team != CG.Team.PLAYER or u.enemy_id != &"":
+			continue
+		if i < _placements.size():
+			u.position = _placements[i]
+		i += 1
+	for id in _unit_views:
+		_unit_views[id].sync(state)
+	if _arena != null:
+		_arena.units = state.units
+		_arena.queue_redraw()
+	placement_changed.emit(placements())
+
+## How far, in screen pixels, a press may travel and still be a click. Placement
+## and inspection are both a press on a pawn, and this is what tells them apart:
+## a press that stays put opens the card, a press that travels places the pawn.
+const DRAG_SLOP_PIXELS := 8.0
+
+func _drag_slop() -> float:
+	var s: float = _arena.scale.x if _arena != null and _arena.scale.x > 0.0 else 1.0
+	return DRAG_SLOP_PIXELS / s
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
-		set_paused(not paused)
+		if setup:
+			start_fight()
+		else:
+			set_paused(not paused)
 		if is_inside_tree():
 			get_viewport().set_input_as_handled()
 		return
-	# Left button only, and only a press: a Control that wanted this click has
-	# already taken it before _unhandled_input ever runs.
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _arena == null or state == null:
+	if _arena == null or state == null:
+		return
+	# Left button only: a Control that wanted this click has already taken it
+	# before _unhandled_input ever runs.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var at: Vector2 = _arena.make_input_local(event).position
+		_on_arena_button(event, at)
+		if is_inside_tree():
+			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseMotion:
+		var at: Vector2 = _arena.make_input_local(event).position
+		if _grabbed_unit_id >= 0:
+			if at.distance_to(_press_world) > _drag_slop():
+				_drag_moved = true
+			_move_grabbed_to(at)
 			return
-		select_unit_at(_arena.make_input_local(event).position)
-		if is_inside_tree():
-			get_viewport().set_input_as_handled()
+		## The other half of issue 397's discoverability: the pointer changes over
+		## anything you can open, which is the affordance every other program uses.
+		_set_hand_cursor(unit_at(state, at, _pick_radius()) >= 0)
+
+## Outside setup this is what it always was -- the card opens on the press. In
+## setup a press on your own pawn grabs it instead, and the card opens on the
+## release only if the pointer never travelled.
+func _on_arena_button(event: InputEventMouseButton, at: Vector2) -> void:
+	if not setup:
+		if event.pressed:
+			select_unit_at(at)
 		return
-	## The other half of issue 397's discoverability: the pointer changes over
-	## anything you can open, which is the affordance every other program uses.
-	if event is InputEventMouseMotion and _arena != null and state != null:
-		_set_hand_cursor(unit_at(state, _arena.make_input_local(event).position, _pick_radius()) >= 0)
+	if event.pressed:
+		_press_world = at
+		_drag_moved = false
+		_grabbed_unit_id = _grabbable_at(at)
+		return
+	var was_a_drag := _drag_moved and _grabbed_unit_id >= 0
+	_grabbed_unit_id = -1
+	_drag_moved = false
+	if not was_a_drag:
+		select_unit_at(_press_world)
 
 func _set_hand_cursor(hand: bool) -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if hand else Input.CURSOR_ARROW)

@@ -9,7 +9,6 @@ extends "res://Tests/TestCase.gd"
 const _SCRATCH := "res://Assets/UI/background/%s.png"
 var _ELEMENTS := {
 	"party_select": PartySelect,
-	"deploy": DeployView,
 	"floor_map": FloorMapView,
 	"level_editor": LevelEditorView,
 }

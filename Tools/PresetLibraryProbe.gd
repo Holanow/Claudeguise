@@ -167,9 +167,10 @@ func _fight(select, pawn, added) -> void:
 		return
 	if not await _click_control(start[0], "Start Fight"):
 		return
-	if _node_with("DeployView.gd") != null:
+	var held = _node_with("BattleView.gd")
+	if held != null and held.setup:
 		var b := _buttons(_main, "start fight")
-		if b.is_empty() or not await _click_control(b[0], "start fight (deploy)"):
+		if b.is_empty() or not await _click_control(b[0], "start fight (setup)"):
 			return
 
 	var battle = _node_with("BattleView.gd")

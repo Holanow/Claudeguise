@@ -157,7 +157,6 @@ look different from the rest, add it under a folder named after the kind:
 
 ```
 Assets/UI/background/party_select.png   just the party select screen
-Assets/UI/background/deploy.png         just the deploy screen
 Assets/UI/background/floor_map.png      just the floor map
 Assets/UI/background/level_editor.png   just the level editor
 Assets/UI/background/arena.png          just the floor inside the arena

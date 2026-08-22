@@ -133,9 +133,10 @@ func _run(party_ids: Array, suffix: String) -> bool:
 	if not _press("start fight"):
 		return false
 	await _settle()
-	## The deploy screen stands between the picker and the fight, and its own
-	## button carries the same words.
-	if _node_with("DeployView.gd") != null:
+	## The battle screen opens held before its first tick with the party
+	## draggable, and its own button carries the same words.
+	var held = _node_with("BattleView.gd")
+	if held != null and held.setup:
 		if not _press("start fight"):
 			return false
 		await _settle()
