@@ -238,7 +238,6 @@ func _build_summon_row(u: CombatUnit) -> Control:
 	var name_label := Label.new()
 	name_label.set_script(GlossaryLabel)
 	name_label.text = u.display_name
-	name_label.tooltip_text = _unit_tooltip(u)
 	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
@@ -264,7 +263,6 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 	var name_label := Label.new()
 	name_label.set_script(GlossaryLabel)
 	name_label.text = u.display_name
-	name_label.tooltip_text = _unit_tooltip(u)
 	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
@@ -280,10 +278,15 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 		status_chips.append(chip)
 	row.set_meta("status_chips", status_chips)
 
+	# Issue 449: a "+2" nobody can expand hides exactly the two statuses a player
+	# most wants named, so it is a hover target rather than a Label.
 	var overflow := Label.new()
+	overflow.set_script(GlossaryLabel)
 	overflow.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	overflow.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	overflow.visible = false
+	if not overflow.is_inside_tree():
+		overflow._ready()
 	head.add_child(overflow)
 	row.set_meta("status_overflow", overflow)
 
@@ -356,6 +359,10 @@ static func _fraction(current: int, total: int) -> float:
 func _update_row(row: Control, state: CombatState, u: CombatUnit) -> void:
 	var name_label: Label = row.get_meta("name_label")
 	name_label.text = u.display_name
+	# Issue 449. Written every sync, not once at build: the old sentence named
+	# the bars ("health, then resource, then anything this pawn is waiting on"),
+	# which a player can already see. What they cannot see is the numbers in it.
+	name_label.tooltip_text = Glossary.team_row_text(state, u)
 	# A dead pawn keeps its row and stops shouting from it. The name is the only
 	# thing left that can carry "this one is gone" once both bars read zero.
 	name_label.add_theme_color_override("font_color", Palette.TEXT if u.alive else Palette.TEXT_DIM)
@@ -394,6 +401,7 @@ func _update_status_chips(row: Control, state: CombatState, u: CombatUnit) -> vo
 	var hidden := UnitView.hidden_status_count(u)
 	overflow.visible = hidden > 0
 	overflow.text = "+%d" % hidden
+	overflow.tooltip_text = Glossary.hidden_statuses_text(state, u)
 
 ## `CG.Status.keys()` is what the log, the plan sentence and the condition editor
 ## all read, and this is the fourth reader. Four screens calling one status three
@@ -428,8 +436,3 @@ func _update_cooldown_chips(row: Control, state: CombatState, u: CombatUnit) -> 
 	var summary := cooldown_summary(state, u)
 	note.visible = summary != ""
 	note.text = summary
-
-func _unit_tooltip(u: CombatUnit) -> String:
-	if u.pawn != null:
-		return "%s. Health, then resource, then anything this pawn is waiting on." % u.display_name
-	return "%s. Summoned into this fight; its row goes when it does." % u.display_name
