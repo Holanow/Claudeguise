@@ -7,6 +7,10 @@ different fight back.
 
 Written so the first five minutes go on whether you like it, rather than on
 whether it works.
+**Rebuilding rather than playing?** `HANDBOOK.md` is the order of operations to
+a one-room combat and then a first floor, with the five traps that cost this
+project the most time. Start there, not here.
+
 ## Run it
 
 ```
