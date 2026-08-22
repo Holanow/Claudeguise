@@ -109,6 +109,13 @@ func sync(state: CombatState) -> void:
 	position = drawn_position(u, state.units)
 	visible = u.alive
 	queue_redraw()
+	# Issue 449. Attached from here rather than from the battle screen, the way
+	# `PopoutLayer.of` already attaches itself: the arena's hover targets are this
+	# file's geometry, and a screen that draws units gets the glossary for free.
+	# `load` rather than the class name, so the two files are not a parse cycle.
+	var hover = load("res://Scripts/UI/HoverLayer.gd").of(self)
+	if hover != null:
+		hover.bind(state, get_parent())
 
 ## The arena's own rectangle, in the local space every UnitView and floater is
 ## a child of. Issue 378: nothing the arena draws may leave it.
@@ -220,13 +227,8 @@ func _draw() -> void:
 	# unit on the bottom edge drew them past the border (issue 378). The block
 	# is measured first and lifted as one, rather than the body moving whenever
 	# a status lands.
-	var body_bottom := drawn_bottom(_shape_id(u), u.team, radius)
-	var lift := into_arena(Rect2(
-		position + Vector2(-bar_width(radius, _shape_id(u), u.team) * 0.5, body_bottom),
-		Vector2(bar_width(radius, _shape_id(u), u.team), below_block_height(u, radius)))).y
-	var below := _draw_wind_up(u, radius, body_bottom + lift)
-	below += _draw_status_badges(u, radius, body_bottom + lift, below)
-	_draw_status_tags(u, body_bottom + lift, below)
+	_draw_wind_up(u, radius, below_block_top(u, _state.units))
+	_draw_below_block(u)
 
 	var width := bar_width(radius, _shape_id(u), u.team)
 	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
@@ -606,11 +608,11 @@ static func status_tag_height(u: CombatUnit) -> float:
 		return 0.0
 	return 18.0 * DISPLAY_SCALE
 
-## Returns how much vertical room it took, so whatever stacks under it can
-## clear it. Zero when nothing is winding up.
-func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
+## Silent when nothing is winding up. How much room it takes is
+## `wind_up_height`, which `below_block_rects` reads to stack the badges under it.
+func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> void:
 	if u.action_ticks_left <= 0 or u.current_action == &"":
-		return 0.0
+		return
 
 	var shape := _shape_id(u)
 	var width := wind_up_bar_width(radius, shape, u.team)
@@ -631,7 +633,6 @@ func _draw_wind_up(u: CombatUnit, radius: float, top_offset: float) -> float:
 	ActionIcons.draw_action(self, u.current_action, damage_type,
 		Rect2(Vector2(block_left + width + WIND_UP_ICON_GAP, top),
 			Vector2(icon_size, icon_size)))
-	return wind_up_height(u, radius)
 
 ## PLAYTEST-NOTES-2 item 2: "no clear visual for who is afflicted with what."
 const STATUS_BADGE_SIZE := 14.0 * DISPLAY_SCALE
@@ -691,22 +692,84 @@ const STATUS_BADGE_MIN := 13.0 * DISPLAY_SCALE
 static func status_badge_size(shape_id: StringName, team: CG.Team, radius: float) -> float:
 	return clampf(drawn_half_width(shape_id, team, radius) * 0.7, STATUS_BADGE_MIN, STATUS_BADGE_SIZE)
 
-func _draw_status_badges(u: CombatUnit, radius: float, top_offset: float, below: float) -> float:
-	var size := status_badge_size(_shape_id(u), u.team, radius)
-	var gap := STATUS_BADGE_GAP * (size / STATUS_BADGE_SIZE)
+## Where the block under the body starts, in this view's local space: the drawn
+## body's bottom edge, plus whatever lift keeps the whole block inside the arena.
+static func below_block_top(u: CombatUnit, units: Array) -> float:
+	var radius := display_radius(u)
+	var shape := shape_id(u)
+	var bottom := drawn_bottom(shape, u.team, radius)
+	var width := bar_width(radius, shape, u.team)
+	return bottom + into_arena(Rect2(
+		drawn_position(u, units) + Vector2(-width * 0.5, bottom),
+		Vector2(width, below_block_height(u, radius)))).y
+
+## Issue 449: every mark under the body that answers a hover, in ARENA-local
+## pixels, in the order they are drawn. `_draw` lays the row out from this same
+## list, so a hover target cannot drift from the glyph the player is pointing at.
+static func below_block_rects(u: CombatUnit, units: Array) -> Array:
+	var out: Array = []
+	var radius := display_radius(u)
+	var shape := shape_id(u)
+	var at := drawn_position(u, units)
+	var top := below_block_top(u, units) + wind_up_height(u, radius)
+
 	var badges := status_badges(u)
 	var hidden := hidden_status_count(u)
-	if badges.is_empty() and hidden == 0:
-		return 0.0
-	var slots := badges.size() + (1 if hidden > 0 else 0)
-	var top := top_offset + below + STATUS_BADGE_TOP_GAP
-	var width := StatusIcons.row_width(slots, size, gap)
-	var rects := StatusIcons.layout_row(Vector2(-width * 0.5, top), slots, size, gap)
-	for i in badges.size():
-		StatusIcons.draw_status(self, badges[i], rects[i])
-	if hidden > 0:
-		_draw_overflow_chip(rects[slots - 1], hidden)
-	return status_badge_row_height(u, radius)
+	if not badges.is_empty() or hidden > 0:
+		var size := status_badge_size(shape, u.team, radius)
+		var gap := STATUS_BADGE_GAP * (size / STATUS_BADGE_SIZE)
+		var slots := badges.size() + (1 if hidden > 0 else 0)
+		var row_width := StatusIcons.row_width(slots, size, gap)
+		var rects := StatusIcons.layout_row(
+			at + Vector2(-row_width * 0.5, top + STATUS_BADGE_TOP_GAP), slots, size, gap)
+		for i in badges.size():
+			out.append({"kind": &"status", "rect": rects[i], "status": badges[i]})
+		if hidden > 0:
+			out.append({"kind": &"overflow", "rect": rects[slots - 1], "count": hidden})
+	top += status_badge_row_height(u, radius)
+
+	var tags := status_tags(u)
+	if not tags.is_empty():
+		var text := " ".join(tags)
+		var font_size := _label_font_size()
+		var text_size := _measure(text, font_size)
+		var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
+		var baseline := top + 14.0 * DISPLAY_SCALE
+		out.append({
+			"kind": &"oom",
+			"text": text,
+			"rect": Rect2(at + Vector2(-text_size.x * 0.5 - pad.x, baseline - text_size.y),
+				text_size + pad * 2.0),
+		})
+	return out
+
+## How far off a mark a pointer may be and still hit it. A badge is 20 arena
+## pixels and the arena is drawn at about 0.83, so the glyph alone is a smaller
+## target on screen than anything else the player is asked to point at.
+const HOVER_SLOP := 4.0
+
+## Which mark the pointer is over, or {} for none. Marks answer before bodies
+## because they are small and sit on top of one.
+static func hover_at(state: CombatState, point: Vector2) -> Dictionary:
+	for u in state.units:
+		if not u.alive:
+			continue
+		for entry in below_block_rects(u, state.units):
+			if (entry["rect"] as Rect2).grow(HOVER_SLOP).has_point(point):
+				return {"unit": u, "mark": entry}
+	return {}
+
+func _draw_below_block(u: CombatUnit) -> void:
+	for entry in below_block_rects(u, _state.units):
+		var rect: Rect2 = entry["rect"]
+		rect.position -= position
+		match entry["kind"]:
+			&"status":
+				StatusIcons.draw_status(self, entry["status"], rect)
+			&"overflow":
+				_draw_overflow_chip(rect, int(entry["count"]))
+			&"oom":
+				_draw_label_chip(rect.position, String(entry["text"]), Palette.HP_LOW, _label_font_size())
 
 ## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
 ## status is on this unit", and a plate meaning "there are more" would be the
@@ -720,22 +783,6 @@ func _draw_overflow_chip(rect: Rect2, count: int) -> void:
 	var measured := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
 	var at := rect.get_center() + Vector2(-measured.x * 0.5, measured.y * 0.35)
 	draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Palette.TEXT_DIM)
-
-## Out-of-resource looks identical to "idle" on the arena otherwise: the unit
-## just doesn't do anything, and a viewer with no access to CombatUnit cannot
-## tell a stalled decision from a disabled one. It is not a CG.Status, so it
-## has no badge and stays text, drawn under whatever is already below the body.
-func _draw_status_tags(u: CombatUnit, body_bottom: float, below: float) -> void:
-	var tags := status_tags(u)
-	if tags.is_empty():
-		return
-	var text := " ".join(tags)
-	var size := _label_font_size()
-	var text_size := _measure(text, size)
-	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
-	var baseline := body_bottom + below + 14.0 * DISPLAY_SCALE
-	var at := Vector2(-text_size.x * 0.5 - pad.x, baseline - text_size.y)
-	_draw_label_chip(at, text, Palette.HP_LOW, size)
 
 ## Renders text centred on its own width with a small backdrop chip behind it,
 ## rather than a fixed draw width that truncates. `at` is the chip's top-left

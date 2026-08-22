@@ -159,3 +159,72 @@ static func status_popup_text(unit, status: CG.Status, tick: int) -> String:
 ## The status's name, as every screen already spells it.
 static func status_name(s: CG.Status) -> String:
 	return String(CG.Status.keys()[s]).capitalize()
+
+## ---------------------------------------------------------------------------
+## Issue 449: *"I need a mouse-over glossary on basically everything."*
+##
+## Hover is the cheap version of the click card, not a competitor to it, so
+## every sentence below is `UnitCard`'s own. Clicking pauses the fight; hovering
+## must not, which is the whole reason there are two of these.
+
+const HOVER_CLICK_HINT := "Click it for everything the game knows about it."
+
+## One unit, in the four lines that answer "what is it doing and why". The
+## status list is names and timers only -- what each one MEANS is one badge
+## hover away, and repeating it here would make the box taller than the fight.
+static func unit_hover_text(state: CombatState, u: CombatUnit) -> String:
+	var lines: Array[String] = [UnitCard.side_text(u), UnitCard.resource_line(u),
+		UnitCard.doing_line(state, u)]
+	lines.append_array(UnitCard.focus_lines(state, u))
+	var carried := status_summary(state, u)
+	if carried != "":
+		lines.append(carried)
+	lines.append(HOVER_CLICK_HINT)
+	return "\n".join(lines)
+
+## Every status on the unit as name and countdown, in the badge row's own order.
+static func status_summary(state: CombatState, u: CombatUnit) -> String:
+	var parts := _status_parts(state, u, UnitView.ordered_statuses(u))
+	if parts.is_empty():
+		return ""
+	return "Carrying %s." % ", ".join(parts)
+
+## The statuses the badge row had no room for, which is what the "+N" chip is
+## hiding. Named because a count the player cannot expand is a worse answer
+## than no chip at all.
+static func hidden_statuses_text(state: CombatState, u: CombatUnit) -> String:
+	var all := UnitView.ordered_statuses(u)
+	var hidden := all.slice(all.size() - UnitView.hidden_status_count(u))
+	var parts := _status_parts(state, u, hidden)
+	if parts.is_empty():
+		return ""
+	return "The badge row has no space for %s. Hover the badges beside it, or click the unit." % [
+		", ".join(parts)]
+
+static func _status_parts(state: CombatState, u: CombatUnit, statuses: Array) -> Array[String]:
+	var parts: Array[String] = []
+	for s in statuses:
+		var bits: Array[String] = []
+		var magnitude := status_magnitude_text(s, int(u.status_magnitude.get(s, 0.0)))
+		if magnitude != "":
+			bits.append(magnitude)
+		bits.append("%.1fs left" % (float(maxi(int(u.statuses[s]) - state.tick, 0)) / float(CG.TICKS_PER_SECOND)))
+		parts.append("%s (%s)" % [status_name(s), ", ".join(bits)])
+	return parts
+
+## Issue 344's three letters, spelled out. The tag reads "OOM" because the arena
+## has no room for a sentence; this is where the sentence lives.
+static func oom_text(u: CombatUnit) -> String:
+	return "OOM means out of %s.\n%s" % [
+		UnitCard.resource_name(u.resource_kind).to_lower(), UnitCard.resource_line(u)]
+
+## A team-panel row, in the numbers it is drawing rather than the names of its
+## bars. The bars say how much is left; only words can say of what, and what the
+## pawn is doing with it.
+static func team_row_text(state: CombatState, u: CombatUnit) -> String:
+	var lines: Array[String] = ["%s. %d of %d hp." % [u.display_name, maxi(u.hp, 0), u.hp_max]]
+	if u.pawn == null:
+		lines.append("Summoned into this fight; its row goes when it does.")
+	lines.append_array([UnitCard.resource_line(u), UnitCard.doing_line(state, u)])
+	lines.append_array(UnitCard.focus_lines(state, u))
+	return "\n".join(lines)
