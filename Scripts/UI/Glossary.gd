@@ -212,12 +212,6 @@ static func _status_parts(state: CombatState, u: CombatUnit, statuses: Array) ->
 		parts.append("%s (%s)" % [status_name(s), ", ".join(bits)])
 	return parts
 
-## Issue 344's three letters, spelled out. The tag reads "OOM" because the arena
-## has no room for a sentence; this is where the sentence lives.
-static func oom_text(u: CombatUnit) -> String:
-	return "OOM means out of %s.\n%s" % [
-		UnitCard.resource_name(u.resource_kind).to_lower(), UnitCard.resource_line(u)]
-
 ## A team-panel row, in the numbers it is drawing rather than the names of its
 ## bars. The bars say how much is left; only words can say of what, and what the
 ## pawn is doing with it.

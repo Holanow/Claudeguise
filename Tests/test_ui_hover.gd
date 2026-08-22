@@ -75,15 +75,6 @@ func test_the_overflow_chip_appears_only_when_a_status_was_dropped() -> void:
 	assert_eq(int(overflow[0]["count"]), UnitView.hidden_status_count(many),
 		"the chip's number disagrees with the row that produced it")
 
-## The OOM tag is a hover target too, which is the whole of complaint three.
-func test_the_oom_tag_is_a_mark() -> void:
-	var u := _unit(0, "Geysermancer")
-	u.resource_max = 100
-	u.resource = 0
-	var marks := _marks(u, [u], &"oom")
-	assert_eq(marks.size(), 1, "a caster standing there out of mana offered nothing to hover")
-	u.resource = 40
-	assert_eq(_marks(u, [u], &"oom").size(), 0, "a unit with mana still claimed to be out")
 
 # ---------------------------------------------------------------------------
 # Resolving a point
@@ -123,15 +114,6 @@ func test_a_dead_unit_answers_nothing() -> void:
 # What the boxes say
 # ---------------------------------------------------------------------------
 
-## Complaint three, verbatim: hovering OOM must say "out of mana" in words.
-func test_oom_is_spelled_out() -> void:
-	var u := _unit(0, "Geysermancer")
-	u.resource_kind = CG.ResourceKind.MANA
-	u.resource_max = 100
-	u.resource = 0
-	var text := Glossary.oom_text(u)
-	assert_true(text.contains("out of mana"), "three letters of jargon explained with more jargon: %s" % text)
-	assert_true(text.contains("0 of 100"), "the box does not carry the numbers behind the tag: %s" % text)
 
 ## Complaint five: the "+2" names what it is hiding, and names exactly the
 ## statuses the badge row dropped rather than a second opinion about them.

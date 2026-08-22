@@ -163,8 +163,7 @@ static func _seconds(ticks: int) -> String:
 static func resource_name(kind: CG.ResourceKind) -> String:
 	return String(CG.ResourceKind.keys()[kind]).capitalize()
 
-## Issue 344's "OOM": three letters of jargon pointing at a stat with no bar on
-## screen. Spelled out, with both numbers and what running dry costs.
+## The resource in words, with both numbers and what running dry costs.
 static func resource_line(u: CombatUnit) -> String:
 	if u.resource_max <= 0:
 		return "No resource: nothing it does costs one."
