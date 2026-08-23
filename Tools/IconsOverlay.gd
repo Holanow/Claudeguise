@@ -3,9 +3,9 @@ class_name IconsOverlay
 
 const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 
-## Draws status badges and wind-up icons over the real battle screen, for
-## Tools/IconsInFight.gd. A preview harness, not the shipped placement -- the
-## header of that file says so at length and it is the important caveat.
+## Badge and wind-up icon geometry, kept apart from the shipped placement.
+## Nothing launches this: `Tests/test_art.gd` reads its static measurements, and
+## `Tools/IconsInFight.gd`, the harness it was drawn for, no longer exists.
 
 const BAR_W := 34.0
 const BAR_H := 5.0
