@@ -7,7 +7,7 @@ extends "res://Tests/TestCase.gd"
 
 func test_keep_distance_has_a_player_facing_sentence() -> void:
 	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 120.0}),
-		"hold 120 units from the target")
+		"hold 120 units from the target, on ground that does not harm")
 
 ## Range 0 is a charge, not "hold 0 units away", and the sentence has to say so.
 func test_keep_distance_at_zero_reads_as_a_charge() -> void:

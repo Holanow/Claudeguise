@@ -204,30 +204,75 @@ func test_the_op_takes_no_argument_and_costs_one_block() -> void:
 	assert_eq(_plan().block_count(), 2, "targeting plus movement, and the movement half is one block")
 
 
-## **The defect the issue was filed on, stated as a test.** The playtester's own
-## row drifted back onto the fire because `keep_distance` names its destination
-## from the target and never looks at the ground there. `_avoid_hazard` diverts
-## a step that lands in fire, not a goal that sits in it, so the pawn is pulled
-## back every tick. Delete this only when `keep_distance` stops doing it.
-func test_the_kite_band_will_happily_name_a_destination_that_burns() -> void:
+## **Issue 424, the defect this file pinned, now stated the other way round.**
+## `keep_distance` named its destination from the target and never looked at the
+## ground there, and `_avoid_hazard` diverts a step that lands in fire rather
+## than a goal that sits in it.
+func _kite(range_units: float) -> Plan:
 	var targeting := PlanBlock.new()
 	targeting.kind = PlanBlock.Kind.TARGETING
 	targeting.op = &"target_nearest_enemy"
 	var movement := PlanBlock.new()
 	movement.kind = PlanBlock.Kind.MOVEMENT
 	movement.op = &"keep_distance"
-	movement.args = {"range": 210.0}
+	movement.args = {"range": range_units}
 	var kite := Plan.new()
 	kite.id = &"kite_210"
-	kite.display_name = "Hold 210"
+	kite.display_name = "Hold %d" % int(range_units)
 	kite.blocks = [targeting, movement]
+	return kite
 
-	var s := _situation(kite, Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
+func test_the_kite_band_will_not_name_a_destination_that_burns() -> void:
+	var s := _situation(_kite(210.0), Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
 		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
 	var intent := PlanInterpreter.decide(s[0], s[1])
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_true(CombatSim.standing_harms(s[0], intent.destination),
-		"the fixture no longer reproduces the drift; pick a band the kite anchor lands in")
+	assert_false(CombatSim.standing_harms(s[0], intent.destination),
+		"the row sent the pawn to %s, which burns" % intent.destination)
+
+## The band is kept exactly, so the row still holds the distance it promises.
+## Without this the assertion above would pass on any point off the fire,
+## including one the player never asked for.
+func test_the_destination_is_still_on_the_band_it_was_told_to_hold() -> void:
+	var s := _situation(_kite(210.0), Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
+		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
+	var foe: CombatUnit = s[2]
+	var intent := PlanInterpreter.decide(s[0], s[1])
+	assert_almost_eq(foe.position.distance_to(intent.destination), 210.0, 0.5,
+		"the destination must sit at the requested distance, not merely somewhere safe")
+
+## The instrument check. With no fire authored the row names the point it always
+## named, so the assertions above measure the hazard and not the sweep.
+func test_with_no_hazard_the_row_names_the_bearing_it_already_faced() -> void:
+	var s := _situation(_kite(210.0), Vector2(-200.0, 0.0), Vector2(300.0, 0.0), [])
+	var foe: CombatUnit = s[2]
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(s[0], me)
+	var straight: Vector2 = foe.position + (me.position - foe.position).normalized() * 210.0
+	assert_almost_eq(intent.destination.distance_to(straight), 0.0, 0.5,
+		"unburnt and unblocked, the sweep must return the first bearing it tried")
+
+## A pawn inside the band standing in fire has not arrived: the row promises
+## ground that does not harm, so it keeps walking rather than firing from there.
+func test_standing_in_fire_inside_the_band_is_not_arriving() -> void:
+	var s := _situation(_kite(210.0), Vector2(90.0, 0.0), Vector2(300.0, 0.0),
+		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
+	var state: CombatState = s[0]
+	var me: CombatUnit = s[1]
+	assert_true(CombatSim.standing_harms(state, me.position), "the fixture puts the pawn in the fire")
+	assert_almost_eq(s[2].position.distance_to(me.position), 210.0, 0.5, "and inside the band")
+	var intent := PlanInterpreter.decide(state, me)
+	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
+		"it held station in the fire because the band alone counted as arrived")
+	assert_false(CombatSim.standing_harms(state, intent.destination))
+
+## When every bearing on the band burns there is no honest answer, so the row
+## steps aside for the next one the way `move_into_cover` does with no cover.
+func test_a_band_that_burns_all_the_way_round_falls_through() -> void:
+	var s := _situation(_kite(210.0), Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
+		[_fire(Rect2(-2000.0, -2000.0, 4000.0, 4000.0))])
+	assert_eq(PlanInterpreter.decide(s[0], s[1]), null,
+		"a row with nowhere to stand must hand the tick on, not pick a fire")
 
 
 func test_the_op_has_a_sentence_and_is_offered_to_the_editor() -> void:

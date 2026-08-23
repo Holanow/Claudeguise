@@ -169,7 +169,7 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 ## The op names itself in the plan editor. An unnamed op renders as
 ## "unknown op 'keep_distance'" on the one screen this issue exists to fix.
 func test_the_movement_op_has_a_player_facing_sentence() -> void:
-	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 120.0}), "hold 120 units from the target")
+	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 120.0}), "hold 120 units from the target, on ground that does not harm")
 	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 0.0}), "close to the target")
 	for op in PlanInterpreter.MOVEMENT_OPS:
 		assert_true(PlanInterpreter.MOVEMENT_ARG_SHAPE.has(op),
