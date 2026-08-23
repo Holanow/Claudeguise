@@ -24,8 +24,10 @@ func _init() -> void:
 func _log_one_fight(party_ids: Array) -> void:
 	var party: Array[PawnData] = []
 	for cid in party_ids:
-		# `cls.display_name`, matching PartySelect. See the note in ContactSheet.
-		party.append(PawnFactory.make_starter_pawn(cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+		## `make_preset_pawn`, not `make_starter_pawn`: since #399 a starter pawn
+		## has no plan rows, so every player pawn in this log did nothing but
+		## walk and swing and the read was of unauthored behaviour (#417).
+		party.append(PawnFactory.make_preset_pawn(cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
 
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)
@@ -78,6 +80,12 @@ func _describe(state: CombatState, e) -> String:
 		CG.EventKind.ACTION_FIRE:
 			return "%s's %s fires" % [_name(state, e.source_id), e.action_id]
 		CG.EventKind.DAMAGE:
+			## A buff, a summon or a taunt raises a DAMAGE event carrying
+			## nothing, and this rendered it as "Warrior hits Warrior for 0"
+			## (#374). `CombatLogView` drops exactly this event; a log that
+			## claims to print only what the screen shows has to as well.
+			if e.amount == 0 and e.amount_before_mitigation == 0:
+				return ""
 			var mit := ""
 			if e.amount_before_mitigation > e.amount:
 				mit = " (%d before mitigation)" % e.amount_before_mitigation

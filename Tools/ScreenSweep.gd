@@ -4,9 +4,9 @@ extends Node
 ## required to work at, and actually look. Built on Issue32Play's pattern --
 ## real Main scene, real controls, no synthetic OS input -- extended to visit
 ## every screen rather than only the battle loop: party select (empty and
-## full), inspect (which is also where the plan editor lives -- there is no
-## separate plan-editor screen, see InspectPanel.gd), floor map, battle,
-## end-of-fight banner, and the level editor.
+## full), the plan editor (the middle column of party select since #351, not a
+## screen of its own), floor map, battle, end-of-fight banner, and the level
+## editor.
 
 
 const OUT_DIR := "res://Screenshots"
@@ -14,6 +14,13 @@ const OUT_DIR := "res://Screenshots"
 var _main: Node
 var _res_tag: String = ""
 var _classes_shot: Dictionary = {}
+var _failures: Array[String] = []
+
+## A capture tool that returns early on a failed step reports an absence as a
+## result, so every failure is recorded and the run exits non-zero (#371).
+func _fail(msg: String) -> void:
+	_failures.append(msg)
+	printerr("ScreenSweep: %s" % msg)
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -32,7 +39,15 @@ func _ready() -> void:
 	var size := DisplayServer.window_get_size()
 	_res_tag = "%dx%d" % [int(size.x), int(size.y)]
 	await _run()
-	get_tree().quit(0 if _coverage_ok() else 3)
+	var ok := _coverage_ok()
+	if not _failures.is_empty():
+		printerr("ScreenSweep: %d STEP(S) FAILED at %s:" % [_failures.size(), _res_tag])
+		for f in _failures:
+			printerr("  - %s" % f)
+		printerr("  Screenshots for those steps were not taken and none of the")
+		printerr("  pictures on disk may be cited as coverage of them.")
+		ok = false
+	get_tree().quit(0 if ok else 3)
 
 ## Fails the run when a class was never photographed, so the blind spot in
 ## issue 327 cannot come back silently.
@@ -110,7 +125,7 @@ func _select_classes(ids: Array) -> bool:
 			by_id[card.class_def.id] = card
 	for id in ids:
 		if not by_id.has(id):
-			printerr("ScreenSweep: no party card for class '%s'" % id)
+			_fail("no party card for class '%s'" % id)
 			return false
 		by_id[id].toggled.emit(true)
 		_classes_shot[id] = true
@@ -120,12 +135,45 @@ func _press_named(prefix: String) -> bool:
 	for b in _buttons():
 		if b.text.to_lower().begins_with(prefix.to_lower()) and b.is_visible_in_tree():
 			if b.disabled:
-				print("ScreenSweep: button '%s' is DISABLED, not pressing" % b.text)
+				_fail("button '%s' is DISABLED, not pressing" % b.text)
 				return false
 			b.emit_signal("pressed")
 			return true
-	print("ScreenSweep: no visible button starting with '%s' found" % prefix)
+	_fail("no visible button starting with '%s' found" % prefix)
 	return false
+
+## Since #399 a starter pawn carries no plan rows, so a tool that expects
+## authored behaviour has to add the class library the way a player does.
+static func add_presets(root: Node) -> bool:
+	for n in walk(root):
+		if n is PartySelect:
+			for pawn in (n as PartySelect).available_pawns():
+				pawn.plans = PresetPlans.for_class(pawn.pawn_class.id)
+			return true
+	return false
+
+static func walk(node: Node) -> Array[Node]:
+	var out: Array[Node] = [node]
+	for c in node.get_children():
+		out.append_array(walk(c))
+	return out
+
+## Plan rows on screen, counted by the "1." "2." tag `InspectPanel` numbers them
+## with, so a capture of an empty editor cannot pass for a capture of plans.
+static func plan_row_count(panel: Node) -> int:
+	var rows := 0
+	for n in walk(panel):
+		if n is Label:
+			var text: String = (n as Label).text
+			if text.ends_with(".") and text.trim_suffix(".").is_valid_int():
+				rows += 1
+	return rows
+
+func _node_with(file: String) -> Node:
+	for n in _walk(_main):
+		if n.get_script() != null and n.get_script().resource_path.ends_with(file):
+			return n
+	return null
 
 func _current_screen_name() -> String:
 	for c in _main.get_children():
@@ -150,7 +198,7 @@ func _run() -> void:
 		var tag := "p%d" % (i + 1)
 		print("ScreenSweep: %s = %s" % [tag, ", ".join(PackedStringArray(parties[i]))])
 		await _party_select_full_and_start_fight(parties[i], tag)
-	await _inspect_from_party_select()
+	await _plan_editor()
 	await _level_editor()
 	await _floor_map_and_end_of_fight()
 
@@ -174,7 +222,7 @@ func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 			start_btn = b
 			break
 	if start_btn == null:
-		print("ScreenSweep: NO 'Start Fight' BUTTON FOUND at %s" % _res_tag)
+		_fail("NO 'Start Fight' BUTTON FOUND at %s" % _res_tag)
 	else:
 		var rect := start_btn.get_global_rect()
 		var vp := get_viewport().get_visible_rect()
@@ -194,9 +242,9 @@ func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 		await _settle()
 
 	if _current_screen_name() != "Battle":
-		printerr("ScreenSweep: did not reach Battle from Start Fight at %s -- the")
-		printerr("  battle screenshots on disk are from an older run and must not")
-		printerr("  be cited as current.")
+		_fail(("did not reach Battle from Start Fight at %s -- the battle " +
+			"screenshots on disk are from an older run and must not be cited " +
+			"as current") % _res_tag)
 		return
 	var battle := _main.get_child(0)
 	await _shot("sweep_battle_start_%s" % tag)
@@ -228,56 +276,40 @@ func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 		CombatState.Outcome.keys()[battle.state.outcome], battle.state.tick, _res_tag
 	])
 
-## The inspect screen, opened from party select. This is also where the plan
-## editor lives -- issue 53 names it separately but InspectPanel.gd's own
-## header comment is explicit there is no separate screen. Pick a pawn with
-## real plans (Warrior ships one) and scroll the detail panel so the plan
-## row's Condition/Targeting/Action editors are actually on screen, since
-## that is where the reported overlap lives.
-func _inspect_from_party_select() -> void:
+## The plan editor. #351 moved it into the middle column of party select and
+## deleted the "Inspect classes" button that used to open it, so a class card
+## is the only control that opens it: clicking one is what focuses the column.
+func _plan_editor() -> void:
 	await _fresh_main()
-	if not _press_named("inspect classes"):
+	if not add_presets(_main):
+		_fail("no PartySelect to add preset plans to")
 		return
-	await _settle()
-	await _shot("sweep_inspect_default")
-
-	# Select the Warrior specifically -- it ships a real plan with a
-	# Condition, a Targeting block and an Action block, which is the row
-	# the overlap was found in.
-	var inspect_panel = null
-	for n in _walk(_main):
-		if n.get_script() != null and n.get_script().resource_path.ends_with("InspectPanel.gd"):
-			inspect_panel = n
-			break
+	var inspect_panel := _node_with("InspectPanel.gd")
 	if inspect_panel == null:
-		print("ScreenSweep: could not find InspectPanel node")
+		_fail("no InspectPanel in the middle column of party select")
 		return
-	for b in _buttons():
-		if b.text == "Warrior":
-			b.emit_signal("pressed")
-			break
-	await _settle()
+	# Warrior first, whose library rows carry a Condition, a Targeting block and
+	# an Action block; then the Geysermancer, the one class with a ranged attack,
+	# so the fallback row states the kite rule rather than a melee approach.
+	await _plan_editor_for(&"warrior", inspect_panel, "sweep_inspect_plan_editor")
+	await _plan_editor_for(&"geysermancer", inspect_panel, "sweep_inspect_ranged_fallback")
 
+func _plan_editor_for(class_id: StringName, inspect_panel: Node, shot: String) -> void:
+	if not _select_classes([class_id]):
+		return
+	await _settle()
 	# Scroll the detail panel to the bottom so the plan row's pickers are in
 	# frame -- ScrollContainer under body/detail_scroll per InspectPanel.gd.
 	for n in _walk(inspect_panel):
 		if n is ScrollContainer:
 			n.scroll_vertical = 100000
 	await _settle()
-	await _shot("sweep_inspect_plan_editor")
-
-	# Issue 97: the one class with a ranged attack, so the fallback row states
-	# the kite rule rather than a melee approach.
-	for b in _buttons():
-		if b.text == "Geysermancer":
-			b.emit_signal("pressed")
-			break
-	await _settle()
-	for n in _walk(inspect_panel):
-		if n is ScrollContainer:
-			n.scroll_vertical = 100000
-	await _settle()
-	await _shot("sweep_inspect_ranged_fallback")
+	await _shot(shot)
+	var rows := plan_row_count(inspect_panel)
+	print("ScreenSweep: %s's plan editor shows %d row(s)" % [class_id, rows])
+	if rows == 0:
+		_fail("%s's plan editor shows no rows, so '%s' is a picture of an empty editor" % [
+			class_id, shot])
 
 ## The level editor, reached from party select.
 func _level_editor() -> void:
@@ -301,12 +333,12 @@ func _floor_map_and_end_of_fight() -> void:
 			run_btn = b
 			break
 	if run_btn == null:
-		print("ScreenSweep: NO 'Start Run' BUTTON FOUND at %s" % _res_tag)
+		_fail("NO 'Start Run' BUTTON FOUND at %s" % _res_tag)
 		return
 	run_btn.emit_signal("pressed")
 	await _settle()
 	if _current_screen_name() != "FloorMap":
-		print("ScreenSweep: did not reach FloorMap from Start Run at %s" % _res_tag)
+		_fail("did not reach FloorMap from Start Run at %s" % _res_tag)
 		return
 	await _shot("sweep_floor_map")
 
