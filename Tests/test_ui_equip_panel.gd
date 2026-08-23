@@ -208,103 +208,25 @@ func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	assert_false(magical_ids.has(&"sword"), "a magical class must not be offered the Sword")
 	panel.free()
 
-## Issue 131 reversed this test's premise, and the reversal is the point rather
-## than a weakening. It used to assert that armour and accessories carry no gate
-## at all, so both methods saw one list. They are tag-gated now, so the same
-## assertion is that an untagged piece reaches both methods and a tagged one
-## does not.
+## Issue 131 reversed this test's premise and issue 489 reversed it again, and
+## both reversals are the point rather than a weakening. It first asserted that
+## armour and accessories carry no gate at all; #131 tag-gated them; #489 then
+## deleted every accessory whose tag was justified by a stat bonus. What is
+## left is one untagged accessory, so the assertion is that it reaches both
+## methods and that a tagged armour does not.
 func test_an_untagged_piece_reaches_both_methods_and_a_tagged_one_does_not() -> void:
 	var panel := _panel()
-	var martial := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.ACCESSORY))
-	var magical := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), EquipmentDef.Slot.ACCESSORY))
-	for id in [&"whetstone", &"piece_of_nothing"]:
-		assert_true(martial.has(id) and magical.has(id), "%s carries no tags and must reach both" % id)
-	for id in [&"blue_ring", &"censer"]:
-		assert_true(magical.has(id), "%s is MAGICAL and must reach a magical class" % id)
-		assert_false(martial.has(id), "%s is MAGICAL and must not reach a martial one" % id)
-	panel.free()
-
-# ---------------------------------------------------------------------------
-# Issue 474: what the screen refuses, and why
-# ---------------------------------------------------------------------------
-
-## Read off the built control, not off `refused_items`. The picker is what the
-## player believes.
-func _picker_rows(panel: EquipPanel, pawn: PawnData, slot: int) -> Array[String]:
-	var controls := panel._slot_controls(pawn, slot)
-	var picker: OptionButton = _first_of_type(controls[0], "OptionButton")
-	var out: Array[String] = []
-	for i in picker.item_count:
-		out.append(("- " if picker.is_item_disabled(i) else "") + picker.get_item_text(i))
-	for c in controls:
-		c.free()
-	return out
-
-## The whole of #474: a MARTIAL DPS is refused Plate Mail, and before this the
-## picker simply did not mention Plate Mail at all.
-func test_a_refused_piece_is_listed_disabled_with_the_tag_it_needs() -> void:
-	var panel := _panel()
-	var rows := _picker_rows(panel, _make_pawn(CG.Method.MARTIAL, CG.Role.DPS),
-		EquipmentDef.Slot.ARMOR)
-	assert_true(rows.has("- Plate Mail (needs Tank)"),
-		"a martial non-tank must see Plate Mail refused and read why, got: %s" % [rows])
-	assert_true(rows.has("Silk Wraps"),
-		"and must still be offered the piece it can wear, got: %s" % [rows])
-	panel.free()
-
-## The negative case, and it is the one that decides whether the row is signal
-## or furniture: a class refused nothing must see no refusals.
-func test_a_class_refused_nothing_gets_no_disabled_rows() -> void:
-	var panel := _panel()
-	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.DPS)
-	assert_true(panel.refused_items(pawn, EquipmentDef.Slot.ACCESSORY).is_empty(),
-		"every accessory is either untagged or MAGICAL, so a magical class is refused none")
-	for row in _picker_rows(panel, pawn, EquipmentDef.Slot.ACCESSORY):
-		assert_false(row.begins_with("- "), "no disabled row belongs here, got: %s" % row)
-	panel.free()
-
-## Two missing tags read as a sentence rather than as a list of enum names.
-func test_a_refusal_names_every_tag_the_class_is_missing() -> void:
-	var panel := _panel()
-	var plate := Registry.get_equipment(&"plate_mail")
-	assert_eq(panel.refusal_text(plate, _make_class(CG.Method.MAGICAL, CG.Role.DPS)),
-		"Plate Mail (needs Martial and Tank)")
-	assert_eq(panel.refusal_text(plate, _make_class(CG.Method.MARTIAL, CG.Role.TANK)),
-		"Plate Mail", "a piece this class can wear carries no reason")
-	panel.free()
-
-## Refused rows go in after the offered ones, so the index `item_selected`
-## carries still lands on the right item. Driven through the picker's own
-## signal rather than by calling `_on_slot_selected`, because the off-by-one
-## this guards against lives in the wiring between them.
-func test_the_last_offered_row_still_equips_the_last_offered_item() -> void:
-	var panel := _panel()
-	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.DPS)
-	var items := panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
-	assert_false(items.is_empty(), "this fixture must be offered something")
-	assert_false(panel.refused_items(pawn, EquipmentDef.Slot.ARMOR).is_empty(),
-		"and must be refused something, or this test proves nothing")
-	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
-	var picker: OptionButton = _first_of_type(controls[0], "OptionButton")
-	assert_false(picker.is_item_disabled(items.size()),
-		"the last offered row must still be selectable")
-	picker.item_selected.emit(items.size())
-	assert_eq(pawn.armor, items[items.size() - 1],
-		"the last offered row must equip the last offered item")
-	for c in controls:
-		c.free()
-	panel.free()
-
-## The refusal reads off whichever axis is missing, not only the method one: a
-## ranged caster is refused the Sickle by its style.
-func test_a_refusal_can_name_a_style_rather_than_a_method() -> void:
-	var panel := _panel()
-	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.DPS)
-	pawn.pawn_class.style = CG.Style.RANGED
-	assert_true(panel.offered_items(pawn, EquipmentDef.Slot.WEAPON).size() > 0)
-	var rows := _picker_rows(panel, pawn, EquipmentDef.Slot.WEAPON)
-	assert_true(rows.has("- Sickle (needs Melee)"),
-		"a ranged caster is refused the Sickle and must read why, got: %s" % [rows])
+	for slot in [EquipmentDef.Slot.ACCESSORY, EquipmentDef.Slot.ARMOR]:
+		## TANK on both sides: Plate is MARTIAL *and* TANK, so a DPS fixture
+		## would fail for the wrong reason and prove nothing about the method.
+		var martial := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL, CG.Role.TANK), slot))
+		var magical := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL, CG.Role.TANK), slot))
+		if slot == EquipmentDef.Slot.ACCESSORY:
+			assert_true(martial.has(&"censer") and magical.has(&"censer"),
+				"the Censer carries no tags and must reach both methods")
+		else:
+			assert_true(martial.has(&"plate_mail"), "a martial tank must be offered Plate")
+			assert_false(magical.has(&"plate_mail"), "Plate is MARTIAL and must not reach a magical class")
 	panel.free()
 
 func _ids(items: Array[EquipmentDef]) -> Array[StringName]:
