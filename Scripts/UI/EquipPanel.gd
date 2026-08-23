@@ -182,10 +182,17 @@ func _set_equipped(pawn: PawnData, slot: int, item: EquipmentDef) -> void:
 			pawn.accessory = item
 
 ## What this pawn may put in this slot. `EquipmentDef.allows_class` is the one
-## place that answers the question, and the screen refuses by *not offering*.
-## Issue 131 asks for a disabled row naming the missing tag instead, which is
-## what `EquipmentDef.missing_tags` exists for and is not built here.
+## place that answers the question.
 func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
+	return _slot_items(pawn, slot, true)
+
+## Issue 474: the pieces this class is refused, so the picker can show them
+## rather than silently be shorter. A player who cannot see the rule cannot
+## learn it.
+func refused_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
+	return _slot_items(pawn, slot, false)
+
+func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef]:
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
 		return out
@@ -193,10 +200,21 @@ func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
 		var item := Registry.get_equipment(id)
 		if item == null or item.slot != slot:
 			continue
-		if not item.allows_class(pawn.pawn_class):
+		if item.allows_class(pawn.pawn_class) != allowed:
 			continue
 		out.append(item)
 	return out
+
+## The refusal in the player's words. `EquipmentDef.missing_tags` returns the
+## tags and deliberately not a sentence, so the sentence is here.
+func refusal_text(item: EquipmentDef, class_def: ClassDef) -> String:
+	var missing := item.missing_tags(class_def)
+	if missing.is_empty():
+		return item.display_name
+	var names: Array[String] = []
+	for t in missing:
+		names.append(String(CG.Tag.keys()[t]).capitalize())
+	return "%s (needs %s)" % [item.display_name, " and ".join(names)]
 
 ## One slot: a labelled picker, then the chosen item's effect spelled out in
 ## numbers underneath. Two controls rather than one row because the effect line
@@ -245,10 +263,18 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 		if worn != null and items[i].id == worn.id:
 			current = i + 1
 	picker.selected = current
+	# Issue 474: refused pieces go in as disabled rows *after* the offered ones,
+	# so the index this signal carries still lands in `items`.
+	var refused := refused_items(pawn, slot)
+	for item in refused:
+		picker.add_item(refusal_text(item, pawn.pawn_class))
+		picker.set_item_disabled(picker.item_count - 1, true)
 	if items.is_empty():
-		picker.disabled = true
 		picker.set_item_text(0, "(nothing this class can use)")
-	else:
+	# Disabled only when there is nothing to read either way. With refusals in
+	# it the list is worth opening even when none of it can be taken.
+	picker.disabled = items.is_empty() and refused.is_empty()
+	if not items.is_empty():
 		picker.item_selected.connect(func(idx): _on_slot_selected(pawn, slot, items, idx))
 	row.add_child(picker)
 	out.append(row)
