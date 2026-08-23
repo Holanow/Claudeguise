@@ -39,10 +39,14 @@ func _run() -> bool:
 	if pawn == null:
 		print("MovementBlockShot: no geysermancer")
 		return false
-	## One plan removed, so there is budget to spend on movement and the chip
-	## is live rather than showing its refusal.
+	## The editor starts empty since #399, so the library is loaded here and then
+	## trimmed: without it there is no plan row at all and no chip to find.
+	pawn.plans = PresetPlans.for_class(pawn.pawn_class.id)
 	while pawn.plans.size() > 2:
 		pawn.plans.remove_at(pawn.plans.size() - 1)
+	if pawn.plans.is_empty():
+		print("MovementBlockShot: the geysermancer library is empty, so there is no row to edit")
+		return false
 
 	var panel := InspectPanel.create()
 	add_child(panel)
