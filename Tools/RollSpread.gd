@@ -51,22 +51,51 @@ func _init() -> void:
 				parts.append("%s%+d" % [CG.attribute_name(a), int(pawn.attribute_bonus.get(a, 0))])
 			line.append("[" + " ".join(parts) + "]")
 		print("  %-14s %s" % [String(cid), " ".join(line)])
-	## The floor is not symmetric and this is where it shows. An attribute whose
-	## class value is 1 cannot roll below 1, so it can only go up.
+	## Issue 485 requires this in #484's own form: mean against baseline, per
+	## class and per attribute. Two different quantities are printed, because
+	## conflating them is how a floor artifact would hide inside the levelling.
 	print("")
-	print("======== mean roll per attribute over 500 seeds ========")
-	print("  %-14s %s" % ["class", "attribute: base -> mean"])
+	print("======== mean against BASELINE over 500 seeds (this is the levelling) ========")
 	for cid in class_ids:
 		var cls := Registry.get_class_def(cid)
-		var sums := {}
+		var sums := _means(cid)
+		var parts := PackedStringArray()
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			parts.append("%s %d->%.2f" % [CG.attribute_name(a), cls.attribute(a), sums[a]])
+		print("  %-14s total %2d->%2d  %s" % [
+			String(cid), PawnFactory.class_total(cls), PawnFactory.POOL_SIZE, " ".join(parts)])
+
+	print("")
+	print("======== mean against the DISTRIBUTION'S OWN EXPECTATION (this is the floor check) ========")
+	for cid in class_ids:
+		var cls := Registry.get_class_def(cid)
+		var sums := _means(cid)
+		var free := float(PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls))
+		var weight_total := float(PawnFactory.class_total(cls))
+		var parts := PackedStringArray()
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			var expected: float = float(PawnFactory.attribute_floor(cls, a)) 				+ free * float(cls.attribute(a)) / maxf(1.0, weight_total)
+			parts.append("%s %+.2f" % [CG.attribute_name(a), sums[a] - expected])
+		print("  %-14s %s" % [String(cid), " ".join(parts)])
+
+	## A floor rarely reached is fine; one reached constantly is issue 484
+	## returning under another name.
+	print("")
+	print("======== how often an attribute sits exactly on its floor, of 500 ========")
+	for cid in class_ids:
+		var cls := Registry.get_class_def(cid)
+		var at_floor := {}
 		for s in 500:
 			var pawn := PawnFactory.make_rolled_pawn(cid, &"p", "p", s)
 			for a in PawnFactory.ROLLED_ATTRIBUTES:
-				sums[a] = float(sums.get(a, 0.0)) + float(pawn.attribute(a))
+				if pawn.attribute(a) == PawnFactory.attribute_floor(cls, a):
+					at_floor[a] = int(at_floor.get(a, 0)) + 1
 		var parts := PackedStringArray()
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
-			parts.append("%s %d->%.2f" % [CG.attribute_name(a), cls.attribute(a), float(sums[a]) / 500.0])
-		print("  %-14s %s" % [String(cid), " ".join(parts)])
+			parts.append("%s %d/%d(floor %d)" % [
+				CG.attribute_name(a), int(at_floor.get(a, 0)), 500, PawnFactory.attribute_floor(cls, a)])
+		print("  %-14s free %2d  %s" % [
+			String(cid), PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls), " ".join(parts)])
 	quit(0)
 
 func _parties(class_ids: Array) -> Array:
@@ -115,3 +144,14 @@ class _Acc extends RefCounted:
 		var c := a.duplicate()
 		c.sort()
 		return c[c.size() / 2]
+
+## Mean value of each rolled attribute over 500 seeds.
+func _means(class_id: StringName) -> Dictionary:
+	var sums := {}
+	for s in 500:
+		var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			sums[a] = float(sums.get(a, 0.0)) + float(pawn.attribute(a))
+	for a in PawnFactory.ROLLED_ATTRIBUTES:
+		sums[a] = float(sums[a]) / 500.0
+	return sums
