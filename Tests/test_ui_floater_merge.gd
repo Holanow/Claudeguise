@@ -31,7 +31,7 @@ func _encounter() -> Encounter:
 func _view():
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"damage_numbers", true)
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	var config := RunConfig.new()
 	config.seed = 1
@@ -73,7 +73,6 @@ func test_six_ticks_on_one_pawn_are_one_running_total() -> void:
 	assert_eq(live[0].amount, 18, "the total must be the sum, not the last tick")
 	assert_eq(live[0]._text, "18")
 	DisplayOptions.reset()
-	view.free()
 
 ## The merge must not join two facts. A Fire tick and a Physical hit are
 ## different colours and different things, and one number cannot say both.
@@ -84,7 +83,6 @@ func test_two_damage_types_stay_two_numbers() -> void:
 	_hit(view, id, 5, CG.DamageType.PHYSICAL)
 	assert_eq(_floaters(view).size(), 2, "two damage types merged into one number")
 	DisplayOptions.reset()
-	view.free()
 
 func test_two_pawns_keep_their_own_numbers() -> void:
 	var view = _view()
@@ -92,7 +90,6 @@ func test_two_pawns_keep_their_own_numbers() -> void:
 	_hit(view, view.state.units[2].id, 4)
 	assert_eq(_floaters(view).size(), 2, "one pawn's number counted another pawn's damage")
 	DisplayOptions.reset()
-	view.free()
 
 ## The window is what keeps the number about what is happening now: past it the
 ## next hit is its own number again.
@@ -104,7 +101,6 @@ func test_a_hit_after_the_window_starts_a_new_number() -> void:
 	_hit(view, id, 5)
 	assert_eq(_floaters(view).size(), 2, "the running total never expires")
 	DisplayOptions.reset()
-	view.free()
 
 ## Adding to a number puts it back at full opacity for its whole life again,
 ## or a total counting up would fade while it is still counting.
@@ -118,7 +114,6 @@ func test_adding_to_a_number_restarts_its_life() -> void:
 	_hit(view, id, 5)
 	assert_eq(_floaters(view)[0].modulate.a, 1.0, "a counting total must not stay faded")
 	DisplayOptions.reset()
-	view.free()
 
 ## The first version of this measured the window from the LAST hit, and a pawn
 ## standing in fire is hit every tick, so the window never closed: the capture
@@ -137,4 +132,3 @@ func test_a_stream_of_ticks_does_not_count_a_whole_fight_into_one_number() -> vo
 		assert_true(f.amount < 40,
 			"one number counted %d of the 40 dealt, so it is a fight total" % f.amount)
 	DisplayOptions.reset()
-	view.free()
