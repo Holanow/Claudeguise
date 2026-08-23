@@ -209,11 +209,7 @@ func _team_hp_percent(state, team: int) -> int:
 ## team, so counting units puts five or six in a party of four and every
 ## survivor bucket lands out of range.
 static func _living_pawns(state: CombatState) -> int:
-	var n := 0
-	for u in state.living(CG.Team.PLAYER):
-		if u.pawn != null:
-			n += 1
-	return n
+	return CombatSim.living_party(state).size()
 
 func _cost_note(party_hp: int, survivors: int) -> String:
 	if party_hp >= 55 and survivors >= 4:
