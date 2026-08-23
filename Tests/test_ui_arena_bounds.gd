@@ -95,8 +95,7 @@ func _view_with_target(pos: Vector2) -> Node2D:
 	var target := _unit(0, pos, "Abomination")
 	target.team = CG.Team.PLAYER
 	state.units.append(target)
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 	DisplayOptions.set_enabled(&"damage_numbers", true)
@@ -134,7 +133,6 @@ func test_three_numbers_on_one_unit_do_not_overlap() -> void:
 			assert_false(boxes[i].intersects(boxes[j]),
 				"%s and %s print through each other" % [boxes[i], boxes[j]])
 	DisplayOptions.reset()
-	view.free()
 
 
 func test_a_lone_number_is_not_staggered_away_from_nothing() -> void:
@@ -148,7 +146,6 @@ func test_a_lone_number_is_not_staggered_away_from_nothing() -> void:
 			floater = child
 	assert_eq(floater.position, Vector2.ZERO, "the first number of a fight sits on its target")
 	DisplayOptions.reset()
-	view.free()
 
 
 func test_a_number_spawned_at_the_edge_lands_inside_the_arena() -> void:
@@ -159,4 +156,3 @@ func test_a_number_spawned_at_the_edge_lands_inside_the_arena() -> void:
 			assert_true(BOUNDS.encloses(child.extent()),
 				"a number spawned in the corner must not spawn outside: %s" % child.extent())
 	DisplayOptions.reset()
-	view.free()

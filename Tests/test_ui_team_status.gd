@@ -200,8 +200,7 @@ func test_seconds_are_seconds_not_ticks() -> void:
 # ---------------------------------------------------------------------------
 
 func _battle() -> Node:
-	var battle = BattleScene.instantiate()
-	battle._ready()
+	var battle = in_tree(BattleScene.instantiate())
 	return battle
 
 func _config(class_ids: Array, encounter_id: StringName, seed_value: int) -> RunConfig:
@@ -221,7 +220,6 @@ func test_the_panel_is_populated_by_begin_before_any_tick() -> void:
 	assert_not_null(panel, "BattleView must build a team status panel")
 	assert_eq(battle.state.tick, 0, "nothing has been stepped yet")
 	assert_eq(panel.row_count(), 4, "four pawns, four rows, on the frame the fight starts")
-	battle.free()
 
 ## Live means live, through the real per-frame path rather than by calling
 ## `sync` directly -- the defect this project keeps shipping is never in the
@@ -238,7 +236,6 @@ func test_a_summon_gets_a_row_through_the_real_frame_path() -> void:
 			grew = true
 			break
 	assert_true(grew, "a Siege Master built an engine and the panel never grew a row for it (started at %d)" % started)
-	battle.free()
 
 ## The instrument check for the test above. If a party that summons nothing also
 ## grows a row, the assertion is measuring something other than summoning.
@@ -250,7 +247,6 @@ func test_a_party_that_summons_nothing_never_grows_a_row() -> void:
 		battle._process(1.0 / float(CG.TICKS_PER_SECOND))
 	assert_eq(panel.row_count(), 4,
 		"no pawn in this party summons anything, so four rows is the whole answer")
-	battle.free()
 
 ## The panel is drawn in the strip the log already reserves, so the arena is not
 ## made smaller to describe itself. Since notes item 8 the log is a fixed box in
@@ -281,7 +277,6 @@ func test_the_panel_and_the_log_share_the_column_without_meeting() -> void:
 		assert_true(panel_bottom < log_top,
 			"a %.0fx%.0f window is %.0fx%.0f logical: the panel ends at %.0f and the log starts at %.0f" % [
 				window.x, window.y, view.x, view.y, panel_bottom, log_top])
-	battle.free()
 
 ## The engine's own `canvas_items` + `expand` arithmetic, off the base viewport
 ## in `project.godot`: whichever axis has the smaller window/base ratio is pinned
@@ -337,7 +332,6 @@ func test_the_panel_never_exceeds_the_height_reserved_for_it() -> void:
 	assert_true(tallest > 0.0, "the panel measured zero high, so this assertion saw nothing")
 	assert_true(tallest <= TeamStatusView.MAX_PANEL_HEIGHT,
 		"the panel reached %.0f in a real fight and only %.0f is reserved for it" % [tallest, TeamStatusView.MAX_PANEL_HEIGHT])
-	battle.free()
 
 ## **The pair of assertions that would have caught the defect this panel already
 ## shipped into a screenshot once.**

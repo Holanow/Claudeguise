@@ -25,7 +25,7 @@ func _cfg(n: int = 4) -> RunConfig:
 
 ## A battle screen held before its first tick, which is what `Main` now opens.
 func _held(cfg: RunConfig, positions: Array[Vector2] = []):
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), positions)
 	return view
@@ -168,7 +168,7 @@ func test_a_pawn_cannot_be_dropped_inside_a_wall() -> void:
 	room.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(200.0, 0.0)}]
 	room.terrain = [Terrain.make(Terrain.Kind.WALL, wall_rect)]
 
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	view.begin_setup(cfg, room)
 	var id := _first_pawn_id(view.state)
@@ -413,8 +413,7 @@ func test_a_different_placement_gives_a_different_fight() -> void:
 ## The placement is the half that used to live on another screen, and it is the
 ## one a change like this would lose without anybody noticing.
 func test_restart_replays_the_placement_the_player_dragged() -> void:
-	var main = MainScene.instantiate()
-	main._ready()
+	var main = in_tree(MainScene.instantiate())
 	var select = main._current
 	for i in 2:
 		select.toggle_pawn(select.available_pawns()[i], true)
@@ -434,4 +433,3 @@ func test_restart_replays_the_placement_the_player_dragged() -> void:
 	assert_eq(again.placements(), dragged, "the re-run opened on a different placement")
 	again.start_fight()
 	assert_eq(_signature(again.state), first, "the re-run is not the same fight")
-	main.free()

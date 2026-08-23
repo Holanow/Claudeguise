@@ -53,7 +53,7 @@ func _fight() -> Array:
 	# already has one, so this is a plan's output without needing a plan.
 	caster.intent = Intent.use_action(_SIEGE_ENGINE, caster.id)
 
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	view.state = state
 	view.event_cursor = 0

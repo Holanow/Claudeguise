@@ -12,8 +12,7 @@ func test_a_death_event_spawns_a_marker_in_the_arena() -> void:
 	target.position = Vector2(10.0, 20.0)
 	state.units.append(target)
 
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 
@@ -26,12 +25,10 @@ func test_a_death_event_spawns_a_marker_in_the_arena() -> void:
 
 	assert_eq(view.get_node("Arena").get_child_count(), arena_before + 1,
 		"a DEATH event must add a marker to the arena")
-	view.free()
 
 func test_a_death_event_with_no_such_unit_spawns_nothing() -> void:
 	var state := CombatState.new(1)
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 
@@ -43,4 +40,3 @@ func test_a_death_event_with_no_such_unit_spawns_nothing() -> void:
 	view.consume_events()
 
 	assert_eq(view.get_node("Arena").get_child_count(), arena_before)
-	view.free()

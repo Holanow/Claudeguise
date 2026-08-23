@@ -43,7 +43,6 @@ func test_a_pawn_with_no_plans_says_it_has_none() -> void:
 	var line := view.line_for_event(state, _unstamped_action(0))
 	assert_true(line.contains("[no plan]"), line)
 	assert_false(line.to_lower().contains("fallback"), line)
-	view.free()
 
 ## And a pawn that HAS written rows, none of which matched, is a different
 ## answer to "why did that happen": its own default, not an empty editor.
@@ -56,7 +55,6 @@ func test_a_pawn_whose_rows_all_missed_reads_as_its_default() -> void:
 	assert_true(line.contains("[default]"), line)
 	assert_false(line.contains("[no plan]"), line)
 	assert_false(line.to_lower().contains("fallback"), line)
-	view.free()
 
 ## The word is gone from the log altogether, checked against a whole real
 ## fight rather than a hand-built event.
@@ -72,7 +70,6 @@ func test_no_line_in_a_real_fight_says_fallback() -> void:
 		if line.contains("[no plan]"):
 			unplanned += 1
 	assert_true(unplanned > 0, "no unplanned pawn action, so the wording went unexercised")
-	view.free()
 
 ## The plan editor used the same jargon for the same row.
 func test_the_plan_editor_does_not_call_it_a_fallback_either() -> void:
@@ -130,8 +127,7 @@ func test_a_summon_is_not_a_pawn_missing_a_plan() -> void:
 ## Through the screen, not the function under it: the card has to actually
 ## carry the words after the fight resolves.
 func test_the_end_card_shows_the_prompt_when_the_fight_resolves() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	var state := CombatSim.build(
 		_starter_party(), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	CombatSim.run(state)
@@ -139,11 +135,9 @@ func test_the_end_card_shows_the_prompt_when_the_fight_resolves() -> void:
 	view._show_outcome()
 	assert_true(view._end_prompt_label.visible, "the prompt label must not be hidden")
 	assert_true(view._end_prompt_label.text.contains("Plans"), view._end_prompt_label.text)
-	view.free()
 
 func test_the_end_card_hides_the_prompt_for_a_planned_party() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	var party: Array[PawnData] = []
 	for cid in Registry.all_class_ids().slice(0, 4):
 		party.append(PawnFactory.make_preset_pawn(
@@ -154,14 +148,11 @@ func test_the_end_card_hides_the_prompt_for_a_planned_party() -> void:
 	view._show_outcome()
 	assert_false(view._end_prompt_label.visible,
 		"a player who has written plans must not be told to write plans: %s" % view._end_prompt_label.text)
-	view.free()
 
 ## The prompt lives on the end card, which is a modal. The field is the one
 ## place it must not appear: the same tester's first complaint was that the
 ## defaults cover the arena with text.
 func test_the_prompt_is_not_on_the_field_during_the_fight() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	assert_false(view._end_prompt_label.visible,
 		"nothing about plans may print before the fight resolves")
-	view.free()
