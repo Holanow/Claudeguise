@@ -321,7 +321,7 @@ func _phase_party_comparison() -> void:
 		var outcome := CombatSim.run(state)
 		_log("  %-55s -> %-10s ticks=%-4d survivors=%d/%d" % [
 			label, CombatState.Outcome.keys()[outcome], state.tick,
-			state.living(CG.Team.PLAYER).size(), party.size()
+			CombatSim.living_party(state).size(), party.size()
 		])
 
 # ---------------------------------------------------------------------------
