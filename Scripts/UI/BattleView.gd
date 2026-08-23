@@ -1140,6 +1140,11 @@ func _spawn_floater(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
+	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
+	var running = _mergeable_floater(target.id, color)
+	if running != null:
+		running.add_amount(e.amount)
+		return
 	_make_room_for_a_floater()
 	var size := int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE))
 	var at := target.position + _floater_stagger_offset(target.position, str(e.amount), size)
@@ -1147,8 +1152,22 @@ func _spawn_floater(e: CombatEvent) -> void:
 	floater.set_script(DamageFloaterScript)
 	_arena.add_child(floater)
 	floater.position = at
-	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
+	floater.unit_id = target.id
 	floater.show_amount(e.amount, color, size)
+
+## Issue 390: past about a dozen live numbers no stagger can separate them,
+## because the text needs more area than the fight occupies. Six ticks of `3`
+## on one pawn become one `18` that keeps counting, which is both fewer numbers
+## and the number the player wanted.
+const FLOATER_MERGE_WINDOW := 0.6
+
+func _mergeable_floater(unit_id: int, color: Color):
+	for child in _arena.get_children():
+		if child.get_script() != DamageFloaterScript:
+			continue
+		if child.can_merge(unit_id, color, FLOATER_MERGE_WINDOW):
+			return child
+	return null
 
 ## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
 ## needs an attack asset ... so I know what's up" -- melee had nothing but a
