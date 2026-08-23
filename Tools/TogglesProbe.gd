@@ -53,6 +53,14 @@ func _node_with(f: String) -> Node:
 			return n
 	return null
 
+## Scrolls the panel's list until the row is inside its window, which is what a
+## player does to reach a row below the fold.
+func _reveal(panel: Node, box: Control) -> void:
+	if panel._scroll == null:
+		return
+	panel._scroll.ensure_control_visible(box)
+	await _settle(2)
+
 ## A real click at a real place. Both halves of the press, and a frame between
 ## them, because a Button acts on the release.
 func _click(at: Vector2) -> void:
@@ -115,8 +123,14 @@ func _run() -> bool:
 		for option in DisplayOptions.OPTIONS:
 			if box.text.begins_with(option.label):
 				id = option.id
-		var rect: Rect2 = box.get_global_rect()
 		var before := DisplayOptions.enabled(id)
+
+		## Scroll it into view first. The panel is a scrolling list and the last
+		## two rows sit below its window, so `get_global_rect()` gave a layout
+		## position off the bottom of the screen and six clicks landed on
+		## nothing -- the probe's own blindness, not a dead checkbox (#373).
+		await _reveal(panel, box)
+		var rect: Rect2 = box.get_global_rect()
 
 		## Three places a player would aim: the box itself, the words, and the
 		## empty space to the right of them on the same row.
@@ -145,6 +159,7 @@ func _run() -> bool:
 	await _settle(2)
 	for box in panel._rows:
 		if not box.button_pressed:
+			await _reveal(panel, box)
 			await _click(box.get_global_rect().get_center())
 	await _settle()
 	await _shot("wren_toggles_on")

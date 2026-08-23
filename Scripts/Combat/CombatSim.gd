@@ -217,6 +217,9 @@ static func _broadcast_taunt(state: CombatState, taunter: CombatUnit, ticks: int
 	for victim in state.living(_enemy_team(taunter.team)):
 		if taunter.position.distance_to(victim.position) > taunter.taunt_radius:
 			continue
+		## Two taunters split a party instead of both piling onto one pawn.
+		## Issue 309: dormant in today's content, which spawns one Brute per
+		## room and allows one Warrior per party, so no side ever fields two.
 		if _compelling_taunter(state, victim) != null:
 			continue
 		victim.statuses[CG.Status.TAUNTED] = state.tick + ticks
@@ -790,7 +793,21 @@ static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, 
 		return false
 	unit.alive = false
 	state.emit(_event(CG.EventKind.DEATH, state.tick, source_id, unit.id, action_id))
+	_kill_summons_of(state, unit)
 	return true
+
+## Issue 445: a summon dies with its summoner, on either team.
+static func _kill_summons_of(state: CombatState, summoner: CombatUnit) -> void:
+	var ids: Array[int] = []
+	for e in state.events:
+		if e.kind == CG.EventKind.SUMMONED and e.source_id == summoner.id:
+			ids.append(e.target_id)
+	for id in ids:
+		var summon := state.unit(id)
+		if summon == null or not summon.alive:
+			continue
+		summon.hp = 0
+		_kill_if_dead(state, summon, summoner.id, &"")
 
 # ---------------------------------------------------------------------------
 # a status that remembers something (issues 121 and 130)
@@ -1094,12 +1111,14 @@ static func _find_shielder(state: CombatState, defending_team: CG.Team, attackin
 static func _check_outcome(state: CombatState, deps: SimDeps = null) -> void:
 	if deps == null:
 		deps = SimDeps.new()
-	var player_alive := not state.living(CG.Team.PLAYER).is_empty()
-	var enemy_alive := not state.living(CG.Team.ENEMY).is_empty()
+	var player_side := player_side_for_outcome(state)
+	var enemy_side := state.living(CG.Team.ENEMY)
+	var player_alive := not player_side.is_empty()
+	var enemy_alive := not enemy_side.is_empty()
 	var reason := CG.EndReason.NO_SURVIVORS
 	if player_alive and enemy_alive:
-		player_alive = _side_can_fight(state, CG.Team.PLAYER, deps)
-		enemy_alive = _side_can_fight(state, CG.Team.ENEMY, deps)
+		player_alive = _side_can_fight(state, player_side, deps)
+		enemy_alive = _side_can_fight(state, enemy_side, deps)
 		if not player_alive or not enemy_alive:
 			reason = CG.EndReason.CANNOT_ACT
 
@@ -1132,25 +1151,40 @@ static func _end_fight(state: CombatState, outcome: CombatState.Outcome, reason:
 	end_event.end_reason = reason
 	state.emit(end_event)
 
-## A side is beaten when it has no living unit left, or when every unit it has
-## left can never act again.
+## Issue 445, and this is the only definition of "your party" in the game: a
+## unit the player brought, never a summon it made.
+static func is_party_member(unit: CombatUnit) -> bool:
+	return unit.team == CG.Team.PLAYER and unit.pawn != null
+
+## The player's side, for every question the outcome asks. Summons are excluded,
+## so a fight is lost when the last pawn dies whatever else is still standing.
+static func living_party(state: CombatState) -> Array[CombatUnit]:
+	var out: Array[CombatUnit] = []
+	for unit in state.units:
+		if unit.alive and is_party_member(unit):
+			out.append(unit)
+	return out
+
+## Who the outcome reads on the player's side: the living party, or every living
+## player-team unit in a fight built with no pawns at all -- a test fixture or a
+## level-editor room, where the pawnless rule would end the fight on tick one.
+static func player_side_for_outcome(state: CombatState) -> Array[CombatUnit]:
+	for unit in state.units:
+		if is_party_member(unit):
+			return living_party(state)
+	return state.living(CG.Team.PLAYER)
+
 static func party_was_wiped(state: CombatState) -> bool:
 	var pawns := 0
 	for unit in state.units:
-		if unit.team != CG.Team.PLAYER or unit.pawn == null:
+		if not is_party_member(unit):
 			continue
 		pawns += 1
 		if unit.alive:
 			return false
 	return pawns > 0
 
-## The ending rook ruled on: the party is gone, and the summons they left behind
-## finished the enemies off afterwards.
-static func is_pawnless_win(state: CombatState) -> bool:
-	return state.outcome == CombatState.Outcome.PLAYER_WIN and party_was_wiped(state)
-
-static func _side_can_fight(state: CombatState, team: CG.Team, deps: SimDeps) -> bool:
-	var living := state.living(team)
+static func _side_can_fight(state: CombatState, living: Array[CombatUnit], deps: SimDeps) -> bool:
 	if living.is_empty():
 		return false
 	for unit in living:
