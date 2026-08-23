@@ -65,6 +65,18 @@ func _run() -> void:
 		for t in texts:
 			print("    " + t)
 
+	## The row sits under the library, so the shot has to scroll to it the way
+	## a player would.
+	if not rows.is_empty():
+		var scroller: Node = rows[0]
+		while scroller != null and not (scroller is ScrollContainer):
+			scroller = scroller.get_parent()
+		if scroller is ScrollContainer:
+			(scroller as ScrollContainer).scroll_vertical = int(rows[0].global_position.y
+				- (scroller as ScrollContainer).global_position.y
+				+ (scroller as ScrollContainer).scroll_vertical - 120)
+			await _settle()
+
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	get_viewport().get_texture().get_image().save_png("%s/issue414_fallback_%s.png" % [OUT_DIR, _tag])
