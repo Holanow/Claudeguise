@@ -30,6 +30,11 @@ class_name ActionDef
 ## World units. 0.0 means the effect hits only the focused target.
 @export var splash_radius: float = 0.0
 
+## World units. Issue 492: the half-width of the square pool of water this
+## action leaves where its effect landed. 0.0 leaves nothing, which is every
+## action but the Geysermancer's two.
+@export var leaves_pool_radius: float = 0.0
+
 ## Whether this action needs an unobstructed line to its target. A wall or a
 ## pillar between the two stops it; a pit does not, since a pit blocks feet
 ## rather than sight.

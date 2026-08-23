@@ -204,6 +204,18 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			]
 		CG.EventKind.SUMMONED:
 			return "%s summons %s" % [source_name, target_name]
+		## Issue 492. One line per pool laid and one per fire put out; the parts
+		## a split fire comes back as are silent, or a single Geyser Blast would
+		## write five lines saying the same thing.
+		CG.EventKind.TERRAIN_ADDED:
+			if e.terrain_change != CG.TerrainChange.CAST:
+				return ""
+			return "%s's %s leaves a pool of water" % [source_name, _action_name(e.action_id)]
+		CG.EventKind.TERRAIN_REMOVED:
+			return "[color=%s]%s's %s puts out the burning ground[/color]" % [
+				Palette.damage_color(CG.DamageType.WATER).to_html(),
+				source_name, _action_name(e.action_id)
+			]
 		CG.EventKind.RESOURCE_SPENT:
 			# Deliberate. See SILENT_KINDS below -- the list is what makes this
 			# silence distinguishable from an oversight.

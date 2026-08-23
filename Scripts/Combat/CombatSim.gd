@@ -650,7 +650,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		else:
 			for target in targets:
 				_apply_action_effect(state, unit, target, action, deps)
-			_on_hit_landed(state, unit, action, deps)
+			_on_hit_landed(state, unit, action, deps, targets[0].position)
 
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
@@ -663,7 +663,9 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 
 ## Everything a source gains from a hit that actually connected: Rage, and issue
 ## 165's `ActionDef.restores_resource`.
-static func _on_hit_landed(state: CombatState, source: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+static func _on_hit_landed(state: CombatState, source: CombatUnit, action: ActionDef, deps: SimDeps, at: Vector2 = Vector2.ZERO) -> void:
+	if action != null and action.leaves_pool_radius > 0.0:
+		_leave_pool(state, source, action, at)
 	if action != null and action.restores_resource > 0:
 		source.resource = clampi(source.resource + action.restores_resource, 0, source.resource_max)
 	if source.resource_kind != CG.ResourceKind.RAGE:
@@ -681,6 +683,70 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 	var gained := _stochastic_round(state, deps.rage_gain_on_damage_taken.call(target, applied))
 	if gained > 0:
 		target.resource = clampi(target.resource + gained, 0, target.resource_max)
+
+# ---------------------------------------------------------------------------
+# terrain that appears mid-fight (issue 492)
+# ---------------------------------------------------------------------------
+
+## The one place `state.terrain` changes after `build()`. Water and fire
+## annihilate the ground they share: the fire keeps what the pool did not cover
+## and the pool keeps what the fire did not, each as up to four parts.
+static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, at: Vector2) -> void:
+	var half := action.leaves_pool_radius
+	var pool_parts: Array[Rect2] = [Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)]
+	var kept: Array = []
+	for feature in state.terrain:
+		if not Terrain.is_burning(feature) or pool_parts.is_empty():
+			kept.append(feature)
+			continue
+		var fire_parts: Array[Rect2] = [feature.rect]
+		var surviving_pool: Array[Rect2] = []
+		var touched := false
+		for p in pool_parts:
+			var cut: Array[Rect2] = []
+			for fr in fire_parts:
+				if fr.intersects(p):
+					touched = true
+					cut.append_array(Terrain.subtract(fr, p))
+				else:
+					cut.append(fr)
+			fire_parts = cut
+			surviving_pool.append_array(Terrain.subtract(p, feature.rect))
+		pool_parts = surviving_pool
+		if not touched:
+			kept.append(feature)
+			continue
+		_emit_terrain(state, CG.EventKind.TERRAIN_REMOVED, caster, action,
+			feature.kind, feature.rect, CG.TerrainChange.DOUSED)
+		for fr in fire_parts:
+			var part = _copy_feature(feature, fr)
+			kept.append(part)
+			_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
+				part.kind, fr, CG.TerrainChange.DOUSED)
+	for pr in pool_parts:
+		kept.append(Terrain.pool(pr))
+		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
+			Terrain.Kind.WATER, pr, CG.TerrainChange.CAST)
+	state.terrain = kept
+
+## The same feature over a different rect. Every field is copied rather than the
+## damaging ones only, so a split tar pit stays a tar pit.
+static func _copy_feature(f, rect: Rect2):
+	var out := Terrain.make(f.kind, rect)
+	out.damage_per_tick = f.damage_per_tick
+	out.damage_type = f.damage_type
+	out.applies_status = f.applies_status
+	out.applies_status_enabled = f.applies_status_enabled
+	out.status_duration_ticks = f.status_duration_ticks
+	out.status_magnitude = f.status_magnitude
+	return out
+
+static func _emit_terrain(state: CombatState, kind: CG.EventKind, caster: CombatUnit, action: ActionDef, terrain_kind, rect: Rect2, change: CG.TerrainChange) -> void:
+	var e := _event(kind, state.tick, caster.id, -1, action.id)
+	e.terrain_kind = terrain_kind
+	e.terrain_rect = rect
+	e.terrain_change = change
+	state.emit(e)
 
 ## Issue 12: the one place `state.units` grows after `build()`. Appends only --
 ## never inserts, never reorders -- so a new unit's id is `state.units.size()`
@@ -1072,7 +1138,7 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	for t in _splash_targets(state, hit, action):
 		_apply_action_effect(state, source, t, action, deps)
-	_on_hit_landed(state, source, action, deps)
+	_on_hit_landed(state, source, action, deps, hit.position)
 
 ## The shield's full frontage, centred on the shielder and about five pawns
 ## wide, so a hostile shot passing within half of it in front of a SHIELDING

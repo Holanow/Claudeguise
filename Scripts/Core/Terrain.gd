@@ -10,6 +10,7 @@ enum Kind {
 	PILLAR,  ## blocks line of sight, does not block movement
 	HAZARD,  ## passable, damages a unit standing in it each tick
 	PIT,     ## blocks movement, does not block line of sight
+	WATER,   ## passable, harmless, and puts out burning ground it touches
 }
 
 class Feature extends RefCounted:
@@ -44,6 +45,44 @@ static func make(kind: Kind, rect: Rect2) -> Feature:
 	f.kind = kind
 	f.rect = rect
 	return f
+
+## Issue 492: a pool of water. It does nothing on its own, which is the whole
+## of its definition -- no damage, no status, no movement cost.
+static func pool(rect: Rect2) -> Feature:
+	return make(Kind.WATER, rect)
+
+## Ground that is on fire, which is the only thing a pool reacts to.
+static func is_burning(f) -> bool:
+	return f.kind == Kind.HAZARD and f.damage_type == CG.DamageType.FIRE
+
+## Areas below this in either dimension are dropped rather than kept. Issue 492:
+## a subtraction that leaves slivers fills `terrain` with features nothing can
+## see and everything walks.
+const MIN_FEATURE_SIZE := 0.5
+
+## `a` with `b` cut out of it, as zero to four axis-aligned parts. The order is
+## fixed -- above, below, left, right -- because two runs of the same fight must
+## produce the same terrain array, not merely the same covered area.
+static func subtract(a: Rect2, b: Rect2) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var overlap := a.intersection(b)
+	if overlap.size.x <= 0.0 or overlap.size.y <= 0.0:
+		if _keep(a):
+			out.append(a)
+		return out
+	var strips: Array[Rect2] = [
+		Rect2(a.position.x, a.position.y, a.size.x, overlap.position.y - a.position.y),
+		Rect2(a.position.x, overlap.end.y, a.size.x, a.end.y - overlap.end.y),
+		Rect2(a.position.x, overlap.position.y, overlap.position.x - a.position.x, overlap.size.y),
+		Rect2(overlap.end.x, overlap.position.y, a.end.x - overlap.end.x, overlap.size.y),
+	]
+	for r in strips:
+		if _keep(r):
+			out.append(r)
+	return out
+
+static func _keep(r: Rect2) -> bool:
+	return r.size.x >= MIN_FEATURE_SIZE and r.size.y >= MIN_FEATURE_SIZE
 
 static func hazard(rect: Rect2, damage_per_tick: int, damage_type: CG.DamageType) -> Feature:
 	var f := make(Kind.HAZARD, rect)
