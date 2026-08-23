@@ -17,14 +17,14 @@ const OPTIONS := [
 	{
 		"id": &"name_plates",
 		"label": "Name plates on units",
-		"help": "The name above each unit. On by default: plates take the first row that is free of every other plate, and only a name nobody can see gives up its row, so a fourteen-unit scrum stacks them into a column instead of printing them through each other. Floating numbers step around the plates too. Turn it off when you would rather read the shapes.",
-		"default": true,
+		"help": "The name above each unit, joined to it by a leader line when it has to move out of the way of another plate. Off by default: a plate is 140x24 over a 30px body, so in a nine-unit scrum the names cover the fight. Turn it on when you want to know who is who and can spare the room.",
+		"default": false,
 	},
 	{
 		"id": &"log_hazard_ticks",
 		"label": "Ground damage in the log",
-		"help": "One line per tick for every pawn standing in fire or acid. On by default, and it is a lot: measured over a Burn Pit fight, 141 of the log's 402 lines. Turn it off when the room is on fire and you want to read what everyone did; turn it back on to find out what killed somebody.",
-		"default": true,
+		"help": "One line per tick for every pawn standing in fire or acid. Off by default: measured over a Burn Pit fight it is 141 of the log's 402 lines, and it scrolls the deaths away. Turn it on to find out what killed somebody.",
+		"default": false,
 	},
 	{
 		"id": &"log_status_damage",
