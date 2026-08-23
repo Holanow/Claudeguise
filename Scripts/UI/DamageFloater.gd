@@ -32,6 +32,10 @@ var death_marker: bool = false
 ## a third of a number beside it.
 var unit_id: int = -1
 var amount: int = 0
+## Time since the FIRST hit this number counted. `_age` restarts every time it
+## is added to, so it cannot answer how long the total has been running -- and
+## a total that keeps resetting counts a whole fight into one number.
+var _merge_age: float = 0.0
 
 func show_amount(value: int, color: Color, font_size: int = Palette.FONT_SIZE_FLOATER) -> void:
 	amount = value
@@ -51,7 +55,9 @@ func add_amount(extra: int) -> void:
 ## different facts), still a plain number, and young enough that the total is
 ## about what is happening now.
 func can_merge(id: int, color: Color, window: float) -> bool:
-	return not death_marker and unit_id == id and _color == color 		and _text != "" and _age <= window
+	if death_marker or unit_id != id or _text == "":
+		return false
+	return _color == color and _merge_age <= window
 
 ## A death, on an opaque plate and held at full opacity for most of its life.
 ## `Assets/UI/panel/death.png` replaces the plate; without it the plate is a
@@ -77,6 +83,7 @@ func show_text(text: String, color: Color, lifetime: float = LIFETIME_SECONDS, f
 
 func _process(delta: float) -> void:
 	_age += delta
+	_merge_age += delta
 	position.y -= RISE_SPEED * delta
 	if _age >= _lifetime:
 		queue_free()

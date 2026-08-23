@@ -54,6 +54,8 @@ func _hit(view, target_id: int, amount: int, damage_type: int = CG.DamageType.FI
 func _floaters(view) -> Array:
 	var out: Array = []
 	for child in view._arena.get_children():
+		if child.is_queued_for_deletion():
+			continue
 		if child.get_script() == DamageFloaterScript and not child.death_marker:
 			out.append(child)
 	return out
@@ -115,5 +117,24 @@ func test_adding_to_a_number_restarts_its_life() -> void:
 	assert_true(faded < 1.0, "the fixture must actually have faded, it is at %f" % faded)
 	_hit(view, id, 5)
 	assert_eq(_floaters(view)[0].modulate.a, 1.0, "a counting total must not stay faded")
+	DisplayOptions.reset()
+	view.free()
+
+## The first version of this measured the window from the LAST hit, and a pawn
+## standing in fire is hit every tick, so the window never closed: the capture
+## showed one number reading 118, a whole fight's burn drawn as a single hit.
+## The window runs from the first hit the number counted.
+func test_a_stream_of_ticks_does_not_count_a_whole_fight_into_one_number() -> void:
+	var view = _view()
+	var id: int = view.state.units[1].id
+	for i in 20:
+		_hit(view, id, 2)
+		_age(view, 0.1)
+	var live := _floaters(view)
+	assert_true(live.size() >= 2,
+		"20 ticks over 2 seconds became %d number(s), so the window never closes" % live.size())
+	for f in live:
+		assert_true(f.amount < 40,
+			"one number counted %d of the 40 dealt, so it is a fight total" % f.amount)
 	DisplayOptions.reset()
 	view.free()
