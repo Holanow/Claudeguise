@@ -91,12 +91,12 @@ static func hidden_row_count(state: CombatState) -> int:
 		+ maxi(0, _live_summons(state).size() - MAX_SUMMON_ROWS)
 
 static func is_summon(u: CombatUnit) -> bool:
-	return u.team == CG.Team.PLAYER and u.pawn == null
+	return u.team == CG.Team.PLAYER and not CombatSim.is_party_member(u)
 
 static func _player_pawns(state: CombatState) -> Array:
 	var out: Array = []
 	for u in state.units:
-		if u.team == CG.Team.PLAYER and u.pawn != null:
+		if CombatSim.is_party_member(u):
 			out.append(u)
 	return out
 

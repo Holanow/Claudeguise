@@ -113,6 +113,12 @@ func _run(party_ids: Array, suffix: String) -> bool:
 	add_child(_main)
 	await _settle()
 
+	## Since #399 a starter pawn carries no plan rows, so the panel this tool
+	## exists to photograph was empty and `_report` printed only the fallback.
+	if not ScreenSweepScript.add_presets(_main):
+		print("TauntPanelShot: no PartySelect to add preset plans to")
+		return false
+
 	var select := _node_with("PartySelect.gd")
 	## By the card's own `class_def`, never by index.
 	var by_id := {}
@@ -185,4 +191,10 @@ func _run(party_ids: Array, suffix: String) -> bool:
 	await _settle()
 	_report(panel)
 	await _shot("wren_taunt_walking_plans%s" % suffix)
+	var rows: int = ScreenSweepScript.plan_row_count(panel)
+	print("TauntPanelShot: the panel shows %d plan row(s)" % rows)
+	if rows == 0:
+		printerr("TauntPanelShot: the plan editor is EMPTY, so the capture is of")
+		printerr("  nothing and must not be cited as a picture of plan rows.")
+		return false
 	return true
