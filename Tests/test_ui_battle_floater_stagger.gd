@@ -50,6 +50,9 @@ func test_each_additional_nearby_floater_spreads_further() -> void:
 	e2.target_id = 0
 	e2.amount = 3
 	e2.amount_before_mitigation = 3
+	# A second colour, because issue 390 adds two numbers of the same colour on
+	# one pawn together -- the stagger this test is about needs two of them.
+	e2.damage_type = CG.DamageType.FIRE
 	view.state.emit(e2)
 	view.consume_events()
 	var offset_after_two: Vector2 = view._floater_stagger_offset(Vector2.ZERO, "5", FLOATER_SIZE)

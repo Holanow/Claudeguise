@@ -103,11 +103,14 @@ func _view_with_target(pos: Vector2) -> Node2D:
 	return view
 
 
-func _hit(view: Node2D, amount: int) -> void:
+## `damage_type` matters since issue 390: two numbers of the same colour on the
+## same pawn are added together, so three separate numbers means three types.
+func _hit(view: Node2D, amount: int, damage_type: int = CG.DamageType.PHYSICAL) -> void:
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
 	e.target_id = 0
 	e.amount = amount
 	e.amount_before_mitigation = amount
+	e.damage_type = damage_type
 	view.state.emit(e)
 	view.consume_events()
 
@@ -117,8 +120,9 @@ func test_three_numbers_on_one_unit_do_not_overlap() -> void:
 	# it: `22` is nearly twice as wide as `2`, so the distance at which two of
 	# them collide depends on what they say.
 	var view := _view_with_target(Vector2.ZERO)
-	for amount in [22, 2, 2]:
-		_hit(view, amount)
+	var types := [CG.DamageType.PHYSICAL, CG.DamageType.FIRE, CG.DamageType.WATER]
+	for i in 3:
+		_hit(view, [22, 2, 2][i], types[i])
 
 	var boxes: Array[Rect2] = []
 	for child in view.get_node("Arena").get_children():
