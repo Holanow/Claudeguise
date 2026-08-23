@@ -26,7 +26,10 @@ func _sweep(party: Array, gate: bool) -> Dictionary:
 	for seed_value in _SEEDS:
 		var pawns: Array[PawnData] = []
 		for i in party.size():
-			var p := PawnFactory.make_starter_pawn(party[i], "%s_%d" % [party[i], i], party[i])
+			## `make_preset_pawn`: since #399 a starter pawn has no plan rows, so
+			## the gated arm gated nothing and printed the stock arm's numbers
+			## back, to the tick (#472).
+			var p := PawnFactory.make_preset_pawn(party[i], "%s_%d" % [party[i], i], party[i])
 			if gate:
 				for plan in p.plans:
 					if plan.condition == null:

@@ -51,7 +51,7 @@ func _run() -> void:
 			pawn = p
 	panel.show_pawn(pawn)
 	await _settle()
-	print("FallbackRowProbe: %s, %d plans" % [pawn.display_name, pawn.plans.size()])
+	print("LibraryNoteShot: %s, %d plans" % [pawn.display_name, pawn.plans.size()])
 	await _settle()
 
 	## The library note, which is what this shot is for.
