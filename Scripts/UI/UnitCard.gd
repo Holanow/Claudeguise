@@ -74,6 +74,10 @@ func _build() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.add_child(_body)
+	## The body sits inside a ScrollContainer, which reserves the width of its
+	## vertical scrollbar. Without this the card is that much wider than
+	## MAX_WIDTH, which is meant to be the whole card.
+	_body.custom_minimum_size.x -= _scroll.get_v_scroll_bar().get_combined_minimum_size().x
 	column.add_child(_scroll)
 
 	var buttons := HBoxContainer.new()

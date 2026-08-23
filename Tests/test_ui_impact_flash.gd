@@ -16,8 +16,7 @@ func _make_view_with_target(pos: Vector2, hp: int = 10) -> Node2D:
 	target.hp_max = hp
 	state.units.append(target)
 
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 	return view
@@ -39,7 +38,6 @@ func test_a_damage_event_spawns_an_impact_flash_at_the_targets_position() -> voi
 			found = child
 	assert_not_null(found, "expected an ImpactFlash spawned for the DAMAGE event")
 	assert_eq(found.position, Vector2(30.0, -10.0))
-	view.free()
 
 func test_a_heal_event_also_spawns_an_impact_flash() -> void:
 	var view := _make_view_with_target(Vector2.ZERO)
@@ -56,7 +54,6 @@ func test_a_heal_event_also_spawns_an_impact_flash() -> void:
 		if child.get_script() == ImpactFlash:
 			found = true
 	assert_true(found, "a heal landing is an event too, not only damage")
-	view.free()
 
 func test_a_miss_does_not_spawn_an_impact_flash() -> void:
 	var view := _make_view_with_target(Vector2.ZERO)
@@ -68,7 +65,6 @@ func test_a_miss_does_not_spawn_an_impact_flash() -> void:
 	var arena := view.get_node("Arena")
 	for child in arena.get_children():
 		assert_ne(child.get_script(), ImpactFlash, "nothing landed, so nothing should flash")
-	view.free()
 
 # ---------------------------------------------------------------------------
 # ImpactFlash itself: purely cosmetic, wall-clock driven, same shape as
@@ -110,7 +106,6 @@ func test_every_live_flash_sits_on_its_targets_drawn_body() -> void:
 				off_body += 1
 	assert_true(flash_frames > 0, "the fight produced no impact flashes to measure")
 	assert_eq(off_body, 0, "%d of %d flash-frames drew the ring off every body" % [off_body, flash_frames])
-	view.free()
 
 func _sits_on_a_body(p: Vector2, view: Node2D) -> bool:
 	for id in view._unit_views:
@@ -124,8 +119,7 @@ func _make_real_fight_view() -> Node2D:
 	for i in mini(4, class_ids.size()):
 		party.append(PawnFactory.make_starter_pawn(class_ids[i], StringName("p%d" % i), String(class_ids[i])))
 	var encounter = Registry.get_encounter(Registry.all_encounter_ids()[0])
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = CombatSim.build(party, encounter, 7)
 	view.event_cursor = 0
 	return view

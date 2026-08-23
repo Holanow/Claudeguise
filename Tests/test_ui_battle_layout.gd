@@ -77,8 +77,7 @@ func test_portrait_height_fraction_is_a_known_geometric_limit_not_a_regression()
 ## so the "What to show" panel opened on top of the Enemies bar. Measured off
 ## the real nodes rather than off the constant, or the check restates the bug.
 func test_the_top_bar_clears_both_summary_bars() -> void:
-	var view = preload("res://Scenes/Battle.tscn").instantiate()
-	view._ready()
+	var view = in_tree(preload("res://Scenes/Battle.tscn").instantiate())
 	var lowest := 0.0
 	for child in view.get_node("Hud").get_children():
 		if child is VBoxContainer:
@@ -88,4 +87,3 @@ func test_the_top_bar_clears_both_summary_bars() -> void:
 		"the bar ends at %.1f and the bars it covers end at %.1f" % [BattleView._TOP_BAR_BOTTOM, lowest])
 	assert_true(view._display_options.position.y >= BattleView._TOP_BAR_BOTTOM,
 		"the options panel opens under the bar, not over it")
-	view.free()

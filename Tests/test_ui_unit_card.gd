@@ -23,7 +23,7 @@ func _make_encounter() -> Encounter:
 	return e
 
 func _spawn_battle_view():
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	var config := RunConfig.new()
 	config.seed = 1
@@ -285,7 +285,7 @@ func _make_pair() -> Array[PawnData]:
 	return out
 
 func _spawn_battle_view_with_pair():
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	var config := RunConfig.new()
 	config.seed = 1

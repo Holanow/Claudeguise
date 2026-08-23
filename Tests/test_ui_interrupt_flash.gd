@@ -9,8 +9,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## for someone watching a fight without pausing.
 
 func _view(state: CombatState) -> Node:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 	return view
@@ -52,7 +51,6 @@ func test_an_interrupt_flashes_the_pawn_that_lost_the_action() -> void:
 	var flashes := _flashes(arena)
 	assert_eq(flashes.size(), 1, "an INTERRUPTED event must flash the pawn")
 	assert_eq(flashes[0].position, Vector2(40.0, 60.0), "the flash must land on the pawn that lost the action")
-	view.free()
 
 ## The negative half. A detector that fires on everything is worse than one that
 ## fires on nothing: the player learns to ignore it in minutes. Nothing but an
@@ -73,7 +71,6 @@ func test_ordinary_events_do_not_flash_the_pawn_white() -> void:
 
 	assert_eq(_flashes(arena).size(), 0,
 		"only an interrupt flashes: %s" % str(_flashes(arena)))
-	view.free()
 
 func test_an_interrupt_naming_no_such_pawn_spawns_nothing() -> void:
 	var state := _state_with_one_unit()
@@ -86,7 +83,6 @@ func test_an_interrupt_naming_no_such_pawn_spawns_nothing() -> void:
 	view.consume_events()
 
 	assert_eq(_flashes(arena).size(), 0)
-	view.free()
 
 ## The flash is white rather than a damage colour, because an interrupt is not
 ## damage and has no damage type. Borrowing one would put a lie into the
