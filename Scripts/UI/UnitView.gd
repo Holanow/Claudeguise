@@ -731,23 +731,6 @@ static func below_block_rects(u: CombatUnit, units: Array) -> Array:
 		if hidden > 0:
 			out.append({"kind": &"overflow", "rect": rects[slots - 1], "count": hidden})
 	top += status_badge_row_height(u, radius)
-<<<<<<< HEAD
-
-	var tags := status_tags(u)
-	if not tags.is_empty():
-		var text := " ".join(tags)
-		var font_size := label_font_size()
-		var text_size := _measure(text, font_size)
-		var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
-		var baseline := top + 14.0 * DISPLAY_SCALE
-		out.append({
-			"kind": &"oom",
-			"text": text,
-			"rect": Rect2(at + Vector2(-text_size.x * 0.5 - pad.x, baseline - text_size.y),
-				text_size + pad * 2.0),
-		})
-=======
->>>>>>> main
 	return out
 
 ## How far off a mark a pointer may be and still hit it. A badge is 20 arena
@@ -775,11 +758,6 @@ func _draw_below_block(u: CombatUnit) -> void:
 				StatusIcons.draw_status(self, entry["status"], rect)
 			&"overflow":
 				_draw_overflow_chip(rect, int(entry["count"]))
-<<<<<<< HEAD
-			&"oom":
-				draw_label_chip(self, rect.position, String(entry["text"]), Palette.HP_LOW, label_font_size())
-=======
->>>>>>> main
 
 ## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
 ## status is on this unit", and a plate meaning "there are more" would be the
