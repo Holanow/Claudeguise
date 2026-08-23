@@ -21,8 +21,7 @@ func _make_view_with_target(pos: Vector2) -> Node2D:
 	target.position = pos
 	state.units.append(target)
 
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = state
 	view.event_cursor = 0
 	DisplayOptions.set_enabled(&"damage_numbers", true)
@@ -32,7 +31,6 @@ func test_no_stagger_with_nothing_nearby() -> void:
 	var view := _make_view_with_target(Vector2.ZERO)
 	assert_eq(view._floater_stagger_offset(Vector2.ZERO, "5", FLOATER_SIZE), Vector2.ZERO)
 	DisplayOptions.reset()
-	view.free()
 
 func test_each_additional_nearby_floater_spreads_further() -> void:
 	var view := _make_view_with_target(Vector2.ZERO)
@@ -60,7 +58,6 @@ func test_each_additional_nearby_floater_spreads_further() -> void:
 		"a third floater must not land on either of the first two")
 	assert_ne(offset_after_two, Vector2.ZERO)
 	DisplayOptions.reset()
-	view.free()
 
 func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 	# The death marker's own vertical offset stacks on top of the
@@ -91,7 +88,6 @@ func test_a_death_marker_stays_within_the_stagger_budget() -> void:
 		"the death marker %s must not print through the damage floater %s it follows"
 			% [marker_box, floater_box])
 	DisplayOptions.reset()
-	view.free()
 
 ## Issue 320: three "Rat dies" markers and a "Miss" inside a 130x100 box, two
 ## of them overlapping exactly. `_floater_stagger_offset` compares two points
@@ -126,7 +122,6 @@ func test_deaths_in_one_scrum_stack_instead_of_overprinting() -> void:
 	assert_ne(ys[1], ys[2], "nor the third on the second")
 	assert_ne(ys[0], ys[2])
 	DisplayOptions.reset()
-	view.free()
 
 ## The negative half: a death across the arena from another one must not be
 ## dragged up into a column with it.
@@ -147,7 +142,6 @@ func test_a_death_far_from_another_does_not_stack() -> void:
 	assert_eq(view._death_stack_offset(far.position), Vector2.ZERO,
 		"a death at the other end of the arena is not in this scrum")
 	DisplayOptions.reset()
-	view.free()
 
 func _last_with_script(arena: Node, script: Script) -> Node2D:
 	for i in range(arena.get_child_count() - 1, -1, -1):

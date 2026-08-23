@@ -21,7 +21,7 @@ func _make_unit(id: int, team: CG.Team, hp: int, hp_max: int, alive: bool = true
 	return u
 
 func _spawn() -> Node2D:
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	return view
 
@@ -33,7 +33,7 @@ func test_duration_reads_in_seconds_not_ticks() -> void:
 	# says seconds instead of ticks, which is a claim about the unit, not
 	# about any particular rate.
 	var two_seconds := CG.TICKS_PER_SECOND * 2
-	assert_eq(BattleScene.instantiate()._format_duration(two_seconds), "2.0s")
+	assert_eq(in_tree(BattleScene.instantiate())._format_duration(two_seconds), "2.0s")
 
 func test_a_full_survival_reads_as_a_whole_party() -> void:
 	var view = _spawn()

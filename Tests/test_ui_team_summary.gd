@@ -17,7 +17,7 @@ func _make_unit(id: int, team: CG.Team, hp: int, hp_max: int, alive: bool = true
 	return u
 
 func _spawn() -> Node2D:
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	return view
 
