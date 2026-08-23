@@ -250,6 +250,24 @@ func test_a_reference_taken_before_the_cast_still_sees_the_terrain() -> void:
 		"the view holds this array and must not be left looking at a stale copy")
 	assert_true(held.size() > 1, "and it must have actually changed")
 
+## **The room is not a scratchpad.** `build()` shared the encounter's own array,
+## which was harmless while terrain never changed: pools were written back into
+## the room definition and the next fight in the same process started in the last
+## one's puddles. It cost 6.8x on the heaviest test before anyone noticed.
+func test_a_fight_does_not_leave_its_pools_in_the_room() -> void:
+	var encounter := Registry.get_encounter(&"floor1_hazard")
+	var authored: int = encounter.terrain.size()
+	for _run in 3:
+		var party: Array[PawnData] = []
+		for cid in [&"geysermancer", &"warrior"]:
+			party.append(PawnFactory.make_preset_pawn(
+				cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
+		var state := CombatSim.build(party, encounter, 1)
+		CombatSim.run(state)
+		assert_eq(encounter.terrain.size(), authored,
+			"the room grew to %d features; a fight must not edit the encounter"
+				% encounter.terrain.size())
+
 # --- determinism ------------------------------------------------------------
 
 func _digest(state: CombatState) -> String:

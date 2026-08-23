@@ -14,7 +14,11 @@ static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int,
 	if deps == null:
 		deps = SimDeps.new()
 	var state := CombatState.new(fight_seed)
-	state.terrain = encounter.terrain
+	## Issue 492: the state owns its terrain, because terrain is mutable now.
+	## Sharing the encounter's array was harmless while nothing ever wrote to it
+	## and is not any more: pools were being written back into the room, so the
+	## next fight in the same process started in the last one's puddles.
+	state.terrain = encounter.terrain.duplicate()
 	var next_id := 0
 
 	for i in party.size():
