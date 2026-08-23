@@ -610,6 +610,15 @@ const LIBRARY_NONE := "This class has no library rows."
 const LIBRARY_ADD := "Add"
 const LIBRARY_COST := "%d blocks"
 
+## Issue 434. The list is read top-down and it is also priority order, and the
+## Geysermancer's first row does nothing until a second row applies BURN, so
+## each row says what it waits for and rows are taken in the order they are in.
+const LIBRARY_NEEDS_MARK := "Waits for"
+const LIBRARY_NEEDS_ROW := "Waits for %s. \"%s\" applies it, so take both, in this order."
+const LIBRARY_NEEDS_ROWS := "Waits for %s. These rows apply it: %s. Take one of them too."
+const LIBRARY_NEEDS_FIGHT := "Waits for %s to come from the fight. Nothing else here applies it."
+const LIBRARY_ORDER_NOTE := "Listed in the order they are read: the first row that fits is the one a pawn uses, so take them from the top down."
+
 ## Why an Add is dead rather than silently refusing, the same rule the movement
 ## picker follows (issue 392).
 const LIBRARY_NO_ROOM := "%d block(s) free, and this row costs %d. Remove a row, or raise this pawn's WIS."
@@ -666,6 +675,7 @@ func _library_section(pawn: PawnData) -> Array[Control]:
 	if rows.is_empty():
 		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
+	out.append(_line(LIBRARY_ORDER_NOTE, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	for plan in rows:
 		out.append(_library_row(pawn, plan))
 	return out
@@ -691,7 +701,50 @@ func _library_row(pawn: PawnData, plan) -> Control:
 	var row := _assemble_library_row(add, price, texts)
 	if free_blocks < cost:
 		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
-	return row
+
+	var note := _dependency_text(pawn, plan)
+	if note == "":
+		return row
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+	stack.add_child(row)
+	stack.add_child(_indented_note(note))
+	return stack
+
+## What this row is waiting for, from `PresetPlans.row_dependencies`: the
+## status it needs and whether another row of this class applies it, which is
+## the difference between a row that is inert on its own and one the fight
+## feeds.
+func _dependency_text(pawn: PawnData, plan) -> String:
+	if pawn.pawn_class == null:
+		return ""
+	var deps := PresetPlans.row_dependencies(pawn.pawn_class.id)
+	if not deps.has(plan.id):
+		return ""
+	var status: String = Glossary.status_name(deps[plan.id]["status"])
+	var suppliers: Array = deps[plan.id]["supplied_by"]
+	if suppliers.is_empty():
+		return LIBRARY_NEEDS_FIGHT % status
+	var names: Array[String] = []
+	for id in suppliers:
+		for other in PresetPlans.for_class(pawn.pawn_class.id):
+			if other.id == id:
+				names.append(other.display_name)
+	if names.size() == 1:
+		return LIBRARY_NEEDS_ROW % [status, names[0]]
+	return LIBRARY_NEEDS_ROWS % [status, ", ".join(names)]
+
+## Under the row it belongs to and inside the Add button's gutter, the same
+## place the inert-row sentence sits.
+func _indented_note(text: String) -> Control:
+	var line := HBoxContainer.new()
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(_TOUCH * 1.6, 0.0)
+	line.add_child(gutter)
+	var label := _line(text, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(label)
+	return line
 
 ## Wide, the three columns line up with the editable rows above. Embedded they
 ## cannot: `_fixed_chip` autowraps, and in the party screen's column one row
