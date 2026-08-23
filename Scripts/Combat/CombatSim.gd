@@ -727,7 +727,10 @@ static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDe
 		kept.append(Terrain.pool(pr))
 		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
 			Terrain.Kind.WATER, pr, CG.TerrainChange.CAST)
-	state.terrain = kept
+	## Replaced in place, never reassigned: `BattleView` hands `state.terrain` to
+	## `ArenaFloor` once at fight start, so a new array leaves the view drawing
+	## the room as authored forever. Same contract `state.units` already has.
+	state.terrain.assign(kept)
 
 ## The same feature over a different rect. Every field is copied rather than the
 ## damaging ones only, so a split tar pit stays a tar pit.

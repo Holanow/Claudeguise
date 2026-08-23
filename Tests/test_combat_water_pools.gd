@@ -238,6 +238,18 @@ func test_a_pool_that_touches_nothing_is_reported_as_cast() -> void:
 	assert_eq(events[0].terrain_change, CG.TerrainChange.CAST)
 	assert_eq(events[0].terrain_kind, Terrain.Kind.WATER)
 
+## **`BattleView` hands `state.terrain` to `ArenaFloor` once, at fight start.**
+## Reassigning the array instead of refilling it leaves the arena drawing the
+## room as authored for the rest of the fight, which is how the first version of
+## this shipped: the log said a pool had been left and the floor never changed.
+func test_a_reference_taken_before_the_cast_still_sees_the_terrain() -> void:
+	var bundle := _arena([_fire()], _pool_action(25.0))
+	var held: Array = bundle[0].terrain
+	_cast(bundle)
+	assert_eq(held.size(), bundle[0].terrain.size(),
+		"the view holds this array and must not be left looking at a stale copy")
+	assert_true(held.size() > 1, "and it must have actually changed")
+
 # --- determinism ------------------------------------------------------------
 
 func _digest(state: CombatState) -> String:

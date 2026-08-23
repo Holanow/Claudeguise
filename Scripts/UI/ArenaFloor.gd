@@ -103,9 +103,9 @@ func _draw_feature(feature) -> void:
 		## not stand here" and a pool is the one piece of ground that is safe.
 		Terrain.Kind.WATER:
 			var water := Palette.damage_color(CG.DamageType.WATER)
-			water.a = 0.30
+			water.a = 0.45
 			draw_rect(feature.rect, water)
-			water.a = 0.65
+			water.a = 0.90
 			draw_rect(feature.rect, water, false, 2.0)
 
 const _HAZARD_STRIPE_SPACING := 20.0
