@@ -79,7 +79,7 @@ func test_equipment_ids_are_unique_and_sorted() -> void:
 	assert_eq(as_text, expected, "all_equipment_ids should be in alphabetical order")
 
 
-## Issue 40: EquipmentDef.allowed_methods declares who may equip a piece, but
+## Issue 40: EquipmentDef.required_tags declares who may equip a piece, but
 ## nothing refuses a mismatched equip -- rook's own merge note asked for a
 ## content test that the declarations are coherent, in place of that
 ## enforcement. "Coherent" here means every registered class can actually

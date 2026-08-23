@@ -29,3 +29,23 @@ class_name ClassDef
 
 func attribute(a: CG.Attribute) -> int:
 	return int(base_attributes.get(a, 0))
+
+## Issue 131: what this class counts as, for gear that gates on tags. Derived
+## from the four fields above rather than authored, so a class cannot claim a
+## tag its own method, style or roles do not give it.
+const METHOD_TAG := {CG.Method.MARTIAL: CG.Tag.MARTIAL, CG.Method.MAGICAL: CG.Tag.MAGICAL}
+const STYLE_TAG := {CG.Style.MELEE: CG.Tag.MELEE, CG.Style.RANGED: CG.Tag.RANGED, CG.Style.SUMMONER: CG.Tag.SUMMONER}
+const ROLE_TAG := {
+	CG.Role.DPS: CG.Tag.DPS,
+	CG.Role.SUPPORT: CG.Tag.SUPPORT,
+	CG.Role.ANTI_SUPPORT: CG.Tag.ANTI_SUPPORT,
+	CG.Role.TANK: CG.Tag.TANK,
+	CG.Role.HEALER: CG.Tag.HEALER,
+}
+
+func tags() -> Array[int]:
+	var out: Array[int] = [METHOD_TAG[method], STYLE_TAG[style], ROLE_TAG[role_primary]]
+	var secondary: int = ROLE_TAG[role_secondary]
+	if not out.has(secondary):
+		out.append(secondary)
+	return out

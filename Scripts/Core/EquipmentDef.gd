@@ -27,13 +27,36 @@ enum Slot { WEAPON, ARMOR, ACCESSORY }
 ## ActionDef ids this piece grants its wielder.
 @export var granted_actions: Array[StringName] = []
 
-## Which `CG.Method` may wear or wield this. **Empty means anyone**, so adding
-## this field invalidated no existing content. Declaring is Core's job and
-## enforcing is not: the equip screen should never offer a piece a pawn cannot
-## use, so the player meets this as an absence rather than an error.
-@export var allowed_methods: Array[CG.Method] = []
+## Every `CG.Tag` a class must carry to wear or wield this, all of them, not
+## any. **Empty means anyone**, and more specialised gear names more tags --
+## the player's own example is a kite shield at MARTIAL against a tower shield
+## at MARTIAL and TANK. Issue 131; replaces `allowed_methods`, which could only
+## express one axis.
+@export var required_tags: Array[int] = []
 
 ## Here rather than in the equip screen or the registry, so every caller answers
 ## the question the same way.
+func allows_class(class_def: ClassDef) -> bool:
+	return missing_tags(class_def).is_empty()
+
+## Which required tags this class does not carry, in declaration order. A caller
+## that has to say *why* a piece is refused reads this; `allows_class` is the
+## same question asked for a yes or no.
+func missing_tags(class_def: ClassDef) -> Array[int]:
+	if class_def == null:
+		return []
+	var have := class_def.tags()
+	var out: Array[int] = []
+	for t in required_tags:
+		if not have.has(t):
+			out.append(t)
+	return out
+
+## The method axis alone, for callers that hold a `CG.Method` and no class.
+## Weaker than `allows_class` by exactly the tags it cannot see.
 func allows(pawn_method: CG.Method) -> bool:
-	return allowed_methods.is_empty() or allowed_methods.has(pawn_method)
+	var wanted: int = ClassDef.METHOD_TAG[pawn_method]
+	for t in required_tags:
+		if ClassDef.METHOD_TAG.values().has(t) and t != wanted:
+			return false
+	return true
