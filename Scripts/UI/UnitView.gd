@@ -250,26 +250,22 @@ func _draw() -> void:
 	draw_rect(Rect2(hp_pos, Vector2(width * u.hp_fraction(), bar_height)), hp_fill_color(u))
 	_draw_bar_tether(u, stack_bottom)
 
-	if DisplayOptions.enabled(&"name_plates") and label_visible(u, _state):
-		var chip: Rect2 = plate_layout(_state).get(u.id, plate_rect(u, _state.units, 0))
-		_draw_plate_tether(u, chip)
-		_draw_label_chip(chip.position - position, u.display_name, Palette.TEXT, _label_font_size())
-
 ## Issue 440: the line that says which pawn this name belongs to. Same device
 ## as the bar tether below, for the same reason -- measured over 24,735 drawn
 ## plate-ticks, a plate reads as the wrong pawn 45.7% of the time and as nobody
 ## 10.5%, and 52.7% of that is already true at the un-moved home row, so
 ## nearness to a body cannot be the cue that ties a name to its owner.
-func _draw_plate_tether(u: CombatUnit, chip: Rect2) -> void:
-	var points := plate_tether(u, _state.units, chip)
+## Issue 321: drawn by `ArenaTextLayer` onto its canvas rather than by the unit
+## it belongs to, so no other unit's bars can land on top of it.
+static func draw_plate_tether(ci: CanvasItem, u: CombatUnit, units: Array, chip: Rect2) -> void:
+	var points := plate_tether(u, units, chip)
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
 	# Backed, the way `_draw_targeting_line` is: the bar tether is ten pixels
 	# long and this one crosses the scrum, so it needs the same dark stroke
 	# under it to stay a line over a body.
-	draw_line(points[0] - position, points[1] - position,
-		Color(Palette.BACKGROUND, 0.5), TETHER_WIDTH * 3.0)
-	draw_line(points[0] - position, points[1] - position, color, TETHER_WIDTH)
+	ci.draw_line(points[0], points[1], Color(Palette.BACKGROUND, 0.5), TETHER_WIDTH * 3.0)
+	ci.draw_line(points[0], points[1], color, TETHER_WIDTH)
 
 ## The tether's two ends in ARENA-local pixels: the middle of the plate's
 ## bottom edge, and the top of its own unit's bar stack.
@@ -278,10 +274,25 @@ static func plate_tether(u: CombatUnit, units: Array, chip: Rect2) -> PackedVect
 		Vector2(chip.get_center().x, chip.end.y),
 		drawn_position(u, units) + Vector2(0.0, bar_stack_top(u))])
 
+## The box the bar stack covers, in ARENA-local pixels. The one place that
+## geometry is readable from outside `_draw`, so a test can ask what a name
+## would be drawn under.
+static func bar_stack_rect(u: CombatUnit, units: Array) -> Rect2:
+	var radius := display_radius(u)
+	var shape := shape_id(u)
+	var width := bar_width(radius, shape, u.team)
+	var bar_height := BAR_HEIGHT * DISPLAY_SCALE
+	var bottom := -drawn_top(shape, u.team, radius) - BAR_GAP * DISPLAY_SCALE
+	var top := bottom - bar_height
+	if u.resource_max > 0:
+		top -= bar_height + BAR_GAP * DISPLAY_SCALE
+	return Rect2(drawn_position(u, units) + Vector2(-width * 0.5, top),
+		Vector2(width, bottom - top))
+
 ## Where the bars end and the plate's gap begins, read back out of
 ## `label_baseline` so the two cannot drift apart.
 static func bar_stack_top(u: CombatUnit) -> float:
-	return label_baseline(u) + BAR_GAP * DISPLAY_SCALE + float(_label_font_size())
+	return label_baseline(u) + BAR_GAP * DISPLAY_SCALE + float(label_font_size())
 
 ## The baseline the name plate's text sits on, in this view's local space:
 ## clear of the body, the resource bar and the hp bar. Split out because
@@ -295,7 +306,7 @@ static func label_baseline(u: CombatUnit) -> float:
 	if u.resource_max > 0:
 		y -= bar_height + bar_gap
 	y -= bar_height
-	return y - bar_gap - float(_label_font_size())
+	return y - bar_gap - float(label_font_size())
 
 ## The chip a name plate occupies, in ARENA-local pixels, clamped into the
 ## arena. This is the one place the plate's geometry exists: `_draw` renders
@@ -304,7 +315,7 @@ static func label_baseline(u: CombatUnit) -> float:
 static func plate_rect(u: CombatUnit, units: Array, row: int = -1) -> Rect2:
 	var which := row if row >= 0 else crowd_rank(u, units)
 	var step: Vector2 = PLATE_ROWS[clampi(which, 0, PLATE_ROWS.size() - 1)]
-	var text_size := _measure(u.display_name, _label_font_size())
+	var text_size := _measure(u.display_name, label_font_size())
 	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
 	# Sideways in units of this plate's own width: a fixed step cannot move
 	# "Goblin Archer" clear of "Goblin Archer".
@@ -373,7 +384,7 @@ static func hp_fill_color(u: CombatUnit) -> Color:
 ## with the arena (InspectPanel's attribute chips, PartySelect), so it is
 ## not something this file can change -- scaled locally instead, the same
 ## reasoning DISPLAY_SCALE itself exists for.
-static func _label_font_size() -> int:
+static func label_font_size() -> int:
 	return int(round(Palette.FONT_SIZE_SMALL * DISPLAY_SCALE))
 
 ## One sideways step of crowding nudge.
@@ -384,7 +395,7 @@ const CROWD_STEP := 20.0 * DISPLAY_SCALE
 ## step under a 40-pixel plate sent every crowded name two rows up instead of
 ## one.
 static func plate_row_height() -> float:
-	return _measure("X", _label_font_size()).y + 4.0 * DISPLAY_SCALE + 2.0
+	return _measure("X", label_font_size()).y + 4.0 * DISPLAY_SCALE + 2.0
 
 ## Issue 41: a dense room (floor1_room1, 10 enemies) piled every enemy's name
 ## into the top-middle of the screen at once, and no amount of vertical
@@ -731,7 +742,7 @@ static func below_block_rects(u: CombatUnit, units: Array) -> Array:
 	var tags := status_tags(u)
 	if not tags.is_empty():
 		var text := " ".join(tags)
-		var font_size := _label_font_size()
+		var font_size := label_font_size()
 		var text_size := _measure(text, font_size)
 		var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
 		var baseline := top + 14.0 * DISPLAY_SCALE
@@ -769,7 +780,7 @@ func _draw_below_block(u: CombatUnit) -> void:
 			&"overflow":
 				_draw_overflow_chip(rect, int(entry["count"]))
 			&"oom":
-				_draw_label_chip(rect.position, String(entry["text"]), Palette.HP_LOW, _label_font_size())
+				draw_label_chip(self, rect.position, String(entry["text"]), Palette.HP_LOW, label_font_size())
 
 ## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
 ## status is on this unit", and a plate meaning "there are more" would be the
@@ -788,11 +799,11 @@ func _draw_overflow_chip(rect: Rect2, count: int) -> void:
 ## rather than a fixed draw width that truncates. `at` is the chip's top-left
 ## in this view's local space: the caller decides where it goes, because issue
 ## 378 needs that decision made against every other plate at once.
-func _draw_label_chip(at: Vector2, text: String, color: Color, font_size: int) -> void:
+static func draw_label_chip(ci: CanvasItem, at: Vector2, text: String, color: Color, font_size: int) -> void:
 	var pad := Vector2(3.0, 2.0) * DISPLAY_SCALE
 	var text_size := _measure(text, font_size)
-	draw_rect(Rect2(at, text_size + pad * 2.0), Color(Palette.BACKGROUND, 0.65))
-	draw_string(ThemeDB.fallback_font, at + Vector2(pad.x, text_size.y), text,
+	ci.draw_rect(Rect2(at, text_size + pad * 2.0), Color(Palette.BACKGROUND, 0.65))
+	ci.draw_string(ThemeDB.fallback_font, at + Vector2(pad.x, text_size.y), text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 ## Split out for testing, same reasoning as status_tags below: the part of
