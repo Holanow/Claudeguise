@@ -30,6 +30,7 @@ var _placements: Array[Vector2] = []
 ## The room WITHOUT the player's placement, so Reset has something to go back to.
 var _base_encounter = null
 var _deploy_band: Node2D = null
+var _unit_layer: Node2D = null
 var _text_layer: Node2D = null
 var _setup_hint: Label = null
 var _reset_button: Button = null
@@ -954,6 +955,8 @@ func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
+	_unit_layer = Node2D.new()
+	_arena.add_child(_unit_layer)
 	_text_layer = ArenaTextLayerScript.new()
 	_arena.add_child(_text_layer)
 	_ensure_unit_views()
@@ -973,18 +976,16 @@ func _ensure_unit_views() -> void:
 			continue
 		var view := Node2D.new()
 		view.set_script(UnitViewScript)
-		_arena.add_child(view)
+		_bodies().add_child(view)
 		view.bind(state, u.id)
 		_unit_views[u.id] = view
-	_lift_text_layer()
+	if _text_layer != null:
+		_text_layer.sync(state)
 
-## Issue 321: names and floating text go last, above every body and every bar.
-## A summon's view is added mid-fight, so this runs whenever one is.
-func _lift_text_layer() -> void:
-	if _text_layer == null or _arena == null:
-		return
-	_arena.move_child(_text_layer, -1)
-	_text_layer.sync(state)
+## Issue 321: every body and every bar goes in one layer under the names, so a
+## summon added mid-fight cannot be drawn over a plate that was already up.
+func _bodies() -> Node2D:
+	return _unit_layer if _unit_layer != null else _arena
 
 ## Spends wall-clock delta in whole ticks. Frame rate must not change how fast
 ## the fight plays: a slow frame catches up by stepping several ticks at once
@@ -1081,18 +1082,18 @@ const MAX_LIVE_FLOATERS := 10
 ## never many at once.
 func _make_room_for_a_floater() -> void:
 	var plain: Array = []
-	for child in _text_layer.get_children():
+	for child in _arena.get_children():
 		if child.get_script() == DamageFloaterScript and not child.death_marker:
 			plain.append(child)
 	for i in maxi(0, plain.size() - (MAX_LIVE_FLOATERS - 1)):
 		plain[i].queue_free()
-		_text_layer.remove_child(plain[i])
+		_arena.remove_child(plain[i])
 
 ## Every pixel of arena text already spoken for: the live floaters AND the name
 ## plates, which used to be two searches with no knowledge of each other.
 func _occupied_arena_text() -> Array[Rect2]:
 	var out: Array[Rect2] = []
-	for child in _text_layer.get_children():
+	for child in _arena.get_children():
 		if child.get_script() != DamageFloaterScript:
 			continue
 		var box: Rect2 = child.swept_extent()
@@ -1144,7 +1145,7 @@ func _spawn_floater(e: CombatEvent) -> void:
 	var at := target.position + _floater_stagger_offset(target.position, str(e.amount), size)
 	var floater := Node2D.new()
 	floater.set_script(DamageFloaterScript)
-	_text_layer.add_child(floater)
+	_arena.add_child(floater)
 	floater.position = at
 	var color := Palette.damage_color(e.damage_type) if e.kind == CG.EventKind.DAMAGE else Palette.HP_FULL
 	floater.show_amount(e.amount, color, size)
@@ -1217,7 +1218,7 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 	var at := base + _floater_stagger_offset(base, text, size, true)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
-	_text_layer.add_child(marker)
+	_arena.add_child(marker)
 	marker.position = at
 	marker.show_death(text, Palette.team_color(target.team), size)
 
@@ -1235,7 +1236,7 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	var at := target.position + _floater_stagger_offset(target.position, "Miss", size)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
-	_text_layer.add_child(marker)
+	_arena.add_child(marker)
 	marker.position = at
 	marker.show_text("Miss", Palette.TEXT_DIM, DamageFloaterScript.LIFETIME_SECONDS, size)
 

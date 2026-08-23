@@ -66,14 +66,13 @@ func test_arena_text_is_drawn_after_every_unit() -> void:
 	view._rebuild_units()
 
 	var arena: Node2D = view.get_node("Arena")
-	var text_layer: Node = view._text_layer
-	assert_true(text_layer != null, "the arena has no text layer")
-	var last := arena.get_child_count() - 1
-	assert_eq(arena.get_children().find(text_layer), last,
-		"the text layer must be the arena's last child or a bar draws over a name")
+	assert_true(view._text_layer != null, "the arena has no text layer")
+	assert_true(arena.get_children().find(view._unit_layer)
+			< arena.get_children().find(view._text_layer),
+		"every body and bar must be drawn before any name")
 	for id in view._unit_views:
-		assert_true(arena.get_children().find(view._unit_views[id]) < last,
-			"unit %s draws after the names" % id)
+		assert_eq(view._unit_views[id].get_parent(), view._unit_layer,
+			"unit %s is not in the layer under the names" % id)
 	view.free()
 
 ## A summon's view is added mid-fight, after the layer already exists. That is
@@ -88,13 +87,12 @@ func test_a_unit_added_mid_fight_still_draws_under_the_text() -> void:
 	view.state.units.append(_pawn(9, Vector2(30.0, 30.0), "Siege Engine"))
 	view._ensure_unit_views()
 
-	var arena: Node2D = view.get_node("Arena")
-	assert_eq(arena.get_children().find(view._text_layer), arena.get_child_count() - 1,
+	assert_eq(view._unit_views[9].get_parent(), view._unit_layer,
 		"a summon's view was added over the names")
 	view.free()
 
-## Floating text is text: a death marker is not a child of the arena beside the
-## bodies, it is a child of the layer above them.
+## A death marker is added to the arena after both layers, so it is over every
+## body and every name -- which is the half of #321 the playtester photographed.
 func test_a_death_marker_is_drawn_above_the_bars() -> void:
 	DisplayOptions.reset()
 	var view = BattleScene.instantiate()
@@ -108,9 +106,13 @@ func test_a_death_marker_is_drawn_above_the_bars() -> void:
 	view.state.events.append(death)
 	view.consume_events()
 
+	var arena: Node2D = view.get_node("Arena")
 	var markers := 0
-	for child in view._text_layer.get_children():
+	for child in arena.get_children():
 		if child.get_script() == BattleView.DamageFloaterScript:
 			markers += 1
-	assert_eq(markers, 1, "the death marker was not put on the text layer")
+			assert_true(arena.get_children().find(child)
+					> arena.get_children().find(view._text_layer),
+				"a death marker must be drawn over the bars, not under them")
+	assert_eq(markers, 1, "the death event drew no marker")
 	view.free()
