@@ -14,10 +14,16 @@
 # So the choice of invocation is not the caller's to make, and no in-tool
 # watchdog can catch it -- the tool never executes a line of its own code. The
 # budget has to be enforced from out here.
+#
+# Issue 478: `--headless` has no renderer, so `frame_post_draw` never fires and
+# a capture tool waits for a frame that cannot arrive. Three sessions hit that
+# in one night, one of them burning 650 seconds of CPU. `-Headless` is refused
+# for anything with a scene rather than started and left to the wall clock.
 param(
     [Parameter(Mandatory = $true, Position = 0)] [string] $Tool,
     [int] $TimeoutSeconds = 300,
-    [string] $Resolution = '1280x720'
+    [string] $Resolution = '1280x720',
+    [switch] $Headless
 )
 . (Join-Path $PSScriptRoot 'ensure_import.ps1')
 
@@ -35,6 +41,13 @@ if (-not (Test-Path $script)) {
 # in this directory ships one, and Tests\test_tools_are_launchable.gd fails the
 # gate if a new one does not.
 if (Test-Path $scene) {
+    if ($Headless) {
+        Write-Host "$name draws frames, and --headless has no renderer."
+        Write-Host "RenderingServer.frame_post_draw would never fire and the run would hang"
+        Write-Host "rather than fail (issue 478). Drop -Headless: the window is moved off the"
+        Write-Host "desktop by Offscreen.hide_window, so it does not take over the machine."
+        exit 3
+    }
     $godotArgs = @('--path', $repo, '--resolution', $Resolution, "res://Tools/$name.tscn")
 } else {
     $extends = (Get-Content $script -TotalCount 1) -replace '^﻿', ''

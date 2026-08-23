@@ -16,6 +16,8 @@ func _fail(msg: String) -> void:
 	printerr("WisBudgetShot: %s" % msg)
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("WisBudgetShot: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)

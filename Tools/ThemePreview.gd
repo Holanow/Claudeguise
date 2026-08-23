@@ -9,6 +9,8 @@ const CAPTURE_THEMED := "res://Screenshots/ui_theming_dropped_in.png"
 
 ## TWO PASSES IN ONE PROCESS, AND THE FIRST VERSION OF THIS TOOL WAS WRONG.
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	print("ThemePreview: logical viewport is ", get_viewport_rect().size)
 	_remove_demo_art()
 	UIArt.clear_cache()

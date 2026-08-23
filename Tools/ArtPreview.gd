@@ -45,6 +45,8 @@ const _ENEMY_SHAPES := [
 ]
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	_capture()
