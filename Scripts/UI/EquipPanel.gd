@@ -366,7 +366,7 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 		chip.set_script(GlossaryLabelScript)
 		chip.mouse_filter = Control.MOUSE_FILTER_STOP
 		chip.text = _stat_text(CG.attribute_name(a), before, after, 0)
-		chip.tooltip_text = Glossary.attribute_text(a)
+		chip.tooltip_text = Glossary.attribute_text(a) + _roll_text(pawn, a)
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		chip.add_theme_color_override("font_color",
 			Palette.HP_FULL if after != before else Palette.TEXT_DIM)
@@ -401,6 +401,21 @@ func _derived_line_float(label: String, before: float, after: float, suffix: Str
 		text = "%.1f to %.1f (%+.1f)" % [before, after, after - before]
 	return _line("%s: %s%s." % [label, text, suffix], Palette.FONT_SIZE_SMALL,
 		Palette.HP_FULL if not is_equal_approx(before, after) else Palette.TEXT_DIM)
+
+## Issue 131: where this pawn's own number came from, when it is not simply the
+## class's. The chip already spends its text on the gear delta, so the roll goes
+## in the hover rather than competing with it. #343 is why this is here and not
+## in `InspectPanel`: embedded, that panel's attribute row is cut and this one
+## is the row a player reads.
+func _roll_text(pawn: PawnData, a: CG.Attribute) -> String:
+	if pawn.pawn_class == null:
+		return ""
+	var base := pawn.pawn_class.attribute(a)
+	var delta := pawn.attribute(a) - base
+	if delta == 0:
+		return ""
+	return "\n\nThis pawn rolled %+d on top of a %s baseline of %d." % [
+		delta, pawn.pawn_class.display_name, base]
 
 ## "STR 12" when nothing changed it, "STR 12 to 14 (+2)" when something did.
 func _stat_text(name: String, before: float, after: float, _digits: int) -> String:

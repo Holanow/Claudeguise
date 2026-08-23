@@ -18,6 +18,10 @@ var _available: Array[PawnData] = []
 var _selected: Array[PawnData] = []
 var _cards: Dictionary = {}
 
+## Issue 131: the seed the pawns on screen were rolled from. Kept rather than
+## re-read off the field, so a half-typed seed cannot reroll under the player.
+var _roster_seed := 0
+
 var _status_label: Label = null
 var _room_picker: OptionButton = null
 var _room_summary: Label = null
@@ -35,9 +39,14 @@ static func create() -> PartySelect:
 
 func _ready() -> void:
 	theme = AppTheme.shared()
+	## Issue 131: the seed is chosen before the roster, not after. A generated
+	## pawn's attributes are rolled from it, so a roster built first would
+	## belong to a seed the screen never shows.
+	_roster_seed = randi() & 0x7FFFFFFF
 	_build_roster()
 	_bind_ui()
 	_update_status()
+
 
 ## Issue 21b found this the moment the inspect screen tried to show a pawn's
 ## plans and had none to show: this roster built PawnData by hand and never
@@ -52,7 +61,7 @@ func _build_roster() -> void:
 		var cls: ClassDef = Registry.get_class_def(class_id)
 		if cls == null:
 			continue
-		_available.append(PawnFactory.make_starter_pawn(class_id, class_id, cls.display_name))
+		_available.append(PawnFactory.make_rolled_pawn(class_id, class_id, cls.display_name, _roster_seed))
 
 ## Registered encounters the picker does not offer, with the reason. Offered
 ## rooms are not listed here: `Encounter.pickable` is set where the room is
@@ -95,7 +104,11 @@ func _bind_ui() -> void:
 	_fill_rooms()
 	_refresh_room_summary()
 
-	_seed_edit.text = "%08X" % (randi() & 0xFFFFFFFF)
+	_seed_edit.text = "%08X" % _roster_seed
+	## Issue 131: retyping a seed rebuilds the roster, which is how a player
+	## reproduces a roll they liked. Submit rather than every keystroke: a
+	## half-typed seed is not a seed.
+	_seed_edit.text_submitted.connect(func(t: String): reroll_from_seed(t))
 	_seed_edit.add_theme_stylebox_override("normal", _seed_box_style())
 	_seed_edit.add_theme_stylebox_override("focus", _seed_box_style())
 
@@ -234,6 +247,28 @@ func available_pawns() -> Array[PawnData]:
 func prefill_seed(seed_text: String) -> void:
 	if _seed_edit != null:
 		_seed_edit.text = seed_text
+	## Issue 131: adopt the seed without rebuilding. `restore_roster` has
+	## already handed back the pawns this seed rolled, and rebuilding them
+	## would throw away the plans and gear #380 exists to keep.
+	_roster_seed = RunConfig.parse_seed(seed_text) & 0x7FFFFFFF
+
+## Issue 131: build the roster again from a seed the player typed. Never called
+## by `restore_roster`, whose whole job (#380) is to hand the same pawn objects
+## back with the plans and gear already on them.
+func reroll_from_seed(seed_text: String) -> void:
+	var next := RunConfig.parse_seed(seed_text) & 0x7FFFFFFF
+	if next == _roster_seed:
+		return
+	_roster_seed = next
+	_build_roster()
+	_selected.clear()
+	_cards.clear()
+	if _roster_box != null:
+		for child in _roster_box.get_children():
+			_roster_box.remove_child(child)
+			child.queue_free()
+		_fill_roster()
+	_update_status()
 
 ## Issue 380. "Change party" swaps in a new PartySelect and `_ready()` rebuilds
 ## every pawn, so the plans, gear and party the player just wrote were thrown

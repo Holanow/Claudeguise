@@ -267,8 +267,17 @@ func _attributes_row(pawn: PawnData) -> Control:
 		var chip := Label.new()
 		chip.set_script(GlossaryLabelScript)
 		chip.mouse_filter = Control.MOUSE_FILTER_STOP
+		## Issue 131: a generated pawn's attributes are rolled off its class
+		## baseline, so the chip shows the difference and not only the total.
+		var base := pawn.pawn_class.attribute(a) if pawn.pawn_class != null else 0
+		var delta := pawn.attribute(a) - base
 		chip.text = "%s %d" % [CG.attribute_name(a), pawn.attribute(a)]
+		if delta != 0:
+			chip.text += " (%+d)" % delta
 		chip.tooltip_text = Glossary.attribute_text(a)
+		if delta != 0:
+			chip.tooltip_text += "\n\nThis pawn rolled %+d on top of a %s baseline of %d." % [
+				delta, pawn.pawn_class.display_name, base]
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		attrs.add_child(chip)
 	return attrs
