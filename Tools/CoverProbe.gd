@@ -38,7 +38,10 @@ func _init() -> void:
 func _party(with_cover: bool) -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
-		var pawn := PawnFactory.make_starter_pawn(cid, StringName("%s_0" % cid), String(cid))
+		## `make_preset_pawn`: since #399 a starter pawn has no plan rows, so
+		## `remove_at` below ran on an empty array -- twenty out-of-bounds errors
+		## a run, and arms that were not block-equal after all (#472).
+		var pawn := PawnFactory.make_preset_pawn(cid, StringName("%s_0" % cid), String(cid))
 		if with_cover and cid == &"geysermancer":
 			## Block-equal arms. A row costs plan blocks out of the pawn's WIS
 			## budget, so inserting one silently makes the bottom row inert --
