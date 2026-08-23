@@ -71,7 +71,10 @@ func _run(ids: Array, enc_id: StringName, s: int, with_channel: bool) -> Array:
 	var party: Array[PawnData] = []
 	for cid in ids:
 		var c := StringName(cid)
-		var pawn := PawnFactory.make_starter_pawn(
+		## `make_preset_pawn`: since #399 a starter pawn has no plan rows, so the
+		## Channel row this probe removes was never there and both arms were the
+		## same party (#472).
+		var pawn := PawnFactory.make_preset_pawn(
 			c, StringName("%s_%d" % [cid, party.size()]), Registry.get_class_def(c).display_name)
 		if not with_channel:
 			_strip_channel(pawn, c)

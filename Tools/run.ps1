@@ -1,0 +1,86 @@
+# Launch one instrument, the way that instrument has to be launched.
+#
+#   powershell -ExecutionPolicy Bypass -File Tools\run.ps1 ScreenSweep
+#   ... ScreenSweep -Resolution 844x390
+#   ... SampleFights -TimeoutSeconds 900
+#
+# Issue 472: on Godot 4.7.1, `--script res://Tools/X.gd` where X extends Node
+# does NOT run it. `_ready` never fires, nothing is written, and the process
+# hangs until it is killed, having printed only the engine banner. A hang and a
+# tool that legitimately found nothing look identical from outside, which is how
+# it survived. A `SceneTree` script is unaffected: Godot installs that as the
+# main loop.
+#
+# So the choice of invocation is not the caller's to make, and no in-tool
+# watchdog can catch it -- the tool never executes a line of its own code. The
+# budget has to be enforced from out here.
+param(
+    [Parameter(Mandatory = $true, Position = 0)] [string] $Tool,
+    [int] $TimeoutSeconds = 300,
+    [string] $Resolution = '1280x720'
+)
+. (Join-Path $PSScriptRoot 'ensure_import.ps1')
+
+$name = [System.IO.Path]::GetFileNameWithoutExtension(($Tool -replace '^res://Tools/', ''))
+$scene = Join-Path $PSScriptRoot "$name.tscn"
+$script = Join-Path $PSScriptRoot "$name.gd"
+
+if (-not (Test-Path $script)) {
+    Write-Host "No Tools\$name.gd. Did you mean one of these?"
+    Get-ChildItem -Path $PSScriptRoot -Filter "*$name*.gd" | ForEach-Object { Write-Host "  $($_.BaseName)" }
+    exit 3
+}
+
+# A one-node scene is how a Node tool gets a tree to run in. Every runnable one
+# in this directory ships one, and Tests\test_tools_are_launchable.gd fails the
+# gate if a new one does not.
+if (Test-Path $scene) {
+    $godotArgs = @('--path', $repo, '--resolution', $Resolution, "res://Tools/$name.tscn")
+} else {
+    $extends = (Get-Content $script -TotalCount 1) -replace '^﻿', ''
+    if ($extends.Trim() -ne 'extends SceneTree') {
+        Write-Host "Tools\$name.gd is '$($extends.Trim())' and has no Tools\$name.tscn."
+        Write-Host "Launching it with --script would hang silently (issue 472). Give it a"
+        Write-Host "one-node scene, or make it a SceneTree script. Not launching."
+        exit 3
+    }
+    $godotArgs = @('--headless', '--path', $repo, '--script', "res://Tools/$name.gd")
+}
+
+Write-Host ("running {0} ({1}s budget): {2}" -f $name, $TimeoutSeconds, ($godotArgs -join ' '))
+# `System.Diagnostics.Process` rather than `Start-Process -PassThru`, whose
+# ExitCode stays null after the timed WaitForExit and reports every clean run as
+# a failure.
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = $godot
+# `.Arguments`, not `.ArgumentList`: Windows PowerShell 5.1 is on .NET Framework
+# and has no ArgumentList, where the call fails with "method on a null-valued
+# expression". Every argument is quoted because the repo path can hold spaces.
+$psi.Arguments = ($godotArgs | ForEach-Object { '"' + $_ + '"' }) -join ' '
+$psi.UseShellExecute = $false
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+$proc = [System.Diagnostics.Process]::Start($psi)
+# Read both pipes on background tasks: a full pipe buffer blocks the child, and
+# a tool that has been blocked by its own reader looks exactly like a hang.
+$outTask = $proc.StandardOutput.ReadToEndAsync()
+$errTask = $proc.StandardError.ReadToEndAsync()
+$finished = $proc.WaitForExit($TimeoutSeconds * 1000)
+
+if (-not $finished) {
+    # By the id this script started, never by image name: every other session's
+    # Godot runs under the same name.
+    & (Join-Path $PSScriptRoot 'reap.ps1') -Id $proc.Id | Out-Null
+    Write-Host $outTask.Result
+    Write-Host $errTask.Result
+    Write-Host ""
+    Write-Host "$name PRODUCED NO RESULT AND WAS KILLED after $TimeoutSeconds seconds."
+    Write-Host "This is a hang, not a measurement. Do not report it as 'found nothing'."
+    exit 5
+}
+
+Write-Host $outTask.Result
+Write-Host $errTask.Result
+$code = $proc.ExitCode
+if ($code -ne 0) { Write-Host "$name exited $code." }
+exit $code
