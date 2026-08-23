@@ -27,8 +27,37 @@ var _plate: StyleBox = null
 ## deaths into a column instead of printing them over each other.
 var death_marker: bool = false
 
-func show_amount(amount: int, color: Color, font_size: int = Palette.FONT_SIZE_FLOATER) -> void:
-	show_text(str(amount), color, LIFETIME_SECONDS, font_size)
+## Issue 390: which unit this number is about, and how much it has counted so
+## far, so a second hit on the same unit can be added to it instead of printing
+## a third of a number beside it.
+var unit_id: int = -1
+var amount: int = 0
+## Time since the FIRST hit this number counted. `_age` restarts every time it
+## is added to, so it cannot answer how long the total has been running -- and
+## a total that keeps resetting counts a whole fight into one number.
+var _merge_age: float = 0.0
+
+func show_amount(value: int, color: Color, font_size: int = Palette.FONT_SIZE_FLOATER) -> void:
+	amount = value
+	show_text(str(value), color, LIFETIME_SECONDS, font_size)
+
+## Adds to a number already on screen and restarts its life, so the running
+## total is the thing that fades rather than each tick of it.
+func add_amount(extra: int) -> void:
+	amount += extra
+	_text = str(amount)
+	_age = 0.0
+	modulate.a = 1.0
+	queue_redraw()
+
+## Whether this floater is the one a new number for `id` should be added to:
+## the same unit, the same colour (a Fire tick and a Physical hit are two
+## different facts), still a plain number, and young enough that the total is
+## about what is happening now.
+func can_merge(id: int, color: Color, window: float) -> bool:
+	if death_marker or unit_id != id or _text == "":
+		return false
+	return _color == color and _merge_age <= window
 
 ## A death, on an opaque plate and held at full opacity for most of its life.
 ## `Assets/UI/panel/death.png` replaces the plate; without it the plate is a
@@ -54,6 +83,7 @@ func show_text(text: String, color: Color, lifetime: float = LIFETIME_SECONDS, f
 
 func _process(delta: float) -> void:
 	_age += delta
+	_merge_age += delta
 	position.y -= RISE_SPEED * delta
 	if _age >= _lifetime:
 		queue_free()
