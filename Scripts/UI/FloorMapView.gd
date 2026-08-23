@@ -233,12 +233,9 @@ func _populate_pawn_list(item: EquipmentDef) -> void:
 	%EquipList.add_child(heading)
 
 	for pawn in party:
-		var method := CG.Method.MARTIAL
-		if pawn.pawn_class != null:
-			method = pawn.pawn_class.method
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-		if item.allows(method):
+		if item.allows_class(pawn.pawn_class):
 			button.text = pawn.display_name
 			button.pressed.connect(_on_pawn_picked.bind(pawn, item))
 		else:

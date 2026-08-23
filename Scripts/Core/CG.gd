@@ -62,6 +62,25 @@ enum Method { MARTIAL, MAGICAL }
 enum Style { MELEE, RANGED, SUMMONER }
 enum Role { DPS, SUPPORT, ANTI_SUPPORT, TANK, HEALER }
 
+## Issue 131: the one namespace a piece of gear draws its requirements from.
+## Flat rather than per-axis because the player's own example is `MARTIAL |
+## TANK`, a Method and a Role, so a requirement cannot be typed to one axis.
+##
+## Append only. A class never authors these -- `ClassDef.tags()` derives them
+## from the three fields above, so the two can never disagree.
+enum Tag {
+	MARTIAL,
+	MAGICAL,
+	MELEE,
+	RANGED,
+	SUMMONER,
+	DPS,
+	SUPPORT,
+	ANTI_SUPPORT,
+	TANK,
+	HEALER,
+}
+
 ## Status effects. Each damage type has one helpful and one harmful effect in
 ## README.md; only the ones the slice actually applies are listed. Adding one is
 ## a manager edit, not a content edit, because the sim must handle it.

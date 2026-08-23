@@ -141,7 +141,7 @@ func _make_weapon(martial_only: bool) -> EquipmentDef:
 	item.display_name = "Test Sword"
 	item.slot = EquipmentDef.Slot.WEAPON
 	if martial_only:
-		item.allowed_methods = [CG.Method.MARTIAL]
+		item.required_tags = [CG.Tag.MARTIAL]
 	return item
 
 func test_picking_a_pawn_assigns_the_item_to_its_slot_and_clears_the_loot() -> void:

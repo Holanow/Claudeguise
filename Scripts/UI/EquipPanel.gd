@@ -181,9 +181,10 @@ func _set_equipped(pawn: PawnData, slot: int, item: EquipmentDef) -> void:
 		_:
 			pawn.accessory = item
 
-## What this pawn may put in this slot. `EquipmentDef.allows` is the one place
-## that answers the question, and the screen refuses by *not offering*, which is
-## the behaviour `EquipmentDef.allowed_methods` asks for in its own doc comment:
+## What this pawn may put in this slot. `EquipmentDef.allows_class` is the one
+## place that answers the question, and the screen refuses by *not offering*.
+## Issue 131 asks for a disabled row naming the missing tag instead, which is
+## what `EquipmentDef.missing_tags` exists for and is not built here.
 func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
@@ -192,7 +193,7 @@ func offered_items(pawn: PawnData, slot: int) -> Array[EquipmentDef]:
 		var item := Registry.get_equipment(id)
 		if item == null or item.slot != slot:
 			continue
-		if not item.allows(pawn.pawn_class.method):
+		if not item.allows_class(pawn.pawn_class):
 			continue
 		out.append(item)
 	return out

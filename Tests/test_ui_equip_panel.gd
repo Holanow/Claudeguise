@@ -4,11 +4,14 @@ const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen.
 
-func _make_class(method: CG.Method = CG.Method.MARTIAL) -> ClassDef:
+## Issue 131 added the role argument: gear gates on a tag set, so a fixture
+## class that names no role cannot be offered anything a role gates.
+func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS) -> ClassDef:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
-	cls.role_primary = CG.Role.DPS
+	cls.role_primary = role
+	cls.role_secondary = role
 	cls.style = CG.Style.MELEE
 	cls.method = method
 	cls.starting_actions = [&"test_swing"]
@@ -17,11 +20,11 @@ func _make_class(method: CG.Method = CG.Method.MARTIAL) -> ClassDef:
 	}
 	return cls
 
-func _make_pawn(method: CG.Method = CG.Method.MARTIAL) -> PawnData:
+func _make_pawn(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS) -> PawnData:
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
-	pawn.pawn_class = _make_class(method)
+	pawn.pawn_class = _make_class(method, role)
 	return pawn
 
 func _make_item(id: String, slot: int, methods: Array[CG.Method] = []) -> EquipmentDef:
@@ -29,7 +32,8 @@ func _make_item(id: String, slot: int, methods: Array[CG.Method] = []) -> Equipm
 	e.id = StringName(id)
 	e.display_name = id.capitalize()
 	e.slot = slot
-	e.allowed_methods = methods
+	for m in methods:
+		e.required_tags.append(ClassDef.METHOD_TAG[m])
 	return e
 
 func _panel() -> EquipPanel:
@@ -51,7 +55,8 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 	assert_false(plate.granted_actions.is_empty(), "plate_mail must grant an action")
 	var granted: StringName = plate.granted_actions[0]
 
-	var pawn := _make_pawn()
+	## Issue 131: plate is MARTIAL and TANK, so the fixture has to be a tank.
+	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
 	var editor := InspectPanel.create()
 	editor._ready()
 	assert_false(editor._available_actions(pawn).has(granted),
@@ -191,7 +196,7 @@ func _text_of(node: Node) -> String:
 # What the screen offers
 # ---------------------------------------------------------------------------
 
-## `EquipmentDef.allowed_methods` asks for refusal by absence rather than by
+## `EquipmentDef.required_tags` asks for refusal by absence rather than by
 ## error message: the screen must simply not offer the piece.
 func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	var panel := _panel()
@@ -203,15 +208,20 @@ func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	assert_false(magical_ids.has(&"sword"), "a magical class must not be offered the Sword")
 	panel.free()
 
-## Armor and accessories carry no `allowed_methods` today, deliberately (see
-## `core_items.gd`), so both classes see the same list. Asserted rather than
-## assumed: the filter reading the wrong field would show up here first.
-func test_an_unrestricted_slot_is_offered_to_both_methods() -> void:
+## Issue 131 reversed this test's premise, and the reversal is the point rather
+## than a weakening. It used to assert that armour and accessories carry no gate
+## at all, so both methods saw one list. They are tag-gated now, so the same
+## assertion is that an untagged piece reaches both methods and a tagged one
+## does not.
+func test_an_untagged_piece_reaches_both_methods_and_a_tagged_one_does_not() -> void:
 	var panel := _panel()
-	for slot in [EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
-		assert_eq(_ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), slot)),
-			_ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), slot)),
-			"%s carries no method gate, so both classes must see one list" % panel.slot_name(slot))
+	var martial := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.ACCESSORY))
+	var magical := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), EquipmentDef.Slot.ACCESSORY))
+	for id in [&"whetstone", &"piece_of_nothing"]:
+		assert_true(martial.has(id) and magical.has(id), "%s carries no tags and must reach both" % id)
+	for id in [&"blue_ring", &"censer"]:
+		assert_true(magical.has(id), "%s is MAGICAL and must reach a magical class" % id)
+		assert_false(martial.has(id), "%s is MAGICAL and must not reach a martial one" % id)
 	panel.free()
 
 func _ids(items: Array[EquipmentDef]) -> Array[StringName]:
@@ -382,7 +392,7 @@ func _icons(node: Node) -> Array[Node]:
 ## The three slots and the granted-skills section must all be on the screen, or
 ## the feature is unreachable however well it works underneath.
 func test_the_screen_names_all_three_slots_and_the_granted_skill() -> void:
-	var pawn := _make_pawn()
+	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
 	pawn.armor = Registry.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
