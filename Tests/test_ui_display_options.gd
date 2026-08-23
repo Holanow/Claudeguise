@@ -196,10 +196,17 @@ func _all(node: Node) -> Array[Node]:
 # ---------------------------------------------------------------------------
 
 
-func test_name_plates_are_on_by_default() -> void:
+## Issue 440: both of these ship off. A blind tester on the old defaults could
+## not see fight 1 at all, and turning plates off made it legible.
+func test_name_plates_are_off_by_default() -> void:
 	_reset()
-	assert_true(DisplayOptions.enabled(&"name_plates"),
-		"plates default on: issue 378 fixed the collision, so hiding every name is no longer the answer to it")
+	assert_false(DisplayOptions.enabled(&"name_plates"),
+		"plates default off: on-by-default hid the fight for every blind tester who met it")
+
+func test_ground_ticks_are_off_in_the_log_by_default() -> void:
+	_reset()
+	assert_false(DisplayOptions.enabled(&"log_hazard_ticks"),
+		"ground ticks default off: 141 of 402 lines in a Burn Pit fight buried every death")
 
 ## The rule that decides *when* a plate would show -- focused or winding up,
 ## plus a hold because that trigger flickers several times a second -- must

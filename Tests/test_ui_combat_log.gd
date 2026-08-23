@@ -121,6 +121,7 @@ func test_append_event_does_not_append_a_dropped_line() -> void:
 ## "you are standing somewhere bad and could move" is different
 ## information from "you are afflicted and moving will not help".
 func test_a_hazard_tick_names_no_source_and_reads_differently_from_poison() -> void:
+	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
 	var state := _make_state()
 	var view := CombatLogView.new()
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
@@ -144,6 +145,7 @@ func test_a_hazard_tick_names_no_source_and_reads_differently_from_poison() -> v
 	poison.damage_type = CG.DamageType.FIRE
 	poison.status = CG.Status.POISON
 	assert_ne(line, view.line_for_event(state, poison), "hazard and poison must not read identically")
+	DisplayOptions.reset()
 	view.free()
 
 # ---------------------------------------------------------------------------
@@ -430,6 +432,7 @@ func test_no_damage_over_time_status_is_ever_credited_to_the_ground() -> void:
 ## fix above would be "suppress everything with no source", which loses the one
 ## thing standing in a fire is meant to tell you.
 func test_a_real_hazard_tick_still_says_the_ground() -> void:
+	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
 	var state := _make_state()
 	var view := CombatLogView.new()
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
@@ -442,6 +445,7 @@ func test_a_real_hazard_tick_still_says_the_ground() -> void:
 	var line := view.line_for_event(state, e)
 	assert_true(line.contains("ground"), line)
 	assert_true(line.contains("Rat"), line)
+	DisplayOptions.reset()
 	view.free()
 
 # ---------------------------------------------------------------------------
@@ -847,11 +851,11 @@ func test_each_drain_can_be_silenced_and_brought_back() -> void:
 	var view := CombatLogView.new()
 
 	var ground := _ground_tick(40, 1)
-	assert_ne(view.line_for_event(state, ground), "", "the ground speaks by default")
-	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
-	assert_eq(view.line_for_event(state, ground), "", "and the player can silence it")
+	assert_eq(view.line_for_event(state, ground), "", "the ground is silent by default")
 	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
-	assert_ne(view.line_for_event(state, ground), "", "and bring it back")
+	assert_ne(view.line_for_event(state, ground), "", "and the player can ask for it")
+	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
+	assert_eq(view.line_for_event(state, ground), "", "and silence it again")
 
 	var poison := _status_tick(40, 1, CG.Status.POISON)
 	assert_eq(view.line_for_event(state, poison), "", "poison is silent by default")
@@ -859,6 +863,7 @@ func test_each_drain_can_be_silenced_and_brought_back() -> void:
 	var line := view.line_for_event(state, poison)
 	assert_ne(line, "", "and the player can ask for it")
 	assert_true(line.contains("Poison"), "and it must say which status: %s" % line)
+	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
 	assert_ne(line, view.line_for_event(state, ground),
 		"a status tick and a ground tick must not read identically")
 
@@ -887,8 +892,9 @@ func test_the_status_filter_covers_every_dot() -> void:
 
 ## The measurement the issue was filed on, against the only authored room with
 ## fire in it, through the real formatter.
-func test_the_burn_pit_log_is_mostly_ground_until_the_player_says_otherwise() -> void:
+func test_the_burn_pit_log_is_mostly_ground_once_the_player_asks_for_it() -> void:
 	DisplayOptions.reset()
+	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
 	var party: Array[PawnData] = []
 	for cid in Registry.all_class_ids().slice(0, 4):
 		party.append(PawnFactory.make_starter_pawn(
@@ -908,7 +914,7 @@ func test_the_burn_pit_log_is_mostly_ground_until_the_player_says_otherwise() ->
 			ground += 1
 	assert_true(ground > 100, "the Burn Pit must actually burn somebody: %d" % ground)
 	assert_true(float(ground) / float(shown) > 0.25,
-		"the default log is %d of %d ground lines, which is the complaint" % [ground, shown])
+		"switched on, the log is %d of %d ground lines -- which is why it ships off" % [ground, shown])
 
 	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
 	var quiet := 0

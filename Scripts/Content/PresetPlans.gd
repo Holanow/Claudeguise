@@ -14,6 +14,54 @@ const PRIEST_SPENDER_RESERVE := 40
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
 
+## Condition and targeting ops that need a status to already be on somebody.
+## Only the positive ones: `enemy_lacks_status` is satisfied by an untouched
+## enemy, so it is not a dependency.
+const STATUS_REQUIRING_OPS := [&"enemy_has_status", &"target_enemy_with_status"]
+
+## What a library row needs before it can do anything, and which rows in the
+## same library supply it. Issue 434: the content already knows "Blast the
+## burning" is inert until something applies BURN and nothing says so.
+##
+## Derived from the rows rather than authored beside them, so it cannot fall
+## out of step with them. An empty `supplied_by` means the row still has a
+## dependency and no row in this class satisfies it -- the fight does.
+static func row_dependencies(class_id: StringName) -> Dictionary:
+	var library := for_class(class_id)
+	var out := {}
+	for plan in library:
+		var status := required_status(plan)
+		if status < 0:
+			continue
+		var suppliers: Array[StringName] = []
+		for other in library:
+			if other.id != plan.id and applied_statuses(other).has(status):
+				suppliers.append(other.id)
+		out[plan.id] = {"status": status, "supplied_by": suppliers}
+	return out
+
+## The `CG.Status` this row's condition or targeting demands, or -1.
+static func required_status(plan: Plan) -> int:
+	var blocks: Array[PlanBlock] = []
+	if plan.condition != null:
+		blocks.append(plan.condition)
+	blocks.append_array(plan.blocks)
+	for b in blocks:
+		if STATUS_REQUIRING_OPS.has(b.op) and b.args.has("status"):
+			return int(b.args["status"])
+	return -1
+
+## Every `CG.Status` this row's own actions put on somebody.
+static func applied_statuses(plan: Plan) -> Array[int]:
+	var out: Array[int] = []
+	for b in plan.blocks:
+		if b.kind != PlanBlock.Kind.ACTION:
+			continue
+		var action: ActionDef = Registry.get_action(b.args.get("action_id", &""))
+		if action != null and action.applies_status_enabled:
+			out.append(int(action.applies_status))
+	return out
+
 ## Total block count across a class's library. It is what adding every preset
 ## would cost, checked against Balance.plan_block_budget.
 static func total_blocks(class_id: StringName) -> int:
