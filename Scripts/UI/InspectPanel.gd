@@ -1169,8 +1169,14 @@ func _default_heal_action(actions: Array[ActionDef]) -> ActionDef:
 func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
 	return DefaultBehavior.default_attack_action(actions, want_ranged)
 
+## Named so a probe and a test can find the rows the panel builds for itself.
+const FALLBACK_ROW_NAME := "FallbackRow"
+
 func _fixed_row(texts: Array) -> Control:
+	if _embedded:
+		return _narrow_fixed_row(texts)
 	var row := HBoxContainer.new()
+	row.name = FALLBACK_ROW_NAME
 	var spacer := Control.new()
 	# Lines the fixed row's first chip up under the editable rows' first chip,
 	# which sits after a number label and two reorder buttons.
@@ -1185,6 +1191,20 @@ func _fixed_row(texts: Array) -> Control:
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(_TOUCH + Palette.SPACE_S, 0.0)
 	row.add_child(pad)
+	return row
+
+## Issue 414, and the same shape `_assemble_library_row` takes: in the party
+## screen's column three autowrapping chips got 45, 69 and 91px and stood the
+## row 187px tall, so the column says it in one line instead.
+func _narrow_fixed_row(texts: Array) -> Control:
+	var row := HBoxContainer.new()
+	row.name = FALLBACK_ROW_NAME
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(24.0, 0.0)
+	row.add_child(gutter)
+	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(sentence)
 	return row
 
 func _cap_first(s: String) -> String:
