@@ -118,10 +118,11 @@ func test_every_real_ending_carries_a_reason() -> void:
 				"a FIGHT_END with no reason on it is a defect in CombatSim._check_outcome")
 	assert_eq(endings, SEEDS, "one ending per fight, and every fight resolved")
 	assert_true(seen.has(CG.EndReason.NO_SURVIVORS), "the ordinary ending still happens")
-	assert_true(seen.has(CG.EndReason.CANNOT_ACT),
-		("no fight on %s ended with a side stranded, and issue 233 measured 11 of 40 "
-		+ "here. If content has genuinely stopped producing that ending, say so before "
-		+ "loosening this line.") % WARDEN)
+	## Issue 445 removed CANNOT_ACT from content and the line that asserted it
+	## here: the one fight in 40 that produced it on floor1_warden was the party
+	## dead with unstrandable engines left, and that fight now ends when the last
+	## pawn falls. Measured 1 before, 0 after, and 0 in 1,600 starter-pawn fights
+	## either side. The ending is fixture-only until a room strands a side again.
 
 ## THE TRIPWIRE for the ending `CG.EndReason` cannot name. Red the day a real
 ## fight runs out of ticks, which is the day the enum needs a third value.
