@@ -413,18 +413,21 @@ const _PICK := Palette.TOUCH_TARGET_MIN * 0.5
 
 func test_a_point_on_a_name_plate_picks_that_unit() -> void:
 	DisplayOptions.reset()
+	DisplayOptions.set_enabled(&"name_plates", true)
 	var view = _spawn_battle_view()
 	var u: CombatUnit = view.state.units[0]
 	var plate: Rect2 = UnitView.plate_layout(view.state).get(u.id, Rect2())
 	assert_true(plate.size.x > 0.0, "the party's plate is always up, so there is one to aim at")
 	assert_eq(BattleView.unit_at(view.state, plate.get_center()), u.id,
 		"the biggest, most legible mark on the unit answered for nobody")
+	DisplayOptions.reset()
 	view.free()
 
 ## The negative: a name nobody can see is not a target. Aimed at the far end of
 ## a long plate so the point is outside the body's own touch box either way.
 func test_a_name_plate_that_is_not_drawn_is_not_a_target() -> void:
 	DisplayOptions.reset()
+	DisplayOptions.set_enabled(&"name_plates", true)
 	var view = _spawn_battle_view()
 	var u: CombatUnit = view.state.units[0]
 	u.display_name = "A Considerably Longer Name Than That"
