@@ -97,9 +97,5 @@ func _swap_to(scene_path: String, wire: Callable) -> void:
 	var packed: PackedScene = load(scene_path)
 	var screen := packed.instantiate()
 	add_child(screen)
-	# The engine runs `_ready` on add_child only when this node is itself in a
-	# tree, and a test builds Main outside one.
-	if not screen.is_inside_tree() and screen.has_method("_ready"):
-		screen._ready()
 	_current = screen
 	wire.call(screen)

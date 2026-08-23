@@ -45,18 +45,15 @@ func _wipe_with_engines() -> CombatState:
 ## team stood at full health forty pixels away. Saying "pawns" is true under
 ## either reading of "your party" and settles neither.
 func test_the_card_names_pawns_because_pawns_are_what_it_counts() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _wipe_with_engines()
 	var summary: String = view._cost_summary()
 	assert_true(summary.contains("pawn"), summary)
 	assert_false(summary.to_lower().contains("party"),
 		"the card counts pawns, and a summon is on the player's team: %s" % summary)
-	view.free()
 
 func test_a_full_survival_names_pawns_too() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	var state := CombatState.new(0)
 	state.units.append(_pawn_unit(0, 10, "Warrior"))
 	state.units.append(_summon_unit(1))
@@ -64,17 +61,14 @@ func test_a_full_survival_names_pawns_too() -> void:
 	var summary: String = view._cost_summary()
 	assert_true(summary.contains("pawn"), summary)
 	assert_false(summary.to_lower().contains("party"), summary)
-	view.free()
 
 ## The count itself must not move. A summon is not a pawn and never was one.
 func test_the_engines_are_still_not_counted_as_pawns() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _wipe_with_engines()
 	var summary: String = view._cost_summary()
 	assert_false(summary.contains("4"), "two pawns died, not four: %s" % summary)
 	assert_true(summary.contains("Siege Master") and summary.contains("Warrior"), summary)
-	view.free()
 
 # ---------------------------------------------------------------------------
 # 2. No countdown after the fight is over
@@ -157,8 +151,7 @@ func test_the_end_cards_prose_never_reaches_the_team_panel() -> void:
 ## And the label has to be wired to it, or the number above is arithmetic
 ## about nothing.
 func test_the_card_wraps_its_prose_rather_than_running_past_it() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _wipe_with_engines()
 	view._show_outcome()
 	for label in [view._end_cost_label, view._end_prompt_label]:
@@ -166,14 +159,12 @@ func test_the_card_wraps_its_prose_rather_than_running_past_it() -> void:
 			"a label that cannot wrap prints past its own box")
 		assert_true(label.custom_minimum_size.x > 0.0,
 			"and one with no width to wrap inside never wraps")
-	view.free()
 
 ## The duration used to print through the last name in the casualty list. It is
 ## its own line now, so no measurement of the list's width can push it into
 ## anything.
 func test_the_duration_is_not_on_the_casualty_lists_line() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _wipe_with_engines()
 	view._show_outcome()
 	var carried := false
@@ -185,4 +176,3 @@ func test_the_duration_is_not_on_the_casualty_lists_line() -> void:
 	assert_true(carried, "no casualty list, so the overlap case went unexercised")
 	assert_true(view._end_cost_label.text.contains("The fight lasted"),
 		"the duration still has to be on the card: %s" % view._end_cost_label.text)
-	view.free()

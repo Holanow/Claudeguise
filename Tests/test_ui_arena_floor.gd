@@ -10,10 +10,9 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## wiring: the Arena node must actually carry ArenaFloor's script.
 
 func test_arena_node_carries_the_floor_script() -> void:
-	var battle = BattleScene.instantiate()
+	var battle = in_tree(BattleScene.instantiate())
 	var arena := battle.get_node("Arena")
 	assert_eq(arena.get_script(), ArenaFloor, "Arena must draw the floor in the same local space _layout_arena scales")
-	battle.free()
 
 ## Issue 26 item 1: a fight built without terrain (CombatState.terrain is
 ## empty by default) must draw exactly as it always has — nothing new
@@ -32,8 +31,7 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	var class_ids := Registry.all_class_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
-	var battle = BattleScene.instantiate()
-	battle._ready()
+	var battle = in_tree(BattleScene.instantiate())
 	var config := RunConfig.new()
 	config.seed = 1
 	config.encounter_id = encounter_ids[0]
@@ -41,7 +39,6 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	config.party = party
 	battle.begin(config)
 	assert_eq(battle._arena.terrain, battle.state.terrain)
-	battle.free()
 
 ## Issue 36's "while you are there": the room's name existed
 ## (Encounter.display_name) and nothing showed it, which is exactly what let
@@ -52,8 +49,7 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 	var class_ids := Registry.all_class_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
-	var battle = BattleScene.instantiate()
-	battle._ready()
+	var battle = in_tree(BattleScene.instantiate())
 	var config := RunConfig.new()
 	config.seed = 1
 	config.encounter_id = encounter_ids[0]
@@ -63,7 +59,6 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 	var encounter := Registry.get_encounter(encounter_ids[0])
 	assert_eq(battle._encounter_label.text, encounter.display_name)
 	assert_false(battle._encounter_label.text.is_empty())
-	battle.free()
 
 # ---------------------------------------------------------------------------
 # _projectile_damage_type (PR #69 wiring: shots read by damage type, not a

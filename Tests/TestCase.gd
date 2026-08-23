@@ -6,11 +6,30 @@ class_name TestCase
 var failures: Array[String] = []
 var assertions: int = 0
 
+## Godot defers a node's `_ready` until the tree processes, so a scene built
+## with `instantiate()` and never added is asserted against half-built. Enter it
+## here instead; teardown frees it, so do not call `free()` yourself. Issue 370.
+func in_tree(node: Node) -> Node:
+	assert(tree != null, "TestCase.tree unset -- run_tests sets it before running")
+	tree.root.add_child(node)
+	_entered.append(node)
+	return node
+
+## Set by the runner rather than read from `Engine.get_main_loop()`, which is
+## null while the runner is still inside its own `_initialize`.
+static var tree: SceneTree = null
+
+var _entered: Array[Node] = []
+
 func setup() -> void:
 	pass
 
 func teardown() -> void:
-	pass
+	for n in _entered:
+		if is_instance_valid(n):
+			n.get_parent().remove_child(n)
+			n.queue_free()
+	_entered.clear()
 
 func fail(message: String) -> void:
 	assertions += 1

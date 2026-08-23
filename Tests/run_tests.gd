@@ -22,7 +22,19 @@ static func _filter_from_args() -> String:
 			return s
 	return ""
 
-func _init() -> void:
+## The suite runs on the first frame, not in `_init`. Godot defers a node's
+## `_ready` until the tree processes, so a scene added before then never
+## initialises and every screen test asserted against a half-built object.
+var _ran := false
+
+func _process(_delta: float) -> bool:
+	if _ran:
+		return true
+	_ran = true
+	_run()
+	return true
+
+func _run() -> void:
 	var scripts := _walk("res://")
 	scripts.sort()
 
@@ -45,6 +57,9 @@ func _init() -> void:
 		])
 		collected = kept
 
+	## After `_check_parse`, which reloads every script including TestCase.gd and
+	## so resets its statics.
+	TestCase.tree = self
 	_run_tests(collected)
 
 	print("")

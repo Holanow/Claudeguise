@@ -11,7 +11,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## property that made that true, which no assertion in the suite could see.
 
 func _spawn() -> Node2D:
-	var view = BattleScene.instantiate()
+	var view = in_tree(BattleScene.instantiate())
 	view._ready()
 	return view
 
