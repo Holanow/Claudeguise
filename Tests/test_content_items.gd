@@ -45,21 +45,35 @@ func test_every_item_changes_something() -> void:
 		assert_true(changes_something, "item %s does not change anything" % id)
 
 
-func test_weapons_and_accessories_are_percent_not_flat() -> void:
+## Issue 489: a piece of gear may grant Wisdom and it may grant an action. It
+## may not do anything else, so the whole percent layer is gone and the flat
+## layer is Wisdom only.
+func test_gear_grants_wisdom_and_actions_and_nothing_else() -> void:
+	var offenders := []
 	for id in Registry.all_equipment_ids():
 		var item := Registry.get_equipment(id)
-		if item.slot == EquipmentDef.Slot.WEAPON or item.slot == EquipmentDef.Slot.ACCESSORY:
-			assert_true(item.attribute_flat.is_empty(), "%s is a weapon/accessory but has a flat bonus, per README these should be percent" % id)
-			assert_false(item.attribute_percent.is_empty(), "%s is a weapon/accessory but has no percent bonus" % id)
+		if not item.attribute_percent.is_empty():
+			offenders.append("%s carries a percent bonus %s" % [id, item.attribute_percent])
+		if item.damage_reduction != 0.0:
+			offenders.append("%s absorbs %.2f of every hit" % [id, item.damage_reduction])
+		for a in item.attribute_flat.keys():
+			if a != CG.Attribute.WIS:
+				offenders.append("%s carries flat %s" % [id, CG.attribute_name(a)])
+	assert_eq(offenders, [], "gear is a capability layer and these are numbers")
 
 
-func test_armor_is_flat_with_optional_con_percent() -> void:
+## And the other half of it: a piece that grants neither is an object taking up
+## a slot and a picker row. Issue 489 deleted eight of those.
+func test_no_registered_piece_is_inert() -> void:
+	var inert := []
 	for id in Registry.all_equipment_ids():
 		var item := Registry.get_equipment(id)
-		if item.slot == EquipmentDef.Slot.ARMOR:
-			assert_false(item.attribute_flat.is_empty(), "%s is armor but has no flat bonus" % id)
-			for a in item.attribute_percent.keys():
-				assert_eq(a, CG.Attribute.CON, "%s is armor with a percent bonus on something other than CON" % id)
+		if item.granted_actions.is_empty() and int(item.attribute_flat.get(CG.Attribute.WIS, 0)) == 0:
+			inert.append(String(id))
+	assert_eq(inert, [], "these pieces do nothing at all")
+
+
+
 
 
 func test_equipment_ids_are_unique_and_sorted() -> void:

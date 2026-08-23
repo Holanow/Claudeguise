@@ -249,14 +249,31 @@ func _single_room_plan_of_type(seed: int, room_type: FloorRoom.Type, difficulty:
 
 ## BOSS always drops per LootTables.DROP_CHANCE -- a deterministic case to
 ## assert against rather than depending on a lucky roll.
+## Issue 489: this asked a party with no plans to beat a boss, which it now
+## does on 1 seed in 20, so the drop it was checking almost never happened.
+##
+## **The loot pool was not the problem and that was measured before anything
+## was changed here**: `roll_drop` on a BOSS returned null 0 times in 1000
+## after eight items were deleted. Loot rolls only on a win, correctly, so a
+## test about drops has to be handed a fight it wins. A party carrying its
+## class library wins all 20.
 func test_a_won_boss_room_can_drop_loot() -> void:
-	var party := _make_party()
+	var party := _make_planned_party()
 	var plan := _single_room_plan_of_type(1, FloorRoom.Type.BOSS, 10)
 	var run := FloorRun.new(plan)
 
-	FloorFightRunner.play_room(run, plan.room(0), party)
-
+	var result := FloorFightRunner.play_room(run, plan.room(0), party)
+	assert_eq(result["state"].outcome, CombatState.Outcome.PLAYER_WIN,
+		"the boss room must be won for a drop to be the thing under test")
 	assert_eq(run.loot.size(), 1, "a boss room (100% drop chance) that resolves must drop exactly one item")
+
+## The same four classes carrying their whole libraries, which is the state a
+## player who has used the plan editor arrives at.
+func _make_planned_party() -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for cid in [&"warrior", &"priest", &"geysermancer", &"abomination"]:
+		out.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
+	return out
 
 ## ENEMY has 0% drop chance in LootTables -- confirms the wiring does not
 ## force a drop where the table says there should not be one.

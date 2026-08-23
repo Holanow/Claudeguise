@@ -26,8 +26,7 @@ func test_the_tags_refuse_the_classes_they_are_meant_to() -> void:
 	_refuses(&"warrior", &"orb", "a martial class must not wield an Orb")
 	_refuses(&"abomination", &"plate_mail", "Plate is MARTIAL and the Abomination is not")
 	_refuses(&"siege_master", &"plate_mail", "Plate is TANK and the Siege Master is not")
-	_refuses(&"warrior", &"scrubs", "Scrubs are the healer's and the Warrior is not one")
-	_refuses(&"warrior", &"censer", "an INT accessory is dead weight on a martial class")
+	_refuses(&"geysermancer", &"gown", "the Gown is the anti-support's and the Geysermancer is not one")
 
 
 ## And permit. Two tags is the specialised case and it has to still fit the one
@@ -35,10 +34,9 @@ func test_the_tags_refuse_the_classes_they_are_meant_to() -> void:
 func test_the_tags_permit_the_classes_they_are_meant_to() -> void:
 	_permits(&"warrior", &"plate_mail", "the Warrior is MARTIAL and TANK")
 	_permits(&"abomination", &"sickle", "the Abomination is MAGICAL and MELEE")
-	_permits(&"priest", &"scrubs", "the Priest is the game's only HEALER")
 	_permits(&"geysermancer", &"robes", "the Geysermancer's secondary role is SUPPORT")
 	_permits(&"siege_master", &"gown", "the Siege Master's secondary role is ANTI_SUPPORT")
-	_permits(&"warrior", &"piece_of_nothing", "an untagged accessory goes to anyone")
+	_permits(&"warrior", &"censer", "issue 489 untagged the Censer when it stopped granting INT")
 
 
 ## The whole point of one flat namespace: a requirement can name a Method and a
@@ -53,14 +51,14 @@ func test_at_least_one_item_requires_tags_from_two_different_axes() -> void:
 
 ## More specialised gear names more tags. Recorded as a distribution rather than
 ## a rule, so the day somebody writes a three-tag item this says what changed.
-func test_the_nineteen_items_carry_the_tag_counts_recorded_here() -> void:
+func test_the_eleven_items_carry_the_tag_counts_recorded_here() -> void:
 	var by_count := {}
 	for id in Registry.all_equipment_ids():
 		var n := Registry.get_equipment(id).required_tags.size()
 		by_count[n] = int(by_count.get(n, 0)) + 1
 	print("gear tag counts: %s" % [by_count])
-	assert_eq(Registry.all_equipment_ids().size(), 19, "the item count moved")
-	assert_eq(by_count, {0: 6, 1: 11, 2: 2}, "the tag distribution moved")
+	assert_eq(Registry.all_equipment_ids().size(), 11, "the item count moved")
+	assert_eq(by_count, {0: 1, 1: 8, 2: 2}, "the tag distribution moved")
 
 
 ## A class's tags are derived from its own fields, never authored beside them.

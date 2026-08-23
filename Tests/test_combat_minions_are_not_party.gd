@@ -7,6 +7,11 @@ extends "res://Tests/TestCase.gd"
 ## definition of "your party" in the game and every other reader asks it.
 
 const ENCOUNTER := &"floor1_warden"
+
+## Issue 489 made the Warden unwinnable for this party, and a test that wins 0
+## of 40 measures nothing. This one is about pawnless wins rather than about
+## difficulty, so it asks an easier room instead of a looser threshold.
+const WINNABLE_ENCOUNTER := &"floor1_room1"
 const SEEDS := 40
 
 func _party(skip: StringName) -> Array[PawnData]:
@@ -76,8 +81,8 @@ func test_a_fight_with_no_pawns_at_all_is_not_a_wipe() -> void:
 ## Issue 233 measured 11 pawnless wins in these same 40 fights. The ruling says
 ## every one of them is a loss, so the count must now be zero.
 func test_no_win_survives_the_last_pawn() -> void:
-	var encounter := Registry.get_encounter(ENCOUNTER)
-	assert_true(encounter != null, "floor1_warden is registered")
+	var encounter := Registry.get_encounter(WINNABLE_ENCOUNTER)
+	assert_true(encounter != null, "%s is registered" % WINNABLE_ENCOUNTER)
 	var wins := 0
 	for s in SEEDS:
 		var state := CombatSim.build(_party(&"abomination"), encounter, s)
