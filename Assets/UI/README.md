@@ -104,9 +104,7 @@ One per item, shown on the pre-fight equip screen at about 32 pixels.
 `item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
 `item/bow.png`, `item/staff.png`,
 `item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
-`item/scrubs.png`, `item/whetstone.png`, `item/brown_ring.png`,
-`item/red_ring.png`, `item/blue_ring.png`, `item/yellow_ring.png`,
-`item/censer.png`, `item/fetish.png`, `item/piece_of_nothing.png`
+`item/censer.png`
 
 The filename is the item's id, and **this list is checked by a test** the same
 way the ability icons are: an item added to the game without an icon fails the
