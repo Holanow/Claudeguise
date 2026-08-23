@@ -39,17 +39,9 @@ const ROLLED_ATTRIBUTES: Array[CG.Attribute] = [
 	CG.Attribute.CON, CG.Attribute.INT, CG.Attribute.ATN,
 ]
 
-## How far a rolled attribute moves from its class baseline, either way.
-##
-## Chosen structurally rather than measured: two points is what a single item
-## is already worth in this game -- Robes carry +2 WIS and that is a whole plan
-## row -- so it is the smallest step the existing table already treats as
-## meaningful. No win rate was consulted and none should be used to change it.
-const ROLL_SPREAD := 2
-
-## A rolled attribute never drops below this, so a class value of 1 cannot
-## become 0 or negative and silently switch off whatever reads it.
-const ROLL_FLOOR := 1
+## How much a pawn's pool may differ from its class's own total, either way.
+## The player asked for "roughly the same size", so this is the roughly.
+const POOL_JITTER := 2
 
 static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display_name: String) -> PawnData:
 	var pawn := PawnData.new()
@@ -62,8 +54,9 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 		pawn.armor = Registry.get_equipment(STARTING_ARMOR[class_id])
 	return pawn
 
-## The same pawn with its attributes rolled from `run_seed`. Issue 131's
-## stopgap: what randomised pawns feel like, before generation exists.
+## The same pawn with its attributes distributed from `run_seed`. Issue 485:
+## a pool of points of roughly the same size per pawn, placed with a weighting
+## based on class, rather than each attribute rolled on its own.
 ##
 ## **`make_starter_pawn` above is the fixed roster and is still the default.**
 ## Every tool and test in this repo builds pawns through it and none of them
@@ -74,11 +67,54 @@ static func make_rolled_pawn(class_id: StringName, pawn_id: StringName, display_
 	if pawn.pawn_class == null:
 		return pawn
 	var rng := roll_rng(run_seed, class_id)
+	var weights := class_weights(pawn.pawn_class)
+	var pool := maxi(1, pool_size(pawn.pawn_class) + rng.randi_range(-POOL_JITTER, POOL_JITTER))
+	var placed := {}
+	for i in pool:
+		var a := _weighted_pick(rng, weights)
+		placed[a] = int(placed.get(a, 0)) + 1
 	for a in ROLLED_ATTRIBUTES:
-		var base := pawn.pawn_class.attribute(a)
-		var rolled := clampi(base + rng.randi_range(-ROLL_SPREAD, ROLL_SPREAD), ROLL_FLOOR, 999)
-		pawn.attribute_bonus[a] = rolled - base
+		pawn.attribute_bonus[a] = int(placed.get(a, 0)) - pawn.pawn_class.attribute(a)
 	return pawn
+
+## What a class is weighted toward, read off its own base spread. Derived
+## rather than authored beside it, for the reason `ClassDef.tags()` is: a
+## second table saying what a Warrior is would drift from the first one.
+static func class_weights(class_def: ClassDef) -> Dictionary:
+	var out := {}
+	for a in ROLLED_ATTRIBUTES:
+		out[a] = maxi(0, class_def.attribute(a))
+	return out
+
+## The pool a class distributes, before jitter: its own current total across the
+## rolled attributes.
+##
+## **"Roughly the same size" is read as per pawn across seeds, not as equal
+## across classes.** Levelling every class to one shared number would move the
+## Abomination from 41 points to about 30 and the Priest from 25 up, which is
+## every balance number in the game at once and not a change a session makes on
+## its own reading. Issue 485 says so; it is one function to change.
+static func pool_size(class_def: ClassDef) -> int:
+	var total := 0
+	for a in ROLLED_ATTRIBUTES:
+		total += maxi(0, class_def.attribute(a))
+	return total
+
+## One point, landing on an attribute with probability proportional to its
+## weight. A class with 14 CON and 1 INT places fourteen times as many points
+## on CON, which is what stops a Warrior rolling into a caster.
+static func _weighted_pick(rng: RandomNumberGenerator, weights: Dictionary) -> CG.Attribute:
+	var total := 0
+	for a in ROLLED_ATTRIBUTES:
+		total += int(weights[a])
+	if total <= 0:
+		return ROLLED_ATTRIBUTES[0]
+	var roll := rng.randi_range(0, total - 1)
+	for a in ROLLED_ATTRIBUTES:
+		roll -= int(weights[a])
+		if roll < 0:
+			return a
+	return ROLLED_ATTRIBUTES[ROLLED_ATTRIBUTES.size() - 1]
 
 ## One generator per class rather than one for the roster. A shared stream
 ## would make every pawn's roll depend on how many classes were built before
