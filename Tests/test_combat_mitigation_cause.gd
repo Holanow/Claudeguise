@@ -251,19 +251,23 @@ func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 ## The answer is not a wiring defect. Plate mail's 5% is real and is counted;
 ## it is simply always smaller than the Warrior's own toughness, and the cause
 ## names one contributor.
-func test_the_warriors_plate_is_counted_but_never_the_largest() -> void:
+## Issue 489 took every number off plate, so the Warrior's mitigation is now
+## entirely its own toughness and the named cause has to say so. Rewritten
+## rather than deleted: what this always guarded is that the cause names the
+## larger source, and CON is the source that still exists.
+func test_the_warriors_mitigation_is_all_toughness_now() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
 	assert_not_null(pawn.armor, "the warrior must still start in armour")
-	assert_true(pawn.armor.damage_reduction > 0.0, "plate mail must still absorb something")
+	assert_eq(pawn.armor.damage_reduction, 0.0,
+		"issue 489: plate grants Directional Block and absorbs nothing")
 	var u := CombatUnit.new()
 	u.pawn = pawn
 	var with_plate: float = SimDeps._default_damage_reduction(u)
 	pawn.armor = null
 	var without: float = SimDeps._default_damage_reduction(u)
-	assert_true(with_plate > without, "the plate's reduction is not reaching the number at all")
-	var toughness := Balance.attribute(pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON
-	assert_true(toughness > with_plate - without,
-		"plate now outweighs the warrior's toughness, so ARMOR should be the named cause")
+	assert_almost_eq(with_plate, without, 0.0001,
+		"plate is still moving the number, so something numeric survived the ruling")
+	assert_true(with_plate > 0.0, "a Warrior with 14 CON must still mitigate something")
 	u.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.TOUGHNESS)
 

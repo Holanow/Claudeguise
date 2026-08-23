@@ -310,16 +310,20 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 ## restates. Plate Mail is CON +2 *and* CON +10%: neither number on its own is
 ## what the pawn ends up with, and `Balance.attribute` is the only thing that
 ## knows the order they apply in.
+## Issue 489 left Wisdom as the only numeric bonus a piece may carry, so the
+## fixture is rebuilt on it. What this guards is unchanged: the "after" number
+## comes from `Balance.attribute`, not from reading the item's own field.
 func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> void:
 	var panel := _panel()
-	var pawn := _make_pawn()
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.SUPPORT)
+	pawn.armor = Registry.get_equipment(&"robes")
+	assert_not_null(pawn.armor, "robes must still be registered for this to mean anything")
 	var bare := panel._stripped(pawn)
 	assert_eq(bare.armor, null, "the stripped copy must wear nothing")
 	assert_eq(bare.pawn_class, pawn.pawn_class, "and must keep the class it is measuring")
-	assert_almost_eq(Balance.attribute(bare, CG.Attribute.CON), 10.0)
-	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.CON), 13.2, 0.0001,
-		"(10 + 2) * 1.10, which is neither +2 nor +10%")
+	assert_almost_eq(Balance.attribute(bare, CG.Attribute.WIS), 8.0)
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.WIS), 10.0, 0.0001,
+		"8 + the Robes' 2 Wisdom, read through Balance rather than off the item")
 	panel.free()
 
 ## Stripping must not touch the pawn being drawn. A screen that unequips a pawn

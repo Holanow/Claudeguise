@@ -1100,24 +1100,10 @@ func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> vo
 ## into, so the property is structural now.
 
 
-func test_the_four_rings_differ_by_colour_and_by_cut() -> void:
-	# They are four rings and pretending they have four unrelated outlines would
-	# be inventing a difference the content does not have. So they carry two
-	# channels of their own, and losing either is silent: without the cut a
-	# greyscale reader has four identical icons, without the colour a 20px
-	# reader has four identical icons.
-	var grid := 32
-	var rings: Array[StringName] = [&"brown_ring", &"red_ring", &"blue_ring", &"yellow_ring"]
-	for id in rings:
-		assert_not_null(Registry.get_equipment(id), "%s is no longer a registered item" % id)
-	for i in rings.size():
-		for j in range(i + 1, rings.size()):
-			var a := EquipmentIcons.art_name(rings[i])
-			var b := EquipmentIcons.art_name(rings[j])
-			assert_true(_pixel_difference(_icon_pixels(a, grid), _icon_pixels(b, grid)) > 0.0,
-				"%s and %s are the same picture" % [rings[i], rings[j]])
-			assert_true(_mask_difference(_ink_mask(a, grid), _ink_mask(b, grid)) > 0.0,
-				"%s and %s cut the same shape, so they are one icon in greyscale" % [rings[i], rings[j]])
+## `test_the_four_rings_differ_by_colour_and_by_cut` was here and is deleted
+## with its subject: issue 489 removed brown_ring, red_ring, blue_ring and
+## yellow_ring, so there are no four rings to tell apart. Manager-owned file,
+## deleted on rook's instruction rather than on my own judgement.
 
 
 func test_item_art_name_is_the_item_id() -> void:
