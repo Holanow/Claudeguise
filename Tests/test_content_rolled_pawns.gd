@@ -72,29 +72,130 @@ func test_a_class_roll_does_not_depend_on_the_other_classes() -> void:
 		"the Warrior's roll moved when other classes were built around it")
 
 
-## The spread is what it says, and the floor holds. A class value of 1 must not
-## become 0 and silently switch off whatever reads it.
-func test_a_roll_stays_inside_its_spread_and_never_falls_below_the_floor() -> void:
-	var seen_low := false
-	var seen_high := false
-	var under_floor := []
-	var over_spread := []
+## Issue 485: the pool is roughly the class's own total, not exactly it. The
+## player asked for "roughly the same size", so exactness would be the defect.
+func test_the_pool_is_roughly_but_not_exactly_the_class_total() -> void:
+	var over := []
 	for class_id in Registry.all_class_ids():
 		var cls := Registry.get_class_def(class_id)
+		var expected := PawnFactory.pool_size(cls)
+		var sizes := {}
 		for s in 200:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+			var total := 0
 			for a in PawnFactory.ROLLED_ATTRIBUTES:
-				var base := cls.attribute(a)
-				var value := pawn.attribute(a)
-				if value < PawnFactory.ROLL_FLOOR:
-					under_floor.append("%s %s=%d seed %d" % [class_id, CG.attribute_name(a), value, s])
-				if value > base + PawnFactory.ROLL_SPREAD:
-					over_spread.append("%s %s=%d base %d seed %d" % [class_id, CG.attribute_name(a), value, base, s])
-				seen_low = seen_low or value == base - PawnFactory.ROLL_SPREAD
-				seen_high = seen_high or value == base + PawnFactory.ROLL_SPREAD
-	assert_eq(under_floor, [], "rolls fell under the floor")
-	assert_eq(over_spread, [], "rolls went over base plus spread")
-	assert_true(seen_low and seen_high, "1000 rolls never reached either end of the spread")
+				total += pawn.attribute(a)
+			if absi(total - expected) > PawnFactory.POOL_JITTER:
+				over.append("%s distributed %d against a pool of %d" % [class_id, total, expected])
+			sizes[total] = true
+		assert_true(sizes.size() > 1, "%s's pool is exactly fixed; 'roughly' was lost" % class_id)
+	assert_eq(over, [], "a pool went outside its jitter")
+
+
+## Every point lands somewhere, so a pool is distributed rather than partly
+## discarded. This is what makes two pawns worth about the same.
+func test_no_point_is_lost_between_the_pool_and_the_pawn() -> void:
+	var bad := []
+	for class_id in Registry.all_class_ids():
+		for s in 50:
+			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+			var total := 0
+			for a in PawnFactory.ROLLED_ATTRIBUTES:
+				var v := pawn.attribute(a)
+				if v < 0:
+					bad.append("%s %s negative" % [class_id, CG.attribute_name(a)])
+				total += v
+			if total <= 0:
+				bad.append("%s distributed nothing on seed %d" % [class_id, s])
+	assert_eq(bad, [], "points went missing between the pool and the pawn")
+
+
+## The failure the weighting exists to prevent: a Warrior must not roll into a
+## caster stat line. Asserted on the mean rather than on any single pawn,
+## because a multinomial has a tail and "never" is not a property it has; the
+## per-sample misreads are printed instead. Issue 485 carries the reasoning.
+func test_a_rolled_pawn_reads_as_its_class_on_average() -> void:
+	var confusions := {}
+	var failures := []
+	for class_id in Registry.all_class_ids():
+		var own := _mean_distance(class_id, class_id)
+		for other in Registry.all_class_ids():
+			if other == class_id:
+				continue
+			var to_other := _mean_distance(class_id, other)
+			if own >= to_other:
+				failures.append("%s sits %.1f from itself and %.1f from %s" % [class_id, own, to_other, other])
+		for s in 120:
+			var nearest := _nearest_class(PawnFactory.make_rolled_pawn(class_id, &"p", "p", s))
+			if nearest != class_id:
+				confusions[[class_id, nearest]] = int(confusions.get([class_id, nearest], 0)) + 1
+	print("nearest-class misreads out of 120 a class: %s" % [confusions])
+	assert_eq(failures, [], "a class's rolled pawns are nearer another class's baseline on average")
+
+
+## And the hard version of the same thing: the attribute a class attacks with
+## can never reach zero, because a pawn that deals no damage is not a pawn.
+## `Balance.attack_power` picks it off method and style.
+func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
+	var zeroed := []
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		var attack_attr := _attack_attribute(cls)
+		for s in 300:
+			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+			if pawn.attribute(attack_attr) <= 0:
+				zeroed.append("%s %s on seed %d" % [class_id, CG.attribute_name(attack_attr), s])
+	assert_eq(zeroed, [], "a class rolled the attribute it attacks with to zero")
+
+
+## Issue 484's asymmetry, re-measured under the new shape rather than assumed
+## to have gone. A stat a class is not weighted toward should sit near its
+## baseline, not drift above it.
+func test_a_low_attribute_no_longer_drifts_upward() -> void:
+	var worst := 0.0
+	var worst_name := ""
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		var sums := {}
+		for s in 300:
+			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+			for a in PawnFactory.ROLLED_ATTRIBUTES:
+				sums[a] = float(sums.get(a, 0.0)) + float(pawn.attribute(a))
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			var mean := float(sums[a]) / 300.0
+			var drift: float = mean - float(cls.attribute(a))
+			if absf(drift) > absf(worst):
+				worst = drift
+				worst_name = "%s %s base %d mean %.2f" % [class_id, CG.attribute_name(a), cls.attribute(a), mean]
+	print("largest mean drift from baseline: %+.2f (%s)" % [worst, worst_name])
+	assert_true(absf(worst) < 0.5, "an attribute drifts %+.2f from its baseline: %s" % [worst, worst_name])
+
+
+func _attack_attribute(cls: ClassDef) -> CG.Attribute:
+	if cls.method == CG.Method.MAGICAL:
+		return CG.Attribute.INT
+	return CG.Attribute.STR if cls.style == CG.Style.MELEE else CG.Attribute.DEX
+
+func _nearest_class(pawn: PawnData) -> StringName:
+	var best := &""
+	var best_d := 1 << 30
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		var d := 0
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			d += absi(pawn.attribute(a) - cls.attribute(a))
+		if d < best_d:
+			best_d = d
+			best = class_id
+	return best
+
+func _class_distance(a_id: StringName, b_id: StringName) -> int:
+	var a := Registry.get_class_def(a_id)
+	var b := Registry.get_class_def(b_id)
+	var d := 0
+	for attr in PawnFactory.ROLLED_ATTRIBUTES:
+		d += absi(a.attribute(attr) - b.attribute(attr))
+	return d
 
 
 ## The roll goes in `attribute_bonus` rather than onto the class, so the class
@@ -127,3 +228,13 @@ func test_a_rolled_pawn_still_starts_in_gear_it_is_allowed_to_wear() -> void:
 func _all_attributes() -> Array:
 	return [CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
 		CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS]
+
+## Mean L1 distance from `class_id`'s rolled pawns to `against`'s baseline.
+func _mean_distance(class_id: StringName, against: StringName) -> float:
+	var target := Registry.get_class_def(against)
+	var total := 0
+	for s in 120:
+		var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			total += absi(pawn.attribute(a) - target.attribute(a))
+	return float(total) / 120.0

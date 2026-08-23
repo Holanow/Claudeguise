@@ -86,6 +86,40 @@ func _chips() -> Array[String]:
 			out.append("%s [%s]" % [n.text, rolled])
 	return out
 
+## Scroll the attribute chips into view before capturing.
+##
+## Without this the picture is inert evidence: the chips sit below the fold, so
+## the PNG came out byte-identical across two completely different stat lines
+## and would have been cited as proof of them. `ensure_control_visible` aims at
+## the chip itself rather than scrolling to the bottom, which overshot it.
+func _scroll_to_attributes() -> void:
+	var chip := _wis_chip()
+	if chip == null:
+		_fail("no WIS chip to scroll to")
+		return
+	var box := chip.get_parent()
+	while box != null and not (box is ScrollContainer):
+		box = box.get_parent()
+	if box == null:
+		_fail("the attribute chips are in no ScrollContainer")
+		return
+	(box as ScrollContainer).ensure_control_visible(chip)
+	await _settle()
+	if not _inside(box as ScrollContainer, chip):
+		_fail("the chips are still off screen, so the capture shows nothing")
+
+func _wis_chip() -> Control:
+	for n in _walk(_main):
+		if n is Label and n.is_visible_in_tree() and n.text.begins_with("WIS ") 				and n.text.split(" ")[1].is_valid_int():
+			return n
+	return null
+
+## Clipped-out content still intersects the window rect, so the test has to be
+## against the scrolling viewport rather than against the screen.
+func _inside(box: ScrollContainer, c: Control) -> bool:
+	var view := Rect2(box.global_position, box.size)
+	return view.encloses(Rect2(c.global_position, c.size))
+
 func _report(tag: String) -> Array[String]:
 	var chips := _chips()
 	print("RolledStatShot: %s -> %s" % [tag, chips])
@@ -108,6 +142,7 @@ func _run() -> void:
 	if not _focus_class(&"warrior"):
 		return
 	await _settle()
+	await _scroll_to_attributes()
 	var first := _report("seed 0000000A")
 	await _shot("finch_131_rolled_seed_a")
 
@@ -117,6 +152,7 @@ func _run() -> void:
 	if not _focus_class(&"warrior"):
 		return
 	await _settle()
+	await _scroll_to_attributes()
 	var second := _report("seed 0000000B")
 	await _shot("finch_131_rolled_seed_b")
 	if not first.is_empty() and first == second:
@@ -129,6 +165,7 @@ func _run() -> void:
 	if not _focus_class(&"warrior"):
 		return
 	await _settle()
+	await _scroll_to_attributes()
 	var again := _report("seed 0000000A again")
 	if again != first:
 		_fail("retyping a seed did not reproduce its roster")

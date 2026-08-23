@@ -92,7 +92,7 @@ func test_every_class_can_equip_at_least_one_weapon() -> void:
 		var can_equip_something := false
 		for item_id in Registry.all_equipment_ids():
 			var item := Registry.get_equipment(item_id)
-			if item.slot == EquipmentDef.Slot.WEAPON and item.allows(c.method):
+			if item.slot == EquipmentDef.Slot.WEAPON and item.allows_class(c):
 				can_equip_something = true
 				break
-		assert_true(can_equip_something, "%s (method %s) has no weapon it is allowed to equip" % [class_id, CG.Method.keys()[c.method]])
+		assert_true(can_equip_something, "%s (tags %s) has no weapon it is allowed to equip" % [class_id, c.tags()])
