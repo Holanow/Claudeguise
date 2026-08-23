@@ -217,6 +217,9 @@ static func _broadcast_taunt(state: CombatState, taunter: CombatUnit, ticks: int
 	for victim in state.living(_enemy_team(taunter.team)):
 		if taunter.position.distance_to(victim.position) > taunter.taunt_radius:
 			continue
+		## Two taunters split a party instead of both piling onto one pawn.
+		## Issue 309: dormant in today's content, which spawns one Brute per
+		## room and allows one Warrior per party, so no side ever fields two.
 		if _compelling_taunter(state, victim) != null:
 			continue
 		victim.statuses[CG.Status.TAUNTED] = state.tick + ticks
