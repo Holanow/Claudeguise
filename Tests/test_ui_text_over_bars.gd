@@ -59,8 +59,7 @@ func test_a_plate_lands_on_another_units_bars() -> void:
 ## drawn after everything that draws a bar. Order is child order -- nothing in
 ## this project sets z_index.
 func test_arena_text_is_drawn_after_every_unit() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _scrum()
 	view.event_cursor = 0
 	view._rebuild_units()
@@ -73,13 +72,11 @@ func test_arena_text_is_drawn_after_every_unit() -> void:
 	for id in view._unit_views:
 		assert_eq(view._unit_views[id].get_parent(), view._unit_layer,
 			"unit %s is not in the layer under the names" % id)
-	view.free()
 
 ## A summon's view is added mid-fight, after the layer already exists. That is
 ## exactly the case that reintroduces the defect if nothing lifts the layer.
 func test_a_unit_added_mid_fight_still_draws_under_the_text() -> void:
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _scrum()
 	view.event_cursor = 0
 	view._rebuild_units()
@@ -89,14 +86,12 @@ func test_a_unit_added_mid_fight_still_draws_under_the_text() -> void:
 
 	assert_eq(view._unit_views[9].get_parent(), view._unit_layer,
 		"a summon's view was added over the names")
-	view.free()
 
 ## A death marker is added to the arena after both layers, so it is over every
 ## body and every name -- which is the half of #321 the playtester photographed.
 func test_a_death_marker_is_drawn_above_the_bars() -> void:
 	DisplayOptions.reset()
-	var view = BattleScene.instantiate()
-	view._ready()
+	var view = in_tree(BattleScene.instantiate())
 	view.state = _scrum()
 	view.event_cursor = 0
 	view._rebuild_units()
@@ -115,4 +110,3 @@ func test_a_death_marker_is_drawn_above_the_bars() -> void:
 					> arena.get_children().find(view._text_layer),
 				"a death marker must be drawn over the bars, not under them")
 	assert_eq(markers, 1, "the death event drew no marker")
-	view.free()
