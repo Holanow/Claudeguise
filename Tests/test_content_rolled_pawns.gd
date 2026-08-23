@@ -72,24 +72,83 @@ func test_a_class_roll_does_not_depend_on_the_other_classes() -> void:
 		"the Warrior's roll moved when other classes were built around it")
 
 
-## Issue 485: the pool is roughly the class's own total, not exactly it. The
-## player asked for "roughly the same size", so exactness would be the defect.
-func test_the_pool_is_roughly_but_not_exactly_the_class_total() -> void:
+## Issue 485, second ruling: **the pool is the same size for every class.**
+## Classes differ in where the points land, not in how many they get.
+func test_the_pool_is_the_same_size_for_every_class() -> void:
 	var over := []
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
-		var expected := PawnFactory.pool_size(cls)
 		var sizes := {}
 		for s in 200:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			var total := 0
 			for a in PawnFactory.ROLLED_ATTRIBUTES:
 				total += pawn.attribute(a)
-			if absi(total - expected) > PawnFactory.POOL_JITTER:
-				over.append("%s distributed %d against a pool of %d" % [class_id, total, expected])
+			if absi(total - PawnFactory.POOL_SIZE) > PawnFactory.POOL_JITTER:
+				over.append("%s distributed %d against a pool of %d" % [class_id, total, PawnFactory.POOL_SIZE])
 			sizes[total] = true
 		assert_true(sizes.size() > 1, "%s's pool is exactly fixed; 'roughly' was lost" % class_id)
 	assert_eq(over, [], "a pool went outside its jitter")
+
+
+## The constant is the mean of the roster it was derived from, and a sixth
+## class must not silently move every existing pawn. This fires if it does.
+func test_the_pool_size_still_resembles_the_roster_it_came_from() -> void:
+	var total := 0
+	for class_id in Registry.all_class_ids():
+		total += PawnFactory.class_total(Registry.get_class_def(class_id))
+	var mean := float(total) / float(Registry.all_class_ids().size())
+	print("POOL_SIZE %d against a roster mean of %.1f" % [PawnFactory.POOL_SIZE, mean])
+	assert_true(absf(mean - float(PawnFactory.POOL_SIZE)) <= 2.0,
+		"POOL_SIZE %d has drifted from the roster mean %.1f" % [PawnFactory.POOL_SIZE, mean])
+
+
+## Floors are per class and not necessarily 1, per the ruling. A blanket floor
+## would show up here as every class declaring the same thing.
+func test_floors_are_per_class_and_are_not_all_one() -> void:
+	var declared := {}
+	var seen_zero := false
+	var seen_high := false
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		var floors := []
+		for a in PawnFactory.ROLLED_ATTRIBUTES:
+			var f := PawnFactory.attribute_floor(cls, a)
+			floors.append(f)
+			seen_zero = seen_zero or f == 0
+			seen_high = seen_high or f >= 4
+		declared[class_id] = floors
+		print("%-14s floors %s costing %d of %d" % [
+			String(class_id), floors, PawnFactory.floor_cost(cls), PawnFactory.POOL_SIZE])
+	assert_true(seen_zero, "no class may be genuinely incapable of anything")
+	assert_true(seen_high, "no class defends anything; every floor is nominal")
+	assert_true(declared[&"warrior"] != declared[&"priest"], "two classes declare identical floors")
+
+
+## Floors come out of a levelled pool, so a class with high floors has less
+## free budget. Stated as a test so it is visible rather than discovered.
+func test_high_floors_buy_less_free_budget() -> void:
+	var free := {}
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		free[class_id] = PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls)
+		assert_true(free[class_id] > 0, "%s's floors consume its whole pool" % class_id)
+	print("free points after floors: %s" % [free])
+	assert_true(free[&"abomination"] < free[&"priest"],
+		"the Abomination floors highest and should have the least left to place")
+
+
+func test_no_pawn_ever_falls_below_its_class_floor() -> void:
+	var under := []
+	for class_id in Registry.all_class_ids():
+		var cls := Registry.get_class_def(class_id)
+		for s in 300:
+			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
+			for a in PawnFactory.ROLLED_ATTRIBUTES:
+				if pawn.attribute(a) < PawnFactory.attribute_floor(cls, a):
+					under.append("%s %s=%d floor %d seed %d" % [
+						class_id, CG.attribute_name(a), pawn.attribute(a),
+						PawnFactory.attribute_floor(cls, a), s])
+	assert_eq(under, [], "a pawn rolled under its class floor")
 
 
 ## Every point lands somewhere, so a pool is distributed rather than partly
@@ -148,27 +207,34 @@ func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
 	assert_eq(zeroed, [], "a class rolled the attribute it attacks with to zero")
 
 
-## Issue 484's asymmetry, re-measured under the new shape rather than assumed
-## to have gone. A stat a class is not weighted toward should sit near its
-## baseline, not drift above it.
-func test_a_low_attribute_no_longer_drifts_upward() -> void:
+## Issue 484's asymmetry, re-checked against the floors rather than assumed
+## gone. **Measured against the distribution's own expectation, not against the
+## class baseline**: the baseline is no longer the target now that the pool is
+## levelled, and #484 was about the *floor* biasing the mean, which this
+## isolates. Floors are pre-allocated rather than clamped, so the free points
+## should be unbiased; that is the claim under test.
+func test_the_floors_do_not_bias_the_free_points() -> void:
 	var worst := 0.0
 	var worst_name := ""
 	for class_id in Registry.all_class_ids():
 		var cls := Registry.get_class_def(class_id)
+		var free := float(PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls))
+		var weight_total := float(PawnFactory.class_total(cls))
 		var sums := {}
-		for s in 300:
+		for s in 500:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			for a in PawnFactory.ROLLED_ATTRIBUTES:
 				sums[a] = float(sums.get(a, 0.0)) + float(pawn.attribute(a))
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
-			var mean := float(sums[a]) / 300.0
-			var drift: float = mean - float(cls.attribute(a))
+			var mean := float(sums[a]) / 500.0
+			var expected := float(PawnFactory.attribute_floor(cls, a)) 				+ free * float(cls.attribute(a)) / maxf(1.0, weight_total)
+			var drift := mean - expected
 			if absf(drift) > absf(worst):
 				worst = drift
-				worst_name = "%s %s base %d mean %.2f" % [class_id, CG.attribute_name(a), cls.attribute(a), mean]
-	print("largest mean drift from baseline: %+.2f (%s)" % [worst, worst_name])
-	assert_true(absf(worst) < 0.5, "an attribute drifts %+.2f from its baseline: %s" % [worst, worst_name])
+				worst_name = "%s %s expected %.2f mean %.2f" % [class_id, CG.attribute_name(a), expected, mean]
+	print("largest drift from the distribution's own expectation: %+.2f (%s)" % [worst, worst_name])
+	assert_true(absf(worst) < 0.5,
+		"the floors bias an attribute by %+.2f: %s" % [worst, worst_name])
 
 
 func _attack_attribute(cls: ClassDef) -> CG.Attribute:
