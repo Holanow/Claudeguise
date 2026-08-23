@@ -7,6 +7,7 @@ const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 const DeployViewScript := preload("res://Scripts/UI/DeployView.gd")
+const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
 
 ## Draws one fight and steps it. Reads CombatState and CombatEvent only; it
 ## never asks the simulation to do anything except step.
@@ -29,6 +30,8 @@ var _placements: Array[Vector2] = []
 ## The room WITHOUT the player's placement, so Reset has something to go back to.
 var _base_encounter = null
 var _deploy_band: Node2D = null
+var _unit_layer: Node2D = null
+var _text_layer: Node2D = null
 var _setup_hint: Label = null
 var _reset_button: Button = null
 
@@ -876,6 +879,8 @@ func _apply_placements(positions: Array[Vector2]) -> void:
 		i += 1
 	for id in _unit_views:
 		_unit_views[id].sync(state)
+	if _text_layer != null:
+		_text_layer.sync(state)
 	if _arena != null:
 		_arena.units = state.units
 		_arena.queue_redraw()
@@ -950,6 +955,10 @@ func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
+	_unit_layer = Node2D.new()
+	_arena.add_child(_unit_layer)
+	_text_layer = ArenaTextLayerScript.new()
+	_arena.add_child(_text_layer)
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
@@ -967,9 +976,16 @@ func _ensure_unit_views() -> void:
 			continue
 		var view := Node2D.new()
 		view.set_script(UnitViewScript)
-		_arena.add_child(view)
+		_bodies().add_child(view)
 		view.bind(state, u.id)
 		_unit_views[u.id] = view
+	if _text_layer != null:
+		_text_layer.sync(state)
+
+## Issue 321: every body and every bar goes in one layer under the names, so a
+## summon added mid-fight cannot be drawn over a plate that was already up.
+func _bodies() -> Node2D:
+	return _unit_layer if _unit_layer != null else _arena
 
 ## Spends wall-clock delta in whole ticks. Frame rate must not change how fast
 ## the fight plays: a slow frame catches up by stepping several ticks at once
@@ -994,6 +1010,7 @@ func _process(delta: float) -> void:
 	consume_events()
 	for id in _unit_views:
 		_unit_views[id].sync(state)
+	_text_layer.sync(state)
 	_arena.projectiles = state.projectiles
 	_arena.units = state.units
 	_arena.queue_redraw()
