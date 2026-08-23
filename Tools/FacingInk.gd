@@ -32,6 +32,8 @@ func _process(_delta: float) -> void:
 	if not _drawn:
 		return
 	set_process(false)
+	if not Offscreen.require_renderer(self):
+		return
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	print("FacingInk: inked columns, origin marked O. right-facing at x=%d, left-facing at x=%d" % [

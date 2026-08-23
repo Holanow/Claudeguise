@@ -19,6 +19,8 @@ var _main: Node
 var _res_tag: String = ""
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	var size := DisplayServer.window_get_size()
 	_res_tag = "%dx%d" % [int(size.x), int(size.y)]
 	await _run()

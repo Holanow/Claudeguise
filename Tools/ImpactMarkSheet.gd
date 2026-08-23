@@ -30,6 +30,8 @@ var _scale := 1.0
 var _page := 0
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	var layout := BattleView.compute_layout(Vector2(1280.0, 720.0))
 	_scale = layout["scale"].x
 	# The window is DPI-scaled on this machine: a --resolution of 1500x1300

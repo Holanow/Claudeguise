@@ -22,6 +22,8 @@ var _font: Font = null
 var _border_tex: Texture2D = null
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	# Printed, not assumed. The project uses a canvas_items stretch with a design
 	# width, so `--resolution 1500x1340` does NOT give a 1500-wide drawing space:
 	print("UIArtPreview: logical viewport is ", get_viewport_rect().size)

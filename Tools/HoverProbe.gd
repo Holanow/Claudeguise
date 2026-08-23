@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 ## Issue 449. Hovers with real `InputEventMouseMotion` pushed through Godot's own
 ## picking, the way `Tools/UnitClickProbe.gd` clicks.
@@ -14,6 +14,8 @@ var _tag := ""
 var _failures := 0
 
 func _ready() -> void:
+	if not Offscreen.require_renderer(self):
+		return
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("HoverProbe: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
