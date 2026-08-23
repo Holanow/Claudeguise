@@ -223,7 +223,7 @@ func _draw() -> void:
 
 	_draw_concentration_badge(u, radius)
 
-	# The wind-up bar, the badge row and the OOM tag hang under the body, so a
+	# The wind-up bar and the badge row hang under the body, so a
 	# unit on the bottom edge drew them past the border (issue 378). The block
 	# is measured first and lifted as one, rather than the body moving whenever
 	# a status lands.
@@ -513,7 +513,7 @@ func _has_active_projectile(u: CombatUnit) -> bool:
 ## "is this unit under fire from more than one thing at once", which issue 15
 ## found was completely invisible: a scrum of three attackers on one pawn
 ## looked identical to three attackers merely standing near it. Split out for
-## testing without a live canvas, same reasoning as status_tags.
+## testing without a live canvas, same reasoning as status_badges.
 static func concentration_count(u: CombatUnit, units: Array) -> int:
 	var count := 0
 	for other in units:
@@ -600,7 +600,7 @@ func _wind_up_damage_type(u: CombatUnit) -> int:
 ## Everything drawn under the body, as one height. Each part is measured by
 ## the same function that draws it, so the two cannot drift.
 static func below_block_height(u: CombatUnit, radius: float) -> float:
-	return wind_up_height(u, radius) + status_badge_row_height(u, radius) + status_tag_height(u)
+	return wind_up_height(u, radius) + status_badge_row_height(u, radius)
 
 static func wind_up_height(u: CombatUnit, radius: float) -> float:
 	if u.action_ticks_left <= 0 or u.current_action == &"":
@@ -611,13 +611,6 @@ static func status_badge_row_height(u: CombatUnit, radius: float) -> float:
 	if status_badges(u).is_empty() and hidden_status_count(u) == 0:
 		return 0.0
 	return STATUS_BADGE_TOP_GAP + status_badge_size(shape_id(u), u.team, radius)
-
-## The tag's baseline sits 14 under the block above it and its chip reaches
-## one vertical pad below that baseline.
-static func status_tag_height(u: CombatUnit) -> float:
-	if status_tags(u).is_empty():
-		return 0.0
-	return 18.0 * DISPLAY_SCALE
 
 ## Silent when nothing is winding up. How much room it takes is
 ## `wind_up_height`, which `below_block_rects` reads to stack the badges under it.
@@ -659,7 +652,7 @@ const STATUS_BADGE_TOP_GAP := 6.0 * DISPLAY_SCALE
 const MAX_STATUS_BADGES := 2
 
 ## Which badges this unit gets, in draw order. Split out from the drawing for
-## the same reason status_tags is: Godot refuses draw_* outside _draw(), so a
+## the same reason status_badges is: Godot refuses draw_* outside _draw(), so a
 ## test that can only call the drawing wrapper logs errors and asserts nothing.
 static func status_badges(u: CombatUnit) -> Array:
 	var all := ordered_statuses(u)
@@ -738,6 +731,7 @@ static func below_block_rects(u: CombatUnit, units: Array) -> Array:
 		if hidden > 0:
 			out.append({"kind": &"overflow", "rect": rects[slots - 1], "count": hidden})
 	top += status_badge_row_height(u, radius)
+<<<<<<< HEAD
 
 	var tags := status_tags(u)
 	if not tags.is_empty():
@@ -752,6 +746,8 @@ static func below_block_rects(u: CombatUnit, units: Array) -> Array:
 			"rect": Rect2(at + Vector2(-text_size.x * 0.5 - pad.x, baseline - text_size.y),
 				text_size + pad * 2.0),
 		})
+=======
+>>>>>>> main
 	return out
 
 ## How far off a mark a pointer may be and still hit it. A badge is 20 arena
@@ -779,8 +775,11 @@ func _draw_below_block(u: CombatUnit) -> void:
 				StatusIcons.draw_status(self, entry["status"], rect)
 			&"overflow":
 				_draw_overflow_chip(rect, int(entry["count"]))
+<<<<<<< HEAD
 			&"oom":
 				draw_label_chip(self, rect.position, String(entry["text"]), Palette.HP_LOW, label_font_size())
+=======
+>>>>>>> main
 
 ## Deliberately not a glyph. Every plate in `StatusIcons` means "this specific
 ## status is on this unit", and a plate meaning "there are more" would be the
@@ -806,16 +805,8 @@ static func draw_label_chip(ci: CanvasItem, at: Vector2, text: String, color: Co
 	ci.draw_string(ThemeDB.fallback_font, at + Vector2(pad.x, text_size.y), text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
-## Split out for testing, same reasoning as status_tags below: the part of
+## Split out for testing, same reasoning as status_badges below: the part of
 ## the wind-up draw call that is pure arithmetic rather than a draw_* call.
 static func wind_up_elapsed_ticks(u: CombatUnit) -> int:
 	return u.action_ticks_total - u.action_ticks_left
 
-## Split out from _draw_status_tags so it can be tested without a live canvas:
-## Godot refuses draw_* calls outside _draw(), so a test that calls a drawing
-## function directly logs errors and asserts nothing.
-static func status_tags(u: CombatUnit) -> Array[String]:
-	var tags: Array[String] = []
-	if u.resource_max > 0 and u.resource <= 0:
-		tags.append("OOM")
-	return tags

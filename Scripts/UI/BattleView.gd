@@ -1281,11 +1281,9 @@ static func plans_prompt(state: CombatState) -> String:
 		return "None of your pawns has a plan, so each one fought on its own default. Press Plans to write one."
 	return "%d of your pawns had no plan and fought on their defaults. Press Plans to write one." % planless
 
-## Issue 218. **The banner used to contradict the line under it**: a fight where
-## every pawn died and the siege engines finished the room off printed "Victory"
+## Issue 445: the simulation now ends the fight when the last pawn dies, so the
+## banner reads straight off the outcome and cannot contradict the line under it.
 static func outcome_word(state: CombatState) -> String:
-	if CombatSim.is_pawnless_win(state):
-		return "Defeat"
 	match state.outcome:
 		CombatState.Outcome.PLAYER_WIN:
 			return "Victory"

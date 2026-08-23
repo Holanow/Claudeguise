@@ -159,53 +159,14 @@ func _make_pawn_unit(id: int, hp: int, alive: bool) -> CombatUnit:
 	u.pawn = PawnData.new()
 	return u
 
-## **Reproduced before it was fixed, and it is the whole issue**: the banner
-## printed "Victory" and the line directly under it printed "None of your party
-## survived." One fight, two sentences, in the same box.
-func test_a_win_with_every_pawn_dead_reads_as_a_defeat() -> void:
-	var view = _spawn()
-	var state := CombatState.new(0)
-	state.tick = 90
-	state.outcome = CombatState.Outcome.PLAYER_WIN
-	state.units.append(_make_pawn_unit(0, 0, false))
-	state.units.append(_make_pawn_unit(1, 0, false))
-	var summon := _make_unit(2, CG.Team.PLAYER, 8, 10)
-	summon.enemy_id = &"siege_engine"
-	state.units.append(summon)
-	view.state = state
-	view._show_outcome()
-	assert_eq(view._end_outcome_label.text, "Defeat",
-		"the party is gone and the engines finished the room; the banner still called it a win")
-	assert_true(view._end_cost_label.text.contains("None of your pawns survived."),
-		"the two halves of the banner must agree: %s" % view._end_cost_label.text)
-	assert_eq(view._end_outcome_label.get_theme_color("font_color"), Palette.TEAM_ENEMY,
-		"a Defeat drawn in the player's own colour is the contradiction in a second costume")
-	assert_true(view._outcome_label.text.begins_with("Defeat"),
-		"the top bar and the banner must not disagree either: %s" % view._outcome_label.text)
-	view.free()
-
-## The instrument check. If an ordinary win also read as a Defeat, the assertion
-## above would be measuring nothing.
+## Issue 445 removed the pawnless-win branch: the simulation ends the fight when
+## the last pawn dies, so the banner reads straight off the outcome.
 func test_a_win_with_a_pawn_still_standing_is_still_a_victory() -> void:
 	var view = _spawn()
 	var state := CombatState.new(0)
 	state.outcome = CombatState.Outcome.PLAYER_WIN
 	state.units.append(_make_pawn_unit(0, 0, false))
 	state.units.append(_make_pawn_unit(1, 3, true))
-	view.state = state
-	view._show_outcome()
-	assert_eq(view._end_outcome_label.text, "Victory")
-	view.free()
-
-## The level editor can build a fight with no party at all. Every pawn being
-## dead must mean pawns existed, or that fight reports Defeat on every win.
-func test_a_fight_with_no_pawns_at_all_is_not_a_pawnless_defeat() -> void:
-	var view = _spawn()
-	var state := CombatState.new(0)
-	state.outcome = CombatState.Outcome.PLAYER_WIN
-	var summon := _make_unit(0, CG.Team.PLAYER, 8, 10)
-	summon.enemy_id = &"siege_engine"
-	state.units.append(summon)
 	view.state = state
 	view._show_outcome()
 	assert_eq(view._end_outcome_label.text, "Victory")

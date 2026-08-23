@@ -143,6 +143,4 @@ func _mark_text(u: CombatUnit, mark: Dictionary) -> Dictionary:
 		&"overflow":
 			return {"title": "%d more on %s" % [int(mark["count"]), u.display_name],
 				"body": Glossary.hidden_statuses_text(state, u)}
-		&"oom":
-			return {"title": "%s is out" % u.display_name, "body": Glossary.oom_text(u)}
 	return {}

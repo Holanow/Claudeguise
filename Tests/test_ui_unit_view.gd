@@ -66,39 +66,15 @@ func test_display_radius_does_not_mutate_the_units_own_radius() -> void:
 	UnitView.display_radius(u)
 	assert_eq(u.radius, 22.0, "display scaling must never touch the simulation's own radius")
 
-func test_status_tags_are_empty_for_an_unaffected_unit() -> void:
-	var u := _make_unit(0, Vector2.ZERO)
-	assert_true(UnitView.status_tags(u).is_empty())
 
-## Was test_status_tags_names_a_stun. STUN is a CG.Status and now draws as a
-## badge, so the assertion moved rather than being deleted: the fact still has
-## to hold, it is just carried by a different channel.
+## STUN is a CG.Status and draws as a badge.
 func test_a_stun_shows_as_a_badge_and_not_as_text_as_well() -> void:
 	var u := _make_unit(0, Vector2.ZERO)
 	u.statuses[CG.Status.STUN] = 100
 	assert_eq(UnitView.status_badges(u), [CG.Status.STUN])
-	assert_true(UnitView.status_tags(u).is_empty(), "a status must not be drawn twice")
 
-func test_status_tags_names_being_out_of_resource() -> void:
-	var u := _make_unit(0, Vector2.ZERO)
-	u.resource_max = 10
-	u.resource = 0
-	assert_eq(UnitView.status_tags(u), ["OOM"])
 
-func test_status_tags_does_not_flag_a_unit_with_no_resource_pool() -> void:
-	# resource_max == 0 means "this unit has no resource", not "empty resource".
-	var u := _make_unit(0, Vector2.ZERO)
-	u.resource_max = 0
-	u.resource = 0
-	assert_true(UnitView.status_tags(u).is_empty())
 
-func test_a_stunned_and_out_of_resource_unit_shows_both_in_their_own_channel() -> void:
-	var u := _make_unit(0, Vector2.ZERO)
-	u.statuses[CG.Status.STUN] = 100
-	u.resource_max = 10
-	u.resource = 0
-	assert_eq(UnitView.status_badges(u), [CG.Status.STUN])
-	assert_eq(UnitView.status_tags(u), ["OOM"])
 
 # ---------------------------------------------------------------------------
 # Status badges (PLAYTEST-NOTES-2 item 2, drawn with sable's StatusIcons)

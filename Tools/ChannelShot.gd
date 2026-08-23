@@ -4,9 +4,11 @@ extends Node
 ## in a real fight.
 
 const OUT_DIR := "res://Screenshots"
+const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 var _main: Node
 var _res_tag: String = ""
+var _failed := false
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -16,7 +18,13 @@ func _ready() -> void:
 	var size := DisplayServer.window_get_size()
 	_res_tag = "%dx%d" % [int(size.x), int(size.y)]
 	await _run()
-	get_tree().quit(0)
+	get_tree().quit(3 if _failed else 0)
+
+## A capture tool that returns early on a failed step reports an absence as a
+## result, so a skipped capture fails the run (#371).
+func _fail(msg: String) -> void:
+	_failed = true
+	printerr("ChannelShot: %s" % msg)
 
 func _settle(frames: int = 4) -> void:
 	for i in frames:
@@ -93,15 +101,22 @@ func _run() -> void:
 	add_child(_main)
 	await _settle()
 
+	## Since #399 a starter pawn carries no plan rows, so the Priest never held a
+	## Channel and both of this tool's "nothing happened" lines were its own
+	## blindness rather than a finding (#417).
+	if not ScreenSweepScript.add_presets(_main):
+		_fail("no PartySelect to add preset plans to")
+		return
+
 	var select := _panel("PartySelect.gd")
 	if select == null:
-		print("ChannelShot: the landing screen is not PartySelect")
+		_fail("the landing screen is not PartySelect")
 		return
 	# The Priest, picked and focused through the same calls a card click makes.
 	var cards := _party_cards()
 	var priest_card := _card_for(cards, &"priest")
 	if priest_card == null:
-		print("ChannelShot: no Priest card")
+		_fail("no Priest card")
 		return
 	priest_card.toggled.emit(true)
 	var picked := 1
@@ -120,7 +135,7 @@ func _run() -> void:
 		_press_named("start fight")
 		await _settle()
 	if _current_screen_name() != "Battle":
-		print("ChannelShot: did not reach Battle, got '%s'" % _current_screen_name())
+		_fail("did not reach Battle, got '%s'" % _current_screen_name())
 		return
 	# The full plan screen, where a row is wide enough to read. The embedded
 	# panel on PartySelect truncates every picker to two characters.
@@ -128,7 +143,7 @@ func _run() -> void:
 	await _settle(8)
 	var picker := _channel_picker()
 	if picker == null:
-		print("ChannelShot: no row on the plan screen says Channel")
+		_fail("no row on the plan screen says Channel")
 	else:
 		await _reveal(picker)
 		print("ChannelShot: a Priest row reads '%s'" % picker.get_item_text(picker.selected))
@@ -147,7 +162,7 @@ func _run() -> void:
 			print("ChannelShot: %s is Channelling at tick %d, %d ticks left" % [
 				caster.display_name, battle.state.tick, caster.action_ticks_left])
 			return
-	print("ChannelShot: nobody Channelled before the fight ended (tick %d)" % battle.state.tick)
+	_fail("nobody Channelled before the fight ended (tick %d)" % battle.state.tick)
 
 ## True while the battle screen is held before its first tick with the party
 ## draggable, which is where "Start Fight" means "begin" rather than "place".

@@ -54,9 +54,12 @@ func _process(_delta: float) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(SHOTS[_i]["out"])
 	print("wrote ", SHOTS[_i]["out"], " at tick ", _battle.state.tick)
-	_busy = false
 	_i += 1
-	if _i < SHOTS.size():
-		_start()
+	## `quit()` takes effect at the end of the frame, so `_process` runs again
+	## after it: `_busy` stays true past the last shot or line 51 indexes off
+	## the end of SHOTS and the tool throws on its way out (#426).
+	if _i >= SHOTS.size():
+		get_tree().quit(0)
 		return
-	get_tree().quit(0)
+	_busy = false
+	_start()

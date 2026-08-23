@@ -173,7 +173,7 @@ func _run() -> void:
 	battle.set_paused(true)
 	## Two of the issue's five complaints are about marks a fifteen-second fight
 	## does not reliably produce: the "+N" chip needs three statuses at once and
-	## the OOM tag needs a caster to run dry. Forced onto one pawn rather than
+	## a dry caster is forced onto one pawn rather than
 	## waited for -- this is a view probe, and a screenshot of a state nobody can
 	## reproduce is worth less than one of a state that was arranged on purpose.
 	badge_unit = _force_marks(battle.state)
@@ -219,8 +219,6 @@ func _run() -> void:
 					want = Glossary.status_text(mark["status"]).substr(0, 20)
 				&"overflow":
 					want = "badge row has no space"
-				&"oom":
-					want = "OOM means out of"
 			var at := _screen(battle, (mark["rect"] as Rect2).get_center())
 			var said := await _check("%s, %s mark" % [badge_unit.display_name, mark["kind"]], at, want)
 			if not shot:

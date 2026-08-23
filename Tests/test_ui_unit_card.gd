@@ -92,7 +92,7 @@ func test_the_card_names_the_unit_and_its_side() -> void:
 	assert_true(UnitCard.side_text(u).findn("party") >= 0)
 	view.free()
 
-## "OOM" was three letters of jargon pointing at a stat with no bar on screen.
+## The card says the resource in words rather than an abbreviation.
 func test_an_empty_resource_is_spelled_out_rather_than_abbreviated() -> void:
 	var view = _spawn_battle_view()
 	var u: CombatUnit = view.state.units[0]
@@ -101,7 +101,7 @@ func test_an_empty_resource_is_spelled_out_rather_than_abbreviated() -> void:
 	u.resource_kind = CG.ResourceKind.MANA
 	var text := "\n".join(UnitCard.lines(view.state, u))
 	assert_true(text.findn("mana") >= 0, "must name the resource: %s" % text)
-	assert_true(text.find("OOM") < 0, "the card explains OOM rather than repeating it")
+	assert_true(text.find("OOM") < 0, "the card must not use the old abbreviation")
 	assert_true(text.findn("0 of 80") >= 0, "must show the numbers: %s" % text)
 	view.free()
 
