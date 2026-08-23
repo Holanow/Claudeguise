@@ -200,14 +200,40 @@ static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, bloc
 	if away.length() < 0.0001:
 		away = Vector2(1.0, 0.0)
 
-	if dist < wanted - KEEP_DISTANCE_BAND:
-		return Intent.move_to(unit.position + away.normalized() * (wanted - dist), plan.id)
-	if dist > wanted + KEEP_DISTANCE_BAND:
-		return Intent.move_to(target.position + away.normalized() * wanted, plan.id)
+	## Standing on harm is not standing at the requested distance: the row
+	## promises ground that does not harm, so the band alone cannot mean arrived.
+	var arrived := absf(dist - wanted) <= KEEP_DISTANCE_BAND \
+		and not CombatSim.standing_harms(state, unit.position)
+	if not arrived:
+		var anchor = kite_anchor(state, unit, target.position, away.normalized(), wanted)
+		if anchor == null:
+			return null
+		return Intent.move_to(anchor, plan.id)
 
 	if action_id == &"" or not _action_can_fire(state, unit, action_id):
 		return Intent.idle(plan.id)
 	return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
+
+## Issue 424: the point on the band the row sends the pawn to, and it is the
+## nearest one that does not harm. Distance from the target is exactly `wanted`
+## on every bearing, so the row keeps the promise it makes; only which side of
+## the target it holds from moves. Null when the whole band burns or is walled,
+## and the row then steps aside the way `move_into_cover` does in a room with no
+## cover.
+static func kite_anchor(state: CombatState, unit: CombatUnit, centre: Vector2, bearing: Vector2, wanted: float):
+	var step := TAU / float(SAFE_GROUND_DIRECTIONS)
+	for i in SAFE_GROUND_DIRECTIONS / 2 + 1:
+		for turn in ([0.0] if i == 0 else [step * float(i), -step * float(i)]):
+			var spot := centre + bearing.rotated(turn) * wanted
+			spot = Vector2(
+				clampf(spot.x, -CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
+				clampf(spot.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT))
+			if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+				continue
+			if CombatSim.standing_harms(state, spot):
+				continue
+			return spot
+	return null
 
 ## Issue 97: who the action is aimed at, which is not always who the plan is
 ## focused on -- a self-targeted action is cast on the caster whatever the
@@ -543,7 +569,7 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "once"
 		&"keep_distance":
 			var wanted := int(args.get("range", 0.0))
-			return "close to the target" if wanted <= 0 else "hold %d units from the target" % wanted
+			return "close to the target" if wanted <= 0 else "hold %d units from the target, on ground that does not harm" % wanted
 		&"move_into_cover":
 			return "move into cover from the target"
 		&"leave_harmful_ground":
