@@ -44,6 +44,13 @@ var source_plan: StringName = &""
 ## last enemy died" and "the last enemy became furniture" look identical.
 var end_reason: CG.EndReason = CG.EndReason.UNSET
 
+## Set on TERRAIN_ADDED and TERRAIN_REMOVED. Issue 492: the view may not learn
+## about a pool by reading `state.terrain`, so the shape and the reason travel
+## on the event and the terrain is reconstructible from the stream alone.
+var terrain_kind: Terrain.Kind = Terrain.Kind.WALL
+var terrain_rect: Rect2 = Rect2()
+var terrain_change: CG.TerrainChange = CG.TerrainChange.CAST
+
 static func make(kind: CG.EventKind, tick: int) -> Self:
 	var e := Self.new()
 	e.kind = kind

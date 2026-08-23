@@ -168,6 +168,21 @@ enum EventKind {
 	INTERRUPTED,
 	## A unit was built onto the field mid-fight. Issue 193.
 	SUMMONED,
+	## Terrain appeared mid-fight. Issue 492, and the first time `terrain` is
+	## anything but the room it was authored as.
+	TERRAIN_ADDED,
+	## Terrain went away mid-fight, whole or in part.
+	TERRAIN_REMOVED,
+}
+
+## Why a piece of terrain appeared or went away. Issue 492: the log has to be
+## able to say which, because a fire going out for an invisible reason is the
+## same trap as a pawn moving for one.
+enum TerrainChange {
+	## An action laid it down.
+	CAST,
+	## Water met fire and both lost the ground they shared.
+	DOUSED,
 }
 
 static func attribute_name(a: Attribute) -> String:

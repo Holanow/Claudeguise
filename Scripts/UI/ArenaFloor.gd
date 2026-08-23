@@ -99,6 +99,14 @@ func _draw_feature(feature) -> void:
 		Terrain.Kind.PIT:
 			draw_rect(feature.rect, Palette.BACKGROUND)
 			draw_rect(feature.rect, Palette.ARENA_EDGE, false, 2.0)
+		## Issue 492. Flat and unstriped on purpose: a hazard's stripes say "do
+		## not stand here" and a pool is the one piece of ground that is safe.
+		Terrain.Kind.WATER:
+			var water := Palette.damage_color(CG.DamageType.WATER)
+			water.a = 0.45
+			draw_rect(feature.rect, water)
+			water.a = 0.90
+			draw_rect(feature.rect, water, false, 2.0)
 
 const _HAZARD_STRIPE_SPACING := 20.0
 

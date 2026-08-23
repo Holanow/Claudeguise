@@ -71,6 +71,8 @@ one, which is the same one-file operation as replacing a blip.
 | `event/sustain_start.ogg` | A unit begins holding a channelled ability. |
 | `event/sustain_end.ogg` | A unit stops holding one. |
 | `event/summoned.ogg` | A unit is built onto the field mid-fight: a siege engine, or one of the Rat King's rats. Measured at 53 across 15 fights, so treat it as frequent rather than a set piece. |
+| `event/terrain_added.ogg` | A pool of water is laid down, or a burning hazard comes back as the parts the pool did not cover. Fires several times for one spell when a fire splits, so a sound here needs to survive being heard four times in a tick. |
+| `event/terrain_removed.ogg` | Burning ground goes out under a pool. **The best candidate of the two**: it is rare, it is caused by one visible thing, and a hiss of steam is the sound a player would expect without being taught it. |
 
 ## Abilities
 

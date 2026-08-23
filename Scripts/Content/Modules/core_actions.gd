@@ -49,8 +49,8 @@ static func actions() -> Array[ActionDef]:
 		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 10 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
 
 		_restores(_projectile(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
-		_consumes(_projectile(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Against a burning target it snuffs the flames and hits far harder. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), RANGED_PROJECTILE_SPEED), CG.Status.BURN, BURN_CONSUME_POWER_SCALE),
-		_projectile(_action_status(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away, setting it alight for 6 seconds. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, CG.Status.BURN, BURN_DURATION_TICKS, true), RANGED_PROJECTILE_SPEED),
+		_consumes(_projectile(_leaves_pool(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Against a burning target it snuffs the flames and hits far harder. Leaves a large pool of water where it lands, which puts out any burning ground it touches. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), LARGE_POOL_RADIUS), RANGED_PROJECTILE_SPEED), CG.Status.BURN, BURN_CONSUME_POWER_SCALE),
+		_projectile(_leaves_pool(_action_status(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away, setting it alight for 6 seconds. Leaves a small pool of water where it lands, which puts out any burning ground it touches. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, CG.Status.BURN, BURN_DURATION_TICKS, true), SMALL_POOL_RADIUS), RANGED_PROJECTILE_SPEED),
 		_action_channel(&"channel_mana", "Channel", "Spends 3 seconds drawing back 25 Mana. Costs nothing, and a stun breaks it.", CHANNEL_WIND_UP, CHANNEL_COOLDOWN, CHANNEL_MANA),
 
 		_action_cleanse(&"geyser_cleanse", "Scour", "Boils every harmful effect off an ally within 200 units. Costs 10 Mana.", 200.0, 8, 10, 10, 60),
@@ -196,6 +196,15 @@ static func _sustained(id: StringName, display_name: String, description: String
 	a.targets_self = true
 	a.sustain_cost_per_tick = sustain_cost_per_tick
 	a.sustain_radius = sustain_radius
+	return a
+
+## Issue 492: the two pool sizes, and there is no third. Half-widths, so the
+## large pool is the splash it comes from and the small one is a quarter of it.
+const SMALL_POOL_RADIUS := 25.0
+const LARGE_POOL_RADIUS := 50.0
+
+static func _leaves_pool(a: ActionDef, half_width: float) -> ActionDef:
+	a.leaves_pool_radius = half_width
 	return a
 
 ## Issue 52/14: wraps an ActionDef with a real pull, same "the mechanism was
