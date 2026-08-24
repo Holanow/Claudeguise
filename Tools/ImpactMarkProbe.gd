@@ -58,9 +58,14 @@ func _measure_bearings() -> void:
 	var target_moves := []
 	var melee_only := []
 	var source_moves := []
+	var follow_totals := []
+	var follow_melee := []
+	var target_died := []
+	var attacker_died := []
 	for encounter_id in Registry.all_encounter_ids():
 		var enc = Registry.get_encounter(encounter_id)
 		var drifts := []
+		var follow_drifts := []
 		for s in SEEDS:
 			## Every class contributes hits, not the first four of an
 			## alphabetical roster -- the Warrior is melee and was never in the
@@ -75,12 +80,41 @@ func _measure_bearings() -> void:
 				target_moves.append_array(one["target_move"])
 				melee_only.append_array(one["melee_drift"])
 				source_moves.append_array(one["source_move"])
+				follow_drifts.append_array(one["follow_drift"])
+				follow_melee.append_array(one["follow_melee"])
+				target_died.append_array(one["target_died"])
+				attacker_died.append_array(one["attacker_died"])
 		totals.append_array(drifts)
-		print("  %-24s hits %4d   drift median %5.1f deg  p90 %5.1f  max %5.1f  over 60deg: %.1f%%" % [
-			encounter_id, drifts.size(), _median(drifts), _pct(drifts, 90), _max(drifts),
-			100.0 * _fraction_over(drifts, 60.0),
+		follow_totals.append_array(follow_drifts)
+		print("  %-24s hits %4d   FIXED median %5.1f deg p90 %5.1f   FOLLOWING median %5.1f deg p90 %5.1f  over 60deg %.1f%%" % [
+			encounter_id, drifts.size(), _median(drifts), _pct(drifts, 90),
+			_median(follow_drifts), _pct(follow_drifts, 90),
+			100.0 * _fraction_over(follow_drifts, 60.0),
 		])
 	print("")
+	print("  -- FOLLOWING ANCHOR (what ships since #306: the mark rides the")
+	print("     target's DRAWN body, so both ends of the bearing move) --")
+	print("  ALL HITS      n %d   median %.1f deg  p75 %.1f  p90 %.1f  p99 %.1f  max %.1f" % [
+		follow_totals.size(), _median(follow_totals), _pct(follow_totals, 75),
+		_pct(follow_totals, 90), _pct(follow_totals, 99), _max(follow_totals),
+	])
+	print("  over 30 deg: %.1f%%    over 60 deg: %.1f%%    over 90 deg: %.1f%%" % [
+		100.0 * _fraction_over(follow_totals, 30.0),
+		100.0 * _fraction_over(follow_totals, 60.0),
+		100.0 * _fraction_over(follow_totals, 90.0),
+	])
+	print("  MELEE-RANGE ONLY  n %d   median %.1f deg  p90 %.1f  over 60 deg: %.1f%%" % [
+		follow_melee.size(), _median(follow_melee), _pct(follow_melee, 90),
+		100.0 * _fraction_over(follow_melee, 60.0),
+	])
+	print("  no bearing to be right about, excluded above: target died inside the")
+	print("  mark's life %.1f%% of hits, attacker died %.1f%%" % [
+		100.0 * _fraction_over(target_died, 0.5),
+		100.0 * _fraction_over(attacker_died, 0.5),
+	])
+	print("")
+	print("  -- FIXED ANCHOR (the mark that existed when this was first measured;")
+	print("     kept so the two numbers can be compared) --")
 	print("  ALL HITS      n %d   median %.1f deg  p75 %.1f  p90 %.1f  p99 %.1f  max %.1f" % [
 		totals.size(), _median(totals), _pct(totals, 75), _pct(totals, 90), _pct(totals, 99), _max(totals),
 	])
@@ -116,10 +150,10 @@ func _run_one(party: Array[PawnData], enc, s: int, life_ticks: int) -> Dictionar
 	var state := CombatSim.build(party, enc, s)
 	var seen := 0
 	var pending := []
-	var drift := []
-	var source_move := []
-	var target_move := []
-	var melee_drift := []
+	var out := {
+		"drift": [], "target_move": [], "melee_drift": [], "source_move": [],
+		"follow_drift": [], "follow_melee": [], "target_died": [], "attacker_died": [],
+	}
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		CombatSim.step(state)
 		var fresh := state.events_since(seen)
@@ -138,6 +172,8 @@ func _run_one(party: Array[PawnData], enc, s: int, life_ticks: int) -> Dictionar
 				"anchor": tgt.position,
 				"src_at": src.position,
 				"bearing": tgt.position.angle_to_point(src.position),
+				"follow_bearing": UnitViewScript.drawn_position(tgt, state.units).angle_to_point(
+					UnitViewScript.drawn_position(src, state.units)),
 				"melee": src.position.distance_to(tgt.position) <= (src.radius + tgt.radius) * 2.0,
 				"due": state.tick + life_ticks,
 			})
@@ -146,34 +182,53 @@ func _run_one(party: Array[PawnData], enc, s: int, life_ticks: int) -> Dictionar
 			if state.tick < p["due"]:
 				still.append(p)
 				continue
-			_close(state, p, drift, target_move, melee_drift, source_move)
+			_close(state, p, out)
 		pending = still
 	# Anything still open when the fight ends is measured against the final
 	# frame rather than dropped: dropping them would bias the sample toward
 	# hits followed by five quiet ticks, which is the calm case.
 	for p in pending:
-		_close(state, p, drift, target_move, melee_drift, source_move)
-	return {
-		"drift": drift, "target_move": target_move,
-		"melee_drift": melee_drift, "source_move": source_move,
-	}
+		_close(state, p, out)
+	return out
 
-func _close(state: CombatState, p: Dictionary, drift: Array, target_move: Array, melee_drift: Array, source_move: Array) -> void:
+func _close(state: CombatState, p: Dictionary, out: Dictionary) -> void:
 	var src := state.unit(p["src"])
 	var tgt := state.unit(p["tgt"])
 	if src == null:
 		return
-	source_move.append(src.position.distance_to(p["src_at"]))
+	out["source_move"].append(src.position.distance_to(p["src_at"]))
+	_close_following(state, p, src, tgt, out)
 	var anchor: Vector2 = p["anchor"]
 	if anchor.distance_squared_to(src.position) < 0.0001:
 		return
 	var now := anchor.angle_to_point(src.position)
 	var d := absf(rad_to_deg(angle_difference(p["bearing"], now)))
-	drift.append(d)
+	out["drift"].append(d)
 	if p["melee"]:
-		melee_drift.append(d)
+		out["melee_drift"].append(d)
 	if tgt != null:
-		target_move.append(anchor.distance_to(tgt.position))
+		out["target_move"].append(anchor.distance_to(tgt.position))
+
+## Issue 306 made the mark follow its target's drawn body, so the anchor an arc
+## would be struck from is `UnitView.drawn_position(target)` now and moves.
+func _close_following(state: CombatState, p: Dictionary, src: CombatUnit, tgt: CombatUnit, out: Dictionary) -> void:
+	# A death inside the mark's life leaves it with no bearing to be right
+	# about: the target's body goes invisible under a ring that keeps drawing,
+	# or the attacker it points at is gone. Counted separately, not measured.
+	var target_gone := tgt == null or not tgt.alive
+	var attacker_gone := not src.alive
+	out["target_died"].append(1.0 if target_gone else 0.0)
+	out["attacker_died"].append(1.0 if attacker_gone else 0.0)
+	if target_gone or attacker_gone:
+		return
+	var anchor := UnitViewScript.drawn_position(tgt, state.units)
+	var toward := UnitViewScript.drawn_position(src, state.units)
+	if anchor.distance_squared_to(toward) < 0.0001:
+		return
+	var d := absf(rad_to_deg(angle_difference(p["follow_bearing"], anchor.angle_to_point(toward))))
+	out["follow_drift"].append(d)
+	if p["melee"]:
+		out["follow_melee"].append(d)
 
 func _median(a: Array) -> float:
 	return _pct(a, 50)
