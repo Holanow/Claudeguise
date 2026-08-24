@@ -106,6 +106,31 @@ func _rect_area(parts: Array[Rect2]) -> float:
 		total += r.size.x * r.size.y
 	return total
 
+# --- which actions carry it, which is content and was got wrong once --------
+
+## Issue 496: Scald is the FIRE spell, so a pool under it puts out the burn it
+## just applied. It is on the free WATER basic attack instead.
+func test_exactly_two_actions_leave_a_pool_and_neither_is_the_fire_spell() -> void:
+	var with_pool: Array[StringName] = []
+	for id in Registry.all_action_ids():
+		if Registry.get_action(id).leaves_pool_radius > 0.0:
+			with_pool.append(id)
+	with_pool.sort_custom(func(a, b): return String(a) < String(b))
+	assert_eq(with_pool, [&"geyser_blast", &"geyser_spout"] as Array[StringName],
+		"the pool belongs to the two WATER actions and to nothing else")
+	assert_eq(Registry.get_action(&"geyser_scald").damage_type, CG.DamageType.FIRE,
+		"if Scald has stopped being the fire spell this test is asserting nothing")
+
+func test_the_pool_is_on_the_action_a_pawn_nobody_configured_will_cast() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"geysermancer", &"g", "G")
+	var actions: Array[ActionDef] = []
+	for id in Registry.actions_for_pawn(pawn):
+		actions.append(Registry.get_action(id))
+	var attack := DefaultBehavior.default_attack_action(actions, true)
+	assert_eq(attack.id, &"geyser_spout", "the cheapest ranged attack is what a starter casts")
+	assert_true(attack.leaves_pool_radius > 0.0,
+		"a feature only a plan-editing player can reach does not reach a default game")
+
 # --- the rule, through the simulation ---------------------------------------
 
 func test_a_spell_with_no_pool_radius_leaves_no_terrain() -> void:
