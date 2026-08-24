@@ -1174,6 +1174,8 @@ func consume_events() -> void:
 			_spawn_miss_marker(e)
 		elif e.kind == CG.EventKind.INTERRUPTED:
 			_spawn_interrupt_flash(e)
+		elif e.kind == CG.EventKind.ACTION_FIRE:
+			_apply_loose(e)
 
 ## Issue 515. Set, never added: a tick that kills three units holds once rather
 ## than stalling for three freezes.
@@ -1206,6 +1208,22 @@ func _apply_impact(e: CombatEvent) -> void:
 	if source.position.distance_to(target.position) > reach:
 		return
 	attacker.recoiled(source.position - target.position)
+
+## Issue 531. A ranged attacker kicks back at the loose, which is ACTION_FIRE.
+## Projectile actions only: `_apply_impact` already covers a melee swing, whose
+## ACTION_FIRE and DAMAGE land on the same tick, and a shot's own DAMAGE arrives
+## a second later at the far end of the arena. `ACTION_FIRE` means committed, so
+## a loose with no target left still kicks -- the bow was drawn either way.
+func _apply_loose(e: CombatEvent) -> void:
+	var action := Registry.get_action(e.action_id)
+	if action == null or action.projectile_speed <= 0.0:
+		return
+	var source := state.unit(e.source_id)
+	var target := state.unit(e.target_id)
+	var shooter = _unit_views.get(e.source_id)
+	if source == null or target == null or shooter == null or source.id == target.id:
+		return
+	shooter.recoiled(source.position - target.position, UnitViewScript.LOOSE_PIXELS)
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one

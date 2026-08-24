@@ -231,6 +231,11 @@ const SQUASH_AMOUNT := 0.22
 ## How far the attacker is thrown back, in arena pixels.
 const RECOIL_PIXELS := 7.0 * DISPLAY_SCALE
 
+## Issue 531. How far a ranged attacker kicks back at the moment it looses.
+## Smaller than a melee recoil on purpose: nothing was struck, and a full impact
+## kick reads as the archer being hit rather than as the archer firing.
+const LOOSE_PIXELS := 4.0 * DISPLAY_SCALE
+
 ## Fast in, slow out: full at the moment of the blow, easing to nothing. Cubic
 ## rather than linear because a linear return reads as a slide rather than as a
 ## body springing back.
@@ -244,13 +249,16 @@ static func squash_scale(age: float) -> Vector2:
 	var k := SQUASH_AMOUNT * impact_decay(age, SQUASH_SECONDS)
 	return Vector2(1.0 + k, 1.0 - k)
 
-static func recoil_offset(age: float, direction: Vector2) -> Vector2:
-	return direction * (RECOIL_PIXELS * impact_decay(age, RECOIL_SECONDS))
+static func recoil_offset(age: float, direction: Vector2, pixels: float = RECOIL_PIXELS) -> Vector2:
+	return direction * (pixels * impact_decay(age, RECOIL_SECONDS))
 
 ## `INF` is "not running": adding a delta to it leaves it not running.
 var _squash_age: float = INF
 var _recoil_age: float = INF
 var _recoil_direction: Vector2 = Vector2.ZERO
+## How far the live recoil throws this body: a melee blow and a loose differ in
+## distance only, so they share one age, one decay and one draw.
+var _recoil_pixels: float = RECOIL_PIXELS
 
 ## Refused while the option is off, so nothing can start an effect that will
 ## never be drawn and nothing can leave a body scaled when it is turned off.
@@ -260,11 +268,12 @@ func struck() -> void:
 	_squash_age = 0.0
 	queue_redraw()
 
-func recoiled(direction: Vector2) -> void:
+func recoiled(direction: Vector2, pixels: float = RECOIL_PIXELS) -> void:
 	if not DisplayOptions.enabled(IMPACT_OPTION) or direction == Vector2.ZERO:
 		return
 	_recoil_age = 0.0
 	_recoil_direction = direction.normalized()
+	_recoil_pixels = pixels
 	queue_redraw()
 
 func impact_active() -> bool:
@@ -281,6 +290,7 @@ func advance_impact(delta: float) -> void:
 		_squash_age = INF
 		_recoil_age = INF
 		_recoil_direction = Vector2.ZERO
+		_recoil_pixels = RECOIL_PIXELS
 	queue_redraw()
 
 ## The one place the impact transform is applied, and it covers the body and
@@ -289,7 +299,7 @@ func advance_impact(delta: float) -> void:
 ## bottom edge, so a squashed body keeps its feet on the floor.
 func _draw_body(u: CombatUnit, radius: float) -> void:
 	var squash := squash_scale(_squash_age)
-	var recoil := recoil_offset(_recoil_age, _recoil_direction)
+	var recoil := recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels)
 	if squash == Vector2.ONE and recoil == Vector2.ZERO:
 		Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
 		return
