@@ -10,10 +10,6 @@ class_name DefaultBehavior
 ## 40-45 world units; every ranged one sits at 200+.
 const MELEE_RANGE_THRESHOLD := 60.0
 
-## A ranged unit closer than this fraction of its own range backs off, but only
-## when it is faster than the thing it is backing away from. Issue 97.
-const KITE_RANGE_FRACTION := 0.6
-
 ## Range is checked when a hit lands, not when it commits (CombatSim's own
 ## rule), so firing right at the edge of range is a guaranteed whiff against
 ## anything that flees during the wind-up: it walks the small remaining
@@ -23,8 +19,6 @@ const RANGED_COMMIT_FRACTION := 0.85
 
 ## An ally at or below this fraction of max hp counts as needing a heal.
 const HEAL_THRESHOLD_FRACTION := 0.5
-
-const RETREAT_STEP := 200.0
 
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	var enemy_team := CG.Team.ENEMY if unit.team == CG.Team.PLAYER else CG.Team.PLAYER
@@ -83,17 +77,11 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if is_ranged:
 		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
 			return Intent.move_to(target.position)
-		# PLAYTEST-NOTES-2.md note 11: "the Abomination runs away a lot...
-		var wants_to_close := attack_action.pull_distance > 0.0
-		var kite_min := attack_action.range_units * KITE_RANGE_FRACTION
+		## Issue 544: no automatic retreat. A ranged unit that is in range fires;
+		## holding distance is `keep_distance`, which the player writes and can see.
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
 		if dist > commit_max:
 			return Intent.move_to(target.position)
-		## Issue 97: a retreat only earns the tick when it can actually open the
-		## gap. Without the speed to outrun the threat it is a shot given up for
-		## nothing, which is what killed the Rat King's lash (commit a6750e8).
-		if dist < kite_min and not wants_to_close and unit.move_speed > target.move_speed:
-			return Intent.move_to(_retreat_point(unit, target))
 		return Intent.use_action(attack_action.id, target.id)
 
 	var commit_max_melee := attack_action.range_units * MELEE_COMMIT_FRACTION
@@ -316,9 +304,3 @@ static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 			best_fraction = f
 			best = u
 	return best
-
-static func _retreat_point(unit: CombatUnit, threat: CombatUnit) -> Vector2:
-	var away := unit.position - threat.position
-	if away.length() < 0.0001:
-		away = Vector2(1.0, 0.0)
-	return unit.position + away.normalized() * RETREAT_STEP
