@@ -82,9 +82,11 @@ func _run() -> void:
 		for v in voices:
 			was_playing.append(false)
 
+		var frames_spent := 0
 		for f in FRAMES:
 			if _view.state.outcome != CombatState.Outcome.UNRESOLVED:
 				break
+			frames_spent += 1
 			_view._process(CG.TICK_SECONDS / float(FRAMES_PER_TICK))
 			await get_tree().process_frame
 			var live := 0
@@ -102,7 +104,17 @@ func _run() -> void:
 			busiest = maxi(busiest, live)
 			if live > 0:
 				frames_with_sound += 1
-		print("  reached tick %d, outcome %d" % [_view.state.tick, _view.state.outcome])
+		print("  reached tick %d, outcome %d, %d frames spent" % [
+			_view.state.tick, _view.state.outcome, frames_spent])
+		# A run that spent every frame and barely moved is not a short fight, it
+		# is a view that stopped stepping, and its sound counts are not a
+		# measurement. Seen once at tick 17 of a possible 450 and never
+		# reproduced; without this it reports as an ordinary quiet fight.
+		var stalled: bool = _view.state.outcome == CombatState.Outcome.UNRESOLVED \
+			and frames_spent >= FRAMES and _view.state.tick < FRAMES / FRAMES_PER_TICK / 2
+		if stalled:
+			printerr("SoundInFight: STALLED at tick %d after %d frames. NOT A MEASUREMENT." % [
+				_view.state.tick, frames_spent])
 		await _shot(party_ids[0])
 		_view.queue_free()
 		_view = null
