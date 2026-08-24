@@ -73,6 +73,17 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e)
 		await _settle(2)
 
+## Issue 520: a ScrollContainer clips input as well as pixels, so a control
+## below the fold gets no event and reads as inert.
+func _scrolls(c: Control) -> Array[ScrollContainer]:
+	var out: Array[ScrollContainer] = []
+	var n: Node = c.get_parent()
+	while n != null:
+		if n is ScrollContainer:
+			out.append(n)
+		n = n.get_parent()
+	return out
+
 ## Clicks the control where it is drawn. Refuses rather than clicking a point
 ## outside the window, which would report as "the control did nothing".
 func _click_control(c: Control, what: String) -> bool:
@@ -81,6 +92,20 @@ func _click_control(c: Control, what: String) -> bool:
 	var window := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
 	if not window.has_point(at) or rect.size.x < 1.0:
 		print("PresetLibraryProbe: %s is at %s, outside the window %s -- not clicking" % [what, rect, window.size])
+		_failures += 1
+		return false
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		scroll.ensure_control_visible(c)
+		await _settle(2)
+		rect = c.get_global_rect()
+		at = rect.get_center()
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("PresetLibraryProbe: %s sits at %s, clipped by %s at %s, and will not scroll into view -- not clicking" % [
+			what, rect, scroll.name, scroll.get_global_rect()])
 		_failures += 1
 		return false
 	await _click(at)
