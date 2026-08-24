@@ -1061,9 +1061,7 @@ func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
 	var shot = Registry.get_action(&"siege_master_shot")
 	assert_not_null(shot)
 	assert_true(shot.range_units > DefaultBehavior.MELEE_RANGE_THRESHOLD, "this fixture is only meaningful for a ranged action")
-	var kite := int(shot.range_units * DefaultBehavior.KITE_RANGE_FRACTION)
 	var commit := int(shot.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)
-	assert_true(text.contains(str(kite)), "expected the kite distance %d in:\n%s" % [kite, text])
 	assert_true(text.contains(str(commit)), "expected the commit distance %d in:\n%s" % [commit, text])
 	panel.free()
 

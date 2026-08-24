@@ -290,7 +290,7 @@ func _plan_editor() -> void:
 		return
 	# Warrior first, whose library rows carry a Condition, a Targeting block and
 	# an Action block; then the Geysermancer, the one class with a ranged attack,
-	# so the fallback row states the kite rule rather than a melee approach.
+	# so the fallback row states the ranged commit rule rather than a melee approach.
 	await _plan_editor_for(&"warrior", inspect_panel, "sweep_inspect_plan_editor")
 	await _plan_editor_for(&"geysermancer", inspect_panel, "sweep_inspect_ranged_fallback")
 

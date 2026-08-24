@@ -641,34 +641,29 @@ func test_units_stay_inside_the_arena_across_a_full_fight() -> void:
 				"seed %d: unit %d ended outside the arena at %s" % [seed, u.id, u.position]
 			)
 
-func test_an_uncornered_kiter_still_kites() -> void:
-	# Regression check for the fix: a ranged unit with room to retreat must
-	# still back off when a melee unit closes in, exactly as before the
-	# clamp existed. Uses the real DefaultBehavior and real registered
-	# actions -- this is specifically about the decision layer's kiting
-	# logic, which a hand-written test-only decide function would not
-	# exercise.
+func test_an_uncornered_ranged_unit_fires_rather_than_backing_off() -> void:
+	# Was `test_an_uncornered_kiter_still_kites`, wren's regression check for
+	# the arena clamp under issue 16. #544 deleted the automatic retreat it
+	# asserted, so the assertion is inverted rather than deleted: the fixture
+	# is the exact case that used to back off. The clamp itself is still
+	# covered by the units-never-leave-the-arena test above.
 	var deps := SimDeps.new()
 	var state := CombatState.new(50)
-	var kiter := _unit(0, CG.Team.PLAYER, 60, Vector2.ZERO, [&"archer_shot"])
+	var shooter := _unit(0, CG.Team.PLAYER, 60, Vector2.ZERO, [&"archer_shot"])
 	var chaser := _unit(1, CG.Team.ENEMY, 60, Vector2(30, 0), [&"warrior_strike"])
-	# Equal move_speed makes net separation mathematically constant during a
-	# straight chase (kiter retreats N, chaser closes N, along the same
-	# line) -- not a defect, just not what this test is checking. Give the
-	# kiter a real speed edge so retreating actually opens the gap, which is
-	# the behaviour being verified.
-	kiter.move_speed = 12.0
+	shooter.move_speed = 12.0
 	chaser.move_speed = 8.0
-	state.units.append(kiter)
+	state.units.append(shooter)
 	state.units.append(chaser)
 
-	var start_pos := kiter.position
-	var start_dist := kiter.position.distance_to(chaser.position)
+	var fired := false
 	for i in 5:
 		CombatSim.step(state, deps)
+		for e in state.events:
+			if e.kind == CG.EventKind.ACTION_START and e.source_id == 0:
+				fired = true
 
-	assert_true(kiter.position.distance_to(chaser.position) > start_dist, "an uncornered kiter with a speed edge must open the gap when crowded")
-	assert_ne(kiter.position, start_pos, "the kiter must have actually moved")
+	assert_true(fired, "a ranged unit inside its own range fires, whatever the speed difference")
 
 func test_a_cornered_kiter_reports_honestly() -> void:
 	# issue 16's own escape hatch: "if clamping turns fights into units

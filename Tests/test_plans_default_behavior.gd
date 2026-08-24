@@ -207,7 +207,7 @@ func test_healer_does_not_heal_full_health_allies() -> void:
 
 ## PLAYTEST-NOTES-2.md note 11: "The Abomination runs away a lot... tanks
 ## should move toward enemies." Root cause traced directly: `abomination_hook`
-func test_a_pull_action_never_retreats_even_inside_its_own_kite_band() -> void:
+func test_a_pull_action_never_retreats_from_a_target_it_is_built_to_close_on() -> void:
 	var abom_pawn := PawnFactory.make_starter_pawn(&"abomination", &"a1", "Abomination")
 	var abom := CombatUnit.new()
 	abom.id = 0
