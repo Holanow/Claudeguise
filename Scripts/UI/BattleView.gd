@@ -100,6 +100,7 @@ var _inspect_panel = null
 
 var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
+var _end_screen: EndScreen = null
 
 var _unit_card: UnitCard = null
 var _click_hint: Label = null
@@ -344,6 +345,10 @@ func _build_end_banner() -> void:
 	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	column.grow_vertical = Control.GROW_DIRECTION_BOTH
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	## Issue 552: a container defaults to MOUSE_FILTER_STOP, and this one grew
+	## from a paragraph to a roster. It covered Change party and Plans -- issue
+	## 343's defect exactly, in a node that was too small to show it before.
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	_end_banner.add_child(column)
 
@@ -376,8 +381,15 @@ func _build_end_banner() -> void:
 	_end_prompt_label.visible = false
 	column.add_child(_end_prompt_label)
 
+	## Issue 552: the roster and the whole log. Inside the banner rather than
+	## beside it, so issue 343's arrangement -- dim as a sibling, banner itself
+	## on MOUSE_FILTER_IGNORE -- holds for it without being restated.
+	_end_screen = EndScreen.create()
+	column.add_child(_end_screen)
+
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	column.add_child(buttons)
 
@@ -1584,6 +1596,7 @@ func _show_outcome() -> void:
 	var prompt := plans_prompt(state)
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
+	_end_screen.open(state, _combat_log)
 	_end_banner.visible = true
 	_end_dim.visible = true
 
