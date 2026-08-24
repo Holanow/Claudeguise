@@ -34,7 +34,8 @@ func _ready() -> void:
 func _party(party_ids: Array) -> Array[PawnData]:
 	var party: Array[PawnData] = []
 	for i in party_ids.size():
-		party.append(PawnFactory.make_starter_pawn(party_ids[i], StringName("p%d" % i), String(party_ids[i])))
+		party.append(PawnFactory.make_starter_pawn(
+			party_ids[i], StringName("p%d" % i), String(party_ids[i])))
 	return party
 
 func _encounter():
@@ -135,28 +136,6 @@ func _plate_band(full: Image, id: int) -> PackedByteArray:
 		return PackedByteArray()
 	return full.get_region(rect).get_data()
 
-## The first tick a shielder holds cover while the scrum is nudging its drawn
-## body off its simulated one. That gap is where the plate's anchor is wrong:
-## `ShieldWall.draw_all` read `u.position`, which no body is drawn at.
-func _cover() -> Dictionary:
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
-		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
-		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
-			CombatSim.step(state)
-			if state.tick <= FRAMES:
-				continue
-			for u in state.units:
-				if not ShieldWall.is_up(u):
-					continue
-				var nudge := UnitView.visual_offset(u, state.units).length()
-				if nudge < 4.0:
-					continue
-				print("AttachDriftShot: unit %d holds cover at tick %d, scrum nudge %.1f, party %s" % [
-					u.id, state.tick, nudge, ", ".join(PackedStringArray(party_ids))])
-				return {"tick": state.tick - 1, "id": u.id, "party": party_ids}
-	print("AttachDriftShot: no shielder was ever nudged by the scrum; no cover strip")
-	return {}
-
 ## Where the shield plate is actually drawn, read out of the same field
 ## `ArenaFloor._draw` passes to `ShieldWall.draw_all`. A version without that
 ## field draws at the simulated position, which is the defect.
@@ -166,8 +145,9 @@ func _cover_anchor(u: CombatUnit) -> Vector2:
 	return u.position
 
 func _run() -> void:
-	await _drift_strip(_walk(), "drift")
-	await _drift_strip(_cover(), "cover")
+	var walk := _walk()
+	await _drift_strip(walk, "drift", false)
+	await _drift_strip(walk, "cover", true)
 	await _kill_strip(_kill())
 
 func _save(panels: Array[Image], stem: String) -> void:
@@ -183,12 +163,24 @@ func _save(panels: Array[Image], stem: String) -> void:
 	strip.save_png(path)
 	print("AttachDriftShot: %s" % path)
 
+## A fixture, and it is one on purpose. `warrior_block` is granted only by Plate
+## Mail, `PawnFactory` equips nothing, and no pawn in a whole sweep of starter
+## parties ever raises cover -- so the plate this issue is about cannot be
+## photographed in a fight found in the wild. The status is stamped on the
+## walker instead, which is what the drawing reads and all the drawing reads.
+func _raise_cover(id: int) -> void:
+	var u: CombatUnit = _view.state.unit(id)
+	u.statuses[CG.Status.SHIELDING] = 999
+	if u.facing == Vector2.ZERO:
+		u.facing = Vector2.RIGHT
+	print("  cover raised by hand on unit %d, facing %.2f, %.2f" % [id, u.facing.x, u.facing.y])
+
 func _teardown() -> void:
 	_view.queue_free()
 	_view = null
 	await get_tree().process_frame
 
-func _drift_strip(walk: Dictionary, stem: String) -> void:
+func _drift_strip(walk: Dictionary, stem: String, cover: bool) -> void:
 	if walk.is_empty() or walk["id"] < 0:
 		return
 	await _build_view(walk["party"])
@@ -197,6 +189,8 @@ func _drift_strip(walk: Dictionary, stem: String) -> void:
 	await get_tree().process_frame
 
 	var id: int = walk["id"]
+	if cover:
+		_raise_cover(id)
 	var body: Node2D = _view._unit_views[id]
 	var centre: Vector2 = body.get_global_transform_with_canvas().origin
 	var panels: Array[Image] = []
@@ -211,10 +205,11 @@ func _drift_strip(walk: Dictionary, stem: String) -> void:
 			moved_body += 1
 		if plate != last_plate:
 			moved_plate += 1
-		var u := _view.state.unit(id)
-		print("  frame %d  tick %d  body %.2f, %.2f  plate anchor %.2f, %.2f  gap %.2f" % [
+		var u: CombatUnit = _view.state.unit(id)
+		var anchor := _cover_anchor(u)
+		print("  frame %d  tick %d  body %.2f, %.2f  cover anchor %.2f, %.2f  gap %.2f" % [
 			i, _view.state.tick, body.position.x, body.position.y,
-			_cover_anchor(u).x, _cover_anchor(u).y, _cover_anchor(u).distance_to(body.position)])
+			anchor.x, anchor.y, anchor.distance_to(body.position)])
 		last_body = body.position
 		last_plate = plate
 		panels.append(_crop(full, centre))
