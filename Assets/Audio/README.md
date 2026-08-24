@@ -128,7 +128,7 @@ making a noise, without touching the ones that still should.
 ## Two things worth knowing before you record anything
 
 **A fight is busier than it looks.** Measured over 80 full fights of every party
-a player can assemble: 6.4 to 8.2 sounds per second, and up to five at once.
+a player can assemble: 7.6 to 8.6 sounds per second, and up to six at once.
 Sounds that are lovely alone stack badly at that rate. The shipped sounds are
 between 0.10 and 0.50 seconds and peak between -17 and -6 dB for that reason,
 quietest where they are most frequent, and a replacement that is long or loud
@@ -142,8 +142,8 @@ sound for them and the fight became a buzz. If you fill it in, make it very
 quiet and very short, or expect a drone.
 
 **A status lands in the same tick as the hit that applied it.** So the swing, the
-landing and the status are three sounds inside a fifteenth of a second, and 23 to
-25 percent of the noisy moments in a fight already carry more than one. That is
+landing and the status are three sounds inside a fifteenth of a second, and 25 to
+31 percent of the noisy moments in a fight already carry more than one. That is
 why only stun is voiced: it is the one status that takes a pawn's turn away, and
 it is worth a third noise where a mark is not. Fill in any of the other twelve
 and you are adding to that stack, so keep it short.
