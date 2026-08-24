@@ -149,6 +149,7 @@ func _run() -> void:
 	await _drift_strip(walk, "drift", false)
 	await _drift_strip(walk, "cover", true)
 	await _kill_strip(_kill())
+	await _still(walk)
 	for units in [14, 100]:
 		await _cost(units, false, false)
 		await _cost(units, true, false)
@@ -317,5 +318,47 @@ func _cost(units: int, plates: bool, cover: bool) -> void:
 	var spent := Time.get_ticks_usec() - t0
 	print("AttachDriftShot cost, %d units, plates %s, cover %s: %d us per rendered frame (n=%d)" % [
 		state.units.size(), plates, cover, 0 if frames == 0 else spent / frames, frames])
+	DisplayOptions.set_enabled(&"name_plates", false)
+	await _teardown()
+
+## The whole screen, at full scale, with the ENGINE driving `_process` on real
+## deltas -- every strip above drives it by hand, so none of them is the path a
+## player takes. Name plates on and cover raised, or the two attachments this
+## issue moved are not in the picture.
+const STILL_TICK := 120
+
+func _still(walk: Dictionary) -> void:
+	if walk.is_empty() or walk["id"] < 0:
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	DisplayOptions.set_enabled(&"name_plates", true)
+	var cfg := RunConfig.new()
+	cfg.party = _party(walk["party"])
+	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.seed = SEED
+	var packed: PackedScene = load("res://Scenes/Battle.tscn")
+	_view = packed.instantiate()
+	add_child(_view)
+	await get_tree().process_frame
+	_view.begin_with_encounter(cfg, _encounter())
+
+	var waited := 0
+	while _view.state.tick < STILL_TICK and waited < 20000:
+		await RenderingServer.frame_post_draw
+		waited += 1
+	for u in _view.state.units:
+		if u.alive and u.team == CG.Team.PLAYER:
+			_raise_cover(u.id)
+			break
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+
+	var prefix := OS.get_environment("DRIFT_SHOT_NAME")
+	if prefix == "":
+		prefix = "sable_511"
+	var path := "%s/%s_battle_screen.png" % [OUT_DIR, prefix]
+	get_viewport().get_texture().get_image().save_png(path)
+	print("AttachDriftShot: %s at tick %d after %d engine frames" % [
+		path, _view.state.tick, waited])
 	DisplayOptions.set_enabled(&"name_plates", false)
 	await _teardown()
