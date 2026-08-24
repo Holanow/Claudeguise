@@ -116,7 +116,7 @@ func _strip(stem: String, flash: bool, ring: bool, debris: bool, tint: float,
 
 	var seen := 0
 	var target_id := -1
-	while target_id < 0 and _view.state.tick < CG.MAX_TICKS \n			and _view.state.outcome == CombatState.Outcome.UNRESOLVED:
+	while target_id < 0 and _view.state.tick < CG.MAX_TICKS and _view.state.outcome == CombatState.Outcome.UNRESOLVED:
 		await RenderingServer.frame_post_draw
 		if not ring:
 			_drop_rings()
