@@ -19,14 +19,21 @@ const SortBy := {DEALT = 0, TAKEN = 1}
 ## Four cards and their separators have to fit the roster's share of the width
 ## without scrolling: a four-pawn party is the normal case, and a roster you
 ## have to drag to see all of is not a roster.
-const CARD_WIDTH := 168.0
-const PORTRAIT_SIZE := 76.0
-const LOG_MIN_WIDTH := 340.0
+const CARD_WIDTH := 148.0
+const PORTRAIT_SIZE := 72.0
 
-## The roster and the log get a fixed slab of the banner: the column around them
+## Wide enough for a four-pawn party laid out side by side. The banner's column
+## is centred and sizes to content, so without a floor here the roster gets
+## whatever is left over -- which was two and a bit cards behind a scrollbar.
+## Each card is `CARD_WIDTH` plus the panel's own content margin on both sides.
+const CARD_SLOT := CARD_WIDTH + 2.0 * Palette.SPACE_S
+const ROSTER_MIN_WIDTH := 4.0 * CARD_SLOT + 3.0 * Palette.SPACE_M
+
+## The roster and the log get fixed slabs of the banner: the column around them
 ## is centred and sizes to content, so an expanding child would collapse to
 ## nothing.
-const BODY_HEIGHT := 300.0
+const ROSTER_HEIGHT := 200.0
+const LOG_HEIGHT := 168.0
 
 ## Named so a probe and a test can find the controls without matching on caption.
 const SORT_DEALT_NAME := "SortByDealt"
@@ -147,14 +154,12 @@ func _build() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", int(Palette.SPACE_S))
 
-	var body := HBoxContainer.new()
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.custom_minimum_size = Vector2(0.0, BODY_HEIGHT)
-	body.add_theme_constant_override("separation", int(Palette.SPACE_L))
-	add_child(body)
-
-	body.add_child(_build_roster_side())
-	body.add_child(_build_log_side())
+	## The log sits UNDER the roster rather than beside it. Side by side the
+	## card was 1092 wide and centred, which ran it under the team panel and the
+	## running log in the right-hand 280 px. Stacked, the whole card is
+	## `ROSTER_MIN_WIDTH` and clears both.
+	add_child(_build_roster_side())
+	add_child(_build_log_side())
 
 ## The sort controls sit ABOVE the roster and outside its scroll, deliberately:
 ## #520 is a control that took no input because it was 11 px under a
@@ -163,7 +168,7 @@ func _build() -> void:
 func _build_roster_side() -> Control:
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.size_flags_stretch_ratio = 2.0
+	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, 0.0)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_theme_constant_override("separation", int(Palette.SPACE_S))
 
@@ -182,7 +187,11 @@ func _build_roster_side() -> Control:
 	_sort_buttons[SortBy.DEALT] = _sort_button("Damage dealt", SORT_DEALT_NAME, SortBy.DEALT, sorts)
 	_sort_buttons[SortBy.TAKEN] = _sort_button("Damage taken", SORT_TAKEN_NAME, SortBy.TAKEN, sorts)
 
+	## The floor goes on the scroll itself, not on the column above it: a
+	## minimum set on the parent is a request the parent may satisfy by other
+	## means, and it did -- the scroll came out 628 wide against a 720 ask.
 	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, ROSTER_HEIGHT)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	side.add_child(scroll)
@@ -191,7 +200,10 @@ func _build_roster_side() -> Control:
 	_roster.name = ROSTER_NAME
 	_roster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_roster.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	_roster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	## Sized to its cards, not to the scroll. On EXPAND_FILL the box reports the
+	## viewport's width whatever it holds, which made the probe's "does the
+	## roster fit" check unable to fail.
+	_roster.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	scroll.add_child(_roster)
 	return side
 
@@ -209,7 +221,7 @@ func _sort_button(caption: String, node_name: String, sort_by: int, into: Node) 
 func _build_log_side() -> Control:
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.custom_minimum_size = Vector2(LOG_MIN_WIDTH, 0.0)
+	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, LOG_HEIGHT)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_theme_constant_override("separation", int(Palette.SPACE_S))
 

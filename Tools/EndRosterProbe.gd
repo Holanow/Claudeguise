@@ -213,6 +213,39 @@ func _run() -> void:
 	_check(screen._log_label.text.length() > 0, "the full log is not empty")
 	var log_lines: int = screen._log_label.text.split("\n").size()
 	_check(log_lines > 20, "the full log carries %d lines" % log_lines)
+	## `line_for_event` returns BBCode, and the first version of this screen used
+	## a plain Label, which printed "[color=9a94aaff]The fight begins.[/color]" at
+	## the player. `get_parsed_text` is what the label actually draws, so this
+	## goes red if the markup is ever showing again.
+	_check(not screen._log_label.get_parsed_text().contains("[color="),
+		"the log draws its colours rather than printing the tags")
+
+	## The roster must fit without dragging: four pawns is the normal party.
+	## **Measured off the cards, not off the box.** On EXPAND_FILL the box
+	## reports the scroll's own width whatever it holds, so a check against the
+	## box could not fail -- and it did not, over a roster showing two cards.
+	var last_edge := 0.0
+	for card in screen._roster.get_children():
+		last_edge = maxf(last_edge, (card as Control).get_global_rect().end.x)
+	var slot: Rect2 = screen._roster.get_parent().get_global_rect()
+	_check(last_edge <= slot.end.x + 1.0,
+		"the last card ends at %.0f in a slot ending at %.0f, so the roster needs dragging" % [
+			last_edge, slot.end.x])
+
+	## The whole card has to fit the window and stay clear of the panels that
+	## keep drawing beside it. Both were found by looking at a screenshot rather
+	## than by the probe, so they are asserted here now.
+	var window := get_viewport().get_visible_rect()
+	var banner: Rect2 = screen.get_global_rect()
+	_check(banner.position.y >= -1.0 and banner.end.y <= window.size.y + 1.0,
+		"the roster runs from y=%.0f to y=%.0f in a %.0f-tall window" % [
+			banner.position.y, banner.end.y, window.size.y])
+	var team_panel := _node_with("TeamStatusView.gd")
+	if team_panel != null and (team_panel as Control).is_visible_in_tree():
+		var panel_left: float = (team_panel as Control).get_global_rect().position.x
+		_check(banner.end.x <= panel_left + 1.0,
+			"the roster ends at %.0f and the team panel starts at %.0f -- they overlap" % [
+				banner.end.x, panel_left])
 
 	var taken_button: Button = screen._sort_buttons[EndScreenScript.SortBy.TAKEN]
 	var dealt_button: Button = screen._sort_buttons[EndScreenScript.SortBy.DEALT]

@@ -263,6 +263,9 @@ func _sync_click_hint() -> void:
 		return
 	var covered := (_display_options != null and _display_options.visible)
 	covered = covered or (_inspect_panel != null and _inspect_panel.visible)
+	## Issue 552: the end card's buttons stand on the same pixels, and "click any
+	## unit" is advice about a fight that is over.
+	covered = covered or (_end_banner != null and _end_banner.visible)
 	# The setup hint stands on the same pixels and is the one a player needs first.
 	covered = covered or setup
 	_click_hint.visible = not card_discovered and not covered
@@ -354,7 +357,8 @@ func _build_end_banner() -> void:
 
 	_end_outcome_label = Label.new()
 	_end_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
-	_end_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING * 2)
+	## Issue 552: was HEADING * 2, which no longer fits above a roster and a log.
+	_end_outcome_label.add_theme_font_size_override("font_size", int(Palette.FONT_SIZE_HEADING * 1.4))
 	_end_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_end_outcome_label)
 
@@ -810,6 +814,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
+	_outcome_label.visible = true
 	_end_banner.visible = false
 	_end_dim.visible = false
 	if _unit_card != null:
@@ -1599,6 +1604,11 @@ func _show_outcome() -> void:
 	_end_screen.open(state, _combat_log)
 	_end_banner.visible = true
 	_end_dim.visible = true
+	## Issue 552: the toolbar's own "Victory (21.1s)" sits on the same pixels as
+	## the end card's heading, which is the same sentence four times the size.
+	## The text stays set; only the second copy of it goes away.
+	_outcome_label.visible = false
+	_sync_click_hint()
 
 ## Issue 441. After #399 the editor starts empty, so a new player's first fight
 ## is entirely unplanned and nothing on the fight screen ever said so.
