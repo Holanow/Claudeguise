@@ -58,11 +58,28 @@ func _of_kind(state: CombatState, kind: Terrain.Kind) -> Array:
 			out.append(f)
 	return out
 
+## Issue 554: the painted parts, not `rect`. A pool is one feature holding many
+## rects now and its `rect` is the bounding box, so summing that reports ground
+## nothing ever wetted -- and every assertion below would still have passed.
 func _area(features: Array) -> float:
 	var total := 0.0
 	for f in features:
-		total += f.rect.size.x * f.rect.size.y
+		for r in f.regions():
+			total += r.size.x * r.size.y
 	return total
+
+## Every rect a pool actually stores, across features.
+func _stamps(state: CombatState) -> Array:
+	var out: Array = []
+	for f in _of_kind(state, Terrain.Kind.WATER):
+		out.append_array(f.regions())
+	return out
+
+func _wet(state: CombatState, p: Vector2) -> bool:
+	for f in _of_kind(state, Terrain.Kind.WATER):
+		if f.contains_point(p):
+			return true
+	return false
 
 # --- the geometry -----------------------------------------------------------
 
@@ -318,3 +335,77 @@ func test_the_same_fight_produces_the_same_terrain_twice() -> void:
 			first = _digest(bundle[0])
 		else:
 			assert_eq(_digest(bundle[0]), first, "two runs of one fight disagreed about the floor")
+
+
+# --- issue 554: pools fuse into one painted region ---------------------------
+
+## Casts at the same spot twice. The player: *"the pools just fuse into one,
+## think painting the floor"*.
+func _cast_at(bundle: Array, where: Vector2) -> void:
+	bundle[2].position = where
+	_cast(bundle)
+
+
+func test_two_overlapping_casts_leave_one_pool_not_two() -> void:
+	var bundle := _arena([], _pool_action(25.0))
+	_cast_at(bundle, Vector2.ZERO)
+	_cast_at(bundle, Vector2(20.0, 0.0))
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 1,
+		"two overlapping casts should fuse into one puddle, not stack two features")
+
+
+## Property one, and the whole reason a union of bounding boxes was rejected:
+## the stored region must wet ONLY ground a cast actually painted. Two 50x50
+## stamps offset diagonally share no corner, and a union rect would wet both.
+func test_a_fused_pool_never_wets_ground_no_cast_painted() -> void:
+	var bundle := _arena([], _pool_action(25.0))
+	_cast_at(bundle, Vector2.ZERO)
+	_cast_at(bundle, Vector2(40.0, 40.0))
+	var state: CombatState = bundle[0]
+	assert_true(_wet(state, Vector2.ZERO), "the first stamp's centre must be wet")
+	assert_true(_wet(state, Vector2(40.0, 40.0)), "the second stamp's centre must be wet")
+	# (-20, 40) is inside the bounding box of the two stamps and inside neither.
+	assert_false(_wet(state, Vector2(-20.0, 40.0)),
+		"a corner no cast painted must stay dry; this is what a union rect would have wetted")
+
+
+## The area is the union, so overlap is stored once rather than twice.
+func test_a_fused_pool_stores_the_overlap_once() -> void:
+	var bundle := _arena([], _pool_action(25.0))
+	_cast_at(bundle, Vector2.ZERO)
+	_cast_at(bundle, Vector2(25.0, 0.0))
+	# Two 50x50 stamps offset by 25 cover 50x50 + 25x50.
+	assert_almost_eq(_area(_of_kind(bundle[0], Terrain.Kind.WATER)), 50.0 * 50.0 + 25.0 * 50.0, 0.001,
+		"the overlapping half should be stored once, not twice")
+
+
+## The 147x redundancy #504 measured is mostly this case.
+func test_a_cast_onto_ground_already_wet_stores_nothing() -> void:
+	var bundle := _arena([], _pool_action(25.0))
+	_cast_at(bundle, Vector2.ZERO)
+	var before := _stamps(bundle[0]).size()
+	var terrain_events_before: int = _terrain_events(bundle[0]).size()
+	_cast_at(bundle, Vector2.ZERO)
+	assert_eq(_stamps(bundle[0]).size(), before,
+		"a stamp landing entirely on wet ground should add no geometry")
+	assert_eq(_terrain_events(bundle[0]).size(), terrain_events_before,
+		"and it should report no terrain change, because nothing changed")
+
+
+## The negative: a cast that lands clear of the puddle must still paint.
+func test_a_cast_on_dry_ground_still_paints() -> void:
+	var bundle := _arena([], _pool_action(25.0))
+	_cast_at(bundle, Vector2.ZERO)
+	var before := _stamps(bundle[0]).size()
+	_cast_at(bundle, Vector2(400.0, 400.0))
+	assert_true(_stamps(bundle[0]).size() > before,
+		"dry ground must still get wet, or the containment check is swallowing everything")
+	assert_true(_wet(bundle[0], Vector2(400.0, 400.0)))
+
+
+## An authored feature has no parts, so nothing above may change how one reads.
+func test_an_authored_feature_is_still_exactly_its_rect() -> void:
+	var f := Terrain.hazard(FIRE, 2, CG.DamageType.FIRE)
+	assert_eq(f.regions(), [FIRE] as Array[Rect2], "a feature with no parts is its own rect")
+	assert_true(f.contains_point(Vector2.ZERO))
+	assert_false(f.contains_point(Vector2(9000.0, 0.0)))
