@@ -115,7 +115,7 @@ func test_exactly_two_actions_leave_a_pool_and_neither_is_the_fire_spell() -> vo
 	for id in Registry.all_action_ids():
 		if Registry.get_action(id).leaves_pool_radius > 0.0:
 			with_pool.append(id)
-	with_pool.sort()
+	with_pool.sort_custom(func(a, b): return String(a) < String(b))
 	assert_eq(with_pool, [&"geyser_blast", &"geyser_spout"] as Array[StringName],
 		"the pool belongs to the two WATER actions and to nothing else")
 	assert_eq(Registry.get_action(&"geyser_scald").damage_type, CG.DamageType.FIRE,
