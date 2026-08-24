@@ -146,6 +146,16 @@ func _phase_party_select_edges() -> void:
 		"<none>" if fight_btn == null else fight_btn.text,
 		_current_screen_name() != "PartySelect"])
 
+	## Issue 538. `_seed_edit.text = ...` sets the field and emits nothing, so
+	## `PartySelect.reroll_from_seed` never ran and the ROLLED PAWNS kept the
+	## `randi()` roster seed -- a different party every run under a fixed fight
+	## seed. Pressing Enter is what a player does and what the screen listens for.
+	##
+	## Before the cards are read, not after: a reroll clears the selection and
+	## frees every card node, which is also the order issue 131 designed for.
+	_set_seed(FIXED_SEED)
+	await _settle()
+
 	var cards := _party_cards()
 	_log("classes offered: %s" % [cards.map(_card_name)])
 	if cards.is_empty():
@@ -171,10 +181,30 @@ func _phase_party_select_edges() -> void:
 	_log("selected the balanced four: %s" % [cards.filter(func(c): return c.selected).map(_card_name)])
 	_log("status label after selecting the balanced four: %s" % _label_text_containing("Party:"))
 
-	var edits := _line_edits()
-	if not edits.is_empty():
-		edits[0].text = FIXED_SEED
 	await _shot("play_03_party_picked_fixed_seed")
+
+## Types a seed and presses Enter. `text_submitted` is the signal the screen
+## connects; assigning `.text` emits nothing.
+func _set_seed(seed_text: String) -> void:
+	var edits := _line_edits()
+	if edits.is_empty():
+		_log("NO SEED FIELD ON SCREEN -- the run will not be reproducible")
+		_failed = true
+		return
+	edits[0].text = seed_text
+	edits[0].text_submitted.emit(seed_text)
+	_log("seed typed and submitted: %s" % seed_text)
+
+## Issue 538: what the run ACTUALLY used, not what it asked for. The fight seed
+## and the rolled pawns come from two different places, and a tool that prints
+## only the seed it typed cannot show that.
+func _log_what_it_actually_ran(battle) -> void:
+	_log("fight seed in use: %08X (typed: %s)" % [battle.config.seed, FIXED_SEED])
+	var rolled := PackedStringArray()
+	for u in battle.state.units:
+		if u.team == CG.Team.PLAYER:
+			rolled.append("%s hp %d" % [u.display_name, u.hp_max])
+	_log("rolled party: %s" % ", ".join(rolled))
 
 ## Both labels the fight button wears: it reads "Pick a party to fight" while
 ## disabled, so a prefix match on "start" cannot find it with nothing selected.
@@ -216,13 +246,19 @@ func _phase_full_fight() -> void:
 		return
 
 	var battle := _main.get_child(0)
+	_log_what_it_actually_ran(battle)
 	await _shot("play_04_battle_start")
 
 	var shots_taken := 0
-	var max_wait_frames := 60 * 90 # 90s of frames at 60fps ceiling, well past MAX_TICKS/30
+	## Issue 538. This was `60 * 90` frames, "90s at a 60fps ceiling, well past
+	## MAX_TICKS/30". Offscreen with vsync off the loop runs at about 170fps, so
+	## the cap bought ~474 ticks, not 1350 -- which is the `UNRESOLVED at tick
+	## 476` in the report. A fight is measured in ticks, so budget it in ticks.
 	var next_shot_at_tick := 30 # roughly one second in
 	var frames := 0
-	while battle.state.outcome == CombatState.Outcome.UNRESOLVED and frames < max_wait_frames:
+	var frame_ceiling := CG.MAX_TICKS * 60 # a hard stop if the fight stops ticking at all
+	while battle.state.outcome == CombatState.Outcome.UNRESOLVED \
+			and battle.state.tick < CG.MAX_TICKS and frames < frame_ceiling:
 		await get_tree().process_frame
 		frames += 1
 		if battle.state.tick >= next_shot_at_tick and shots_taken < 3:

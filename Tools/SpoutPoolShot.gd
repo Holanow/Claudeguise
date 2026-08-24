@@ -57,6 +57,12 @@ func _to_battle() -> Node:
 	add_child(_main)
 	await _settle()
 	var select := _node_with("PartySelect.gd")
+	# Issue 538: the seed picks the ROSTER as well as the fight, and
+	# assigning `.text` emits nothing, so the rolled pawns were random every
+	# run. Submitted, and before the cards are read: a reroll frees them.
+	select._seed_edit.text = "00000001"
+	select._seed_edit.text_submitted.emit("00000001")
+	await _settle()
 	var by_id := {}
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
@@ -78,7 +84,6 @@ func _to_battle() -> Node:
 	if not picked:
 		print("SpoutPoolShot: the picker offers no burn pit")
 		return null
-	select._seed_edit.text = "00000001"
 	await _settle()
 	if not _press("start fight"):
 		return null

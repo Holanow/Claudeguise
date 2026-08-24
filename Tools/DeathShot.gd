@@ -67,6 +67,12 @@ func _to_battle() -> Node:
 	add_child(_main)
 	await _settle()
 	var select := _node_with("PartySelect.gd")
+	# Issue 538: the seed picks the ROSTER as well as the fight, and
+	# assigning `.text` emits nothing, so the rolled pawns were random every
+	# run. Submitted, and before the cards are read: a reroll frees them.
+	select._seed_edit.text = "00000001"
+	select._seed_edit.text_submitted.emit("00000001")
+	await _settle()
 	## By the card's own `class_def`, never by index: the first four cards of an
 	## alphabetical roster are never a Warrior (#350). The partition's last
 	## party holds the classes a prefix never reached.
@@ -82,7 +88,6 @@ func _to_battle() -> Node:
 	await _settle()
 	if not _select_room(select._room_picker, "hazard"):
 		return null
-	select._seed_edit.text = "00000001"
 	await _settle()
 	if not _press("start fight"):
 		return null
