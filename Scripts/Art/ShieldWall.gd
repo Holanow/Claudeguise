@@ -203,13 +203,18 @@ static func _draw_name(canvas: CanvasItem, facing: Vector2, half: float, standof
 ## unit's own node: `UnitView`s are siblings, so a plate drawn inside one of
 ## them repaints whichever units happen to come earlier in the child order --
 ## the units it exists to shelter (issue 332).
-static func draw_all(canvas: CanvasItem, units: Array, standoff_scale: float) -> void:
+## Issue 511: `at_by_id` is where each body is drawn this frame, so the plate
+## rides the interpolated body instead of the tick position it left behind. An
+## id with no entry falls back to the simulated position.
+static func draw_all(canvas: CanvasItem, units: Array, standoff_scale: float,
+		at_by_id: Dictionary = {}) -> void:
 	for candidate in units:
 		var u: CombatUnit = candidate
 		if not is_up(u):
 			continue
-		canvas.draw_set_transform(u.position, 0.0, Vector2.ONE)
-		draw_for(canvas, u, u.radius * standoff_scale, room_for(u.position))
+		var at: Vector2 = at_by_id.get(u.id, u.position)
+		canvas.draw_set_transform(at, 0.0, Vector2.ONE)
+		draw_for(canvas, u, u.radius * standoff_scale, room_for(at))
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## The play area in the local space of a shielder standing at `position`.

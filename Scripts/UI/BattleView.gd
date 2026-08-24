@@ -982,10 +982,8 @@ func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
-	_unit_layer = Node2D.new()
-	_arena.add_child(_unit_layer)
-	_text_layer = ArenaTextLayerScript.new()
-	_arena.add_child(_text_layer)
+	_unit_layer = null
+	_text_layer = null
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
@@ -998,6 +996,7 @@ func _rebuild_units() -> void:
 func _ensure_unit_views() -> void:
 	if state == null:
 		return
+	_ensure_layers()
 	for u in state.units:
 		if _unit_views.has(u.id):
 			continue
@@ -1008,6 +1007,21 @@ func _ensure_unit_views() -> void:
 		_unit_views[u.id] = view
 	if _text_layer != null:
 		_text_layer.sync(state)
+
+## Issue 512: there is one way in. `_text_layer` used to be built only by
+## `_rebuild_units`, which only `begin_with_encounter` calls, while `_process`
+## called `_text_layer.sync` unguarded -- so a tool that drove the view by
+## assigning `state` got a null and every stepped frame died inside `_process`
+## before it rendered, silently, producing a plausible wrong picture.
+## Order matters and is asserted by `_bodies`: the unit layer first, the text
+## layer after it, so no body can be painted over a name (issue 321).
+func _ensure_layers() -> void:
+	if _unit_layer == null or not is_instance_valid(_unit_layer):
+		_unit_layer = Node2D.new()
+		_arena.add_child(_unit_layer)
+	if _text_layer == null or not is_instance_valid(_text_layer):
+		_text_layer = ArenaTextLayerScript.new()
+		_arena.add_child(_text_layer)
 
 ## Issue 321: every body and every bar goes in one layer under the names, so a
 ## summon added mid-fight cannot be drawn over a plate that was already up.
@@ -1074,20 +1088,37 @@ func _process(delta: float) -> void:
 ## Moving a node costs nothing to redraw, so only the arena is asked to.
 func _render(alpha: float, stepped: bool) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
+	var frame_at := {}
 	for id in _unit_views:
 		var to = _curr_drawn.get(id)
 		if to != null:
-			_unit_views[id].position = _tween_body(int(id), to, alpha)
+			var at := _tween_body(int(id), to, alpha)
+			_unit_views[id].position = at
+			frame_at[id] = at
+	# Issue 511: everything that belongs to a body follows the body. What marks
+	# an event instead -- a damage number, a death plate -- is left where it was.
+	if _text_layer != null:
+		_text_layer.set_positions(_curr_drawn, frame_at)
+	_arena.unit_positions = frame_at
 	var shots := {}
 	for p in state.projectiles:
 		if p.resolved:
 			continue
 		var from = _prev_shots.get(p.id)
 		shots[p.id] = p.position if from == null else from.lerp(p.position, alpha)
-	if not stepped and shots.is_empty() and _arena.shot_positions.is_empty():
+	if not stepped and shots.is_empty() and _arena.shot_positions.is_empty() \
+			and not _any_cover_up():
 		return
 	_arena.shot_positions = shots
 	_arena.queue_redraw()
+
+## Whether the arena is drawing a shield plate this frame. The plate rides a
+## body, so while one is up the floor has to repaint with it.
+func _any_cover_up() -> bool:
+	for u in state.units:
+		if ShieldWall.is_up(u):
+			return true
+	return false
 
 func _tween_body(id: int, to: Vector2, alpha: float) -> Vector2:
 	var from = _prev_drawn.get(id)

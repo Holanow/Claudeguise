@@ -17,6 +17,16 @@ func _party() -> Array[PawnData]:
 		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
 	return out
 
+## The same party carrying its classes' library rows. Issue 522: without this,
+## every assertion about a plan-sourced event over `_party()` is vacuous.
+func _preset_party() -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for cid in Registry.all_class_ids():
+		if cid == &"geysermancer":
+			continue
+		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
+	return out
+
 # ---------------------------------------------------------------------------
 # the grant itself
 # ---------------------------------------------------------------------------
@@ -160,69 +170,55 @@ func test_second_wind_is_self_only_and_gated() -> void:
 ## ability is ever cast, which is exactly how warrior_execute sat unreachable
 ## for its entire existence.
 ##
-## Issue 334: it also has to say WHICH rule cast it. This test passed for years
-## while the plan it is named after never fired once.
+## Issue 334: it also has to say WHICH rule cast it. Issue 522: over a starter
+## party it could not, because a starter pawn has carried no plan rows since
+## #399, so `by_plan` was 0 by construction and the old `assert_eq(by_plan, 0)`
+## could never go red. Both parties run here, and each asserts the path only it
+## can produce.
 func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
-	var fires := 0
-	var heals := 0
-	var by_fallback := 0
-	var by_plan := 0
+	var bare := _second_wind_starts(_party())
+	assert_true(bare["fires"] > 0,
+		"Second Wind never fired in %d real fights -- it is unreachable" % SEEDS)
+	assert_true(bare["heals"] > 0,
+		"Second Wind fired %d times and healed nothing" % bare["fires"])
+	assert_true(bare["by_fallback"] > 0,
+		"a rowless Warrior can only get Second Wind from DefaultBehavior, and got it 0 times")
+	assert_eq(bare["by_plan"], 0,
+		"a starter pawn carries no plan rows since #399, so no row can have started this")
+
+	## Issue 433 moved `warrior_second_wind_when_hurt` to 0.70, above the
+	## fallback's own 0.50, so on a pawn that carries the library row the row is
+	## what casts it. This is the half #522 found nothing was checking.
+	var preset := _second_wind_starts(_preset_party())
+	assert_true(preset["fires"] > 0,
+		"Second Wind never fired over a preset party -- the row is unreachable")
+	assert_true(preset["heals"] > 0,
+		"Second Wind fired %d times over a preset party and healed nothing" % preset["fires"])
+	assert_true(preset["by_plan"] > 0,
+		("the Warrior carries warrior_second_wind_when_hurt and started Second Wind %d " +
+		"times, none of them from the row. See issue 433") % preset["by_fallback"])
+
+func _second_wind_starts(party: Array[PawnData]) -> Dictionary:
+	var out := {"fires": 0, "heals": 0, "by_fallback": 0, "by_plan": 0}
 	for s in SEEDS:
-		var state := CombatSim.build(_party(), Registry.get_encounter(&"floor1_room1"), s)
+		var state := CombatSim.build(party.duplicate(), Registry.get_encounter(&"floor1_room1"), s)
 		CombatSim.run(state)
 		for e in state.events:
 			if e.action_id != &"warrior_second_wind":
 				continue
 			if e.kind == CG.EventKind.ACTION_START:
-				if e.source_plan == &"":
-					by_fallback += 1
-				else:
-					by_plan += 1
+				out[("by_fallback" if e.source_plan == &"" else "by_plan")] += 1
 			elif e.kind == CG.EventKind.ACTION_FIRE:
-				fires += 1
+				out["fires"] += 1
 			elif e.kind == CG.EventKind.HEAL:
-				heals += 1
-	assert_true(fires > 0,
-		"Second Wind never fired in %d real fights -- it is unreachable" % SEEDS)
-	assert_true(heals > 0,
-		"Second Wind fired %d times and healed nothing" % fires)
-	assert_true(by_fallback + by_plan > 0, "nothing started Second Wind, so no path can be named")
+				out["heals"] += 1
+	return out
 
-	## Issue 334, and it is a tripwire rather than a preference: every cast
-	## measured comes from `DefaultBehavior`, never from the Warrior's own row.
-	## Measured 17 of 17 starts over 40 seeds. If this goes red the plan has
-	## started working, which is good news -- delete the assertion and say so.
-	assert_eq(by_plan, 0,
-		("the Warrior's own Second Wind row fired %d of %d times. It never used to. " +
-		"See issue 334; if this is deliberate, this assertion is the thing to remove") % [
-			by_plan, by_fallback + by_plan])
-
-## **Issue 334: WHY the row never fires, stated structurally so it cannot rot
-## against a sample.**
-##
-## `DefaultBehavior` casts any heal it owns once an ally is at or below
-## `HEAL_THRESHOLD_FRACTION`. A plan row gated at a LOWER fraction than that can
-## never be the first to reach the action: the fallback has already cast it and
-## started its cooldown by the time the pawn is hurt enough for the row to hold.
-## The row is dominated, not unlucky, and no number of seeds would show
-## otherwise.
-func test_a_self_heal_row_gated_below_the_fallback_can_never_go_first() -> void:
-	var row: Plan = null
-	for plan in PresetPlans.for_class(&"warrior"):
-		for block in plan.blocks:
-			if block.kind == PlanBlock.Kind.ACTION and block.args.get("action_id", &"") == &"warrior_second_wind":
-				row = plan
-	assert_not_null(row, "the Warrior should still ship a Second Wind row")
-	assert_not_null(row.condition, "an ungated self-heal row would fire constantly")
-	assert_eq(row.condition.op, &"self_hp_below_fraction",
-		"this test reads the row's threshold; a different condition op needs a different reading")
-
-	var row_threshold := float(row.condition.args.get("fraction", 1.0))
-	assert_true(row_threshold < DefaultBehavior.HEAL_THRESHOLD_FRACTION,
-		("the Warrior's row fires at %.2f and the fallback at %.2f. This assertion records that " +
-		"the row is DOMINATED -- it is the state issue 334 reports, not the state anyone wants. " +
-		"If the row now goes first, that is the fix landing: delete this test") % [
-			row_threshold, DefaultBehavior.HEAL_THRESHOLD_FRACTION])
+## Issue 433: `test_a_self_heal_row_gated_below_the_fallback_can_never_go_first`
+## stood here and recorded that the Warrior's row was dominated by
+## `HEAL_THRESHOLD_FRACTION`. It asked to be deleted the day the row went first,
+## which is what 0.35 -> 0.70 does. The inverse assertion is now
+## `test_content_fallback_overlap.gd`, over both heal rows rather than one.
 
 
 # ---------------------------------------------------------------------------
