@@ -35,6 +35,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"screen_shake",
+		"label": "Screen shake on a death",
+		"help": "The whole arena kicks a few pixels and settles, scaled to the size of whatever died. Off by default, and it is the only row here that is off for a reason of its own: a death lands about eleven times a fight, so with this on the picture moves every two or three seconds, and the camera is the surface you read the fight off. Turn it on if you want the deaths to hit harder than they read.",
+		"default": false,
+	},
+	{
 		"id": &"log_hazard_ticks",
 		"label": "Ground damage in the log",
 		"help": "One line per tick for every pawn standing in fire or acid. Off by default: measured over a Burn Pit fight it is 141 of the log's 402 lines, and it scrolls the deaths away. Turn it on to find out what killed somebody.",
