@@ -774,12 +774,9 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	event_cursor = 0
 	_tick_accumulator = 0.0
 	_freeze_left = 0.0
-<<<<<<< HEAD
 	_shake_age = INF
 	_shake_amplitude = 0.0
-=======
 	ViewClock.frozen = false
->>>>>>> origin/main
 	setup = false
 	_grabbed_unit_id = -1
 	_drag_moved = false
