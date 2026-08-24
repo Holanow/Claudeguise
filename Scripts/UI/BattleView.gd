@@ -1135,12 +1135,40 @@ func consume_events() -> void:
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_flash(e)
+			if e.kind == CG.EventKind.DAMAGE:
+				_apply_impact(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
 		elif e.kind == CG.EventKind.MISS:
 			_spawn_miss_marker(e)
 		elif e.kind == CG.EventKind.INTERRUPTED:
 			_spawn_interrupt_flash(e)
+
+## Issue 516. How far apart two bodies may be and still have landed a blow on
+## each other, in multiples of their own drawn sizes.
+const RECOIL_REACH := 2.0
+
+## Issue 516: the struck body squashes, and whoever swung rocks back off it.
+## Two gates. `action_id` is empty on poison, burn, bleed and hazard damage,
+## which `CombatSim` emits once per afflicted unit per TICK; and a projectile's
+## DAMAGE fires when the arrow lands rather than when it was loosed, so recoil
+## is melee only.
+func _apply_impact(e: CombatEvent) -> void:
+	if e.action_id == &"":
+		return
+	var target := state.unit(e.target_id)
+	var struck = _unit_views.get(e.target_id)
+	if target == null or struck == null:
+		return
+	struck.struck()
+	var source := state.unit(e.source_id)
+	var attacker = _unit_views.get(e.source_id)
+	if source == null or attacker == null or source.id == target.id:
+		return
+	var reach := (UnitViewScript.display_radius(source) + UnitViewScript.display_radius(target)) * RECOIL_REACH
+	if source.position.distance_to(target.position) > reach:
+		return
+	attacker.recoiled(source.position - target.position)
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one

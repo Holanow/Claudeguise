@@ -21,6 +21,12 @@ const OPTIONS := [
 		"default": false,
 	},
 	{
+		"id": &"impact_squash",
+		"label": "Bodies react to hits",
+		"help": "A struck body squashes for a fifth of a second and springs back, and whoever landed a melee blow rocks backward off it. On by default. It moves the body only, never a bar, a name or the fight itself. Turn it off if you want every silhouette to hold perfectly still.",
+		"default": true,
+	},
+	{
 		"id": &"log_hazard_ticks",
 		"label": "Ground damage in the log",
 		"help": "One line per tick for every pawn standing in fire or acid. Off by default: measured over a Burn Pit fight it is 141 of the log's 402 lines, and it scrolls the deaths away. Turn it on to find out what killed somebody.",

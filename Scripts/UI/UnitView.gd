@@ -98,6 +98,9 @@ static func _watch_holds(state: CombatState) -> void:
 
 func bind(state: CombatState, id: int) -> void:
 	unit_id = id
+	# A script that defines `_process` processes by default, and a hundred idle
+	# bodies running an empty one is a permanent tax. Armed by `struck` only.
+	set_process(false)
 	sync(state)
 
 ## Issue 501: `at` is the drawn position when the caller has already computed it
@@ -214,6 +217,91 @@ func _accent(u: CombatUnit) -> int:
 		return u.pawn.pawn_class.damage_types[0]
 	return CG.DamageType.PHYSICAL
 
+## Issue 516. Both halves of the impact under one id: they are one effect, and
+## what the player A/Bs is the feel rather than the parts.
+const IMPACT_OPTION := &"impact_squash"
+
+## How long each half lasts. Short on purpose: the simulation lands blows 15
+## times a second, and a decay longer than a tick is still running when the
+## next one arrives.
+const SQUASH_SECONDS := 0.22
+const RECOIL_SECONDS := 0.18
+
+## How far the struck body compresses, as a fraction of its drawn size. It
+## widens by the same amount, so the silhouette keeps roughly its area.
+const SQUASH_AMOUNT := 0.22
+
+## How far the attacker is thrown back, in arena pixels.
+const RECOIL_PIXELS := 7.0 * DISPLAY_SCALE
+
+## Fast in, slow out: full at the moment of the blow, easing to nothing. Cubic
+## rather than linear because a linear return reads as a slide rather than as a
+## body springing back.
+static func impact_decay(age: float, span: float) -> float:
+	if span <= 0.0 or age < 0.0 or age >= span:
+		return 0.0
+	var left := 1.0 - age / span
+	return left * left * left
+
+static func squash_scale(age: float) -> Vector2:
+	var k := SQUASH_AMOUNT * impact_decay(age, SQUASH_SECONDS)
+	return Vector2(1.0 + k, 1.0 - k)
+
+static func recoil_offset(age: float, direction: Vector2) -> Vector2:
+	return direction * (RECOIL_PIXELS * impact_decay(age, RECOIL_SECONDS))
+
+## `INF` is "not running": adding a delta to it leaves it not running.
+var _squash_age: float = INF
+var _recoil_age: float = INF
+var _recoil_direction: Vector2 = Vector2.ZERO
+
+## Refused while the option is off, so nothing can start an effect that will
+## never be drawn and nothing can leave a body scaled when it is turned off.
+func struck() -> void:
+	if not DisplayOptions.enabled(IMPACT_OPTION):
+		return
+	_squash_age = 0.0
+	set_process(true)
+	queue_redraw()
+
+func recoiled(direction: Vector2) -> void:
+	if not DisplayOptions.enabled(IMPACT_OPTION) or direction == Vector2.ZERO:
+		return
+	_recoil_age = 0.0
+	_recoil_direction = direction.normalized()
+	set_process(true)
+	queue_redraw()
+
+func impact_active() -> bool:
+	return _squash_age < SQUASH_SECONDS or _recoil_age < RECOIL_SECONDS
+
+## The decay runs on rendered frames, not on ticks: a tick-driven recovery is
+## three or four steps long and reads as a stutter rather than as a spring.
+func _process(delta: float) -> void:
+	_squash_age += delta
+	_recoil_age += delta
+	if not impact_active():
+		_squash_age = INF
+		_recoil_age = INF
+		_recoil_direction = Vector2.ZERO
+		set_process(false)
+	queue_redraw()
+
+## The one place the impact transform is applied, and it covers the body and
+## nothing else. Bars, badges, name plates and hover targets are the reading
+## surface and must not move because a hit landed. Anchored at the drawn body's
+## bottom edge, so a squashed body keeps its feet on the floor.
+func _draw_body(u: CombatUnit, radius: float) -> void:
+	var squash := squash_scale(_squash_age)
+	var recoil := recoil_offset(_recoil_age, _recoil_direction)
+	if squash == Vector2.ONE and recoil == Vector2.ZERO:
+		Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
+		return
+	var bottom := drawn_bottom(_shape_id(u), u.team, radius)
+	draw_set_transform(recoil + Vector2(0.0, bottom * (1.0 - squash.y)), 0.0, squash)
+	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 func _draw() -> void:
 	var u := _unit()
 	if u == null:
@@ -223,7 +311,7 @@ func _draw() -> void:
 
 	_draw_targeting_line(u)
 
-	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
+	_draw_body(u, radius)
 
 	_draw_concentration_badge(u, radius)
 
