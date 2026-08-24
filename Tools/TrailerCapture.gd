@@ -15,6 +15,10 @@ const SIZE := Vector2i(1280, 720)
 ## process (board FINDING 4).
 const PARTY: Array = [&"warrior", &"priest", &"geysermancer", &"abomination"]
 const ROOMS: Array = [&"floor1_room1", &"floor1_cover", &"floor1_hazard", &"floor1_horde"]
+## The classes `ranged_loose` is about. The party's biggest body is the
+## abomination and its hook is a projectile, so a scan won on size alone
+## photographs a melee brute rather than the shot this clip exists for.
+const CASTERS: Array = ["priest", "geysermancer"]
 const SEEDS := 24
 ## A fight long enough to have a shape and short enough to cut.
 const MIN_TICKS := 100
@@ -229,7 +233,9 @@ func _fastest_walk(room_id: StringName, s: int) -> Dictionary:
 
 
 ## LooseShot's scan: every ACTION_FIRE whose action carries a projectile, won by
-## the biggest shooter.
+## the biggest shooter -- narrowed to `CASTERS`, because the brief is an archer
+## or a caster and the abomination outweighs both. `display_name` IS the class
+## id here: `_party` names every pawn after the class it is.
 func _loose(room_id: StringName, s: int) -> Dictionary:
 	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
 	var best := {}
@@ -244,7 +250,7 @@ func _loose(room_id: StringName, s: int) -> Dictionary:
 			if action == null or action.projectile_speed <= 0.0:
 				continue
 			var source := state.unit(e.source_id)
-			if source == null or source.team != CG.Team.PLAYER:
+			if source == null or not CASTERS.has(source.display_name):
 				continue
 			var size := UnitView.drawn_half_width(
 				UnitView.shape_id(source), source.team, UnitView.display_radius(source))
