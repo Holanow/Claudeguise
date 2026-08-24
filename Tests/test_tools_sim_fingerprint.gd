@@ -8,8 +8,13 @@ const SCRIPT := "res://Tools/sim_fingerprint.ps1"
 const RECORD := "res://Tools/sim_fingerprint.txt"
 const GATE := "res://Tools/gate.ps1"
 
-## The two lines allowed to call `print` are the ones that maintain the digest.
-const PRINTERS := ["\tprint(line)", "\tprint(\"fingerprint: %s\" % body.sha256_text())"]
+## The only lines allowed to call `print` are the one that maintains the digest
+## and the two the checker reads back.
+const PRINTERS := [
+	"\tprint(line)",
+	"\tprint(\"lines: %d\" % _lines.size())",
+	"\tprint(\"fingerprint: %s\" % body.sha256_text())",
+]
 
 ## Everything under `Scripts/` that the simulation never reads. A new directory
 ## goes in the fingerprint's source set unless it is one of these.
@@ -56,6 +61,18 @@ func test_the_fingerprint_is_not_part_of_what_it_covers() -> void:
 		"the digest line must be a bare print, or it would hash itself")
 	assert_false(text.contains("_say(\"fingerprint"),
 		"the digest must not go through the buffer it is taken over")
+
+## Issue 536: a blind reviewer ran the documented pipeline and got a zero-line
+## file on both arms, hashing to e3b0c442 -- the empty string -- and reading as
+## "byte-identical". The checker refuses a capture too short to be a run, and it
+## can only do that if the tool says how much it printed.
+func test_the_tool_reports_how_many_lines_it_printed() -> void:
+	assert_true(_text(TOOL).contains("print(\"lines: %d\" % _lines.size())"),
+		"without this the checker cannot tell a real run from an empty capture")
+	assert_true(_text(SCRIPT).contains("MIN_REPORT_LINES"),
+		"the checker must refuse a short capture rather than hashing it")
+	assert_true(_text(SCRIPT).contains("e3b0c442"),
+		"the empty-string digest is named, so a reader knows what is being refused")
 
 # ---------------------------------------------------------------------------
 # The recording, and the gate that reads it

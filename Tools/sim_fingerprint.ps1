@@ -66,6 +66,7 @@ function Get-SourceHash {
 # parties times seven lines is well over this; an empty or truncated capture is
 # far under it. Issue 536: the failure to refuse was the defect.
 $MIN_REPORT_LINES = 200
+$script:Refusal = ""
 
 function Get-OutputHash {
     $log = Join-Path $env:TEMP ("claudeguise-sim-" + [guid]::NewGuid().ToString('N') + ".txt")
@@ -75,21 +76,23 @@ function Get-OutputHash {
     $hashLine = Select-String -Path $log -Pattern '^fingerprint: ([0-9a-f]{64})$' | Select-Object -First 1
     Remove-Item $log -ErrorAction SilentlyContinue
 
+    # A refusal goes in a script variable, never through Write-Output: inside a
+    # function that returns a value, Write-Output IS the return value, and the
+    # first version of this handed the refusal text back as if it were a hash.
     if ($captured -lt $MIN_REPORT_LINES) {
-        Write-Output "CAPTURED $captured LINES FROM SampleFights, which is not a run."
-        Write-Output "Refusing to hash it. An empty capture hashes to e3b0c442 on both arms"
-        Write-Output "and reads as 'byte-identical', which is issue 536."
+        $script:Refusal = "captured $captured line(s) from SampleFights, which is not a run"
         return $null
     }
     if (-not $countLine -or -not $hashLine) {
-        Write-Output "SampleFights printed no lines:/fingerprint: pair. Refusing to hash."
+        $script:Refusal = "SampleFights printed no lines:/fingerprint: pair"
         return $null
     }
     $reported = [int]$countLine.Matches[0].Groups[1].Value
     if ($reported -lt $MIN_REPORT_LINES) {
-        Write-Output "SampleFights reported only $reported lines of report. Refusing to hash."
+        $script:Refusal = "SampleFights reported only $reported lines of report"
         return $null
     }
+    $script:Refusal = ""
     $hashLine.Matches[0].Groups[1].Value
 }
 
@@ -98,7 +101,10 @@ $source = Get-SourceHash
 if ($Record) {
     $output = Get-OutputHash
     if (-not $output) {
-        Write-Output "SampleFights printed no fingerprint line. Nothing recorded."
+        Write-Output "REFUSING TO HASH: $script:Refusal."
+    Write-Output "An empty or truncated capture hashes to e3b0c442 on both arms and reads"
+    Write-Output "as 'byte-identical'. That is issue 536, and it is worse than no proof."
+        Write-Output "Nothing recorded."
         exit 2
     }
     @(
@@ -108,7 +114,11 @@ if ($Record) {
         "# still a change, and the gate makes you say so here.",
         "source: $source",
         "output: $output"
-    ) | Set-Content -Path $recordPath -Encoding utf8
+    ) -join "`n" | ForEach-Object {
+        # LF and no BOM: git normalises this file anyway, and a recording that
+        # looks dirty the moment it is written is one people stop trusting.
+        [System.IO.File]::WriteAllText($recordPath, $_ + "`n", (New-Object System.Text.UTF8Encoding $false))
+    }
     Write-Output "recorded  source: $source"
     Write-Output "          output: $output"
     exit 0
@@ -138,7 +148,10 @@ if ($source -eq $recorded['source']) {
 Write-Output "the simulation's source moved; running SampleFights to see whether its output did"
 $output = Get-OutputHash
 if (-not $output) {
-    Write-Output "SampleFights printed no fingerprint line. This is a failure, not a pass."
+    Write-Output "REFUSING TO HASH: $script:Refusal."
+    Write-Output "An empty or truncated capture hashes to e3b0c442 on both arms and reads"
+    Write-Output "as 'byte-identical'. That is issue 536, and it is worse than no proof."
+    Write-Output "This is a failure, not a pass."
     exit 2
 }
 if ($output -eq $recorded['output']) {

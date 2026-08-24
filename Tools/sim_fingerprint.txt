@@ -1,4 +1,4 @@
-﻿# What the simulation is, and what it produces. Issue 529.
+# What the simulation is, and what it produces. Issue 529.
 # Re-record with: powershell -File Tools\sim_fingerprint.ps1 -Record
 # Both lines move together. A source change with no output change is
 # still a change, and the gate makes you say so here.
