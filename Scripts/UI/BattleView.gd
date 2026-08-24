@@ -49,6 +49,15 @@ var _curr_drawn: Dictionary = {}
 var _prev_shots: Dictionary = {}
 var _curr_shots: Dictionary = {}
 
+## Issue 515. How long the presentation holds still on a death. Six frames on a
+## 60Hz display, a beat and a half of simulation.
+const HIT_STOP_SECONDS := 0.10
+
+## Seconds of that hold still to run. Real delta is DROPPED while this is above
+## zero, never banked: an accumulator that accrued through the freeze would repay
+## every frozen frame as a lurch the moment it released.
+var _freeze_left: float = 0.0
+
 var _arena: Node2D = null
 var _combat_log = null
 var _unit_views: Dictionary = {}
@@ -743,6 +752,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	state = CombatSim.build(cfg.party, encounter, cfg.seed)
 	event_cursor = 0
 	_tick_accumulator = 0.0
+	_freeze_left = 0.0
 	setup = false
 	_grabbed_unit_id = -1
 	_drag_moved = false
@@ -1022,9 +1032,20 @@ func _bodies() -> Node2D:
 ## the fight plays: a slow frame catches up by stepping several ticks at once
 ## rather than the view quietly drifting into slow motion.
 func _process(delta: float) -> void:
-	if state == null or state.outcome != CombatState.Outcome.UNRESOLVED:
+	if state == null:
 		return
+	# Before the freeze, so pausing holds a freeze rather than spending it.
 	if paused:
+		return
+	if _freeze_left > 0.0:
+		_freeze_left = maxf(0.0, _freeze_left - delta)
+		if _freeze_left > 0.0:
+			return
+		# The frames this freeze covered are gone, not owed. See _freeze_left.
+		delta = 0.0
+	if state.outcome != CombatState.Outcome.UNRESOLVED:
+		_show_outcome()
+		set_process(false)
 		return
 
 	_tick_accumulator += delta
@@ -1056,7 +1077,9 @@ func _process(delta: float) -> void:
 
 	_render(_tick_accumulator / CG.TICK_SECONDS, stepped)
 
-	if state.outcome != CombatState.Outcome.UNRESOLVED:
+	# The banner waits out a freeze on the last death, which is the death the
+	# player is watching hardest and the one a banner would otherwise cover.
+	if state.outcome != CombatState.Outcome.UNRESOLVED and _freeze_left <= 0.0:
 		_show_outcome()
 		set_process(false)
 
@@ -1137,10 +1160,17 @@ func consume_events() -> void:
 			_spawn_impact_flash(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
+			_hit_stop()
 		elif e.kind == CG.EventKind.MISS:
 			_spawn_miss_marker(e)
 		elif e.kind == CG.EventKind.INTERRUPTED:
 			_spawn_interrupt_flash(e)
+
+## Issue 515. Set, never added: a tick that kills three units holds once rather
+## than stalling for three freezes.
+func _hit_stop() -> void:
+	if DisplayOptions.enabled(&"hit_stop"):
+		_freeze_left = HIT_STOP_SECONDS
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one

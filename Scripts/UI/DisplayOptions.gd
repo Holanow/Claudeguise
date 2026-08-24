@@ -21,6 +21,14 @@ const OPTIONS := [
 		"default": false,
 	},
 	{
+		"id": &"hit_stop",
+		## Named so `DisplayOptionsPanel.row_text` reads: the panel appends
+		## "showing" or "hidden" to every label and nothing here can change that.
+		"label": "Freeze frame on a death",
+		"help": "The picture stops for a tenth of a second each time something dies, so the blow reads as a blow rather than as a number changing. On by default, and the only option here that is: it holds on deaths only, roughly eleven a fight, and the fight never runs fast afterwards to catch up. Turn it off if you would rather nothing ever stopped.",
+		"default": true,
+	},
+	{
 		"id": &"log_hazard_ticks",
 		"label": "Ground damage in the log",
 		"help": "One line per tick for every pawn standing in fire or acid. Off by default: measured over a Burn Pit fight it is 141 of the log's 402 lines, and it scrolls the deaths away. Turn it on to find out what killed somebody.",
