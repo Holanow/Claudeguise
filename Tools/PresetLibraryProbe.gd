@@ -97,6 +97,8 @@ func _click_control(c: Control, what: String) -> bool:
 	for scroll in _scrolls(c):
 		if scroll.get_global_rect().has_point(at):
 			continue
+		print("PresetLibraryProbe: %s is below the fold of %s (%s vs %s), scrolling to it" % [
+			what, scroll.name, rect, scroll.get_global_rect()])
 		scroll.ensure_control_visible(c)
 		await _settle(2)
 		rect = c.get_global_rect()
