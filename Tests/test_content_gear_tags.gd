@@ -96,6 +96,15 @@ func test_every_starting_piece_passes_its_own_gate() -> void:
 				"%s starts with %s and could not equip it" % [class_id, piece.id])
 
 
+## Why issue 226 dressed the Abomination in a Gown and not in something chosen:
+## the tags leave it one legal piece, so that entry is forced and moves the day
+## an ANTI_SUPPORT or MAGICAL MELEE armour is added.
+func test_the_abomination_has_exactly_one_armour_it_may_wear() -> void:
+	var offered := _offered(Registry.get_class_def(&"abomination"), EquipmentDef.Slot.ARMOR)
+	assert_eq(offered, [&"gown"] as Array[StringName],
+		"the Abomination's armour is no longer forced, so PawnFactory's comment is now false")
+
+
 func _offered(c: ClassDef, slot: int) -> Array[StringName]:
 	var out: Array[StringName] = []
 	for id in Registry.all_equipment_ids():

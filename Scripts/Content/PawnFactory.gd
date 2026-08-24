@@ -16,24 +16,26 @@ const STARTING_WEAPON := {
 	&"abomination": &"sickle",
 }
 
-## The armour a class starts wearing.
+## The armour a class starts wearing, one entry per class on the player's
+## ruling that "every class should have default dress" (issue 226).
 ##
-## **Issue 160: a starter pawn wearing nothing made every measurement tool in
-## this repo blind to any armour-granted ability**, and there is exactly one of
-## those -- `plate_mail` grants `warrior_block`. Issue 166 adds the two Mana
-## casters for the same reason at one remove: the Robes carry the two points of
-## WIS that pay for their Channel row.
+## Every entry must pass `EquipmentDef.allows_class`, and the tags leave little
+## room: only `gown` fits the Abomination at all, and the Siege Master's choice
+## between `silk_wraps` and `gown` is settled by its primary role. There is a
+## test for both the gate and the completeness of this table.
 const STARTING_ARMOR := {
 	&"warrior": &"plate_mail",
 	&"priest": &"robes",
 	&"geysermancer": &"robes",
+	&"siege_master": &"silk_wraps",
+	&"abomination": &"gown",
 }
 
 ## The attributes a generated pawn rolls. **WIS is deliberately not among
 ## them**, on the player's ruling: *"I wouldn't randomise WIS access, give it a
 ## baseline and let gear improve it."* Its baseline is each class's own current
-## WIS, so a generated pawn can always reach its own class library, and Robes
-## and Scrubs are what buy rows past it.
+## WIS, so a generated pawn can always reach its own class library, and armour
+## is what buys rows past it.
 const ROLLED_ATTRIBUTES: Array[CG.Attribute] = [
 	CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI,
 	CG.Attribute.CON, CG.Attribute.INT, CG.Attribute.ATN,
