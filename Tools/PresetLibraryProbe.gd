@@ -8,6 +8,15 @@ extends Node
 
 const OUT_DIR := "res://Screenshots"
 
+## Issue 520: the gate runs this probe, and the gate runs in the main checkout.
+## Set by `gate.ps1` only; a hand run still refuses, and a gate run writes its
+## captures to `user://` so it never dirties anybody's Screenshots.
+static func gated() -> bool:
+	return OS.get_environment("CLAUDEGUISE_GATE") != ""
+
+func _out_dir() -> String:
+	return "user://probe" if gated() else OUT_DIR
+
 var _main: Node
 var _tag := ""
 var _failures := 0
@@ -17,7 +26,7 @@ var _failures := 0
 var _finished := false
 
 func _ready() -> void:
-	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
+	if not gated() and DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("PresetLibraryProbe: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
 		return
@@ -36,8 +45,9 @@ func _settle(n: int = 6) -> void:
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	img.save_png("%s/%s_%s.png" % [OUT_DIR, name, _tag])
+	var dir := _out_dir()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	img.save_png("%s/%s_%s.png" % [dir, name, _tag])
 	print("PresetLibraryProbe: %s_%s.png" % [name, _tag])
 
 func _walk(n: Node) -> Array[Node]:
