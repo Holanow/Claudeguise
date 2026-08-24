@@ -232,3 +232,54 @@ func test_nothing_freezes_when_the_hit_stop_option_is_off() -> void:
 	_feed(view, death)
 	assert_false(ViewClock.frozen, "the view clock froze with hit stop off")
 	_reset()
+
+# ---------------------------------------------------------------------------
+# Issue 535: pause is the other trigger, and pause is what the player uses to
+# look at a hit. An overlay that ages through it takes away the thing pause is
+# for -- the ring is gone in 0.8s and the death plate in 2.4s.
+# ---------------------------------------------------------------------------
+
+func test_pausing_freezes_the_overlays() -> void:
+	_reset()
+	var view = _view()
+	_feed(view, _damage_event(view))
+	view.set_paused(true)
+	view._process(0.1)
+	assert_true(ViewClock.frozen, "a paused fight kept animating its overlays")
+	_reset()
+
+## The negative. A freeze that never lifts is the same defect wearing the other
+## sign, and it is invisible: the picture simply stops.
+func test_resuming_releases_the_overlays() -> void:
+	_reset()
+	var view = _view()
+	_feed(view, _damage_event(view))
+	view.set_paused(true)
+	view._process(0.1)
+	view.set_paused(false)
+	view._process(0.1)
+	assert_false(ViewClock.frozen, "the overlays stayed frozen after the resume")
+	_reset()
+
+## Pause HOLDS a hit stop rather than spending it. The pause return sits above
+## the `_freeze_left` decrement for this reason, and the ordering is easy to
+## tidy away.
+func test_a_pause_holds_a_hit_stop_rather_than_spending_it() -> void:
+	_reset()
+	var view = _view()
+	var death := CombatEvent.make(CG.EventKind.DEATH, 0)
+	death.target_id = view.state.units[0].id
+	_feed(view, death)
+	var armed: float = view._freeze_left
+	assert_true(armed > 0.0, "the death must arm a freeze")
+
+	view.set_paused(true)
+	for i in 5:
+		view._process(0.1)
+	assert_eq(view._freeze_left, armed, "the pause spent the hit stop it was holding")
+	assert_true(ViewClock.frozen, "and it must still read as frozen")
+
+	view.set_paused(false)
+	view._process(0.1)
+	assert_true(view._freeze_left < armed, "the freeze must run again once the pause lifts")
+	_reset()

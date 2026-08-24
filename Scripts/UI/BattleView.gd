@@ -1066,11 +1066,13 @@ func _bodies() -> Node2D:
 func _process(delta: float) -> void:
 	if state == null:
 		return
-	# Before the freeze, so pausing holds a freeze rather than spending it.
+	# Issue 528: every overlay that animates on real delta reads this. Issue 535:
+	# pause is the other trigger, and it is the one the player uses to look at a
+	# hit, so it must be written above the return rather than below it.
+	ViewClock.frozen = paused or _freeze_left > 0.0
+	# Above the decrement, so pausing holds a freeze rather than spending it.
 	if paused:
 		return
-	# Issue 528: every overlay that animates on real delta reads this.
-	ViewClock.frozen = _freeze_left > 0.0
 	if _freeze_left > 0.0:
 		_freeze_left = maxf(0.0, _freeze_left - delta)
 		if _freeze_left > 0.0:
