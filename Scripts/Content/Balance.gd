@@ -18,7 +18,12 @@ const BASE_MOVE_SPEED := 3.0
 const MOVE_PER_AGI := 0.4
 const MOVE_PER_DEX_BONUS := 0.05
 
-const ATTACK_POWER_PER_POINT := 1.9
+## Issue 491: 1.9 x the mean starting-weapon grant. Every pawn has always held
+## a weapon, so a class's real damage was always its base times that multiplier;
+## #489 removed the multiplier and revealed that the base was never the whole
+## number. The five grants were sword STR 15%, staff INT 12%, orb INT 18%, bow
+## DEX 15% and sickle INT 15%, and their mean is exactly 15%.
+const ATTACK_POWER_PER_POINT := 2.185
 
 ## Issue 7: a hit rolls within [1 - spread, 1 + spread] of its base power.
 const ATTACK_VARIANCE_SPREAD := 0.55
