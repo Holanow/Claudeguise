@@ -81,6 +81,18 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e)
 		await _settle(2)
 
+func _wheel(at: Vector2, button: int) -> void:
+	var point := get_viewport().get_screen_transform() * at
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.pressed = pressed
+		e.factor = 1.0
+		e.position = point
+		e.global_position = point
+		get_viewport().push_input(e)
+		await _settle(2)
+
 ## Every `ScrollContainer` above this control. Issue 520: a scroll clips input
 ## as well as pixels, so a control below the fold gets no event and reads as
 ## inert whatever the screenshot shows.
@@ -232,11 +244,19 @@ func _run() -> void:
 		"the last card ends at %.0f in a slot ending at %.0f, so the roster needs dragging" % [
 			last_edge, slot.end.x])
 
-	## The whole card has to fit the window and stay clear of the panels that
-	## keep drawing beside it. Both were found by looking at a screenshot rather
-	## than by the probe, so they are asserted here now.
+	## And the scroll must not raise a vertical bar. The bar is drawn inside the
+	## scroll's own rect, so the edge check above passes over a card the bar is
+	## sitting on top of -- the same blindness in a second place.
+	var roster_scroll := screen._roster.get_parent() as ScrollContainer
+	_check(not roster_scroll.get_v_scroll_bar().visible,
+		"the roster raised a vertical scrollbar, which draws over the last card")
+
+	## The whole card has to fit the window and stay clear of the panels that keep
+	## drawing beside it, and it is measured on the CARD rather than on the roster
+	## inside it -- the roster sat comfortably in the window while the card's own
+	## buttons hung 10 px under it.
 	var window := get_viewport().get_visible_rect()
-	var banner: Rect2 = screen.get_global_rect()
+	var banner: Rect2 = (screen.get_parent() as Control).get_global_rect()
 	_check(banner.position.y >= -1.0 and banner.end.y <= window.size.y + 1.0,
 		"the roster runs from y=%.0f to y=%.0f in a %.0f-tall window" % [
 			banner.position.y, banner.end.y, window.size.y])
@@ -246,6 +266,39 @@ func _run() -> void:
 		_check(banner.end.x <= panel_left + 1.0,
 			"the roster ends at %.0f and the team panel starts at %.0f -- they overlap" % [
 				banner.end.x, panel_left])
+
+	## Issue 343 keeps the toolbar visible under the banner, so the card has to
+	## clear its text rather than print over it. Every overlap here is two strings
+	## on the same pixels.
+	var toolbar: Array[Control] = []
+	for n in _walk(_main):
+		if (n is Label or n is Button) and n.is_visible_in_tree() \
+				and not battle._end_banner.is_ancestor_of(n) and (n as Control).text != "":
+			toolbar.append(n)
+	var collisions: Array[String] = []
+	for card_part in [battle._end_outcome_label, battle._end_cost_label, battle._end_prompt_label]:
+		var part := card_part as Control
+		if part == null or not part.is_visible_in_tree():
+			continue
+		for other in toolbar:
+			if part.get_global_rect().intersects(other.get_global_rect()):
+				collisions.append("'%s' %s over '%s' %s" % [
+					(part as Label).text.split("\n")[0], part.get_global_rect(),
+					other.text, other.get_global_rect()])
+	_check(collisions.is_empty(), "the end card's own text prints over nothing else: %s" % [collisions])
+	print("EndRosterProbe: end card y %.0f..%.0f over %d visible labels and buttons outside it" % [
+		screen.get_parent().get_global_rect().position.y,
+		screen.get_parent().get_global_rect().end.y, toolbar.size()])
+
+	## "I want to be able to view the whole battle log" is only true if the log
+	## scrolls, and the log is taller than its slab by design. Driven with a real
+	## wheel event over the scroll, because the `RichTextLabel` inside it took the
+	## mouse until this issue and would have eaten this.
+	var log_scroll := screen.find_child(EndScreenScript.LOG_SCROLL_NAME, true, false) as ScrollContainer
+	var before := log_scroll.scroll_vertical
+	await _wheel(log_scroll.get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_DOWN)
+	_check(log_scroll.scroll_vertical > before,
+		"a real wheel over the full log scrolled it from %d to %d" % [before, log_scroll.scroll_vertical])
 
 	var taken_button: Button = screen._sort_buttons[EndScreenScript.SortBy.TAKEN]
 	var dealt_button: Button = screen._sort_buttons[EndScreenScript.SortBy.DEALT]

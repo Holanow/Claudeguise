@@ -343,22 +343,29 @@ func _build_end_banner() -> void:
 	_end_banner.visible = false
 	hud.add_child(_end_banner)
 
+	## Issue 552: centred in what is LEFT of the window, not in the window. The
+	## card grew from a paragraph to a roster and a log, so a centred column runs
+	## its heading and its cost line through the toolbar's buttons.
 	var column := VBoxContainer.new()
-	column.set_anchors_preset(Control.PRESET_CENTER)
+	column.anchor_left = 0.5
+	column.anchor_right = 0.5
+	column.anchor_top = 0.0
+	column.anchor_bottom = 1.0
 	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	column.grow_vertical = Control.GROW_DIRECTION_BOTH
+	column.offset_top = _SUMMARY_ROW_TOP
+	column.offset_bottom = 0.0
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	## Issue 552: a container defaults to MOUSE_FILTER_STOP, and this one grew
 	## from a paragraph to a roster. It covered Change party and Plans -- issue
 	## 343's defect exactly, in a node that was too small to show it before.
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	column.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_end_banner.add_child(column)
 
 	_end_outcome_label = Label.new()
 	_end_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
 	## Issue 552: was HEADING * 2, which no longer fits above a roster and a log.
-	_end_outcome_label.add_theme_font_size_override("font_size", int(Palette.FONT_SIZE_HEADING * 1.4))
+	_end_outcome_label.add_theme_font_size_override("font_size", int(Palette.FONT_SIZE_HEADING * 1.15))
 	_end_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_end_outcome_label)
 
@@ -814,7 +821,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
-	_outcome_label.visible = true
+	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
+		label.visible = true
 	_end_banner.visible = false
 	_end_dim.visible = false
 	if _unit_card != null:
@@ -1604,10 +1612,12 @@ func _show_outcome() -> void:
 	_end_screen.open(state, _combat_log)
 	_end_banner.visible = true
 	_end_dim.visible = true
-	## Issue 552: the toolbar's own "Victory (21.1s)" sits on the same pixels as
-	## the end card's heading, which is the same sentence four times the size.
-	## The text stays set; only the second copy of it goes away.
-	_outcome_label.visible = false
+	## Issue 552: the end card is as tall as the window, so its heading lands on
+	## the toolbar's own first row. Every label on that row is either restated by
+	## the card or not worth reading over it; the buttons beside them stay, which
+	## is the half issue 343 is about. The text stays set, only the drawing stops.
+	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
+		label.visible = false
 	_sync_click_hint()
 
 ## Issue 441. After #399 the editor starts empty, so a new player's first fight

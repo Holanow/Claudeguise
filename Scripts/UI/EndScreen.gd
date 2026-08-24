@@ -20,7 +20,7 @@ const SortBy := {DEALT = 0, TAKEN = 1}
 ## without scrolling: a four-pawn party is the normal case, and a roster you
 ## have to drag to see all of is not a roster.
 const CARD_WIDTH := 148.0
-const PORTRAIT_SIZE := 72.0
+const PORTRAIT_SIZE := 56.0
 
 ## Wide enough for a four-pawn party laid out side by side. The banner's column
 ## is centred and sizes to content, so without a floor here the roster gets
@@ -29,11 +29,10 @@ const PORTRAIT_SIZE := 72.0
 const CARD_SLOT := CARD_WIDTH + 2.0 * Palette.SPACE_S
 const ROSTER_MIN_WIDTH := 4.0 * CARD_SLOT + 3.0 * Palette.SPACE_M
 
-## The roster and the log get fixed slabs of the banner: the column around them
-## is centred and sizes to content, so an expanding child would collapse to
-## nothing.
-const ROSTER_HEIGHT := 200.0
-const LOG_HEIGHT := 168.0
+## The log gets a fixed slab of the banner: the column around it is centred and
+## sizes to content, so an expanding child would collapse to nothing. The roster
+## has no such constant on purpose -- see `_build_roster_side`.
+const LOG_HEIGHT := 104.0
 
 ## Named so a probe and a test can find the controls without matching on caption.
 const SORT_DEALT_NAME := "SortByDealt"
@@ -190,10 +189,15 @@ func _build_roster_side() -> Control:
 	## The floor goes on the scroll itself, not on the column above it: a
 	## minimum set on the parent is a request the parent may satisfy by other
 	## means, and it did -- the scroll came out 628 wide against a 720 ask.
+	## Vertical scrolling is OFF and the height comes from the cards. A fixed 200
+	## was 2 px under the card it held, which raised a vertical bar that drew over
+	## the last card -- and the edge check above could not see it, because the bar
+	## is inside the scroll's own rect.
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, ROSTER_HEIGHT)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, 0.0)
+	scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	side.add_child(scroll)
 
 	_roster = HBoxContainer.new()
@@ -247,6 +251,9 @@ func _build_log_side() -> Control:
 	_log_label.add_theme_color_override("default_color", Palette.TEXT)
 	_log_label.add_theme_font_size_override("normal_font_size", Palette.FONT_SIZE_SMALL)
 	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	## A `RichTextLabel` defaults to taking the mouse, and it is the one node in
+	## the banner big enough for that to cover the toolbar under it.
+	_log_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.add_child(_log_label)
 	return side
 
