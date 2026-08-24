@@ -26,6 +26,11 @@ class_name EnemyDef
 
 @export var damage_reduction: float = 0.0
 
+## Issue 542. Multiplier on how fast this enemy gets through an action's
+## authored wind-up and recovery; 1.0 is exactly as authored, above 1.0 is
+## faster. A pawn gets the same thing from AGI and an enemy had nothing.
+@export var action_speed: float = 1.0
+
 @export var actions: Array[StringName] = []
 
 ## Tags shown to the player above the health bar.

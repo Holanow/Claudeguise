@@ -151,6 +151,23 @@ static func scale_action_ticks(base_ticks: int, pawn: PawnData) -> int:
 	var scale := clampf(attribute(pawn, CG.Attribute.AGI) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
 	return maxi(1, int(round(float(base_ticks) * (1.0 - scale))))
 
+## Issue 542. The enemy half of `scale_action_ticks`, and it is new capability
+## rather than a conversion: an enemy had no action speed at all and every enemy
+## action ran at exactly its authored tick counts.
+##
+## Clamped at both ends. The fast end mirrors the pawn's -50% floor; the slow end
+## stops a small multiplier turning a wind-up into a stall nobody can read.
+const MIN_ENEMY_TICK_SCALE := 0.5
+const MAX_ENEMY_TICK_SCALE := 2.0
+
+static func scale_enemy_action_ticks(base_ticks: int, action_speed: float) -> int:
+	if base_ticks <= 0:
+		return base_ticks
+	if action_speed <= 0.0:
+		return base_ticks
+	var scale := clampf(1.0 / action_speed, MIN_ENEMY_TICK_SCALE, MAX_ENEMY_TICK_SCALE)
+	return maxi(1, int(round(float(base_ticks) * scale)))
+
 ## What a pawn's resource pool holds at the moment a fight starts.
 ##
 static func starting_resource(kind: CG.ResourceKind, max_resource: int) -> int:

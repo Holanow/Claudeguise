@@ -82,7 +82,14 @@ static func actions() -> Array[ActionDef]:
 
 static func enemies() -> Array[EnemyDef]:
 	return [
-		_enemy(&"siege_engine", "Siege Engine", 140, 0, CG.ResourceKind.ENERGY, 0.0, 20.0, {CG.DamageType.PHYSICAL: 16}, 0.0, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
+		## An allied minion, and it shares the monster profile because it shares
+		## `EnemyDef` -- the player confirmed that. It must NOT ride the per-floor
+		## monster curve when one exists: minions scale with their summoner, and
+		## pawn progression is undesigned, so nothing here builds either.
+		##
+		## 1.4x hp is 140 against the Siege Master's 114. The minion is tankier
+		## than the pawn that builds it. Reported by issue 542, not changed by it.
+		_enemy(&"siege_engine", "Siege Engine", 1.4, 1.6, 0.0, 0.0, 1.0, 20.0, CG.DamageType.PHYSICAL, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:
@@ -257,17 +264,21 @@ static func _action_summon(id: StringName, display_name: String, description: St
 	a.summons_unit_id = summons_unit_id
 	return a
 
-static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
+## Issue 542: multiples of `MonsterProfile`, not absolutes. `damage_type` is the
+## one type this monster's attack power is expressed in; `radius` stays absolute
+## because it is collision geometry rather than a stat.
+static func _enemy(id: StringName, display_name: String, hp_mult: float, damage_mult: float, move_mult: float, resist_mult: float, action_speed: float, radius: float, damage_type: CG.DamageType, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0, resource_max: int = 0, resource_kind: CG.ResourceKind = CG.ResourceKind.ENERGY) -> EnemyDef:
 	var e := EnemyDef.new()
 	e.id = id
 	e.display_name = display_name
-	e.hp_max = hp_max
+	e.hp_max = MonsterProfile.hp(hp_mult)
 	e.resource_max = resource_max
 	e.resource_kind = resource_kind
-	e.move_speed = move_speed
+	e.move_speed = MonsterProfile.move_speed(move_mult)
 	e.radius = radius
-	e.attack_power = attack_power
-	e.damage_reduction = damage_reduction
+	e.attack_power = {damage_type: MonsterProfile.damage(damage_mult)}
+	e.damage_reduction = MonsterProfile.resistance(resist_mult)
+	e.action_speed = action_speed
 	e.actions = actions
 	e.display_tags = display_tags
 	e.focus_bias = focus_bias
