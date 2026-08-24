@@ -149,6 +149,10 @@ func _run() -> void:
 	await _drift_strip(walk, "drift", false)
 	await _drift_strip(walk, "cover", true)
 	await _kill_strip(_kill())
+	for units in [14, 100]:
+		await _cost(units, false, false)
+		await _cost(units, true, false)
+		await _cost(units, true, true)
 
 func _save(panels: Array[Image], stem: String) -> void:
 	var strip := Image.create(CROP.x * ZOOM * panels.size(), CROP.y * ZOOM, false, panels[0].get_format())
@@ -258,3 +262,60 @@ func _marks(id: int) -> String:
 			out += " %s@%.1f,%.1f" % ["plate" if child.death_marker else "number",
 				child.position.x, child.position.y]
 	return out
+
+## Copies every script variable, so a field added to CombatUnit later is carried
+## without this list rotting. Fabricated bodies for a cost measurement only --
+## never read a fight outcome off an inflated state.
+func _clone(src: CombatUnit, id: int) -> CombatUnit:
+	var out := CombatUnit.new()
+	for p in src.get_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			out.set(p.name, src.get(p.name))
+	out.id = id
+	out.position = Vector2(
+		randf_range(-CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
+		randf_range(-CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT))
+	return out
+
+const COST_FRAMES := 240
+
+## What #511 costs a WHOLE RENDERED FRAME, wall clock, vsync off. Timing
+## `_process` alone would answer the wrong question: what this issue added is
+## mostly canvas work, and a canvas is rebuilt after `_process` returns, so a
+## stopwatch around the call cannot see it. Name plates are OFF by default, so
+## the layer's `_draw` returns at its first line; with them on, every chip and
+## tether is repainted between ticks. Cover repaints the whole arena floor,
+## which is the price of the plate riding the body.
+func _cost(units: int, plates: bool, cover: bool) -> void:
+	seed(SEED)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	DisplayOptions.set_enabled(&"name_plates", plates)
+	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	await _build_view(party_ids)
+	var state: CombatState = _view.state
+	var source: Array = state.units.duplicate()
+	while state.units.size() < units:
+		state.units.append(_clone(source[state.units.size() % source.size()], state.units.size()))
+	# ONE shielder, not all of them. A fight has at most one Warrior holding
+	# cover, and a hundred plates measures a game nobody plays.
+	if cover:
+		var u: CombatUnit = state.units[0]
+		u.statuses[CG.Status.SHIELDING] = 999999
+		if u.facing == Vector2.ZERO:
+			u.facing = Vector2.RIGHT
+	_view._ensure_unit_views()
+	await RenderingServer.frame_post_draw
+
+	var frames := 0
+	var t0 := Time.get_ticks_usec()
+	for i in COST_FRAMES:
+		if state.outcome != CombatState.Outcome.UNRESOLVED:
+			break
+		_frame()
+		await RenderingServer.frame_post_draw
+		frames += 1
+	var spent := Time.get_ticks_usec() - t0
+	print("AttachDriftShot cost, %d units, plates %s, cover %s: %d us per rendered frame (n=%d)" % [
+		state.units.size(), plates, cover, 0 if frames == 0 else spent / frames, frames])
+	DisplayOptions.set_enabled(&"name_plates", false)
+	await _teardown()
