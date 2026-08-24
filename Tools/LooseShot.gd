@@ -8,9 +8,8 @@ extends Node
 ## The ruler is blitted onto the captured image at a fixed image coordinate, so
 ## it cannot ride the body it is measuring.
 ##
-## Then what it costs a WHOLE RENDERED FRAME at 14 and at 100 units. Timing
-## `_process` alone answers the wrong question: the canvas is rebuilt after it
-## returns.
+## Then what it costs a WHOLE RENDERED FRAME at 14 and at 100 units, because the
+## canvas is rebuilt after `_process` returns.
 
 const OUT_DIR := "res://Screenshots"
 const SEED := 7
