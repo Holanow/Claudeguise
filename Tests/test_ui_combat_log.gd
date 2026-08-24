@@ -891,8 +891,13 @@ func test_the_status_filter_covers_every_dot() -> void:
 	view.free()
 
 ## The measurement the issue was filed on, against the only authored room with
-## fire in it, through the real formatter.
-func test_the_burn_pit_log_is_mostly_ground_once_the_player_asks_for_it() -> void:
+## fire in it, through the real formatter. **Re-recorded on #544**, which deleted
+## the automatic retreat: same seed, same room, the fight went 679 ticks -> 436
+## and the ground lines 178 of 562 -> 82 of 546, because the party stops walking
+## backwards through the fire. 32% was the recorded reason this toggle ships off
+## by default and 15% is a weaker one, which is a decision for the player rather
+## than a number to move here.
+func test_the_burn_pit_log_carries_the_ground_lines_once_the_player_asks_for_it() -> void:
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
 	var party: Array[PawnData] = []
@@ -912,9 +917,9 @@ func test_the_burn_pit_log_is_mostly_ground_once_the_player_asks_for_it() -> voi
 		shown += 1
 		if line.contains("from the ground"):
 			ground += 1
-	assert_true(ground > 100, "the Burn Pit must actually burn somebody: %d" % ground)
-	assert_true(float(ground) / float(shown) > 0.25,
-		"switched on, the log is %d of %d ground lines -- which is why it ships off" % [ground, shown])
+	assert_true(ground > 50, "the Burn Pit must actually burn somebody: %d" % ground)
+	assert_true(float(ground) / float(shown) > 0.12,
+		"switched on, the log is %d of %d ground lines" % [ground, shown])
 
 	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
 	var quiet := 0
