@@ -753,8 +753,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_arena.projectiles = []
 	_arena.shot_positions = {}
 	_prev_drawn = {}
-	_curr_drawn = {}
 	_prev_shots = {}
+	_curr_drawn = _drawn_snapshot()
 	_curr_shots = {}
 	_arena.units = state.units
 	_arena.queue_redraw()
@@ -890,8 +890,12 @@ func _apply_placements(positions: Array[Vector2]) -> void:
 		if i < _placements.size():
 			u.position = _placements[i]
 		i += 1
+	# Issue 501. The only place a unit moves outside `CombatSim.step`, so the
+	# only place that has to say so: without this the first tick after a drag
+	# slides every pawn in from wherever it was standing before.
+	_curr_drawn = _drawn_snapshot()
 	for id in _unit_views:
-		_unit_views[id].sync(state)
+		_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
 	if _text_layer != null:
 		_text_layer.sync(state)
 	if _arena != null:
@@ -1013,11 +1017,9 @@ func _process(delta: float) -> void:
 	var stepped := false
 	while _tick_accumulator >= CG.TICK_SECONDS and state.outcome == CombatState.Outcome.UNRESOLVED:
 		_tick_accumulator -= CG.TICK_SECONDS
-		# Inside the loop, because a slow frame runs several steps. And measured
-		# fresh on the frame's first step rather than trusted from last frame:
-		# a setup-phase drag moves units without any step to notice it.
-		_prev_drawn = _curr_drawn if stepped else _drawn_snapshot()
-		_prev_shots = _curr_shots if stepped else _shot_snapshot()
+		# Inside the loop, because a slow frame runs several steps in one frame.
+		_prev_drawn = _curr_drawn
+		_prev_shots = _curr_shots
 		CombatSim.step(state)
 		_curr_drawn = _drawn_snapshot()
 		_curr_shots = _shot_snapshot()

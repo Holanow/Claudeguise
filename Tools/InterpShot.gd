@@ -11,8 +11,12 @@ const SEED := 7
 ## A 60Hz display against a 15Hz simulation. The whole defect is this ratio.
 const FRAMES_PER_TICK := 4
 const FRAMES := 8
-const CROP := Vector2i(128, 96)
-const ZOOM := 6
+const CROP := Vector2i(96, 72)
+const ZOOM := 8
+## Where the body stood in the first panel, painted into every panel. Without a
+## fixed mark a strip of eight crops of one pawn looks the same either way.
+const RULER := Color(1.0, 0.2, 0.6)
+const RULER_WIDTH := 3
 const COST_FRAMES := 240
 const BIG_UNITS := 100
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
@@ -113,10 +117,9 @@ func _strip(walk: Dictionary) -> void:
 		var at := body.position
 		if at != last:
 			distinct += 1
-		print("  frame %d  tick %d  drawn %.2f, %.2f  moved %.2f  alpha %.3f  prev %s curr %s" % [
+		print("  frame %d  tick %d  drawn %.2f, %.2f  moved %.2f  alpha %.3f" % [
 			i, _view.state.tick, at.x, at.y, 0.0 if last == Vector2.INF else at.distance_to(last),
-			_view._tick_accumulator / CG.TICK_SECONDS,
-			_view._prev_drawn.get(walk["id"], "-"), _view._curr_drawn.get(walk["id"], "-")])
+			_view._tick_accumulator / CG.TICK_SECONDS])
 		last = at
 		panels.append(await _panel(centre))
 		_frame()
@@ -126,6 +129,8 @@ func _strip(walk: Dictionary) -> void:
 	var strip := Image.create(CROP.x * ZOOM * panels.size(), CROP.y * ZOOM, false, panels[0].get_format())
 	for i in panels.size():
 		strip.blit_rect(panels[i], Rect2i(Vector2i.ZERO, panels[i].get_size()), Vector2i(i * CROP.x * ZOOM, 0))
+		strip.fill_rect(Rect2i(
+			(i * CROP.x + CROP.x / 2) * ZOOM, 0, RULER_WIDTH, CROP.y * ZOOM), RULER)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var stem := OS.get_environment("INTERP_SHOT_NAME")
 	if stem == "":
