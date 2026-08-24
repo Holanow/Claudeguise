@@ -42,6 +42,21 @@ func _run() -> void:
 	await _strip("swift_517_debris_only", true, false)
 	await _strip("swift_517_ring_only", false, true)
 	await _strip("swift_517_both", true, true)
+	await _whole_screen()
+
+## The screen a player looks at, at full size and every option at its default.
+## Every strip above is a crop, and a crop cannot show what the debris does to a
+## screen that already has bodies, bars and a log on it.
+func _whole_screen() -> void:
+	DisplayOptions.reset()
+	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	while _view.state.tick < 60 and _view.state.outcome == CombatState.Outcome.UNRESOLVED:
+		await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var path := "%s/swift_517_battle_screen.png" % OUT_DIR
+	get_viewport().get_texture().get_image().save_png(path)
+	print("BurstShot: %s" % path)
+	await _teardown()
 
 func _build(party_ids: Array) -> void:
 	var cfg := RunConfig.new()
