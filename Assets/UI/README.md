@@ -209,6 +209,26 @@ replace information.** It is worth knowing because the alternative would look
 completely fine in a screenshot and would have quietly removed something you
 need to see.
 
+## Impact debris
+
+One file, and it is the only picture in this folder that is drawn many times at
+once rather than once in a box.
+
+| File | What it draws |
+| --- | --- |
+| `fx/impact.png` | The chips a hit throws off whatever it landed on |
+
+**Draw it white.** It is tinted at run time with the damage type's own colour,
+the same `Palette.damage_color` the floating numbers use, so a sword and
+scalding water throw the same shape in different colours. A coloured file
+multiplies against that and comes out wrong.
+
+**Draw it small and simple.** It ships at 16x16 and is drawn at about a sixth of
+that, so a body is roughly five of them across. Detail below that size is lost;
+a silhouette is not.
+
+Delete it and the debris is a black square, the same rule as everything above.
+
 ## Size and shape
 
 - **Any size.** An icon is scaled so its longest side fits the box it is given.

@@ -29,6 +29,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"impact_particles",
+		"label": "Debris on every hit",
+		"help": "A short burst of chips thrown off whatever was hit, in that damage type's colour, so a blow that lands looks different from one that misses. On by default: it lasts under half a second, it is smaller than a body and it never covers one, and the freeze frame it goes with is on for the same reason. Turn it off if you would rather the screen stayed still.",
+		"default": true,
+	},
+	{
 		"id": &"log_hazard_ticks",
 		"label": "Ground damage in the log",
 		"help": "One line per tick for every pawn standing in fire or acid. Off by default: measured over a Burn Pit fight it is 141 of the log's 402 lines, and it scrolls the deaths away. Turn it on to find out what killed somebody.",
