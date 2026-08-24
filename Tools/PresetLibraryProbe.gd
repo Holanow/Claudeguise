@@ -8,6 +8,15 @@ extends Node
 
 const OUT_DIR := "res://Screenshots"
 
+## Issue 520: the gate runs this probe, and the gate runs in the main checkout.
+## Set by `gate.ps1` only; a hand run still refuses, and a gate run writes its
+## captures to `user://` so it never dirties anybody's Screenshots.
+static func gated() -> bool:
+	return OS.get_environment("CLAUDEGUISE_GATE") != ""
+
+func _out_dir() -> String:
+	return "user://probe" if gated() else OUT_DIR
+
 var _main: Node
 var _tag := ""
 var _failures := 0
@@ -17,7 +26,7 @@ var _failures := 0
 var _finished := false
 
 func _ready() -> void:
-	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
+	if not gated() and DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
 		printerr("PresetLibraryProbe: refusing to run in the main checkout -- use a worktree.")
 		get_tree().quit(2)
 		return
@@ -36,8 +45,9 @@ func _settle(n: int = 6) -> void:
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	img.save_png("%s/%s_%s.png" % [OUT_DIR, name, _tag])
+	var dir := _out_dir()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	img.save_png("%s/%s_%s.png" % [dir, name, _tag])
 	print("PresetLibraryProbe: %s_%s.png" % [name, _tag])
 
 func _walk(n: Node) -> Array[Node]:
@@ -73,6 +83,17 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e)
 		await _settle(2)
 
+## Issue 520: a ScrollContainer clips input as well as pixels, so a control
+## below the fold gets no event and reads as inert.
+func _scrolls(c: Control) -> Array[ScrollContainer]:
+	var out: Array[ScrollContainer] = []
+	var n: Node = c.get_parent()
+	while n != null:
+		if n is ScrollContainer:
+			out.append(n)
+		n = n.get_parent()
+	return out
+
 ## Clicks the control where it is drawn. Refuses rather than clicking a point
 ## outside the window, which would report as "the control did nothing".
 func _click_control(c: Control, what: String) -> bool:
@@ -81,6 +102,22 @@ func _click_control(c: Control, what: String) -> bool:
 	var window := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
 	if not window.has_point(at) or rect.size.x < 1.0:
 		print("PresetLibraryProbe: %s is at %s, outside the window %s -- not clicking" % [what, rect, window.size])
+		_failures += 1
+		return false
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("PresetLibraryProbe: %s is below the fold of %s (%s vs %s), scrolling to it" % [
+			what, scroll.name, rect, scroll.get_global_rect()])
+		scroll.ensure_control_visible(c)
+		await _settle(2)
+		rect = c.get_global_rect()
+		at = rect.get_center()
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("PresetLibraryProbe: %s sits at %s, clipped by %s at %s, and will not scroll into view -- not clicking" % [
+			what, rect, scroll.name, scroll.get_global_rect()])
 		_failures += 1
 		return false
 	await _click(at)

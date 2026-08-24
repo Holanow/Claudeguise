@@ -175,9 +175,40 @@ if ($ratioFailures.Count -gt 0) {
 }
 Write-Host "  comments   pass   (no file over 2:1 that is not recorded debt)"
 
-if ($code -eq 0) {
-    Write-Host "GATE PASSED"
-} else {
+if ($code -ne 0) {
     Write-Host "GATE FAILED (exit $code)"
+    exit $code
 }
-exit $code
+
+# Issue 520: one real-click probe, because the headless suite structurally
+# cannot run one.
+#
+# Measured 2026-08-24: a Control added to the tree inside a `--script` run has
+# not been laid out, so every rect reads (0,0,0,0) and `push_input` picks
+# nothing. So the only place a click through Godot's picking can be checked is
+# a windowed run, and if it is not here it is a tool nobody remembers.
+#
+# What it caught: since #470 the library's first Add sat 11 px below the fold
+# of the party screen's Plans scroll, a ScrollContainer clips input as well as
+# pixels, and the probe reported the button as inert for a day.
+$env:CLAUDEGUISE_GATE = '1'
+$probeLog = Join-Path $env:TEMP ("claudeguise-probe-" + [guid]::NewGuid().ToString('N') + ".txt")
+& (Join-Path $PSScriptRoot 'run.ps1') PresetLibraryProbe -TimeoutSeconds 240 > $probeLog 2>&1
+$probeCode = $LASTEXITCODE
+Remove-Item Env:\CLAUDEGUISE_GATE -ErrorAction SilentlyContinue
+
+if ($probeCode -ne 0) {
+    Write-Host ""
+    Write-Host "  clicks     FAIL   (PresetLibraryProbe exited $probeCode)"
+    Get-Content $probeLog | Select-String -Pattern 'PresetLibraryProbe' | ForEach-Object { Write-Host ("      " + $_.Line.Trim()) }
+    Remove-Item $probeLog -ErrorAction SilentlyContinue
+    Write-Host "  A control the suite cannot reach. This needs a screen, so it needs a window:"
+    Write-Host "  a machine with no display cannot run the gate."
+    Write-Host "GATE FAILED (real-click probe)"
+    exit 7
+}
+Remove-Item $probeLog -ErrorAction SilentlyContinue
+Write-Host "  clicks     pass   (the library's Add lands a row through real picking)"
+
+Write-Host "GATE PASSED"
+exit 0
