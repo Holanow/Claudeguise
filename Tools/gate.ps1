@@ -210,5 +210,28 @@ if ($probeCode -ne 0) {
 Remove-Item $probeLog -ErrorAction SilentlyContinue
 Write-Host "  clicks     pass   (the library's Add lands a row through real picking)"
 
+# Issue 529: the byte-identical proof, which was a sentence in an issue that
+# four sessions had to be told individually and two of us got wrong anyway.
+#
+# Cheap in the case that matters. A view-only change leaves the simulation's own
+# source byte-for-byte alone, which is a STRONGER claim than an equal output
+# hash and takes about a second. SampleFights only runs when that source moved,
+# which is the only time its 90 seconds buys anything.
+$simLog = Join-Path $env:TEMP ("claudeguise-sim-" + [guid]::NewGuid().ToString('N') + ".txt")
+& (Join-Path $PSScriptRoot 'sim_fingerprint.ps1') > $simLog 2>&1
+$simCode = $LASTEXITCODE
+
+if ($simCode -ne 0) {
+    Write-Host ""
+    Write-Host "  sim        FAIL   (sim_fingerprint.ps1 exited $simCode)"
+    Get-Content $simLog | ForEach-Object { Write-Host ("      " + $_) }
+    Remove-Item $simLog -ErrorAction SilentlyContinue
+    Write-Host "GATE FAILED (simulation fingerprint)"
+    exit 8
+}
+$simLine = (Get-Content $simLog | Select-Object -Last 1).Trim()
+Remove-Item $simLog -ErrorAction SilentlyContinue
+Write-Host "  sim        pass   ($simLine)"
+
 Write-Host "GATE PASSED"
 exit 0
