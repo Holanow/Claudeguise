@@ -895,8 +895,8 @@ func test_the_status_filter_covers_every_dot() -> void:
 ## the automatic retreat: same seed, same room, the fight went 679 ticks -> 436
 ## and the ground lines 178 of 562 -> 82 of 546, because the party stops walking
 ## backwards through the fire. 32% was the recorded reason this toggle ships off
-## by default and 15% is a weaker one, which is a decision for the player rather
-## than a number to move here.
+## by default and 15% is a weaker one; **the player ruled it still ships off**,
+## since a sixth of the log is still a sixth of what a player reads.
 func test_the_burn_pit_log_carries_the_ground_lines_once_the_player_asks_for_it() -> void:
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
