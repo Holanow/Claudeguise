@@ -2,15 +2,37 @@ extends SceneTree
 
 ## Runs the real encounter with real content across many seeds and prints what
 ## happened.
+##
+## Issue 529: it also hashes its own output and prints the digest as its last
+## line, so proving a change byte-identical never involves a shell pipeline that
+## could pick up the launcher's banner, its trailing blank lines, or a CR.
 
 
 const SEEDS := 20
 
+## Every line printed, in order, so the fingerprint covers exactly what was
+## printed and nothing that surrounds it.
+var _lines := PackedStringArray()
+
+## The one way this tool writes. Nothing may call `print` directly: a line that
+## skipped the buffer would be in the report and not in the digest.
+func _say(line: String = "") -> void:
+	_lines.append(line)
+	print(line)
+
+## Printed last, and NOT part of what it covers. Joined with a newline, which is
+## what Godot writes, so the digest is the same on any shell -- a hash taken
+## through a pipeline depends on whose shell normalised the line endings.
+func _fingerprint() -> void:
+	var body := "\n".join(_lines) + "\n"
+	print("lines: %d" % _lines.size())
+	print("fingerprint: %s" % body.sha256_text())
+
 func _init() -> void:
 	var class_ids := Registry.all_class_ids()
 	var encounter_ids := Registry.all_encounter_ids()
-	print("classes: ", class_ids)
-	print("encounters: ", encounter_ids)
+	_say("classes: " + str(class_ids))
+	_say("encounters: " + str(encounter_ids))
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("no content registered; nothing to sample")
 		quit(1)
@@ -18,24 +40,25 @@ func _init() -> void:
 
 	# EVERY encounter, named in the output, rather than one picked by index.
 	for encounter_id in encounter_ids:
-		print("")
-		print("========================================================")
-		print("ENCOUNTER: ", encounter_id)
-		print("========================================================")
+		_say("")
+		_say("========================================================")
+		_say("ENCOUNTER: " + str(encounter_id))
+		_say("========================================================")
 		var encounter := Registry.get_encounter(encounter_id)
 		# Real parties first, and they are the only ones any balance decision
 		# should be read from. See _parties for why that sentence had to be
 		# written down.
-		print("")
-		print("-- PARTIES A PLAYER CAN BUILD ---------------------------")
+		_say("")
+		_say("-- PARTIES A PLAYER CAN BUILD ---------------------------")
 		for party_ids in _parties(class_ids):
 			_sample(party_ids, encounter)
-		print("")
-		print("-- NOT BUILDABLE: one class four times, per-class diagnostic only")
-		print("-- PartySelect allows one card per class. Do not balance on these.")
+		_say("")
+		_say("-- NOT BUILDABLE: one class four times, per-class diagnostic only")
+		_say("-- PartySelect allows one card per class. Do not balance on these.")
 		for party_ids in _impossible_parties(class_ids):
 			_sample(party_ids, encounter)
 
+	_fingerprint()
 	quit(0)
 
 ## Every party a player can actually assemble, and then the ones they cannot,
@@ -91,13 +114,13 @@ func _sample(party_ids: Array, encounter) -> void:
 			party_hp.append(_team_hp_percent(state, CG.Team.PLAYER))
 			win_survivors.append(_living_pawns(state))
 
-	print("")
-	print("party: ", _short(party_ids))
-	print("  win %d / lose %d / draw %d  of %d%s" % [
+	_say("")
+	_say("party: " + _short(party_ids))
+	_say("  win %d / lose %d / draw %d  of %d%s" % [
 		wins, losses, draws, SEEDS,
 		"   <- COIN FLIP" if wins >= 6 and wins <= 14 else "",
 	])
-	print("  ticks   min %d  median %d  max %d   (%.1fs .. %.1fs)  spread %d%%" % [
+	_say("  ticks   min %d  median %d  max %d   (%.1fs .. %.1fs)  spread %d%%" % [
 		_min(ticks), _median(ticks), _max(ticks),
 		float(_min(ticks)) / float(CG.TICKS_PER_SECOND),
 		float(_max(ticks)) / float(CG.TICKS_PER_SECOND),
@@ -106,7 +129,7 @@ func _sample(party_ids: Array, encounter) -> void:
 	# A histogram, not a median. "median 4" and "median 4 every single time" are
 	# very different games and the median cannot tell them apart, which is the
 	# whole question issue 7 is about.
-	print("  survivors  %s" % _histogram(survivors, 4))
+	_say("  survivors  %s" % _histogram(survivors, 4))
 	# A draw is never "close": it is a fight that failed to finish, and the
 	# losing side has hp left because nobody could reach anybody. The first
 	# version of this flagged the 120-second stalemate as CLOSE, which would
@@ -116,14 +139,14 @@ func _sample(party_ids: Array, encounter) -> void:
 		close_note = "   <- CLOSE"
 	elif draws > 0:
 		close_note = "   (draws excluded: a stalemate is not a close fight)"
-	print("  closeness  losing side finished on median %d%% hp%s" % [
+	_say("  closeness  losing side finished on median %d%% hp%s" % [
 		_median(margins), close_note,
 	])
 	# The number the user asked for, and it changes what "balanced" means.
 	if wins == 0:
-		print("  cost       no wins to measure")
+		_say("  cost       no wins to measure")
 	else:
-		print("  cost       party finished its %d win%s on median %d%% of its own hp%s" % [
+		_say("  cost       party finished its %d win%s on median %d%% of its own hp%s" % [
 			wins, "" if wins == 1 else "s",
 			_median(party_hp), _cost_note(_median(party_hp), _median(win_survivors)),
 		])
