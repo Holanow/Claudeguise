@@ -264,6 +264,18 @@ down here rather than hitting somebody else silently.
 `git checkout HEAD -- <path>` to put yours back. A commit is yours; the stash is
 everyone's.
 
+**Commit first is the load-bearing half of that sentence, and it is the half
+that gets skipped.** `git checkout -- <path>`, with no ref, discards every
+uncommitted change to that path with no prompt, no stash entry and no reflog.
+Three sessions destroyed their own work with it on 2026-08-23 and 2026-08-24,
+each while reverting a deliberate perturbation they had just finished measuring.
+All three recovered, and all three recovered by luck rather than by method.
+
+So: commit before you perturb, and revert from a file copy rather than from git.
+The rule above bans the stash because it is shared; this one is not about
+sharing at all. It is that the moment you most want to throw work away is the
+moment you are least able to tell which work you are throwing.
+
 ### Never kill processes by name or pattern
 
 `taskkill /IM python.exe`, `pkill node`, `Get-Process node | Stop-Process`, and
