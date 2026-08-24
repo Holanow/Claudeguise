@@ -972,10 +972,8 @@ func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
-	_unit_layer = Node2D.new()
-	_arena.add_child(_unit_layer)
-	_text_layer = ArenaTextLayerScript.new()
-	_arena.add_child(_text_layer)
+	_unit_layer = null
+	_text_layer = null
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
@@ -988,6 +986,7 @@ func _rebuild_units() -> void:
 func _ensure_unit_views() -> void:
 	if state == null:
 		return
+	_ensure_layers()
 	for u in state.units:
 		if _unit_views.has(u.id):
 			continue
@@ -998,6 +997,21 @@ func _ensure_unit_views() -> void:
 		_unit_views[u.id] = view
 	if _text_layer != null:
 		_text_layer.sync(state)
+
+## Issue 512: there is one way in. `_text_layer` used to be built only by
+## `_rebuild_units`, which only `begin_with_encounter` calls, while `_process`
+## called `_text_layer.sync` unguarded -- so a tool that drove the view by
+## assigning `state` got a null and every stepped frame died inside `_process`
+## before it rendered, silently, producing a plausible wrong picture.
+## Order matters and is asserted by `_bodies`: the unit layer first, the text
+## layer after it, so no body can be painted over a name (issue 321).
+func _ensure_layers() -> void:
+	if _unit_layer == null or not is_instance_valid(_unit_layer):
+		_unit_layer = Node2D.new()
+		_arena.add_child(_unit_layer)
+	if _text_layer == null or not is_instance_valid(_text_layer):
+		_text_layer = ArenaTextLayerScript.new()
+		_arena.add_child(_text_layer)
 
 ## Issue 321: every body and every bar goes in one layer under the names, so a
 ## summon added mid-fight cannot be drawn over a plate that was already up.
