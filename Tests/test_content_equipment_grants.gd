@@ -281,6 +281,20 @@ func test_every_class_starts_armed_with_a_weapon_it_may_use() -> void:
 		assert_true(pawn.weapon.allows(pawn.pawn_class.method),
 			"%s may not use %s, so the equip screen would never offer it" % [cid, pawn.weapon.id])
 
+## Issue 226, the player's ruling: "every class should have default dress". The
+## twin of the weapon test above, and the reason it is asserted rather than read
+## off the table is that a sixth class would otherwise ship bare.
+func test_every_class_starts_dressed_in_armour_it_may_wear() -> void:
+	for cid in Registry.all_class_ids():
+		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
+		assert_not_null(pawn.armor, "%s starts wearing nothing" % cid)
+		if pawn.armor == null:
+			continue
+		assert_eq(pawn.armor.slot, EquipmentDef.Slot.ARMOR,
+			"%s starts wearing %s, which is not armour" % [cid, pawn.armor.id])
+		assert_true(pawn.armor.allows_class(pawn.pawn_class),
+			"%s may not wear %s, so the equip screen would never offer it" % [cid, pawn.armor.id])
+
 ## The load-bearing pair, part one: armed, every class can attack for free.
 func test_an_armed_pawn_has_a_free_attack() -> void:
 	for cid in Registry.all_class_ids():

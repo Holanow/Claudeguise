@@ -310,10 +310,16 @@ func test_equipping_wis_moves_the_plan_budget_in_the_column_beside_it() -> void:
 	screen._ready()
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
+
+	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	## Issue 226 dressed every class by default, so "equip the WIS item" was a
+	## no-op on a pawn already wearing the only one it may wear. Strip the slot
+	## first and the test proves what it always meant to.
+	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 0)
 	var before := _budget_line(screen)
 	assert_ne(before, "", "the plans column must state the budget")
 
-	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+
 	var wis_item := -1
 	for i in armors.size():
 		if armors[i].attribute_percent.get(CG.Attribute.WIS, 0.0) > 0.0 				or armors[i].attribute_flat.get(CG.Attribute.WIS, 0.0) > 0.0:

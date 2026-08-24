@@ -75,19 +75,29 @@ func test_the_plan_editor_offers_the_channel_to_a_starter_priest() -> void:
 # the plan row, and the two points of WIS that pay for it
 # ---------------------------------------------------------------------------
 
-## **Every class's preset plans exactly fill its WIS budget**, before this issue
-## and after it. There was no spare block anywhere, which is why the Channel row
-## arrives with the Robes that buy it rather than on its own.
+## **No class's preset plans may cost more WIS than it has**, which is what the
+## name says and the half that is a rule rather than a snapshot.
 func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 	var over: Array[String] = []
 	for cid in Registry.all_class_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		var free_blocks := Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
-		if free_blocks != 0:
-			over.append("%s (%d spare)" % [cid, free_blocks])
+		if free_blocks < 0:
+			over.append("%s (%d over)" % [cid, free_blocks])
 	assert_eq(over, [] as Array[String],
-		("A class's presets no longer exactly fill its WIS budget: %s. That slack is what "
-		+ "issue 166 did not have, so a preset row now costs nothing to add.") % [over])
+		"A class's presets cost more blocks than its WIS pays for: %s" % [over])
+
+## And the snapshot, kept separately because it is a measurement and not a rule.
+## It read zero everywhere until issue 226 dressed the last two classes: their
+## libraries were authored against a bare pawn, so the armour's two points of
+## WIS are two rows the player may now author themselves.
+func test_the_spare_plan_blocks_are_the_ones_recorded_here() -> void:
+	var spare := {}
+	for cid in Registry.all_class_ids():
+		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
+		spare[cid] = Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
+	assert_eq(spare, {&"warrior": 0, &"priest": 0, &"geysermancer": 0, &"siege_master": 2, &"abomination": 2},
+		"the slack in a class's plan budget moved: %s" % [spare])
 
 ## Both casters run every row in their library, the Channel included. Issue 399:
 ## a starter pawn ships with none, so the rows are added here the way a player
