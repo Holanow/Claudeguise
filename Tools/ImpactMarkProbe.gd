@@ -60,7 +60,8 @@ func _measure_bearings() -> void:
 	var source_moves := []
 	var follow_totals := []
 	var follow_melee := []
-	var follow_lost := []
+	var target_died := []
+	var attacker_died := []
 	for encounter_id in Registry.all_encounter_ids():
 		var enc = Registry.get_encounter(encounter_id)
 		var drifts := []
@@ -81,7 +82,8 @@ func _measure_bearings() -> void:
 				source_moves.append_array(one["source_move"])
 				follow_drifts.append_array(one["follow_drift"])
 				follow_melee.append_array(one["follow_melee"])
-				follow_lost.append_array(one["follow_lost"])
+				target_died.append_array(one["target_died"])
+				attacker_died.append_array(one["attacker_died"])
 		totals.append_array(drifts)
 		follow_totals.append_array(follow_drifts)
 		print("  %-24s hits %4d   FIXED median %5.1f deg p90 %5.1f   FOLLOWING median %5.1f deg p90 %5.1f  over 60deg %.1f%%" % [
@@ -105,8 +107,10 @@ func _measure_bearings() -> void:
 		follow_melee.size(), _median(follow_melee), _pct(follow_melee, 90),
 		100.0 * _fraction_over(follow_melee, 60.0),
 	])
-	print("  mark stops following (target or attacker died first): %.1f%% of hits" % [
-		100.0 * _fraction_over(follow_lost, 0.5),
+	print("  no bearing to be right about, excluded above: target died inside the")
+	print("  mark's life %.1f%% of hits, attacker died %.1f%%" % [
+		100.0 * _fraction_over(target_died, 0.5),
+		100.0 * _fraction_over(attacker_died, 0.5),
 	])
 	print("")
 	print("  -- FIXED ANCHOR (the mark that existed when this was first measured;")
@@ -148,7 +152,7 @@ func _run_one(party: Array[PawnData], enc, s: int, life_ticks: int) -> Dictionar
 	var pending := []
 	var out := {
 		"drift": [], "target_move": [], "melee_drift": [], "source_move": [],
-		"follow_drift": [], "follow_melee": [], "follow_lost": [],
+		"follow_drift": [], "follow_melee": [], "target_died": [], "attacker_died": [],
 	}
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		CombatSim.step(state)
@@ -208,12 +212,15 @@ func _close(state: CombatState, p: Dictionary, out: Dictionary) -> void:
 ## Issue 306 made the mark follow its target's drawn body, so the anchor an arc
 ## would be struck from is `UnitView.drawn_position(target)` now and moves.
 func _close_following(state: CombatState, p: Dictionary, src: CombatUnit, tgt: CombatUnit, out: Dictionary) -> void:
-	# A dead target's view node is freed, so the mark stops following and the
-	# bearing is frozen rather than drifting. Counted, not measured.
-	if tgt == null or not tgt.alive or not src.alive:
-		out["follow_lost"].append(1.0)
+	# A death inside the mark's life leaves it with no bearing to be right
+	# about: the target's body goes invisible under a ring that keeps drawing,
+	# or the attacker it points at is gone. Counted separately, not measured.
+	var target_gone := tgt == null or not tgt.alive
+	var attacker_gone := not src.alive
+	out["target_died"].append(1.0 if target_gone else 0.0)
+	out["attacker_died"].append(1.0 if attacker_gone else 0.0)
+	if target_gone or attacker_gone:
 		return
-	out["follow_lost"].append(0.0)
 	var anchor := UnitViewScript.drawn_position(tgt, state.units)
 	var toward := UnitViewScript.drawn_position(src, state.units)
 	if anchor.distance_squared_to(toward) < 0.0001:
