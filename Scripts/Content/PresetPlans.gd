@@ -20,6 +20,18 @@ const EXECUTE_AT_FRACTION := 1.0
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
 
+## Issue 433: the hp share at which the Priest's and the Warrior's heal rows
+## fire, and **both must stay above `DefaultBehavior.HEAL_THRESHOLD_FRACTION`.**
+## `_first_heal` runs for pawns, so at or below that share the fallback is
+## already casting the same heal at the same target and the row restates it.
+const HEAL_ABOVE_FALLBACK := 0.85
+const SECOND_WIND_ABOVE_FALLBACK := 0.7
+
+## Issue 433: how close an enemy must be before the Warrior's Taunt row fires.
+## It is `warrior_taunt`'s own `taunt_radius`, so the row cannot order a shout
+## that reaches nobody.
+const TAUNT_AT_RADIUS := 350.0
+
 ## Condition and targeting ops that need a status to already be on somebody.
 ## Only the positive ones: `enemy_lacks_status` is satisfied by an untouched
 ## enemy, so it is not a dependency.
@@ -78,17 +90,21 @@ static func total_blocks(class_id: StringName) -> int:
 
 static func for_class(class_id: StringName) -> Array[Plan]:
 	match class_id:
+		## Issue 433: Taunt leads. `DefaultBehavior` gates `_self_targeted_to_cast`
+		## on `unit.pawn == null`, so a Warrior pawn never taunts, guards or blocks
+		## on its own -- the shout is the loudest thing in the library that the
+		## fallback cannot produce, and the one row folds in the old `always` one.
 		&"warrior":
 			return [
-				_plan(&"warrior_second_wind_when_critical", "Second wind when critical",
-					_condition(&"self_hp_below_fraction", {"fraction": 0.35}),
+				_plan(&"warrior_taunt_when_they_close", "Taunt when they close",
+					_condition(&"enemy_in_range", {"range": TAUNT_AT_RADIUS}),
+					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
+				_plan(&"warrior_second_wind_when_hurt", "Second wind when hurt",
+					_condition(&"self_hp_below_fraction", {"fraction": SECOND_WIND_ABOVE_FALLBACK}),
 					[_targeting(&"target_self"), _action_block(&"warrior_second_wind")]),
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
 					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
 					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
-				_plan(&"warrior_taunt_default", "Taunt",
-					_condition(&"always", {}),
-					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
 				_plan(&"warrior_block_default", "Directional Block",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
@@ -99,8 +115,11 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		# The player's own "one for speed, one for resistance" direction.
 		&"priest":
 			return [
-				_plan(&"priest_heal_hurt_ally", "Heal the hurt",
-					_condition(&"ally_below_hp_fraction", {"fraction": 0.5}),
+				## Issue 433: 0.85, not 0.5. The fallback heals the same ally with the
+				## same spell at 0.5, so the row only becomes an edit the player can
+				## watch by firing on ticks the fallback would spend attacking.
+				_plan(&"priest_heal_hurt_ally", "Heal before they break",
+					_condition(&"ally_below_hp_fraction", {"fraction": HEAL_ABOVE_FALLBACK}),
 					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_heal")]),
 				_plan(&"priest_ward_default", "Ward",
 					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
