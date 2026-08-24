@@ -7,7 +7,11 @@ class_name PlanInterpreter
 ## Whitelists, one per PlanBlock.Kind. An op not listed here is unknown and
 ## fails loudly rather than being silently skipped, per the issue: a skipped
 ## block reads to a player as the plan simply not working.
-const CONDITION_OPS := [
+##
+## The CONDITION whitelist is `CONDITION_OPS` below and is derived: these are
+## the ops that read a value out of `block.args`, and the named pawn states in
+## `STATE_CONDITIONS` are appended to them.
+const VALUE_CONDITION_OPS := [
 	&"always",
 	&"self_hp_below_fraction",
 	&"ally_below_hp_fraction",
@@ -17,8 +21,6 @@ const CONDITION_OPS := [
 	&"ally_has_harmful_status",
 	&"enemy_has_status",
 	&"enemy_lacks_status",
-	&"self_on_harmful_ground",
-	&"self_on_safe_ground",
 ]
 const TARGETING_OPS := [
 	&"target_nearest_enemy",
@@ -52,14 +54,9 @@ const SAFE_GROUND_DIRECTIONS := 16
 const KEEP_DISTANCE_BAND := 15.0
 
 ## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
-## each CONDITION op reads. `_eval_condition` above is the source of truth for
-## which key an op reads out of `block.args` and what it does with it; this is
-## that same fact, exposed as data instead of match-statement logic, for a
-## screen (InspectPanel) that needs to build a value editor rather than
-## evaluate a condition. Moved here from InspectPanel.gd itself, which carried
-## its own copy pending this issue -- see PR history for the "if the whitelist
-## grows past its current five entries, it moves" call that opened it. "none"
-const CONDITION_ARG_SHAPE := {
+## each value CONDITION op reads, so InspectPanel can build a value editor
+## without evaluating a condition.
+const VALUE_CONDITION_ARG_SHAPE := {
 	&"always": {"kind": "none"},
 	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
@@ -70,13 +67,58 @@ const CONDITION_ARG_SHAPE := {
 	&"ally_has_harmful_status": {"kind": "none"},
 	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
 	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
-	## Issue 384: no argument on purpose -- `CombatSim.standing_harms` is the one
-	## place "does this ground cost me anything" is answered, so an op that named
-	## a hazard or a damage type would be a second table to keep in step with
-	## content.
-	&"self_on_harmful_ground": {"kind": "none"},
-	&"self_on_safe_ground": {"kind": "none"},
 }
+
+## Issue 495: **a pawn's state, as something any CONDITION row can ask about.**
+##
+## One entry per named state: the sentence the editor prints and the predicate
+## that answers it. The whitelist, the argument shape, `_eval_condition`'s
+## dispatch and `describe_op`'s sentence are all derived from this, so the next
+## state is one entry plus one static func and nothing else. A state never takes
+## an argument; anything that needs a number is a value condition instead.
+static var STATE_CONDITIONS := {
+	## Issue 384: reads `CombatSim.standing_harms`, the one place "does this
+	## ground cost me anything" is answered.
+	&"self_on_harmful_ground": {"text": "standing on harmful ground", "holds": _on_harmful_ground},
+	&"self_on_safe_ground": {"text": "standing on safe ground", "holds": _on_safe_ground},
+	## Issue 495: cover from the current focus, matching `move_into_cover`, which
+	## takes cover from the threat the row picked rather than from everyone.
+	&"self_in_cover": {"text": "in cover from the target", "holds": _in_cover},
+	&"self_not_in_cover": {"text": "not in cover from the target", "holds": _not_in_cover},
+}
+
+## The CONDITION whitelist and the editor's argument shapes, both derived, so a
+## state condition cannot be in one and missing from the other.
+static var CONDITION_OPS: Array = VALUE_CONDITION_OPS + STATE_CONDITIONS.keys()
+static var CONDITION_ARG_SHAPE: Dictionary = _build_condition_arg_shape()
+
+static func _build_condition_arg_shape() -> Dictionary:
+	var out := VALUE_CONDITION_ARG_SHAPE.duplicate(true)
+	for op in STATE_CONDITIONS:
+		out[op] = {"kind": "none"}
+	return out
+
+# ---------------------------------------------------------------------------
+# The state predicates. One per entry in STATE_CONDITIONS, and nothing else
+# reaches them.
+
+static func _on_harmful_ground(state: CombatState, unit: CombatUnit) -> bool:
+	return CombatSim.standing_harms(state, unit.position)
+
+static func _on_safe_ground(state: CombatState, unit: CombatUnit) -> bool:
+	return not CombatSim.standing_harms(state, unit.position)
+
+## No focus, or a dead one, is not cover: the pair stays a strict complement, so
+## `self_not_in_cover` holds on the first tick of a fight and the two-row plan
+## "not in cover -> take cover / in cover -> act" starts from the right half.
+static func _in_cover(state: CombatState, unit: CombatUnit) -> bool:
+	var threat := state.unit(unit.focus_id)
+	if threat == null or not threat.alive:
+		return false
+	return in_cover_from(state, unit, unit.position, threat)
+
+static func _not_in_cover(state: CombatState, unit: CombatUnit) -> bool:
+	return not _in_cover(state, unit)
 
 ## Issue 97: the same shape `CONDITION_ARG_SHAPE` carries, for the MOVEMENT ops,
 ## so the plan editor can build a value editor for the distance a block holds.
@@ -457,6 +499,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 	if not CONDITION_OPS.has(block.op):
 		_fail(plan, block)
 		return false
+	if STATE_CONDITIONS.has(block.op):
+		return bool((STATE_CONDITIONS[block.op]["holds"] as Callable).call(state, unit))
 	match block.op:
 		&"always":
 			return true
@@ -484,10 +528,6 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return _nearest_enemy_with_status(state, unit, _status_arg(block)) != null
 		&"enemy_lacks_status":
 			return _nearest_enemy_without_status(state, unit, _status_arg(block)) != null
-		&"self_on_harmful_ground":
-			return CombatSim.standing_harms(state, unit.position)
-		&"self_on_safe_ground":
-			return not CombatSim.standing_harms(state, unit.position)
 	return false
 
 static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
@@ -524,6 +564,8 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 ## "unknown op 'x'" are getting different amounts of information from the same
 ## bug.
 static func describe_op(op: StringName, args: Dictionary) -> String:
+	if STATE_CONDITIONS.has(op):
+		return String(STATE_CONDITIONS[op]["text"])
 	match op:
 		&"always":
 			return "always"
@@ -543,10 +585,6 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "an enemy has %s" % _status_word(int(args.get("status", 0)))
 		&"enemy_lacks_status":
 			return "an enemy has no %s" % _status_word(int(args.get("status", 0)))
-		&"self_on_harmful_ground":
-			return "standing on harmful ground"
-		&"self_on_safe_ground":
-			return "standing on safe ground"
 		&"target_nearest_enemy":
 			return "the nearest enemy"
 		&"target_lowest_hp_fraction_ally":
