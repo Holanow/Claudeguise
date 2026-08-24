@@ -1,7 +1,7 @@
 extends SceneTree
 
-## Throwaway diagnostic for issue 543: does the planless ranged pawn ever
-## attack, and does it stop the moment the goblin is inside the kite band?
+## The evidence for issue 543's kiting finding: does the planless ranged pawn
+## ever attack, or does it stop once the goblin is inside the kite band?
 ## Reads events after the fight; it never calls decide.
 
 func _init() -> void:
