@@ -60,6 +60,23 @@ const HIT_STOP_SECONDS := 0.10
 ## every frozen frame as a lurch the moment it released.
 var _freeze_left: float = 0.0
 
+## Issue 518. Both halves of a death cue under one clock: how long the arena
+## shakes for, and how far it may travel at the worst of it.
+const SHAKE_OPTION := &"screen_shake"
+const SHAKE_SECONDS := 0.18
+const SHAKE_PIXELS := 5.0 * UnitViewScript.DISPLAY_SCALE
+## The drawn half-width that earns the whole amplitude. The Rat King, measured;
+## a goblin archer is 9.6 of it and shakes the screen just over a quarter as far.
+const SHAKE_FULL_BODY := 36.0
+## How many times the arena crosses its rest position before it settles.
+const SHAKE_CYCLES := 2.5
+
+var _shake_age: float = INF
+var _shake_amplitude: float = 0.0
+## Where `_layout_arena` put the arena. The shake is written on top of it and
+## must land back on it exactly, so it cannot be read off `_arena.position`.
+var _arena_base: Vector2 = Vector2.ZERO
+
 var _arena: Node2D = null
 var _combat_log = null
 var _unit_views: Dictionary = {}
@@ -680,7 +697,8 @@ func _layout_arena() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 	var layout := compute_layout(size)
-	_arena.position = layout.position
+	_arena_base = layout.position
+	_arena.position = _arena_base + shake_offset(_shake_age, _shake_amplitude)
 	_arena.scale = layout.scale
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
@@ -756,6 +774,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	event_cursor = 0
 	_tick_accumulator = 0.0
 	_freeze_left = 0.0
+	_shake_age = INF
+	_shake_amplitude = 0.0
 	ViewClock.frozen = false
 	setup = false
 	_grabbed_unit_id = -1
@@ -1108,6 +1128,7 @@ func _process(delta: float) -> void:
 ## is motion in a picture that is meant to have stopped.
 func _render(alpha: float, stepped: bool, delta: float = 0.0) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
+	_advance_shake(delta)
 	var frame_at := {}
 	for id in _unit_views:
 		var view = _unit_views[id]
@@ -1187,12 +1208,57 @@ func consume_events() -> void:
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
 			_hit_stop()
+			_screen_shake(e)
 		elif e.kind == CG.EventKind.MISS:
 			_spawn_miss_marker(e)
 		elif e.kind == CG.EventKind.INTERRUPTED:
 			_spawn_interrupt_flash(e)
 		elif e.kind == CG.EventKind.ACTION_FIRE:
 			_apply_loose(e)
+
+## Issue 518. A decaying oscillation, taken from the clock rather than from any
+## random source: `state.rng` belongs to the simulation and a probe that draws
+## from it changes the fight. Returns exactly zero once the span is spent, so
+## the arena lands back on its layout position rather than near it.
+static func shake_offset(age: float, amplitude: float) -> Vector2:
+	if amplitude <= 0.0 or age < 0.0 or age >= SHAKE_SECONDS:
+		return Vector2.ZERO
+	var left := 1.0 - age / SHAKE_SECONDS
+	var phase := (age / SHAKE_SECONDS) * TAU * SHAKE_CYCLES
+	# Full displacement at the instant of the death, not built up to: a shake
+	# that eases in reads as the camera drifting rather than as a blow.
+	return Vector2(cos(phase), sin(phase) * 0.5) * (amplitude * left * left)
+
+## Spent from `_render` for the same reason #516's decay is: `_process` returns
+## above that line while a hit stop holds the picture, and a screen that keeps
+## moving through a freeze frame is the bug #515 and #516 nearly shipped twice.
+func _advance_shake(delta: float) -> void:
+	if _shake_age >= SHAKE_SECONDS:
+		return
+	_shake_age += delta
+	if _shake_age >= SHAKE_SECONDS:
+		_shake_age = INF
+		_shake_amplitude = 0.0
+	if _arena != null:
+		_arena.position = _arena_base + shake_offset(_shake_age, _shake_amplitude)
+
+## Issue 518. Scaled to the body that died -- a rat is not the Warden -- and set
+## rather than added, so a tick that kills three shakes once, at the size of the
+## biggest of them. A smaller death inside a live shake is dropped: at 0.18s it
+## would land inside the hold it is meant to punctuate.
+func _screen_shake(e: CombatEvent) -> void:
+	if not DisplayOptions.enabled(SHAKE_OPTION):
+		return
+	var dead := state.unit(e.target_id)
+	if dead == null:
+		return
+	var body := UnitViewScript.drawn_half_width(
+		UnitViewScript.shape_id(dead), dead.team, UnitViewScript.display_radius(dead))
+	var amplitude := SHAKE_PIXELS * clampf(body / SHAKE_FULL_BODY, 0.0, 1.0)
+	if _shake_age < SHAKE_SECONDS and amplitude <= _shake_amplitude:
+		return
+	_shake_age = 0.0
+	_shake_amplitude = amplitude
 
 ## Issue 515. Set, never added: a tick that kills three units holds once rather
 ## than stalling for three freezes.
