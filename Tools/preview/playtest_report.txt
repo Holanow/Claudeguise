@@ -20,7 +20,7 @@ screenshot: play_05_battle_mid_1_tick30
 screenshot: play_05_battle_mid_2_tick90
 screenshot: play_05_battle_mid_3_tick150
 screenshot: play_06_battle_end
-reached a terminal outcome: PLAYER_WIN at tick 337 (22.5s), frames waited: 3832
+reached a terminal outcome: PLAYER_WIN at tick 337 (22.5s), frames waited: 3831
 outcome label on screen: <not found>
 --- real event log for this fight (for comparison against the screenshot-only read) ---
   tick 0  FIGHT_START  source=-1 target=-1 amount=0 action=
