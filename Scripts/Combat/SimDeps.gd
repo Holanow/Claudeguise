@@ -133,12 +133,18 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 static func _default_wind_up_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
 		return Balance.scale_action_ticks(action.wind_up_ticks, unit.pawn)
-	return action.wind_up_ticks
+	return Balance.scale_enemy_action_ticks(action.wind_up_ticks, _enemy_action_speed(unit))
 
 static func _default_recover_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
 		return Balance.scale_action_ticks(action.recover_ticks, unit.pawn)
-	return action.recover_ticks
+	return Balance.scale_enemy_action_ticks(action.recover_ticks, _enemy_action_speed(unit))
+
+## Issue 542. Same `Registry.get_enemy` the attack-power and hide branches above
+## already do per call; an unknown enemy acts at its authored speed.
+static func _enemy_action_speed(unit: CombatUnit) -> float:
+	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	return MonsterProfile.BASE_ACTION_SPEED if enemy_def == null else enemy_def.action_speed
 
 static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
 	return Balance.resource_regen_per_tick(unit)

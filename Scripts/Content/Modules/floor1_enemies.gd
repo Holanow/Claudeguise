@@ -29,21 +29,29 @@ static func actions() -> Array[ActionDef]:
 	]
 
 static func enemies() -> Array[EnemyDef]:
+	## hp, damage, move, resist, action speed -- every one a multiple of
+	## `MonsterProfile`. The absolutes these replaced are frozen in
+	## `Tests/test_content_monster_profile.gd`; issue 542 changed where the
+	## numbers come from and none of the numbers themselves.
 	return [
-		_enemy(&"goblin", "Goblin", 35, 0, CG.ResourceKind.ENERGY, 4.0, 11.0, {CG.DamageType.PHYSICAL: 9}, 0.0, [&"goblin_stab"], ["Melee", "Weak"], 0.7),
-		_enemy(&"goblin_archer", "Goblin Archer", 28, 0, CG.ResourceKind.ENERGY, 3.2, 11.0, {CG.DamageType.PHYSICAL: 8}, 0.0, [&"goblin_arrow"], ["Ranged", "Weak"], 0.6),
-		_enemy(&"ghoul", "Ghoul", 200, 0, CG.ResourceKind.ENERGY, 1.6, 16.0, {CG.DamageType.PHYSICAL: 20}, 0.1, [&"ghoul_maul"], ["Melee", "Undead", "Tough"], 0.1),
-		_enemy(&"cultist", "Cultist", 50, 0, CG.ResourceKind.ENERGY, 3.0, 12.0, {CG.DamageType.PROFANE: 11}, 0.0, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
-		_enemy(&"the_warden", "The Warden", 1000, 0, CG.ResourceKind.ENERGY, 1.4, 22.0, {CG.DamageType.PHYSICAL: 58}, 0.05, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
+		_enemy(&"goblin", "Goblin", 0.35, 0.9, 1.0, 0.0, 1.0, 11.0, CG.DamageType.PHYSICAL, [&"goblin_stab"], ["Melee", "Weak"], 0.7),
+		_enemy(&"goblin_archer", "Goblin Archer", 0.28, 0.8, 0.8, 0.0, 1.0, 11.0, CG.DamageType.PHYSICAL, [&"goblin_arrow"], ["Ranged", "Weak"], 0.6),
+		_enemy(&"ghoul", "Ghoul", 2.0, 2.0, 0.4, 0.4, 1.0, 16.0, CG.DamageType.PHYSICAL, [&"ghoul_maul"], ["Melee", "Undead", "Tough"], 0.1),
+		_enemy(&"cultist", "Cultist", 0.5, 1.1, 0.75, 0.0, 1.0, 12.0, CG.DamageType.PROFANE, [&"cultist_bolt"], ["Ranged", "Profane"], 0.4),
+
+		## 0.2x resistance, UNDER the Ghoul's 0.4x and the Brute's 0.6x. The
+		## floor boss is the least armoured of the three tough monsters. Issue
+		## 542 reports it and deliberately does not change it.
+		_enemy(&"the_warden", "The Warden", 10.0, 5.8, 0.35, 0.2, 1.0, 22.0, CG.DamageType.PHYSICAL, [&"warden_axe", &"warden_chain_toss"], ["Melee", "Ranged", "Boss"], 0.0),
 
 		## **Issue #121, the player's "big heavy guy that stuns units and taunts".
-		_enemy(&"brute", "Brute", 320, 0, CG.ResourceKind.ENERGY, 1.8, 18.0, {CG.DamageType.PHYSICAL: 24}, 0.15, [&"brute_slam", &"brute_roar"], ["Melee", "Tough", "Stun", "Taunt"], 0.0),
+		_enemy(&"brute", "Brute", 3.2, 2.4, 0.45, 0.6, 1.0, 18.0, CG.DamageType.PHYSICAL, [&"brute_slam", &"brute_roar"], ["Melee", "Tough", "Stun", "Taunt"], 0.0),
 
-		_enemy(&"stalker", "Stalker", 30, 0, CG.ResourceKind.ENERGY, 3.8, 10.0, {CG.DamageType.PHYSICAL: 5}, 0.0, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
+		_enemy(&"stalker", "Stalker", 0.3, 0.5, 0.95, 0.0, 1.0, 10.0, CG.DamageType.PHYSICAL, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
 
-		_enemy(&"rat", "Rat", 20, 0, CG.ResourceKind.ENERGY, 5.0, 8.0, {CG.DamageType.PHYSICAL: 3}, 0.0, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
+		_enemy(&"rat", "Rat", 0.2, 0.3, 1.25, 0.0, 1.0, 8.0, CG.DamageType.PHYSICAL, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
 
-		_enemy(&"rat_king", "The Rat King", 420, 0, CG.ResourceKind.ENERGY, 1.2, 24.0, {CG.DamageType.PHYSICAL: 21}, 0.0, [&"rat_king_lash"], ["Ranged", "Miniboss", "Summoner"], 0.0),
+		_enemy(&"rat_king", "The Rat King", 4.2, 2.1, 0.3, 0.0, 1.0, 24.0, CG.DamageType.PHYSICAL, [&"rat_king_lash"], ["Ranged", "Miniboss", "Summoner"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:
@@ -107,17 +115,21 @@ static func _projectile(a: ActionDef, speed: float) -> ActionDef:
 	a.projectile_speed = speed
 	return a
 
-static func _enemy(id: StringName, display_name: String, hp_max: int, resource_max: int, resource_kind: CG.ResourceKind, move_speed: float, radius: float, attack_power: Dictionary, damage_reduction: float, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0) -> EnemyDef:
+## Issue 542: multiples of `MonsterProfile`, not absolutes. `damage_type` is the
+## one type this monster's attack power is expressed in; `radius` stays absolute
+## because it is collision geometry rather than a stat.
+static func _enemy(id: StringName, display_name: String, hp_mult: float, damage_mult: float, move_mult: float, resist_mult: float, action_speed: float, radius: float, damage_type: CG.DamageType, actions: Array[StringName], display_tags: Array[String], focus_bias: float = 0.0, resource_max: int = 0, resource_kind: CG.ResourceKind = CG.ResourceKind.ENERGY) -> EnemyDef:
 	var e := EnemyDef.new()
 	e.id = id
 	e.display_name = display_name
-	e.hp_max = hp_max
+	e.hp_max = MonsterProfile.hp(hp_mult)
 	e.resource_max = resource_max
 	e.resource_kind = resource_kind
-	e.move_speed = move_speed
+	e.move_speed = MonsterProfile.move_speed(move_mult)
 	e.radius = radius
-	e.attack_power = attack_power
-	e.damage_reduction = damage_reduction
+	e.attack_power = {damage_type: MonsterProfile.damage(damage_mult)}
+	e.damage_reduction = MonsterProfile.resistance(resist_mult)
+	e.action_speed = action_speed
 	e.actions = actions
 	e.display_tags = display_tags
 	e.focus_bias = focus_bias
