@@ -25,6 +25,9 @@ func setup() -> void:
 	pass
 
 func teardown() -> void:
+	# Issue 528: `ViewClock.frozen` is a static, and a `BattleView` built with
+	# `new()` never enters the tree, so its `_exit_tree` cannot clear one.
+	ViewClock.reset()
 	for n in _entered:
 		if is_instance_valid(n):
 			n.get_parent().remove_child(n)

@@ -44,6 +44,9 @@ func flash_color(color: Color, base_radius: float) -> void:
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	# Issue 528: a hit stop is a COMPLETE stop, and this kept expanding through it.
+	if ViewClock.frozen:
+		return
 	if _follow != null:
 		# Issue 497: the view node outlives the unit -- `_unit_views` never erases
 		# and `sync` keeps moving a corpse -- so a ring that kept following one
