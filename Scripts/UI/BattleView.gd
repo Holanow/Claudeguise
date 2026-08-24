@@ -1051,20 +1051,37 @@ func _process(delta: float) -> void:
 ## Moving a node costs nothing to redraw, so only the arena is asked to.
 func _render(alpha: float, stepped: bool) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
+	var frame_at := {}
 	for id in _unit_views:
 		var to = _curr_drawn.get(id)
 		if to != null:
-			_unit_views[id].position = _tween_body(int(id), to, alpha)
+			var at := _tween_body(int(id), to, alpha)
+			_unit_views[id].position = at
+			frame_at[id] = at
+	# Issue 511: everything that belongs to a body follows the body. What marks
+	# an event instead -- a damage number, a death plate -- is left where it was.
+	if _text_layer != null:
+		_text_layer.set_positions(_curr_drawn, frame_at)
+	_arena.unit_positions = frame_at
 	var shots := {}
 	for p in state.projectiles:
 		if p.resolved:
 			continue
 		var from = _prev_shots.get(p.id)
 		shots[p.id] = p.position if from == null else from.lerp(p.position, alpha)
-	if not stepped and shots.is_empty() and _arena.shot_positions.is_empty():
+	if not stepped and shots.is_empty() and _arena.shot_positions.is_empty() \
+			and not _any_cover_up():
 		return
 	_arena.shot_positions = shots
 	_arena.queue_redraw()
+
+## Whether the arena is drawing a shield plate this frame. The plate rides a
+## body, so while one is up the floor has to repaint with it.
+func _any_cover_up() -> bool:
+	for u in state.units:
+		if ShieldWall.is_up(u):
+			return true
+	return false
 
 func _tween_body(id: int, to: Vector2, alpha: float) -> Vector2:
 	var from = _prev_drawn.get(id)

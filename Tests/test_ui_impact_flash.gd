@@ -82,15 +82,15 @@ func test_impact_flash_frees_itself_after_its_lifetime() -> void:
 	flash._process(ImpactFlash.LIFETIME_SECONDS + 0.01)
 	assert_true(not is_instance_valid(flash) or flash.is_queued_for_deletion())
 
-## Issue 276. The ring is drawn at the size of a body, so a ring that is not on
-## a body is marking nothing. Asserted against a real fight rather than a hand
-## built frame: the old anchor missed both ways -- it never moved when the
-## target walked, and it ignored UnitView's scrum nudge even standing still.
+## Issue 276, and issue 497's half added to it. The ring is drawn at the size of
+## a body, so a ring that is not on a body is marking nothing -- and a ring
+## following a dead one is marking ground nobody is standing on.
 func test_every_live_flash_sits_on_its_targets_drawn_body() -> void:
 	var view := _make_real_fight_view()
 	var arena := view.get_node("Arena")
 	var flash_frames := 0
 	var off_body := 0
+	var let_go := 0
 	for frame in 400:
 		if view.state.outcome != CombatState.Outcome.UNRESOLVED:
 			break
@@ -102,14 +102,22 @@ func test_every_live_flash_sits_on_its_targets_drawn_body() -> void:
 			if child.is_queued_for_deletion():
 				continue
 			flash_frames += 1
-			if not _sits_on_a_body(child.position, view):
+			if child._follow == null:
+				let_go += 1
+			elif not _sits_on_a_visible_body(child.position, view):
 				off_body += 1
 	assert_true(flash_frames > 0, "the fight produced no impact flashes to measure")
 	assert_eq(off_body, 0, "%d of %d flash-frames drew the ring off every body" % [off_body, flash_frames])
+	# The negative half. Without it the assertion above is satisfied by a ring
+	# that follows nothing at all, and issue 497 is a ring that follows too much.
+	assert_true(let_go > 0, "no target died inside a ring's lifetime, so 497's case was never exercised")
 
-func _sits_on_a_body(p: Vector2, view: Node2D) -> bool:
+## Issue 497: dead units never leave `_unit_views`, so an entry to match against
+## is not the same thing as a body on screen.
+func _sits_on_a_visible_body(p: Vector2, view: Node2D) -> bool:
 	for id in view._unit_views:
-		if view._unit_views[id].position.is_equal_approx(p):
+		var body: Node2D = view._unit_views[id]
+		if body.visible and body.position.is_equal_approx(p):
 			return true
 	return false
 
