@@ -28,6 +28,11 @@ var shot_positions: Dictionary = {}
 ## cannot repaint the units standing behind it (issue 332).
 var units: Array = []
 
+## Issue 511: unit id -> where that body is drawn this frame. The plate a
+## shielder holds is anchored to it, so cover stays on the arm holding it
+## between ticks. An id with no entry draws from state.
+var unit_positions: Dictionary = {}
+
 const _PROJECTILE_RADIUS := 5.0
 
 func _draw() -> void:
@@ -56,7 +61,7 @@ func _draw() -> void:
 	for feature in terrain:
 		_draw_feature(feature)
 
-	ShieldWall.draw_all(self, units, UnitView.DISPLAY_SCALE)
+	ShieldWall.draw_all(self, units, UnitView.DISPLAY_SCALE, unit_positions)
 
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")

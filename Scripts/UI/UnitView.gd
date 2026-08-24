@@ -261,8 +261,9 @@ func _draw() -> void:
 ## nearness to a body cannot be the cue that ties a name to its owner.
 ## Issue 321: drawn by `ArenaTextLayer` onto its canvas rather than by the unit
 ## it belongs to, so no other unit's bars can land on top of it.
-static func draw_plate_tether(ci: CanvasItem, u: CombatUnit, units: Array, chip: Rect2) -> void:
-	var points := plate_tether(u, units, chip)
+static func draw_plate_tether(ci: CanvasItem, u: CombatUnit, units: Array, chip: Rect2,
+		body_at: Vector2 = RECOMPUTE_AT) -> void:
+	var points := plate_tether(u, units, chip, body_at)
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
 	# Backed, the way `_draw_targeting_line` is: the bar tether is ten pixels
@@ -273,10 +274,15 @@ static func draw_plate_tether(ci: CanvasItem, u: CombatUnit, units: Array, chip:
 
 ## The tether's two ends in ARENA-local pixels: the middle of the plate's
 ## bottom edge, and the top of its own unit's bar stack.
-static func plate_tether(u: CombatUnit, units: Array, chip: Rect2) -> PackedVector2Array:
+## Issue 511: `body_at` is the interpolated position when the caller has one, so
+## the tether ends on the bar stack the player is looking at rather than on the
+## one the last tick left behind.
+static func plate_tether(u: CombatUnit, units: Array, chip: Rect2,
+		body_at: Vector2 = RECOMPUTE_AT) -> PackedVector2Array:
+	var at := drawn_position(u, units) if body_at == RECOMPUTE_AT else body_at
 	return PackedVector2Array([
 		Vector2(chip.get_center().x, chip.end.y),
-		drawn_position(u, units) + Vector2(0.0, bar_stack_top(u))])
+		at + Vector2(0.0, bar_stack_top(u))])
 
 ## The box the bar stack covers, in ARENA-local pixels. The one place that
 ## geometry is readable from outside `_draw`, so a test can ask what a name

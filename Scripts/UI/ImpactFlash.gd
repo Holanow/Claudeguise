@@ -44,8 +44,18 @@ func flash_color(color: Color, base_radius: float) -> void:
 	queue_redraw()
 
 func _process(delta: float) -> void:
-	if _follow != null and is_instance_valid(_follow):
-		position = _follow.position
+	if _follow != null:
+		# Issue 497: the view node outlives the unit -- `_unit_views` never erases
+		# and `sync` keeps moving a corpse -- so a ring that kept following one
+		# drew over empty ground after 7.4% of hits. It lets go where the body
+		# fell rather than being freed, or a killing blow is the one hit with no
+		# mark on it.
+		if not is_instance_valid(_follow):
+			_follow = null
+		else:
+			position = _follow.position
+			if not _follow.visible:
+				_follow = null
 	_age += delta
 	if _age >= LIFETIME_SECONDS:
 		queue_free()
