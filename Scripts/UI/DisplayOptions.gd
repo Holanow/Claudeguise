@@ -25,7 +25,13 @@ const OPTIONS := [
 		## Named so `DisplayOptionsPanel.row_text` reads: the panel appends
 		## "showing" or "hidden" to every label and nothing here can change that.
 		"label": "Freeze frame on a death",
-		"help": "The picture stops for a tenth of a second each time something dies, so the blow reads as a blow rather than as a number changing. On by default, and the only option here that is: it holds on deaths only, roughly eleven a fight, and the fight never runs fast afterwards to catch up. Turn it off if you would rather nothing ever stopped.",
+		"help": "The picture stops for a tenth of a second each time something dies, so the blow reads as a blow rather than as a number changing. On by default: it holds on deaths only, roughly eleven a fight, and the fight never runs fast afterwards to catch up. Turn it off if you would rather nothing ever stopped.",
+		"default": true,
+	},
+	{
+		"id": &"impact_squash",
+		"label": "Bodies react to hits",
+		"help": "A struck body squashes for a fifth of a second and springs back, and whoever landed a melee blow rocks backward off it. On by default. It moves the body only, never a bar, a name or the fight itself. Turn it off if you want every silhouette to hold perfectly still.",
 		"default": true,
 	},
 	{

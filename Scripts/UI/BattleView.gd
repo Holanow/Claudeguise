@@ -1075,7 +1075,7 @@ func _process(delta: float) -> void:
 		if _unit_card != null:
 			_unit_card.refresh(state)
 
-	_render(_tick_accumulator / CG.TICK_SECONDS, stepped)
+	_render(_tick_accumulator / CG.TICK_SECONDS, stepped, delta)
 
 	# The banner waits out a freeze on the last death, which is the death the
 	# player is watching hardest and the one a banner would otherwise cover.
@@ -1086,14 +1086,21 @@ func _process(delta: float) -> void:
 ## Issue 501. Every rendered frame, stepped or not: each body and each shot is
 ## placed between where it was before the last tick and where it is now.
 ## Moving a node costs nothing to redraw, so only the arena is asked to.
-func _render(alpha: float, stepped: bool) -> void:
+## Issue 516: the impact decay is spent from here rather than from each view's
+## own `_process`, so a hit stop holds it. `_process` returns above this line
+## while the picture is frozen, and a body still relaxing through a freeze frame
+## is motion in a picture that is meant to have stopped.
+func _render(alpha: float, stepped: bool, delta: float = 0.0) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
 	var frame_at := {}
 	for id in _unit_views:
+		var view = _unit_views[id]
+		if view.impact_active():
+			view.advance_impact(delta)
 		var to = _curr_drawn.get(id)
 		if to != null:
 			var at := _tween_body(int(id), to, alpha)
-			_unit_views[id].position = at
+			view.position = at
 			frame_at[id] = at
 	# Issue 511: everything that belongs to a body follows the body. What marks
 	# an event instead -- a damage number, a death plate -- is left where it was.
@@ -1158,6 +1165,8 @@ func consume_events() -> void:
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_flash(e)
+			if e.kind == CG.EventKind.DAMAGE:
+				_apply_impact(e)
 		elif e.kind == CG.EventKind.DEATH:
 			_spawn_death_marker(e)
 			_hit_stop()
@@ -1171,6 +1180,32 @@ func consume_events() -> void:
 func _hit_stop() -> void:
 	if DisplayOptions.enabled(&"hit_stop"):
 		_freeze_left = HIT_STOP_SECONDS
+
+## Issue 516. How far apart two bodies may be and still have landed a blow on
+## each other, in multiples of their own drawn sizes.
+const RECOIL_REACH := 2.0
+
+## Issue 516: the struck body squashes, and whoever swung rocks back off it.
+## Two gates. `action_id` is empty on poison, burn, bleed and hazard damage,
+## which `CombatSim` emits once per afflicted unit per TICK; and a projectile's
+## DAMAGE fires when the arrow lands rather than when it was loosed, so recoil
+## is melee only.
+func _apply_impact(e: CombatEvent) -> void:
+	if e.action_id == &"":
+		return
+	var target := state.unit(e.target_id)
+	var struck = _unit_views.get(e.target_id)
+	if target == null or struck == null:
+		return
+	struck.struck()
+	var source := state.unit(e.source_id)
+	var attacker = _unit_views.get(e.source_id)
+	if source == null or attacker == null or source.id == target.id:
+		return
+	var reach := (UnitViewScript.display_radius(source) + UnitViewScript.display_radius(target)) * RECOIL_REACH
+	if source.position.distance_to(target.position) > reach:
+		return
+	attacker.recoiled(source.position - target.position)
 
 ## Issue 26 item 3: in a scrum, several floating numbers (or a death marker
 ## alongside one) used to spawn at the literal same point and read as one
