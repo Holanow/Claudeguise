@@ -23,7 +23,14 @@ param(
     [Parameter(Mandatory = $true, Position = 0)] [string] $Tool,
     [int] $TimeoutSeconds = 300,
     [string] $Resolution = '1280x720',
-    [switch] $Headless
+    [switch] $Headless,
+    # Passed to the tool after `--`, where it reads them with
+    # `OS.get_cmdline_user_args()`. Empty by default, so no existing launch changes.
+    [string[]] $ToolArgs = @(),
+    # `--fixed-fps N` makes the engine report a delta of exactly 1/N every frame,
+    # including to the particle system, which nothing inside a tool can reach.
+    # A frame recorder needs it; everything else should leave it at 0.
+    [int] $FixedFps = 0
 )
 . (Join-Path $PSScriptRoot 'ensure_import.ps1')
 
@@ -48,7 +55,10 @@ if (Test-Path $scene) {
         Write-Host "desktop by Offscreen.hide_window, so it does not take over the machine."
         exit 3
     }
-    $godotArgs = @('--path', $repo, '--resolution', $Resolution, "res://Tools/$name.tscn")
+    $godotArgs = @('--path', $repo, '--resolution', $Resolution)
+    if ($FixedFps -gt 0) { $godotArgs += @('--fixed-fps', "$FixedFps") }
+    $godotArgs += "res://Tools/$name.tscn"
+    if ($ToolArgs.Count -gt 0) { $godotArgs += '--'; $godotArgs += $ToolArgs }
 } else {
     $extends = (Get-Content $script -TotalCount 1) -replace '^﻿', ''
     if ($extends.Trim() -ne 'extends SceneTree') {
