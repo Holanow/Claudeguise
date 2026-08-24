@@ -4,8 +4,8 @@ extends "res://Tests/TestCase.gd"
 ##
 ## **This file is the snapshot, not the rule.** The player's baseline -- every
 ## class wins, and no win is a stomp -- is a target the game does not currently
-## meet, and half of why is #544 rather than a number. A target is an issue; what
-## ships here is what the fight measures today, so any movement goes red.
+## meet. A target is an issue; what ships here is what the fight measures today,
+## so any movement goes red. Re-measured on #544, which is fixed.
 ##
 ## Ungeared is armour off and weapon kept: every basic attack is granted by a
 ## weapon, so a weaponless pawn has nothing to attack with.
