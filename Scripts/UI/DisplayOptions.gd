@@ -35,6 +35,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"impact_particles",
+		"label": "Debris on every hit",
+		"help": "A short burst of chips thrown off whatever was hit, in that damage type's colour, so a blow that lands looks different from one that misses. On by default: it lasts under half a second, it is smaller than a body and it never covers one, and the freeze frame it goes with is on for the same reason. Turn it off if you would rather the screen stayed still.",
+		"default": true,
+	},
+	{
 		"id": &"screen_shake",
 		"label": "Screen shake on a death",
 		"help": "The whole arena kicks a few pixels and settles, scaled to the size of whatever died. Off by default, and it is the only row here that is off for a reason of its own: a death lands about eleven times a fight, so with this on the picture moves every two or three seconds, and the camera is the surface you read the fight off. Turn it on if you want the deaths to hit harder than they read.",
