@@ -16,6 +16,7 @@ const VALUE_CONDITION_OPS := [
 	&"self_hp_below_fraction",
 	&"ally_below_hp_fraction",
 	&"self_resource_at_least",
+	&"self_resource_at_least_fraction",
 	&"self_resource_below",
 	&"enemy_in_range",
 	&"ally_has_harmful_status",
@@ -61,6 +62,11 @@ const VALUE_CONDITION_ARG_SHAPE := {
 	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
 	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
+	## Issue 488: the same question as a share of the pawn's own ceiling. An
+	## absolute amount is a per-pawn scale compared against a fixed number --
+	## 40 is all of a Warrior's Rage and 39% of a Priest's Mana -- so a rolled
+	## pawn can be locked out of a row it was authored to fire.
+	&"self_resource_at_least_fraction": {"kind": "fraction", "key": "fraction", "default": 1.0},
 	&"self_resource_below": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
 	## **`step` 5, not 10, and a rendered screen is what found it.** A `SpinBox`
 	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 100.0},
@@ -514,6 +520,8 @@ static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, bl
 			return false
 		&"self_resource_at_least":
 			return unit.resource >= int(block.args.get("amount", 0))
+		&"self_resource_at_least_fraction":
+			return unit.resource >= int(ceil(float(unit.resource_max) * float(block.args.get("fraction", 1.0))))
 		&"self_resource_below":
 			return unit.resource < int(block.args.get("amount", 0))
 		&"enemy_in_range":
@@ -575,6 +583,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "an ally's hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
 		&"self_resource_at_least":
 			return "self resource at least %d" % int(args.get("amount", 0))
+		&"self_resource_at_least_fraction":
+			return "self resource at least %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
 		&"self_resource_below":
 			return "self resource below %d" % int(args.get("amount", 0))
 		&"enemy_in_range":

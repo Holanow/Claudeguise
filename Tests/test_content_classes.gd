@@ -154,6 +154,9 @@ func _adversarial_self(condition: PlanBlock) -> CombatUnit:
 			var amount := int(condition.args.get("amount", 0))
 			u.resource_max = amount + 100
 			u.resource = amount + 50
+		&"self_resource_at_least_fraction":
+			u.resource_max = 100
+			u.resource = 100
 	return u
 
 
