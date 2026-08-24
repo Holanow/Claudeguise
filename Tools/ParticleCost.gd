@@ -55,7 +55,9 @@ func _demand() -> Dictionary:
 				CombatSim.step(state)
 				var n := 0
 				for i in range(cursor, state.events.size()):
-					if state.events[i].kind == CG.EventKind.DAMAGE:
+					# The same two gates `BattleView._spawn_impact_burst` applies.
+					var e := state.events[i]
+					if e.kind == CG.EventKind.DAMAGE and e.action_id != &"":
 						n += 1
 				cursor = state.events.size()
 				per_tick.append(n)

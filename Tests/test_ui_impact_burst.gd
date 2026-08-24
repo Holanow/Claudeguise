@@ -53,6 +53,7 @@ func _damage_event(view, damage_type: CG.DamageType = CG.DamageType.PHYSICAL) ->
 	e.target_id = view.state.units[0].id
 	e.amount = 12
 	e.damage_type = damage_type
+	e.action_id = &"test_action"
 	return e
 
 func _burst_node(view):
@@ -78,6 +79,20 @@ func test_a_damage_event_throws_debris_only_while_the_option_is_on() -> void:
 	DisplayOptions.set_enabled(&"impact_particles", true)
 	_feed(view, _damage_event(view))
 	assert_eq(_burst_node(view).live_bursts(), 1, "turning it on must throw debris")
+	_reset()
+
+## Poison, burn, bleed and hazard damage carry no `action_id` and have no point
+## of impact. The same gate #516's squash uses, and for the same reason.
+func test_a_ticking_status_throws_no_debris() -> void:
+	_reset()
+	var view = _view()
+	var tick := _damage_event(view)
+	tick.action_id = &""
+	_feed(view, tick)
+	assert_eq(_burst_node(view).live_bursts(), 0, "a poison tick threw debris")
+
+	_feed(view, _damage_event(view))
+	assert_eq(_burst_node(view).live_bursts(), 1, "but a real blow still must")
 	_reset()
 
 ## A heal is not an impact and carries no damage type to colour debris by.
