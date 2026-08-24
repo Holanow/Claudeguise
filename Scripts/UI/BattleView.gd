@@ -1321,7 +1321,9 @@ func _apply_impact(e: CombatEvent) -> void:
 	var struck = _unit_views.get(e.target_id)
 	if target == null or struck == null:
 		return
-	struck.struck()
+	# Issue 553: the type is passed so the flash CAN lean toward it. It ships
+	# white; `UnitView.FLASH_TINT` is the one number that changes that.
+	struck.struck(e.damage_type)
 	var source := state.unit(e.source_id)
 	var attacker = _unit_views.get(e.source_id)
 	if source == null or attacker == null or source.id == target.id:

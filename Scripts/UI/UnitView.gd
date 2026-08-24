@@ -252,8 +252,66 @@ static func squash_scale(age: float) -> Vector2:
 static func recoil_offset(age: float, direction: Vector2, pixels: float = RECOIL_PIXELS) -> Vector2:
 	return direction * (pixels * impact_decay(age, RECOIL_SECONDS))
 
+## Issue 553. The struck body goes white for a moment. Its own toggle rather
+## than a part of `impact_squash`: one is a shape and one is a colour, and the
+## player asked to see this one on its own.
+const FLASH_OPTION := &"hit_flash"
+
+## Shorter than the squash on purpose. A flash that outlasts a blow reads as a
+## status the unit is carrying rather than as the blow landing.
+const FLASH_SECONDS := 0.12
+
+## How white the body goes at the moment of the blow. Short of 1.0 so the
+## silhouette still reads as itself rather than as a blank plate.
+const FLASH_STRENGTH := 0.85
+
+## How far the flash leans toward the damage type's own colour: 0.0 is white,
+## 1.0 is the colour itself. White is what ships -- the floater, the ring and
+## the debris already carry the type, and this is the one mark whose whole job
+## is "that body, right now".
+const FLASH_TINT := 0.0
+
+## The live value, so `Tools/FlashShot.gd` can photograph both treatments in one
+## run without a rebuild. Reset with `reset_flash_tint`.
+static var flash_tint: float = FLASH_TINT
+
+static func reset_flash_tint() -> void:
+	flash_tint = FLASH_TINT
+
+static func flash_strength(age: float) -> float:
+	return FLASH_STRENGTH * impact_decay(age, FLASH_SECONDS)
+
+static func flash_color(damage_type: int) -> Color:
+	if flash_tint <= 0.0 or damage_type < 0:
+		return Color.WHITE
+	return Color.WHITE.lerp(Palette.damage_color(damage_type), clampf(flash_tint, 0.0, 1.0))
+
+## The body's own artwork with every opaque pixel turned white, built once per
+## texture and kept beside it. Drawn over the body at the flash's alpha, so the
+## flash is exactly the silhouette rather than a rectangle over it.
+static var _flash_masks := {}
+
+static func flash_mask(tex: Texture2D) -> Texture2D:
+	var key := tex.get_instance_id()
+	if _flash_masks.has(key):
+		return _flash_masks[key]
+	var image := tex.get_image()
+	var out: Texture2D = null
+	if image != null:
+		var white := Image.create(image.get_width(), image.get_height(), false, Image.FORMAT_RGBA8)
+		for x in image.get_width():
+			for y in image.get_height():
+				white.set_pixel(x, y, Color(1.0, 1.0, 1.0, image.get_pixel(x, y).a))
+		out = ImageTexture.create_from_image(white)
+	_flash_masks[key] = out
+	return out
+
 ## `INF` is "not running": adding a delta to it leaves it not running.
 var _squash_age: float = INF
+var _flash_age: float = INF
+## The damage type the live flash was told to lean toward. `-1` is "none given",
+## which stays white whatever `flash_tint` is.
+var _flash_type: int = -1
 var _recoil_age: float = INF
 var _recoil_direction: Vector2 = Vector2.ZERO
 ## How far the live recoil throws this body: a melee blow and a loose differ in
@@ -262,10 +320,13 @@ var _recoil_pixels: float = RECOIL_PIXELS
 
 ## Refused while the option is off, so nothing can start an effect that will
 ## never be drawn and nothing can leave a body scaled when it is turned off.
-func struck() -> void:
-	if not DisplayOptions.enabled(IMPACT_OPTION):
-		return
-	_squash_age = 0.0
+## Two independent toggles: the shape and the colour each answer for themselves.
+func struck(damage_type: int = -1) -> void:
+	if DisplayOptions.enabled(IMPACT_OPTION):
+		_squash_age = 0.0
+	if DisplayOptions.enabled(FLASH_OPTION):
+		_flash_age = 0.0
+		_flash_type = damage_type
 	queue_redraw()
 
 func recoiled(direction: Vector2, pixels: float = RECOIL_PIXELS) -> void:
@@ -276,8 +337,12 @@ func recoiled(direction: Vector2, pixels: float = RECOIL_PIXELS) -> void:
 	_recoil_pixels = pixels
 	queue_redraw()
 
+## The flash is in here because `BattleView._render` only spends a delta on a
+## view this says is busy. Left out, a flash shorter than the squash would stop
+## decaying the moment the squash expired and stay half-white for good.
 func impact_active() -> bool:
-	return _squash_age < SQUASH_SECONDS or _recoil_age < RECOIL_SECONDS
+	return _squash_age < SQUASH_SECONDS or _recoil_age < RECOIL_SECONDS \
+		or _flash_age < FLASH_SECONDS
 
 ## Spent on rendered frames rather than on ticks, because a tick-driven recovery
 ## is three or four steps long and reads as a stutter rather than as a spring --
@@ -286,9 +351,12 @@ func impact_active() -> bool:
 func advance_impact(delta: float) -> void:
 	_squash_age += delta
 	_recoil_age += delta
+	_flash_age += delta
 	if not impact_active():
 		_squash_age = INF
 		_recoil_age = INF
+		_flash_age = INF
+		_flash_type = -1
 		_recoil_direction = Vector2.ZERO
 		_recoil_pixels = RECOIL_PIXELS
 	queue_redraw()
@@ -300,13 +368,32 @@ func advance_impact(delta: float) -> void:
 func _draw_body(u: CombatUnit, radius: float) -> void:
 	var squash := squash_scale(_squash_age)
 	var recoil := recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels)
-	if squash == Vector2.ONE and recoil == Vector2.ZERO:
-		Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
-		return
-	var bottom := drawn_bottom(_shape_id(u), u.team, radius)
-	draw_set_transform(recoil + Vector2(0.0, bottom * (1.0 - squash.y)), 0.0, squash)
+	var moved := squash != Vector2.ONE or recoil != Vector2.ZERO
+	if moved:
+		var bottom := drawn_bottom(_shape_id(u), u.team, radius)
+		draw_set_transform(recoil + Vector2(0.0, bottom * (1.0 - squash.y)), 0.0, squash)
 	Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Inside the same transform, so a body that is both squashed and lit stays
+	# one object rather than a white copy of itself sliding out from under it.
+	_draw_flash(u, radius)
+	if moved:
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## Issue 553. The body's own silhouette, white, over the top of it.
+func _draw_flash(u: CombatUnit, radius: float) -> void:
+	var strength := flash_strength(_flash_age)
+	if strength <= 0.0:
+		return
+	var color := flash_color(_flash_type)
+	color.a = strength
+	var tex := UnitArt.texture_for(_shape_id(u), u.team)
+	# The missing-sprite fallback is a black square, so the flash is a square too.
+	if tex == null:
+		draw_rect(Rect2(Vector2(-radius, -radius), Vector2(radius, radius) * 2.0), color)
+		return
+	var mask := flash_mask(tex)
+	if mask != null:
+		draw_texture_rect(mask, UnitArt.signed_rect(mask, radius, facing_left(u)), false, color)
 
 func _draw() -> void:
 	var u := _unit()

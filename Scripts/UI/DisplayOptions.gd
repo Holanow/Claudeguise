@@ -35,6 +35,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"hit_flash",
+		"label": "Struck bodies flash white",
+		"help": "Whatever is hit goes white for a tenth of a second and fades straight back. On by default: it is the one mark that lands on the body itself rather than beside it, so in a scrum it answers \"who just took that\" without the player having to find a number. It is white rather than the damage type's colour, which the floating number, the impact ring and the debris all carry already. Turn it off if you would rather nothing ever changed a body's colour.",
+		"default": true,
+	},
+	{
 		"id": &"impact_particles",
 		"label": "Debris on every hit",
 		"help": "A short burst of chips thrown off whatever was hit, in that damage type's colour, so a blow that lands looks different from one that misses. On by default: it lasts under half a second, it is smaller than a body and it never covers one, and the freeze frame it goes with is on for the same reason. Turn it off if you would rather the screen stayed still.",
