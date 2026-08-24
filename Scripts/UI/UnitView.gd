@@ -100,13 +100,17 @@ func bind(state: CombatState, id: int) -> void:
 	unit_id = id
 	sync(state)
 
-func sync(state: CombatState) -> void:
+## Issue 501: `at` is the drawn position when the caller has already computed it
+## for the whole fight, so a hundred bodies do not each walk the array twice.
+const RECOMPUTE_AT := Vector2.INF
+
+func sync(state: CombatState, at: Vector2 = RECOMPUTE_AT) -> void:
 	_state = state
 	_watch_holds(state)
 	var u := _unit()
 	if u == null:
 		return
-	position = drawn_position(u, state.units)
+	position = drawn_position(u, state.units) if at == RECOMPUTE_AT else at
 	visible = u.alive
 	queue_redraw()
 	# Issue 449. Attached from here rather than from the battle screen, the way

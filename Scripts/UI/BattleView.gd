@@ -41,6 +41,14 @@ var _drag_moved: bool = false
 
 var _tick_accumulator: float = 0.0
 
+## Issue 501. Where every body and every shot sat on either side of the last
+## tick. The display draws 60 times a second and the simulation moves 15, so
+## without these three of every four frames are a repeat and the fourth jumps.
+var _prev_drawn: Dictionary = {}
+var _curr_drawn: Dictionary = {}
+var _prev_shots: Dictionary = {}
+var _curr_shots: Dictionary = {}
+
 var _arena: Node2D = null
 var _combat_log = null
 var _unit_views: Dictionary = {}
@@ -743,6 +751,11 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_build_deploy_band()
 	_arena.terrain = state.terrain
 	_arena.projectiles = []
+	_arena.shot_positions = {}
+	_prev_drawn = {}
+	_prev_shots = {}
+	_curr_drawn = _drawn_snapshot()
+	_curr_shots = {}
 	_arena.units = state.units
 	_arena.queue_redraw()
 	if _combat_log != null:
@@ -877,8 +890,12 @@ func _apply_placements(positions: Array[Vector2]) -> void:
 		if i < _placements.size():
 			u.position = _placements[i]
 		i += 1
+	# Issue 501. The only place a unit moves outside `CombatSim.step`, so the
+	# only place that has to say so: without this the first tick after a drag
+	# slides every pawn in from wherever it was standing before.
+	_curr_drawn = _drawn_snapshot()
 	for id in _unit_views:
-		_unit_views[id].sync(state)
+		_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
 	if _text_layer != null:
 		_text_layer.sync(state)
 	if _arena != null:
@@ -1000,29 +1017,79 @@ func _process(delta: float) -> void:
 	var stepped := false
 	while _tick_accumulator >= CG.TICK_SECONDS and state.outcome == CombatState.Outcome.UNRESOLVED:
 		_tick_accumulator -= CG.TICK_SECONDS
+		# Inside the loop, because a slow frame runs several steps in one frame.
+		_prev_drawn = _curr_drawn
+		_prev_shots = _curr_shots
 		CombatSim.step(state)
+		_curr_drawn = _drawn_snapshot()
+		_curr_shots = _shot_snapshot()
 		stepped = true
 
-	if not stepped:
-		return
+	if stepped:
+		_ensure_unit_views()
+		consume_events()
+		for id in _unit_views:
+			_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
+		_text_layer.sync(state)
+		_arena.projectiles = state.projectiles
+		_arena.units = state.units
+		_update_team_summary()
+		# Issue 113. Same place and same trigger as the unit views: "live means live"
+		if _team_status != null:
+			_team_status.sync(state)
+		if _unit_card != null:
+			_unit_card.refresh(state)
 
-	_ensure_unit_views()
-	consume_events()
-	for id in _unit_views:
-		_unit_views[id].sync(state)
-	_text_layer.sync(state)
-	_arena.projectiles = state.projectiles
-	_arena.units = state.units
-	_arena.queue_redraw()
-	_update_team_summary()
-	# Issue 113. Same place and same trigger as the unit views: "live means live"
-	if _team_status != null:
-		_team_status.sync(state)
-	if _unit_card != null:
-		_unit_card.refresh(state)
+	_render(_tick_accumulator / CG.TICK_SECONDS, stepped)
+
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_show_outcome()
 		set_process(false)
+
+## Issue 501. Every rendered frame, stepped or not: each body and each shot is
+## placed between where it was before the last tick and where it is now.
+## Moving a node costs nothing to redraw, so only the arena is asked to.
+func _render(alpha: float, stepped: bool) -> void:
+	alpha = clampf(alpha, 0.0, 1.0)
+	for id in _unit_views:
+		var to = _curr_drawn.get(id)
+		if to != null:
+			_unit_views[id].position = _tween_body(int(id), to, alpha)
+	var shots := {}
+	for p in state.projectiles:
+		if p.resolved:
+			continue
+		var from = _prev_shots.get(p.id)
+		shots[p.id] = p.position if from == null else from.lerp(p.position, alpha)
+	if not stepped and shots.is_empty() and _arena.shot_positions.is_empty():
+		return
+	_arena.shot_positions = shots
+	_arena.queue_redraw()
+
+func _tween_body(id: int, to: Vector2, alpha: float) -> Vector2:
+	var from = _prev_drawn.get(id)
+	if from == null:
+		return to
+	var u := state.unit(id)
+	if u == null or from.distance_to(to) > u.move_speed * 3.0 + UnitView.display_radius(u) * 3.0:
+		# Further than a walk: a spawn, a teleport, or the crowd nudge throwing a
+		# body across a scrum. Sliding through it invents motion nothing did.
+		return to
+	return from.lerp(to, alpha)
+
+func _drawn_snapshot() -> Dictionary:
+	var out := {}
+	for u in state.units:
+		if u.alive:
+			out[u.id] = UnitView.drawn_position(u, state.units)
+	return out
+
+func _shot_snapshot() -> Dictionary:
+	var out := {}
+	for p in state.projectiles:
+		if not p.resolved:
+			out[p.id] = p.position
+	return out
 
 ## Drains the events the simulation emitted since the last frame and turns them
 ## into floating numbers and log lines.
