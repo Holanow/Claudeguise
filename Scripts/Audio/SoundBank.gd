@@ -9,18 +9,21 @@ const EXTENSIONS := ["ogg", "wav", "mp3"]
 
 static var _cache: Dictionary = {}
 
-## A kind in `PLACEHOLDER_VOICES` is voiced; a kind absent from it is silent
+## A name in `PLACEHOLDER_VOICES` is voiced; a name absent from it is silent
 ## until a file is dropped in for it. A dropped-in file also beats the
-## placeholder, so a near-silent one is how a kind gets turned off.
+## placeholder, so a near-silent one is how a name gets turned off.
 
-## Placeholder voices, and they are meant to sound synthetic.
+## Placeholder voices, and they are meant to sound synthetic. Keyed by the name
+## `sound_name` resolves to, not by event kind: issue #507 voices one status and
+## not the other twelve, which a kind cannot express.
 const PLACEHOLDER_VOICES := {
-	CG.EventKind.ACTION_FIRE: [440.0, 0.07, 26.0, 0.0],
-	CG.EventKind.DAMAGE: [220.0, 0.12, 20.0, -0.35],
-	CG.EventKind.HEAL: [523.0, 0.16, 12.0, 0.45],
-	CG.EventKind.DEATH: [110.0, 0.45, 6.0, -0.55],
-	CG.EventKind.MISS: [175.0, 0.06, 34.0, -0.2],
-	CG.EventKind.BLOCKED: [880.0, 0.045, 48.0, 0.0],
+	&"event/action_fire": [440.0, 0.07, 26.0, 0.0],
+	&"event/damage": [220.0, 0.12, 20.0, -0.35],
+	&"event/heal": [523.0, 0.16, 12.0, 0.45],
+	&"event/death": [110.0, 0.45, 6.0, -0.55],
+	&"event/miss": [175.0, 0.06, 34.0, -0.2],
+	&"event/blocked": [880.0, 0.045, 48.0, 0.0],
+	&"event/status_applied/stun": [330.0, 0.22, 9.0, -0.45],
 }
 
 const MIX_RATE := 22050
@@ -49,6 +52,12 @@ static func sound_name(event: CombatEvent) -> StringName:
 		# `action_id` on a DAMAGE event is exactly the distinction, and it is
 		# read here and nowhere below the presentation layer.
 		return DOT_NAME
+	if event.kind == CG.EventKind.STATUS_APPLIED:
+		# Per status, not per kind: the ruling in #507 voices stun and nothing
+		# else, and one name for all thirteen cannot say that. Outside the
+		# `elif` chain on purpose -- an applied status usually carries the
+		# action that applied it, so it reaches here through the first branch.
+		return StringName("event/status_applied/%s" % String(CG.Status.keys()[event.status]).to_lower())
 	return StringName("event/%s" % String(CG.EventKind.keys()[event.kind]).to_lower())
 
 ## The stream dropped in under `name`, or null when there is no file for it.
@@ -103,17 +112,17 @@ static func load_audio(path: String) -> AudioStream:
 
 static var _placeholders: Dictionary = {}
 
-## A short synthetic blip for `kind`, or null when that kind has no default
+## A short synthetic blip for `name`, or null when that name has no default
 ## voice. Cached, because building one is a few thousand samples of arithmetic
 ## and a fight would otherwise rebuild it hundreds of times.
-static func placeholder_for(kind: CG.EventKind) -> AudioStream:
-	if not PLACEHOLDER_VOICES.has(kind):
+static func placeholder_for(name: StringName) -> AudioStream:
+	if not PLACEHOLDER_VOICES.has(name):
 		return null
-	if _placeholders.has(kind):
-		return _placeholders[kind]
-	var v: Array = PLACEHOLDER_VOICES[kind]
-	_placeholders[kind] = _blip(v[0], v[1], v[2], v[3])
-	return _placeholders[kind]
+	if _placeholders.has(name):
+		return _placeholders[name]
+	var v: Array = PLACEHOLDER_VOICES[name]
+	_placeholders[name] = _blip(v[0], v[1], v[2], v[3])
+	return _placeholders[name]
 
 ## One decaying tone as 16-bit mono PCM.
 static func _blip(hz: float, seconds: float, decay: float, sweep: float) -> AudioStreamWAV:
@@ -144,12 +153,7 @@ static func stream_for_event(event: CombatEvent) -> AudioStream:
 	var dropped := _stream(name)
 	if dropped != null:
 		return dropped
-	# A drain has no generated voice, only a name a player can fill. Checked
-	# against the resolved NAME rather than the event kind, because the kind is
-	# still DAMAGE and reading the kind here is what put the buzz in.
-	if name == DOT_NAME:
-		return null
-	return placeholder_for(event.kind)
+	return placeholder_for(name)
 
 ## ---------------------------------------------------------------------------
 ## PLAYBACK

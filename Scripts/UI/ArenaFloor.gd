@@ -19,10 +19,6 @@ var terrain: Array = []
 ## Set by BattleView from CombatState.projectiles every stepped tick.
 var projectiles: Array = []
 
-## Issue 501: projectile id -> where that shot is drawn this frame, between the
-## tick it left and the tick it is on. An id with no entry draws from state.
-var shot_positions: Dictionary = {}
-
 ## Set by BattleView from CombatState.units every stepped tick, for the cover a
 ## shielder holds: it is drawn here, on the parent of every UnitView, so it
 ## cannot repaint the units standing behind it (issue 332).
@@ -62,15 +58,15 @@ func _draw() -> void:
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
 
 	for p in projectiles:
-		_draw_projectile(p, shot_positions.get(p.id, p.position))
+		_draw_projectile(p)
 
 ## One in-flight shot, shaped and coloured by damage type
 ## (Scripts/Art/AttackFX.gd, PR #69 sable) instead of the plain dot-with-
 ## trail this replaces. `Projectile` carries `action_id`, not `damage_type`
-func _draw_projectile(p, at: Vector2) -> void:
+func _draw_projectile(p) -> void:
 	if p.resolved:
 		return
-	AttackFX.draw_projectile(self, at, at - p.origin, _projectile_damage_type(p), _PROJECTILE_RADIUS * 3.0)
+	AttackFX.draw_projectile(self, p.position, p.position - p.origin, _projectile_damage_type(p), _PROJECTILE_RADIUS * 3.0)
 
 ## Split from _draw_projectile, same reasoning AttackFX's own geometry
 ## functions are split from their draw_* wrappers: Godot refuses draw_*
