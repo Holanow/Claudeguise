@@ -32,6 +32,31 @@ func _casts(class_id: StringName, presets: bool) -> Dictionary:
 	return out
 
 
+## Issue 556, the player's sentence as four assertions: *"A priest should
+## generally have a higher max resource pool and slightly more health, whereas
+## a geysermancer should hit harder and move faster"*. Read off `Balance` for
+## the real starter pawns, so a statline edit that undoes any clause goes red.
+func test_the_two_casters_split_the_way_the_player_asked_them_to() -> void:
+	var priest := PawnFactory.make_starter_pawn(&"priest", &"p", "Priest")
+	var geyser := PawnFactory.make_starter_pawn(&"geysermancer", &"g", "Geysermancer")
+	var p_hp := Balance.max_hp(priest)
+	var g_hp := Balance.max_hp(geyser)
+	print("556: priest hp %d resource %d move %.2f power %.2f | geysermancer hp %d resource %d move %.2f power %.2f" % [
+		p_hp, Balance.max_resource(priest), Balance.move_speed(priest), Balance.attack_power(priest, CG.DamageType.DIVINE),
+		g_hp, Balance.max_resource(geyser), Balance.move_speed(geyser), Balance.attack_power(geyser, CG.DamageType.WATER)])
+	assert_true(Balance.max_resource(priest) > Balance.max_resource(geyser),
+		"the Priest's pool is not the larger one")
+	assert_true(Balance.attack_power(geyser, CG.DamageType.WATER) > Balance.attack_power(priest, CG.DamageType.DIVINE),
+		"the Geysermancer does not hit harder")
+	assert_true(Balance.move_speed(geyser) > Balance.move_speed(priest),
+		"the Geysermancer is not the faster one")
+	assert_true(g_hp < p_hp, "the Priest does not have more health")
+	## "Slightly" is the half of the sentence a point of CON cannot express: one
+	## is 12 hp on a 98 hp pawn. The bar is that the edge stays under a tenth.
+	assert_true(float(p_hp - g_hp) / float(g_hp) < 0.10,
+		"the Priest's health edge is %d hp over %d, which is no longer slight" % [p_hp - g_hp, g_hp])
+
+
 func test_an_unedited_priest_and_geysermancer_do_not_cast_the_same_things() -> void:
 	var priest := _casts(&"priest", false)
 	var geyser := _casts(&"geysermancer", false)

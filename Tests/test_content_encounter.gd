@@ -35,53 +35,47 @@ func _differs(a: Dictionary, b: Dictionary) -> bool:
 	return (longer / shorter) >= 1.2
 
 
-func _assert_pair_differs(class_a: StringName, class_b: StringName, seed: int) -> void:
-	var a := _run(class_a, seed)
-	var b := _run(class_b, seed)
-	print("classes differ: %s outcome=%s ticks=%d  vs  %s outcome=%s ticks=%d" % [
-		class_a, CombatState.Outcome.keys()[a["outcome"]], a["ticks"],
-		class_b, CombatState.Outcome.keys()[b["outcome"]], b["ticks"],
-	])
-	assert_true(_differs(a, b), "%s and %s produced the same outcome and near-identical length on seed %d" % [class_a, class_b, seed])
+## Swept over `PAIR_SEEDS`, never asserted on one. A single seed cannot tell
+## "these classes play differently" from "this seed is one where they happen
+## to", and this file already records two blind re-picks that prove it.
+const PAIR_SEEDS := 30
+const PAIR_MAJORITY := 16
+
+func _pair_difference_count(class_a: StringName, class_b: StringName) -> int:
+	var differing := 0
+	for seed in PAIR_SEEDS:
+		if _differs(_run(class_a, seed), _run(class_b, seed)):
+			differing += 1
+	return differing
 
 
-## Issue 52: seed 2 -> 1. The Warrior's rework (hook/grapple are Abomination's,
-## but warrior_block's cooldown fix changed warrior x4's own action economy --
-## more real warrior_strike/taunt uptime, less standing idle) collided seed 2
-## into a near-tie with geysermancer x4 again (both ENEMY_WIN, 549 vs 538
-## ticks, inside this test's own 20% band) -- the same shape issue 30 hit on
-## seed 1 the first time. Swept seeds 0-11 directly rather than picking
-## blind: seed 1 gives a clean opposite-outcome split (geysermancer ENEMY_WIN
-## /538, warrior PLAYER_WIN/706). Not a real party either way -- mono-class,
-## diagnostic only, same caveat this file states everywhere else.
+func _assert_pair_differs(class_a: StringName, class_b: StringName) -> void:
+	var differing := _pair_difference_count(class_a, class_b)
+	print("classes differ: %s vs %s on %d of %d seeds" % [class_a, class_b, differing, PAIR_SEEDS])
+	assert_true(differing >= PAIR_MAJORITY,
+		"%s and %s produced the same fight on %d of %d seeds" % [
+			class_a, class_b, PAIR_SEEDS - differing, PAIR_SEEDS])
+
+
+## Mono-class parties, diagnostic only, same caveat this file states everywhere
+## else. Issues 30 and 52 each re-picked this test's seed after a collision;
+## #556 collided the Siege Master pair the same way, so all three pairs are
+## swept instead.
 func test_geysermancers_and_warriors_fight_differently() -> void:
-	_assert_pair_differs(&"geysermancer", &"warrior", 2)
+	_assert_pair_differs(&"geysermancer", &"warrior")
 
 
-## RE-PARKED AGAINST ISSUE 406, the same way #490 parked it and for the same
-## reason: the real assertion is true again, so this fails the day it is fixed
-## rather than sitting quietly. #544 deleted `DefaultBehavior`'s automatic
-## retreat and the casters went from differing on 23 of 30 seeds to **14**,
-## alike on **16**. The bar is half the measurement, which is #490's own rule --
-## a statement about the property, not a number laid under what was measured.
-## **The cause is unproven**: part of what distinguished the two may have been
-## the defect itself, since 4.75 against 4.70 gave them different retreats. That
-## is a hypothesis and #406 carries it.
-func test_the_two_casters_are_still_too_alike_to_tell_apart_issue_406() -> void:
-	var same := 0
-	var differing := []
-	for seed in 30:
-		if _differs(_run(&"geysermancer", seed), _run(&"priest", seed)):
-			differing.append(seed)
-		else:
-			same += 1
-	print("issue 406: geysermancer and priest differ on %d of 30 seeds, are alike on %d" % [differing.size(), same])
-	assert_true(same >= 8,
-		"the two casters now differ on %d of 30 seeds; #406 may be fixed, so restore a real difference test here" % differing.size())
+## **The park this replaces was inverted, and #556 fired it.** From #490 the
+## two casters were alike on 12 of 30 seeds, 16 after #544; separating their
+## statlines took it to 0, so the real assertion is restored here as the park's
+## own message asked. This is the ordinary pair test now, on the same sweep as
+## the other two.
+func test_geysermancers_and_priests_fight_differently() -> void:
+	_assert_pair_differs(&"geysermancer", &"priest")
 
 
 func test_geysermancers_and_siege_masters_fight_differently() -> void:
-	_assert_pair_differs(&"geysermancer", &"siege_master", 1)
+	_assert_pair_differs(&"geysermancer", &"siege_master")
 
 
 ## Issue 2's acceptance criterion 6 asked for a win count across twenty seeds
