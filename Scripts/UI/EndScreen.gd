@@ -16,9 +16,12 @@ class_name EndScreen
 
 const SortBy := {DEALT = 0, TAKEN = 1}
 
-const CARD_WIDTH := 208.0
-const PORTRAIT_SIZE := 96.0
-const LOG_MIN_WIDTH := 380.0
+## Four cards and their separators have to fit the roster's share of the width
+## without scrolling: a four-pawn party is the normal case, and a roster you
+## have to drag to see all of is not a roster.
+const CARD_WIDTH := 168.0
+const PORTRAIT_SIZE := 76.0
+const LOG_MIN_WIDTH := 340.0
 
 ## The roster and the log get a fixed slab of the banner: the column around them
 ## is centred and sizes to content, so an expanding child would collapse to
@@ -34,7 +37,7 @@ const LOG_SCROLL_NAME := "FullLogScroll"
 var _sort: int = SortBy.DEALT
 var _rows: Array[Dictionary] = []
 var _roster: HBoxContainer = null
-var _log_label: Label = null
+var _log_label: RichTextLabel = null
 var _sort_buttons: Dictionary = {}
 
 # ---------------------------------------------------------------------------
@@ -222,11 +225,16 @@ func _build_log_side() -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(scroll)
 
-	_log_label = Label.new()
-	_log_label.add_theme_color_override("font_color", Palette.TEXT)
-	_log_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	## A RichTextLabel with BBCode on, because `line_for_event` returns BBCode --
+	## a plain Label prints "[color=9a94aaff]The fight begins.[/color]" at the
+	## player, which is what the first screenshot of this screen showed.
+	_log_label = RichTextLabel.new()
+	_log_label.bbcode_enabled = true
+	_log_label.fit_content = true
+	_log_label.scroll_active = false
+	_log_label.add_theme_color_override("default_color", Palette.TEXT)
+	_log_label.add_theme_font_size_override("normal_font_size", Palette.FONT_SIZE_SMALL)
 	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	scroll.add_child(_log_label)
 	return side
 
