@@ -111,17 +111,87 @@ func test_a_heal_throws_no_debris() -> void:
 # Varying by damage type, which is the same colour the numbers use
 # ---------------------------------------------------------------------------
 
+const DAMAGE_TYPES := [CG.DamageType.PHYSICAL, CG.DamageType.FIRE, CG.DamageType.WATER,
+	CG.DamageType.AIR, CG.DamageType.EARTH, CG.DamageType.DIVINE,
+	CG.DamageType.PROFANE, CG.DamageType.RAW]
+
+## Issue 539, same family as 280. The pixel a hit throws is the sprite TIMES
+## the tint, and `modulate` is only one half of that multiply: with the file
+## gone the black-square fallback ships, black times any tint is black, and
+## every damage type throws identical debris while a `modulate` assertion goes
+## on passing. Sampled off the emitter's own texture, so it is the picture that
+## ships rather than the property that feeds it.
+func _debris_pixels(emitter: GPUParticles2D, grid: int) -> PackedColorArray:
+	var out := PackedColorArray()
+	if emitter.texture == null:
+		return out
+	var image := emitter.texture.get_image()
+	for gy in grid:
+		for gx in grid:
+			var x := mini(int((float(gx) + 0.5) / float(grid) * float(image.get_width())), image.get_width() - 1)
+			var y := mini(int((float(gy) + 0.5) / float(grid) * float(image.get_height())), image.get_height() - 1)
+			out.append(image.get_pixel(x, y) * emitter.modulate)
+	return out
+
+## The fraction of sampled pixels two bursts disagree on, the same shape and the
+## same tolerance `test_art.gd` uses on the badges.
+func _pixel_difference(a: PackedColorArray, b: PackedColorArray) -> float:
+	if a.is_empty() or a.size() != b.size():
+		return 0.0
+	var differing := 0
+	for i in a.size():
+		var d := absf(a[i].r - b[i].r) + absf(a[i].g - b[i].g) + absf(a[i].b - b[i].b) + absf(a[i].a - b[i].a)
+		if d > 0.12:
+			differing += 1
+	return float(differing) / float(a.size())
+
+func _debris_for_each_type(view, grid: int) -> Dictionary:
+	var out := {}
+	for type in DAMAGE_TYPES:
+		var before = _burst_node(view)._next
+		_feed(view, _damage_event(view, type))
+		out[type] = _debris_pixels(_burst_node(view)._emitters[before], grid)
+	return out
+
 func test_every_damage_type_colours_its_own_debris() -> void:
 	_reset()
 	var view = _view()
-	for type in [CG.DamageType.PHYSICAL, CG.DamageType.FIRE, CG.DamageType.WATER,
-			CG.DamageType.AIR, CG.DamageType.EARTH, CG.DamageType.DIVINE,
-			CG.DamageType.PROFANE, CG.DamageType.RAW]:
-		var before = _burst_node(view)._next
-		_feed(view, _damage_event(view, type))
-		var emitter: GPUParticles2D = _burst_node(view)._emitters[before]
-		assert_eq(emitter.modulate, Palette.damage_color(type),
-			"debris must use the colour the floating number uses")
+	var grid := 8
+	var pixels := _debris_for_each_type(view, grid)
+	for type in DAMAGE_TYPES:
+		assert_false(pixels[type].is_empty(),
+			"the debris for %s rasterised to nothing at all" % CG.DamageType.keys()[type])
+
+	var worst := 1.0
+	var worst_pair := ""
+	for a in DAMAGE_TYPES:
+		for b in DAMAGE_TYPES:
+			if a >= b:
+				continue
+			var d := _pixel_difference(pixels[a], pixels[b])
+			if d < worst:
+				worst = d
+				worst_pair = "%s/%s" % [CG.DamageType.keys()[a], CG.DamageType.keys()[b]]
+	assert_true(worst > 0.5,
+		("%s debris render the same picture on %.0f%% of their pixels. Scalding "
+		+ "water and a sword must not throw the same debris -- if the sprite is "
+		+ "missing, every type is throwing black squares.") % [worst_pair, (1.0 - worst) * 100.0])
+	_reset()
+
+## The other half: distinct is not enough, they have to be the colours the
+## floating numbers use. Also in pixels, off the same rasterisation.
+func test_debris_pixels_carry_the_colour_the_floating_number_uses() -> void:
+	_reset()
+	var view = _view()
+	var grid := 8
+	var pixels := _debris_for_each_type(view, grid)
+	var reference: GPUParticles2D = _burst_node(view)._emitters[0]
+	for type in DAMAGE_TYPES:
+		reference.modulate = Palette.damage_color(type)
+		var want := _debris_pixels(reference, grid)
+		assert_false(want.is_empty(), "there is no debris sprite to rasterise")
+		assert_eq(_pixel_difference(pixels[type], want), 0.0,
+			"%s debris are not drawn in that type's own colour" % CG.DamageType.keys()[type])
 	_reset()
 
 # ---------------------------------------------------------------------------
@@ -231,4 +301,55 @@ func test_nothing_freezes_when_the_hit_stop_option_is_off() -> void:
 	death.target_id = view.state.units[0].id
 	_feed(view, death)
 	assert_false(ViewClock.frozen, "the view clock froze with hit stop off")
+	_reset()
+
+# ---------------------------------------------------------------------------
+# Issue 535: pause is the other trigger, and pause is what the player uses to
+# look at a hit. An overlay that ages through it takes away the thing pause is
+# for -- the ring is gone in 0.8s and the death plate in 2.4s.
+# ---------------------------------------------------------------------------
+
+func test_pausing_freezes_the_overlays() -> void:
+	_reset()
+	var view = _view()
+	_feed(view, _damage_event(view))
+	view.set_paused(true)
+	view._process(0.1)
+	assert_true(ViewClock.frozen, "a paused fight kept animating its overlays")
+	_reset()
+
+## The negative. A freeze that never lifts is the same defect wearing the other
+## sign, and it is invisible: the picture simply stops.
+func test_resuming_releases_the_overlays() -> void:
+	_reset()
+	var view = _view()
+	_feed(view, _damage_event(view))
+	view.set_paused(true)
+	view._process(0.1)
+	view.set_paused(false)
+	view._process(0.1)
+	assert_false(ViewClock.frozen, "the overlays stayed frozen after the resume")
+	_reset()
+
+## Pause HOLDS a hit stop rather than spending it. The pause return sits above
+## the `_freeze_left` decrement for this reason, and the ordering is easy to
+## tidy away.
+func test_a_pause_holds_a_hit_stop_rather_than_spending_it() -> void:
+	_reset()
+	var view = _view()
+	var death := CombatEvent.make(CG.EventKind.DEATH, 0)
+	death.target_id = view.state.units[0].id
+	_feed(view, death)
+	var armed: float = view._freeze_left
+	assert_true(armed > 0.0, "the death must arm a freeze")
+
+	view.set_paused(true)
+	for i in 5:
+		view._process(0.1)
+	assert_eq(view._freeze_left, armed, "the pause spent the hit stop it was holding")
+	assert_true(ViewClock.frozen, "and it must still read as frozen")
+
+	view.set_paused(false)
+	view._process(0.1)
+	assert_true(view._freeze_left < armed, "the freeze must run again once the pause lifts")
 	_reset()

@@ -1066,11 +1066,13 @@ func _bodies() -> Node2D:
 func _process(delta: float) -> void:
 	if state == null:
 		return
-	# Before the freeze, so pausing holds a freeze rather than spending it.
+	# Issue 528: every overlay that animates on real delta reads this. Issue 535:
+	# pause is the other trigger, and it is the one the player uses to look at a
+	# hit, so it must be written above the return rather than below it.
+	ViewClock.frozen = paused or _freeze_left > 0.0
+	# Above the decrement, so pausing holds a freeze rather than spending it.
 	if paused:
 		return
-	# Issue 528: every overlay that animates on real delta reads this.
-	ViewClock.frozen = _freeze_left > 0.0
 	if _freeze_left > 0.0:
 		_freeze_left = maxf(0.0, _freeze_left - delta)
 		if _freeze_left > 0.0:
@@ -1174,6 +1176,24 @@ func _tween_body(id: int, to: Vector2, alpha: float) -> Vector2:
 		# body across a scrum. Sliding through it invents motion nothing did.
 		return to
 	return from.lerp(to, alpha)
+
+## Issue 537: where a body is DRAWN on the frame an event lands, which is what
+## "where it happened" has always meant. Issue 511 plants a mark and does not
+## move it again, and that stands; but "planted" was defined before #501, when
+## the drawn and the raw position were the same point on every frame. On a
+## stepped frame they differ by up to a tick, so a mark anchored to raw
+## `position` is planted where the body WILL be, about half a small body ahead
+## of where the player can see it.
+func _drawn_event_position(unit) -> Vector2:
+	if unit == null:
+		return Vector2.ZERO
+	var to = _curr_drawn.get(unit.id)
+	if to != null:
+		return _tween_body(unit.id, to, clampf(_tick_accumulator / CG.TICK_SECONDS, 0.0, 1.0))
+	# A death leaves the snapshot, which only holds the living, so the last
+	# place the body was drawn is the last tick boundary it reached.
+	var was = _prev_drawn.get(unit.id)
+	return was if was != null else unit.position
 
 func _drawn_snapshot() -> Dictionary:
 	var out := {}
@@ -1411,7 +1431,8 @@ func _spawn_floater(e: CombatEvent) -> void:
 		return
 	_make_room_for_a_floater()
 	var size := int(round(Palette.FONT_SIZE_FLOATER * UnitViewScript.DISPLAY_SCALE))
-	var at := target.position + _floater_stagger_offset(target.position, str(e.amount), size)
+	var anchor := _drawn_event_position(target)
+	var at := anchor + _floater_stagger_offset(anchor, str(e.amount), size)
 	var floater := Node2D.new()
 	floater.set_script(DamageFloaterScript)
 	_arena.add_child(floater)
@@ -1462,7 +1483,7 @@ func _spawn_impact_burst(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
-	_bursts.burst(target.position, e.damage_type)
+	_bursts.burst(_drawn_event_position(target), e.damage_type)
 
 ## Issue 151, and the player asked for it twice over: "the stun icon should
 ## appear and the unit should flash white or something". The badge is already
@@ -1514,7 +1535,8 @@ func _spawn_death_marker(e: CombatEvent) -> void:
 		return
 	var text := "%s dies" % target.display_name
 	var size := _death_font_size(target)
-	var base := target.position + _DEATH_MARKER_OFFSET + _death_stack_offset(target.position)
+	var anchor := _drawn_event_position(target)
+	var base := anchor + _DEATH_MARKER_OFFSET + _death_stack_offset(anchor)
 	var at := base + _floater_stagger_offset(base, text, size, true)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
@@ -1533,7 +1555,8 @@ func _spawn_miss_marker(e: CombatEvent) -> void:
 	if target == null:
 		return
 	var size := int(round(Palette.FONT_SIZE_SMALL * UnitViewScript.DISPLAY_SCALE))
-	var at := target.position + _floater_stagger_offset(target.position, "Miss", size)
+	var anchor := _drawn_event_position(target)
+	var at := anchor + _floater_stagger_offset(anchor, "Miss", size)
 	var marker := Node2D.new()
 	marker.set_script(DamageFloaterScript)
 	_arena.add_child(marker)
