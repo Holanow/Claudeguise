@@ -58,12 +58,10 @@ func test_geysermancers_and_warriors_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"warrior", 2)
 
 
-## PARKED AGAINST ISSUE 406, and it fails the day #406 is fixed rather than
-## sitting quietly. This was `test_geysermancers_and_priests_fight_differently`
-## resting on one hand-picked seed, which #489 stopped separating them on; a
-## sweep replaces it because re-picking the seed is a widening. Reasoning and
-## numbers are on #406.
-func test_the_two_casters_are_still_too_alike_to_tell_apart_issue_406() -> void:
+## The unparked #406 test: the park above it fired, so the real assertion is
+## back. The bar is a majority of the same 30 seeds rather than a hand-picked
+## one, because resting on a single seed is what put this test in the park.
+func test_geysermancers_and_priests_fight_differently() -> void:
 	var same := 0
 	var differing := []
 	for seed in 30:
@@ -71,9 +69,9 @@ func test_the_two_casters_are_still_too_alike_to_tell_apart_issue_406() -> void:
 			differing.append(seed)
 		else:
 			same += 1
-	print("issue 406: geysermancer and priest are indistinguishable on %d of 30 seeds, differ on %s" % [same, differing])
-	assert_true(same >= 6,
-		"the two casters now differ on %d of 30 seeds; #406 may be fixed, so restore a real difference test here" % differing.size())
+	print("issue 406: geysermancer and priest differ on %d of 30 seeds, are alike on %d" % [differing.size(), same])
+	assert_true(differing.size() >= 16,
+		"the two casters are indistinguishable on %d of 30 seeds; #406 has come back" % same)
 
 
 func test_geysermancers_and_siege_masters_fight_differently() -> void:
