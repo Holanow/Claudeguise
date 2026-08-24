@@ -197,32 +197,11 @@ func test_second_wind_actually_fires_and_heals_in_a_real_fight() -> void:
 		"See issue 334; if this is deliberate, this assertion is the thing to remove") % [
 			by_plan, by_fallback + by_plan])
 
-## **Issue 334: WHY the row never fires, stated structurally so it cannot rot
-## against a sample.**
-##
-## `DefaultBehavior` casts any heal it owns once an ally is at or below
-## `HEAL_THRESHOLD_FRACTION`. A plan row gated at a LOWER fraction than that can
-## never be the first to reach the action: the fallback has already cast it and
-## started its cooldown by the time the pawn is hurt enough for the row to hold.
-## The row is dominated, not unlucky, and no number of seeds would show
-## otherwise.
-func test_a_self_heal_row_gated_below_the_fallback_can_never_go_first() -> void:
-	var row: Plan = null
-	for plan in PresetPlans.for_class(&"warrior"):
-		for block in plan.blocks:
-			if block.kind == PlanBlock.Kind.ACTION and block.args.get("action_id", &"") == &"warrior_second_wind":
-				row = plan
-	assert_not_null(row, "the Warrior should still ship a Second Wind row")
-	assert_not_null(row.condition, "an ungated self-heal row would fire constantly")
-	assert_eq(row.condition.op, &"self_hp_below_fraction",
-		"this test reads the row's threshold; a different condition op needs a different reading")
-
-	var row_threshold := float(row.condition.args.get("fraction", 1.0))
-	assert_true(row_threshold < DefaultBehavior.HEAL_THRESHOLD_FRACTION,
-		("the Warrior's row fires at %.2f and the fallback at %.2f. This assertion records that " +
-		"the row is DOMINATED -- it is the state issue 334 reports, not the state anyone wants. " +
-		"If the row now goes first, that is the fix landing: delete this test") % [
-			row_threshold, DefaultBehavior.HEAL_THRESHOLD_FRACTION])
+## Issue 433: `test_a_self_heal_row_gated_below_the_fallback_can_never_go_first`
+## stood here and recorded that the Warrior's row was dominated by
+## `HEAL_THRESHOLD_FRACTION`. It asked to be deleted the day the row went first,
+## which is what 0.35 -> 0.70 does. The inverse assertion is now
+## `test_content_fallback_overlap.gd`, over both heal rows rather than one.
 
 
 # ---------------------------------------------------------------------------
