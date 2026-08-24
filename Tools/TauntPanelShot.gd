@@ -120,6 +120,12 @@ func _run(party_ids: Array, suffix: String) -> bool:
 		return false
 
 	var select := _node_with("PartySelect.gd")
+	# Issue 538: the seed picks the ROSTER as well as the fight, and
+	# assigning `.text` emits nothing, so the rolled pawns were random every
+	# run. Submitted, and before the cards are read: a reroll frees them.
+	select._seed_edit.text = "00000001"
+	select._seed_edit.text_submitted.emit("00000001")
+	await _settle()
 	## By the card's own `class_def`, never by index.
 	var by_id := {}
 	for n in _walk(_main):
@@ -134,7 +140,6 @@ func _run(party_ids: Array, suffix: String) -> bool:
 	await _settle()
 	if not _select_room(select._room_picker, "hazard"):
 		return false
-	select._seed_edit.text = "00000001"
 	await _settle()
 	if not _press("start fight"):
 		return false
