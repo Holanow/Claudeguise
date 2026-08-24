@@ -10,6 +10,12 @@ class_name PresetPlans
 ## Smite each cost 15, so 40 is "my own cost, plus the heal's, or I do not cast".
 const PRIEST_SPENDER_RESERVE := 40
 
+## Issue 488: the share of its own Rage a Warrior banks before it Executes. The
+## row read `self_resource_at_least 40` and the fixed Warrior's ceiling is
+## exactly 40, so 1.0 is that same row expressed against the pawn instead of
+## against a number, and 382 of 500 rolled Warriors stop being locked out of it.
+const EXECUTE_AT_FRACTION := 1.0
+
 ## Issue 166: the Mana below which a Channel is worth standing still for. It is
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
@@ -87,7 +93,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
 				_plan(&"warrior_execute_finisher", "Execute",
-					_condition(&"self_resource_at_least", {"amount": 40}),
+					_condition(&"self_resource_at_least_fraction", {"fraction": EXECUTE_AT_FRACTION}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"warrior_execute")]),
 			]
 		# The player's own "one for speed, one for resistance" direction.
