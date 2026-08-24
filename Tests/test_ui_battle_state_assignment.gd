@@ -8,6 +8,10 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## stepped frame before it rendered anything. It failed silently and produced a
 ## plausible wrong picture, which is worse than a crash and is the same shape
 ## #280 records.
+##
+## Every test here steps WHOLE ticks, so the render alpha lands at 0 and bodies
+## are placed at the previous tick. Nothing below reads a position; anything
+## added that does must step sub-tick, the way `Tools/InterpShot.gd` does.
 
 func _party() -> Array[PawnData]:
 	var party: Array[PawnData] = []
