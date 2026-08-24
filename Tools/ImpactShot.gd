@@ -99,9 +99,10 @@ func _build_view(party_ids: Array) -> void:
 	_view.begin_with_encounter(cfg, _encounter())
 	_view.set_process(false)
 
-## The view's clock, plus every transient's and every body's. A squash ages on
-## the engine's real delta, and the frames this tool draws cost almost no wall
-## clock, so left to the engine the whole decay would happen inside one panel.
+## The view's clock, plus every transient's. The squash needs no help: it is
+## spent by `_render` off the same delta this passes in. A ring and a number age
+## on the engine's real delta instead, and the frames this tool draws cost almost
+## no wall clock, so left alone forty of them pile up and none ever expires.
 func _frame() -> void:
 	var slice := CG.TICK_SECONDS / float(FRAMES_PER_TICK)
 	_view._process(slice)
@@ -111,11 +112,6 @@ func _frame() -> void:
 		if child.get_script() == ImpactFlash or child.get_script() == DamageFloater:
 			child.set_process(false)
 			child._process(slice)
-	for id in _view._unit_views:
-		var body: Node2D = _view._unit_views[id]
-		body.set_process(false)
-		if body.impact_active():
-			body._process(slice)
 
 func _shot() -> Image:
 	await RenderingServer.frame_post_draw
@@ -164,6 +160,9 @@ func _run() -> void:
 ## seed, same tick, same frames.
 func _strip(blow: Dictionary, on: bool) -> void:
 	DisplayOptions.set_enabled(&"impact_squash", on)
+	# Off, so what a strip shows and what a stopwatch reads is this issue's
+	# effect rather than #515's freeze mixed in with it.
+	DisplayOptions.set_enabled(&"hit_stop", false)
 	await _build_view(blow["party"])
 	while _view.state.tick < blow["tick"]:
 		_frame()
@@ -246,6 +245,9 @@ func _cost(units: int, on: bool, storm: bool) -> void:
 	seed(SEED)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	DisplayOptions.set_enabled(&"impact_squash", on)
+	# Off, so what a strip shows and what a stopwatch reads is this issue's
+	# effect rather than #515's freeze mixed in with it.
+	DisplayOptions.set_enabled(&"hit_stop", false)
 	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state

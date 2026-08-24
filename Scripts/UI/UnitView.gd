@@ -98,9 +98,6 @@ static func _watch_holds(state: CombatState) -> void:
 
 func bind(state: CombatState, id: int) -> void:
 	unit_id = id
-	# A script that defines `_process` processes by default, and a hundred idle
-	# bodies running an empty one is a permanent tax. Armed by `struck` only.
-	set_process(false)
 	sync(state)
 
 ## Issue 501: `at` is the drawn position when the caller has already computed it
@@ -261,7 +258,6 @@ func struck() -> void:
 	if not DisplayOptions.enabled(IMPACT_OPTION):
 		return
 	_squash_age = 0.0
-	set_process(true)
 	queue_redraw()
 
 func recoiled(direction: Vector2) -> void:
@@ -269,22 +265,22 @@ func recoiled(direction: Vector2) -> void:
 		return
 	_recoil_age = 0.0
 	_recoil_direction = direction.normalized()
-	set_process(true)
 	queue_redraw()
 
 func impact_active() -> bool:
 	return _squash_age < SQUASH_SECONDS or _recoil_age < RECOIL_SECONDS
 
-## The decay runs on rendered frames, not on ticks: a tick-driven recovery is
-## three or four steps long and reads as a stutter rather than as a spring.
-func _process(delta: float) -> void:
+## Spent on rendered frames rather than on ticks, because a tick-driven recovery
+## is three or four steps long and reads as a stutter rather than as a spring --
+## but spent by `BattleView._render` rather than by a `_process` of this view's
+## own, so that a hit stop (#515) holds the decay along with everything else.
+func advance_impact(delta: float) -> void:
 	_squash_age += delta
 	_recoil_age += delta
 	if not impact_active():
 		_squash_age = INF
 		_recoil_age = INF
 		_recoil_direction = Vector2.ZERO
-		set_process(false)
 	queue_redraw()
 
 ## The one place the impact transform is applied, and it covers the body and

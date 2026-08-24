@@ -117,7 +117,6 @@ func test_the_toggle_off_leaves_every_body_exactly_where_it_was() -> void:
 	for id in [0, 1]:
 		var body: Node2D = view._unit_views[id]
 		assert_false(body.impact_active())
-		assert_false(body.is_processing(), "nothing to animate, so nothing to process")
 		assert_eq(UnitView.squash_scale(body._squash_age), Vector2.ONE)
 	DisplayOptions.reset()
 
@@ -130,21 +129,40 @@ func test_the_effect_ends_and_gives_the_frame_back() -> void:
 	view.consume_events()
 
 	var struck: Node2D = view._unit_views[0]
-	assert_true(struck.is_processing())
+	assert_true(struck.impact_active())
 	for i in 60:
-		struck._process(1.0 / 60.0)
+		struck.advance_impact(1.0 / 60.0)
 	assert_false(struck.impact_active(), "one second is four spans")
-	assert_false(struck.is_processing(), "and it must stop asking for frames")
 	assert_eq(UnitView.squash_scale(struck._squash_age), Vector2.ONE)
 	assert_eq(UnitView.recoil_offset(struck._recoil_age, Vector2.RIGHT), Vector2.ZERO)
 	DisplayOptions.reset()
 
-func test_an_untouched_body_never_processes() -> void:
+func test_an_untouched_body_is_never_advanced() -> void:
 	DisplayOptions.set_enabled(&"impact_squash", true)
 	var view := _view_with_pair()
 	for id in [0, 1]:
-		assert_false(view._unit_views[id].is_processing(),
+		assert_false(view._unit_views[id].impact_active(),
 			"a body nothing has hit costs no frame time")
+	DisplayOptions.reset()
+
+## Issue 515 freezes the picture for a tenth of a second on a death by returning
+## out of `_process` before `_render`. A decay driven by a `_process` of this
+## view's own would keep relaxing through that hold, which is visible motion in
+## a picture that has stopped -- and neither PR is red on its own.
+func test_a_hit_stop_holds_the_squash_with_everything_else() -> void:
+	DisplayOptions.set_enabled(&"impact_squash", true)
+	DisplayOptions.set_enabled(&"hit_stop", true)
+	var view := _view_with_pair()
+	view.state.emit(_damage(1, 0, &"basic_attack"))
+	view.consume_events()
+	view._hit_stop()
+
+	var struck: Node2D = view._unit_views[0]
+	var held: Vector2 = UnitView.squash_scale(struck._squash_age)
+	for i in 6:
+		view._process(1.0 / 60.0)
+	assert_eq(UnitView.squash_scale(struck._squash_age), held,
+		"the body relaxed during a freeze frame")
 	DisplayOptions.reset()
 
 # --- the line that must not be crossed --------------------------------------
@@ -161,7 +179,7 @@ func test_the_impact_never_reaches_the_simulation() -> void:
 	view.consume_events()
 	var struck: Node2D = view._unit_views[0]
 	for i in 4:
-		struck._process(1.0 / 60.0)
+		struck.advance_impact(1.0 / 60.0)
 
 	for i in view.state.units.size():
 		var u: CombatUnit = view.state.units[i]
@@ -178,6 +196,6 @@ func test_the_view_keeps_one_position_source() -> void:
 	var at := struck.position
 	view.state.emit(_damage(1, 0, &"basic_attack"))
 	view.consume_events()
-	struck._process(1.0 / 60.0)
+	struck.advance_impact(1.0 / 60.0)
 	assert_eq(struck.position, at, "the impact must not become a second position source")
 	DisplayOptions.reset()
