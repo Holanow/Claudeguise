@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/LooseShot.gd" id="1_ls"]
+
+[node name="LooseShot" type="Node"]
+script = ExtResource("1_ls")

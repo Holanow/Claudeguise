@@ -31,7 +31,7 @@ const OPTIONS := [
 	{
 		"id": &"impact_squash",
 		"label": "Bodies react to hits",
-		"help": "A struck body squashes for a fifth of a second and springs back, and whoever landed a melee blow rocks backward off it. On by default. It moves the body only, never a bar, a name or the fight itself. Turn it off if you want every silhouette to hold perfectly still.",
+		"help": "A struck body squashes for a fifth of a second and springs back, whoever landed a melee blow rocks backward off it, and an archer or a caster kicks back at the moment it looses its shot. On by default. It moves the body only, never a bar, a name or the fight itself. Turn it off if you want every silhouette to hold perfectly still.",
 		"default": true,
 	},
 	{
