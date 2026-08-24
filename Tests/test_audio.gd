@@ -11,6 +11,7 @@ const SCRATCH := [
 	"res://Assets/Audio/event/damage_over_time.wav",
 	"res://Assets/Audio/action/scratch_test_action.wav",
 	"res://Assets/Audio/event/action_fire.wav",
+	"res://Assets/Audio/event/status_applied/burn.wav",
 ]
 
 func setup() -> void:
@@ -46,6 +47,27 @@ func _event(kind: CG.EventKind, action_id: StringName = &"") -> CombatEvent:
 	var e := CombatEvent.make(kind, 0)
 	e.action_id = action_id
 	return e
+
+func _status_event(status: CG.Status, action_id: StringName = &"") -> CombatEvent:
+	var e := _event(CG.EventKind.STATUS_APPLIED, action_id)
+	e.status = status
+	return e
+
+## Every name the game can ask for, asked of `sound_name` with a real event
+## rather than listed here. A hand-written list would be the second list #299
+## refuses, and it would agree with itself while the code moved.
+func _all_names() -> Array[String]:
+	var names: Array[String] = []
+	for kind in CG.EventKind.values():
+		if kind == CG.EventKind.STATUS_APPLIED:
+			for status in CG.Status.values():
+				names.append(String(SoundBank.sound_name(_status_event(status))))
+			continue
+		names.append(String(SoundBank.sound_name(_event(kind))))
+		if kind == CG.EventKind.DAMAGE:
+			# The action-less DAMAGE above is the drain; this is the hit.
+			names.append(String(SoundBank.sound_name(_event(kind, &"warrior_strike"))))
+	return names
 
 
 # ---------------------------------------------------------------------------
@@ -140,17 +162,42 @@ func test_a_near_silent_file_is_how_a_kind_is_turned_off() -> void:
 		"a dropped-in file did not displace the placeholder, so a kind cannot be silenced")
 
 
-func test_the_voiced_kinds_are_exactly_the_six_intended() -> void:
-	# Named individually rather than counted. A count passes when one kind
+func test_the_voiced_names_are_exactly_the_seven_intended() -> void:
+	# Named individually rather than counted. A count passes when one name
 	# quietly replaces another, which is the mistake worth catching here.
 	var voiced := [
-		CG.EventKind.ACTION_FIRE, CG.EventKind.DAMAGE, CG.EventKind.HEAL,
-		CG.EventKind.DEATH, CG.EventKind.MISS, CG.EventKind.BLOCKED,
+		"event/action_fire", "event/damage", "event/heal", "event/death",
+		"event/miss", "event/blocked", "event/status_applied/stun",
 	]
-	for kind in CG.EventKind.values():
-		var has := SoundBank.placeholder_for(kind) != null
-		assert_eq(has, voiced.has(kind),
-			"%s is %s and should not be" % [CG.EventKind.keys()[kind], "voiced" if has else "silent"])
+	for name in _all_names():
+		var has := SoundBank.placeholder_for(StringName(name)) != null
+		assert_eq(has, voiced.has(name),
+			"%s is %s and should not be" % [name, "voiced" if has else "silent"])
+
+
+func test_only_stun_is_voiced_and_the_other_twelve_statuses_are_not() -> void:
+	# The ruling in #507: hard crowd control gets a sound, the rest do not. Asked
+	# through `stream_for_event` rather than of the table, so it covers the
+	# resolution as well as the voicing.
+	for status in CG.Status.values():
+		var event := _status_event(status, &"warrior_strike")
+		var audible := SoundBank.stream_for_event(event) != null
+		assert_eq(audible, status == CG.Status.STUN,
+			"%s is %s and should not be" % [CG.Status.keys()[status], "voiced" if audible else "silent"])
+
+
+func test_a_status_that_is_silent_is_silent_by_default_and_not_by_construction() -> void:
+	# The escape hatch #507 promises: a player who wants to hear their poison
+	# land drops one file in. Without this a bug that made the per-status names
+	# unplayable would look identical to the deliberate silence.
+	var event := _status_event(CG.Status.BURN, &"warrior_strike")
+	assert_eq(String(SoundBank.sound_name(event)), "event/status_applied/burn")
+	assert_eq(SoundBank.stream_for_event(event), null, "burn is already audible")
+	_write_sound("res://Assets/Audio/event/status_applied/burn.wav")
+	assert_not_null(SoundBank.stream_for_event(event),
+		"a file dropped in for one status did not make it audible")
+	assert_eq(SoundBank.stream_for_event(_status_event(CG.Status.POISON, &"warrior_strike")), null,
+		"a file dropped in for burn voiced poison as well")
 
 
 func test_every_event_kind_resolves_to_a_name() -> void:
@@ -158,11 +205,14 @@ func test_every_event_kind_resolves_to_a_name() -> void:
 	# in the project, and swift found the cost of that twice: SUSTAIN_START,
 	# SUSTAIN_END and BLOCKED all render as '' in the combat log because a kind
 	# was appended and every hand-written match statement stayed as it was.
-	for kind in CG.EventKind.values():
-		var name := SoundBank.sound_name(_event(kind))
-		assert_ne(String(name), "", "%s resolves to an empty sound name" % CG.EventKind.keys()[kind])
-		assert_true(String(name).begins_with("event/"),
-			"%s resolved to '%s', which is not an event name" % [CG.EventKind.keys()[kind], name])
+	for name in _all_names():
+		assert_ne(name, "", "an event resolves to an empty sound name")
+		assert_true(name.begins_with("event/"),
+			"an event resolved to '%s', which is not an event name" % name)
+	var seen: Dictionary = {}
+	for name in _all_names():
+		assert_false(seen.has(name), "%s is the name of two different events" % name)
+		seen[name] = true
 
 
 # ---------------------------------------------------------------------------
@@ -173,18 +223,15 @@ func test_every_placeholder_is_actually_audible() -> void:
 	# A silent placeholder is the worst possible outcome here: it looks exactly
 	# like the pipeline working and sounds exactly like it failing, and the
 	# player would be the one to find out.
-	for kind in CG.EventKind.values():
-		var stream: AudioStreamWAV = SoundBank.placeholder_for(kind)
-		if stream == null:
-			continue
+	for name in SoundBank.PLACEHOLDER_VOICES:
+		var stream: AudioStreamWAV = SoundBank.placeholder_for(name)
 		var peak := 0
 		var i := 0
 		while i < stream.data.size():
 			peak = maxi(peak, absi(stream.data.decode_s16(i)))
 			i += 2
 		assert_true(float(peak) / 32767.0 > 0.05,
-			"the %s placeholder peaks at %.3f and cannot be heard" % [
-				CG.EventKind.keys()[kind], float(peak) / 32767.0])
+			"the %s placeholder peaks at %.3f and cannot be heard" % [name, float(peak) / 32767.0])
 
 
 func test_the_placeholders_are_separable_by_ear() -> void:
@@ -193,20 +240,19 @@ func test_the_placeholders_are_separable_by_ear() -> void:
 	# table rather than against six numbers typed out again here, which would be
 	# the same author agreeing with himself.
 	var seen: Dictionary = {}
-	for kind in SoundBank.PLACEHOLDER_VOICES:
-		var v: Array = SoundBank.PLACEHOLDER_VOICES[kind]
+	for name in SoundBank.PLACEHOLDER_VOICES:
+		var v: Array = SoundBank.PLACEHOLDER_VOICES[name]
 		var key := "%.0f/%.3f" % [v[0], v[1]]
 		assert_false(seen.has(key),
-			"%s and %s are the same pitch and the same length" % [
-				CG.EventKind.keys()[kind], seen.get(key, "")])
-		seen[key] = CG.EventKind.keys()[kind]
+			"%s and %s are the same pitch and the same length" % [name, seen.get(key, "")])
+		seen[key] = String(name)
 
 
 func test_a_placeholder_starts_from_silence() -> void:
 	# A raw sine with a hard start clicks, and a click reads as a broken file
 	# rather than as a placeholder. The fade is two milliseconds, so the first
 	# sample must be effectively zero.
-	var stream: AudioStreamWAV = SoundBank.placeholder_for(CG.EventKind.DEATH)
+	var stream: AudioStreamWAV = SoundBank.placeholder_for(&"event/death")
 	assert_true(absi(stream.data.decode_s16(0)) < 200,
 		"the placeholder opens on a click at amplitude %d" % absi(stream.data.decode_s16(0)))
 
@@ -259,24 +305,23 @@ func test_a_bank_with_no_voices_is_harmless() -> void:
 # The instructions the player reads.
 # ---------------------------------------------------------------------------
 
-func test_the_replacement_instructions_name_every_event_kind() -> void:
+func test_the_replacement_instructions_name_every_sound() -> void:
 	# Assets/Audio/README.md is the file the player uses to drop sounds in. A
-	# kind missing from it is a sound they cannot name and therefore cannot
+	# name missing from it is a sound they cannot name and therefore cannot
 	# replace, and they would find out by dropping a file in that never plays.
 	var readme := FileAccess.get_file_as_string("res://Assets/Audio/README.md")
 	assert_ne(readme, "", "Assets/Audio/README.md is missing")
-	for kind in CG.EventKind.values():
-		var name := String(CG.EventKind.keys()[kind]).to_lower()
-		assert_true(readme.contains("event/%s.ogg" % name),
-			"event kind %s exists but Assets/Audio/README.md does not list event/%s.ogg" % [name, name])
-	assert_true(readme.contains("event/damage_over_time.ogg"),
-		"the damage-over-time name is not in the instructions, and it is the one that needs a warning")
+	for name in _all_names():
+		assert_true(readme.contains("%s.ogg" % name),
+			"%s is a name the game asks for but Assets/Audio/README.md does not list %s.ogg" % [name, name])
+	assert_false(readme.contains("`event/status_applied.ogg`"),
+		"event/status_applied.ogg is a dead name since #507; a file dropped there never plays")
 
 
 const _VOICED_HEADING := "### With a placeholder today"
 const _SILENT_HEADING := "### Silent until you drop a file in"
 
-func test_the_instructions_say_which_kinds_are_voiced() -> void:
+func test_the_instructions_say_which_names_are_voiced() -> void:
 	# The test above only asks that a kind is NAMED somewhere in the README, and
 	# that is one degree off the question a player asks. They ask "does this one
 	# make a noise today", and the README answers it with two tables.
@@ -295,13 +340,12 @@ func test_the_instructions_say_which_kinds_are_voiced() -> void:
 	var silent_end := readme.find("\n## ", silent_at)
 	assert_true(silent_end > silent_at, "no heading closes the silent table; the slice would run to EOF")
 	var silent_section := readme.substr(silent_at, silent_end - silent_at)
-	for kind in CG.EventKind.values():
-		var name := String(CG.EventKind.keys()[kind]).to_lower()
-		var row := "`event/%s.ogg`" % name
+	for name in _all_names():
+		var row := "`%s.ogg`" % name
 		# Asked of the function that decides it, not of the dictionary behind it.
 		# A test pinned to a constant only holds while the constant is still the
 		# answer, and that has cost this project three instruments.
-		var is_voiced := SoundBank.placeholder_for(kind) != null
+		var is_voiced := SoundBank.placeholder_for(StringName(name)) != null
 		if is_voiced:
 			assert_true(voiced_section.contains(row),
 				"%s has a placeholder but is not in the README's voiced table" % name)
