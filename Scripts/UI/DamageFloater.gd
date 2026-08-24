@@ -82,6 +82,9 @@ func show_text(text: String, color: Color, lifetime: float = LIFETIME_SECONDS, f
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	# Issue 528: a hit stop is a COMPLETE stop, and this rose through it.
+	if ViewClock.frozen:
+		return
 	_age += delta
 	_merge_age += delta
 	position.y -= RISE_SPEED * delta

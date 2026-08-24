@@ -5,6 +5,7 @@ const UnitViewScript := preload("res://Scripts/UI/UnitView.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
+const ImpactBurstScript := preload("res://Scripts/UI/ImpactBurst.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 const DeployViewScript := preload("res://Scripts/UI/DeployView.gd")
 const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
@@ -31,6 +32,7 @@ var _placements: Array[Vector2] = []
 var _base_encounter = null
 var _deploy_band: Node2D = null
 var _unit_layer: Node2D = null
+var _bursts: Node2D = null
 var _text_layer: Node2D = null
 var _setup_hint: Label = null
 var _reset_button: Button = null
@@ -89,6 +91,7 @@ var _click_hint: Label = null
 var _card_owns_pause: bool = false
 
 func _ready() -> void:
+	ViewClock.frozen = false
 	_arena = get_node("Arena")
 	_combat_log = get_node("Hud/CombatLog")
 	# The same guard the other Hud children already carry: a test instantiates
@@ -753,6 +756,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	event_cursor = 0
 	_tick_accumulator = 0.0
 	_freeze_left = 0.0
+	ViewClock.frozen = false
 	setup = false
 	_grabbed_unit_id = -1
 	_drag_moved = false
@@ -977,12 +981,16 @@ func _set_hand_cursor(hand: bool) -> void:
 ## The cursor is a global setting, so leaving the fight has to put it back.
 func _exit_tree() -> void:
 	_set_hand_cursor(false)
+	# Issue 528: the freeze belongs to a live battle screen. Leaving one with a
+	# hold still running would otherwise hold every overlay on the next.
+	ViewClock.frozen = false
 
 func _rebuild_units() -> void:
 	for child in _arena.get_children():
 		child.queue_free()
 	_unit_views.clear()
 	_unit_layer = null
+	_bursts = null
 	_text_layer = null
 	_ensure_unit_views()
 
@@ -1019,6 +1027,10 @@ func _ensure_layers() -> void:
 	if _unit_layer == null or not is_instance_valid(_unit_layer):
 		_unit_layer = Node2D.new()
 		_arena.add_child(_unit_layer)
+	# Issue 517: between the two, so debris covers a body and a name covers it.
+	if _bursts == null or not is_instance_valid(_bursts):
+		_bursts = ImpactBurstScript.new()
+		_arena.add_child(_bursts)
 	if _text_layer == null or not is_instance_valid(_text_layer):
 		_text_layer = ArenaTextLayerScript.new()
 		_arena.add_child(_text_layer)
@@ -1037,10 +1049,14 @@ func _process(delta: float) -> void:
 	# Before the freeze, so pausing holds a freeze rather than spending it.
 	if paused:
 		return
+	# Issue 528: every overlay that animates on real delta reads this.
+	ViewClock.frozen = _freeze_left > 0.0
 	if _freeze_left > 0.0:
 		_freeze_left = maxf(0.0, _freeze_left - delta)
 		if _freeze_left > 0.0:
 			return
+		# Released on the frame it runs out, not the frame after it.
+		ViewClock.frozen = false
 		# The frames this freeze covered are gone, not owed. See _freeze_left.
 		delta = 0.0
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
@@ -1165,6 +1181,7 @@ func consume_events() -> void:
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_flash(e)
+			_spawn_impact_burst(e)
 			if e.kind == CG.EventKind.DAMAGE:
 				_apply_impact(e)
 		elif e.kind == CG.EventKind.DEATH:
@@ -1345,6 +1362,23 @@ func _spawn_impact_flash(e: CombatEvent) -> void:
 	flash.position = target.position
 	flash.follow(_unit_views.get(target.id))
 	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
+
+## Issue 517: off the same event as the ring, and the guard is here rather than
+## at the call site so nothing can throw debris without passing it. DAMAGE only,
+## and only damage some action dealt.
+func _spawn_impact_burst(e: CombatEvent) -> void:
+	if e.kind != CG.EventKind.DAMAGE or not DisplayOptions.enabled(&"impact_particles"):
+		return
+	# The same gate #516's squash uses: `action_id` is empty on poison, burn,
+	# bleed and hazard damage, and a tick of poison has no point of impact.
+	if e.action_id == &"":
+		return
+	if _bursts == null or not is_instance_valid(_bursts):
+		return
+	var target := state.unit(e.target_id)
+	if target == null:
+		return
+	_bursts.burst(target.position, e.damage_type)
 
 ## Issue 151, and the player asked for it twice over: "the stun icon should
 ## appear and the unit should flash white or something". The badge is already
