@@ -101,6 +101,8 @@ var _inspect_panel = null
 var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
 
+var _sound = null
+
 var _unit_card: UnitCard = null
 var _click_hint: Label = null
 ## Whether the pause currently in force is one a unit click put there, so
@@ -122,11 +124,21 @@ func _ready() -> void:
 	_build_team_status()
 	_build_end_banner()
 	_build_unit_card()
+	_build_sound()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
 	# added scene to reach the HUD nodes begin() needs, without a live viewport.
 	if is_inside_tree():
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
+
+## Issue 550. The voices live under one child so the tree stays readable, and
+## `SoundBank` decides which events are audible -- this end of it only hands it
+## the whole stream, exactly as the combat log is handed the whole stream.
+func _build_sound() -> void:
+	var holder := Node.new()
+	holder.name = "Sound"
+	add_child(holder)
+	_sound = SoundBank.attach(holder)
 
 ## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
 ## or similar. Nothing currently indicates it."
@@ -1219,6 +1231,13 @@ func consume_events() -> void:
 	for e in events:
 		if _combat_log != null:
 			_combat_log.append_event(state, e)
+		# Issue 550. Every event, unfiltered: which ones make a noise is
+		# `SoundBank`'s decision and adding a second filter here is the second
+		# list #299 refuses. A hit stop is not honoured -- a sound is a mark on
+		# a moment rather than an animation, and the freeze is triggered BY the
+		# death whose sound it exists to give weight to.
+		if _sound != null:
+			_sound.play_for(e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_flash(e)

@@ -18,6 +18,7 @@ const SEEDS := 8
 const ROOMS := [CG.DEFAULT_ENCOUNTER, &"floor1_hazard"]
 
 func _init() -> void:
+	_report_shipped()
 	_write_placeholders()
 	for id in ROOMS:
 		_measure_fights(id)
@@ -46,6 +47,18 @@ func _write_placeholders() -> void:
 		if peak < 0.02:
 			printerr("  ^ SILENT. A placeholder that cannot be heard proves nothing.")
 
+## What each voiced name actually plays. Issue 550 shipped real files, and a
+## download that arrived truncated decodes as null and falls back to the blip
+## without saying so, which looks exactly like the pipeline working.
+func _report_shipped() -> void:
+	print("SHIPPED SOUNDS")
+	for sound_name in SoundBank.PLACEHOLDER_VOICES.keys():
+		var dropped := SoundBank.stream_for(sound_name)
+		if dropped == null:
+			printerr("  %-32s NO FILE. The blip is what plays here." % String(sound_name))
+			continue
+		print("  %-32s %5.2f s  %s" % [String(sound_name), dropped.get_length(), dropped.get_class()])
+
 func _peak(data: PackedByteArray) -> float:
 	var peak := 0
 	var i := 0
@@ -73,6 +86,13 @@ func _measure_fights(room_id: StringName) -> void:
 	var layered := 0
 	# One entry per (tick, unit) that made any noise, keyed by how many.
 	var layer_hist: Dictionary = {}
+	# Issue 550. A hit stop is 0.10 s of held picture, started when a DEATH is
+	# consumed, so it lands BETWEEN one noisy tick and the next rather than
+	# inside either. These count the ticks it can put a gap after.
+	var noisy_ticks := 0
+	var noisy_ticks_with_a_death := 0
+	var tick_made_noise := false
+	var tick_had_death := false
 
 	for party_ids in _parties(class_ids):
 		for s in SEEDS:
@@ -101,6 +121,14 @@ func _measure_fights(room_id: StringName) -> void:
 					per_source.clear()
 					this_tick.clear()
 					in_tick = 0
+					if tick_made_noise:
+						noisy_ticks += 1
+						if tick_had_death:
+							noisy_ticks_with_a_death += 1
+					tick_made_noise = false
+					tick_had_death = false
+				if e.kind == CG.EventKind.DEATH:
+					tick_had_death = true
 				var name := SoundBank.sound_name(e)
 				if this_tick.has(name):
 					continue
@@ -110,6 +138,7 @@ func _measure_fights(room_id: StringName) -> void:
 				in_tick += 1
 				busiest = maxi(busiest, in_tick)
 				total_played += 1
+				tick_made_noise = true
 				per_kind[ek] = int(per_kind.get(ek, 0)) + 1
 				# LAYERING: how often ONE unit's own single hit makes more than one
 				# noise in the same tick -- the swing, the landing, and the status it
@@ -120,6 +149,12 @@ func _measure_fights(room_id: StringName) -> void:
 					var key := "%d/%d" % [e.tick, e.source_id]
 					per_source[key] = int(per_source.get(key, 0)) + 1
 					layered = maxi(layered, int(per_source[key]))
+			if tick_made_noise:
+				noisy_ticks += 1
+				if tick_had_death:
+					noisy_ticks_with_a_death += 1
+			tick_made_noise = false
+			tick_had_death = false
 
 	var seconds := float(total_ticks) / float(CG.TICKS_PER_SECOND)
 	print("")
@@ -144,6 +179,18 @@ func _measure_fights(room_id: StringName) -> void:
 	print("    a swing, its landing and the status it applied are three events and")
 	print("    one happening. Whether that reads as weight or as a stutter is the")
 	print("    one question here that has to be settled by ear.")
+	# Issue 550, against #299's premise that hit stop would separate those three.
+	# It cannot: they are one batch in one frame, and the freeze starts when the
+	# DEATH in that batch is consumed. It buys a gap AFTER a noisy tick.
+	var freeze_seconds := float(noisy_ticks_with_a_death) * BattleView.HIT_STOP_SECONDS
+	print("  HIT STOP:  %d of %d noisy ticks carry a death  (%.0f%%)" % [
+		noisy_ticks_with_a_death, noisy_ticks,
+		100.0 * float(noisy_ticks_with_a_death) / maxf(1.0, float(noisy_ticks))])
+	print("    it holds %.1f s in total, so the fight runs %.1f s and plays %.1f/s." % [
+		freeze_seconds, seconds + freeze_seconds,
+		float(total_played) / maxf(0.001, seconds + freeze_seconds)])
+	print("    the gap lands AFTER the tick, not inside it: the three noises of one")
+	print("    hit are consumed in one frame before the freeze it starts begins.")
 	# Emitted beside played, because the interesting decisions are all in the
 	# gap. A kind with a large emitted count and a zero played count is a
 	# deliberate silence, and reading only the played column hides every one of
