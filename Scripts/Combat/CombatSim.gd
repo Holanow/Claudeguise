@@ -727,14 +727,30 @@ static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDe
 			kept.append(part)
 			_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
 				part.kind, fr, CG.TerrainChange.DOUSED)
+	## Issue 554: one pool, painted. Every cast stamps the same water feature
+	## rather than appending its own, so overlapping casts fuse instead of
+	## stacking; a stamp landing on ground that is already wet stores nothing.
+	var pool_feature = _water_feature(kept)
 	for pr in pool_parts:
-		kept.append(Terrain.pool(pr))
+		if pool_feature == null:
+			pool_feature = Terrain.pool(pr)
+			kept.append(pool_feature)
+		elif not Terrain.paint(pool_feature, pr):
+			continue
 		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
 			Terrain.Kind.WATER, pr, CG.TerrainChange.CAST)
 	## Replaced in place, never reassigned: `BattleView` hands `state.terrain` to
 	## `ArenaFloor` once at fight start, so a new array leaves the view drawing
 	## the room as authored forever. Same contract `state.units` already has.
 	state.terrain.assign(kept)
+
+## The fight's one pool, or null before anything has been cast. There is at most
+## one: nothing ever splits a water feature, and every cast paints into this one.
+static func _water_feature(features: Array):
+	for f in features:
+		if f.kind == Terrain.Kind.WATER:
+			return f
+	return null
 
 ## The same feature over a different rect. Every field is copied rather than the
 ## damaging ones only, so a split tar pit stays a tar pit.
@@ -746,6 +762,7 @@ static func _copy_feature(f, rect: Rect2):
 	out.applies_status_enabled = f.applies_status_enabled
 	out.status_duration_ticks = f.status_duration_ticks
 	out.status_magnitude = f.status_magnitude
+	out.parts = f.parts.duplicate()
 	return out
 
 static func _emit_terrain(state: CombatState, kind: CG.EventKind, caster: CombatUnit, action: ActionDef, terrain_kind, rect: Rect2, change: CG.TerrainChange) -> void:

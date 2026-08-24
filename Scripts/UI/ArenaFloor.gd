@@ -111,11 +111,14 @@ func _draw_feature(feature) -> void:
 		## Issue 492. Flat and unstriped on purpose: a hazard's stripes say "do
 		## not stand here" and a pool is the one piece of ground that is safe.
 		Terrain.Kind.WATER:
+			## Issue 554: the painted parts, flat and seamless. They are disjoint,
+			## so one pass at one alpha reads as a single puddle -- filling
+			## overlapping stamps darkened every overlap, and outlining each one
+			## drew the seams the player asked to be rid of.
 			var water := Palette.damage_color(CG.DamageType.WATER)
 			water.a = 0.45
-			draw_rect(feature.rect, water)
-			water.a = 0.90
-			draw_rect(feature.rect, water, false, 2.0)
+			for r in feature.regions():
+				draw_rect(r, water)
 
 const _HAZARD_STRIPE_SPACING := 20.0
 
