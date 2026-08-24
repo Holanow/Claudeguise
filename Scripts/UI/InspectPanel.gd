@@ -1211,12 +1211,10 @@ func _melee_text(action: ActionDef) -> String:
 	return "Close to within %d units, then %s" % [
 		int(action.range_units * DefaultBehavior.MELEE_COMMIT_FRACTION), action.display_name]
 
+## Issue 544: the automatic back-off is gone, so the row no longer describes one.
 func _ranged_text(action: ActionDef) -> String:
-	var commit := int(action.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)
-	if action.pull_distance > 0.0:
-		return "Close to within %d units and never back off, then %s" % [commit, action.display_name]
-	return "Close to within %d units, then %s. Back off to %d units from anything slower than it" % [
-		commit, action.display_name, int(action.range_units * DefaultBehavior.KITE_RANGE_FRACTION)]
+	return "Close to within %d units, then %s" % [
+		int(action.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION), action.display_name]
 
 ## Mirrors `DefaultBehavior._first_heal`, including the `power_scale > 0.0`
 ## part: `geyser_cleanse` sets `heals` and restores nothing, and the fallback

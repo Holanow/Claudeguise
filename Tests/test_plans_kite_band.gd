@@ -1,8 +1,11 @@
 extends "res://Tests/TestCase.gd"
 
 
-## Issue 97: the automatic kite band, and the one thing it is no longer allowed
-## to do -- walk a unit away from a shot it could take on this tick.
+## Issue 97's automatic kite band, **deleted in #544**. Issue 97 stopped it
+## walking a unit away from a shot it could take when the threat was faster;
+## #544 measured that the speed edge never bought the shot back either, so the
+## rule is now simply "in range, fire". Holding distance is `keep_distance`,
+## which the rest of this file exercises.
 
 func _immobile_dummy(id: int, team: CG.Team, pos: Vector2) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -55,9 +58,10 @@ func test_a_ranged_unit_that_cannot_outrun_the_threat_fires_instead_of_fleeing()
 	assert_eq(intent.target_id, 1)
 
 
-## The band is not deleted, and this is the case it was written for: a unit with
-## a speed edge still opens the gap rather than standing and trading.
-func test_the_same_unit_still_backs_off_from_something_slower() -> void:
+## #544: the case the band *was* written for now fires too. A speed edge used to
+## send this unit backwards forever, because the ticks a shot costs give back
+## more ground than the edge buys.
+func test_the_same_unit_fires_at_something_slower_instead_of_backing_off() -> void:
 	var stalker := _stalker()
 	var chaser := _immobile_dummy(1, CG.Team.ENEMY, Vector2(60.0, 0.0))
 	chaser.move_speed = stalker.move_speed - 1.0
@@ -65,10 +69,9 @@ func test_the_same_unit_still_backs_off_from_something_slower() -> void:
 	state.units.append(stalker)
 	state.units.append(chaser)
 	var intent := DefaultBehavior.decide(state, stalker)
-	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
-		"a faster kiter still kites")
-	assert_true(intent.destination.distance_to(Vector2(60.0, 0.0)) > 60.0,
-		"a retreat must end further from the target than it started, got %s" % intent.destination)
+	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
+		"the fallback has no automatic retreat left; a unit in range fires whatever the speeds are")
+	assert_eq(intent.target_id, 1)
 
 
 ## The far edge of the band is a different rule and is untouched: firing at the
