@@ -17,7 +17,10 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MAGICAL, CG.Style.RANGED, CG.Role.HEALER, CG.Role.SUPPORT,
 			[CG.DamageType.DIVINE, CG.DamageType.AIR],
 			CG.ResourceKind.MANA,
-			{CG.Attribute.STR: 1, CG.Attribute.DEX: 2, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 8},
+			## Issue 556: ATN is the resource lever at 8 a point, so the Priest's
+			## pool comes from there and its INT never moves, because heals read
+			## attack power and attack power for a MAGICAL pawn reads INT.
+			{CG.Attribute.STR: 1, CG.Attribute.DEX: 0, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 9, CG.Attribute.WIS: 8},
 			[&"priest_heal", &"priest_smite", &"priest_haste", &"priest_ward", &"channel_mana"]
 		),
 		_class(
@@ -25,7 +28,10 @@ static func classes() -> Array[ClassDef]:
 			CG.Method.MAGICAL, CG.Style.RANGED, CG.Role.DPS, CG.Role.SUPPORT,
 			[CG.DamageType.WATER, CG.DamageType.FIRE],
 			CG.ResourceKind.MANA,
-			{CG.Attribute.STR: 1, CG.Attribute.DEX: 3, CG.Attribute.AGI: 4, CG.Attribute.CON: 3, CG.Attribute.INT: 8, CG.Attribute.ATN: 7, CG.Attribute.WIS: 6},
+			## Issue 556: INT is the damage lever and AGI the movement one, and the
+			## 2 hp the Priest is "slightly" ahead by is this STR rather than a
+			## point of CON, which would be 12.
+			{CG.Attribute.STR: 0, CG.Attribute.DEX: 0, CG.Attribute.AGI: 6, CG.Attribute.CON: 3, CG.Attribute.INT: 10, CG.Attribute.ATN: 7, CG.Attribute.WIS: 6},
 				[&"geyser_blast", &"geyser_scald", &"geyser_cleanse", &"channel_mana"]
 		),
 		## Issue 12: rebuilt as spotter/engineer, per the player's own spec.
