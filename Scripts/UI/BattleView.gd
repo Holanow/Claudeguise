@@ -532,6 +532,14 @@ func _open_plans(focus: PawnData) -> void:
 
 ## Issue 397: this used to call _on_inspect_pressed, which always opened the
 ## party's first pawn whichever card the button was on.
+## Issue 588: the click is the player's input, so the view owns it and the card
+## only asks. Pressing it on the enemy already focused clears the focus.
+func _on_card_focus_toggled(id: int) -> void:
+	if state == null:
+		return
+	state.player_focus_id = -1 if state.player_focus_id == id else id
+	_unit_card.refresh(state)
+
 func _on_card_plans_requested() -> void:
 	_open_plans(card_pawn())
 
@@ -549,6 +557,7 @@ func _build_unit_card() -> void:
 	get_node("Hud").add_child(_unit_card)
 	_unit_card.closed.connect(_on_card_closed)
 	_unit_card.plans_requested.connect(_on_card_plans_requested)
+	_unit_card.focus_toggled.connect(_on_card_focus_toggled)
 	_place_unit_card()
 	_build_click_hint()
 

@@ -94,25 +94,104 @@ func test_shapes_drawn_ahead_of_their_content_are_real_shapes() -> void:
 
 ## "Reads as more than one animal" is NOT measurable from a top edge, and
 ## nothing below asserts it.
-func test_the_rat_kings_back_is_three_humps_and_not_a_dome() -> void:
-	var crests := _peaks(&"rat_king")
-	assert_eq(crests, 3,
-		("the Rat King's back has %d crests, not 3; the humps have fused into a dome, "
-		+ "and one dome is one animal at any size") % crests)
+##
+## Issue 594 replaced the two assertions that used to sit here. They required
+## the Rat King's top edge to be THREE crests with valleys 20 px deep, which
+## measured the three spikes it wore; the player has replaced those with a hat,
+## and a hat is one crest at any size. What a hat can be held to is that it is
+## visibly worn: higher than the rat's own back, and attached to it.
+func test_the_rat_king_wears_something_above_the_rats_own_back() -> void:
+	var lift := _highest(&"rat") - _highest(&"rat_king")
+	assert_true(lift >= 30.0,
+		("the Rat King stands only %.0f px above the rat at radius 200, down from a measured 61. "
+		+ "Its hat is what makes the miniboss read as more than a big rat.") % lift)
 
 
-func test_the_rat_kings_valleys_keep_their_depth() -> void:
-	# The margin, guarded separately per this project's own rule, and moved onto
-	# the number that actually has headroom. A crest COUNT has none: three is the
-	# most any shape in the game scores, so the old `>= 4` was not a margin, it
-	# was unreachable.
-	var depth := _shallowest_valley(&"rat_king")
-	assert_true(depth >= 20.0,
-		("the Rat King's shallowest valley is %.0f px deep at radius 200, down from a measured 31. "
-		+ "The backs are merging -- check whether the outline pass has bridged a valley narrower "
-		+ "than three columns.") % depth)
+## The defect this replaces a crest count with, and it is a real one: every part
+## is authored in place on one canvas, so a hat drawn for a head at design y5
+## hangs a full body's height above a creature whose head is at y19. That
+## composed cleanly, passed every extent and fill assertion, and was a gold hat
+## floating in mid-air.
+func test_the_rat_kings_hat_is_worn_rather_than_floating_above_it() -> void:
+	var img := _composed(&"rat_king")
+	assert_true(img != null, "the Rat King has no composed image to check")
+	var reached := _largest_island(img)
+	var ink := _ink_pixels(img)
+	assert_eq(reached, ink,
+		("the Rat King's silhouette is in more than one piece: %d of %d lit pixels connect to the "
+		+ "largest. A part authored for a taller creature floats above this one.") % [reached, ink])
 
 
+## The negative half. Without it a detector that called everything connected
+## would satisfy the assertion above, and this is the shape of check that most
+## often ships broken in exactly that way.
+func test_the_floating_part_detector_sees_a_gap() -> void:
+	var joined := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	joined.fill(Color(0, 0, 0, 0))
+	for y in range(2, 6):
+		joined.set_pixel(4, y, Color.WHITE)
+	assert_eq(_largest_island(joined), _ink_pixels(joined), "one unbroken line must read as connected")
+
+	var split := joined.duplicate()
+	split.set_pixel(4, 4, Color(0, 0, 0, 0))
+	assert_true(_largest_island(split) < _ink_pixels(split), "a line with a hole in it must not")
+
+
+## The composed art the game draws, as pixels.
+func _composed(id: StringName) -> Image:
+	var tex := UnitArt.texture_for(id, CG.Team.ENEMY)
+	return null if tex == null else tex.get_image()
+
+
+func _ink_pixels(img: Image) -> int:
+	var n := 0
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.0:
+				n += 1
+	return n
+
+
+## How many lit pixels connect to the largest lit region, over four neighbours.
+static func _largest_island(img: Image) -> int:
+	var seen := {}
+	var best := 0
+	for sy in img.get_height():
+		for sx in img.get_width():
+			if img.get_pixel(sx, sy).a <= 0.0 or seen.has(Vector2i(sx, sy)):
+				continue
+			var size := 0
+			var stack: Array[Vector2i] = [Vector2i(sx, sy)]
+			seen[Vector2i(sx, sy)] = true
+			while not stack.is_empty():
+				var p: Vector2i = stack.pop_back()
+				size += 1
+				for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var q := p + d
+					if q.x < 0 or q.y < 0 or q.x >= img.get_width() or q.y >= img.get_height():
+						continue
+					if img.get_pixel(q.x, q.y).a <= 0.0 or seen.has(q):
+						continue
+					seen[q] = true
+					stack.append(q)
+			best = maxi(best, size)
+	return best
+
+
+## The topmost point of a shape's drawn edge, at the radius the profile tests
+## use. y grows downward, so this is the smallest value on the profile.
+func _highest(id: StringName) -> float:
+	var top := Silhouettes.top_profile(id, 200.0, CG.Team.ENEMY, 40)
+	var best := INF
+	for v in top:
+		best = minf(best, v)
+	return best
+
+
+## Issue 594: nothing in the game is scored by crests any more -- the Rat King
+## was the only caller and it wears a hat now. Kept because the detector is
+## verified and the next shape that needs it should not have to rebuild it;
+## `Tools/TopProfile.gd` carries the same algorithm as the instrument.
 func test_the_crest_detector_can_tell_a_dome_from_a_range() -> void:
 	# The detector, verified against hand-made profiles rather than trusted,
 	# because everything above is a number it produced. The per-bin version this
@@ -142,13 +221,6 @@ func test_the_rat_is_flatter_than_the_shapes_it_could_be_confused_with() -> void
 		assert_true(ratio > _aspect(id),
 			"'%s' is %.2f wide-to-tall and the rat is only %.2f; the rat must read as the long low one" % [
 				id, _aspect(id), ratio])
-
-
-## How many humps the top edge of the shipped sprite has, read through
-## `top_profile` so it counts the art the game draws.
-func _peaks(id: StringName) -> int:
-	var radius := 200.0
-	return _crests(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)
 
 
 ## How many crests the top edge has, where a crest is separated from the next by
@@ -193,21 +265,6 @@ static func _extremes(top: PackedFloat32Array, margin: float) -> Array[float]:
 	if rising:
 		out.append(extreme)  # the last crest has no valley after it
 	return out
-
-
-## How deep the SHALLOWEST valley on a top edge is, measured against the lower
-## of the two crests beside it. Zero when there is no valley at all.
-func _shallowest_valley(id: StringName) -> float:
-	var radius := 200.0
-	var ext := _extremes(Silhouettes.top_profile(id, radius, CG.Team.ENEMY, 40), radius * 0.08)
-	var shallowest := INF
-	var i := 1
-	while i < ext.size() - 1:
-		# y grows downward, so a valley's depth is how far BELOW its neighbours
-		# it sits, and the honest number is against the nearer of the two.
-		shallowest = minf(shallowest, ext[i] - maxf(ext[i - 1], ext[i + 1]))
-		i += 2
-	return 0.0 if shallowest == INF else shallowest
 
 
 ## Drawn width over drawn height. Read off `drawn_extent`, which is the sprite's

@@ -52,6 +52,14 @@ do not use a floor-run measurement as evidence for a single-room decision.
 `Tools/SampleFights.gd` is single-encounter and is the right instrument;
 `Tools/FloorRuns.gd` is not.
 
+**Know what that instrument measures before you quote it.** `SampleFights`
+builds **starter** pawns, and a starter pawn carries **no plan rows at all**, so
+`PlanInterpreter.decide` returns null on its first line and `DefaultBehavior`
+decides its entire fight. Every number this project has taken from it is a
+number about the fallback, not about plans. It is still the right instrument for
+a single-room comparison, and it is the wrong one for any claim about authored
+behaviour. Detail in issue #596.
+
 ## Balance: the freeze has lifted, the discipline has not
 
 **The freeze's own condition is met.** It read *"frozen until equipment lands"*
