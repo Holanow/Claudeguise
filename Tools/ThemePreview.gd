@@ -165,7 +165,7 @@ func _selectable(parent: Control, rect: Rect2, element: StringName, selected: bo
 	card.add_child(label)
 
 class _SelectableCard extends Control:
-	const _Palette := preload("res://Scripts/Core/Palette.gd")
+	const _Palette := preload("res://Scripts/Art/Palette.gd")
 	const _UIArt := preload("res://Scripts/Art/UIArt.gd")
 
 	var element: StringName = &""
