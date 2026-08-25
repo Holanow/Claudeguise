@@ -187,12 +187,24 @@ func test_a_plan_that_already_has_movement_can_still_edit_it_at_a_full_budget() 
 ## ---------------------------------------------------------------------------
 ## What the screen tells the player it costs
 
+## Issue 590 moved the cost rules onto the budget counter's mouseover, so the
+## sentence is read on hover rather than off the panel. What it must still do
+## is name the movement block: a block that costs 1 and is nowhere in the bill
+## is a charge with no line on it.
 func test_the_budget_sentence_names_the_movement_block() -> void:
 	var pair := _panel_with_one_plan()
-	var text := _labels(pair[0]._detail_box)
+	var text := _labels(pair[0]._detail_box) + _tooltips(pair[0]._detail_box)
 	assert_true(text.findn("movement") >= 0,
 		"a block that costs 1 and is not in the sentence is a bill with no line on it: %s" % text)
 	pair[0].free()
+
+func _tooltips(node: Node) -> String:
+	var out := ""
+	if node is Control:
+		out += node.tooltip_text + " "
+	for child in node.get_children():
+		out += _tooltips(child)
+	return out
 
 func _movement_block(plan):
 	for block in plan.blocks:

@@ -309,3 +309,186 @@ func _walk(n: Node) -> Array[Node]:
 	for c in n.get_children():
 		out.append_array(_walk(c))
 	return out
+
+# ---------------------------------------------------------------------------
+# Issue 591: damage healed
+#
+# Read off `HEAL` the same way dealt is read off `DAMAGE`. Nothing was added to
+# the simulation for it: `_apply_heal` already emits the health the bar moved.
+
+func _heal(tick: int, source: int, target: int, amount: int) -> CombatEvent:
+	var e := CombatEvent.make(CG.EventKind.HEAL, tick)
+	e.source_id = source
+	e.target_id = target
+	e.amount = amount
+	return e
+
+func test_the_tally_credits_healing_to_whoever_cast_it() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_pawn_unit(1, &"priest"))
+	s.units.append(_enemy_unit(2))
+	s.events.append(_damage(1, 2, 0, 20))
+	s.events.append(_heal(2, 1, 0, 12))
+	s.events.append(_heal(3, 1, 1, 5))
+
+	var rows := EndScreenScript.tally(s)
+	assert_eq(int(rows[1]["healed"]), 17, "the caster is credited, not the target")
+	assert_eq(int(rows[0]["healed"]), 0, "the pawn that was healed did no healing")
+	assert_eq(int(rows[0]["taken"]), 20, "healing must not net off what was taken")
+
+## The rule #552 set for overkill, holding for overhealing without a second
+## decision: `_apply_heal` emits the health the bar moved and emits nothing at
+## all into a full target, so a 40-point heal into a pawn missing 3 can only
+## ever reach this screen as 3. Measured on a real fight rather than asserted
+## from reading the simulation.
+func test_a_real_fight_never_emits_a_heal_the_bar_did_not_move() -> void:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"priest", &"p0", "P0"),
+		PawnFactory.make_starter_pawn(&"warrior", &"p1", "P1"),
+	]
+	var e := Encounter.new()
+	e.party_spawns = [Vector2(-80.0, -20.0), Vector2(-80.0, 20.0)]
+	e.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(80.0, 0.0)}]
+	var s := CombatSim.build(party, e, 7)
+	## The warrior starts hurt, or the priest never has a reason to cast and the
+	## measurement is of a fight with no healing in it.
+	for u in s.units:
+		if u.team == CG.Team.PLAYER:
+			u.hp = maxi(1, int(float(u.hp_max) * 0.3))
+	for guard in 900:
+		if s.outcome != CombatState.Outcome.UNRESOLVED:
+			break
+		CombatSim.step(s)
+	var heals := 0
+	for event in s.events:
+		if event.kind == CG.EventKind.HEAL:
+			heals += 1
+			assert_true(event.amount > 0,
+				"a HEAL carrying %d reached the stream, so overheal is countable" % event.amount)
+	assert_true(heals > 0, "no heal happened at all, so this measured nothing")
+
+## And the tally credits nothing for one anyway. The simulation cannot emit a
+## zero heal today; this is what stops the screen from counting one if it ever
+## can.
+func test_a_zero_heal_credits_nobody() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"priest"))
+	s.events.append(_heal(1, 0, 0, 0))
+	assert_eq(int(EndScreenScript.tally(s)[0]["healed"]), 0)
+
+func test_healing_is_its_own_sort() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_pawn_unit(1, &"priest"))
+	s.units.append(_enemy_unit(2))
+	s.events.append(_damage(1, 0, 2, 30))
+	s.events.append(_heal(2, 1, 0, 12))
+
+	var rows := EndScreenScript.tally(s)
+	var by_dealt := EndScreenScript.sorted_rows(rows, EndScreenScript.SortBy.DEALT)
+	assert_eq(int(by_dealt[0]["unit_id"]), 0, "the warrior dealt the most")
+	var by_healed := EndScreenScript.sorted_rows(rows, EndScreenScript.SortBy.HEALED)
+	assert_eq(int(by_healed[0]["unit_id"]), 1, "the priest healed the most, and it is a sort of its own")
+
+## Every sort the screen offers must read a column the tally actually writes,
+## so a fourth number cannot be added to the card and left unsortable.
+func test_every_sort_reads_a_column_the_tally_writes() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	var row := EndScreenScript.tally(s)[0]
+	for key in EndScreenScript.SortBy.values():
+		assert_true(EndScreenScript.SORT_KEYS.has(key), "sort %d reads no column" % key)
+		assert_true(row.has(String(EndScreenScript.SORT_KEYS[key])),
+			"sort %d reads '%s', which the tally does not write" % [key, EndScreenScript.SORT_KEYS[key]])
+
+## The card, not the tally: the number has to be on the screen as well as in the
+## dictionary. Eleven features on this project were built and unreachable.
+func test_the_card_prints_what_the_pawn_healed() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"priest"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_damage(1, 1, 0, 20))
+	s.events.append(_heal(2, 0, 0, 12))
+	var view := _battle_view()
+	var screen = view._end_screen
+	screen.open(s, view._combat_log)
+	var text := _text_of(screen)
+	assert_true(text.contains("Healed"), "no card names healing: %s" % text)
+	assert_true(text.contains("12"), "the card names healing and not the number: %s" % text)
+	view.free()
+
+## Issue 591's mouseover half. The class in words and the gear it wore, both
+## derived -- `Glossary` owns one and `EquipPanel.item_effect_text` the other.
+func test_a_portrait_explains_the_class_and_the_gear_on_hover() -> void:
+	var naked := PawnData.new()
+	naked.id = &"p0"
+	naked.display_name = "P0"
+	naked.pawn_class = Registry.get_class_def(&"warrior")
+	var bare := EndScreenScript.portrait_hover_text(naked)
+	assert_true(bare.length() > 0, "a portrait with nothing to say is the defect this fixes")
+	assert_true(bare.contains("Wore nothing."), "a naked pawn must say so: %s" % bare)
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"p0", "P0")
+	var item: EquipmentDef = null
+	for id in Registry.all_equipment_ids():
+		var candidate := Registry.get_equipment(id)
+		if candidate.slot == EquipmentDef.Slot.WEAPON and candidate.allows_class(pawn.pawn_class):
+			item = candidate
+			break
+	assert_true(item != null, "no weapon this class can wear, so this proves nothing")
+	pawn.weapon = item
+	var worn := EndScreenScript.portrait_hover_text(pawn)
+	assert_true(worn.contains(item.display_name), "the gear is not named: %s" % worn)
+	assert_true(worn.contains(EquipPanel.item_effect_text(item)),
+		"the effect is described some other way than the item's own fields: %s" % worn)
+
+func _text_of(node: Node) -> String:
+	var out := ""
+	if node is Label:
+		out += node.text + " "
+	if node is Button:
+		out += node.text + " "
+	for child in node.get_children():
+		out += _text_of(child)
+	return out
+
+# ---------------------------------------------------------------------------
+# Issue 591: the card has to fit the window it is drawn in.
+#
+# The Healed row costs 27 px per card and a defeat whose casualty list wraps to
+# three lines costs another 31, and together they pushed Restart (same seed)
+# 21 px past the bottom of a 720 px window. The log gives way instead. The
+# arrangement is asserted here; `Tools/EndRoomPickProbe.gd` is what proves it
+# works, by forcing a card too tall to fit and re-checking every button's rect
+# -- no synchronous test has a laid-out rect to read.
+
+## The log is the only part of the card that may grow or shrink, because it is
+## the only part that scrolls. A second expanding child would take the space
+## from it silently.
+func test_the_log_is_the_only_part_of_the_card_that_gives_way() -> void:
+	var screen := EndScreenScript.create()
+	var expanding: Array[String] = []
+	for child in screen.get_children():
+		if (child as Control).size_flags_vertical & Control.SIZE_EXPAND:
+			expanding.append(child.name)
+	assert_eq(expanding.size(), 1, "expanding children of the card: %s" % [expanding])
+	assert_true(screen._log_side in screen.get_children(), "the log is not a child of the card")
+	assert_true(screen._log_side.size_flags_vertical & Control.SIZE_EXPAND,
+		"the log is fixed, so the roster or the buttons have to absorb a tall card")
+	screen.free()
+
+## And it has a floor, or a long enough casualty list leaves a caption over
+## nothing and the card still would not fit.
+func test_the_log_has_a_floor_of_a_caption_and_a_line() -> void:
+	var screen := EndScreenScript.create()
+	assert_almost_eq(screen._log_side.custom_minimum_size.y, EndScreenScript.LOG_MIN_HEIGHT, 0.5)
+	assert_true(EndScreenScript.LOG_MIN_HEIGHT > 0.0)
+	screen.free()
+
+## The card itself expands, or the column around it hands the surplus to nothing
+## and the log's expand flag never sees a pixel.
+func test_the_card_takes_the_column_it_is_given() -> void:
+	var view = _battle_view()
+	assert_true(view._end_screen.size_flags_vertical & Control.SIZE_EXPAND,
+		"the card does not expand, so the log inside it cannot")
+	view.free()

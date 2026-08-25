@@ -62,6 +62,7 @@ func start_battle_at(config: RunConfig, positions: Array[Vector2]) -> void:
 	_swap_to(SCENE_BATTLE, func(screen):
 		screen.restart_requested.connect(rerun)
 		screen.back_requested.connect(show_party_select)
+		screen.room_requested.connect(fight_room)
 		screen.placement_changed.connect(func(p: Array[Vector2]): _party_positions = p)
 		screen.begin_setup(config, Registry.get_encounter(config.encounter_id), positions)
 	)
@@ -75,6 +76,20 @@ func rerun() -> void:
 		push_error("Main.rerun called with no run_config set")
 		return
 	start_battle_at(run_config, _party_positions)
+
+## Issue 591: the same party and the same seed in a different room, straight off
+## the end card. The placement is deliberately NOT carried over: it was chosen
+## against the old room's terrain, and a pawn deployed into a wall is a worse
+## answer than the room's own authored spawns.
+func fight_room(encounter_id: StringName) -> void:
+	if run_config == null:
+		push_error("Main.fight_room called with no run_config set")
+		return
+	var next := RunConfig.new()
+	next.party = run_config.party
+	next.seed = run_config.seed
+	next.encounter_id = encounter_id
+	start_battle(next)
 
 ## Issue 43: a run instead of a single fight. FloorGenerator.generate is
 ## seeded from the same RunConfig.seed the single-fight path already uses,

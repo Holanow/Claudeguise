@@ -357,25 +357,17 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## report of it.
 	var over := used - budget
 	var standing := ("%d free" % maxi(0, budget - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
-	## Issue 396: the rules half is five wrapped lines in the party screen's
-	## column, which is a whole plan row's worth of the little height there is.
-	## Embedded it moves to the hover the rest of that screen already uses.
+	## Issue 590: the rules are the counter's mouseover on both widths now, not
+	## only in the party screen's narrow column. Full width they were a second
+	## paragraph of `HOW_TO_PLAY`, four sentences above them on the same screen.
 	var standing_line := "%d of %d plan blocks used, %s." % [used, budget, standing]
 	var rules := "A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % NEW_PLAN_BLOCK_COST
-	var summary := _line(standing_line if _embedded else "%s %s" % [standing_line, rules],
-		Palette.FONT_SIZE_SMALL, Palette.TEXT if over <= 0 else Palette.HP_LOW)
-	if _embedded:
-		summary.mouse_filter = Control.MOUSE_FILTER_STOP
-		summary.tooltip_text = rules
+	var summary := _line(standing_line, Palette.FONT_SIZE_SMALL,
+		Palette.TEXT if over <= 0 else Palette.HP_LOW)
+	summary.set_script(GlossaryLabelScript)
+	summary.mouse_filter = Control.MOUSE_FILTER_STOP
+	summary.tooltip_text = rules
 	out.append(summary)
-
-	## Issue 155. One sentence, and only while a fight exists to read -- between
-	## fights every verdict would be blank and the sentence would explain nothing.
-	if _live_unit(pawn) != null and _taunt_banner(pawn) == null:
-		out.append(_line(
-			"Right now: %s chose what this pawn last did. A row marked %s has its condition true and the pawn free to take it, so if it is not %s it lost to a row above it, or its skill could not fire. A row marked %s has its condition true as well, but the pawn is finishing an action and reads no row at all until that ends." % [
-				VERDICT_ACTING, VERDICT_READY, VERDICT_ACTING, VERDICT_HELD],
-			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
 	var banner := _taunt_banner(pawn)
 	if banner != null:
@@ -626,7 +618,6 @@ const LIBRARY_NEEDS_MARK := "Waits for"
 const LIBRARY_NEEDS_ROW := "Waits for %s. \"%s\" applies it, so take both, in this order."
 const LIBRARY_NEEDS_ROWS := "Waits for %s. These rows apply it: %s. Take one of them too."
 const LIBRARY_NEEDS_FIGHT := "Waits for %s to come from the fight. Nothing else here applies it."
-const LIBRARY_ORDER_NOTE := "Listed in the order they are read: the first row that fits is the one a pawn uses, so take them from the top down."
 
 ## Why an Add is dead rather than silently refusing, the same rule the movement
 ## picker follows (issue 392).
@@ -684,7 +675,6 @@ func _library_section(pawn: PawnData) -> Array[Control]:
 	if rows.is_empty():
 		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
-	out.append(_line(LIBRARY_ORDER_NOTE, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	for plan in rows:
 		out.append(_library_row(pawn, plan))
 	return out
@@ -1348,6 +1338,17 @@ func _live_unit(pawn: PawnData):
 			return u
 	return null
 
+## Issue 590: what each verdict word means, on the word itself. It was a
+## standing key sentence over the rows, which is explainer text beside the thing
+## it explains rather than on it.
+const VERDICT_HELP := {
+	VERDICT_ACTING: "This row chose what the pawn last did.",
+	VERDICT_READY: "This row's condition holds and the pawn is free to take it. If it is not the row acting, a row above it won or its skill could not fire.",
+	VERDICT_HELD: "This row's condition holds, but the pawn is finishing an action and reads no row at all until that ends.",
+	VERDICT_WAITING: "This row's condition does not hold, so the pawn is not reading it.",
+	VERDICT_TAUNTED: "The pawn is compelled and none of its rows are read at all.",
+}
+
 func _verdict_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
@@ -1355,10 +1356,12 @@ func _verdict_label(text: String) -> Label:
 	label.add_theme_color_override("font_color",
 		Palette.TEAM_PLAYER if text == VERDICT_ACTING else (
 			Palette.TEXT if text == VERDICT_READY else Palette.TEXT_DIM))
+	label.set_script(GlossaryLabelScript)
 	# Same reason every other chip on this screen sets it: `Label`'s engine
 	# default is MOUSE_FILTER_IGNORE and a chip left at the default never gets a
 	# hover, which is the defect this panel's own history records.
 	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.tooltip_text = String(VERDICT_HELP.get(text, ""))
 	label.custom_minimum_size = Vector2(64.0, 0.0)
 	return label
 

@@ -154,7 +154,7 @@ func _build_detail(pawn: PawnData) -> void:
 # Slots
 # ---------------------------------------------------------------------------
 
-func slot_name(slot: int) -> String:
+static func slot_name(slot: int) -> String:
 	match slot:
 		EquipmentDef.Slot.WEAPON:
 			return "Weapon"
@@ -235,6 +235,11 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	icon._ready()
 	icon.slot = slot
 	icon.item = worn
+	## Issue 591: the icon carries what the item does, off the item's own
+	## fields through `item_effect_text`, so a new piece of gear is described
+	## correctly without anybody remembering to write a second sentence.
+	icon.pin_title = worn.display_name if worn != null else "%s (empty)" % slot_name(slot)
+	icon.tooltip_text = _slot_effect_text(worn)
 	row.add_child(icon)
 
 	var label := Label.new()
@@ -302,7 +307,7 @@ func _refresh(pawn: PawnData) -> void:
 ## the player's language ("Heavy plate"), and this is the same item in numbers,
 ## which is what the issue asks a slot to show. Deriving it means an item added
 ## next week is described correctly here without anyone remembering to.
-func item_effect_text(item: EquipmentDef) -> String:
+static func item_effect_text(item: EquipmentDef) -> String:
 	if item == null:
 		return "Empty."
 	var parts: Array[String] = []
@@ -322,7 +327,7 @@ func item_effect_text(item: EquipmentDef) -> String:
 		return "No effect."
 	return ", ".join(parts) + "."
 
-func _slot_effect_text(item: EquipmentDef) -> String:
+static func _slot_effect_text(item: EquipmentDef) -> String:
 	if item == null:
 		return "Empty. Nothing in this slot."
 	return item_effect_text(item)
@@ -460,12 +465,12 @@ func _action_controls(pawn: PawnData) -> Array[Control]:
 	var granted := granted_action_ids(pawn)
 	if granted.is_empty():
 		out.append(_line(
-			"All %d are this pawn's own. Nothing it is wearing teaches a skill; Plate Mail is the one that does." % available.size(),
+			"All %d are this pawn's own; nothing it is wearing teaches a skill." % available.size(),
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
 	var names := granted.map(func(a): return _action_display_name(a))
 	out.append(_line(
-		"%s came from gear, on top of this pawn's own %d, and each is a skill block in Edit your pawns' plans." % [
+		"%s came from gear, on top of this pawn's own %d." % [
 			", ".join(names), _class_action_count(pawn)],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	return out
@@ -491,7 +496,7 @@ func _action_chip(action_id: StringName) -> Control:
 	chip.tooltip_text = action.description if action.description != "" else "(no description yet)"
 	return chip
 
-func _action_display_name(action_id: StringName) -> String:
+static func _action_display_name(action_id: StringName) -> String:
 	var action: ActionDef = Registry.get_action(action_id)
 	return action.display_name if action != null else String(action_id).capitalize()
 

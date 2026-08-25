@@ -107,10 +107,9 @@ func test_death_and_miss_markers_survive_the_option_being_off() -> void:
 # The place the fifth toggle will live
 # ---------------------------------------------------------------------------
 
-## Every option needs a label and a sentence. The same report that asked for
-## less on screen also found that **nothing anywhere explains anything** -- no
-## legend, no tooltip, no key -- so a toggle shipping without an explanation
-## repeats the defect while claiming to fix it.
+## Every option needs a label and a sentence. Since issue 590 the sentence is
+## the row's mouseover rather than a paragraph under it, which is why this
+## assertion is unchanged: the requirement was an explanation, not a paragraph.
 func test_every_option_carries_a_label_and_an_explanation() -> void:
 	assert_true(DisplayOptions.OPTIONS.size() > 0, "the list must not be empty")
 	for option in DisplayOptions.OPTIONS:
@@ -140,6 +139,61 @@ func test_the_panel_shows_a_checkbox_for_every_option() -> void:
 		## row still fails here.
 		assert_true(boxes[i].text.begins_with(DisplayOptions.OPTIONS[i].label),
 			"row %d reads '%s'" % [i, boxes[i].text])
+	panel.free()
+
+## Issue 590. The sentence above is still required and still shipped; what
+## changed is where it is shown. It is the row's own mouseover, so the panel
+## carries nine one-line options instead of nine paragraphs, and the test above
+## keeps meaning what it meant.
+func test_each_options_explanation_is_its_rows_mouseover() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	var boxes: Array[CheckBox] = []
+	for n in _all(panel):
+		if n is CheckBox:
+			boxes.append(n)
+	assert_eq(boxes.size(), DisplayOptions.OPTIONS.size(), "one checkbox per option")
+	for i in DisplayOptions.OPTIONS.size():
+		assert_eq(boxes[i].tooltip_text, String(DisplayOptions.OPTIONS[i].help),
+			"row %d has no mouseover, so its sentence is nowhere" % i)
+	panel.free()
+
+## The other half, and the half that fails if somebody puts the paragraphs
+## back: no Label on this panel prints an option's explanation.
+func test_no_explanation_is_printed_as_a_paragraph_on_the_panel() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	for n in _all(panel):
+		if not (n is Label):
+			continue
+		for option in DisplayOptions.OPTIONS:
+			assert_false(n.text.contains(String(option.help)),
+				"'%s' is printed on the panel; it belongs in the mouseover" % option.id)
+	panel.free()
+
+## `set_script` on a `CheckBox` is the thing that could quietly break the
+## control, so the row is toggled and the option read back afterwards.
+func test_a_hoverable_row_still_toggles_its_option() -> void:
+	_reset()
+	var panel := Control.new()
+	panel.set_script(DisplayOptionsPanel)
+	panel._ready()
+	var box: CheckBox = null
+	for n in _all(panel):
+		if n is CheckBox:
+			box = n
+			break
+	assert_true(box != null, "the panel built no rows at all")
+	assert_true(box.has_method("_make_custom_tooltip"),
+		"the row is not a glossary host, so its mouseover is the engine's grey box")
+	box.button_pressed = true
+	assert_true(DisplayOptions.enabled(&"damage_numbers"),
+		"the script swap ate the toggle")
+	_reset()
 	panel.free()
 
 ## Driven through the control a player touches, not through `set_enabled`.

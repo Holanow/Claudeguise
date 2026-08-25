@@ -14,7 +14,9 @@ class_name EndScreen
 ## fingerprint's source set, which is what makes that structural rather than a
 ## promise.
 
-const SortBy := {DEALT = 0, TAKEN = 1}
+const GlossaryIconScript := preload("res://Scripts/UI/GlossaryIcon.gd")
+
+const SortBy := {DEALT = 0, TAKEN = 1, HEALED = 2}
 
 ## Four cards and their separators have to fit the roster's share of the width
 ## without scrolling: a four-pawn party is the normal case, and a roster you
@@ -29,20 +31,29 @@ const PORTRAIT_SIZE := 56.0
 const CARD_SLOT := CARD_WIDTH + 2.0 * Palette.SPACE_S
 const ROSTER_MIN_WIDTH := 4.0 * CARD_SLOT + 3.0 * Palette.SPACE_M
 
-## The log gets a fixed slab of the banner: the column around it is centred and
-## sizes to content, so an expanding child would collapse to nothing. The roster
-## has no such constant on purpose -- see `_build_roster_side`.
-const LOG_HEIGHT := 104.0
+## Issue 591: a caption and one line, and it is a FLOOR rather than the height.
+## The log was a fixed 104 px slab until the Healed row and a three-line casualty
+## list together pushed Restart 21 px off the bottom of a 720 px window. It is
+## the one part of this card that scrolls, so it is the part that gives way: it
+## is the only child here that expands, and it takes whatever the rest of the
+## card leaves.
+const LOG_MIN_HEIGHT := 44.0
 
 ## Named so a probe and a test can find the controls without matching on caption.
 const SORT_DEALT_NAME := "SortByDealt"
 const SORT_TAKEN_NAME := "SortByTaken"
+const SORT_HEALED_NAME := "SortByHealed"
+
+## The column each sort reads, so a fourth number cannot be added to the card
+## and left unsortable, which is what "is healing a third sort" was asking.
+const SORT_KEYS := {SortBy.DEALT: "dealt", SortBy.TAKEN: "taken", SortBy.HEALED: "healed"}
 const ROSTER_NAME := "Roster"
 const LOG_SCROLL_NAME := "FullLogScroll"
 
 var _sort: int = SortBy.DEALT
 var _rows: Array[Dictionary] = []
 var _roster: HBoxContainer = null
+var _log_side: Control = null
 var _log_label: RichTextLabel = null
 var _sort_buttons: Dictionary = {}
 
@@ -68,14 +79,15 @@ static func summoner_of(state: CombatState) -> Dictionary:
 		out[id] = owner
 	return out
 
-## One row per party pawn: what it dealt, what it took, what its summons dealt
-## on its behalf, and when it died.
+## One row per party pawn: what it dealt, what it took, what it healed, what its
+## summons dealt on its behalf, and when it died.
 ##
 ## **Dealt never credits `source_id` -1**, which is terrain and belongs to
 ## nobody. **Taken counts everything**, terrain included, because a pawn that
 ## burned to death took that damage whoever lit the fire. **`amount` is what
 ## landed after the remaining-health clamp**, so overkill is not credited and
-## the two columns reconcile against each other.
+## the columns reconcile. **Healed follows the same rule and overhealing is
+## uncredited**, because `_apply_heal` emits the health the bar moved.
 static func tally(state: CombatState) -> Array[Dictionary]:
 	var owner := summoner_of(state)
 	var rows: Array[Dictionary] = []
@@ -90,6 +102,7 @@ static func tally(state: CombatState) -> Array[Dictionary]:
 			"name": u.display_name,
 			"dealt": 0,
 			"taken": 0,
+			"healed": 0,
 			"by_summons": 0,
 			"alive": u.alive,
 			"died_tick": -1,
@@ -99,6 +112,14 @@ static func tally(state: CombatState) -> Array[Dictionary]:
 		if e.kind == CG.EventKind.DEATH:
 			if index.has(e.target_id):
 				rows[index[e.target_id]]["died_tick"] = e.tick
+			continue
+		if e.kind == CG.EventKind.HEAL:
+			if e.amount > 0:
+				var healer := e.source_id
+				if owner.has(healer):
+					healer = owner[healer]
+				if index.has(healer):
+					rows[index[healer]]["healed"] += e.amount
 			continue
 		if e.kind != CG.EventKind.DAMAGE or e.amount <= 0:
 			continue
@@ -118,7 +139,7 @@ static func tally(state: CombatState) -> Array[Dictionary]:
 ## `rows` ordered by one column, highest first, ties broken by the party's own
 ## order so the list never shuffles under a player reading it.
 static func sorted_rows(rows: Array[Dictionary], sort_by: int) -> Array[Dictionary]:
-	var key := "taken" if sort_by == SortBy.TAKEN else "dealt"
+	var key: String = SORT_KEYS.get(sort_by, "dealt")
 	var out := rows.duplicate()
 	out.sort_custom(func(a, b):
 		if int(a[key]) != int(b[key]):
@@ -151,6 +172,7 @@ func _build() -> void:
 	name = "EndScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", int(Palette.SPACE_S))
 
 	## The log sits UNDER the roster rather than beside it. Side by side the
@@ -185,6 +207,7 @@ func _build_roster_side() -> Control:
 
 	_sort_buttons[SortBy.DEALT] = _sort_button("Damage dealt", SORT_DEALT_NAME, SortBy.DEALT, sorts)
 	_sort_buttons[SortBy.TAKEN] = _sort_button("Damage taken", SORT_TAKEN_NAME, SortBy.TAKEN, sorts)
+	_sort_buttons[SortBy.HEALED] = _sort_button("Damage healed", SORT_HEALED_NAME, SortBy.HEALED, sorts)
 
 	## The floor goes on the scroll itself, not on the column above it: a
 	## minimum set on the parent is a request the parent may satisfy by other
@@ -225,9 +248,11 @@ func _sort_button(caption: String, node_name: String, sort_by: int, into: Node) 
 func _build_log_side() -> Control:
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, LOG_HEIGHT)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, LOG_MIN_HEIGHT)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	_log_side = side
 
 	var caption := Label.new()
 	caption.text = "The whole fight"
@@ -317,31 +342,65 @@ func _card(row: Dictionary) -> Control:
 
 	column.add_child(_stat("Dealt", _dealt_text(row), Palette.HP_FULL))
 	column.add_child(_stat("Taken", str(int(row["taken"])), Palette.HP_LOW))
+	## Printed on every card, including the nine tenths of them that read 0. A
+	## row that appears only when it is non-zero makes two cards different
+	## heights, and the card the player is comparing against is the one missing
+	## the line.
+	column.add_child(_stat("Healed", str(int(row["healed"])), Palette.TEAM_PLAYER))
 	column.add_child(_stat("", _fate_text(row), Palette.TEXT_DIM))
 	return panel
 
 ## The portrait is a baked PNG. A class with no file gets the black square the
 ## project asks for rather than a drawn stand-in.
+##
+## Issue 591: it is also the card's mouseover. A class glyph the player cannot
+## ask about is the half of #590's rule this screen was missing, and the
+## sentence comes from `Glossary` and the pawn's gear rather than from a blurb
+## written beside it.
 func _portrait(row: Dictionary) -> Control:
 	var pawn: PawnData = row["pawn"]
 	var shape: StringName = pawn.pawn_class.id if pawn.pawn_class != null else &""
 	var tex := UnitArt.texture_for(shape, CG.Team.PLAYER)
+	if tex == null:
+		var black := ColorRect.new()
+		black.color = Color.BLACK
+		black.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
+		return _hoverable(black, row)
 	var box := TextureRect.new()
 	box.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
 	box.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	box.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.texture = tex
-	if tex == null:
-		var black := ColorRect.new()
-		black.color = Color.BLACK
-		black.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
-		black.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return black
 	if not bool(row["alive"]):
 		box.modulate = Color(1.0, 1.0, 1.0, 0.45)
-	return box
+	return _hoverable(box, row)
+
+## The class in words and what this pawn was wearing when it fought, derived
+## both times: `Glossary` owns the first and `EquipPanel.item_effect_text` owns
+## the second, so a new item or a new tag is described here without anyone
+## touching this file.
+static func portrait_hover_text(pawn: PawnData) -> String:
+	var lines: Array[String] = []
+	if pawn.pawn_class != null:
+		var cls := pawn.pawn_class
+		lines.append(Glossary.class_tags_text(cls.role_primary, cls.style, cls.method))
+	var worn: Array = pawn.equipment()
+	if worn.is_empty():
+		lines.append("Wore nothing.")
+	else:
+		for item in worn:
+			lines.append("%s: %s" % [item.display_name, EquipPanel.item_effect_text(item)])
+	return "
+
+".join(lines)
+
+func _hoverable(node: Control, row: Dictionary) -> Control:
+	node.set_script(GlossaryIconScript)
+	node._ready()
+	node.pin_title = String(row["name"])
+	node.tooltip_text = portrait_hover_text(row["pawn"])
+	return node
 
 func _stat(caption: String, value: String, color: Color) -> Control:
 	var row := HBoxContainer.new()
