@@ -86,9 +86,15 @@ static func gap_text(e: CombatEvent) -> String:
 	# and must not claim the target ran out of health.
 	var after := e.amount_after_mitigation if e.amount_after_mitigation > 0 else e.amount
 	var parts: Array[String] = []
-	if raw > after:
+	## Issue 593. The mitigated half itself splits again: damage reduction took
+	## a share, and a raised block's health pool soaked the rest. One cause for
+	## the whole gap credited toughness with what a shield ate.
+	var reduced := raw - after - e.amount_absorbed
+	if reduced > 0:
 		var cause := mitigation_cause_text(e.mitigation_cause)
-		parts.append("%d stopped" % (raw - after) if cause == "" else "%d stopped by %s" % [raw - after, cause])
+		parts.append("%d stopped" % reduced if cause == "" else "%d stopped by %s" % [reduced, cause])
+	if e.amount_absorbed > 0:
+		parts.append("%d soaked by %s" % [e.amount_absorbed, mitigation_cause_text(CG.MitigationCause.RAISED_SHIELD)])
 	if after > e.amount:
 		parts.append("%d more than it had left" % (after - e.amount))
 	if parts.is_empty():

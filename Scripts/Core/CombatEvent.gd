@@ -30,8 +30,13 @@ var amount_before_mitigation: int = 0
 ## overkill on a target already dying.
 var amount_after_mitigation: int = 0
 
-## Set on DAMAGE when mitigation took something off the raw roll.
+## Set on DAMAGE when mitigation took something off the raw roll. It names the
+## cause of the DAMAGE-REDUCTION share only, never the shield-pool share.
 var mitigation_cause: CG.MitigationCause = CG.MitigationCause.NONE
+
+## Issue 593. Set on DAMAGE for the part of the gap a raised block's health pool
+## soaked, which damage reduction did not cause and must not be credited with.
+var amount_absorbed: int = 0
 
 ## Issue 155. Which plan row chose this, copied off `Intent.source_plan` as the
 ## intent is consumed. **Set on ACTION_START only** -- the one event marking a

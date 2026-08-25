@@ -299,3 +299,104 @@ func test_a_shield_with_no_pool_soaks_nothing() -> void:
 	assert_eq(shielder.hp, shielder.hp_max - 7,
 		"with no pool the shielder takes the intercepted hit itself, exactly as it did before #593")
 	assert_true(shielder.has_status(CG.Status.SHIELDING), "and nothing broke, because there was nothing to break")
+
+# ---------------------------------------------------------------------------
+# the log has to say which half was which
+# ---------------------------------------------------------------------------
+
+const LogScript := preload("res://Scripts/UI/CombatLogView.gd")
+
+## As `_deps`, with damage reduction and a cause for it, so a hit is stopped by
+## two different things at once.
+func _deps_reduced(actions: Array[ActionDef], power: float, reduction: float) -> SimDeps:
+	var deps := _deps(actions, power)
+	deps.damage_reduction = func(_u): return reduction
+	deps.damage_reduction_cause = func(_u): return CG.MitigationCause.ARMOR
+	return deps
+
+func _intercepted_hit(power: float, reduction: float, pool: float) -> CombatEvent:
+	var block := _block()
+	var shot := _shot()
+	var deps := _deps_reduced([block, shot], power, reduction)
+	var state := CombatState.new(9)
+	var shooter := _unit(0, CG.Team.ENEMY, 100, Vector2.ZERO)
+	shooter.actions = [shot.id]
+	var squishy := _unit(1, CG.Team.PLAYER, 100, Vector2(200, 0))
+	var shielder := _unit(2, CG.Team.PLAYER, 400, Vector2(100, 0))
+	shielder.display_name = "Warrior"
+	shielder.statuses[CG.Status.SHIELDING] = 999
+	shielder.status_magnitude[CG.Status.SHIELDING] = pool
+	shielder.facing = Vector2(-1, 0)
+	state.units.append(shooter)
+	state.units.append(squishy)
+	state.units.append(shielder)
+
+	shooter.intent = Intent.use_action(shot.id, squishy.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+	for e in state.events:
+		if e.kind == CG.EventKind.DAMAGE:
+			return e
+	return null
+
+func _gap(e: CombatEvent) -> String:
+	return LogScript.gap_text(e)
+
+## THE DEFECT THIS FILE EXISTS TO PIN. The pool sits inside the same
+## raw-to-landed gap issue 344 built `mitigation_cause` to explain, so the two
+## shares have to be carried separately or one cause is credited with both.
+func test_the_event_separates_what_armor_stopped_from_what_the_shield_soaked() -> void:
+	var e := _intercepted_hit(40.0, 0.5, 12.0)
+	assert_not_null(e, "the intercepted shot must produce a damage event at all")
+	assert_eq(e.amount_before_mitigation, 40, "raw roll")
+	assert_eq(e.amount_absorbed, 12, "the pool was 12 and the shield ate all of it")
+	assert_eq(e.amount_after_mitigation, 8, "20 survived the armor, 12 of that went on the shield")
+	assert_eq(e.mitigation_cause, CG.MitigationCause.ARMOR,
+		"the cause names the reduction share only, never the pool's")
+
+func test_the_log_names_both_shares_with_their_own_numbers() -> void:
+	var line := _gap(_intercepted_hit(40.0, 0.5, 12.0))
+	assert_true(line.find("20 stopped by") >= 0, "half of 40 was reduction: %s" % line)
+	assert_true(line.findn(LogScript.mitigation_cause_text(CG.MitigationCause.ARMOR)) >= 0,
+		"and it is still named: %s" % line)
+	assert_true(line.find("12 soaked by") >= 0, "the pool's share, separately: %s" % line)
+	assert_true(line.findn(LogScript.mitigation_cause_text(CG.MitigationCause.RAISED_SHIELD)) >= 0,
+		"named as the shield rather than as toughness: %s" % line)
+
+## A shot the shield swallowed whole. `amount_after_mitigation` is genuinely 0
+## here, which is also the sentinel `gap_text` reads as "never filled in".
+func test_a_shot_the_shield_ate_entirely_is_still_credited_to_the_shield() -> void:
+	var e := _intercepted_hit(10.0, 0.0, 40.0)
+	assert_eq(e.amount, 0, "nothing reached the health bar")
+	assert_eq(e.amount_absorbed, 10, "the shield took the lot")
+	assert_eq(e.mitigation_cause, CG.MitigationCause.NONE,
+		"no reduction happened, so naming one would be the lie")
+	var line := _gap(e)
+	assert_true(line.find("10 soaked by") >= 0, "the whole hit, on the shield: %s" % line)
+	assert_true(line.findn(LogScript.mitigation_cause_text(CG.MitigationCause.ARMOR)) < 0,
+		"armor did nothing here and must not be named: %s" % line)
+
+## THE NEGATIVE. Every hit in the game that no shield touched must render
+## exactly as it did before #593, or the fix is a regression wearing a fix's
+## clothes.
+func test_a_hit_no_shield_touched_reads_exactly_as_it_did_before() -> void:
+	var e := CombatEvent.new()
+	e.kind = CG.EventKind.DAMAGE
+	e.amount_before_mitigation = 36
+	e.amount_after_mitigation = 20
+	e.amount = 3
+	e.mitigation_cause = CG.MitigationCause.BLOCK
+	var line := _gap(e)
+	assert_eq(line, " (36 raw, 16 stopped by %s, 17 more than it had left)"
+		% LogScript.mitigation_cause_text(CG.MitigationCause.BLOCK), line)
+	assert_true(line.findn("soak") < 0, "nothing soaked anything: %s" % line)
+
+## And the pool's word is its own, so a reader can tell the two shields apart.
+func test_the_raised_shield_has_a_word_no_other_cause_uses() -> void:
+	var word: String = LogScript.mitigation_cause_text(CG.MitigationCause.RAISED_SHIELD)
+	assert_ne(word, "", "the cause must have a word at all")
+	for cause in CG.MitigationCause.values():
+		if cause == CG.MitigationCause.RAISED_SHIELD or cause == CG.MitigationCause.NONE:
+			continue
+		assert_ne(LogScript.mitigation_cause_text(cause), word,
+			"%s shares its word with the raised shield" % CG.MitigationCause.keys()[cause])
