@@ -241,7 +241,10 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 		return taunter
 	var nearest := _nearest(unit, enemies)
 	if unit.pawn != null:
-		return nearest
+		## Issue 588: the enemy the player clicked, and only for a party pawn.
+		## Searched inside `enemies` so it cannot outrank the mark filter above.
+		var picked := player_focus(state, enemies)
+		return picked if picked != null else nearest
 	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
 	if enemy_def == null or enemy_def.focus_bias <= 0.0:
 		return nearest
@@ -249,6 +252,16 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 	if focused == null:
 		return nearest
 	return focused if state.rng.randf() < enemy_def.focus_bias else nearest
+
+## Issue 588: the player's focused enemy if it is among `candidates`, else null.
+## Shared with `PlanInterpreter` so the two layers cannot answer differently.
+static func player_focus(state: CombatState, candidates: Array[CombatUnit]) -> CombatUnit:
+	if state.player_focus_id < 0:
+		return null
+	for c in candidates:
+		if c.id == state.player_focus_id and c.alive:
+			return c
+	return null
 
 ## The nearest living, opposing candidate carrying TAUNTING whose own
 ## `taunt_radius` reaches `unit`, or null.
