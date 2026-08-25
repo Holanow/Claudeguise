@@ -41,20 +41,28 @@ func _differing_pixels(a: Image, b: Image) -> int:
 				n += 1
 	return n
 
-## Contiguous, not gathered. The Rat King is the case that decides it: its
-## `spikes` are a body part baked OVER the head, so collecting every body part
-## into one chunk would put them back under it.
+## Contiguous, not gathered, and asserted over every recipe rather than over the
+## one that happened to show it: a part baked OVER another is pulled back under
+## it the moment the cut is allowed to reorder, and each part has its own outline
+## ring, so the reorder shows. An earlier version of this test named the Rat
+## King's `spikes`, which #594 then deleted out from under it.
 func test_a_chunk_is_a_run_of_adjacent_layers() -> void:
-	var flat: Array = []
-	for cut in UnitRecipes.fragments_for(&"rat_king"):
-		for layer in cut["layers"]:
-			flat.append(layer["part"])
-	var want: Array = []
-	for layer in UnitRecipes.layers_for(&"rat_king"):
-		want.append(layer["part"])
-	assert_eq(flat, want, "the cut reordered the recipe")
-	assert_eq(UnitRecipes.fragments_for(&"rat_king").size(), 4,
-		"the Rat King's spikes sit above its head and are their own chunk")
+	for id in UnitRecipes.recipe_ids():
+		var flat: Array = []
+		for cut in UnitRecipes.fragments_for(id):
+			for layer in cut["layers"]:
+				flat.append(layer["part"])
+		var want: Array = []
+		for layer in UnitRecipes.layers_for(id):
+			want.append(layer["part"])
+		assert_eq(flat, want, "%s: the cut reordered the recipe" % id)
+
+## A hat is head. #594 added `hat_low` for the Rat King's, and an unmapped hat
+## flies on its own while the head it was sitting on goes the other way.
+func test_every_headwear_part_flies_with_the_head() -> void:
+	for part in [&"hat", &"hat_low", &"hood", &"helm", &"plume", &"crown"]:
+		assert_eq(UnitRecipes.group_for(part), &"head",
+			"'%s' is worn on a head and must leave with it" % part)
 
 ## A part nobody has grouped is its own chunk rather than silently joining the
 ## body it was drawn over.
@@ -154,8 +162,10 @@ func test_a_chunk_outlives_the_hit_stop_it_sets_up() -> void:
 func test_a_chunk_leaves_at_full_colour_and_darkens_in_the_air() -> void:
 	assert_eq(DeathExplosionScript.tint_at(0.0), Color.WHITE,
 		"the chunks are already dim on the frame the freeze holds")
+	# Almost: a Color stores 32-bit channels, so the 0.55 that goes in reads back
+	# as 0.55000001192093.
 	var flying := DeathExplosionScript.tint_at(DeathExplosionScript.DIM_SECONDS)
-	assert_eq(flying.r, DeathExplosionScript.DIM)
+	assert_almost_eq(flying.r, DeathExplosionScript.DIM)
 	assert_true(flying.r < 1.0, "wreckage must not be the colour a live unit is")
 	assert_true(DeathExplosionScript.DIM_SECONDS > 0.0,
 		"a chunk that is dim on frame zero is not the body the freeze held")

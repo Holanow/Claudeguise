@@ -260,8 +260,8 @@ const FRAGMENT_GROUPS := {
 	&"head_snouted": &"head", &"eyes": &"head", &"eyes_snout": &"head",
 	&"ears_pointed": &"head", &"ears_round": &"head", &"nose_triangle": &"head",
 	&"mandibles": &"head", &"tusks": &"head", &"horns": &"head",
-	&"hat": &"head", &"hood": &"head", &"helm": &"head", &"plume": &"head",
-	&"crown": &"head",
+	&"hat": &"head", &"hat_low": &"head", &"hood": &"head",
+	&"helm": &"head", &"plume": &"head", &"crown": &"head",
 	&"hands": &"hands", &"hands_wide": &"hands",
 }
 
@@ -270,9 +270,8 @@ static func group_for(part: StringName) -> StringName:
 
 ## The recipe cut into the chunks a death throws: runs of ADJACENT layers that
 ## share a group. Adjacent rather than gathered, so the chunks stack back into
-## the flat composite exactly as it was composed -- gathering the Rat King's
-## spikes down to its body would put them under a head they were baked over, and
-## each part carries its own outline ring, so a reorder is visible.
+## the flat composite in the order it was composed: each part carries its own
+## outline ring, so a layer pulled back under one it was baked over is visible.
 ##
 ## Each entry is `{"group": <name>, "layers": [...]}`, the same shape
 ## `slices_for` yields, and `compose_layers` builds either one.

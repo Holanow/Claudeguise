@@ -52,8 +52,9 @@ func _ready() -> void:
 # ---------------------------------------------------------------------------
 
 ## Three bodies that come apart differently: the goblin is the plain three-chunk
-## case, the Rat King is four with its spikes above its head, and the Siege
-## Engine has no hands at all and comes apart into wheels and a barrel.
+## case, the Rat King has a tail of its own and a hat that must leave with its
+## head, and the Siege Engine has no hands at all and comes apart into wheels
+## and a barrel.
 const STAGED := [&"goblin", &"rat_king", &"siege_engine"]
 const STAGED_CROP := Vector2i(96, 96)
 const STAGED_ZOOM := 5

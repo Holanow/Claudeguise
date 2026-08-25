@@ -367,4 +367,18 @@ func _bake_fragments() -> void:
 					continue
 				img.save_png(UnitArt.fragment_path(id, team, i))
 				total += 1
+			for i in range(cuts.size(), STALE_LIMIT):
+				_drop(UnitArt.fragment_path(id, team, i))
 	print("BakeParts: %d fragment file(s) written to %s" % [total, UnitArt.FRAGMENT_DIR])
+
+## How high to look for a chunk file this recipe no longer writes. A recipe that
+## loses a part leaves its old top chunk on disk, where nothing loads it and git
+## tracks it forever -- #594 cut the Rat King from four chunks to three and did
+## exactly that.
+const STALE_LIMIT := 16
+
+func _drop(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	print("  dropped stale %s" % path.get_file())
