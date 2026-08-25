@@ -42,6 +42,14 @@ const DOT_NAME := &"event/damage_over_time"
 ## The name an event resolves to, specific first. `&""` is never returned --
 ## every event has a name, whether or not a file or a placeholder exists for it.
 static func sound_name(event: CombatEvent) -> StringName:
+	if event.kind == CG.EventKind.STATUS_APPLIED:
+		# Per status, not per kind: the ruling in #507 voices stun and nothing
+		# else, and one name for all thirteen cannot say that. Above the
+		# `action_id` branch on purpose -- issue #550: an applied status usually
+		# carries the action that applied it, so a per-action file would
+		# otherwise claim the fire, the damage AND the status, and per-tick
+		# dedup would collapse all three into one noise with the stun cue gone.
+		return StringName("event/status_applied/%s" % String(CG.Status.keys()[event.status]).to_lower())
 	if event.action_id != &"":
 		var specific := StringName("action/%s" % event.action_id)
 		if _stream(specific) != null:
@@ -52,12 +60,6 @@ static func sound_name(event: CombatEvent) -> StringName:
 		# `action_id` on a DAMAGE event is exactly the distinction, and it is
 		# read here and nowhere below the presentation layer.
 		return DOT_NAME
-	if event.kind == CG.EventKind.STATUS_APPLIED:
-		# Per status, not per kind: the ruling in #507 voices stun and nothing
-		# else, and one name for all thirteen cannot say that. Outside the
-		# `elif` chain on purpose -- an applied status usually carries the
-		# action that applied it, so it reaches here through the first branch.
-		return StringName("event/status_applied/%s" % String(CG.Status.keys()[event.status]).to_lower())
 	return StringName("event/%s" % String(CG.EventKind.keys()[event.kind]).to_lower())
 
 ## The stream dropped in under `name`, or null when there is no file for it.
