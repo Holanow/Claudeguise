@@ -50,6 +50,10 @@ func _init() -> void:
 	var arm := _run_party([&"siege_master", &"warrior"], Registry.get_encounter(CG.DEFAULT_ENCOUNTER))
 	_report(arm, "siege_master + warrior")
 
+	_say("")
+	_say("=== 6. OF THE ACTIONS A PRESET PAWN ACTUALLY TAKES, HOW MANY DID A ROW CHOOSE? ===")
+	_authorship_table(class_ids, encounter_ids)
+
 	quit(0)
 
 # ---------------------------------------------------------------------------
@@ -286,6 +290,42 @@ func _perturbation_check(class_ids: Array, encounter_ids: Array) -> void:
 					perturbed += 1
 					_say("    PERTURBED %s %s seed %d: probed %s bare %s" % [eid, _short(party_ids), s, a, b])
 	_say("  %d fights compared, %d perturbed" % [checked, perturbed])
+
+## Issue 155 put the deciding layer's answer on `ACTION_START.source_plan`, so
+## this reads the event stream of an unprobed fight and asks nothing.
+func _authorship_table(class_ids: Array, encounter_ids: Array) -> void:
+	var by_class := {}
+	for eid in encounter_ids:
+		var encounter := Registry.get_encounter(eid)
+		for party_ids in _parties(class_ids):
+			for s in SEEDS:
+				var party: Array[PawnData] = []
+				for cid in party_ids:
+					party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
+				var state := CombatSim.build(party, encounter, s)
+				while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+					CombatSim.step(state)
+				for e in state.events:
+					if e.kind != CG.EventKind.ACTION_START:
+						continue
+					var unit := state.unit(e.source_id)
+					if unit == null or unit.pawn == null:
+						continue
+					var cid: StringName = unit.pawn.pawn_class.id
+					var row: Dictionary = by_class.get(cid, {"row": 0, "fallback": 0})
+					row["row" if e.source_plan != &"" else "fallback"] += 1
+					by_class[cid] = row
+	var rows := 0
+	var fallback := 0
+	for cid in by_class:
+		var r: int = int(by_class[cid]["row"])
+		var f: int = int(by_class[cid]["fallback"])
+		rows += r
+		fallback += f
+		_say("  %-14s actions started %5d,  a plan row chose %5d (%.1f%%),  the fallback chose %5d" % [
+			cid, r + f, r, 100.0 * float(r) / maxf(1.0, float(r + f)), f])
+	_say("  %-14s actions started %5d,  a plan row chose %5d (%.1f%%),  the fallback chose %5d" % [
+		"ALL", rows + fallback, rows, 100.0 * float(rows) / maxf(1.0, float(rows + fallback)), fallback])
 
 func _short(ids: Array) -> String:
 	var parts := PackedStringArray()
