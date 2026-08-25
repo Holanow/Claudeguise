@@ -1,15 +1,12 @@
 extends SceneTree
 
-## Issue 572. Writes the in-flight projectile marks to `Assets/UI/projectile/`.
-##
-## Run once, commit the output. `AttackFX._PROJECTILE_SHAPES` stays as the
-## AUTHORING source -- the same relationship `BakeParts.gd` has with the part
-## sprites -- and stops being what the game draws every frame.
+## Writes the in-flight projectile marks to `Assets/UI/projectile/`; run once
+## and commit the output, the same relationship `BakeParts.gd` has with parts.
 
 const OUT_DIR := "res://Assets/UI/projectile"
 
-## The player, on #566's canvas: a 256 px source drawn at 5 px is a sharp 5 px
-## mark. Sharper, not bigger.
+## #566's canvas. Sharper, not bigger: a 256 px source drawn at 5 px is a sharp
+## 5 px mark.
 const N := 256
 
 func _init() -> void:

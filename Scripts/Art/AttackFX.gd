@@ -7,19 +7,15 @@ class_name AttackFX
 ## every action already carries a damage type that the floating numbers
 ## already colour by.
 
-## Issue 572: the shapes below are now AUTHORING data for
-## `Tools/BakeProjectiles.gd` rather than what the game draws every frame. A
-## dart is the same picture on every frame -- only its rotation and position
-## change -- so it does not qualify for the art ruling's aim-line carve-out.
+## The shapes below are AUTHORING data for `Tools/BakeProjectiles.gd`, not what
+## the game draws: a dart is the same picture every frame.
 
-## How far past the authored +/-1 the baked canvas reaches, so the outline the
-## bake strokes on is not clipped at the tips. The draw below spans the same.
+## How far past the authored +/-1 the baked canvas reaches, so the outline is
+## not clipped at the tips. `draw_projectile` spans the same.
 const PROJECTILE_ART_SPAN := 1.05
 
-## The outline's width in the units the shapes are authored in. `ArenaFloor`
-## draws a mark at `size` 15 and the polyline this replaces was 1.0 unit wide,
-## so 1/15 reproduces exactly what shipped -- and now scales with the mark
-## rather than staying one unit wide whatever the mark does.
+## The outline's width in the units the shapes are authored in, which at
+## `ArenaFloor`'s `size` of 15 is the 1.0 the polyline this replaces used.
 const PROJECTILE_OUTLINE_WIDTH := 1.0 / 15.0
 
 const _PROJECTILE_SHAPES := {
@@ -92,8 +88,7 @@ static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vect
 	var box := Rect2(Vector2(-half, -half), Vector2(half, half) * 2.0)
 	var tex := UIArt.texture_for(projectile_art_name(damage_type))
 	if tex == null:
-		# The player's ruling: a missing sprite is a black square, which is an
-		# obvious defect rather than a silent one.
+		# The player's ruling: a missing sprite is a black square.
 		canvas.draw_rect(Rect2(position + box.position, box.size), Color.BLACK)
 		return
 	var angle := forward.angle() if forward.length_squared() > 0.0001 else 0.0
@@ -106,8 +101,8 @@ static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vect
 static func projectile_art_name(damage_type: CG.DamageType) -> StringName:
 	return StringName("projectile/%s" % String(CG.DamageType.keys()[damage_type]).to_lower())
 
-## Every damage type, in enum order. The set is bounded and small; enumerated
-## here so the bake and the tests cannot disagree about which marks exist.
+## Every damage type, in enum order, so the bake and the tests cannot disagree
+## about which marks exist.
 static func damage_types() -> Array:
 	var out: Array = []
 	for name in CG.DamageType.keys():
