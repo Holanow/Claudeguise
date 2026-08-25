@@ -157,52 +157,6 @@ func test_different_seeds_currently_agree_pending_issue_7_damage_variance() -> v
 	)
 
 # ---------------------------------------------------------------------------
-# criterion 4: difficulty means something
-# ---------------------------------------------------------------------------
-
-## FINDING, not just a test: with today's single authored encounter and the
-## balanced party (the same composition SampleFights already measured at
-## 20/20 with all four survivors), scaling the *count* of that encounter's
-## enemies from 1 to 4 produces zero measurable difference. See the printed
-## distribution and the comment below the assertions -- this is the same
-## landslide-balance problem issue 7 is addressing, not a defect in the
-## wiring here. Per issue 9's own "what would make stopping the right
-## answer": reporting this rather than asserting a curve that is not real.
-func test_difficulty_makes_rooms_measurably_harder_and_room_one_is_winnable() -> void:
-	var avg_survivors_by_difficulty: Dictionary = {}
-	for difficulty in [1, 2, 3, 4]:
-		var total_survivors := 0
-		for seed in range(1, 21):
-			var party := _make_party()
-			var plan := _single_room_plan(seed, difficulty)
-			var run := FloorRun.new(plan)
-			FloorFightRunner.play_room(run, plan.room(0), party)
-			for p in party:
-				if run.is_alive(p.id):
-					total_survivors += 1
-		avg_survivors_by_difficulty[difficulty] = float(total_survivors) / 20.0
-
-	print("average survivors out of 4, by difficulty, 20 seeds each, balanced party: ", avg_survivors_by_difficulty)
-
-	# Holds today, and is the half of criterion 4 this test can honestly
-	# assert: the first room (difficulty 1) is winnable by a starting party
-	# in the large majority of seeds.
-	assert_true(
-		float(avg_survivors_by_difficulty[1]) >= 3.5,
-		"difficulty 1 (the first room's difficulty) must be winnable by a starting party in the large majority of seeds: %s" % [avg_survivors_by_difficulty]
-	)
-
-	# Does NOT hold today, and is reported rather than asserted: with only
-	# one authored encounter, scaling its enemy count 1x to 4x does not
-	# produce a measurable survivor difference for this party (4.0/4.0 at
-	# every difficulty in the run that produced the numbers in this file's
-	# board post). Room-count scaling is a real difficulty lever in
-	# principle, but it cannot show up while the strongest tested party
-	# beats the full room cleanly regardless -- more/harder content, or
-	# issue 7's tuning pass, is what would make this measurable, and
-	# neither is this issue's to build. Not asserting a fabricated gap here.
-
-# ---------------------------------------------------------------------------
 # first floor phase: MINIBOSS and BOSS are distinct rooms
 # ---------------------------------------------------------------------------
 

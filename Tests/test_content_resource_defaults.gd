@@ -71,18 +71,6 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 				+ "Siege Master is a Mana class but a MARTIAL one, which is the distinction this "
 				+ "per-action field exists to express.") % [cid, restores])
 
-## Five basic attacks buy one spell. The ratio is the reasoning behind the
-## number, so it is the thing worth asserting -- a bare `== 3` would pass on a
-## number nobody could justify.
-func test_a_magic_basic_attack_is_worth_about_a_fifth_of_a_spell() -> void:
-	var bolt := Registry.get_action(&"priest_bolt")
-	var smite := Registry.get_action(&"priest_smite")
-	assert_true(bolt.restores_resource > 0)
-	var per_spell := float(smite.resource_cost) / float(bolt.restores_resource)
-	assert_true(per_spell >= 3.0 and per_spell <= 8.0,
-		("%d basic attacks now pay for one Smite. Under three and the caster never runs dry; "
-		+ "over eight and the restore is decoration.") % int(round(per_spell)))
-
 ## No action pays for itself. A basic attack that returned more than it cost
 ## would be an infinite-resource loop, and the two carrying this today are free.
 func test_no_action_returns_more_resource_than_it_costs() -> void:

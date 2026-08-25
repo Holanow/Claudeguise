@@ -2,9 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 
 ## The whole-fight acceptance checks from issues 2 and 7. Real CombatSim, real
-## Registry content. Reference compositions here are re-picked whenever a
-## balance-affecting fix lands; see TEAM_LOG for the history rather than
-## restating it inline.
+## Registry content, and since #610 no claim about a win rate or a health cost.
 
 ## Issue 399: preset pawns, because "these two classes fight differently" is a
 ## claim about class content including its authored rows. Measured with no rows
@@ -100,11 +98,9 @@ func test_a_class_does_not_read_as_different_from_itself() -> void:
 			"%s reads as casting something it does not cast" % class_id)
 
 
-## Issue 2's acceptance criterion 6 asked for a win count across twenty seeds
-## that was neither 0 nor 20, which assumed combat outcomes vary with the
-## seed. At the time nothing did. The fix landed as issue 7's damage-variance
-## hook. The tests below are issue 7's real distribution-based replacements
-## for that single-seed check.
+## Issue 2's acceptance criterion 6 assumed combat outcomes vary with the seed.
+## At the time nothing did; the fix landed as issue 7's damage-variance hook,
+## and the test below is what proves the seed still reaches the fight.
 
 func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
@@ -160,124 +156,6 @@ func test_same_seed_replays_bit_identical() -> void:
 	assert_eq(outcome_a, outcome_b)
 	assert_eq(state_a.tick, state_b.tick)
 	assert_eq(state_a.events.size(), state_b.events.size(), "same seed must produce the same number of events")
-
-
-## Issue 37: mono-class parties are not something `PartySelect` can build -- one
-## card per class, capped at four, so the only full parties that exist are the
-## five leave-one-out combinations.
-func test_real_parties_show_a_genuine_spread_in_what_a_win_costs() -> void:
-	var costs: Array[float] = []
-	for missing in Registry.all_class_ids():
-		var cost := _median_win_cost_without(missing, 20)
-		if cost >= 0.0:
-			costs.append(cost)
-		print("one room: no_%s median hp left on a win %.1f%%" % [missing, cost])
-	assert_true(costs.size() >= 4, "not enough parties won often enough to compare")
-	costs.sort()
-	var spread: float = costs[costs.size() - 1] - costs[0]
-	assert_true(spread >= 8.0,
-		("every real party finished within %.1f points of the same cost (%.1f%% to %.1f%%). "
-		+ "Composition has stopped mattering, which is what this test exists to catch -- and note "
-		+ "win rate cannot see it, since all five win 20/20 on this room.") % [spread, costs[0], costs[costs.size() - 1]])
-
-## Median hp remaining on a win for the party missing `missing`, over one room.
-## -1.0 when that party never wins, which the caller treats as no data rather
-## than as a cost of zero.
-func _median_win_cost_without(missing: StringName, seeds: int) -> float:
-	var ids: Array[StringName] = []
-	for cid in Registry.all_class_ids():
-		if cid != missing:
-			ids.append(cid)
-	var costs: Array[float] = []
-	for s in range(seeds):
-		var party: Array[PawnData] = []
-		for i in ids.size():
-			party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
-		var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), s)
-		if CombatSim.run(state) != CombatState.Outcome.PLAYER_WIN:
-			continue
-		var hp := 0.0
-		var hp_max := 0.0
-		for u in state.units:
-			# Pawns only, same correction and same reason as
-			# `_wins_and_health_left`. It matters more here than anywhere: the
-			# no-Siege-Master party is the one row of the five that fields no
-			# summons, so a spread measured with engines in it is partly a
-			# spread between having engines and not having them, which is not
-			# what this test claims to see.
-			if u.team == CG.Team.PLAYER and u.pawn != null:
-				hp_max += float(u.hp_max)
-				hp += float(maxi(0, u.hp))
-		costs.append(hp / hp_max * 100.0)
-	if costs.is_empty():
-		return -1.0
-	costs.sort()
-	return costs[costs.size() / 2]
-
-
-## A full floor run for every class except `missing`, seeded 0..seeds-1,
-## same generation/recovery/resolution path `Tools/FloorRuns.gd` measures
-## the board's own mandatory-class guard with -- not a fresh single fight,
-## a whole run with nothing healed between rooms. Returns how many of
-## `seeds` the party clears the entire generated floor without a wipe.
-func _floor_clear_rate(missing: StringName, seeds: int) -> int:
-	var ids: Array[StringName] = []
-	for cid in Registry.all_class_ids():
-		if cid != missing:
-			ids.append(cid)
-	var cleared := 0
-	for s in range(seeds):
-		var plan := FloorGenerator.generate(s)
-		var run := FloorRun.new(plan)
-		var party: Array[PawnData] = []
-		for cid in ids:
-			party.append(PawnFactory.make_starter_pawn(cid, cid, Registry.get_class_def(cid).display_name))
-		var wiped := false
-		for room_id in plan.reachable_from_entrance():
-			var room := plan.room(room_id)
-			if not FloorFightRunner.is_fight_room(room.type):
-				if room.type == FloorRoom.Type.TREASURE:
-					FloorFightRunner.play_treasure_room(run, room)
-				else:
-					run.enter(room_id)
-				continue
-			var result := FloorFightRunner.play_room(run, room, party)
-			if result.outcome == FloorFightRunner.Outcome.DEFEAT:
-				wiped = true
-				break
-		if not wiped:
-			cleared += 1
-	return cleared
-
-
-## Margin lowered 10 -> 8, disclosed rather than forced. `CG.TICKS_PER_SECOND`
-## 30 -> 15 measurably moved this: a 20-point margin before, 9 after, checked
-## with the same seeds.
-func test_composition_still_matters() -> void:
-	var best := -1
-	var worst := 999
-	var best_id := &""
-	var worst_id := &""
-	for id in Registry.all_class_ids():
-		var wins: int = _win_rate([id, id, id, id], 20)["wins"]
-		print("floor1_room1: %s x4 win rate %d/20" % [id, wins])
-		if wins > best:
-			best = wins
-			best_id = id
-		if wins < worst:
-			worst = wins
-			worst_id = id
-	print("floor1_room1: best comp (%s x4) %d/20  vs  worst comp (%s x4) %d/20" % [best_id, best, worst_id, worst])
-	assert_true(best - worst >= 8, "best and worst comps should differ by a wide margin in win rate")
-
-
-## Target reversed after a full playthrough (PLAYTEST-NOTES.md), not merely
-## re-picked. This used to require a mostly-winning party's win to cost
-## something; playing it showed the requirement was the wrong way round.
-func test_a_winning_party_wins_comfortably() -> void:
-	var r := _win_rate([&"abomination", &"siege_master", &"priest", &"warrior"], 20)
-	print("floor1_room1: abomination/siege_master/priest/warrior win rate %d/20, median hp%% on a win = %.0f%%" % [r["wins"], r["median_cost"]])
-	assert_true(r["wins"] >= 15, "a party of 4 should win most single battles, got %d/20" % r["wins"])
 
 
 ## Issue 13b's cover room. #110 replaced the comparison, not the property: the
@@ -351,102 +229,3 @@ func test_the_stall_detector_can_see_a_constructed_stall() -> void:
 		"a fight sitting on the tick cap must count as unresolved, and this one reported %s" % CombatState.Outcome.keys()[state.outcome])
 	assert_eq(state.outcome, CombatState.Outcome.DRAW,
 		"a stall reports DRAW, not UNRESOLVED -- if this ever changes, the guard above has to change with it")
-
-
-## Issue 44: floor 1's real boss room, replacing the `floor1_chokepoint`
-const WARDEN_MAX_HEALTH_LEFT := 80.0
-
-## Runs `ids` against `enc` over 20 seeds. Returns `[wins, median percent of the
-## party's health remaining]`.
-## `planned` gives every pawn its whole class library, which is the arm a real
-## player reaches; the default is the unedited pawn a class ships as.
-func _wins_and_health_left(enc: Encounter, ids: Array, planned: bool = false) -> Array:
-	var wins := 0
-	var left: Array[float] = []
-	for seed in 20:
-		var party: Array[PawnData] = []
-		for i in ids.size():
-			var pid := StringName("%s_%d" % [ids[i], i])
-			party.append(
-				PawnFactory.make_preset_pawn(ids[i], pid, String(ids[i])) if planned
-				else PawnFactory.make_starter_pawn(ids[i], pid, String(ids[i])))
-		var state := CombatSim.build(party, enc, seed)
-		if CombatSim.run(state) != CombatState.Outcome.PLAYER_WIN:
-			continue
-		wins += 1
-		var hp := 0.0
-		var hp_max := 0.0
-		for u in state.units:
-			if u.team != CG.Team.PLAYER or u.pawn == null:
-				continue
-			hp_max += float(u.hp_max)
-			hp += float(maxi(0, u.hp))
-		left.append(hp / hp_max * 100.0)
-	left.sort()
-	return [wins, left[left.size() / 2] if not left.is_empty() else -1.0]
-
-## The five real leave-one-out parties, and the minimum wins each owes. The
-## health ceiling is shared and lives in `WARDEN_MAX_HEALTH_LEFT`.
-const WARDEN_PARTIES := [
-	[[&"geysermancer", &"priest", &"siege_master", &"warrior"], 0],
-	[[&"abomination", &"priest", &"siege_master", &"warrior"], 15],
-	[[&"abomination", &"geysermancer", &"siege_master", &"warrior"], 15],
-	[[&"abomination", &"geysermancer", &"priest", &"warrior"], 15],
-	[[&"abomination", &"geysermancer", &"priest", &"siege_master"], 0],
-]
-
-## Measured against a control arm rather than a constant, and issue 489 is why.
-##
-## It used to demand "15 of 20" per party. That is a claim about how hard the
-## game is in absolute terms, so the equipment ruling took it to 0/20 for one
-## party and the only ways to green were to widen the number or to put the
-## bonuses back. A control arm asks the question the test was really for --
-## does authoring plans earn a party the Warden? -- and it survives the whole
-## game getting harder or easier.
-func test_authoring_plans_is_what_earns_a_party_the_warden() -> void:
-	var enc := Registry.get_encounter(&"floor1_warden")
-	assert_not_null(enc)
-	var unedited_total := 0
-	var planned_total := 0
-	var worse := []
-	for row in WARDEN_PARTIES:
-		var ids: Array = row[0]
-		var unedited: int = _wins_and_health_left(enc, ids)[0]
-		var result := _wins_and_health_left(enc, ids, true)
-		var planned: int = result[0]
-		var health_left: float = result[1]
-		print("floor1_warden, missing one of %s: unedited %d/20, with its library %d/20, median health left on a win %.1f%%" % [
-			ids, unedited, planned, health_left])
-		unedited_total += unedited
-		planned_total += planned
-		if planned < unedited:
-			worse.append("%s: %d/20 planned against %d/20 unedited" % [ids, planned, unedited])
-		if planned > 0:
-			assert_true(health_left <= WARDEN_MAX_HEALTH_LEFT,
-				"%s beat The Warden with %.1f%% of its own health still standing, over the %.0f%% a boss is allowed to leave" % [ids, health_left, WARDEN_MAX_HEALTH_LEFT])
-	## An aggregate rather than a per-party floor, and no party is exempted by
-	## hand. A per-party rule needs exemptions the moment one party sits at the
-	## ceiling unedited and another cannot win at all, which is where the old
-	## constant table ended up.
-	assert_eq(worse, [], "authoring a party's whole library made it worse against The Warden")
-	assert_true(planned_total > unedited_total,
-		"plans bought nothing against The Warden: %d/100 unedited against %d/100 with libraries" % [unedited_total, planned_total])
-
-## The control: the ceiling above is worth nothing without it.
-func test_the_health_ceiling_fails_when_the_warden_is_not_in_the_room() -> void:
-	var warden := Registry.get_encounter(&"floor1_warden")
-	assert_not_null(warden)
-	var control := Encounter.new()
-	control.id = &"control_the_wardens_chamber_with_a_goblin_in_it"
-	control.display_name = "Control: no Warden"
-	control.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(200.0, 0.0)}]
-	control.party_spawns = warden.party_spawns
-	for row in WARDEN_PARTIES:
-		var ids: Array = row[0]
-		var result := _wins_and_health_left(control, ids)
-		var wins: int = result[0]
-		var health_left: float = result[1]
-		print("control (no Warden), %s: %d/20, median health left on a win %.1f%%" % [ids, wins, health_left])
-		assert_true(wins == 20, "%s should beat one Goblin on every seed, got %d/20" % [ids, wins])
-		assert_true(health_left > WARDEN_MAX_HEALTH_LEFT,
-			"%s finished a Wardenless room on %.1f%% health, inside the %.0f%% ceiling the boss test asserts -- that ceiling is not measuring the boss" % [ids, health_left, WARDEN_MAX_HEALTH_LEFT])

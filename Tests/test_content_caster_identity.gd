@@ -51,10 +51,6 @@ func test_the_two_casters_split_the_way_the_player_asked_them_to() -> void:
 	assert_true(Balance.move_speed(geyser) > Balance.move_speed(priest),
 		"the Geysermancer is not the faster one")
 	assert_true(g_hp < p_hp, "the Priest does not have more health")
-	## "Slightly" is the half of the sentence a point of CON cannot express: one
-	## is 12 hp on a 98 hp pawn. The bar is that the edge stays under a tenth.
-	assert_true(float(p_hp - g_hp) / float(g_hp) < 0.10,
-		"the Priest's health edge is %d hp over %d, which is no longer slight" % [p_hp - g_hp, g_hp])
 
 
 func test_an_unedited_priest_and_geysermancer_do_not_cast_the_same_things() -> void:

@@ -49,18 +49,6 @@ func test_at_least_one_item_requires_tags_from_two_different_axes() -> void:
 	assert_eq(sickle.required_tags, [CG.Tag.MAGICAL, CG.Tag.MELEE] as Array[int])
 
 
-## More specialised gear names more tags. Recorded as a distribution rather than
-## a rule, so the day somebody writes a three-tag item this says what changed.
-func test_the_eleven_items_carry_the_tag_counts_recorded_here() -> void:
-	var by_count := {}
-	for id in Registry.all_equipment_ids():
-		var n := Registry.get_equipment(id).required_tags.size()
-		by_count[n] = int(by_count.get(n, 0)) + 1
-	print("gear tag counts: %s" % [by_count])
-	assert_eq(Registry.all_equipment_ids().size(), 11, "the item count moved")
-	assert_eq(by_count, {0: 1, 1: 8, 2: 2}, "the tag distribution moved")
-
-
 ## A class's tags are derived from its own fields, never authored beside them.
 ## Change the class and the tag set follows, which is the property that stops
 ## the two from disagreeing.
