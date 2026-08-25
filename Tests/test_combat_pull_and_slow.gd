@@ -3,9 +3,9 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 14, the simulation half: ActionDef.pull_distance drags a target
 ## toward the caster on hit, and CG.Status.SLOWED scales move_speed through a
-## SimDeps seam. Both are frozen-but-inert shapes until this file; every
-## action that exists today has pull_distance == 0.0, which must still behave
-## exactly as before.
+## SimDeps seam. Issue 562 spread that drag over `CombatSim.PULL_TICKS` and
+## stunned the target for the same span, so the single-tick landing positions
+## these tests used to assert are now reached only after the drag runs out.
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:
 	var u := CombatUnit.new()
@@ -67,10 +67,48 @@ func test_a_pull_action_drags_the_target_toward_the_caster() -> void:
 
 	caster.intent = Intent.use_action(hook.id, target.id)
 	CombatSim.step(state, deps) # commits
-	CombatSim.step(state, deps) # fires and pulls
+	CombatSim.step(state, deps) # fires, and drags the first of PULL_TICKS steps
 
-	assert_almost_eq(target.position.x, 80.0, 0.01, "pulled 20 units toward the caster")
+	var per_tick := 20.0 / float(CombatSim.PULL_TICKS)
+	assert_almost_eq(target.position.x, 100.0 - per_tick, 0.01,
+		"the landing tick drags one step, not the whole 20 units")
+
+	for _i in CombatSim.PULL_TICKS - 1:
+		CombatSim.step(state, deps)
+
+	assert_almost_eq(target.position.x, 80.0, 0.01, "pulled 20 units toward the caster in total")
 	assert_almost_eq(target.position.y, 0.0, 0.01)
+
+	CombatSim.step(state, deps)
+	assert_almost_eq(target.position.x, 80.0, 0.01, "and the drag stops there rather than running on")
+
+## Issue 562: the whole point of the change. A step small enough for
+## `BattleView._tween_body` to interpolate is what makes the drag visible.
+func test_the_drag_moves_a_little_every_tick_rather_than_snapping() -> void:
+	var hook := _hook(&"hook", 100.0)
+	var deps := _deps_with_action(hook, 5.0)
+
+	var state := CombatState.new(108)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	CombatSim.step(state, deps)
+
+	var seen: Array[float] = []
+	var previous := target.position.x
+	for _i in CombatSim.PULL_TICKS:
+		CombatSim.step(state, deps)
+		seen.append(previous - target.position.x)
+		previous = target.position.x
+
+	assert_eq(seen.size(), CombatSim.PULL_TICKS, "one drag step per tick of the pull")
+	for moved in seen:
+		assert_almost_eq(moved, 100.0 / float(CombatSim.PULL_TICKS), 0.01,
+			"every tick of the drag moves the same short distance")
+	assert_almost_eq(target.position.x, 100.0, 0.01, "and they sum to the full pull distance")
 
 func test_a_pull_never_drags_the_target_past_the_caster() -> void:
 	# pull_distance larger than the actual gap must not overshoot onto or past
@@ -86,7 +124,8 @@ func test_a_pull_never_drags_the_target_past_the_caster() -> void:
 
 	caster.intent = Intent.use_action(hook.id, target.id)
 	CombatSim.step(state, deps)
-	CombatSim.step(state, deps)
+	for _i in CombatSim.PULL_TICKS:
+		CombatSim.step(state, deps)
 
 	assert_almost_eq(target.position.x, 0.0, 0.01, "must land exactly at the caster, not past it")
 
@@ -126,7 +165,8 @@ func test_a_pull_stops_at_a_wall_instead_of_passing_through_it() -> void:
 
 	caster.intent = Intent.use_action(hook.id, target.id)
 	CombatSim.step(state, deps)
-	CombatSim.step(state, deps)
+	for _i in CombatSim.PULL_TICKS:
+		CombatSim.step(state, deps)
 
 	assert_true(target.position.x >= wall.rect.position.x + wall.rect.size.x,
 		"a pulled target must not be dragged through a wall; landed at %s" % target.position)
@@ -151,6 +191,156 @@ func test_a_killing_blow_does_not_also_drag_the_corpse() -> void:
 
 	assert_false(target.alive, "sanity: the overkill hit must have killed it")
 	assert_eq(target.position, Vector2(100, 0), "a killing blow must not also drag the corpse")
+
+# ---------------------------------------------------------------------------
+# criterion: issue 562, a dragged target is stunned for exactly the drag
+# ---------------------------------------------------------------------------
+
+func _deps_with_actions(actions: Array[ActionDef], power: float) -> SimDeps:
+	var actions_by_id := {}
+	for a in actions:
+		actions_by_id[a.id] = a
+	var deps := SimDeps.new()
+	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
+	deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _r = null) -> float: return power
+	deps.damage_reduction = func(_u: CombatUnit) -> float: return 0.0
+	deps.wind_up_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.wind_up_ticks
+	deps.recover_ticks = func(_u: CombatUnit, a: ActionDef) -> int: return a.recover_ticks
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return Intent.idle()
+	return deps
+
+func test_the_stun_lasts_exactly_as_long_as_the_drag() -> void:
+	var hook := _hook(&"hook", 100.0)
+	var deps := _deps_with_action(hook, 5.0)
+
+	var state := CombatState.new(109)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps) # lands
+
+	assert_true(target.has_status(CG.Status.STUN), "a dragged target is stunned")
+	assert_eq(int(target.status_source.get(CG.Status.STUN, -1)), caster.id, "stunned by whoever hooked it")
+
+	for _i in CombatSim.PULL_TICKS - 1:
+		assert_true(target.has_status(CG.Status.STUN), "still stunned while still being dragged")
+		CombatSim.step(state, deps)
+
+	assert_eq(target.pull_ticks_left, 0, "sanity: the drag is over")
+	CombatSim.step(state, deps)
+	assert_false(target.has_status(CG.Status.STUN), "and the stun ends with it")
+
+func test_a_hook_emits_a_stun_named_by_the_action_that_caused_it() -> void:
+	var hook := _hook(&"hook", 100.0)
+	var deps := _deps_with_action(hook, 5.0)
+
+	var state := CombatState.new(110)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps)
+
+	var stuns := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.STUN:
+			stuns += 1
+			assert_eq(e.action_id, hook.id, "the stun names the hook, so the log and the audio can resolve it")
+			assert_eq(e.target_id, target.id)
+	assert_eq(stuns, 1, "exactly one stun applied")
+
+## The consequence the player asked to have reported rather than worked around:
+## a hook now interrupts a cast, which makes the Abomination an anti-caster.
+func test_a_hook_interrupts_the_cast_it_lands_on() -> void:
+	var hook := _hook(&"hook", 100.0)
+	var big := _hook(&"bigcast", 0.0)
+	big.wind_up_ticks = 30
+	var deps := _deps_with_actions([hook, big], 5.0)
+
+	var state := CombatState.new(111)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(200, 0), [big.id])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	target.intent = Intent.use_action(big.id, caster.id)
+	CombatSim.step(state, deps)
+	assert_eq(target.current_action, big.id, "sanity: the target is mid-cast when the hook lands")
+
+	CombatSim.step(state, deps) # the hook lands and stuns
+	CombatSim.step(state, deps) # the stun is read at the next decision
+
+	assert_eq(target.current_action, &"", "the cast is thrown away, not resumed")
+	var interrupted := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.INTERRUPTED and e.source_id == target.id:
+			interrupted += 1
+	assert_eq(interrupted, 1, "and it is reported as an interrupt")
+
+## The other edge. A second stun landing mid-drag must not drag the target any
+## further: `pull_ticks_left` bounds the distance, the stun only authorises it.
+func test_a_second_stun_landing_mid_drag_does_not_drag_the_target_further() -> void:
+	var hook := _hook(&"hook", 70.0)
+	var deps := _deps_with_action(hook, 5.0)
+
+	var state := CombatState.new(113)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps) # lands, and drags one step
+
+	# A Brute's slam arriving on a target already on the chain.
+	target.statuses[CG.Status.STUN] = state.tick + CombatSim.PULL_TICKS * 4
+
+	for _i in CombatSim.PULL_TICKS * 4:
+		CombatSim.step(state, deps)
+
+	assert_almost_eq(target.position.x, 30.0, 0.01, "70 units and no more, however long the stun runs")
+
+## The stun is what authorises the drag, so stripping it stops the chain. This
+## is the one thing that can end a pull early, and it is a real counter.
+func test_cleansing_the_stun_takes_the_target_off_the_chain() -> void:
+	var hook := _hook(&"hook", 70.0)
+	var mend := _hook(&"mend", 0.0)
+	mend.wind_up_ticks = 6
+	mend.heals = true
+	mend.cleanses_harmful = true
+	var deps := _deps_with_actions([hook, mend], 1.0)
+
+	var state := CombatState.new(112)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
+	var healer := _unit(2, CG.Team.ENEMY, 30, Vector2(300, 0), [mend.id])
+	state.units.append(caster)
+	state.units.append(target)
+	state.units.append(healer)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	healer.intent = Intent.use_action(mend.id, target.id)
+	for _i in CombatSim.PULL_TICKS + 1:
+		CombatSim.step(state, deps)
+
+	assert_false(target.has_status(CG.Status.STUN), "sanity: the cleanse landed")
+	assert_eq(target.pull_ticks_left, 0, "the drag is cancelled, not merely un-stunned")
+	assert_true(target.position.x < 100.0, "it was dragged some of the way")
+	assert_true(target.position.x > 30.0, "but the cleanse stopped it short of the full 70 units")
+
+	var stopped_at := target.position.x
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps)
+	assert_almost_eq(target.position.x, stopped_at, 0.01, "and it stays where the chain let go")
 
 # ---------------------------------------------------------------------------
 # criterion: SLOWED scales move_speed through the SimDeps seam

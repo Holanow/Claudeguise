@@ -1172,6 +1172,105 @@ func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() 
 	assert_true(_all_label_text(rows[1]).contains(InspectPanel.VERDICT_ACTING), "row 2 is the one that acted")
 	panel.free()
 
+## The third way a row does nothing, and the key named the other two for
+## months: the pawn is mid-action and `CombatSim._decide_phase` reads no row at
+## all until it finishes. Measured on #575 at 72.9% of every `ready` verdict.
+func test_a_busy_pawn_holds_the_rows_it_is_not_acting_on_rather_than_calling_them_ready() -> void:
+	var pawn := _make_pawn()
+	var always := _make_plan("Always")
+	var second := _make_plan("Also always")
+	pawn.plans = [always, second]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	unit.current_action = &"whatever"
+	unit.action_ticks_left = 40
+	unit.action_ticks_total = 40
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+	var acted := CombatEvent.make(CG.EventKind.ACTION_START, 5)
+	acted.source_id = 0
+	acted.source_plan = always.id
+	state.events.append(acted)
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var rows := _plan_rows(panel)
+	assert_true(_all_label_text(rows[0]).contains(InspectPanel.VERDICT_ACTING),
+		"the row the pawn is busy on is still the one acting")
+	var second_text := _all_label_text(rows[1])
+	assert_true(second_text.contains(InspectPanel.VERDICT_HELD),
+		"row 2's condition holds, but nothing will read it until the action ends: %s" % second_text)
+	assert_false(second_text.contains(InspectPanel.VERDICT_READY),
+		"`ready` beside a row nothing is reading is the sentence this word exists to stop: %s" % second_text)
+	panel.free()
+
+## The negative, and it is the half that makes the one above mean anything: the
+## same pawn, the same rows, free instead of busy, still says `ready`.
+func test_a_free_pawn_still_calls_a_row_whose_condition_holds_ready() -> void:
+	var pawn := _make_pawn()
+	var always := _make_plan("Always")
+	var second := _make_plan("Also always")
+	pawn.plans = [always, second]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+	var acted := CombatEvent.make(CG.EventKind.ACTION_START, 5)
+	acted.source_id = 0
+	acted.source_plan = always.id
+	state.events.append(acted)
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var second_text := _all_label_text(_plan_rows(panel)[1])
+	assert_true(second_text.contains(InspectPanel.VERDICT_READY), second_text)
+	assert_false(second_text.contains(InspectPanel.VERDICT_HELD),
+		"a free pawn is reading its plan, so nothing is held: %s" % second_text)
+	panel.free()
+
+## A word on a screen with nothing explaining it becomes furniture, which is why
+## the key exists at all. Issue 590 moved the key onto the words themselves, so
+## the requirement is now that every word a row can carry has an entry -- which
+## is stronger than the standing sentence was, because it cannot name three of
+## four and look complete.
+func test_every_verdict_word_a_row_can_carry_explains_itself() -> void:
+	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
+			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED,
+			InspectPanel.VERDICT_HELD]:
+		assert_true(InspectPanel.VERDICT_HELP.has(word),
+			"nothing says what '%s' means" % word)
+		assert_true(String(InspectPanel.VERDICT_HELP[word]).length() > 20,
+			"'%s' is explained by a word, not a sentence" % word)
+
+## And it reaches the screen: the word drawn beside a live row carries it.
+func test_the_verdict_drawn_beside_a_row_carries_its_own_explanation() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = [_make_plan("Always")]
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var found := 0
+	for n in _all_nodes(panel._detail_box):
+		if not (n is Label) or n.custom_minimum_size.x != 64.0 or n.text == "":
+			continue
+		found += 1
+		assert_eq(n.tooltip_text, String(InspectPanel.VERDICT_HELP.get(n.text, "")),
+			"'%s' is drawn with no mouseover" % n.text)
+	assert_true(found > 0, "no verdict was drawn at all, so this proves nothing")
+	panel.free()
+
+func _all_nodes(node: Node) -> Array:
+	var out := [node]
+	for c in node.get_children():
+		out.append_array(_all_nodes(c))
+	return out
+
 ## The compulsion, which is the whole reason the sentinel exists: a taunted pawn
 ## must not read as the fallback deciding.
 func test_a_taunted_pawn_marks_the_fallback_row_taunted_rather_than_acting() -> void:
@@ -1256,7 +1355,8 @@ func test_between_fights_no_row_carries_a_verdict() -> void:
 	panel.open([pawn])
 	var text := _all_label_text(panel._detail_box)
 	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
-			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED]:
+			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED,
+			InspectPanel.VERDICT_HELD]:
 		assert_false(text.contains(word), "'%s' on a panel with no fight behind it: %s" % [word, text])
 	panel.free()
 

@@ -1278,6 +1278,7 @@ const VERDICT_ACTING := "acting"
 const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"
 const VERDICT_TAUNTED := "taunted"
+const VERDICT_HELD := "held"
 
 ## One word for one plan row, or "" when there is no live fight to read, and
 ## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
@@ -1291,7 +1292,11 @@ func _live_verdict(pawn: PawnData, plan) -> String:
 		return ""
 	if _last_source_plan(unit) == plan.id:
 		return VERDICT_ACTING
-	return VERDICT_READY if PlanInterpreter.condition_holds(_live_state, unit, plan) else VERDICT_WAITING
+	if not PlanInterpreter.condition_holds(_live_state, unit, plan):
+		return VERDICT_WAITING
+	## Issue 575: a busy pawn reads no row at all until its action ends, so
+	## `ready` beside one is a claim about a row nothing is consulting.
+	return VERDICT_HELD if unit.is_busy() else VERDICT_READY
 
 ## The same, for the immutable fallback row. It has no condition to hold, so it
 ## is either what the pawn is doing or it is not -- and the compulsion gets its
@@ -1338,7 +1343,8 @@ func _live_unit(pawn: PawnData):
 ## it explains rather than on it.
 const VERDICT_HELP := {
 	VERDICT_ACTING: "This row chose what the pawn last did.",
-	VERDICT_READY: "This row's condition holds. It is not the one running, so a row above it won.",
+	VERDICT_READY: "This row's condition holds and the pawn is free to take it. If it is not the row acting, a row above it won or its skill could not fire.",
+	VERDICT_HELD: "This row's condition holds, but the pawn is finishing an action and reads no row at all until that ends.",
 	VERDICT_WAITING: "This row's condition does not hold, so the pawn is not reading it.",
 	VERDICT_TAUNTED: "The pawn is compelled and none of its rows are read at all.",
 }

@@ -34,6 +34,10 @@ var move_speed: float = 0.0
 
 var alive: bool = true
 
+## A drag in progress: `pull_step` a tick until `pull_ticks_left` runs out.
+var pull_ticks_left: int = 0
+var pull_step: Vector2 = Vector2.ZERO
+
 ## Set by the decision layer, consumed by the simulation on the same tick.
 ##
 var intent: Intent = null

@@ -117,11 +117,35 @@ when the pawn does something unasked, and again when there is nowhere to change
 it.
 
 This has already cost real work three times. An automatic kiting branch made
-the Abomination run away from fights it was built to close. `DefaultBehavior`
-picking the first affordable action in list order is why `warden_chain_toss`
-never fired, and why `geyser_spout` had to be *placed first* in
-`starting_actions` to work at all. **Two of those three were mistaken for
-balance problems** and tuned against before anyone found the cause.
+the Abomination run away from fights it was built to close. `warden_chain_toss`
+never fired. `geyser_spout` had to be *placed first* in `starting_actions` to
+work at all. **Two of those three were mistaken for balance problems** and
+tuned against before anyone found the cause.
+
+**Those three happened. The mechanism this file used to blame for the last two
+did not, and sessions reasoned from it for weeks** — including a manager brief
+that handed the wrong rule to the engineer who then measured it. It said
+`DefaultBehavior` "picks the first affordable action in list order". Measured on
+#575, here is what the code does instead:
+
+- **A plan row wins if it can act at the instant the pawn is free.** Order is
+  priority only among the rows that can act *now*. `_action_can_fire` — range,
+  line of sight, cost, cooldown, summon cap, mark — is a **second, silent gate
+  with nothing to do with the row's condition**, and it is the half nobody knew
+  about. Long actions make those instants rare: a pawn is busy 71.8% of its
+  life, and 9.5% of busy ticks have a higher row ready and unreadable.
+- **`DefaultBehavior` is heal, then a self-buff gated on `unit.pawn == null`, so
+  never a pawn, then the *cheapest* attack on whichever side of
+  `MELEE_RANGE_THRESHOLD` matches the target's distance.** List order survives
+  only as the tie-break between two equally cheap attacks on the same side.
+- **Commitment is actions, not plans.** `MOVE_TO` never sets busy, so a walking
+  pawn re-reads its whole plan every tick. Only wind-up and recover commit, and
+  `_interrupt_on_stun` is the one designed way to break that.
+
+**What caused the original two was not re-derived**, and the examples no longer
+reproduce: `geyser_spout` comes from the `orb` weapon now rather than from
+`starting_actions` at all. Keep them as a warning about the trap. Do not cite
+them as evidence for a rule.
 
 It does not mean deleting `DefaultBehavior`: enemies have no plans and do not
 need them. It does not mean the player must configure everything — an immutable
