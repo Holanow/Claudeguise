@@ -41,6 +41,18 @@ static func _rect(img: Image, x0: int, y0: int, x1: int, y1: int) -> void:
 		for x in range(x0, x1):
 			_ink(img, x, y)
 
+## A thick segment, for a limb. The arms were straight horizontal stubs in the
+## first bake and read as a T-pose; an arm needs an angle and a rectangle cannot
+## have one.
+static func _limb(img: Image, a: Vector2, b: Vector2, half: float) -> void:
+	for y in N:
+		for x in N:
+			var p := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var ab := b - a
+			var t := 0.0 if ab.length_squared() <= 0.0 else 				clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+			if p.distance_to(a + ab * t) <= half:
+				_ink(img, x, y)
+
 ## A filled triangle, by half-plane test. The player's own words for the
 ## features: "pretty much just polygons, think small triangles for a goblin's
 ## nose and ears".
@@ -111,8 +123,8 @@ func _parts() -> Dictionary:
 	# --- features, the distinguishing half ----------------------------------
 	# The goblin's ears, and they are the player's worked example.
 	var ears := _blank()
-	_tri(ears, Vector2(11.0, 7.0), Vector2(4.0, 3.0), Vector2(11.0, 11.0))
-	_tri(ears, Vector2(21.0, 7.0), Vector2(28.0, 3.0), Vector2(21.0, 11.0))
+	_tri(ears, Vector2(12.0, 6.0), Vector2(7.0, 4.0), Vector2(12.0, 10.0))
+	_tri(ears, Vector2(20.0, 6.0), Vector2(25.0, 4.0), Vector2(20.0, 10.0))
 	out["ears_pointed"] = ears
 
 	var ears_round := _blank()
@@ -171,21 +183,21 @@ func _parts() -> Dictionary:
 	out["spikes"] = spikes
 
 	# --- hands, plain circles, the player's word --------------------------
-	# The circle is the player's word. The stub between it and the body is not
-	# decoration: a bare circle beside a torso reads as a detached blob, which is
-	# what the first bake looked like.
+	# The circle is the player's word for the HAND. The arm it hangs on is not
+	# decoration: straight horizontal stubs read as a T-pose, which is a posture
+	# nobody asked for.
 	var hands := _blank()
-	_rect(hands, 9, 20, 13, 22)
-	_rect(hands, 19, 20, 23, 22)
-	_ellipse(hands, 8.0, 21.0, 2.5, 2.5)
-	_ellipse(hands, 24.0, 21.0, 2.5, 2.5)
+	_limb(hands, Vector2(12.5, 16.0), Vector2(8.5, 25.0), 1.6)
+	_limb(hands, Vector2(19.5, 16.0), Vector2(23.5, 25.0), 1.6)
+	_ellipse(hands, 8.0, 26.0, 2.5, 2.5)
+	_ellipse(hands, 24.0, 26.0, 2.5, 2.5)
 	out["hands"] = hands
 
 	var hands_wide := _blank()
-	_rect(hands_wide, 6, 17, 12, 20)
-	_rect(hands_wide, 20, 17, 26, 20)
-	_ellipse(hands_wide, 6.0, 18.5, 3.0, 3.0)
-	_ellipse(hands_wide, 26.0, 18.5, 3.0, 3.0)
+	_limb(hands_wide, Vector2(10.0, 14.0), Vector2(5.0, 23.0), 2.2)
+	_limb(hands_wide, Vector2(22.0, 14.0), Vector2(27.0, 23.0), 2.2)
+	_ellipse(hands_wide, 4.5, 24.5, 3.0, 3.0)
+	_ellipse(hands_wide, 27.5, 24.5, 3.0, 3.0)
 	out["hands_wide"] = hands_wide
 
 	# Feet, for the same reason hands are: a body with nothing under it floats.
