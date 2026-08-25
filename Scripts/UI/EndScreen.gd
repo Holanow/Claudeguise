@@ -31,10 +31,13 @@ const PORTRAIT_SIZE := 56.0
 const CARD_SLOT := CARD_WIDTH + 2.0 * Palette.SPACE_S
 const ROSTER_MIN_WIDTH := 4.0 * CARD_SLOT + 3.0 * Palette.SPACE_M
 
-## The log gets a fixed slab of the banner: the column around it is centred and
-## sizes to content, so an expanding child would collapse to nothing. The roster
-## has no such constant on purpose -- see `_build_roster_side`.
-const LOG_HEIGHT := 104.0
+## Issue 591: a caption and one line, and it is a FLOOR rather than the height.
+## The log was a fixed 104 px slab until the Healed row and a three-line casualty
+## list together pushed Restart 21 px off the bottom of a 720 px window. It is
+## the one part of this card that scrolls, so it is the part that gives way: it
+## is the only child here that expands, and it takes whatever the rest of the
+## card leaves.
+const LOG_MIN_HEIGHT := 44.0
 
 ## Named so a probe and a test can find the controls without matching on caption.
 const SORT_DEALT_NAME := "SortByDealt"
@@ -50,6 +53,7 @@ const LOG_SCROLL_NAME := "FullLogScroll"
 var _sort: int = SortBy.DEALT
 var _rows: Array[Dictionary] = []
 var _roster: HBoxContainer = null
+var _log_side: Control = null
 var _log_label: RichTextLabel = null
 var _sort_buttons: Dictionary = {}
 
@@ -168,6 +172,7 @@ func _build() -> void:
 	name = "EndScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", int(Palette.SPACE_S))
 
 	## The log sits UNDER the roster rather than beside it. Side by side the
@@ -243,9 +248,11 @@ func _sort_button(caption: String, node_name: String, sort_by: int, into: Node) 
 func _build_log_side() -> Control:
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, LOG_HEIGHT)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, LOG_MIN_HEIGHT)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_theme_constant_override("separation", int(Palette.SPACE_S))
+	_log_side = side
 
 	var caption := Label.new()
 	caption.text = "The whole fight"

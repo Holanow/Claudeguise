@@ -230,19 +230,44 @@ func _run() -> void:
 	print("EndRoomPickProbe: window %s" % window)
 	for child in battle._end_banner.get_child(0).get_children():
 		print("EndRoomPickProbe:   column child %s %s" % [child.name, child.get_global_rect()])
-	## Only the controls this issue adds are asserted here. The banner's own
-	## Restart/Change party/Plans row is ALREADY 21 px past the bottom on
-	## origin/main and that is somebody else's card to fix -- reported, and
-	## printed below rather than folded into a pass.
+	## EVERY button on the banner, not only the ones this issue adds. An earlier
+	## run of this probe printed the Restart row 21 px past the bottom and called
+	## it somebody else's; measured on origin/main it sits at y=669 and fits, so
+	## the overflow was the Healed row's and the print was hiding it.
 	for n in _walk(battle._end_banner):
 		if n is Button and n.is_visible_in_tree():
-			var inside := window.encloses(n.get_global_rect())
-			print("EndRoomPickProbe:   banner button '%s' %s%s" % [
-				n.text, n.get_global_rect(), "" if inside else "   <-- OUTSIDE THE WINDOW"])
-	for id in battle._room_buttons:
-		var b: Button = battle._room_buttons[id]
-		_check(window.encloses(b.get_global_rect()),
-			"the room button '%s' is inside the window (%s)" % [b.text, b.get_global_rect()])
+			_check(window.encloses(n.get_global_rect()),
+				"the banner button '%s' is inside the window (%s)" % [n.text, n.get_global_rect()])
+	## The prose above the roster is not a fixed height, and the fight this probe
+	## happens to get is not the tallest card the game can draw. So it is forced
+	## to the worst the game CAN draw -- a casualty list, a reason and a duration,
+	## which is three lines -- and every button is checked again. Without it a run
+	## only ever sees whichever card that fight happened to produce.
+	##
+	## Three is also the ceiling, measured: the card clears the bottom by 8 px,
+	## and a fourth line puts it 23 px over with the log already on its floor.
+	## Reported on #591 rather than paid for by shrinking something else.
+	var was: String = battle._end_cost_label.text
+	var long_list: Array[String] = []
+	for i in 3:
+		long_list.append("Four pawns with long names died, and here is the reason why.")
+	battle._end_cost_label.text = "\n".join(long_list)
+	await _settle(8)
+	await _shot("heron_591_end_card_long_prose")
+	for n in _walk(battle._end_banner):
+		if n is Button and n.is_visible_in_tree():
+			_check(window.encloses(n.get_global_rect()),
+				"with a card too tall to fit, '%s' is still inside the window (%s)" % [
+					n.text, n.get_global_rect()])
+	var squeezed: float = battle._end_screen._log_side.size.y
+	print("EndRoomPickProbe: the log is %.0f px under a card too tall to fit" % squeezed)
+	battle._end_cost_label.text = was
+	await _settle(8)
+	var roomy: float = battle._end_screen._log_side.size.y
+	print("EndRoomPickProbe: and %.0f px once the prose is short again" % roomy)
+	_check(squeezed < roomy, "the log is what gave way, and it comes back")
+	_check(squeezed >= EndScreen.LOG_MIN_HEIGHT,
+		"the log shrank past a caption and one line")
 
 	## The healing column is on the card, not only in the tally.
 	var text := _text_of(battle._end_screen)

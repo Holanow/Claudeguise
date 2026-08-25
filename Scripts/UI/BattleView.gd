@@ -453,10 +453,10 @@ func _build_end_banner() -> void:
 ## control nothing can really click costs, so every room here takes the same
 ## event a mouse sends.
 ##
-## **In the left gutter, not in the card's own column.** Measured: the column
-## already runs 21 px past the bottom of a 1280x720 window before anything is
-## added to it, so a row appended there is a control no player can reach. The
-## gutter beside it is empty from the summary bars down.
+## **In the left gutter, not in the card's own column.** That column has 604 px
+## in a 720 px window and its existing content leaves 6 px spare, so six room
+## buttons appended to it would be controls no player can reach. The gutter
+## beside it is empty from the summary bars down.
 const ROOM_PICKER_NAME := "EndRoomPicker"
 const ROOM_PICKER_WIDTH := 260.0
 const ROOM_PICKER_CAPTION := "Fight another room"

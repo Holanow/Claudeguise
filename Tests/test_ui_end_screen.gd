@@ -451,3 +451,44 @@ func _text_of(node: Node) -> String:
 	for child in node.get_children():
 		out += _text_of(child)
 	return out
+
+# ---------------------------------------------------------------------------
+# Issue 591: the card has to fit the window it is drawn in.
+#
+# The Healed row costs 27 px per card and a defeat whose casualty list wraps to
+# three lines costs another 31, and together they pushed Restart (same seed)
+# 21 px past the bottom of a 720 px window. The log gives way instead. The
+# arrangement is asserted here; `Tools/EndRoomPickProbe.gd` is what proves it
+# works, by forcing a card too tall to fit and re-checking every button's rect
+# -- no synchronous test has a laid-out rect to read.
+
+## The log is the only part of the card that may grow or shrink, because it is
+## the only part that scrolls. A second expanding child would take the space
+## from it silently.
+func test_the_log_is_the_only_part_of_the_card_that_gives_way() -> void:
+	var screen := EndScreenScript.create()
+	var expanding: Array[String] = []
+	for child in screen.get_children():
+		if (child as Control).size_flags_vertical & Control.SIZE_EXPAND:
+			expanding.append(child.name)
+	assert_eq(expanding.size(), 1, "expanding children of the card: %s" % [expanding])
+	assert_true(screen._log_side in screen.get_children(), "the log is not a child of the card")
+	assert_true(screen._log_side.size_flags_vertical & Control.SIZE_EXPAND,
+		"the log is fixed, so the roster or the buttons have to absorb a tall card")
+	screen.free()
+
+## And it has a floor, or a long enough casualty list leaves a caption over
+## nothing and the card still would not fit.
+func test_the_log_has_a_floor_of_a_caption_and_a_line() -> void:
+	var screen := EndScreenScript.create()
+	assert_almost_eq(screen._log_side.custom_minimum_size.y, EndScreenScript.LOG_MIN_HEIGHT, 0.5)
+	assert_true(EndScreenScript.LOG_MIN_HEIGHT > 0.0)
+	screen.free()
+
+## The card itself expands, or the column around it hands the surplus to nothing
+## and the log's expand flag never sees a pixel.
+func test_the_card_takes_the_column_it_is_given() -> void:
+	var view = _battle_view()
+	assert_true(view._end_screen.size_flags_vertical & Control.SIZE_EXPAND,
+		"the card does not expand, so the log inside it cannot")
+	view.free()
