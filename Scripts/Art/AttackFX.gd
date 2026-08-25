@@ -77,7 +77,8 @@ static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vect
 		points[i] += position
 	UIArt.draw_outlined_polygon(canvas, points, Palette.damage_color(damage_type), Palette.ARENA_EDGE, 1.0)
 
-## Impact flash geometry. `progress` is 0 at the tick the hit lands, 1 at the
+## Interrupt ring geometry, and only that since #573 deleted the damage ring.
+## `progress` is 0 at the tick the event lands, 1 at the
 ## end of its own short on-screen life (a fraction of a second -- callers own
 ## the actual duration, same split BattleView's DamageFloater already uses
 ## between "how long" and "what it looks like at time t").
@@ -87,14 +88,3 @@ static func impact_flash_radius(base_radius: float, progress: float) -> float:
 static func impact_flash_alpha(progress: float) -> float:
 	return lerpf(0.9, 0.0, clampf(progress, 0.0, 1.0))
 
-## A brief coloured ring expanding and fading at the moment a hit lands --
-## the piece melee attacks had nothing of before this file. Ring rather than
-## a filled burst so it reads as an event (something just happened here)
-## rather than as a new solid object sitting on the arena.
-static func draw_impact_flash(canvas: CanvasItem, position: Vector2, base_radius: float, damage_type: CG.DamageType, progress: float) -> void:
-	var alpha := impact_flash_alpha(progress)
-	if alpha <= 0.0:
-		return
-	var color := Palette.damage_color(damage_type)
-	color.a = alpha
-	canvas.draw_arc(position, impact_flash_radius(base_radius, progress), 0.0, TAU, 20, color, 3.0, true)

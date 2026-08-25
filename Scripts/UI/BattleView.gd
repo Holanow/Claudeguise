@@ -1265,7 +1265,6 @@ func consume_events() -> void:
 			_sound.play_for(e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
-			_spawn_impact_flash(e)
 			_spawn_impact_burst(e)
 			if e.kind == CG.EventKind.DAMAGE:
 				_apply_impact(e)
@@ -1499,20 +1498,6 @@ func _mergeable_floater(unit_id: int, color: Color):
 		if child.can_merge(unit_id, color, FLOATER_MERGE_WINDOW):
 			return child
 	return null
-
-## PLAYTEST-NOTES 4 / PR #69 (sable, Scripts/Art/AttackFX.gd): "every class
-## needs an attack asset ... so I know what's up" -- melee had nothing but a
-## number appearing where DamageFloater already stood in for a hit landing.
-func _spawn_impact_flash(e: CombatEvent) -> void:
-	var target := state.unit(e.target_id)
-	if target == null:
-		return
-	var flash := Node2D.new()
-	flash.set_script(ImpactFlashScript)
-	_arena.add_child(flash)
-	flash.position = target.position
-	flash.follow(_unit_views.get(target.id))
-	flash.flash(e.damage_type, UnitViewScript.display_radius(target))
 
 ## Issue 517: off the same event as the ring, and the guard is here rather than
 ## at the call site so nothing can throw debris without passing it. DAMAGE only,
