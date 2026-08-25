@@ -97,6 +97,25 @@ land. Nothing checks this any more -- it was checked while both were the same
 array in code, and two PNGs cannot be compared that way -- so it is a rule for
 whoever repaints them.
 
+## In-flight projectile marks
+
+One per damage type, the mark a shot draws while it is still travelling. It is
+about 25 pixels across in the arena and it is rotated to its direction of
+travel, so **author it pointing right** and let the game turn it.
+
+`projectile/physical.png`, `projectile/fire.png`, `projectile/water.png`,
+`projectile/air.png`, `projectile/earth.png`, `projectile/divine.png`,
+`projectile/profane.png`, `projectile/raw.png`
+
+The filename is the lower-cased `CG.DamageType`, and **this list is checked by a
+test**: a damage type without a mark fails the build rather than putting a black
+square in a fight, and no two marks may be the same picture.
+
+**Leave a margin.** The shape is baked into the middle 95% of the canvas so its
+outline is not clipped at the tips, and a replacement that inks to the border
+will look cut off. `Tools/BakeProjectiles.gd` re-bakes all eight from the
+authoring shapes in `Scripts/Art/AttackFX.gd`.
+
 ## Equipment icons
 
 One per item, shown on the pre-fight equip screen at about 32 pixels.

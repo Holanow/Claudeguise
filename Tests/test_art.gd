@@ -516,6 +516,69 @@ func test_projectile_shape_falls_back_for_an_unknown_damage_type() -> void:
 	assert_true(points.size() >= 3)
 
 
+func test_the_hand_typed_damage_type_list_is_the_whole_enum() -> void:
+	# _ALL_DAMAGE_TYPES above is typed by hand, so on its own it can only agree
+	# with whoever typed it. This is the half that reads CG.DamageType.
+	assert_eq(_ALL_DAMAGE_TYPES, AttackFX.damage_types())
+
+
+func test_projectile_art_name_is_the_lower_cased_damage_type() -> void:
+	assert_eq(String(AttackFX.projectile_art_name(CG.DamageType.FIRE)), "projectile/fire")
+
+
+func test_every_damage_type_has_a_baked_projectile_mark() -> void:
+	# The marks are files since #572, so this asks the loader: a damage type
+	# whose PNG is missing draws a black square at every shot in flight.
+	for dt in AttackFX.damage_types():
+		var name := AttackFX.projectile_art_name(dt)
+		var tex := UIArt.texture_for(name)
+		assert_not_null(tex, "CG.DamageType.%s has no mark at Assets/UI/%s.png" % [
+			CG.DamageType.keys()[dt], name])
+		if tex == null:
+			continue
+		var used := tex.get_image().get_used_rect()
+		assert_true(used.size.x > 0 and used.size.y > 0,
+			"Assets/UI/%s.png loads but is blank" % name)
+
+
+func test_no_baked_projectile_mark_is_clipped_at_the_canvas_edge() -> void:
+	# PROJECTILE_ART_SPAN exists so the outline the bake strokes on the tips is
+	# inside the canvas. A shape touching the border means it was cut off.
+	for dt in AttackFX.damage_types():
+		var tex := UIArt.texture_for(AttackFX.projectile_art_name(dt))
+		if tex == null:
+			continue
+		var image := tex.get_image()
+		var used := image.get_used_rect()
+		assert_true(
+			used.position.x > 0 and used.position.y > 0
+			and used.end.x < image.get_width() and used.end.y < image.get_height(),
+			"CG.DamageType.%s inks %s on a %dx%d canvas, so it is clipped" % [
+				CG.DamageType.keys()[dt], used, image.get_width(), image.get_height()])
+
+
+func test_no_two_projectile_marks_are_the_same_picture() -> void:
+	# The array-distinctness test above measures the AUTHORING data, which is
+	# no longer what ships. This asks the same question of the pixels (#280).
+	var grid := 32
+	var pixels := {}
+	for dt in AttackFX.damage_types():
+		pixels[dt] = _icon_pixels(AttackFX.projectile_art_name(dt), grid)
+
+	var worst := 1.0
+	var worst_pair := ""
+	for a in AttackFX.damage_types():
+		for b in AttackFX.damage_types():
+			if a >= b:
+				continue
+			var d := _pixel_difference(pixels[a], pixels[b])
+			if d < worst:
+				worst = d
+				worst_pair = "%s/%s" % [CG.DamageType.keys()[a], CG.DamageType.keys()[b]]
+	assert_true(worst > 0.10,
+		"the closest pair of marks is %s at %.1f%% of their pixels" % [worst_pair, worst * 100.0])
+
+
 # The three `wind_up_sweep_angle` tests that stood here were deleted with the
 # ring itself in issue #85, deliberately not ported to the progress bar that
 # replaced it: the bar is `Scripts/UI`'s and already carries its own test that
