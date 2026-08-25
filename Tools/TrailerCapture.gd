@@ -3,16 +3,11 @@ extends Node
 ## Records real gameplay as a numbered PNG frame sequence, one file per rendered
 ## frame, so a trailer can be cut from it.
 ##
-## Every frame is driven by hand and every clip is pinned to a literal party,
-## room and seed, so two runs play the same fight. Launch it with `-FixedFps 60`:
-## the particle system ages on the engine's own delta and nothing in a tool can
-## reach it, so without a fixed delta the debris in a frame depends on how long
-## the previous `save_png` took.
-##
-## Add `-WriteMovie <path.avi>` for sound. Godot's movie writer mixes the audio
-## bus per rendered frame rather than in real time, which is the only way this
-## capture can carry sound at all: the loop runs at about a tenth of real time.
-## The movie covers EVERY engine frame, including setup and skipped run-up, so
+## Launch it with `-FixedFps 60`: the particle system ages on the engine's own
+## delta and nothing in a tool can reach it. Add `-WriteMovie <path.avi>` for
+## sound -- Godot's movie writer mixes the audio bus per rendered frame rather
+## than in real time, which is the only way a loop running at a tenth of real
+## time can carry any. The movie covers EVERY engine frame, setup included, so
 ## each manifest line carries the movie frame range beside the PNG range.
 
 const FRAMES_PER_TICK := 4
@@ -827,19 +822,12 @@ func _clip_toggles(fight: Dictionary) -> void:
 			await _teardown()
 
 
-## Issue 566. One window of the fight, shot twice from two working trees: once
-## with the unit art that is in `Assets/Units` now, and once with the art that
-## was there before the recipes landed. This tool cannot swap the assets itself
-## -- Godot imports them at startup -- so the pass is driven from outside:
-##
-##   git rm -r --cached -q Assets/Units && rm -rf Assets/Units
-##   git checkout <pre-566-ref> -- Assets/Units
-##   run.ps1 TrailerCapture ... -ToolArgs <dir>,--clip=art_ab,--label=_old
-##   git checkout HEAD -- Assets/Units
-##   run.ps1 TrailerCapture ... -ToolArgs <dir>,--clip=art_ab,--label=_new
-##
-## Same room, same seed, same tick, same frame count, so the two sequences line
-## up frame for frame and can be cut as a wipe.
+## Issue 566. One window of the fight, shot twice, once per working tree: the
+## unit art that is in `Assets/Units` now against the art that was there before
+## the recipes landed. Godot imports assets at startup, so the swap is driven
+## from outside this tool and the commit message carries the four commands.
+## Same room, seed, tick and frame count both times, so the two sequences line
+## up frame for frame.
 func _clip_art_ab(fight: Dictionary) -> void:
 	var at_tick: int = maxi(1, int(fight["ticks"]) / 3)
 	_set_toggles(SHOWY)
