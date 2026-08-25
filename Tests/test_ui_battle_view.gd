@@ -78,13 +78,11 @@ func test_a_poison_shaped_damage_event_still_spawns_a_floater_though_the_log_dro
 	state.emit(e)
 	view.consume_events()
 
-	# 2, not 1, since PR #69's wiring: every DAMAGE/HEAL event now also spawns
-	# an ImpactFlash (Scripts/UI/ImpactFlash.gd) alongside the floater this
-	# test was originally written to check for. The floater is still there —
-	# this asserts total count as a cheap proxy the same way it always did —
-	# but the count itself had to move with the new visual.
-	assert_eq(view._arena.get_child_count(), 2,
-		"a poison tick must still spawn a floating number (plus its impact flash) even though the log line is dropped")
+	# 1 again since #573 deleted the impact ring. It was 2 while PR #69's
+	# wiring spawned an ImpactFlash beside the floater; the floater is what
+	# this test was written to check for and it is still there.
+	assert_eq(view._arena.get_child_count(), 1,
+		"a poison tick must still spawn a floating number even though the log line is dropped")
 	DisplayOptions.reset()
 	view._arena.free()
 	view.free()

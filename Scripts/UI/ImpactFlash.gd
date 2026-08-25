@@ -2,12 +2,12 @@ extends Node2D
 class_name ImpactFlash
 
 
-## A brief coloured ring expanding and fading at the moment a hit lands --
-## sable's `AttackFX.draw_impact_flash` (Scripts/Art, PR #69), wired in here.
+## A brief ring expanding and fading on a body. **Since #573 deleted the damage
+## ring, this draws interrupts and nothing else**; the class keeps its name
+## because fifteen files find it by that name and none of them is about damage.
 
 const LIFETIME_SECONDS := 0.35
 
-var _damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 var _base_radius: float = 20.0
 var _age: float = 0.0
 ## Issue 151: an INTERRUPTED event is not damage and has no damage type, so
@@ -23,14 +23,6 @@ func follow(node: Node2D) -> void:
 	_follow = node
 	if node != null:
 		position = node.position
-
-func flash(damage_type: CG.DamageType, base_radius: float) -> void:
-	_damage_type = damage_type
-	_color_override = Color(0, 0, 0, 0)
-	_base_radius = base_radius
-	_age = 0.0
-	set_process(true)
-	queue_redraw()
 
 ## The player asked for the stun interrupt twice over: "the stun icon should
 ## appear and the unit should flash white or something". The badge says what
@@ -68,7 +60,6 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var progress := _age / LIFETIME_SECONDS
 	if _color_override.a <= 0.0:
-		AttackFX.draw_impact_flash(self, Vector2.ZERO, _base_radius, _damage_type, progress)
 		return
 	var alpha := AttackFX.impact_flash_alpha(progress)
 	if alpha <= 0.0:

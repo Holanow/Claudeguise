@@ -234,7 +234,9 @@ func test_a_frozen_ring_does_not_expand() -> void:
 	_reset()
 	var flash = in_tree(Node2D.new())
 	flash.set_script(ImpactFlashScript)
-	flash.flash(CG.DamageType.PHYSICAL, 20.0)
+	# #573 deleted the damage ring; `flash_color` is the interrupt cue and the
+	# only entry point left. The freeze behaviour under test is the same.
+	flash.flash_color(Palette.TEXT, 20.0)
 	ViewClock.frozen = true
 	flash._process(0.1)
 	assert_eq(flash._age, 0.0, "a frozen ring aged")

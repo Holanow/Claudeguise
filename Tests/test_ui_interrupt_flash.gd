@@ -100,3 +100,20 @@ func test_the_interrupt_flash_is_white_not_a_damage_colour() -> void:
 	flash.flash(CG.DamageType.FIRE, 20.0)
 	assert_eq(flash._color_override.a, 0.0, "flash() must clear the override")
 	flash.free()
+
+
+## Moved here from `test_ui_impact_flash.gd`, which #573 deleted along with the
+## damage ring. The node still exists and still runs on the wall clock; it is
+## the interrupt cue that owns it now, so its lifetime is asserted here.
+
+func test_flash_color_starts_the_clock() -> void:
+	var flash := ImpactFlash.new()
+	flash.flash_color(Palette.TEXT, 20.0)
+	assert_true(flash.is_processing())
+	flash.free()
+
+func test_the_flash_frees_itself_after_its_lifetime() -> void:
+	var flash := ImpactFlash.new()
+	flash.flash_color(Palette.TEXT, 20.0)
+	flash._process(ImpactFlash.LIFETIME_SECONDS + 0.01)
+	assert_true(not is_instance_valid(flash) or flash.is_queued_for_deletion())
