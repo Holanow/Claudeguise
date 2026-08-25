@@ -146,12 +146,19 @@ func _staged() -> void:
 		var half := float(STAGED_CROP.y * STAGED_ZOOM) * 0.5
 		var k := _arena_scale() * float(STAGED_ZOOM)
 		var radius := UnitView.display_radius(state.units[i])
+		var ink_top := int(half - UnitView.drawn_top(STAGED[i], CG.Team.ENEMY, radius) * k)
+		var ink_bottom := int(half + UnitView.drawn_bottom(STAGED[i], CG.Team.ENEMY, radius) * k)
 		print("  %-14s %6d of %d differ (%.2f%%); they lie in y %d..%d, the body's own ink in y %d..%d, its bar stack ends at y %d" % [
 			STAGED[i], held[i], total, 100.0 * float(held[i]) / float(total),
-			int(box.position.y), int(box.end.y),
-			int(half - UnitView.drawn_top(STAGED[i], CG.Team.ENEMY, radius) * k),
-			int(half + UnitView.drawn_bottom(STAGED[i], CG.Team.ENEMY, radius) * k),
-			int(half)])
+			int(box.position.y), int(box.end.y), ink_top, ink_bottom, int(half)])
+		# Split at the unit's origin, which is where `_draw_bar_tether` stops: the
+		# bar stack, the name plate and that tether all live above it and a corpse
+		# correctly stops carrying them, so only the count BELOW it can say whether
+		# the chunks at rest are the body.
+		print("                 %6d differ above the origin (bars, plate, tether), %6d BELOW it, in rows %d..%d" % [
+			_changed_pixels_in_rows(alive[i], first[i], ink_top, int(half)),
+			_changed_pixels_in_rows(alive[i], first[i], int(half) + 1, ink_bottom),
+			ink_top, ink_bottom])
 	var worst := 0
 	for n in frozen_hold:
 		worst = maxi(worst, n)
@@ -161,6 +168,15 @@ func _staged() -> void:
 	_view.queue_free()
 	_view = null
 	await get_tree().process_frame
+
+## Differing pixels in one band of rows, both ends included.
+func _changed_pixels_in_rows(a: Image, b: Image, top: int, bottom: int) -> int:
+	var n := 0
+	for y in range(maxi(0, top), mini(a.get_height(), bottom + 1)):
+		for x in a.get_width():
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				n += 1
+	return n
 
 ## The box every differing pixel falls inside, in panel pixels.
 func _difference_box(a: Image, b: Image) -> Rect2:
