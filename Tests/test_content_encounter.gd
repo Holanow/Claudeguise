@@ -16,66 +16,88 @@ func _party_of(class_id: StringName, count: int) -> Array[PawnData]:
 		party.append(PawnFactory.make_preset_pawn(class_id, &"%s_%d" % [class_id, i], "%s %d" % [class_id, i]))
 	return party
 
-func _run(class_id: StringName, seed: int) -> Dictionary:
+
+## Issue 564: what the two parties actually cast, not who won and how fast.
+##
+## The proxy this replaces compared outcome and fight length, and it separated
+## these classes only while one of them was losing: on trunk a planned
+## geysermancer x4 won 6 of 30 in this room and siege_master x4 won 30 of 30,
+## so "different outcome" was really "one of these is worse". #556 made the
+## Geysermancer win the same room at the same speed and the proxy collapsed
+## while the classes did not -- their cast sets stayed disjoint throughout.
+const PAIR_SEEDS := 8
+
+## Every action the PARTY's own pawns fired, deduplicated and sorted. Enemy
+## casts are excluded: both arms fight the same room, so counting those would
+## make every pair overlap.
+func _cast_set(class_id: StringName) -> Array:
 	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
-	var state := CombatSim.build(_party_of(class_id, 4), encounter, seed)
-	var outcome := CombatSim.run(state)
-	return {"outcome": outcome, "ticks": state.tick}
-
-## Audited on #260 and it survives, but it means less than its name says.
-## Reported, not acted on: no seed moved and no threshold changed. Three tests
-## named "X and Y fight differently" rest on this.
-func _differs(a: Dictionary, b: Dictionary) -> bool:
-	if a["outcome"] != b["outcome"]:
-		return true
-	var longer = maxf(float(a["ticks"]), float(b["ticks"]))
-	var shorter = minf(float(a["ticks"]), float(b["ticks"]))
-	if shorter <= 0.0:
-		return longer > 0.0
-	return (longer / shorter) >= 1.2
-
-
-## Swept over `PAIR_SEEDS`, never asserted on one. A single seed cannot tell
-## "these classes play differently" from "this seed is one where they happen
-## to", and this file already records two blind re-picks that prove it.
-const PAIR_SEEDS := 30
-const PAIR_MAJORITY := 16
-
-func _pair_difference_count(class_a: StringName, class_b: StringName) -> int:
-	var differing := 0
+	var out := {}
 	for seed in PAIR_SEEDS:
-		if _differs(_run(class_a, seed), _run(class_b, seed)):
-			differing += 1
-	return differing
+		var state := CombatSim.build(_party_of(class_id, 4), encounter, seed)
+		CombatSim.run(state)
+		for e in state.events:
+			if e.kind != CG.EventKind.ACTION_FIRE:
+				continue
+			var u := state.unit(e.source_id)
+			if u != null and u.pawn != null:
+				out[e.action_id] = true
+	var keys := out.keys()
+	keys.sort()
+	return keys
+
+
+## Not strict disjointness: `channel_mana` is a shared core action two classes
+## may both carry, and sharing one utility row does not make them one class.
+## The claim is that each casts something the other never does.
+func _only_in(a: Array, b: Array) -> Array:
+	var out := []
+	for id in a:
+		if not b.has(id):
+			out.append(id)
+	return out
 
 
 func _assert_pair_differs(class_a: StringName, class_b: StringName) -> void:
-	var differing := _pair_difference_count(class_a, class_b)
-	print("classes differ: %s vs %s on %d of %d seeds" % [class_a, class_b, differing, PAIR_SEEDS])
-	assert_true(differing >= PAIR_MAJORITY,
-		"%s and %s produced the same fight on %d of %d seeds" % [
-			class_a, class_b, PAIR_SEEDS - differing, PAIR_SEEDS])
+	var a := _cast_set(class_a)
+	var b := _cast_set(class_b)
+	var a_only := _only_in(a, b)
+	var b_only := _only_in(b, a)
+	print("classes differ: %s casts %s (%d only its own) | %s casts %s (%d only its own)" % [
+		class_a, a, a_only.size(), class_b, b, b_only.size()])
+	assert_false(a.is_empty(), "%s cast nothing at all; this measurement is empty" % class_a)
+	assert_false(b.is_empty(), "%s cast nothing at all; this measurement is empty" % class_b)
+	assert_false(a_only.is_empty(), "%s casts nothing %s does not also cast" % [class_a, class_b])
+	assert_false(b_only.is_empty(), "%s casts nothing %s does not also cast" % [class_b, class_a])
 
 
 ## Mono-class parties, diagnostic only, same caveat this file states everywhere
-## else. Issues 30 and 52 each re-picked this test's seed after a collision;
-## #556 collided the Siege Master pair the same way, so all three pairs are
-## swept instead.
+## else.
 func test_geysermancers_and_warriors_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"warrior")
 
 
 ## **The park this replaces was inverted, and #556 fired it.** From #490 the
 ## two casters were alike on 12 of 30 seeds, 16 after #544; separating their
-## statlines took it to 0, so the real assertion is restored here as the park's
-## own message asked. This is the ordinary pair test now, on the same sweep as
-## the other two.
+## statlines took it to 0 of 30, so the real assertion is restored here as the
+## park's own message asked.
 func test_geysermancers_and_priests_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"priest")
 
 
 func test_geysermancers_and_siege_masters_fight_differently() -> void:
 	_assert_pair_differs(&"geysermancer", &"siege_master")
+
+
+## The negative half, and without it the three above prove nothing: a class
+## compared with itself must read as the SAME, or "each casts something the
+## other does not" is a property of the instrument rather than of the classes.
+func test_a_class_does_not_read_as_different_from_itself() -> void:
+	for class_id in [&"geysermancer", &"priest", &"siege_master"]:
+		var own := _cast_set(class_id)
+		assert_false(own.is_empty(), "%s cast nothing at all" % class_id)
+		assert_eq(_only_in(own, own), [],
+			"%s reads as casting something it does not cast" % class_id)
 
 
 ## Issue 2's acceptance criterion 6 asked for a win count across twenty seeds
@@ -117,7 +139,7 @@ func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 func test_seed_changes_the_fight() -> void:
 	# **This comment used to say geysermancer x4 "has the widest measured spread
 	# of the sampled comps". It does not: abomination x4 is 108% against this
-	# party's 55% (#268, table above `_differs`).** The assertion is left where
+	# party's 55% (#268).** The assertion is left where
 	# it is -- 55% clears a 15% floor comfortably and re-pointing a passing test
 	# at a different party to chase a bigger number is not an improvement. What
 	# was wrong was the sentence, so the sentence is what changed.

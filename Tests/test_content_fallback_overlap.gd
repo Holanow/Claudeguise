@@ -43,7 +43,14 @@ func test_the_fallback_already_casts_four_of_the_twenty_library_actions() -> voi
 ## A row shares the fallback's action and still changes the fight when it aims
 ## somewhere else (the Abomination's Claw) or fires at a different moment (the
 ## Priest's heal since #433). Only the outcome tells those apart.
-func test_only_the_geysermancer_top_row_still_changes_nothing() -> void:
+
+## **INVERTED PARK, ISSUE 565: the Priest is in this list and should not be.**
+## Its top row fires 42 heals and produces a bit-identical fight, and that was
+## already all but true on trunk -- there the row changed fight length on 0 of
+## 8 seeds, and its whole claim to being live was end-of-fight health differing
+## on 2 of 8 seeds by 4 points and 2. This asserts the inert set as it stands,
+## so it fires the day somebody makes the Priest's row matter.
+func test_the_geysermancer_and_priest_top_rows_change_nothing_issue_565() -> void:
 	var unedited := _digest(&"", false)
 	var inert := []
 	for class_id in Registry.all_class_ids():
@@ -51,8 +58,8 @@ func test_only_the_geysermancer_top_row_still_changes_nothing() -> void:
 		print("%-14s unedited %d  top row alone %d" % [String(class_id), unedited, top_row])
 		if top_row == unedited:
 			inert.append(class_id)
-	assert_eq(inert, [&"geysermancer"],
-		"the set of top rows that change nothing has moved; #434 is the Geysermancer's")
+	assert_eq(inert, [&"geysermancer", &"priest"],
+		"the set of inert top rows has moved; if the Priest left it, #565 is fixed and this park comes out")
 
 
 ## The negative half. Two classes overlap nothing, so a green run above is not
