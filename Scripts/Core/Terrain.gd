@@ -37,8 +37,23 @@ class Feature extends RefCounted:
 	func blocks_sight() -> bool:
 		return kind == Kind.WALL or kind == Kind.PILLAR
 
+	## Issue 554: the painted region, as disjoint rectangles. **Empty means the
+	## feature is exactly `rect`**, which is every authored feature and every
+	## hazard; only water fills it. `rect` stays the bounding box either way, so
+	## code that only wants a cheap reject does not care which kind it has.
+	var parts: Array[Rect2] = []
+
+	## The ground this feature actually covers.
+	func regions() -> Array[Rect2]:
+		return parts if not parts.is_empty() else [rect]
+
 	func contains_point(p: Vector2) -> bool:
-		return rect.has_point(p)
+		if parts.is_empty():
+			return rect.has_point(p)
+		for r in parts:
+			if r.has_point(p):
+				return true
+		return false
 
 static func make(kind: Kind, rect: Rect2) -> Feature:
 	var f := Feature.new()
@@ -50,6 +65,30 @@ static func make(kind: Kind, rect: Rect2) -> Feature:
 ## of its definition -- no damage, no status, no movement cost.
 static func pool(rect: Rect2) -> Feature:
 	return make(Kind.WATER, rect)
+
+## Issue 554, the player's own words: *"the pools just fuse into one, think
+## painting the floor"*. Stamps `stamp` onto `f`'s painted region and returns
+## whether any new ground got wet.
+##
+## The stored parts are kept **disjoint**: the stamp is cut by what is already
+## painted, so no ground is stored twice, a stamp entirely inside the region is
+## discarded at the door, and the region can never wet ground no cast painted.
+## That last property is why this is not a union of bounding boxes.
+static func paint(f: Feature, stamp: Rect2) -> bool:
+	var remaining: Array[Rect2] = [stamp]
+	for existing in f.regions():
+		var next: Array[Rect2] = []
+		for r in remaining:
+			next.append_array(subtract(r, existing))
+		remaining = next
+		if remaining.is_empty():
+			return false
+	if f.parts.is_empty():
+		f.parts = [f.rect]
+	for r in remaining:
+		f.parts.append(r)
+		f.rect = f.rect.merge(r)
+	return true
 
 ## Ground that is on fire, which is the only thing a pool reacts to.
 static func is_burning(f) -> bool:

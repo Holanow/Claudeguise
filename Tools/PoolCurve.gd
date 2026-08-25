@@ -164,7 +164,7 @@ func _long_fight_arm() -> void:
 		## what the simulation decided.
 		print("    cost per 500 ticks  " + "  ".join(cost))
 		var red := _water_redundancy(state)
-		_say("    %d water features form %d puddle(s); %.0f area of rect summed over %.0f actually covered = %.1fx redundant" % [
+		_say("    %d water stamps form %d puddle(s); %.0f area of rect summed over %.0f actually covered = %.1fx redundant" % [
 			f[1], _water_clusters(state), red[0], red[1], 0.0 if red[1] <= 0.0 else red[0] / red[1],
 		])
 
@@ -177,8 +177,9 @@ func _water_redundancy(state: CombatState) -> Array:
 	var sum_area := 0.0
 	for f in state.terrain:
 		if f.kind == Terrain.Kind.WATER:
-			rects.append(f.rect)
-			sum_area += f.rect.size.x * f.rect.size.y
+			for r in f.regions():
+				rects.append(r)
+				sum_area += r.size.x * r.size.y
 	if rects.is_empty():
 		return [0.0, 0.0]
 	var cells := {}
@@ -200,7 +201,7 @@ func _water_clusters(state: CombatState) -> int:
 	var rects: Array[Rect2] = []
 	for f in state.terrain:
 		if f.kind == Terrain.Kind.WATER:
-			rects.append(f.rect)
+			rects.append_array(f.regions())
 	var parent: Array[int] = []
 	for i in rects.size():
 		parent.append(i)
@@ -223,12 +224,15 @@ func _find(parent: Array[int], i: int) -> int:
 	return i
 
 ## [total, water, burning] right now.
+## [total features, water STAMPS, burning]. Issue 554 made a pool one feature
+## holding many rects, so counting features would report 1 however much ground
+## is painted. The stored rect count is what the cost actually tracks.
 func _composition(state: CombatState) -> Array:
 	var water := 0
 	var burning := 0
 	for f in state.terrain:
 		if f.kind == Terrain.Kind.WATER:
-			water += 1
+			water += f.regions().size()
 		elif Terrain.is_burning(f):
 			burning += 1
 	return [state.terrain.size(), water, burning]

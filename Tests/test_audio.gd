@@ -6,8 +6,11 @@ extends "res://Tests/TestCase.gd"
 ## that write a real file onto disk and assert the game finds it. Reasoning about
 ## a drop-in proves nothing: the whole claim is about files.
 
+## Issue 550 ships real sounds at the seven voiced names, so a scratch file must
+## not be written at one of those: it would either clobber a shipped asset or,
+## as a `.wav` beside a shipped `.ogg`, never be reached at all.
 const SCRATCH := [
-	"res://Assets/Audio/event/damage.wav",
+	"res://Assets/Audio/event/fight_start.wav",
 	"res://Assets/Audio/event/damage_over_time.wav",
 	"res://Assets/Audio/action/scratch_test_action.wav",
 	"res://Assets/Audio/event/action_fire.wav",
@@ -77,28 +80,30 @@ func _all_names() -> Array[String]:
 func test_a_dropped_in_sound_is_found_with_no_registration() -> void:
 	# The whole feature, end to end. Same shape as the PNG drop-in test in
 	# test_art.gd, and for the same reason: this is a claim about the filesystem.
-	var path := "res://Assets/Audio/event/damage.wav"
+	var path := "res://Assets/Audio/event/fight_start.wav"
 	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
-	assert_eq(SoundBank.stream_for(&"event/damage"), null, "something is already answering to event/damage")
+	assert_eq(SoundBank.stream_for(&"event/fight_start"), null, "something is already answering to event/fight_start")
 
 	_write_sound(path)
-	assert_not_null(SoundBank.stream_for(&"event/damage"), "a file dropped into Assets/Audio was not picked up")
+	assert_not_null(SoundBank.stream_for(&"event/fight_start"), "a file dropped into Assets/Audio was not picked up")
 
 	DirAccess.remove_absolute(path)
 	SoundBank.clear_cache()
-	assert_eq(SoundBank.stream_for(&"event/damage"), null, "the override survived its own deletion")
+	assert_eq(SoundBank.stream_for(&"event/fight_start"), null, "the override survived its own deletion")
 
 
-func test_a_dropped_in_sound_beats_the_generated_placeholder() -> void:
+func test_a_file_beats_the_generated_placeholder() -> void:
 	# The placeholder must get out of the way, or replacing one means deleting
-	# something first and the drop-in is not a drop-in.
+	# something first. Asserted on the SHIPPED file since #550, which is the
+	# same claim with a stronger subject: the sound the player hears today is
+	# the one in Assets/Audio, not the blip.
 	var event := _event(CG.EventKind.DAMAGE, &"warrior_strike")
-	var generated := SoundBank.stream_for_event(event)
-	assert_not_null(generated, "DAMAGE has no default voice; the rest of this test is meaningless")
-
-	_write_sound("res://Assets/Audio/event/damage.wav")
-	var dropped := SoundBank.stream_for_event(event)
-	assert_ne(dropped, generated, "the generated placeholder won over a real file")
+	var playing := SoundBank.stream_for_event(event)
+	assert_not_null(playing, "DAMAGE resolves to nothing at all")
+	assert_eq(playing, SoundBank.stream_for(&"event/damage"),
+		"the generated placeholder won over the shipped file")
+	assert_not_null(SoundBank.placeholder_for(&"event/damage"),
+		"the blip is the documented fallback when the file is deleted; it must still exist")
 
 
 func test_the_specific_name_wins_over_the_general_one() -> void:
@@ -116,7 +121,7 @@ func test_the_specific_name_wins_over_the_general_one() -> void:
 func test_an_unreadable_name_is_silent_rather_than_an_error() -> void:
 	# The negative half. With nothing dropped in, every name answers null, and
 	# a test that only checked the found path would pass while this broke.
-	for name in ["event/damage", "event/nonsense", "action/not_an_action"]:
+	for name in ["event/fight_start", "event/nonsense", "action/not_an_action"]:
 		assert_eq(SoundBank.stream_for(StringName(name)), null, "%s answered with no file present" % name)
 		assert_false(SoundBank.has_sound(StringName(name)))
 
@@ -150,16 +155,17 @@ func test_damage_over_time_is_silent_by_default_and_not_by_construction() -> voi
 		"a file dropped in for damage_over_time did not make it audible")
 
 
-func test_a_near_silent_file_is_how_a_kind_is_turned_off() -> void:
-	# The README tells a player this, so it is checked. The pipeline only adds,
-	# and this is the only way to subtract; if it stopped working the README
-	# would be quietly false and nothing else would notice.
+func test_changing_a_shipped_sound_means_replacing_its_file() -> void:
+	# The README tells a player this and it is the one instruction #550 changed:
+	# `EXTENSIONS` prefers .ogg, so a .wav dropped BESIDE a shipped .ogg is never
+	# reached. Turning a voiced kind off is still one file operation -- it is
+	# overwriting the file rather than adding one next to it.
 	var event := _event(CG.EventKind.ACTION_FIRE, &"warrior_strike")
-	var before := SoundBank.stream_for_event(event)
-	assert_not_null(before)
+	assert_true(SoundBank.stream_for_event(event) is AudioStreamOggVorbis,
+		"event/action_fire ships no .ogg; the rest of this test is meaningless")
 	_write_sound("res://Assets/Audio/event/action_fire.wav")
-	assert_ne(SoundBank.stream_for_event(event), before,
-		"a dropped-in file did not displace the placeholder, so a kind cannot be silenced")
+	assert_true(SoundBank.stream_for_event(event) is AudioStreamOggVorbis,
+		"a .wav beside the shipped .ogg was played; the README's instruction is then wrong")
 
 
 func test_the_voiced_names_are_exactly_the_seven_intended() -> void:
@@ -362,3 +368,100 @@ func test_the_instructions_say_which_names_are_voiced() -> void:
 	# above say the same thing without anybody having to keep a number current.
 	assert_false(voiced_section.contains("damage_over_time"),
 		"damage_over_time is a name, not a voiced kind, and must not sit in the voiced table")
+
+
+# ---------------------------------------------------------------------------
+# The sounds the game ships, issue 550.
+# ---------------------------------------------------------------------------
+
+## Every audio file committed under Assets/Audio, found by walking the folder
+## rather than listed here. A list would be the second list #299 refuses.
+func _shipped_files() -> Array[String]:
+	var out: Array[String] = []
+	var pending: Array[String] = ["res://Assets/Audio"]
+	while not pending.is_empty():
+		var dir_path: String = pending.pop_back()
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for sub in dir.get_directories():
+			pending.append("%s/%s" % [dir_path, sub])
+		for f in dir.get_files():
+			if SoundBank.EXTENSIONS.has(f.get_extension().to_lower()):
+				out.append("%s/%s" % [dir_path, f])
+	out.sort()
+	return out
+
+
+func test_every_voiced_name_ships_a_real_sound() -> void:
+	# The whole point of #550: the game had never made a sound. Asked of the
+	# file lookup alone, not of `stream_for_event`, so a placeholder cannot
+	# stand in for a missing file and make this pass.
+	for name in SoundBank.PLACEHOLDER_VOICES:
+		assert_not_null(SoundBank.stream_for(name),
+			"%s is a voiced name and no file ships for it; the game plays a blip there" % name)
+
+
+func test_every_shipped_sound_decodes_and_is_audible() -> void:
+	# A truncated or mis-encoded download loads as null and falls silently back
+	# to the blip, which looks exactly like the pipeline working. Length is
+	# read because a zero-length stream decodes fine and cannot be heard.
+	var files := _shipped_files()
+	assert_true(files.size() >= SoundBank.PLACEHOLDER_VOICES.size(),
+		"only %d audio files ship; the voiced set has %d names" % [files.size(), SoundBank.PLACEHOLDER_VOICES.size()])
+	for path in files:
+		var stream := SoundBank.load_audio(path)
+		assert_not_null(stream, "%s ships but does not decode as audio" % path)
+		assert_true(stream.get_length() > 0.02, "%s decodes to %.3f s and cannot be heard" % [path, stream.get_length()])
+
+
+func test_no_shipped_sound_is_long_enough_to_drone() -> void:
+	# The README's own selection rule, enforced rather than written down: a
+	# fight plays 6 to 8 sounds a second, so anything approaching a second
+	# overlaps itself several times over and stops marking a moment.
+	for path in _shipped_files():
+		var stream := SoundBank.load_audio(path)
+		assert_true(stream.get_length() <= 0.75,
+			"%s is %.2f s; at 8 sounds a second that is a drone, not a mark" % [path, stream.get_length()])
+
+
+func test_a_per_action_file_does_not_swallow_the_stun_cue() -> void:
+	# Issue 550's trap, and the reason `sound_name` resolves STATUS_APPLIED
+	# above the action branch. A slam's fire, its damage and its stun arrive in
+	# one tick; if all three resolved to `action/<id>` the per-tick dedup would
+	# collapse them and the stun would go silent for that one action.
+	var fire := _event(CG.EventKind.ACTION_FIRE, &"scratch_test_action")
+	var stun := _status_event(CG.Status.STUN, &"scratch_test_action")
+	_write_sound("res://Assets/Audio/action/scratch_test_action.wav")
+
+	assert_eq(String(SoundBank.sound_name(fire)), "action/scratch_test_action",
+		"a per-action file must still claim the action's own fire")
+	assert_eq(String(SoundBank.sound_name(stun)), "event/status_applied/stun",
+		"the per-action file swallowed the stun cue")
+	assert_ne(SoundBank.sound_name(fire), SoundBank.sound_name(stun),
+		"one name for both means one noise for both once the tick de-duplicates")
+
+
+func test_a_per_action_file_still_covers_that_action_s_damage() -> void:
+	# The negative half of the fix: only STATUS_APPLIED was moved out of the
+	# action branch, so everything else that carries an action_id still resolves
+	# to it. Without this, over-correcting would look identical to the fix.
+	var hit := _event(CG.EventKind.DAMAGE, &"scratch_test_action")
+	assert_eq(String(SoundBank.sound_name(hit)), "event/damage",
+		"with no file present the general name must answer")
+	_write_sound("res://Assets/Audio/action/scratch_test_action.wav")
+	assert_eq(String(SoundBank.sound_name(hit)), "action/scratch_test_action",
+		"a per-action file stopped covering its own damage")
+
+
+func test_the_readme_records_a_licence_and_a_source_for_every_shipped_file() -> void:
+	# `Assets/UI/README.md` documents where art came from; audio downloaded from
+	# somebody else needs the same, and a file with no recorded licence is a
+	# file nobody can tell is safe to ship.
+	var readme := FileAccess.get_file_as_string("res://Assets/Audio/README.md")
+	assert_ne(readme, "", "Assets/Audio/README.md is missing")
+	for path in _shipped_files():
+		var name := path.replace("res://Assets/Audio/", "")
+		assert_true(readme.contains(name),
+			"%s ships but Assets/Audio/README.md does not record where it came from" % name)
+	assert_true(readme.contains("CC0"), "no licence is recorded for the shipped sounds")

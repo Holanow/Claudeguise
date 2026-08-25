@@ -100,6 +100,9 @@ var _inspect_panel = null
 
 var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
+var _end_screen: EndScreen = null
+
+var _sound = null
 
 var _unit_card: UnitCard = null
 var _click_hint: Label = null
@@ -122,11 +125,21 @@ func _ready() -> void:
 	_build_team_status()
 	_build_end_banner()
 	_build_unit_card()
+	_build_sound()
 	# Guarded so a test can call _ready() directly on an instantiated-but-not-
 	# added scene to reach the HUD nodes begin() needs, without a live viewport.
 	if is_inside_tree():
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
+
+## Issue 550. The voices live under one child so the tree stays readable, and
+## `SoundBank` decides which events are audible -- this end of it only hands it
+## the whole stream, exactly as the combat log is handed the whole stream.
+func _build_sound() -> void:
+	var holder := Node.new()
+	holder.name = "Sound"
+	add_child(holder)
+	_sound = SoundBank.attach(holder)
 
 ## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
 ## or similar. Nothing currently indicates it."
@@ -262,6 +275,9 @@ func _sync_click_hint() -> void:
 		return
 	var covered := (_display_options != null and _display_options.visible)
 	covered = covered or (_inspect_panel != null and _inspect_panel.visible)
+	## Issue 552: the end card's buttons stand on the same pixels, and "click any
+	## unit" is advice about a fight that is over.
+	covered = covered or (_end_banner != null and _end_banner.visible)
 	# The setup hint stands on the same pixels and is the one a player needs first.
 	covered = covered or setup
 	_click_hint.visible = not card_discovered and not covered
@@ -339,17 +355,29 @@ func _build_end_banner() -> void:
 	_end_banner.visible = false
 	hud.add_child(_end_banner)
 
+	## Issue 552: centred in what is LEFT of the window, not in the window. The
+	## card grew from a paragraph to a roster and a log, so a centred column runs
+	## its heading and its cost line through the toolbar's buttons.
 	var column := VBoxContainer.new()
-	column.set_anchors_preset(Control.PRESET_CENTER)
+	column.anchor_left = 0.5
+	column.anchor_right = 0.5
+	column.anchor_top = 0.0
+	column.anchor_bottom = 1.0
 	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	column.grow_vertical = Control.GROW_DIRECTION_BOTH
+	column.offset_top = _SUMMARY_ROW_TOP
+	column.offset_bottom = 0.0
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	## Issue 552: a container defaults to MOUSE_FILTER_STOP, and this one grew
+	## from a paragraph to a roster. It covered Change party and Plans -- issue
+	## 343's defect exactly, in a node that was too small to show it before.
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", int(Palette.SPACE_S))
 	_end_banner.add_child(column)
 
 	_end_outcome_label = Label.new()
 	_end_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
-	_end_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING * 2)
+	## Issue 552: was HEADING * 2, which no longer fits above a roster and a log.
+	_end_outcome_label.add_theme_font_size_override("font_size", int(Palette.FONT_SIZE_HEADING * 1.15))
 	_end_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_end_outcome_label)
 
@@ -376,8 +404,15 @@ func _build_end_banner() -> void:
 	_end_prompt_label.visible = false
 	column.add_child(_end_prompt_label)
 
+	## Issue 552: the roster and the whole log. Inside the banner rather than
+	## beside it, so issue 343's arrangement -- dim as a sibling, banner itself
+	## on MOUSE_FILTER_IGNORE -- holds for it without being restated.
+	_end_screen = EndScreen.create()
+	column.add_child(_end_screen)
+
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	column.add_child(buttons)
 
@@ -798,6 +833,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
+	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
+		label.visible = true
 	_end_banner.visible = false
 	_end_dim.visible = false
 	if _unit_card != null:
@@ -1219,6 +1256,13 @@ func consume_events() -> void:
 	for e in events:
 		if _combat_log != null:
 			_combat_log.append_event(state, e)
+		# Issue 550. Every event, unfiltered: which ones make a noise is
+		# `SoundBank`'s decision and adding a second filter here is the second
+		# list #299 refuses. A hit stop is not honoured -- a sound is a mark on
+		# a moment rather than an animation, and the freeze is triggered BY the
+		# death whose sound it exists to give weight to.
+		if _sound != null:
+			_sound.play_for(e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_flash(e)
@@ -1302,7 +1346,9 @@ func _apply_impact(e: CombatEvent) -> void:
 	var struck = _unit_views.get(e.target_id)
 	if target == null or struck == null:
 		return
-	struck.struck()
+	# Issue 553: the type is passed so the flash CAN lean toward it. It ships
+	# white; `UnitView.FLASH_TINT` is the one number that changes that.
+	struck.struck(e.damage_type)
 	var source := state.unit(e.source_id)
 	var attacker = _unit_views.get(e.source_id)
 	if source == null or attacker == null or source.id == target.id:
@@ -1584,8 +1630,16 @@ func _show_outcome() -> void:
 	var prompt := plans_prompt(state)
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
+	_end_screen.open(state, _combat_log)
 	_end_banner.visible = true
 	_end_dim.visible = true
+	## Issue 552: the end card is as tall as the window, so its heading lands on
+	## the toolbar's own first row. Every label on that row is either restated by
+	## the card or not worth reading over it; the buttons beside them stay, which
+	## is the half issue 343 is about. The text stays set, only the drawing stops.
+	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
+		label.visible = false
+	_sync_click_hint()
 
 ## Issue 441. After #399 the editor starts empty, so a new player's first fight
 ## is entirely unplanned and nothing on the fight screen ever said so.

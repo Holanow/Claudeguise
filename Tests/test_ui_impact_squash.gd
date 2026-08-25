@@ -108,8 +108,11 @@ func test_a_hit_from_across_the_room_squashes_but_does_not_recoil() -> void:
 
 # --- the negative cases ----------------------------------------------------
 
+## Issue 553 put a second effect behind `impact_active`, so this turns that one
+## off too: what it asserts is that nothing MOVED, and a lit body has not moved.
 func test_the_toggle_off_leaves_every_body_exactly_where_it_was() -> void:
 	DisplayOptions.set_enabled(&"impact_squash", false)
+	DisplayOptions.set_enabled(&"hit_flash", false)
 	var view := _view_with_pair()
 	view.state.emit(_damage(1, 0, &"basic_attack"))
 	view.consume_events()
