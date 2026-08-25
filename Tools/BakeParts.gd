@@ -12,7 +12,26 @@ const OUT_DIR := "res://Assets/Units/parts"
 ## Every part is drawn on this one square canvas, already in its place. So
 ## composing a unit is overlaying parts in one rect, and a Rotund body and a
 ## Skinny body differ by which pixels they fill rather than by a fit rule.
-const N := 32
+##
+## The player, 2026-08-24, on the 32 this used to be: "Even for the full game
+## that seems a little conservative". Units draw at 20-60 px on screen, so 256
+## is 4x to 12x supersampled -- it downsamples clean and leaves room for a zoom
+## or a resolution this game does not ship at yet. A 32 px source scaled UP is
+## the failure that cannot be undone later.
+const N := 256
+
+## Parts are AUTHORED in a 32-unit square and rasterised at `N`. So the
+## coordinates below read as proportions of a body and changing `N` needs no
+## edit to any of them.
+const DESIGN := 32.0
+
+static func _scale() -> float:
+	return float(N) / DESIGN
+
+## One pixel's centre, in design units.
+static func _at(x: int, y: int) -> Vector2:
+	var s := _scale()
+	return Vector2((float(x) + 0.5) / s, (float(y) + 0.5) / s)
 
 ## White with an alpha channel. The colour is the recipe's, applied when the
 ## layers are composed, so one `body_skinny` serves a green goblin and a pink
@@ -31,15 +50,18 @@ static func _ink(img: Image, x: int, y: int) -> void:
 static func _ellipse(img: Image, cx: float, cy: float, rx: float, ry: float) -> void:
 	for y in N:
 		for x in N:
-			var dx := (float(x) + 0.5 - cx) / rx
-			var dy := (float(y) + 0.5 - cy) / ry
+			var p := _at(x, y)
+			var dx := (p.x - cx) / rx
+			var dy := (p.y - cy) / ry
 			if dx * dx + dy * dy <= 1.0:
 				_ink(img, x, y)
 
 static func _rect(img: Image, x0: int, y0: int, x1: int, y1: int) -> void:
-	for y in range(y0, y1):
-		for x in range(x0, x1):
-			_ink(img, x, y)
+	for y in N:
+		for x in N:
+			var p := _at(x, y)
+			if p.x >= float(x0) and p.x < float(x1) and p.y >= float(y0) and p.y < float(y1):
+				_ink(img, x, y)
 
 ## A thick segment, for a limb. The arms were straight horizontal stubs in the
 ## first bake and read as a T-pose; an arm needs an angle and a rectangle cannot
@@ -47,7 +69,7 @@ static func _rect(img: Image, x0: int, y0: int, x1: int, y1: int) -> void:
 static func _limb(img: Image, a: Vector2, b: Vector2, half: float) -> void:
 	for y in N:
 		for x in N:
-			var p := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var p := _at(x, y)
 			var ab := b - a
 			var t := 0.0 if ab.length_squared() <= 0.0 else 				clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
 			if p.distance_to(a + ab * t) <= half:
@@ -59,7 +81,7 @@ static func _limb(img: Image, a: Vector2, b: Vector2, half: float) -> void:
 static func _tri(img: Image, a: Vector2, b: Vector2, c: Vector2) -> void:
 	for y in N:
 		for x in N:
-			var p := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var p := _at(x, y)
 			var d1 := _side(p, a, b)
 			var d2 := _side(p, b, c)
 			var d3 := _side(p, c, a)
@@ -123,8 +145,8 @@ func _parts() -> Dictionary:
 	# --- features, the distinguishing half ----------------------------------
 	# The goblin's ears, and they are the player's worked example.
 	var ears := _blank()
-	_tri(ears, Vector2(12.0, 6.0), Vector2(7.0, 4.0), Vector2(12.0, 10.0))
-	_tri(ears, Vector2(20.0, 6.0), Vector2(25.0, 4.0), Vector2(20.0, 10.0))
+	_tri(ears, Vector2(12.0, 5.4), Vector2(6.6, 2.8), Vector2(12.0, 9.8))
+	_tri(ears, Vector2(20.0, 5.4), Vector2(25.4, 2.8), Vector2(20.0, 9.8))
 	out["ears_pointed"] = ears
 
 	var ears_round := _blank()
@@ -220,6 +242,28 @@ func _init() -> void:
 			printerr("BakeParts: '%s' puts no ink on the canvas" % name)
 			continue
 		img.save_png("%s/%s.png" % [OUT_DIR, name])
-		print("  %-16s %2d x %2d ink at %s" % [name, used.size.x, used.size.y, used.position])
-	print("BakeParts: %d part(s) written to %s" % [names.size(), OUT_DIR])
+	print("BakeParts: %d part(s) at %dx%d written to %s" % [names.size(), N, N, OUT_DIR])
+	_bake_units()
 	quit(0)
+
+## Every recipe, composed and written as `<id>.<side>.png`. `UnitArt.texture_for`
+## looks for a side-specific file BEFORE a shared one, so a composed unit beats
+## the older single drawing without a line of lookup code.
+##
+## Baked rather than composed at run time because at 256 the composition is
+## hundreds of thousands of per-pixel operations, and a fresh unit appearing
+## mid-fight must not stall the frame it appears on.
+func _bake_units() -> void:
+	UnitRecipes.clear_cache()
+	var total := 0
+	for id in UnitRecipes.recipe_ids():
+		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
+			var img := UnitRecipes.compose_image(id, team)
+			if img == null:
+				printerr("BakeParts: recipe '%s' composed nothing" % id)
+				continue
+			img.save_png(UnitArt.path_for(id, team))
+			total += 1
+		var used := UnitRecipes.compose_image(id, CG.Team.PLAYER).get_used_rect()
+		print("  %-16s ink %3d x %3d of %d" % [id, used.size.x, used.size.y, N])
+	print("BakeParts: %d composed unit file(s) written to %s" % [total, UnitArt.ART_DIR])

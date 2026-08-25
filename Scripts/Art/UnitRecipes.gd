@@ -119,6 +119,13 @@ static func part_image(part: StringName) -> Image:
 	return img
 
 static func _build(shape_id: StringName, team: CG.Team) -> Texture2D:
+	var img := compose_image(shape_id, team)
+	return null if img == null else ImageTexture.create_from_image(img)
+
+## The composed pixels. `Tools/BakeParts.gd` writes these to disk so the game
+## never pays for the composition, and this is the one place it happens, so the
+## baked file and the runtime fallback cannot disagree.
+static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
 	var layers: Array = RECIPES.get(shape_id, [])
 	if layers.is_empty():
 		return null
@@ -135,8 +142,10 @@ static func _build(shape_id: StringName, team: CG.Team) -> Texture2D:
 			_fill_square(out, Color.BLACK)
 			continue
 		_stamp(out, part, _layer_color(layer, team))
-	_outline(out)
-	return ImageTexture.create_from_image(out)
+	# The border scales with the canvas, or a one-pixel line authored at 256
+	# vanishes entirely by the time a 30-pixel goblin is drawn.
+	_outline(out, maxi(1, size / 32))
+	return out
 
 static func _layer_color(layer: Dictionary, team: CG.Team) -> Color:
 	if layer.get("team", false):
@@ -174,17 +183,18 @@ static func _stamp(out: Image, part: Image, color: Color) -> void:
 ## A one-pixel dark border around the composed silhouette. Around the OUTSIDE,
 ## never between two parts: an outline on every seam turns a body into a
 ## diagram, and the sprites this replaces outline the creature and not its arms.
-static func _outline(out: Image) -> void:
+static func _outline(out: Image, width: int = 1) -> void:
 	var n := out.get_width()
-	var edge: Array = []
-	for y in n:
-		for x in n:
-			if out.get_pixel(x, y).a > 0.0:
-				continue
-			if _touches_ink(out, x, y):
-				edge.append(Vector2i(x, y))
-	for p: Vector2i in edge:
-		out.set_pixel(p.x, p.y, OUTLINE)
+	for _pass in maxi(1, width):
+		var edge: Array = []
+		for y in n:
+			for x in n:
+				if out.get_pixel(x, y).a > 0.0:
+					continue
+				if _touches_ink(out, x, y):
+					edge.append(Vector2i(x, y))
+		for p: Vector2i in edge:
+			out.set_pixel(p.x, p.y, OUTLINE)
 
 static func _touches_ink(img: Image, x: int, y: int) -> bool:
 	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
