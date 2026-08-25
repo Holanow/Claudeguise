@@ -5,8 +5,15 @@ class_name UnitCard
 ## Issue 377: what the game already knows about one unit, reachable from the
 ## unit itself. It costs no screen space until a player clicks something.
 
+const FOCUS_SET := "Focus fire"
+const FOCUS_CLEAR := "Stop focusing"
+
 signal closed
 signal plans_requested
+
+## Issue 588: the player asked for this enemy to be focused, or for the focus to
+## be dropped. The view owns `CombatState`; this card only asks.
+signal focus_toggled(unit_id: int)
 
 ## Wide enough for a status sentence at two or three lines, narrow enough that
 ## it is a panel beside the fight rather than a takeover of it.
@@ -37,6 +44,7 @@ var _side: Label = null
 var _body: Label = null
 var _scroll: ScrollContainer = null
 var _plans_button: Button = null
+var _focus_button: Button = null
 
 static func create() -> UnitCard:
 	var card := UnitCard.new()
@@ -90,6 +98,11 @@ func _build() -> void:
 	_plans_button.pressed.connect(func(): plans_requested.emit())
 	buttons.add_child(_plans_button)
 
+	_focus_button = Button.new()
+	_focus_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+	_focus_button.pressed.connect(func(): focus_toggled.emit(unit_id))
+	buttons.add_child(_focus_button)
+
 	var close_button := Button.new()
 	close_button.text = "Close"
 	close_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
@@ -129,6 +142,10 @@ func _fill(state: CombatState, u: CombatUnit) -> void:
 	_scroll.custom_minimum_size.y = body_height(_body.get_combined_minimum_size().y, body_ceiling,
 		float(_body.get_line_height()))
 	_plans_button.visible = u.pawn != null
+	## Only an enemy can be focused, and the word says which way pressing it
+	## goes rather than naming the state it is already in.
+	_focus_button.visible = u.pawn == null and u.team == CG.Team.ENEMY
+	_focus_button.text = FOCUS_CLEAR if state.player_focus_id == u.id else FOCUS_SET
 
 ## Issue 396: `Shielding (5.0s left): Stops an` was cut by the card's bottom
 ## edge, because the cap was a round number of pixels and landed in the middle

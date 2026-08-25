@@ -37,6 +37,11 @@ var next_unresolved_projectile: int = 0
 ## `events_since` rather than clearing this, so the log survives a scrub.
 var events: Array[CombatEvent] = []
 
+## Issue 588: the enemy the player clicked, party-wide, and -1 when none.
+## Deliberately not `unit.focus_id`, which CombatSim overwrites at every action
+## commit and which #505 gave to cover.
+var player_focus_id: int = -1
+
 func _init(fight_seed: int = 0) -> void:
 	seed = fight_seed
 	rng = RandomNumberGenerator.new()

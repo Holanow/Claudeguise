@@ -31,6 +31,9 @@ const TARGETING_OPS := [
 	&"target_ally_with_harmful_status",
 	&"target_enemy_with_status",
 	&"target_enemy_without_status",
+	## Issue 588: so a written plan can aim at the player's click deliberately,
+	## rather than having its own targeting silently overruled.
+	&"target_focused_enemy",
 ]
 const ACTION_OPS := [&"use_action"]
 const DURATION_OPS := [&"once"]
@@ -91,6 +94,9 @@ static var STATE_CONDITIONS := {
 	## takes cover from the threat the row picked rather than from everyone.
 	&"self_in_cover": {"text": "in cover from the target", "holds": _in_cover},
 	&"self_not_in_cover": {"text": "not in cover from the target", "holds": _not_in_cover},
+	## Issue 588: the player has clicked an enemy and it is still alive. Global
+	## rather than per-unit, because the focus is one thing the party shares.
+	&"enemy_is_focused": {"text": "the player has focused an enemy", "holds": _enemy_is_focused},
 }
 
 ## The CONDITION whitelist and the editor's argument shapes, both derived, so a
@@ -125,6 +131,11 @@ static func _in_cover(state: CombatState, unit: CombatUnit) -> bool:
 
 static func _not_in_cover(state: CombatState, unit: CombatUnit) -> bool:
 	return not _in_cover(state, unit)
+
+## Issue 588. Takes `unit` it does not read, because every entry in
+## `STATE_CONDITIONS` is called with the same two arguments.
+static func _enemy_is_focused(state: CombatState, _unit: CombatUnit) -> bool:
+	return DefaultBehavior.player_focus(state, state.living(CG.Team.ENEMY)) != null
 
 ## Issue 97: the same shape `CONDITION_ARG_SHAPE` carries, for the MOVEMENT ops,
 ## so the plan editor can build a value editor for the distance a block holds.
@@ -563,6 +574,9 @@ static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, bl
 		&"target_enemy_without_status":
 			var clean := _nearest_enemy_without_status(state, unit, _status_arg(block))
 			return clean.id if clean != null else -1
+		&"target_focused_enemy":
+			var focused := DefaultBehavior.player_focus(state, state.living(_enemy_team(unit.team)))
+			return focused.id if focused != null else -1
 	return -1
 
 ## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
@@ -609,6 +623,8 @@ static func describe_op(op: StringName, args: Dictionary) -> String:
 			return "the nearest enemy with %s" % _status_word(int(args.get("status", 0)))
 		&"target_enemy_without_status":
 			return "the nearest enemy without %s" % _status_word(int(args.get("status", 0)))
+		&"target_focused_enemy":
+			return "the enemy the player focused"
 		&"use_action":
 			var action_id: StringName = args.get("action_id", &"")
 			var action := Registry.get_action(action_id)
