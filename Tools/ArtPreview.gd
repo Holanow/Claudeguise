@@ -67,12 +67,12 @@ func _draw() -> void:
 
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.BACKGROUND)
 	draw_string(
-		font, Vector2(_MARGIN.x, 44.0), "Placeholder silhouettes",
+		font, Vector2(_MARGIN.x, 44.0), "Unit art: recipes against drawings",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_HEADING, Palette.TEXT
 	)
 	draw_string(
 		font, Vector2(_MARGIN.x, 66.0),
-		"drawn as polygons in Scripts/Art/Silhouettes.gd  ·  left: readable size  ·  right: true on-screen size in the arena",
+		"NEW = issue 566, composed from parts in Assets/Units/parts  ·  old = one hand-drawn PNG  ·  left: readable size  ·  right: true on-screen size in the arena",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM
 	)
 
@@ -102,9 +102,20 @@ func _draw_cell(font: Font, id: StringName, cell: Vector2) -> void:
 	_draw_at(cell + Vector2(196.0, 96.0), id, actual, team, accent)
 	_draw_at(cell + Vector2(196.0 + actual * 2.6, 96.0), id, actual, team, accent, true)
 
+	var composed := UnitRecipes.has_recipe(id)
 	draw_string(
 		font, cell + Vector2(6.0, _CELL.y - 46.0), String(id),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_BODY, Palette.TEXT
+	)
+	# Which arm of the comparison this cell is. Read off the recipe table rather
+	# than a hand-typed list, so a cell cannot claim to be something it is not.
+	var tag := "NEW · recipe" if composed else "old · drawing"
+	var tag_color := Palette.damage_color(CG.DamageType.DIVINE) if composed else Palette.TEXT_DIM
+	var name_width := font.get_string_size(String(id), HORIZONTAL_ALIGNMENT_LEFT, -1,
+		Palette.FONT_SIZE_BODY).x
+	draw_string(
+		font, cell + Vector2(14.0 + name_width, _CELL.y - 46.0), tag,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, tag_color
 	)
 	draw_string(
 		font, cell + Vector2(6.0, _CELL.y - 30.0),

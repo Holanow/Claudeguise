@@ -15,9 +15,8 @@ static var _cache: Dictionary = {}
 ## The texture for a shape, or null when there is no file for it. Null is the
 ## normal case right now and is not an error: it means "use the placeholder".
 static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
-	var side := "player" if team == CG.Team.PLAYER else "enemy"
 	# Side-specific first, then the shared file.
-	for candidate in ["%s/%s.%s.png" % [ART_DIR, shape_id, side], "%s/%s.png" % [ART_DIR, shape_id]]:
+	for candidate in [path_for(shape_id, team), "%s/%s.png" % [ART_DIR, shape_id]]:
 		if _cache.has(candidate):
 			if _cache[candidate] != null:
 				return _cache[candidate]
@@ -26,7 +25,20 @@ static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
 		_cache[candidate] = tex
 		if tex != null:
 			return tex
+	# Issue 566. `Tools/BakeParts.gd` writes every recipe to `<id>.<side>.png`,
+	# which the loop above finds first and which is why a recipe beats an older
+	# shared drawing. This composes at runtime only when that file is missing --
+	# a correctness net, not the path the game takes.
+	if UnitRecipes.has_recipe(shape_id):
+		return UnitRecipes.compose(shape_id, team)
 	return null
+
+## Where a unit's art lives, side-specific. The one place that filename is
+## spelled: `Tools/BakeParts.gd` writes to it and the loop above reads it, and
+## `test_art_dispatch.gd` exists to keep it that way.
+static func path_for(shape_id: StringName, team: CG.Team) -> String:
+	var side := "player" if team == CG.Team.PLAYER else "enemy"
+	return "%s/%s.%s.png" % [ART_DIR, shape_id, side]
 
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return texture_for(shape_id, team) != null
