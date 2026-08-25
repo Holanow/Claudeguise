@@ -8,14 +8,12 @@ class_name CombatSim
 ## list. Not a combat number: nothing here affects hp, damage or speed.
 const _FALLBACK_SPAWN_SPACING := 32.0
 
-## Builds the starting state: places both sides, derives hp and resources
-## through `deps`, and emits FIGHT_START.
-## Issue 562: how long a pull takes. The player asked for 5 to 7 ticks; 7 is the
-## end of that range, which puts a 100-unit pull at about 14 units a tick and
-## leaves the widest margin under what `_tween_body` will interpolate for the
-## smallest body on screen. The target is stunned for the same span.
+## How many ticks a pull takes to drag its target, and how long that target is
+## stunned for: one number, because the stun IS the pull.
 const PULL_TICKS := 7
 
+## Builds the starting state: places both sides, derives hp and resources
+## through `deps`, and emits FIGHT_START.
 static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int, deps: SimDeps = null) -> CombatState:
 	if deps == null:
 		deps = SimDeps.new()
@@ -841,7 +839,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	_kill_if_dead(state, target, unit.id, action.id)
 
 	if action.pull_distance > 0.0 and target.alive:
-		_apply_pull(state, unit, target, action.pull_distance)
+		_apply_pull(state, unit, target, action)
 
 	if action.cleanses_harmful and target.alive:
 		_cleanse_harmful(state, unit, target, action)
@@ -992,30 +990,30 @@ static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: Com
 		e.status = status
 		state.emit(e)
 
-## Issue 14: drags `target` toward `caster` by up to `distance`, world units.
-static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, distance: float) -> void:
+## Issue 14: drags `target` toward `caster` by up to `action.pull_distance`,
+## world units, over `PULL_TICKS` and stunning it for the same span.
+static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
 	var to_caster := caster.position - target.position
 	var dist := to_caster.length()
 	if dist <= 0.0001:
 		return # already on top of the caster; nothing to drag
-	var travel := minf(distance, dist)
-	## Issue 562: over `PULL_TICKS`, not in one. A 100-unit pull moved in a
-	## single tick exceeds what `_tween_body` will interpolate for a small body,
-	## so it snapped; at 14 units a tick it slides with no special case in the
-	## view. The target is stunned for exactly the same span -- the stun IS the
-	## pull, so it reads the same number rather than a second one.
+	var travel := minf(action.pull_distance, dist)
 	target.pull_step = to_caster.normalized() * (travel / float(PULL_TICKS))
 	target.pull_ticks_left = PULL_TICKS
 	target.statuses[CG.Status.STUN] = state.tick + PULL_TICKS
 	target.status_source[CG.Status.STUN] = caster.id
-	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, &"")
+	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
 	se.status = CG.Status.STUN
 	state.emit(se)
 
-## One tick of a drag in progress. Runs whether or not the unit has an intent:
-## it is stunned, so it has none of its own.
+## One tick of a drag in progress, and the stun is what authorises it: a cleanse
+## that frees the target of the stun also takes it off the chain.
 static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
 	if unit.pull_ticks_left <= 0:
+		return
+	if not unit.has_status(CG.Status.STUN):
+		unit.pull_ticks_left = 0
+		unit.pull_step = Vector2.ZERO
 		return
 	unit.pull_ticks_left -= 1
 	unit.position = _sweep(state, unit, unit.pull_step)
