@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/Block593Plan.gd" id="1"]
+
+[node name="Block593Plan" type="Node"]
+script = ExtResource("1")
