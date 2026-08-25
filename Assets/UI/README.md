@@ -10,7 +10,7 @@ picture, and it works exactly the way `Assets/Units/` already works for units.
 
 ```
 Assets/UI/status/bleed.png
-Assets/UI/action/warrior_taunt.png
+Assets/UI/action/warrior_execute.png
 Assets/UI/item/plate_mail.png
 Assets/UI/panel_border.png
 ```
@@ -63,7 +63,7 @@ One per action, shown at the end of a wind-up progress bar so you can see what
 is coming rather than only that something is.
 
 `action/warrior_strike.png`, `action/warrior_guard.png`,
-`action/warrior_taunt.png`,
+`action/warrior_execute.png`, `action/warrior_taunt.png`,
 `action/warrior_block.png`, `action/warrior_second_wind.png`,
 `action/priest_heal.png`, `action/priest_bolt.png`, `action/priest_smite.png`,
 `action/priest_haste.png`, `action/priest_ward.png`,
