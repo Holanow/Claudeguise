@@ -6,6 +6,18 @@ class_name AttackFX
 ## vanishes at the size a unit or a 5px projectile mark actually draws, and
 ## every action already carries a damage type that the floating numbers
 ## already colour by.
+
+## The shapes below are AUTHORING data for `Tools/BakeProjectiles.gd`, not what
+## the game draws: a dart is the same picture every frame.
+
+## How far past the authored +/-1 the baked canvas reaches, so the outline is
+## not clipped at the tips. `draw_projectile` spans the same.
+const PROJECTILE_ART_SPAN := 1.05
+
+## The outline's width in the units the shapes are authored in, which at
+## `ArenaFloor`'s `size` of 15 is the 1.0 the polyline this replaces used.
+const PROJECTILE_OUTLINE_WIDTH := 1.0 / 15.0
+
 const _PROJECTILE_SHAPES := {
 	# Arrow: a head and a shaft, the plainest "this is a shot" read.
 	CG.DamageType.PHYSICAL: [
@@ -72,10 +84,30 @@ static func projectile_points(damage_type: CG.DamageType, size: float, forward: 
 ## only call this while a shot is unresolved -- same filter ArenaFloor already
 ## applies to its own marker.
 static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vector2, damage_type: CG.DamageType, size: float) -> void:
-	var points := projectile_points(damage_type, size, forward)
-	for i in points.size():
-		points[i] += position
-	UIArt.draw_outlined_polygon(canvas, points, Palette.damage_color(damage_type), Palette.ARENA_EDGE, 1.0)
+	var half := size * PROJECTILE_ART_SPAN
+	var box := Rect2(Vector2(-half, -half), Vector2(half, half) * 2.0)
+	var tex := UIArt.texture_for(projectile_art_name(damage_type))
+	if tex == null:
+		# The player's ruling: a missing sprite is a black square.
+		canvas.draw_rect(Rect2(position + box.position, box.size), Color.BLACK)
+		return
+	var angle := forward.angle() if forward.length_squared() > 0.0001 else 0.0
+	canvas.draw_set_transform(position, angle, Vector2.ONE)
+	canvas.draw_texture_rect(tex, box, false)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## The file one mark is drawn from: `Assets/UI/projectile/fire.png`. Lower-cased
+## enum name, the same convention `StatusIcons.art_name` uses.
+static func projectile_art_name(damage_type: CG.DamageType) -> StringName:
+	return StringName("projectile/%s" % String(CG.DamageType.keys()[damage_type]).to_lower())
+
+## Every damage type, in enum order, so the bake and the tests cannot disagree
+## about which marks exist.
+static func damage_types() -> Array:
+	var out: Array = []
+	for name in CG.DamageType.keys():
+		out.append(CG.DamageType[name])
+	return out
 
 ## Interrupt ring geometry, and only that since #573 deleted the damage ring.
 ## `progress` is 0 at the tick the event lands, 1 at the

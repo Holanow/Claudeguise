@@ -6,6 +6,7 @@ const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const ImpactBurstScript := preload("res://Scripts/UI/ImpactBurst.gd")
+const DeathExplosionScript := preload("res://Scripts/UI/DeathExplosion.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 const DeployViewScript := preload("res://Scripts/UI/DeployView.gd")
 const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
@@ -15,6 +16,9 @@ const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
 
 signal restart_requested
 signal back_requested
+## Issue 591: the end card offers the other rooms. The id, not an index --
+## #587 is turning rooms into scenes and an index would not survive it.
+signal room_requested(encounter_id: StringName)
 ## Every accepted placement, so `Main` can replay the fight the player watched.
 signal placement_changed(positions: Array[Vector2])
 
@@ -33,6 +37,8 @@ var _base_encounter = null
 var _deploy_band: Node2D = null
 var _unit_layer: Node2D = null
 var _bursts: Node2D = null
+## Issue 589. The chunks a dead body comes apart into, out of one fixed pool.
+var _gibs: Node2D = null
 var _text_layer: Node2D = null
 var _setup_hint: Label = null
 var _reset_button: Button = null
@@ -437,11 +443,81 @@ func _build_end_banner() -> void:
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	buttons.add_child(inspect_button)
 
+	_build_room_picker(_end_banner)
+
 	_inspect_panel = InspectPanel.create()
 	hud.add_child(_inspect_panel)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
 	_inspect_panel.closed.connect(_on_card_closed)
+
+## Issue 591: another room, from the end card. Plain `Button`s rather than an
+## `OptionButton`: the popup of one is a separate window and #520 is what a
+## control nothing can really click costs, so every room here takes the same
+## event a mouse sends.
+##
+## **In the left gutter, not in the card's own column.** That column has 604 px
+## in a 720 px window and its existing content leaves 6 px spare, so six room
+## buttons appended to it would be controls no player can reach. The gutter
+## beside it is empty from the summary bars down.
+const ROOM_PICKER_NAME := "EndRoomPicker"
+const ROOM_PICKER_WIDTH := 260.0
+const ROOM_PICKER_CAPTION := "Fight another room"
+
+var _room_buttons: Dictionary = {}
+
+func _build_room_picker(banner: Control) -> Control:
+	var side := VBoxContainer.new()
+	side.name = ROOM_PICKER_NAME
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+	side.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	side.grow_horizontal = Control.GROW_DIRECTION_END
+	side.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	side.offset_left = Palette.SPACE_M
+	side.offset_bottom = -Palette.SPACE_M
+	side.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, 0.0)
+	banner.add_child(side)
+
+	var caption := Label.new()
+	caption.text = ROOM_PICKER_CAPTION
+	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_child(caption)
+
+	## `Registry.pickable_encounter_ids()` is the same list party select offers,
+	## asked of the registry rather than of that screen. One place decides which
+	## rooms exist, which is what #587 has to be able to move.
+	for id in Registry.pickable_encounter_ids():
+		var room = Registry.get_encounter(id)
+		var b := Button.new()
+		b.text = room_button_text(id, room)
+		b.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, Palette.TOUCH_TARGET_MIN)
+		b.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+		b.clip_text = true
+		b.tooltip_text = PartySelect.room_summary(id)
+		b.set_script(GlossaryButton)
+		var room_id: StringName = id
+		b.pressed.connect(func(): room_requested.emit(room_id))
+		side.add_child(b)
+		_room_buttons[id] = b
+	return side
+
+## The room the player is already in is shown and dead rather than left out:
+## a list that changes length between fights is a list you have to re-read.
+func _sync_room_picker() -> void:
+	var here: StringName = config.encounter_id if config != null else &""
+	for id in _room_buttons:
+		_room_buttons[id].disabled = id == here
+
+## "Floor 1, The Narrows" is the room's whole name and half of it is the floor.
+## The floor is not a choice on this card, so it is dropped where it is there
+## and the full name stands where it is not.
+static func room_button_text(id: StringName, room) -> String:
+	var full: String = room.display_name if room != null and room.display_name != "" else String(id)
+	var comma := full.find(", ")
+	return full.substr(comma + 2) if comma >= 0 else full
 
 func _on_inspect_pressed() -> void:
 	_open_plans(null)
@@ -821,6 +897,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_shake_age = INF
 	_shake_amplitude = 0.0
 	ViewClock.frozen = false
+	if _gibs != null and is_instance_valid(_gibs):
+		_gibs.clear()
 	setup = false
 	_grabbed_unit_id = -1
 	_drag_moved = false
@@ -1057,6 +1135,7 @@ func _rebuild_units() -> void:
 	_unit_views.clear()
 	_unit_layer = null
 	_bursts = null
+	_gibs = null
 	_text_layer = null
 	_ensure_unit_views()
 
@@ -1093,6 +1172,11 @@ func _ensure_layers() -> void:
 	if _unit_layer == null or not is_instance_valid(_unit_layer):
 		_unit_layer = Node2D.new()
 		_arena.add_child(_unit_layer)
+	# Issue 589: under the debris and over the living, so a chunk cannot be
+	# mistaken for a body standing in front of one.
+	if _gibs == null or not is_instance_valid(_gibs):
+		_gibs = DeathExplosionScript.new()
+		_arena.add_child(_gibs)
 	# Issue 517: between the two, so debris covers a body and a name covers it.
 	if _bursts == null or not is_instance_valid(_bursts):
 		_bursts = ImpactBurstScript.new()
@@ -1177,6 +1261,8 @@ func _process(delta: float) -> void:
 func _render(alpha: float, stepped: bool, delta: float = 0.0) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
 	_advance_shake(delta)
+	if _gibs != null and is_instance_valid(_gibs):
+		_gibs.advance(delta)
 	var frame_at := {}
 	# Issue 583: unconditional, unlike the impact decay above -- an idle bob has
 	# no end to test for. Spent here for the same reason: a frozen frame never
@@ -1284,6 +1370,7 @@ func consume_events() -> void:
 			if e.kind == CG.EventKind.DAMAGE:
 				_apply_impact(e)
 		elif e.kind == CG.EventKind.DEATH:
+			_spawn_death_explosion(e)
 			_spawn_death_marker(e)
 			_hit_stop()
 			_screen_shake(e)
@@ -1514,6 +1601,30 @@ func _mergeable_floater(unit_id: int, color: Color):
 			return child
 	return null
 
+## Issue 589. The dead body's own chunks, thrown from where the body was DRAWN
+## rather than from where the last tick left it -- the same anchor #537 gave the
+## death plate, and here it matters more, because the chunks start as a copy of
+## the body and any error is a jump.
+##
+## A body with no recipe, or one that comes apart into a single chunk, throws
+## nothing and vanishes exactly as it did before this issue.
+func _spawn_death_explosion(e: CombatEvent) -> void:
+	if _gibs == null or not is_instance_valid(_gibs):
+		return
+	var dead := state.unit(e.target_id)
+	if dead == null:
+		return
+	var shape := UnitViewScript.shape_id(dead)
+	var fragments := UnitArt.fragments_for(shape, dead.team)
+	if fragments.is_empty():
+		return
+	var at := _drawn_event_position(dead)
+	_gibs.explode(at, UnitViewScript.display_radius(dead),
+		UnitViewScript.facing_left(dead), fragments, dead.id)
+	if _bursts != null and is_instance_valid(_bursts) \
+			and DisplayOptions.enabled(DeathExplosionScript.OPTION):
+		_bursts.death_burst(at, Palette.team_color(dead.team))
+
 ## Issue 517: off the same event as the ring, and the guard is here rather than
 ## at the call site so nothing can throw debris without passing it. DAMAGE only,
 ## and only damage some action dealt.
@@ -1631,6 +1742,7 @@ func _show_outcome() -> void:
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
 	_end_screen.open(state, _combat_log)
+	_sync_room_picker()
 	_end_banner.visible = true
 	_end_dim.visible = true
 	## Issue 552: the end card is as tall as the window, so its heading lands on

@@ -1230,9 +1230,22 @@ func test_a_free_pawn_still_calls_a_row_whose_condition_holds_ready() -> void:
 		"a free pawn is reading its plan, so nothing is held: %s" % second_text)
 	panel.free()
 
-## A word on a screen with nothing explaining it becomes furniture, which is
-## why the key exists at all. It has to name the new one too.
-func test_the_verdict_key_explains_every_word_a_row_can_carry() -> void:
+## A word on a screen with nothing explaining it becomes furniture, which is why
+## the key exists at all. Issue 590 moved the key onto the words themselves, so
+## the requirement is now that every word a row can carry has an entry -- which
+## is stronger than the standing sentence was, because it cannot name three of
+## four and look complete.
+func test_every_verdict_word_a_row_can_carry_explains_itself() -> void:
+	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
+			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED,
+			InspectPanel.VERDICT_HELD]:
+		assert_true(InspectPanel.VERDICT_HELP.has(word),
+			"nothing says what '%s' means" % word)
+		assert_true(String(InspectPanel.VERDICT_HELP[word]).length() > 20,
+			"'%s' is explained by a word, not a sentence" % word)
+
+## And it reaches the screen: the word drawn beside a live row carries it.
+func test_the_verdict_drawn_beside_a_row_carries_its_own_explanation() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always")]
 	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
@@ -1242,10 +1255,21 @@ func test_the_verdict_key_explains_every_word_a_row_can_carry() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn], state)
-	var text := _all_label_text(panel._detail_box)
-	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY, InspectPanel.VERDICT_HELD]:
-		assert_true(text.contains(word), "the key never says what '%s' means" % word)
+	var found := 0
+	for n in _all_nodes(panel._detail_box):
+		if not (n is Label) or n.custom_minimum_size.x != 64.0 or n.text == "":
+			continue
+		found += 1
+		assert_eq(n.tooltip_text, String(InspectPanel.VERDICT_HELP.get(n.text, "")),
+			"'%s' is drawn with no mouseover" % n.text)
+	assert_true(found > 0, "no verdict was drawn at all, so this proves nothing")
 	panel.free()
+
+func _all_nodes(node: Node) -> Array:
+	var out := [node]
+	for c in node.get_children():
+		out.append_array(_all_nodes(c))
+	return out
 
 ## The compulsion, which is the whole reason the sentinel exists: a taunted pawn
 ## must not read as the fallback deciding.
@@ -1498,8 +1522,10 @@ func test_the_wrapped_row_keeps_its_controls() -> void:
 		assert_true(texts.has(want), "the wrapped row lost %s: %s" % [want, str(texts)])
 	panel.free()
 
-## Five wrapped lines of rules in a column that fits two plan rows.
-func test_the_budget_rules_move_to_hover_in_a_column() -> void:
+## Issue 396 moved the block-cost rules to hover in the narrow column; issue 590
+## moved them there on the full-width screen too, where they were a second
+## paragraph of the `HOW_TO_PLAY` four sentences above them.
+func test_the_budget_rules_are_hover_on_both_widths() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always act")]
 	var embedded := _embedded_panel(pawn)
@@ -1513,8 +1539,11 @@ func test_the_budget_rules_move_to_hover_in_a_column() -> void:
 		"the rules are five wrapped lines here: " + short.text)
 	assert_true(short.tooltip_text.contains("A condition costs 0"),
 		"and they have to still be readable somewhere: " + short.tooltip_text)
-	assert_true(_budget_label(full).text.contains("A condition costs 0"),
-		"the full-width screen keeps them in place")
+	var wide := _budget_label(full)
+	assert_false(wide.text.contains("A condition costs 0"),
+		"the full-width screen prints the rules as a paragraph: " + wide.text)
+	assert_true(wide.tooltip_text.contains("A condition costs 0"),
+		"and then they are nowhere at all: " + wide.tooltip_text)
 	embedded.free()
 	full.free()
 

@@ -102,18 +102,47 @@ func test_the_banner_says_the_rows_are_not_read_at_all() -> void:
 	assert_true(text.contains("None of the rows below are read"), text)
 	panel.free()
 
-## The verdict key explains three words. While taunted no row carries one, so
-## the key is explaining something that is not on the screen.
-func test_the_verdict_key_is_not_shown_while_the_pawn_is_taunted() -> void:
+## Issue 590 moved the verdict key onto the words it explains. While taunted no
+## row carries a verdict at all, so there is nothing on the screen carrying the
+## key either -- which is what the deleted sentence was for.
+func test_no_verdict_and_so_no_verdict_key_while_the_pawn_is_taunted() -> void:
 	var panel = _panel(true)
-	var text := _labels(panel._detail_box)
-	assert_false(text.contains("Right now:"), text)
+	assert_false(_labels(panel._detail_box).contains("Right now:"),
+		"the standing key sentence is gone, not moved back")
+	for label in _verdict_labels(panel):
+		assert_true(label.text == "" or label.text == InspectPanel.VERDICT_TAUNTED,
+			"a taunted pawn's rows must carry no ready/waiting verdict: " + label.text)
 	panel.free()
 
-func test_the_verdict_key_is_shown_in_a_live_fight_that_is_not_taunted() -> void:
+## And in a live untaunted fight every verdict word carries its own explanation.
+func test_each_verdict_word_explains_itself_on_hover() -> void:
 	var panel = _panel(false)
-	assert_true(_labels(panel._detail_box).contains("Right now:"))
+	var found := 0
+	for label in _verdict_labels(panel):
+		if label.text == "":
+			continue
+		found += 1
+		assert_true(InspectPanel.VERDICT_HELP.has(label.text),
+			"'%s' is a verdict nothing explains" % label.text)
+		assert_eq(label.tooltip_text, String(InspectPanel.VERDICT_HELP[label.text]),
+			"'%s' carries no mouseover, so its meaning is nowhere" % label.text)
+	assert_true(found > 0, "no verdict word was drawn at all, so this proves nothing")
 	panel.free()
+
+## Every verdict label on the panel, by the 64-wide fixed column `_verdict_label`
+## gives them -- the same shape `_plan_rows` matches on.
+func _verdict_labels(panel) -> Array:
+	var out := []
+	for n in _walk(panel._detail_box):
+		if n is Label and n.custom_minimum_size.x == 64.0:
+			out.append(n)
+	return out
+
+func _walk(n: Node) -> Array:
+	var out := [n]
+	for c in n.get_children():
+		out.append_array(_walk(c))
+	return out
 
 ## The negative, and it is the one that matters. A banner that is always there
 ## is furniture within a session.

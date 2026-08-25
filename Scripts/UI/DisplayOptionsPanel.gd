@@ -4,6 +4,8 @@ class_name DisplayOptionsPanel
 
 ## The one place display toggles are shown, built from `DisplayOptions.OPTIONS`.
 
+const GlossaryButtonScript := preload("res://Scripts/UI/GlossaryButton.gd")
+
 signal changed()
 
 const PANEL_WIDTH := 420.0
@@ -57,6 +59,12 @@ func _ready() -> void:
 
 	for option in DisplayOptions.OPTIONS:
 		var box := CheckBox.new()
+		## Issue 590: the option's sentence is its mouseover, not a paragraph
+		## printed under the row. A `CheckBox` is a `Button`, so it takes the
+		## same glossary script every other hoverable control on this project
+		## takes, and right-click pins the box like all of them.
+		box.set_script(GlossaryButtonScript)
+		box.tooltip_text = option.help
 		box.button_pressed = DisplayOptions.enabled(option.id)
 		box.text = row_text(option.label, box.button_pressed)
 		box.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
@@ -73,13 +81,6 @@ func _ready() -> void:
 			changed.emit())
 		column.add_child(box)
 		_rows.append(box)
-
-		var help := Label.new()
-		help.text = option.help
-		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		help.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-		help.add_theme_color_override("font_color", Palette.TEXT_DIM)
-		column.add_child(help)
 
 ## Re-read the values before showing. The state is static and survives a screen
 ## being rebuilt, so a freshly-built panel would otherwise show the defaults

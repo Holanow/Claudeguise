@@ -76,8 +76,8 @@ static func attribute_text(a: CG.Attribute) -> String:
 
 ## The data half of the status hover text.
 ##
-## A status with a Balance-owned number reads it. BLEED, TAUNTED, STUN,
-## TAUNTING and SHIELDING have none to duplicate -- magnitude and duration are
+## A status with a Balance-owned number reads it. BLEED, TAUNTED, STUN and
+## TAUNTING have none to duplicate -- magnitude and duration are
 ## per-action data on whichever ActionDef grants them, and TAUNTING's radius is
 ## `ActionDef.taunt_radius`, applied by `_apply_taunt` -- so their sentence
 ## names the mechanism rather than a number that would be wrong for most
@@ -107,7 +107,7 @@ static func status_text(s: CG.Status) -> String:
 		CG.Status.TAUNTING:
 			return "Forces nearby enemies to target this unit while it lasts."
 		CG.Status.SHIELDING:
-			return "Stops an incoming ranged shot aimed at an ally standing behind this unit, while it lasts."
+			return "Stops an incoming ranged shot aimed at an ally standing behind this unit, and soaks damage until the shield is spent."
 		## Issue 61. No number, and for a different reason from the others above:
 		CG.Status.SUSTAINING:
 			return "This unit is holding an action open. It pays that action's cost every tick, and stops when its plan chooses something else or it can no longer pay."
@@ -134,6 +134,10 @@ static func status_magnitude_text(status: CG.Status, magnitude: int) -> String:
 		return "%d stack%s" % [magnitude, "" if magnitude == 1 else "s"]
 	if CombatSim._HIT_SCALED_STATUSES.has(status):
 		return "strength %d" % magnitude
+	## Issue 593: the block is spent by damage rather than by time, so the
+	## number a player needs is how much of it is left.
+	if status == CG.Status.SHIELDING:
+		return "%d shield left" % magnitude
 	return ""
 
 ## The live half of the popup: what `unit` is carrying of `status` at `tick`.

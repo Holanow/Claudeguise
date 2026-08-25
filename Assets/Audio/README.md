@@ -83,6 +83,7 @@ one, which is the same one-file operation as replacing a blip.
 | `event/sustain_end.ogg` | A unit stops holding one. |
 | `event/summoned.ogg` | A unit is built onto the field mid-fight: a siege engine, or one of the Rat King's rats. Measured at 53 across 15 fights, so treat it as frequent rather than a set piece. |
 | `event/terrain_added.ogg` | A pool of water is laid down, or a burning hazard comes back as the parts the pool did not cover. Issue 496 moved the small pool onto the Geysermancer's free basic attack, so this is now one of the most frequent events in the game: measured at 3,999 across 20 fights on the burn pit with four Geysermancers. Leave it silent unless the sound is very short and very quiet. |
+| `event/shield_absorbed.ogg` | Issue 593: a raised block soaks a shot it stopped, spending part of its 40 health. Silent because it arrives in the same tick as the `blocked` that caused it, which already makes a noise -- the same reason `interrupted` is quiet. |
 | `event/terrain_removed.ogg` | Burning ground goes out under a pool. **The best candidate of the two**, and a hiss of steam is the sound a player would expect without being taught it, but it is no longer rare either: 1,077 across the same 20 fights. |
 
 #### The twelve statuses that land quietly

@@ -166,15 +166,43 @@ func test_every_item_the_screen_offers_has_its_own_glyph() -> void:
 	assert_eq(missing.size(), 0, "offered with no icon glyph: %s" % str(missing))
 	panel.free()
 
-## An icon must never sit between the player and the row it decorates. The
-## picker underneath is the control a player reaches for.
-func test_an_item_icon_does_not_eat_input_meant_for_the_row() -> void:
+## Issue 591 makes the icon the row's mouseover, so it takes the pointer where
+## it used to pass it through. The original requirement stands and is asserted
+## differently: it must not sit between the player and the picker. It is a
+## sibling ahead of the picker in the row, not a node over it, so the two never
+## share a pixel.
+func test_an_item_icon_is_beside_the_picker_and_never_over_it() -> void:
 	var panel := _panel()
 	var controls := panel._slot_controls(_make_pawn(), EquipmentDef.Slot.WEAPON)
-	var icon := _icons(controls[0])[0]
-	assert_eq(icon.mouse_filter, Control.MOUSE_FILTER_IGNORE,
-		"Control defaults to STOP, which would make the icon swallow clicks")
+	var row := controls[0]
+	var icon := _icons(row)[0]
+	assert_eq(icon.mouse_filter, Control.MOUSE_FILTER_STOP,
+		"an icon that ignores the mouse has no mouseover at all")
 	assert_true(icon.custom_minimum_size.x > 0.0, "an icon with no minimum size is drawn at nothing")
+	assert_eq(icon.get_parent(), row, "the icon must be a sibling in the row, not a wrapper over it")
+	var picker: OptionButton = null
+	for c in row.get_children():
+		if c is OptionButton:
+			picker = c
+	assert_true(picker != null, "the row has no picker, so this proves nothing")
+	assert_true(row.get_children().find(icon) < row.get_children().find(picker),
+		"the icon is laid out after the picker, so it is drawn over it")
+	for c in controls:
+		c.free()
+	panel.free()
+
+## And what the icon says is derived from the item, never authored beside it.
+func test_an_item_icon_carries_the_items_own_effect_as_its_mouseover() -> void:
+	var panel := _panel()
+	var pawn := _make_pawn()
+	var items: Array = panel.offered_items(pawn, EquipmentDef.Slot.WEAPON)
+	assert_true(items.size() > 0, "no weapon is offered, so this proves nothing")
+	panel._set_equipped(pawn, EquipmentDef.Slot.WEAPON, items[0])
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.WEAPON)
+	var icon := _icons(controls[0])[0]
+	assert_eq(icon.tooltip_text, EquipPanel.item_effect_text(items[0]),
+		"the icon describes the item some other way than the item's own fields")
+	assert_eq(icon.pin_title, items[0].display_name, "a pinned popout with no title names nothing")
 	for c in controls:
 		c.free()
 	panel.free()

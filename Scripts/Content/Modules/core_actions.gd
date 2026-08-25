@@ -18,6 +18,22 @@ const CHANNEL_COOLDOWN := 150
 ##
 const ARENA_SPAN := 1200.0
 
+## Issue 593: the Warrior's directional block. It is spent by damage rather than
+## by time, so the duration is a BACKSTOP against an unbounded status rather
+## than the thing that ends it -- `CG.MAX_TICKS` is the fight's own budget, so
+## the block lasts the whole fight or until it breaks, whichever comes first.
+## The cooldown is what stops the pool being free: without it an `always` row
+## re-raises a broken shield the same tick and the Warrior is invulnerable. It
+## kept its old 150, which the old version carried as both cooldown and timer.
+const BLOCK_HEALTH := 40.0
+const BLOCK_BACKSTOP_TICKS := CG.MAX_TICKS
+## Any ally in the room. The nomination decides which way the Warrior TURNS,
+## and you do not have to stand next to somebody to point a shield at what is
+## shooting them -- what the shield actually covers is still only the 220-unit
+## frontage `SHIELD_WIDTH` gives it, wherever the Warrior happens to be.
+const BLOCK_REACH := ARENA_SPAN
+const BLOCK_COOLDOWN := 150
+
 ## Issue 592: how far the Geysermancer and the Siege Master operate. It is well
 ## past the 200 every other ranged attack sits at, and past the Warden's 270,
 ## so the two long-range classes reach across a room a Goblin has to cross.
@@ -43,7 +59,7 @@ static func actions() -> Array[ActionDef]:
 		_targets_self(_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90)),
 		_action(&"warrior_execute", "Execute", "Retired from the Warrior on issue 592; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
 		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 16 seconds.", 6, 10, 350.0, 240),
-		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 10 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
+		_covers(_action_status(&"warrior_block", "Directional Block", "Turns to face the nearest enemy to a chosen ally and raises a shield. It stops travelling shots crossing its front and soaks 40 damage before it breaks. It can be raised for any ally in the room.", CG.DamageType.EARTH, BLOCK_REACH, 6, 10, 0.0, 0, CG.Status.SHIELDING, BLOCK_BACKSTOP_TICKS), BLOCK_HEALTH),
 
 		_action_self_heal(&"warrior_second_wind", "Second Wind", "Draws on a reserve of stamina to heal the Warrior for a moderate amount. Can only be done occasionally. Costs 15 Rage.", CG.DamageType.PHYSICAL, 15, 12, 2.2, 15, 450),
 
@@ -151,6 +167,13 @@ static func _action_status(id: StringName, display_name: String, description: St
 
 ## Issue 30: self-targeted (range 0.0, no line-of-sight check, no damage --
 ## same "the status is the whole effect" shape _action_summon already uses)
+## Issue 593: names an ally, shields the caster, and carries a pool of health.
+static func _covers(a: ActionDef, health: float) -> ActionDef:
+	a.covers_target = true
+	a.status_magnitude = health
+	a.cooldown_ticks = BLOCK_COOLDOWN
+	return a
+
 static func _targets_self(a: ActionDef) -> ActionDef:
 	a.targets_self = true
 	return a

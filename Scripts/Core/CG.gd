@@ -137,6 +137,10 @@ enum MitigationCause {
 	HIDE,
 	SHIELD,
 	BLOCK,
+	## Issue 593: a raised directional block soaked it. Distinct from BLOCK,
+	## which is `warrior_guard`'s flat 25% and takes a share of every hit --
+	## this one is a pool of health that runs out.
+	RAISED_SHIELD,
 }
 
 ## Everything the simulation reports outwards. The view and the combat log read
@@ -173,6 +177,10 @@ enum EventKind {
 	TERRAIN_ADDED,
 	## Terrain went away mid-fight, whole or in part.
 	TERRAIN_REMOVED,
+	## Issue 593: a raised shield soaked damage that would otherwise have
+	## reached a health bar. Appended rather than filed beside BLOCKED because
+	## these values are ordinals and inserting one renumbers every kind below.
+	SHIELD_ABSORBED,
 }
 
 ## Why a piece of terrain appeared or went away. Issue 492: the log has to be

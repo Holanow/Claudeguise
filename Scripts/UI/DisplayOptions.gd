@@ -3,10 +3,10 @@ class_name DisplayOptions
 
 ## Every "show less on the screen" preference, in one place.
 
-## `id` is what code asks for. `label` is the checkbox. `help` is the sentence
-## under it, and it is required -- the same report that asked for less on screen
-## also found that nothing anywhere explains anything, so a control with no
-## explanation is the failure mode this project already has.
+## `id` is what code asks for. `label` is the checkbox. `help` is the row's
+## mouseover, and it is required -- the same report that asked for less on
+## screen also found that nothing anywhere explains anything, so a control with
+## no explanation is the failure mode this project already has.
 const OPTIONS := [
 	{
 		"id": &"damage_numbers",
@@ -50,6 +50,12 @@ const OPTIONS := [
 		"id": &"impact_particles",
 		"label": "Debris on every hit",
 		"help": "A short burst of chips thrown off whatever was hit, in that damage type's colour, so a blow that lands looks different from one that misses. On by default: it lasts under half a second, it is smaller than a body and it never covers one, and the freeze frame it goes with is on for the same reason. Turn it off if you would rather the screen stayed still.",
+		"default": true,
+	},
+	{
+		"id": &"death_explosion",
+		"label": "Bodies come apart on a death",
+		"help": "A dead unit is thrown apart into its own head, body and hands, which tumble, fall and fade over about a second, and it throws a heavier burst of debris in its own team's colour as it goes. On by default: without it a body simply stops being drawn, and the freeze frame a death already holds has nothing in it to look at. The pieces are wreckage and never fight, so they carry no bar, no name and no badge. Turn it off if you would rather a body just vanished.",
 		"default": true,
 	},
 	{

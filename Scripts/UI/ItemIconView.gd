@@ -1,4 +1,4 @@
-extends Control
+extends "res://Scripts/UI/GlossaryIcon.gd"
 
 
 ## Issue 127: the one node that puts `EquipmentIcons` on a screen.
@@ -19,13 +19,12 @@ var slot: int = EquipmentDef.Slot.WEAPON:
 		slot = value
 		queue_redraw()
 
+## Issue 591: the icon is now the row's mouseover, so it takes the pointer
+## rather than passing it through. It sits at the start of the row, left of the
+## slot name and the picker, so nothing it covers is reached through it.
 func _ready() -> void:
+	super._ready()
 	custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
-	# The icon is decoration beside a picker that already carries the item's
-	# name; it must not sit between the pointer and anything. IGNORE rather than
-	# a default, because `Control`'s default is STOP and this node covers part of
-	# a row a player reaches into.
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _draw() -> void:
 	var box := Rect2(Vector2.ZERO, Vector2(ICON_SIZE, ICON_SIZE))
