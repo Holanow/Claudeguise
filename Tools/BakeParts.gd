@@ -306,3 +306,24 @@ func _bake_units() -> void:
 		var used := UnitRecipes.compose_image(id, CG.Team.PLAYER).get_used_rect()
 		print("  %-16s ink %3d x %3d of %d" % [id, used.size.x, used.size.y, N])
 	print("BakeParts: %d composed unit file(s) written to %s" % [total, UnitArt.ART_DIR])
+	_bake_slices()
+
+## Issue 583. The same recipes, cut at their animated parts, so the view can move
+## one part without compositing anything at draw time. A recipe with no animated
+## part writes nothing: absence is the default, not a case to handle.
+func _bake_slices() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(UnitArt.SLICE_DIR))
+	var total := 0
+	for id in UnitRecipes.recipe_ids():
+		if not UnitRecipes.has_animated_part(id):
+			continue
+		var slices := UnitRecipes.slices_for(id)
+		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
+			for i in slices.size():
+				var img := UnitRecipes.compose_layers(slices[i]["layers"], team)
+				if img == null:
+					printerr("BakeParts: '%s' slice %d composed nothing" % [id, i])
+					continue
+				img.save_png(UnitArt.slice_path(id, team, i))
+				total += 1
+	print("BakeParts: %d slice file(s) written to %s" % [total, UnitArt.SLICE_DIR])
