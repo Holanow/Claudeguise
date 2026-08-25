@@ -54,6 +54,17 @@ class_name ActionDef
 @export var applies_status_enabled: bool = false
 @export var status_duration_ticks: int = 0
 
+## Issue 593: what the status this action grants is CARRYING, authored on the
+## action rather than derived from the hit. 0.0 means the status stores nothing,
+## which is every action but `warrior_block`.
+@export var status_magnitude: float = 0.0
+
+## Issue 593: the action names an ALLY but puts its status on the CASTER, who
+## turns to face the threat to that ally. The Warrior's directional block is the
+## only action with this shape and it is what makes the choice of who is covered
+## a TARGETING block the player can see.
+@export var covers_target: bool = false
+
 ## A status this action strips off its target for a bonus, scaled by what that
 ## status was carrying. Disabled on every action that exists today.
 @export var consumes_status: CG.Status = CG.Status.SHIELD

@@ -814,7 +814,7 @@ static func _splash_targets(state: CombatState, primary: CombatUnit, action: Act
 			out.append(other)
 	return out
 
-static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps, onto_shield: bool = false) -> void:
 	if not target.alive:
 		return
 
@@ -825,11 +825,21 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	var dealt := 0
 	if action.heals:
 		_apply_heal(state, unit, target, action, bonus, deps)
+	elif action.covers_target:
+		## Issue 593: the ally is where the Warrior looks, not something it hits.
+		## Without this the block emits a 0-damage DAMAGE event on the ally it is
+		## protecting, which reads in the log as the Warrior attacking it.
+		pass
 	else:
-		dealt = _apply_damage(state, unit, target, action, bonus, deps)
+		dealt = _apply_damage(state, unit, target, action, bonus, deps, onto_shield)
 
 	if action.applies_status_enabled:
-		_apply_status(state, unit, target, action, dealt)
+		## Issue 593: `covers_target` names an ally and shields the CASTER.
+		if action.covers_target:
+			_face_to_cover(state, unit, target)
+			_apply_status(state, unit, unit, action, dealt)
+		else:
+			_apply_status(state, unit, target, action, dealt)
 
 	_kill_if_dead(state, target, unit.id, action.id)
 
@@ -856,10 +866,12 @@ static func _apply_heal(state: CombatState, unit: CombatUnit, target: CombatUnit
 ## The damage half. Returns the MITIGATED figure, which is what a hit-scaled
 ## status stores -- deliberately not the `applied` figure the event carries,
 ## which is clamped by however much health the target had left.
-static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps) -> int:
+static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps, onto_shield: bool = false) -> int:
 	var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
 	var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 	var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
+	if onto_shield:
+		mitigated = _absorb_on_shield(state, unit, target, action, mitigated)
 	var before := target.hp
 	target.hp = maxi(0, target.hp - mitigated)
 	var applied := before - target.hp
@@ -928,6 +940,10 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 		target.status_magnitude[status] = carried + 1.0
 	elif _HIT_SCALED_STATUSES.has(status):
 		target.status_magnitude[status] = maxf(carried, float(dealt))
+	elif action.status_magnitude > 0.0:
+		## Issue 593: authored on the action. A refresh refills to full rather
+		## than topping up, so re-raising a half-spent block is worth doing.
+		target.status_magnitude[status] = maxf(carried, action.status_magnitude)
 
 	target.statuses[status] = state.tick + action.status_duration_ticks
 	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
@@ -970,6 +986,56 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 	elif status == CG.Status.SUSTAINING:
 		unit.sustaining = &""
 		unit.sustain_started_tick = -1
+
+## Issue 593: the block's health soaks the shot the block STOPPED, and nothing
+## else. Returns what is left to reach the health bar, so a hit bigger than the
+## pool still lands for the difference rather than being wholly negated.
+##
+## Narrow on purpose. Soaking every hit the shielder took made the Warrior so
+## hard to hurt that Second Wind stopped firing and two parties left The Warden
+## with over 80% of their health.
+static func _absorb_on_shield(state: CombatState, source: CombatUnit, target: CombatUnit, action: ActionDef, mitigated: int) -> int:
+	if mitigated <= 0:
+		return mitigated
+	var pool := float(target.status_magnitude.get(CG.Status.SHIELDING, 0.0))
+	if pool <= 0.0 or not target.has_status(CG.Status.SHIELDING):
+		return mitigated
+	var absorbed := mini(mitigated, int(pool))
+	target.status_magnitude[CG.Status.SHIELDING] = pool - float(absorbed)
+	var e := _event(CG.EventKind.SHIELD_ABSORBED, state.tick, source.id, target.id, action.id)
+	e.status = CG.Status.SHIELDING
+	e.amount = absorbed
+	state.emit(e)
+	if target.status_magnitude[CG.Status.SHIELDING] <= 0.0:
+		_remove_status(target, CG.Status.SHIELDING)
+		var gone := _event(CG.EventKind.STATUS_EXPIRED, state.tick, source.id, target.id, action.id)
+		gone.status = CG.Status.SHIELDING
+		state.emit(gone)
+	return mitigated - absorbed
+
+## Issue 593: the block's whole point. The Warrior turns to face the enemy most
+## likely to shoot the ally it is covering, because `_find_shielder` only stops
+## a shot the shielder is facing INTO.
+static func _face_to_cover(state: CombatState, shielder: CombatUnit, ally: CombatUnit) -> void:
+	var threat := _nearest_living_enemy_to(state, shielder.team, ally.position)
+	if threat == null:
+		return
+	var dir := threat.position - shielder.position
+	if dir.length() < 0.0001:
+		return
+	shielder.facing = dir.normalized()
+
+static func _nearest_living_enemy_to(state: CombatState, defending_team: CG.Team, at: Vector2) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_d := INF
+	for u in state.units:
+		if not u.alive or u.team == defending_team:
+			continue
+		var d := u.position.distance_to(at)
+		if d < best_d:
+			best_d = d
+			best = u
+	return best
 
 ## Strips every harmful status from `target`, one STATUS_EXPIRED per removal.
 static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
@@ -1122,7 +1188,7 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 		if shielder != null:
 			p.resolved = true
 			state.emit(_event(CG.EventKind.BLOCKED, state.tick, p.source_id, shielder.id, p.action_id))
-			_land_hit(state, source, shielder, action, deps)
+			_land_hit(state, source, shielder, action, deps, true)
 			return
 		if _projectile_hits(state, p, target, action):
 			p.resolved = true
@@ -1159,9 +1225,9 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 ## things: splash around whoever it actually hit, apply the effect to each, then
 ## pay the source for a landed hit. `hit` is the shielder or the intended
 ## target; nothing else about the two branches differs.
-static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps, onto_shield: bool = false) -> void:
 	for t in _splash_targets(state, hit, action):
-		_apply_action_effect(state, source, t, action, deps)
+		_apply_action_effect(state, source, t, action, deps, onto_shield and t.id == hit.id)
 	_on_hit_landed(state, source, action, deps, hit.position)
 
 ## The shield's full frontage, centred on the shielder and about five pawns

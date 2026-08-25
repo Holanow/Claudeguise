@@ -173,6 +173,10 @@ enum EventKind {
 	TERRAIN_ADDED,
 	## Terrain went away mid-fight, whole or in part.
 	TERRAIN_REMOVED,
+	## Issue 593: a raised shield soaked damage that would otherwise have
+	## reached a health bar. Appended rather than filed beside BLOCKED because
+	## these values are ordinals and inserting one renumbers every kind below.
+	SHIELD_ABSORBED,
 }
 
 ## Why a piece of terrain appeared or went away. Issue 492: the log has to be

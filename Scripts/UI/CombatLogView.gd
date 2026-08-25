@@ -188,6 +188,12 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "[color=%s]%s blocks %s's %s[/color]" % [
 				Palette.TEAM_PLAYER.to_html(), target_name, source_name, _action_name(e.action_id)
 			]
+		## Issue 593: the block has health, so the player has to be able to
+		## watch it being spent rather than only see it vanish.
+		CG.EventKind.SHIELD_ABSORBED:
+			return "[color=%s]%s's shield soaks %d[/color]" % [
+				Palette.TEAM_PLAYER.to_html(), target_name, e.amount
+			]
 		CG.EventKind.SUSTAIN_START:
 			# ACTION_FIRE printed "X's Y fires" on this same tick, and a channel
 			# is exactly the case where firing is not the end of it.
