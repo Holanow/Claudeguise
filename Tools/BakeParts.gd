@@ -53,6 +53,14 @@ static func _ink(img: Image, x: int, y: int) -> void:
 	if x >= 0 and y >= 0 and x < N and y < N:
 		img.set_pixel(x, y, Color.WHITE)
 
+## A brim and a cone, which is what every hat in this file is. Two placements of
+## one shape rather than two drawings: `hat` sits on a person's head and
+## `hat_low` on the rat's.
+static func _hat(img: Image, cx: float, brim_y: float, half_w: float, cone_half: float, cone_h: float) -> void:
+	_rect(img, int(round(cx - half_w)), int(round(brim_y)), int(round(cx + half_w)), int(round(brim_y + 1.0)))
+	_tri(img, Vector2(cx, brim_y - cone_h), Vector2(cx - cone_half, brim_y), Vector2(cx + cone_half, brim_y))
+
+
 ## An axis-aligned ellipse, filled. Every body and head below is one or two of
 ## these, which is what keeps the set small enough to be a recipe.
 static func _ellipse(img: Image, cx: float, cy: float, rx: float, ry: float) -> void:
@@ -228,9 +236,16 @@ func _parts() -> Dictionary:
 	# for the archer to be "the goblin base with a hat on basically", so a variant
 	# costs a part rather than a drawing.
 	var hat := _blank()
-	_rect(hat, 9, 5, 23, 6)
-	_tri(hat, Vector2(16.0, 0.0), Vector2(11.0, 5.0), Vector2(21.0, 5.0))
+	_hat(hat, 16.0, 5.0, 7.0, 5.0, 5.0)
 	out["hat"] = hat
+
+	# Issue 594: the same hat, on the rat's head rather than on a person's. Every
+	# part is authored in place, so a hat drawn for a head at y5 floats a body's
+	# height above a creature whose head is at y19 -- measured and photographed
+	# before this part existed, not guessed at.
+	var hat_low := _blank()
+	_hat(hat_low, 24.5, 18.5, 6.0, 4.5, 5.5)
+	out["hat_low"] = hat_low
 
 	var helm := _blank()
 	_ellipse(helm, 16.0, 7.0, 6.0, 5.0)
