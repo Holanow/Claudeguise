@@ -137,6 +137,10 @@ enum MitigationCause {
 	HIDE,
 	SHIELD,
 	BLOCK,
+	## Issue 593: a raised directional block soaked it. Distinct from BLOCK,
+	## which is `warrior_guard`'s flat 25% and takes a share of every hit --
+	## this one is a pool of health that runs out.
+	RAISED_SHIELD,
 }
 
 ## Everything the simulation reports outwards. The view and the combat log read

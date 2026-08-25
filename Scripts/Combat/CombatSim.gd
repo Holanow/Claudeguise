@@ -875,8 +875,11 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
 	var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 	var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
+	var soaked := 0
 	if onto_shield:
+		var before_shield := mitigated
 		mitigated = _absorb_on_shield(state, unit, target, action, mitigated)
+		soaked = before_shield - mitigated
 	var before := target.hp
 	target.hp = maxi(0, target.hp - mitigated)
 	var applied := before - target.hp
@@ -888,7 +891,13 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	## `amount_after_mitigation - amount` was overkill on a target already dying.
 	e.amount_after_mitigation = mitigated
 	if mitigated < e.amount_before_mitigation:
-		e.mitigation_cause = deps.damage_reduction_cause.call(target)
+		## Issue 593: the gap can now come from the block's pool, and a cause
+		## naming toughness for damage a raised shield ate is exactly the lie
+		## issue 344 built this seam to prevent. Largest contributor wins.
+		if soaked > e.amount_before_mitigation - mitigated - soaked:
+			e.mitigation_cause = CG.MitigationCause.RAISED_SHIELD
+		else:
+			e.mitigation_cause = deps.damage_reduction_cause.call(target)
 	e.damage_type = action.damage_type
 	state.emit(e)
 	_on_damage_taken(state, target, applied, deps)

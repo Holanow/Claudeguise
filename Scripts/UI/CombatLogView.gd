@@ -107,6 +107,8 @@ static func mitigation_cause_text(cause: CG.MitigationCause) -> String:
 			return "its hide"
 		CG.MitigationCause.SHIELD:
 			return "its shield"
+		CG.MitigationCause.RAISED_SHIELD:
+			return "the shield it raised"
 		CG.MitigationCause.BLOCK:
 			return "its block"
 	return ""
