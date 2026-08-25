@@ -93,9 +93,12 @@ func test_a_pawn_already_in_cover_holds_still() -> void:
 
 
 ## Cover plus an action is the whole point: "move into cover and raise your
-## shield". Directional Block is self-targeted, which a movement block refused
-## outright until #335 decided what a movement block aims at.
-func test_in_cover_the_pawn_fires_its_action_at_itself() -> void:
+## shield". A movement block refused an action outright until #335 decided what
+## a movement block aims at. Issue 593 made Directional Block name a unit rather
+## than itself, so what this now pins is that the row keeps the plan's OWN
+## target -- the fixture's targeting is `target_nearest_enemy`, and nothing in
+## the action overrides it any more.
+func test_in_cover_the_pawn_fires_its_action_at_the_target_its_plan_named() -> void:
 	var s := _situation(_plan_with(&"warrior_block"), Vector2(30.0, 200.0), Vector2(30.0, -200.0),
 		[Terrain.make(Terrain.Kind.PILLAR, PILLAR_AT)], &"warrior")
 	var state: CombatState = s[0]
@@ -105,7 +108,9 @@ func test_in_cover_the_pawn_fires_its_action_at_itself() -> void:
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION, "in cover, the action gets the tick")
 	assert_eq(intent.action_id, &"warrior_block")
-	assert_eq(intent.target_id, me.id, "Directional Block lands on its caster")
+	var foe: CombatUnit = s[2]
+	assert_eq(intent.target_id, foe.id,
+		"Directional Block should take the unit its plan named, not silently retarget itself")
 
 
 ## **Design question 4, and the measurement changed the answer.** Cover from the

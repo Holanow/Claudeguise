@@ -104,9 +104,13 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
 					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
 					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
-				_plan(&"warrior_block_default", "Directional Block",
+				## Issue 593: the row NAMES THE ALLY, which is the whole point.
+				## `target_self` here would be the invisible auto-pick the
+				## pawn-behaviour principle forbids -- the player must be able to
+				## see, and change, who the Warrior puts itself in front of.
+				_plan(&"warrior_block_default", "Cover the weakest ally",
 					_condition(&"always", {}),
-					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
+					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"warrior_block")]),
 			]
 		# The player's own "one for speed, one for resistance" direction.
 		&"priest":
