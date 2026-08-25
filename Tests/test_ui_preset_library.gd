@@ -129,13 +129,13 @@ func test_the_library_button_opens_and_closes_it() -> void:
 	assert_false(panel._library_open, "a pawn that already has rows does not open on the library")
 	assert_eq(_adds(panel).size(), 0, "and the rows are not listed")
 
-	var button := _named(panel._detail_box, InspectPanel.LIBRARY_OPEN % 4)
+	var button := _named(panel._detail_box, InspectPanel.LIBRARY_OPEN % 3)
 	assert_not_null(button, "the door has to be a control, found: %s" %
 		str(_buttons(panel._detail_box).map(func(b): return b.text)))
 	button.emit_signal("pressed")
 	panel._build_detail(pawn)
 	assert_true(panel._library_open)
-	assert_eq(_adds(panel).size(), 4, "the four rows this Warrior has not taken")
+	assert_eq(_adds(panel).size(), 3, "the three rows this Warrior has not taken; #592 took Execute out of the library")
 
 	_named(panel._detail_box, InspectPanel.LIBRARY_CLOSE).emit_signal("pressed")
 	panel._build_detail(pawn)

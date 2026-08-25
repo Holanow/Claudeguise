@@ -36,8 +36,10 @@ func test_engine_bolt_reaches_anywhere_and_only_at_a_marked_target() -> void:
 
 ## "Lower than average attack speed", checked against the average rather than
 ## against a number typed here -- a hand-written threshold would agree with
-## itself forever while the rest of the bestiary moved underneath it.
-func test_engine_bolt_is_slower_than_every_other_ranged_action() -> void:
+## itself forever while the rest of the bestiary moved underneath it. Issue 592
+## halved the cycle to 30 and the engine is no longer the SLOWEST ranged action:
+## `warden_chain_toss` is, at 34, against a ranged mean of 19.
+func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
 	var bolt := Registry.get_action(&"siege_engine_bolt")
 	var engine_cycle := bolt.wind_up_ticks + bolt.recover_ticks
 	var slowest_other := 0
@@ -56,8 +58,7 @@ func test_engine_bolt_is_slower_than_every_other_ranged_action() -> void:
 	assert_true(n > 0, "no other ranged actions found to compare against")
 	assert_true(engine_cycle > total / n,
 		"engine cycle %d is not slower than the ranged mean %d" % [engine_cycle, total / n])
-	assert_true(engine_cycle > slowest_other,
-		"engine cycle %d is not slower than the slowest other ranged action %d" % [engine_cycle, slowest_other])
+	assert_true(slowest_other > 0, "no ranged action had a cycle to compare against")
 
 ## Stationary was already true before issue 93 and the issue's only requirement
 ## was not to break it. That is exactly the kind of fact that gets broken by

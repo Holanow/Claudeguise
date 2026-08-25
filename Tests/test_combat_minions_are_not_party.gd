@@ -6,7 +6,11 @@ extends "res://Tests/TestCase.gd"
 ## summon dies with its summoner. `CombatSim.is_party_member` is the only
 ## definition of "your party" in the game and every other reader asks it.
 
-const ENCOUNTER := &"floor1_warden"
+## Issue 592 pushed the two casters out to 350 units, and this party now WINS
+## the Warden room on most seeds, so no summoner dies and the test measured
+## nothing. Repointed at the nest, which is the room #592 made hardest -- same
+## reasoning as the WINNABLE_ENCOUNTER split below, and the opposite direction.
+const ENCOUNTER := &"floor1_rat_king"
 
 ## Issue 489 made the Warden unwinnable for this party, and a test that wins 0
 ## of 40 measures nothing. This one is about pawnless wins rather than about

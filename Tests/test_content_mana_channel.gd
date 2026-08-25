@@ -91,12 +91,14 @@ func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 ## It read zero everywhere until issue 226 dressed the last two classes: their
 ## libraries were authored against a bare pawn, so the armour's two points of
 ## WIS are two rows the player may now author themselves.
+## The Warrior's 2 is issue 592: Execute's row left the library and its three
+## blocks came back as slack.
 func test_the_spare_plan_blocks_are_the_ones_recorded_here() -> void:
 	var spare := {}
 	for cid in Registry.all_class_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		spare[cid] = Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
-	assert_eq(spare, {&"warrior": 0, &"priest": 0, &"geysermancer": 0, &"siege_master": 2, &"abomination": 2},
+	assert_eq(spare, {&"warrior": 2, &"priest": 0, &"geysermancer": 0, &"siege_master": 2, &"abomination": 2},
 		"the slack in a class's plan budget moved: %s" % [spare])
 
 ## Both casters run every row in their library, the Channel included. Issue 399:

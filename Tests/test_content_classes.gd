@@ -41,7 +41,8 @@ func test_every_starting_action_resolves() -> void:
 ## ally-targeted action, a zero-power self-buff, or a sustained one, so without
 ## a preset plan those fire zero times.
 const _EXPECTED_PLAN_COUNT := {
-	&"warrior": 5,
+	## Four since #592 took Execute off the Warrior; the row went with the action.
+	&"warrior": 4,
 	&"priest": 5,
 	&"geysermancer": 4,
 	&"abomination": 4,

@@ -153,7 +153,7 @@ func test_scale_action_ticks_speeds_up_with_agi_and_has_a_floor() -> void:
 	var slow := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.AGI: 0})
 	var fast := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.AGI: 9999})
 	assert_eq(Balance.scale_action_ticks(20, slow), 20)
-	assert_eq(Balance.scale_action_ticks(20, fast), 10, "capped at MAX_AGI_TICK_SCALE = 0.5")
+	assert_eq(Balance.scale_action_ticks(20, fast), 2, "capped at MAX_AGI_TICK_SCALE = 0.9")
 
 
 func test_scale_action_ticks_never_reaches_zero() -> void:
