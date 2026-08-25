@@ -51,13 +51,26 @@ func _ready() -> void:
 
 ## Fires at `at`, in the damage type's own colour and speed.
 func burst(at: Vector2, damage_type: CG.DamageType) -> void:
+	_fire(at, Palette.damage_color(damage_type), _speed_for(damage_type))
+
+## Issue 589. The same pool, louder. A death throws further and faster than a
+## hit, and it throws the dying unit's own colour rather than the colour of
+## whatever finished it: the chunks flying beside it are that unit as well.
+const DEATH_SPEED := 2.4
+const DEATH_BURSTS := 2
+
+func death_burst(at: Vector2, color: Color) -> void:
+	for i in DEATH_BURSTS:
+		_fire(at, color, DEATH_SPEED)
+
+func _fire(at: Vector2, color: Color, speed: float) -> void:
 	var i := _next
 	_next = (_next + 1) % _emitters.size()
 	var p := _emitters[i]
 	p.position = at
-	p.modulate = Palette.damage_color(damage_type)
-	_speeds[i] = _speed_for(damage_type)
-	p.speed_scale = 0.0 if _frozen else _speeds[i]
+	p.modulate = color
+	_speeds[i] = speed
+	p.speed_scale = 0.0 if _frozen else speed
 	p.restart()
 	p.emitting = true
 
