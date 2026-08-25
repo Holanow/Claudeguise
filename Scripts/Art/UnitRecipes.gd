@@ -65,14 +65,12 @@ const RECIPES := {
 		{"part": &"head_snouted", "color": "8a7a68"},
 		{"part": &"eyes_snout", "color": "c04a4a"},
 	],
-	# The Rat King is the rat wearing what its name says. `test_art.gd` asserts
-	# its back is three crests and not a dome, so the crown is the COLOUR of the
-	# three spikes rather than an object anywhere. Three attempts at an object
-	# scored 2, 5 and 1 crests -- over the spine, on the head, and inside the
-	# middle spike, where its own outline bridged the valleys either side. The
-	# test named that last cause in its own failure message.
+	# The player, 2026-08-25: "the Rat King's crown should be a hat instead of
+	# whatever it is now". So it is the archer's hat in gold, and the crown is a
+	# recolour rather than a part of its own -- the fifth reuse of this
+	# vocabulary and the cheapest possible variant.
 	&"rat_king": {"base": &"rat", "add": [
-		{"part": &"spikes", "color": "e8c84a"},
+		{"part": &"hat_low", "color": "e8c84a"},
 	]},
 
 	# --- the siege pair ----------------------------------------------------
