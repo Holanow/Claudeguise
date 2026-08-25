@@ -40,6 +40,37 @@ static func path_for(shape_id: StringName, team: CG.Team) -> String:
 	var side := "player" if team == CG.Team.PLAYER else "enemy"
 	return "%s/%s.%s.png" % [ART_DIR, shape_id, side]
 
+## Issue 583. Where one slice of a recipe lives. Its own directory so
+## `Silhouettes.shape_ids` keeps walking `Assets/Units` and finding units.
+const SLICE_DIR := "res://Assets/Units/slices"
+
+static func slice_path(shape_id: StringName, team: CG.Team, index: int) -> String:
+	var side := "player" if team == CG.Team.PLAYER else "enemy"
+	return "%s/%s.%s.s%d.png" % [SLICE_DIR, shape_id, side, index]
+
+## The slices for a body, each with the part that moves it, or an empty array
+## when this recipe has nothing to animate. Cached for the process, beside the
+## flat composite and for the same reason.
+static var _slice_cache: Dictionary = {}
+
+static func slices_for(shape_id: StringName, team: CG.Team) -> Array:
+	var key := "%s|%d" % [shape_id, int(team)]
+	if _slice_cache.has(key):
+		return _slice_cache[key]
+	var out: Array = []
+	if UnitRecipes.has_recipe(shape_id) and UnitRecipes.has_animated_part(shape_id):
+		var slices := UnitRecipes.slices_for(shape_id)
+		for i in slices.size():
+			var tex := UIArt.load_png(slice_path(shape_id, team, i))
+			if tex == null:
+				# One missing slice makes the body a hole rather than a unit, so
+				# the whole set is refused and the flat composite is drawn.
+				out = []
+				break
+			out.append({"part": slices[i]["part"], "tex": tex})
+	_slice_cache[key] = out
+	return out
+
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return texture_for(shape_id, team) != null
 

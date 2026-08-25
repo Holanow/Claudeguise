@@ -82,7 +82,7 @@ static func actions() -> Array[ActionDef]:
 
 		# Issue 62: abomination_claw, restored. The player's own direction --
 		_action_status(&"abomination_claw", "Claw", "A melee strike that poisons the target for 4.5% of its max health per second, for 6 seconds. Costs nothing.", CG.DamageType.PROFANE, 45.0, 7, 9, 1.0, 0, CG.Status.POISON, 90),
-		_projectile(_pull(_action(&"abomination_hook", "Hook", "A profane tendril that deals damage and pulls the target 100 units toward the caster. Reaches 140 units. Costs 15 Rage.", CG.DamageType.PROFANE, 140.0, 10, 12, 1.4, 15, 0, true), 100.0), RANGED_PROJECTILE_SPEED),
+		_projectile(_pull(_action(&"abomination_hook", "Hook", "A profane tendril that deals damage and drags the target 100 units toward the caster, stunning it for the whole drag. Reaches 140 units. Costs 15 Rage.", CG.DamageType.PROFANE, 140.0, 10, 12, 1.4, 15, 0, true), 100.0), RANGED_PROJECTILE_SPEED),
 		_action_status(&"abomination_grapple", "Grapple", "A crushing melee grip that deals damage and slows the target's movement by 50% for 10 seconds. Costs 20 Rage.", CG.DamageType.PROFANE, 45.0, GRAPPLE_WIND_UP, GRAPPLE_RECOVER, GRAPPLE_POWER_SCALE, 20, CG.Status.SLOWED, 150),
 		_sustained(&"abomination_immolate", "Immolate", "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking a Grapple's worth of damage each second. Costs 1 Rage to light and 15 Rage a second to hold.", CG.DamageType.FIRE, 15, IMMOLATE_TICK_POWER_SCALE, 1, 1, 90.0),
 
@@ -246,7 +246,7 @@ static func _leaves_pool(a: ActionDef, half_width: float) -> ActionDef:
 ## always inert-by-default, content decides who uses it" pattern _projectile
 ## established for issue 18. `distance` is how far the target is dragged
 ## toward the caster, in world units -- see ActionDef.pull_distance's own
-## doc comment for why the simulation (not content) does the dragging.
+## doc comment for the duration and the stun that come with it.
 static func _pull(a: ActionDef, distance: float) -> ActionDef:
 	a.pull_distance = distance
 	return a

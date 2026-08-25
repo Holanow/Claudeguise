@@ -1169,8 +1169,14 @@ func _render(alpha: float, stepped: bool, delta: float = 0.0) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
 	_advance_shake(delta)
 	var frame_at := {}
+	# Issue 583: unconditional, unlike the impact decay above -- an idle bob has
+	# no end to test for. Spent here for the same reason: a frozen frame never
+	# reaches this line, so nothing animates through a pause or a hit stop.
+	var animating: bool = UnitView.animating()
 	for id in _unit_views:
 		var view = _unit_views[id]
+		if animating:
+			view.advance_anim(delta, alpha)
 		if view.impact_active():
 			view.advance_impact(delta)
 		var to = _curr_drawn.get(id)

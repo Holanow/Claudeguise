@@ -92,8 +92,8 @@ class_name ActionDef
 ## that existed before it, so nothing changes until content sets it.
 @export var restores_resource: int = 0
 
-## How far this action drags its target toward the caster, in arena units. Zero
-## means it does not pull, which is every action that exists today.
+## How far this action drags its target toward the caster, in arena units, over
+## `CombatSim.PULL_TICKS` and stunning it for that span. Zero means no pull.
 @export var pull_distance: float = 0.0
 
 ## Strips every harmful status from this action's targets, per `CG.is_harmful`.
