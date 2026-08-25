@@ -54,6 +54,10 @@ func _init() -> void:
 	_say("=== 6. OF THE ACTIONS A PRESET PAWN ACTUALLY TAKES, HOW MANY DID A ROW CHOOSE? ===")
 	_authorship_table(class_ids, encounter_ids)
 
+	_say("")
+	_say("=== 7. WHAT THE PLAN EDITOR SAYS BESIDE EACH ROW, AGAINST WHAT THE ROW CAN DO ===")
+	_verdict_table(class_ids)
+
 	quit(0)
 
 # ---------------------------------------------------------------------------
@@ -290,6 +294,92 @@ func _perturbation_check(class_ids: Array, encounter_ids: Array) -> void:
 					perturbed += 1
 					_say("    PERTURBED %s %s seed %d: probed %s bare %s" % [eid, _short(party_ids), s, a, b])
 	_say("  %d fights compared, %d perturbed" % [checked, perturbed])
+
+## The word the real `InspectPanel` prints beside a row, taken off a real panel
+## opened on a real fight, beside what that row would actually do at the same
+## instant. Any line whose two halves disagree is a sentence the screen is
+## getting wrong.
+func _verdict_table(class_ids: Array) -> void:
+	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	for cid in class_ids:
+		var pawn := PawnFactory.make_preset_pawn(cid, StringName("%s_v" % cid), String(cid))
+		var one: Array[PawnData] = [pawn]
+		var state := CombatSim.build(one, encounter, 0)
+		var unit := _pawn_unit(state, pawn)
+		if unit == null:
+			continue
+		var panel := InspectPanel.create()
+		panel._ready()
+		panel.open([pawn], state)
+		_say("")
+		_say("  %s at the first instant of a fight" % cid)
+		for i in pawn.plans.size():
+			var plan: Plan = pawn.plans[i]
+			var said: String = panel._live_verdict(pawn, plan)
+			var can_act := _row_that_would_win_only(state, unit, i)
+			var agrees := (said == InspectPanel.VERDICT_READY) == can_act
+			_say("    row %d  %-38s the screen says %-8s the row can act %-3s %s" % [
+				i + 1, plan.display_name, said, "yes" if can_act else "NO",
+				"" if agrees else "<-- DISAGREES"])
+		panel.free()
+	_walk_verdicts(class_ids)
+
+## The same two halves at every tick, on the real parties over every encounter
+## and seed rather than on a pawn fighting alone.
+func _walk_verdicts(class_ids: Array) -> void:
+	var tally := {}
+	for eid in Registry.all_encounter_ids():
+		var encounter := Registry.get_encounter(eid)
+		for party_ids in _parties(class_ids):
+			for s in SEEDS:
+				var party: Array[PawnData] = []
+				for cid in party_ids:
+					party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
+				var state := CombatSim.build(party, encounter, s)
+				var panel := InspectPanel.create()
+				panel._ready()
+				panel.open(party, state)
+				while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+					for pawn in party:
+						var unit := _pawn_unit(state, pawn)
+						if unit == null or not unit.alive:
+							continue
+						var row: Dictionary = tally.get(pawn.pawn_class.id, {"ready": 0, "dead": 0, "busy": 0})
+						for i in pawn.plans.size():
+							if panel._live_verdict(pawn, pawn.plans[i]) != InspectPanel.VERDICT_READY:
+								continue
+							row["ready"] += 1
+							if not _row_that_would_win_only(state, unit, i):
+								row["dead"] += 1
+							if unit.is_busy():
+								row["busy"] += 1
+						tally[pawn.pawn_class.id] = row
+					CombatSim.step(state)
+				panel.free()
+	_say("")
+	_say("  Over every encounter, every buildable party and %d seeds:" % SEEDS)
+	var all := {"ready": 0, "dead": 0, "busy": 0}
+	for cid in tally:
+		for k in all:
+			all[k] += int(tally[cid][k])
+		_say_verdict_row(String(cid), tally[cid])
+	_say_verdict_row("ALL", all)
+
+func _say_verdict_row(name: String, row: Dictionary) -> void:
+	var r: float = maxf(1.0, float(row["ready"]))
+	_say("    %-14s %6d row-ticks say `ready`;  %6d (%4.1f%%) name a row whose ACTION cannot fire;  %6d (%4.1f%%) sit beside a BUSY pawn that will not read the row" % [
+		name, int(row["ready"]),
+		int(row["dead"]), 100.0 * float(row["dead"]) / r,
+		int(row["busy"]), 100.0 * float(row["busy"]) / r])
+
+## Whether one named row alone could act right now.
+func _row_that_would_win_only(state: CombatState, unit: CombatUnit, row: int) -> bool:
+	var saved := unit.focus_id
+	state.tick += 1
+	var out := _plan_intent(state, unit, unit.pawn.plans[row]) != null
+	state.tick -= 1
+	unit.focus_id = saved
+	return out
 
 ## Issue 155 put the deciding layer's answer on `ACTION_START.source_plan`, so
 ## this reads the event stream of an unprobed fight and asks nothing.
