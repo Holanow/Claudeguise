@@ -18,7 +18,15 @@ const PRINTERS := [
 
 ## Everything under `Scripts/` that the simulation never reads. A new directory
 ## goes in the fingerprint's source set unless it is one of these.
-const VIEW_ONLY := ["UI", "Art"]
+## Issue 570: `Audio` joined these. `SoundBank.gd` is read by `BattleView` and
+## by nothing below the presentation layer, so hashing it made a view-only edit
+## pay for a full `SampleFights` run.
+const VIEW_ONLY := ["UI", "Art", "Audio"]
+
+## Presentation types the simulation must not name. Needed because these are
+## `class_name` globals: a file uses `SoundBank.attach(...)` with no `res://`
+## path, so the path scan below cannot see it.
+const VIEW_ONLY_TYPES := ["SoundBank"]
 
 
 func _text(path: String) -> String:
@@ -123,7 +131,7 @@ func test_every_script_directory_is_either_fingerprinted_or_view_only() -> void:
 ## the run, so it has to keep being true.
 func test_the_simulation_does_not_read_the_view() -> void:
 	var offenders: Array[String] = []
-	for sub in ["Combat", "Content", "Core", "Plans", "Floor", "Audio"]:
+	for sub in ["Combat", "Content", "Core", "Plans", "Floor"]:
 		var dir := DirAccess.open("res://Scripts/%s" % sub)
 		if dir == null:
 			continue
@@ -132,8 +140,12 @@ func test_the_simulation_does_not_read_the_view() -> void:
 				continue
 			var path := "res://Scripts/%s/%s" % [sub, file]
 			var text := _text(path)
-			if text.contains("res://Scripts/UI/") or text.contains("res://Scripts/Art/"):
+			if text.contains("res://Scripts/UI/") or text.contains("res://Scripts/Art/") or text.contains("res://Scripts/Audio/"):
 				offenders.append(path)
+				continue
+			for type_name in VIEW_ONLY_TYPES:
+				if text.contains(type_name):
+					offenders.append("%s (names %s)" % [path, type_name])
 	assert_eq(offenders, [] as Array[String],
 		("these simulation files load view code, so 'the sim source did not move' "
 		+ "no longer proves the output did not:\n  %s") % "\n  ".join(offenders))

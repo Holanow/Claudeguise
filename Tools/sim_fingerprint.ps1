@@ -30,13 +30,15 @@ $ErrorActionPreference = 'Stop'
 
 $recordPath = Join-Path $PSScriptRoot 'sim_fingerprint.txt'
 
-# Everything the simulation reads, and nothing the view does. `Scripts/UI` and
-# `Scripts/Art` are excluded because the sim never reads them -- that is the
-# architecture the whole #500 epic rests on. `SampleFights.gd` is IN the set:
-# the instrument is part of the measurement, and editing it moves the output.
+# Everything the simulation reads, and nothing the view does. `Scripts/UI`,
+# `Scripts/Art` and `Scripts/Audio` are excluded because the sim never reads
+# them -- that is the architecture the whole #500 epic rests on. `SoundBank.gd`
+# is read by `BattleView` and by nothing below the presentation layer (#570).
+# `SampleFights.gd` is IN the set: the instrument is part of the measurement,
+# and editing it moves the output.
 function Get-SourceHash {
     $files = @()
-    foreach ($dir in @('Audio', 'Combat', 'Content', 'Core', 'Floor', 'Plans')) {
+    foreach ($dir in @('Combat', 'Content', 'Core', 'Floor', 'Plans')) {
         $path = Join-Path $repo "Scripts\$dir"
         if (Test-Path $path) {
             $files += Get-ChildItem -Path $path -Recurse -File -Filter *.gd
