@@ -151,9 +151,12 @@ func _parts() -> Dictionary:
 	out["head_small"] = small
 
 	# A head that sits forward on a low body rather than on top of a tall one.
+	# Sunk so its top sits level with the low body's, not above it. On the Rat
+	# King the back is three crests by assertion, and a head poking over the
+	# spine's valley floor scored a fourth.
 	var snout := _blank()
-	_ellipse(snout, 25.0, 20.0, 4.5, 4.0)
-	_tri(snout, Vector2(28.0, 18.0), Vector2(32.0, 21.0), Vector2(28.0, 23.0))
+	_ellipse(snout, 25.0, 23.0, 4.5, 4.0)
+	_tri(snout, Vector2(28.0, 21.0), Vector2(32.0, 24.0), Vector2(28.0, 26.0))
 	out["head_snouted"] = snout
 
 	# --- features, the distinguishing half ----------------------------------
@@ -196,7 +199,7 @@ func _parts() -> Dictionary:
 	out["eyes"] = eyes
 
 	var eyes_low := _blank()
-	_rect(eyes_low, 24, 18, 26, 20)
+	_rect(eyes_low, 24, 21, 26, 23)
 	out["eyes_snout"] = eyes_low
 
 	var tusks := _blank()
@@ -204,15 +207,50 @@ func _parts() -> Dictionary:
 	_tri(tusks, Vector2(20.0, 11.0), Vector2(21.0, 15.0), Vector2(18.0, 11.0))
 	out["tusks"] = tusks
 
+	# It sweeps low rather than up. Raised, its tip is a local maximum before the
+	# back even starts, and on the Rat King that scored as a fourth crest -- which
+	# I guessed at four times and only found by printing the top profile.
 	var tail := _blank()
-	_tri(tail, Vector2(4.0, 22.0), Vector2(-2.0, 14.0), Vector2(5.0, 26.0))
+	_tri(tail, Vector2(5.0, 22.5), Vector2(-1.0, 21.0), Vector2(5.0, 27.5))
 	out["tail"] = tail
 
+	# Three of them, and the count is load-bearing: `test_art.gd` asserts the Rat
+	# King's back is three crests and not a dome, because one dome is one animal.
+	# Deep valleys between them on purpose -- the detector measures the valley,
+	# not the peak.
 	var spikes := _blank()
 	for i in 3:
 		var x := 9.0 + float(i) * 6.0
-		_tri(spikes, Vector2(x - 3.0, 15.0), Vector2(x, 8.0), Vector2(x + 3.0, 15.0))
+		_tri(spikes, Vector2(x - 3.2, 16.0), Vector2(x, 5.0), Vector2(x + 3.2, 16.0))
 	out["spikes"] = spikes
+
+	# A hat, which is the whole thesis of this issue in one part: the player asked
+	# for the archer to be "the goblin base with a hat on basically", so a variant
+	# costs a part rather than a drawing.
+	var hat := _blank()
+	_rect(hat, 9, 5, 23, 6)
+	_tri(hat, Vector2(16.0, 0.0), Vector2(11.0, 5.0), Vector2(21.0, 5.0))
+	out["hat"] = hat
+
+	var helm := _blank()
+	_ellipse(helm, 16.0, 7.0, 6.0, 5.0)
+	_rect(helm, 10, 7, 22, 9)
+	out["helm"] = helm
+
+	var mandibles := _blank()
+	_tri(mandibles, Vector2(13.0, 12.0), Vector2(10.0, 17.0), Vector2(15.0, 13.0))
+	_tri(mandibles, Vector2(19.0, 12.0), Vector2(22.0, 17.0), Vector2(17.0, 13.0))
+	out["mandibles"] = mandibles
+
+	var wheels := _blank()
+	_ellipse(wheels, 9.0, 27.0, 4.5, 4.5)
+	_ellipse(wheels, 23.0, 27.0, 4.5, 4.5)
+	out["wheels"] = wheels
+
+	var barrel := _blank()
+	_rect(barrel, 14, 4, 19, 16)
+	_ellipse(barrel, 16.5, 4.0, 3.5, 3.0)
+	out["barrel"] = barrel
 
 	# --- hands, plain circles, the player's word --------------------------
 	# The player: "ditch arms and let the hands float around." So there is no

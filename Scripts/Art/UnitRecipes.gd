@@ -22,6 +22,11 @@ const OUTLINE_SHARE := 0.031
 ## `team` on a layer takes `Palette.team_color` instead of `color`, which is the
 ## one place a side changes what a unit looks like.
 const RECIPES := {
+	# --- the goblin family -------------------------------------------------
+	# The player: "goblin archer should be the goblin base with a hat on
+	# basically". So the archer IS the goblin's recipe with one part added, and
+	# that is this issue's whole thesis in one entry: a variant costs a part
+	# rather than a drawing.
 	&"goblin": [
 		{"part": &"body_skinny", "color": "5d7a3a"},
 		{"part": &"hands", "color": "7fa050"},
@@ -30,25 +35,81 @@ const RECIPES := {
 		{"part": &"nose_triangle", "color": "8fb45c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
-	## The player: "Don't put earss on aaything but the goblin." I read the
-	## archer as the goblin, because it is the same creature with a hood on and
-	## the sheet the ruling was made against showed both as goblins. Deleting one
-	## line below takes the ears off it if that reading is wrong.
-	&"goblin_archer": [
-		{"part": &"body_skinny", "color": "4a6a52"},
-		{"part": &"hands", "color": "7fa050"},
-		{"part": &"head_round", "color": "7fa050"},
-		{"part": &"ears_pointed", "color": "6f8f4a"},
-		{"part": &"nose_triangle", "color": "8fb45c"},
-		{"part": &"hood", "color": "3b5a44"},
+	&"goblin_archer": {"base": &"goblin", "add": [
+		{"part": &"hat", "color": "3b5a44"},
+	]},
+
+	# --- the dungeon family, and the same saving found twice ---------------
+	# `dungeon_grunt`, `_archer` and `_cultist` were three drawings of one
+	# soldier. They are now one base and one hat each.
+	&"dungeon_grunt": [
+		{"part": &"body_muscular", "team": true},
+		{"part": &"hands_wide", "color": "d8b48c"},
+		{"part": &"head_round", "color": "d8b48c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
+	&"dungeon_archer": {"base": &"dungeon_grunt", "add": [
+		{"part": &"hood", "color": "5a6a4a"},
+	]},
+	&"dungeon_cultist": {"base": &"dungeon_grunt", "add": [
+		{"part": &"hood", "color": "6b3f7a"},
+	]},
+
+	# --- the rat family ----------------------------------------------------
+	# No ears, twice over: `test_art.gd` caught round ears making the rat as tall
+	# as it is wide, and the player has since ruled that nothing but the goblin
+	# gets them at all.
+	&"rat": [
+		{"part": &"body_low", "color": "7a6a58"},
+		{"part": &"tail", "color": "8a7a68"},
+		{"part": &"head_snouted", "color": "8a7a68"},
+		{"part": &"eyes_snout", "color": "c04a4a"},
+	],
+	# The Rat King is the rat wearing what its name says. `test_art.gd` asserts
+	# its back is three crests and not a dome, so the crown is the COLOUR of the
+	# three spikes rather than an object anywhere. Three attempts at an object
+	# scored 2, 5 and 1 crests -- over the spine, on the head, and inside the
+	# middle spike, where its own outline bridged the valleys either side. The
+	# test named that last cause in its own failure message.
+	&"rat_king": {"base": &"rat", "add": [
+		{"part": &"spikes", "color": "e8c84a"},
+	]},
+
+	# --- the siege pair ----------------------------------------------------
+	&"siege_engine": [
+		{"part": &"body_rotund", "team": true},
+		{"part": &"wheels", "color": "4a3f36"},
+		{"part": &"barrel", "color": "8a8f96"},
+	],
+	&"siege_master": [
+		{"part": &"body_muscular", "team": true},
+		{"part": &"hands_wide", "color": "d8b48c"},
+		{"part": &"head_round", "color": "d8b48c"},
+		{"part": &"helm", "color": "8a8f96"},
+		{"part": &"eyes", "color": "1c1a12"},
+	],
+
+	# --- the party ---------------------------------------------------------
 	&"warrior": [
 		{"part": &"body_muscular", "team": true},
 		{"part": &"hands_wide", "color": "d8b48c"},
 		{"part": &"head_round", "color": "d8b48c"},
 		{"part": &"plume", "color": "b8503c"},
 		{"part": &"eyes", "color": "1c1a12"},
+	],
+	&"priest": [
+		{"part": &"body_skinny", "team": true},
+		{"part": &"hands", "color": "e0c0a0"},
+		{"part": &"head_round", "color": "e0c0a0"},
+		{"part": &"hood", "color": "e8dcb0"},
+		{"part": &"eyes", "color": "1c1a12"},
+	],
+	&"geysermancer": [
+		{"part": &"body_skinny", "team": true},
+		{"part": &"hands", "color": "cfe6ee"},
+		{"part": &"head_round", "color": "cfe6ee"},
+		{"part": &"hat", "color": "3f7fa8"},
+		{"part": &"eyes", "color": "1c2a32"},
 	],
 	&"abomination": [
 		{"part": &"body_rotund", "color": "6b4a7a"},
@@ -58,23 +119,62 @@ const RECIPES := {
 		{"part": &"tusks", "color": "d8cbe0"},
 		{"part": &"eyes", "color": "e8d24a"},
 	],
-	&"priest": [
-		{"part": &"body_skinny", "team": true},
-		{"part": &"hands", "color": "e0c0a0"},
-		{"part": &"head_round", "color": "e0c0a0"},
-		{"part": &"hood", "color": "e8dcb0"},
-		{"part": &"eyes", "color": "1c1a12"},
+
+	# --- the rest of floor one --------------------------------------------
+	&"brute": [
+		{"part": &"body_muscular", "color": "8a6a3a"},
+		{"part": &"hands_wide", "color": "a08050"},
+		{"part": &"head_small", "color": "a08050"},
+		{"part": &"horns", "color": "e0d4b8"},
+		{"part": &"eyes", "color": "2a1c10"},
 	],
-	## No ears, twice over: `test_art.gd` caught round ears making the rat as tall
-	## as it is wide, and the player has since ruled that nothing but the goblin
-	## gets them at all.
-	&"rat": [
-		{"part": &"body_low", "color": "7a6a58"},
-		{"part": &"tail", "color": "8a7a68"},
-		{"part": &"head_snouted", "color": "8a7a68"},
-		{"part": &"eyes_snout", "color": "c04a4a"},
+	&"cultist": [
+		{"part": &"body_skinny", "color": "4a2f5a"},
+		{"part": &"hands", "color": "c8a0b8"},
+		{"part": &"head_round", "color": "c8a0b8"},
+		{"part": &"hood", "color": "6b3f7a"},
+		{"part": &"eyes", "color": "e8d24a"},
+	],
+	&"ghoul": [
+		{"part": &"body_skinny", "color": "6a7a68"},
+		{"part": &"hands", "color": "8a9a88"},
+		{"part": &"head_small", "color": "8a9a88"},
+		{"part": &"tusks", "color": "d8dcd0"},
+		{"part": &"eyes", "color": "c04a4a"},
+	],
+	&"grub": [
+		{"part": &"body_rotund", "color": "9a8a5a"},
+		{"part": &"head_small", "color": "b0a070"},
+		{"part": &"mandibles", "color": "5a4a2a"},
+		{"part": &"eyes", "color": "2a2010"},
+	],
+	&"stalker": [
+		{"part": &"body_skinny", "color": "3a3a4a"},
+		{"part": &"tail", "color": "4a4a5a"},
+		{"part": &"hands", "color": "4a4a5a"},
+		{"part": &"head_small", "color": "4a4a5a"},
+		{"part": &"eyes", "color": "e8d24a"},
+	],
+	&"the_warden": [
+		{"part": &"body_muscular", "color": "8a4a3a"},
+		{"part": &"hands_wide", "color": "a05a48"},
+		{"part": &"head_round", "color": "a05a48"},
+		{"part": &"helm", "color": "8a8f96"},
+		{"part": &"eyes", "color": "e8d24a"},
 	],
 }
+
+## A recipe is either a stack of layers or `{"base": id, "add": [...]}`. The
+## second form is what makes a variant cost a part: `goblin_archer` is the
+## goblin plus a hat, and there is no second copy of the goblin to keep in step.
+static func layers_for(shape_id: StringName) -> Array:
+	var entry = RECIPES.get(shape_id)
+	if entry == null:
+		return []
+	if entry is Array:
+		return entry
+	var base: Array = layers_for(entry.get("base", &""))
+	return base + (entry.get("add", []) as Array)
 
 static func has_recipe(shape_id: StringName) -> bool:
 	return RECIPES.has(shape_id)
@@ -130,7 +230,7 @@ static func _build(shape_id: StringName, team: CG.Team) -> Texture2D:
 ## never pays for the composition, and this is the one place it happens, so the
 ## baked file and the runtime fallback cannot disagree.
 static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
-	var layers: Array = RECIPES.get(shape_id, [])
+	var layers := layers_for(shape_id)
 	if layers.is_empty():
 		return null
 	var size := _canvas_size(layers)
