@@ -285,6 +285,30 @@ func test_a_hook_interrupts_the_cast_it_lands_on() -> void:
 			interrupted += 1
 	assert_eq(interrupted, 1, "and it is reported as an interrupt")
 
+## The other edge. A second stun landing mid-drag must not drag the target any
+## further: `pull_ticks_left` bounds the distance, the stun only authorises it.
+func test_a_second_stun_landing_mid_drag_does_not_drag_the_target_further() -> void:
+	var hook := _hook(&"hook", 70.0)
+	var deps := _deps_with_action(hook, 5.0)
+
+	var state := CombatState.new(113)
+	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+
+	caster.intent = Intent.use_action(hook.id, target.id)
+	CombatSim.step(state, deps)
+	CombatSim.step(state, deps) # lands, and drags one step
+
+	# A Brute's slam arriving on a target already on the chain.
+	target.statuses[CG.Status.STUN] = state.tick + CombatSim.PULL_TICKS * 4
+
+	for _i in CombatSim.PULL_TICKS * 4:
+		CombatSim.step(state, deps)
+
+	assert_almost_eq(target.position.x, 30.0, 0.01, "70 units and no more, however long the stun runs")
+
 ## The stun is what authorises the drag, so stripping it stops the chain. This
 ## is the one thing that can end a pull early, and it is a real counter.
 func test_cleansing_the_stun_takes_the_target_off_the_chain() -> void:
