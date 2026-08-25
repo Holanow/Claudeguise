@@ -1422,8 +1422,10 @@ func test_the_wrapped_row_keeps_its_controls() -> void:
 		assert_true(texts.has(want), "the wrapped row lost %s: %s" % [want, str(texts)])
 	panel.free()
 
-## Five wrapped lines of rules in a column that fits two plan rows.
-func test_the_budget_rules_move_to_hover_in_a_column() -> void:
+## Issue 396 moved the block-cost rules to hover in the narrow column; issue 590
+## moved them there on the full-width screen too, where they were a second
+## paragraph of the `HOW_TO_PLAY` four sentences above them.
+func test_the_budget_rules_are_hover_on_both_widths() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_make_plan("Always act")]
 	var embedded := _embedded_panel(pawn)
@@ -1437,8 +1439,11 @@ func test_the_budget_rules_move_to_hover_in_a_column() -> void:
 		"the rules are five wrapped lines here: " + short.text)
 	assert_true(short.tooltip_text.contains("A condition costs 0"),
 		"and they have to still be readable somewhere: " + short.tooltip_text)
-	assert_true(_budget_label(full).text.contains("A condition costs 0"),
-		"the full-width screen keeps them in place")
+	var wide := _budget_label(full)
+	assert_false(wide.text.contains("A condition costs 0"),
+		"the full-width screen prints the rules as a paragraph: " + wide.text)
+	assert_true(wide.tooltip_text.contains("A condition costs 0"),
+		"and then they are nowhere at all: " + wide.tooltip_text)
 	embedded.free()
 	full.free()
 

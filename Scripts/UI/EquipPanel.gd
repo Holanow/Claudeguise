@@ -460,12 +460,12 @@ func _action_controls(pawn: PawnData) -> Array[Control]:
 	var granted := granted_action_ids(pawn)
 	if granted.is_empty():
 		out.append(_line(
-			"All %d are this pawn's own. Nothing it is wearing teaches a skill; Plate Mail is the one that does." % available.size(),
+			"All %d are this pawn's own; nothing it is wearing teaches a skill." % available.size(),
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
 	var names := granted.map(func(a): return _action_display_name(a))
 	out.append(_line(
-		"%s came from gear, on top of this pawn's own %d, and each is a skill block in Edit your pawns' plans." % [
+		"%s came from gear, on top of this pawn's own %d." % [
 			", ".join(names), _class_action_count(pawn)],
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 	return out

@@ -3,10 +3,10 @@ class_name DisplayOptions
 
 ## Every "show less on the screen" preference, in one place.
 
-## `id` is what code asks for. `label` is the checkbox. `help` is the sentence
-## under it, and it is required -- the same report that asked for less on screen
-## also found that nothing anywhere explains anything, so a control with no
-## explanation is the failure mode this project already has.
+## `id` is what code asks for. `label` is the checkbox. `help` is the row's
+## mouseover, and it is required -- the same report that asked for less on
+## screen also found that nothing anywhere explains anything, so a control with
+## no explanation is the failure mode this project already has.
 const OPTIONS := [
 	{
 		"id": &"damage_numbers",
