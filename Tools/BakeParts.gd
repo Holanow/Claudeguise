@@ -327,3 +327,29 @@ func _bake_slices() -> void:
 				img.save_png(UnitArt.slice_path(id, team, i))
 				total += 1
 	print("BakeParts: %d slice file(s) written to %s" % [total, UnitArt.SLICE_DIR])
+	_bake_fragments()
+
+## Issue 589. The same recipes cut again, into the chunks a death throws. A cut
+## that yields one chunk writes nothing: a body that comes apart into itself has
+## not come apart, and `UnitArt.fragments_for` refuses it on the same test.
+func _bake_fragments() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(UnitArt.FRAGMENT_DIR))
+	var total := 0
+	for id in UnitRecipes.recipe_ids():
+		var cuts := UnitRecipes.fragments_for(id)
+		if cuts.size() < 2:
+			print("  %-16s one chunk, not written" % id)
+			continue
+		var groups := PackedStringArray()
+		for cut in cuts:
+			groups.append(String(cut["group"]))
+		print("  %-16s %d chunk(s): %s" % [id, cuts.size(), ", ".join(groups)])
+		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
+			for i in cuts.size():
+				var img := UnitRecipes.compose_layers(cuts[i]["layers"], team)
+				if img == null:
+					printerr("BakeParts: '%s' fragment %d composed nothing" % [id, i])
+					continue
+				img.save_png(UnitArt.fragment_path(id, team, i))
+				total += 1
+	print("BakeParts: %d fragment file(s) written to %s" % [total, UnitArt.FRAGMENT_DIR])

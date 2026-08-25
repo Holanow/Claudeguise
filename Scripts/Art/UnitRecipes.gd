@@ -252,6 +252,42 @@ static func slices_for(shape_id: StringName) -> Array:
 		out.append({"part": &"", "layers": still})
 	return out
 
+## Issue 589. Which chunk of a body a part leaves with when the body comes apart.
+## A part named nowhere here is its own chunk, so a part added later flies on its
+## own rather than silently joining the body it was drawn over.
+const FRAGMENT_GROUPS := {
+	&"body_skinny": &"body", &"body_muscular": &"body",
+	&"body_rotund": &"body", &"body_low": &"body", &"feet": &"body",
+	&"head_round": &"head", &"head_small": &"head", &"head_tall": &"head",
+	&"head_snouted": &"head", &"eyes": &"head", &"eyes_snout": &"head",
+	&"ears_pointed": &"head", &"ears_round": &"head", &"nose_triangle": &"head",
+	&"mandibles": &"head", &"tusks": &"head", &"horns": &"head",
+	&"hat": &"head", &"hood": &"head", &"helm": &"head", &"plume": &"head",
+	&"crown": &"head",
+	&"hands": &"hands", &"hands_wide": &"hands",
+}
+
+static func group_for(part: StringName) -> StringName:
+	return FRAGMENT_GROUPS.get(part, part)
+
+## The recipe cut into the chunks a death throws: runs of ADJACENT layers that
+## share a group. Adjacent rather than gathered, so the chunks stack back into
+## the flat composite exactly as it was composed -- gathering the Rat King's
+## spikes down to its body would put them under a head they were baked over, and
+## each part carries its own outline ring, so a reorder is visible.
+##
+## Each entry is `{"group": <name>, "layers": [...]}`, the same shape
+## `slices_for` yields, and `compose_layers` builds either one.
+static func fragments_for(shape_id: StringName) -> Array:
+	var out: Array = []
+	for layer in layers_for(shape_id):
+		var group := group_for(layer["part"])
+		if not out.is_empty() and out[-1]["group"] == group:
+			out[-1]["layers"].append(layer)
+			continue
+		out.append({"group": group, "layers": [layer]})
+	return out
+
 ## Whether this recipe has anything to animate at all.
 static func has_animated_part(shape_id: StringName) -> bool:
 	for layer in layers_for(shape_id):

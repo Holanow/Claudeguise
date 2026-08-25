@@ -71,6 +71,39 @@ static func slices_for(shape_id: StringName, team: CG.Team) -> Array:
 	_slice_cache[key] = out
 	return out
 
+## Issue 589. Where one chunk of a body lives once it has come apart. Its own
+## directory for the same reason the slices have one: `Silhouettes.shape_ids`
+## walks `Assets/Units` looking for units and must not find halves of them.
+const FRAGMENT_DIR := "res://Assets/Units/fragments"
+
+static func fragment_path(shape_id: StringName, team: CG.Team, index: int) -> String:
+	var side := "player" if team == CG.Team.PLAYER else "enemy"
+	return "%s/%s.%s.f%d.png" % [FRAGMENT_DIR, shape_id, side, index]
+
+static var _fragment_cache: Dictionary = {}
+
+## The chunks a death throws, in the order they were composed, or an empty array
+## when this body cannot come apart. Cached for the process, beside the flat
+## composite and for the same reason.
+static func fragments_for(shape_id: StringName, team: CG.Team) -> Array:
+	var key := "%s|%d" % [shape_id, int(team)]
+	if _fragment_cache.has(key):
+		return _fragment_cache[key]
+	var out: Array = []
+	var cuts := UnitRecipes.fragments_for(shape_id) if UnitRecipes.has_recipe(shape_id) else []
+	# One chunk is the whole body, and a body that flies in one piece has not
+	# come apart. Refused, and so is a set with a file missing: half a unit
+	# scattering is a worse picture than the one this replaces.
+	if cuts.size() >= 2:
+		for i in cuts.size():
+			var tex := UIArt.load_png(fragment_path(shape_id, team, i))
+			if tex == null:
+				out = []
+				break
+			out.append({"group": cuts[i]["group"], "tex": tex})
+	_fragment_cache[key] = out
+	return out
+
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return texture_for(shape_id, team) != null
 
