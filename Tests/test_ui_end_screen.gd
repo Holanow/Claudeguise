@@ -238,6 +238,34 @@ func test_the_tally_reads_a_real_fight_and_its_totals_reconcile() -> void:
 		"dealt and taken must be the same number counted from two ends")
 
 
+## The summon rule cannot be asserted against a real fight, and this test says
+## why rather than pretending otherwise. Measured over 12 seeds: a preset Siege
+## Master builds two engines every time and they deal **zero damage in all 24**
+## -- each one starts an action, never fires it, and dies. Filed as its own
+## issue; the tally is proved against a built stream above.
+##
+## So this asserts the REASON, not the rule: it goes red the day an engine lands
+## a hit, which is the day the assertion above it can be a real one.
+func test_a_real_siege_engine_still_deals_nothing_which_is_why_the_rule_is_unproven() -> void:
+	var party: Array[PawnData] = []
+	for cid in [&"siege_master", &"warrior"]:
+		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
+	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 5)
+	CombatSim.run(state)
+
+	var engines := {}
+	for e in state.events:
+		if e.kind == CG.EventKind.SUMMONED:
+			engines[e.target_id] = true
+	assert_true(engines.size() > 0, "no engine was built at all, which is a different defect")
+
+	var rows := EndScreenScript.tally(state)
+	assert_eq(int(rows[0]["by_summons"]), 0,
+		"an engine landed a hit: turn this into an assertion that the master is credited")
+	assert_false(EndScreenScript._dealt_text(rows[0]).contains("by summons"),
+		"and name the share on the card: %s" % EndScreenScript._dealt_text(rows[0]))
+
+
 ## The log is every line the fight produced through the running log's own
 ## formatter, so the What-to-show toggles apply here too.
 func test_the_full_log_is_every_line_the_running_log_would_have_printed() -> void:

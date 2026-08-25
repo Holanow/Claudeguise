@@ -172,7 +172,8 @@ func _to_battle() -> Node:
 func _order(screen) -> Array:
 	var out: Array = []
 	for row in screen.shown_rows():
-		out.append("%s d%d t%d" % [row["name"], int(row["dealt"]), int(row["taken"])])
+		out.append("%s d%d t%d s%d" % [
+			row["name"], int(row["dealt"]), int(row["taken"]), int(row["by_summons"])])
 	return out
 
 ## True when the cards on screen run highest-first down `key`.
@@ -217,6 +218,18 @@ func _run() -> void:
 		return
 
 	_check(screen._roster.get_child_count() > 0, "the roster has %d cards" % screen._roster.get_child_count())
+
+	## The Siege Master is in this party for summon attribution, and it builds
+	## NOTHING here: the party screen hands out planless pawns, and a planless
+	## Siege Master takes `spotter_mark` every time because `DefaultBehavior`
+	## picks the first affordable action in list order (issue 98). Asserted as the
+	## reason rather than left as a comment, so it fires the day that changes.
+	var summons := 0
+	for e in battle.state.events:
+		if e.kind == CG.EventKind.SUMMONED:
+			summons += 1
+	_check(summons == 0,
+		"a planless Siege Master built %d engines -- the summon share is now reachable here" % summons)
 	print("EndRosterProbe: by dealt   %s" % [_order(screen)])
 	await _shot("teal_552_roster_by_dealt")
 
