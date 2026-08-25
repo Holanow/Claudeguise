@@ -44,13 +44,13 @@ func test_the_fallback_already_casts_four_of_the_nineteen_library_actions() -> v
 ## somewhere else (the Abomination's Claw) or fires at a different moment (the
 ## Priest's heal since #433). Only the outcome tells those apart.
 
-## **INVERTED PARK, ISSUE 565.** The Geysermancer's top row produces a
-## bit-identical fight. **The Priest left this set on #562 and NOT because
-## anybody made its row matter**: every party here carries an Abomination, whose
-## hook now drags over seven ticks, so all sixteen fights moved under a
-## measurement that was already deciding on 4 health points. #565's premise
-## needs re-measuring rather than closing.
-func test_the_geysermancer_top_row_changes_nothing_issue_565() -> void:
+## **INVERTED PARK, ISSUE 565, AND IT DECIDES ON NOISE.** The Priest left this
+## set on #562's seven-tick drag and came back on #598's balance batch, inside
+## one day, with nobody touching its row either time. Every party here carries
+## an Abomination, so any change to the hook moves all sixteen fights under a
+## comparison whose whole margin was 4 health points on 2 of 8 seeds. Read a
+## move here as "the fights moved", never as "#565 is fixed".
+func test_the_geysermancer_and_priest_top_rows_change_nothing_issue_565() -> void:
 	var unedited := _digest(&"", false)
 	var inert := []
 	for class_id in Registry.all_class_ids():
@@ -58,7 +58,7 @@ func test_the_geysermancer_top_row_changes_nothing_issue_565() -> void:
 		print("%-14s unedited %d  top row alone %d" % [String(class_id), unedited, top_row])
 		if top_row == unedited:
 			inert.append(class_id)
-	assert_eq(inert, [&"geysermancer"],
+	assert_eq(inert, [&"geysermancer", &"priest"],
 		"the set of inert top rows has moved; re-measure #565 before reading that as a fix")
 
 
