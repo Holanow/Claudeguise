@@ -51,7 +51,7 @@ static func kind_for(action: ActionDef) -> Kind:
 const IDLE_SECONDS := 1.9
 
 ## The bob's amplitude, as a share of the drawn radius.
-const IDLE_BOB := 0.10
+const IDLE_BOB := 0.17
 
 ## How far a melee thrust carries the hands forward, and how far back it winds
 ## first. Both as a share of the drawn radius.
@@ -96,14 +96,15 @@ static func action_offset(kind: Kind, progress: float, radius: float) -> Vector2
 			return _cast(p) * radius
 	return Vector2.ZERO
 
-## Draw back, then throw. Cubic on the way out so the hands accelerate into the
-## blow instead of sliding to it.
+## Draw back, then throw. Quadratic on the way out so the hands accelerate into
+## the blow instead of sliding to it, without hiding the whole throw in the last
+## two frames the way a cubic did.
 static func _melee(p: float) -> Vector2:
 	if p < MELEE_RELEASE:
 		var w := p / MELEE_RELEASE
 		return Vector2(-MELEE_WIND_BACK * w * w, 0.0)
 	var t := (p - MELEE_RELEASE) / (1.0 - MELEE_RELEASE)
-	var eased := t * t * t
+	var eased := t * t
 	return Vector2(-MELEE_WIND_BACK + (MELEE_REACH + MELEE_WIND_BACK) * eased, 0.0)
 
 ## A draw held to the loose: back and up, easing out, so a long draw sits at
