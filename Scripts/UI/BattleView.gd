@@ -413,8 +413,6 @@ func _build_end_banner() -> void:
 	_end_screen = EndScreen.create()
 	column.add_child(_end_screen)
 
-	column.add_child(_build_room_picker())
-
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -442,27 +440,41 @@ func _build_end_banner() -> void:
 	inspect_button.pressed.connect(_on_inspect_pressed)
 	buttons.add_child(inspect_button)
 
+	_build_room_picker(_end_banner)
+
 	_inspect_panel = InspectPanel.create()
 	hud.add_child(_inspect_panel)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
 	_inspect_panel.closed.connect(_on_card_closed)
 
-## Issue 591: another room, from the end card. Plain `Button`s in a grid rather
-## than an `OptionButton`: the popup of one is a separate window and #520 is
-## what a control nothing can really click costs, so every room here is pressed
-## by the same event a mouse sends.
+## Issue 591: another room, from the end card. Plain `Button`s rather than an
+## `OptionButton`: the popup of one is a separate window and #520 is what a
+## control nothing can really click costs, so every room here takes the same
+## event a mouse sends.
+##
+## **In the left gutter, not in the card's own column.** Measured: the column
+## already runs 21 px past the bottom of a 1280x720 window before anything is
+## added to it, so a row appended there is a control no player can reach. The
+## gutter beside it is empty from the summary bars down.
 const ROOM_PICKER_NAME := "EndRoomPicker"
-const ROOM_PICKER_COLUMNS := 3
+const ROOM_PICKER_WIDTH := 260.0
 const ROOM_PICKER_CAPTION := "Fight another room"
 
 var _room_buttons: Dictionary = {}
 
-func _build_room_picker() -> Control:
+func _build_room_picker(banner: Control) -> Control:
 	var side := VBoxContainer.new()
 	side.name = ROOM_PICKER_NAME
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+	side.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	side.grow_horizontal = Control.GROW_DIRECTION_END
+	side.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	side.offset_left = Palette.SPACE_M
+	side.offset_bottom = -Palette.SPACE_M
+	side.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, 0.0)
+	banner.add_child(side)
 
 	var caption := Label.new()
 	caption.text = ROOM_PICKER_CAPTION
@@ -471,13 +483,6 @@ func _build_room_picker() -> Control:
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(caption)
 
-	var grid := GridContainer.new()
-	grid.columns = ROOM_PICKER_COLUMNS
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.add_theme_constant_override("h_separation", int(Palette.SPACE_S))
-	grid.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
-	side.add_child(grid)
-
 	## `Registry.pickable_encounter_ids()` is the same list party select offers,
 	## asked of the registry rather than of that screen. One place decides which
 	## rooms exist, which is what #587 has to be able to move.
@@ -485,15 +490,14 @@ func _build_room_picker() -> Control:
 		var room = Registry.get_encounter(id)
 		var b := Button.new()
 		b.text = room_button_text(id, room)
-		b.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, Palette.TOUCH_TARGET_MIN)
 		b.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		b.clip_text = true
 		b.tooltip_text = PartySelect.room_summary(id)
 		b.set_script(GlossaryButton)
 		var room_id: StringName = id
 		b.pressed.connect(func(): room_requested.emit(room_id))
-		grid.add_child(b)
+		side.add_child(b)
 		_room_buttons[id] = b
 	return side
 
