@@ -345,10 +345,13 @@ func _player_actions(room_id: StringName, s: int) -> Array:
 	var cursor := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		for u in state.units:
-			if u.team != CG.Team.PLAYER or u.action_ticks_total <= 0:
+			if u.team != CG.Team.PLAYER or u.action_ticks_left <= 0:
 				continue
-			if u.action_ticks_left == u.action_ticks_total:
-				started[u.id] = {"tick": state.tick, "total": u.action_ticks_total}
+			# Derived rather than caught on the tick it began. An action is
+			# committed and spent inside one `step()`, so it is never seen with
+			# `action_ticks_left == action_ticks_total` from out here.
+			started[u.id] = {"tick": state.tick - (u.action_ticks_total - u.action_ticks_left),
+				"total": u.action_ticks_total}
 		CombatSim.step(state)
 		for e in state.events_since(cursor):
 			if e.kind != CG.EventKind.ACTION_FIRE or not started.has(e.source_id):
@@ -614,18 +617,34 @@ func _clip_hands_ab(fight: Dictionary) -> void:
 		_failures.append("hands_ab: no player action in %s seed %d"
 			% [fight["room"], fight["seed"]])
 		return
-	var fast: Dictionary = actions[0]
-	var slow: Dictionary = actions[0]
+	# Both arms have to be the SAME motion, or the pair reads as two different
+	# animations rather than as one animation at two speeds. Whichever of the
+	# three motions holds the widest spread of tick counts wins.
+	var by_kind := {}
 	for a in actions:
 		if a["start"] * FRAMES_PER_TICK <= HAND_LEAD:
 			continue
-		if a["total"] < fast["total"] or fast["start"] * FRAMES_PER_TICK <= HAND_LEAD:
-			fast = a
-		if a["total"] > slow["total"] or slow["start"] * FRAMES_PER_TICK <= HAND_LEAD:
-			slow = a
-	if fast["total"] == slow["total"]:
-		_failures.append("hands_ab: every player action is %d ticks long, so there is no pair"
-			% fast["total"])
+		var kind := PartAnimation.kind_for(Registry.get_action(a["action"]))
+		if not by_kind.has(kind):
+			by_kind[kind] = {"fast": a, "slow": a}
+		if a["total"] < by_kind[kind]["fast"]["total"]:
+			by_kind[kind]["fast"] = a
+		if a["total"] > by_kind[kind]["slow"]["total"]:
+			by_kind[kind]["slow"] = a
+	var fast := {}
+	var slow := {}
+	var spread := 0
+	for kind in by_kind:
+		var pair: Dictionary = by_kind[kind]
+		var d: int = int(pair["slow"]["total"]) - int(pair["fast"]["total"])
+		if d <= spread:
+			continue
+		spread = d
+		fast = pair["fast"]
+		slow = pair["slow"]
+	if fast.is_empty():
+		_failures.append("hands_ab: no motion has a fast and a slow player action in %s seed %d"
+			% [fight["room"], fight["seed"]])
 		return
 	for arm in [{"name": "fast", "a": fast}, {"name": "slow", "a": slow}]:
 		var a: Dictionary = arm["a"]
@@ -636,9 +655,11 @@ func _clip_hands_ab(fight: Dictionary) -> void:
 		for i in HAND_LEAD + int(a["total"]) * FRAMES_PER_TICK + HAND_TAIL:
 			await _capture()
 			_frame()
+		var kind := PartAnimation.kind_for(Registry.get_action(a["action"]))
 		_say("hands_ab.%s" % arm["name"], from, SHOWY,
-			"%s seed %d, %s winds up %s over %d ticks (%d frames) from tick %d, fires on tick %d" % [
-				fight["room"], fight["seed"], a["name"], a["action"], a["total"],
+			"%s seed %d, %s winds up %s (%s motion) over %d ticks (%d frames) from tick %d, fires on tick %d" % [
+				fight["room"], fight["seed"], a["name"], a["action"],
+				PartAnimation.Kind.keys()[kind], a["total"],
 				int(a["total"]) * FRAMES_PER_TICK, a["start"], a["fire"]])
 		await _teardown()
 
