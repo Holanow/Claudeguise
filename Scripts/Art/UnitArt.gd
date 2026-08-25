@@ -15,6 +15,13 @@ static var _cache: Dictionary = {}
 ## The texture for a shape, or null when there is no file for it. Null is the
 ## normal case right now and is not an error: it means "use the placeholder".
 static func texture_for(shape_id: StringName, team: CG.Team) -> Texture2D:
+	# Issue 566. A recipe wins over a drawing: the whole point is that a new
+	# creature is a stack of parts rather than a twenty-fourth PNG. The old files
+	# stay on disk and still answer for every id without one.
+	if UnitRecipes.has_recipe(shape_id):
+		var composed := UnitRecipes.compose(shape_id, team)
+		if composed != null:
+			return composed
 	var side := "player" if team == CG.Team.PLAYER else "enemy"
 	# Side-specific first, then the shared file.
 	for candidate in ["%s/%s.%s.png" % [ART_DIR, shape_id, side], "%s/%s.png" % [ART_DIR, shape_id]]:

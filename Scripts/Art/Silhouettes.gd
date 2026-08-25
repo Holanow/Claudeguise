@@ -17,6 +17,12 @@ static func shape_ids() -> Array[StringName]:
 			if id.ends_with(".player") or id.ends_with(".enemy"):
 				id = id.get_basename()
 			seen[StringName(id)] = true
+	# Issue 566: a unit whose art is a recipe has no file to be found by the walk
+	# above, and the payoff the recipe exists for is exactly the creature nobody
+	# has drawn. Without this line every such unit is invisible to the art
+	# preview and to `test_art.gd`.
+	for id in UnitRecipes.recipe_ids():
+		seen[id] = true
 	var ids: Array[StringName] = []
 	for k in seen.keys():
 		ids.append(k)
