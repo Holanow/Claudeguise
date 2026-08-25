@@ -53,6 +53,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"death_explosion",
+		"label": "Bodies come apart on a death",
+		"help": "A dead unit is thrown apart into its own head, body and hands, which tumble, fall and fade over about a second, and it throws a heavier burst of debris in its own team's colour as it goes. On by default: without it a body simply stops being drawn, and the freeze frame a death already holds has nothing in it to look at. The pieces are wreckage and never fight, so they carry no bar, no name and no badge. Turn it off if you would rather a body just vanished.",
+		"default": true,
+	},
+	{
 		"id": &"screen_shake",
 		"label": "Screen shake on a death",
 		"help": "The whole arena kicks a few pixels and settles, scaled to the size of whatever died. Off by default, and it is the only row here that is off for a reason of its own: a death lands about eleven times a fight, so with this on the picture moves every two or three seconds, and the camera is the surface you read the fight off. Turn it on if you want the deaths to hit harder than they read.",

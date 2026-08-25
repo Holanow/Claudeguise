@@ -6,6 +6,7 @@ const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 const DisplayOptionsPanelScript := preload("res://Scripts/UI/DisplayOptionsPanel.gd")
 const ImpactFlashScript := preload("res://Scripts/UI/ImpactFlash.gd")
 const ImpactBurstScript := preload("res://Scripts/UI/ImpactBurst.gd")
+const DeathExplosionScript := preload("res://Scripts/UI/DeathExplosion.gd")
 const TeamStatusViewScript := preload("res://Scripts/UI/TeamStatusView.gd")
 const DeployViewScript := preload("res://Scripts/UI/DeployView.gd")
 const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
@@ -36,6 +37,8 @@ var _base_encounter = null
 var _deploy_band: Node2D = null
 var _unit_layer: Node2D = null
 var _bursts: Node2D = null
+## Issue 589. The chunks a dead body comes apart into, out of one fixed pool.
+var _gibs: Node2D = null
 var _text_layer: Node2D = null
 var _setup_hint: Label = null
 var _reset_button: Button = null
@@ -894,6 +897,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_shake_age = INF
 	_shake_amplitude = 0.0
 	ViewClock.frozen = false
+	if _gibs != null and is_instance_valid(_gibs):
+		_gibs.clear()
 	setup = false
 	_grabbed_unit_id = -1
 	_drag_moved = false
@@ -1130,6 +1135,7 @@ func _rebuild_units() -> void:
 	_unit_views.clear()
 	_unit_layer = null
 	_bursts = null
+	_gibs = null
 	_text_layer = null
 	_ensure_unit_views()
 
@@ -1166,6 +1172,11 @@ func _ensure_layers() -> void:
 	if _unit_layer == null or not is_instance_valid(_unit_layer):
 		_unit_layer = Node2D.new()
 		_arena.add_child(_unit_layer)
+	# Issue 589: under the debris and over the living, so a chunk cannot be
+	# mistaken for a body standing in front of one.
+	if _gibs == null or not is_instance_valid(_gibs):
+		_gibs = DeathExplosionScript.new()
+		_arena.add_child(_gibs)
 	# Issue 517: between the two, so debris covers a body and a name covers it.
 	if _bursts == null or not is_instance_valid(_bursts):
 		_bursts = ImpactBurstScript.new()
@@ -1250,6 +1261,8 @@ func _process(delta: float) -> void:
 func _render(alpha: float, stepped: bool, delta: float = 0.0) -> void:
 	alpha = clampf(alpha, 0.0, 1.0)
 	_advance_shake(delta)
+	if _gibs != null and is_instance_valid(_gibs):
+		_gibs.advance(delta)
 	var frame_at := {}
 	# Issue 583: unconditional, unlike the impact decay above -- an idle bob has
 	# no end to test for. Spent here for the same reason: a frozen frame never
@@ -1357,6 +1370,7 @@ func consume_events() -> void:
 			if e.kind == CG.EventKind.DAMAGE:
 				_apply_impact(e)
 		elif e.kind == CG.EventKind.DEATH:
+			_spawn_death_explosion(e)
 			_spawn_death_marker(e)
 			_hit_stop()
 			_screen_shake(e)
@@ -1586,6 +1600,30 @@ func _mergeable_floater(unit_id: int, color: Color):
 		if child.can_merge(unit_id, color, FLOATER_MERGE_WINDOW):
 			return child
 	return null
+
+## Issue 589. The dead body's own chunks, thrown from where the body was DRAWN
+## rather than from where the last tick left it -- the same anchor #537 gave the
+## death plate, and here it matters more, because the chunks start as a copy of
+## the body and any error is a jump.
+##
+## A body with no recipe, or one that comes apart into a single chunk, throws
+## nothing and vanishes exactly as it did before this issue.
+func _spawn_death_explosion(e: CombatEvent) -> void:
+	if _gibs == null or not is_instance_valid(_gibs):
+		return
+	var dead := state.unit(e.target_id)
+	if dead == null:
+		return
+	var shape := UnitViewScript.shape_id(dead)
+	var fragments := UnitArt.fragments_for(shape, dead.team)
+	if fragments.is_empty():
+		return
+	var at := _drawn_event_position(dead)
+	_gibs.explode(at, UnitViewScript.display_radius(dead),
+		UnitViewScript.facing_left(dead), fragments, dead.id)
+	if _bursts != null and is_instance_valid(_bursts) \
+			and DisplayOptions.enabled(DeathExplosionScript.OPTION):
+		_bursts.death_burst(at, Palette.team_color(dead.team))
 
 ## Issue 517: off the same event as the ring, and the guard is here rather than
 ## at the call site so nothing can throw debris without passing it. DAMAGE only,

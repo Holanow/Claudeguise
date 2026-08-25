@@ -20,9 +20,20 @@ root carries seven bosses and seven mini-bosses of which two exist.
 
 3. Commit the parts and the composed files it wrote.
 
+The bake writes the same recipe three ways, and all three are committed art:
+
+- `<id>.<side>.png` here, the flat body `UnitArt.texture_for` draws.
+- `slices/<id>.<side>.s<n>.png`, the recipe cut at the parts that move, which
+  is what issue 583's animation draws.
+- `fragments/<id>.<side>.f<n>.png`, the recipe cut into the chunks a death
+  throws (issue 589), grouped body / head / hands. A part named in no group is
+  its own chunk, so a new part flies on its own rather than silently joining the
+  body it was drawn over. The bake also deletes a chunk file a shrunk recipe no
+  longer writes; without that, a part removed later leaves dead art in git.
+
 **A variant costs one part.** `goblin_archer` is the goblin's recipe plus a hat;
 `dungeon_archer` and `dungeon_cultist` are `dungeon_grunt` plus a hood;
-`rat_king` is the rat plus spikes and a crown. Use `{"base": &"other_id", "add":
+`rat_king` is the rat plus a gold hat. Use `{"base": &"other_id", "add":
 [...]}` rather than copying a stack, or the two drift.
 
 **A missing part is a black square.** The player's ruling, and deliberate: an
@@ -72,7 +83,7 @@ composed `X.player.png` left behind will beat the `X.png` you just added.
 | `dungeon_archer.png` | **the grunt, plus a hood** |
 | `dungeon_cultist.png` | **the grunt, plus a purple hood** |
 | `rat.png` | low body, snouted head, tail |
-| `rat_king.png` | **the rat, plus spikes and a crown** |
+| `rat_king.png` | **the rat, plus a gold hat** |
 | `brute.png` | muscular body, horns |
 | `cultist.png` | capsule body, hood |
 | `ghoul.png` | capsule body, tusks |
