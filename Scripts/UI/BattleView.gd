@@ -15,6 +15,9 @@ const ArenaTextLayerScript := preload("res://Scripts/UI/ArenaTextLayer.gd")
 
 signal restart_requested
 signal back_requested
+## Issue 591: the end card offers the other rooms. The id, not an index --
+## #587 is turning rooms into scenes and an index would not survive it.
+signal room_requested(encounter_id: StringName)
 ## Every accepted placement, so `Main` can replay the fight the player watched.
 signal placement_changed(positions: Array[Vector2])
 
@@ -410,6 +413,8 @@ func _build_end_banner() -> void:
 	_end_screen = EndScreen.create()
 	column.add_child(_end_screen)
 
+	column.add_child(_build_room_picker())
+
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -442,6 +447,70 @@ func _build_end_banner() -> void:
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
 	_inspect_panel.closed.connect(_on_card_closed)
+
+## Issue 591: another room, from the end card. Plain `Button`s in a grid rather
+## than an `OptionButton`: the popup of one is a separate window and #520 is
+## what a control nothing can really click costs, so every room here is pressed
+## by the same event a mouse sends.
+const ROOM_PICKER_NAME := "EndRoomPicker"
+const ROOM_PICKER_COLUMNS := 3
+const ROOM_PICKER_CAPTION := "Fight another room"
+
+var _room_buttons: Dictionary = {}
+
+func _build_room_picker() -> Control:
+	var side := VBoxContainer.new()
+	side.name = ROOM_PICKER_NAME
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_theme_constant_override("separation", int(Palette.SPACE_XS))
+
+	var caption := Label.new()
+	caption.text = ROOM_PICKER_CAPTION
+	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_child(caption)
+
+	var grid := GridContainer.new()
+	grid.columns = ROOM_PICKER_COLUMNS
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.add_theme_constant_override("h_separation", int(Palette.SPACE_S))
+	grid.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
+	side.add_child(grid)
+
+	## `Registry.pickable_encounter_ids()` is the same list party select offers,
+	## asked of the registry rather than of that screen. One place decides which
+	## rooms exist, which is what #587 has to be able to move.
+	for id in Registry.pickable_encounter_ids():
+		var room = Registry.get_encounter(id)
+		var b := Button.new()
+		b.text = room_button_text(id, room)
+		b.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+		b.clip_text = true
+		b.tooltip_text = PartySelect.room_summary(id)
+		b.set_script(GlossaryButton)
+		var room_id: StringName = id
+		b.pressed.connect(func(): room_requested.emit(room_id))
+		grid.add_child(b)
+		_room_buttons[id] = b
+	return side
+
+## The room the player is already in is shown and dead rather than left out:
+## a list that changes length between fights is a list you have to re-read.
+func _sync_room_picker() -> void:
+	var here: StringName = config.encounter_id if config != null else &""
+	for id in _room_buttons:
+		_room_buttons[id].disabled = id == here
+
+## "Floor 1, The Narrows" is the room's whole name and half of it is the floor.
+## The floor is not a choice on this card, so it is dropped where it is there
+## and the full name stands where it is not.
+static func room_button_text(id: StringName, room) -> String:
+	var full: String = room.display_name if room != null and room.display_name != "" else String(id)
+	var comma := full.find(", ")
+	return full.substr(comma + 2) if comma >= 0 else full
 
 func _on_inspect_pressed() -> void:
 	_open_plans(null)
@@ -1616,6 +1685,7 @@ func _show_outcome() -> void:
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
 	_end_screen.open(state, _combat_log)
+	_sync_room_picker()
 	_end_banner.visible = true
 	_end_dim.visible = true
 	## Issue 552: the end card is as tall as the window, so its heading lands on
