@@ -373,8 +373,8 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## fights every verdict would be blank and the sentence would explain nothing.
 	if _live_unit(pawn) != null and _taunt_banner(pawn) == null:
 		out.append(_line(
-			"Right now: %s chose what this pawn last did, %s means the row's condition is true. A %s row that is not %s lost to a row above it, or its skill could not fire." % [
-				VERDICT_ACTING, VERDICT_READY, VERDICT_READY, VERDICT_ACTING],
+			"Right now: %s chose what this pawn last did. A row marked %s has its condition true and the pawn free to take it, so if it is not %s it lost to a row above it, or its skill could not fire. A row marked %s has its condition true as well, but the pawn is finishing an action and reads no row at all until that ends." % [
+				VERDICT_ACTING, VERDICT_READY, VERDICT_ACTING, VERDICT_HELD],
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
 	var banner := _taunt_banner(pawn)
@@ -1288,6 +1288,7 @@ const VERDICT_ACTING := "acting"
 const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"
 const VERDICT_TAUNTED := "taunted"
+const VERDICT_HELD := "held"
 
 ## One word for one plan row, or "" when there is no live fight to read, and
 ## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
@@ -1301,7 +1302,11 @@ func _live_verdict(pawn: PawnData, plan) -> String:
 		return ""
 	if _last_source_plan(unit) == plan.id:
 		return VERDICT_ACTING
-	return VERDICT_READY if PlanInterpreter.condition_holds(_live_state, unit, plan) else VERDICT_WAITING
+	if not PlanInterpreter.condition_holds(_live_state, unit, plan):
+		return VERDICT_WAITING
+	## Issue 575: a busy pawn reads no row at all until its action ends, so
+	## `ready` beside one is a claim about a row nothing is consulting.
+	return VERDICT_HELD if unit.is_busy() else VERDICT_READY
 
 ## The same, for the immutable fallback row. It has no condition to hold, so it
 ## is either what the pawn is doing or it is not -- and the compulsion gets its
