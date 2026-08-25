@@ -1201,7 +1201,7 @@ func test_a_busy_pawn_holds_the_rows_it_is_not_acting_on_rather_than_calling_the
 	var second_text := _all_label_text(rows[1])
 	assert_true(second_text.contains(InspectPanel.VERDICT_HELD),
 		"row 2's condition holds, but nothing will read it until the action ends: %s" % second_text)
-	assert_false(second_text.split(" ").has(InspectPanel.VERDICT_READY),
+	assert_false(second_text.contains(InspectPanel.VERDICT_READY),
 		"`ready` beside a row nothing is reading is the sentence this word exists to stop: %s" % second_text)
 	panel.free()
 
