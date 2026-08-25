@@ -10,6 +10,12 @@ const _FALLBACK_SPAWN_SPACING := 32.0
 
 ## Builds the starting state: places both sides, derives hp and resources
 ## through `deps`, and emits FIGHT_START.
+## Issue 562: how long a pull takes. The player asked for 5 to 7 ticks; 7 is the
+## end of that range, which puts a 100-unit pull at about 14 units a tick and
+## leaves the widest margin under what `_tween_body` will interpolate for the
+## smallest body on screen. The target is stunned for the same span.
+const PULL_TICKS := 7
+
 static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int, deps: SimDeps = null) -> CombatState:
 	if deps == null:
 		deps = SimDeps.new()
@@ -490,6 +496,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 			unit.recover_ticks_left -= 1
 			if unit.recover_ticks_left == 0:
 				unit.current_action = &""
+		_tick_pull(state, unit)
 		_tick_regen(state, unit, deps)
 		_tick_sustain(state, unit, deps)
 		_tick_dot_statuses(state, unit, deps)
@@ -992,8 +999,28 @@ static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUn
 	if dist <= 0.0001:
 		return # already on top of the caster; nothing to drag
 	var travel := minf(distance, dist)
-	var step := to_caster.normalized() * travel
-	target.position = _sweep(state, target, step)
+	## Issue 562: over `PULL_TICKS`, not in one. A 100-unit pull moved in a
+	## single tick exceeds what `_tween_body` will interpolate for a small body,
+	## so it snapped; at 14 units a tick it slides with no special case in the
+	## view. The target is stunned for exactly the same span -- the stun IS the
+	## pull, so it reads the same number rather than a second one.
+	target.pull_step = to_caster.normalized() * (travel / float(PULL_TICKS))
+	target.pull_ticks_left = PULL_TICKS
+	target.statuses[CG.Status.STUN] = state.tick + PULL_TICKS
+	target.status_source[CG.Status.STUN] = caster.id
+	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, &"")
+	se.status = CG.Status.STUN
+	state.emit(se)
+
+## One tick of a drag in progress. Runs whether or not the unit has an intent:
+## it is stunned, so it has none of its own.
+static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
+	if unit.pull_ticks_left <= 0:
+		return
+	unit.pull_ticks_left -= 1
+	unit.position = _sweep(state, unit, unit.pull_step)
+	if unit.pull_ticks_left <= 0:
+		unit.pull_step = Vector2.ZERO
 
 # ---------------------------------------------------------------------------
 # sustained actions

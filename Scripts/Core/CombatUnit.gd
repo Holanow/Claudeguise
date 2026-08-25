@@ -34,6 +34,12 @@ var move_speed: float = 0.0
 
 var alive: bool = true
 
+## Issue 562: a pull in progress. The drag takes `CombatSim.PULL_TICKS` rather
+## than a tick, so the body slides instead of snapping, and the target is
+## stunned for exactly as long.
+var pull_ticks_left: int = 0
+var pull_step: Vector2 = Vector2.ZERO
+
 ## Set by the decision layer, consumed by the simulation on the same tick.
 ##
 var intent: Intent = null
