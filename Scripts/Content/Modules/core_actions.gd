@@ -36,7 +36,7 @@ static func actions() -> Array[ActionDef]:
 	return [
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
 		_targets_self(_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90)),
-		_action(&"warrior_execute", "Execute", "A heavy melee blow that deals twice the damage of a Strike. Costs 20 Rage.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
+		_action(&"warrior_execute", "Execute", "Retired from the Warrior on issue 592; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
 		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 16 seconds.", 6, 10, 350.0, 240),
 		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 10 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
