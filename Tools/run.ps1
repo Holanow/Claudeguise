@@ -30,7 +30,11 @@ param(
     # `--fixed-fps N` makes the engine report a delta of exactly 1/N every frame,
     # including to the particle system, which nothing inside a tool can reach.
     # A frame recorder needs it; everything else should leave it at 0.
-    [int] $FixedFps = 0
+    [int] $FixedFps = 0,
+    # `--write-movie <path.avi>` records the audio bus per rendered frame rather
+    # than in real time, which is the only way a capture running at a tenth of
+    # real time can carry sound. Empty by default, so no existing launch changes.
+    [string] $WriteMovie = ''
 )
 . (Join-Path $PSScriptRoot 'ensure_import.ps1')
 
@@ -57,6 +61,13 @@ if (Test-Path $scene) {
     }
     $godotArgs = @('--path', $repo, '--resolution', $Resolution)
     if ($FixedFps -gt 0) { $godotArgs += @('--fixed-fps', "$FixedFps") }
+    if ($WriteMovie -ne '') {
+        $movieDir = Split-Path -Parent $WriteMovie
+        if ($movieDir -and -not (Test-Path $movieDir)) {
+            New-Item -ItemType Directory -Force -Path $movieDir | Out-Null
+        }
+        $godotArgs += @('--write-movie', $WriteMovie)
+    }
     $godotArgs += "res://Tools/$name.tscn"
     if ($ToolArgs.Count -gt 0) { $godotArgs += '--'; $godotArgs += $ToolArgs }
 } else {
