@@ -2,9 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 
 ## The whole-fight acceptance checks from issues 2 and 7. Real CombatSim, real
-## Registry content. Reference compositions here are re-picked whenever a
-## balance-affecting fix lands; see TEAM_LOG for the history rather than
-## restating it inline.
+## Registry content, and since #610 no claim about a win rate or a health cost.
 
 ## Issue 399: preset pawns, because "these two classes fight differently" is a
 ## claim about class content including its authored rows. Measured with no rows
@@ -100,11 +98,9 @@ func test_a_class_does_not_read_as_different_from_itself() -> void:
 			"%s reads as casting something it does not cast" % class_id)
 
 
-## Issue 2's acceptance criterion 6 asked for a win count across twenty seeds
-## that was neither 0 nor 20, which assumed combat outcomes vary with the
-## seed. At the time nothing did. The fix landed as issue 7's damage-variance
-## hook. The tests below are issue 7's real distribution-based replacements
-## for that single-seed check.
+## Issue 2's acceptance criterion 6 assumed combat outcomes vary with the seed.
+## At the time nothing did; the fix landed as issue 7's damage-variance hook,
+## and the test below is what proves the seed still reaches the fight.
 
 func _win_rate(classes: Array[StringName], seeds: int) -> Dictionary:
 	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
