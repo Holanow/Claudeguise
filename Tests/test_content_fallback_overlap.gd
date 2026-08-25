@@ -28,7 +28,7 @@ const FALLBACK_ALREADY_CASTS := {
 }
 
 
-func test_the_fallback_already_casts_four_of_the_twenty_library_actions() -> void:
+func test_the_fallback_already_casts_four_of_the_nineteen_library_actions() -> void:
 	var total_rows := 0
 	for class_id in Registry.all_class_ids():
 		total_rows += PresetPlans.for_class(class_id).size()
@@ -36,7 +36,7 @@ func test_the_fallback_already_casts_four_of_the_twenty_library_actions() -> voi
 		print("%-14s fallback already casts %s" % [String(class_id), overlap])
 		assert_eq(overlap, _expected(class_id),
 			"%s: the fallback's overlap with the library moved" % class_id)
-	assert_eq(total_rows, 20, "the library changed size; re-read the partition above")
+	assert_eq(total_rows, 19, "the library changed size; re-read the partition above")
 
 
 ## **The check that actually answers the issue, and the two below it cannot.**

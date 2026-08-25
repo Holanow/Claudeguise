@@ -161,9 +161,13 @@ func test_an_expired_cooldown_is_not_shown() -> void:
 
 ## Soonest ready first, and capped at two. The cap is the measurement: nothing
 ## in five rooms by ten seeds by two parties ever held more than two at once.
+##
+## The Priest, not the Warrior: issue 592 took Execute off the Warrior and left
+## it with two cooldown-gated actions, and two cannot prove a cap of two. The
+## Priest carries three (Haste, Ward, Channel).
 func test_the_soonest_cooldown_is_first_and_the_list_is_capped() -> void:
 	var state := CombatState.new(1)
-	var warrior := _real_unit(&"warrior", 0)
+	var warrior := _real_unit(&"priest", 0)
 	state.units.append(warrior)
 	state.tick = 0
 	var gated: Array = []

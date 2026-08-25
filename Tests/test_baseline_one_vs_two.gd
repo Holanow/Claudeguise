@@ -22,13 +22,17 @@ const BASE_ENEMY_COUNT := 2
 ## wins, then the pawn's remaining health on each win, in seed order. Exact
 ## rather than a tolerance, because the simulation is deterministic -- the same
 ## seed gives the same fight, so a range here would only hide movement.
-## Re-measured on #556, which separated the two casters. Only the two casters
-## moved: the Warrior, the Abomination and the Siege Master are untouched by it.
+## Re-measured on #592. All four of that issue's changes reach this fixture, so
+## it is not attributable to one of them: the Warrior lost Execute, the two
+## casters reach 350 rather than 200, and the base enemy here is a Goblin so
+## nothing rat- or engine-shaped is in it. **The planless Geysermancer went 10
+## wins to 3 and that is a REGRESSION, reported and deliberately not acted on**
+## under #592's "do not treat a worse win rate as a reason to adjust anything".
 const RECORDED := {
-	&"warrior": {"wins": 10, "hp": [80, 77, 77, 80, 80, 80, 77, 80, 80, 80]},
+	&"warrior": {"wins": 10, "hp": [80, 74, 74, 80, 80, 80, 74, 80, 77, 80]},
 	&"abomination": {"wins": 10, "hp": [81, 81, 81, 81, 93, 89, 96, 81, 81, 93]},
-	&"siege_master": {"wins": 10, "hp": [45, 61, 61, 45, 37, 68, 61, 53, 61, 45]},
-	&"geysermancer": {"wins": 10, "hp": [72, 91, 72, 91, 91, 91, 91, 91, 91, 91]},
+	&"siege_master": {"wins": 10, "hp": [61, 61, 61, 61, 61, 68, 61, 61, 61, 61]},
+	&"geysermancer": {"wins": 10, "hp": [100, 100, 100, 91, 100, 100, 100, 100, 100, 100]},
 	&"priest": {"wins": 10, "hp": [88, 100, 88, 94, 94, 100, 88, 100, 94, 100]},
 }
 
@@ -40,8 +44,8 @@ const RECORDED := {
 const RECORDED_PLANLESS := {
 	&"warrior": {"wins": 10, "hp": [71, 84, 84, 71, 84, 84, 84, 74, 74, 84]},
 	&"abomination": {"wins": 10, "hp": [93, 81, 81, 93, 81, 93, 74, 96, 81, 81]},
-	&"siege_master": {"wins": 10, "hp": [76, 92, 92, 68, 76, 92, 61, 76, 92, 92]},
-	&"geysermancer": {"wins": 10, "hp": [63, 53, 16, 16, 63, 34, 6, 6, 16, 53]},
+	&"siege_master": {"wins": 10, "hp": [76, 68, 92, 92, 68, 92, 76, 92, 92, 68]},
+	&"geysermancer": {"wins": 3, "hp": [34, 6, 63]},
 	&"priest": {"wins": 10, "hp": [56, 50, 50, 64, 59, 59, 44, 46, 66, 45]},
 }
 

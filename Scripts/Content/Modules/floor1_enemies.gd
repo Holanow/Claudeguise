@@ -49,7 +49,9 @@ static func enemies() -> Array[EnemyDef]:
 
 		_enemy(&"stalker", "Stalker", 0.3, 0.5, 0.95, 0.0, 1.0, 10.0, CG.DamageType.PHYSICAL, [&"stalker_mark", &"stalker_dart"], ["Ranged", "Weak", "Support"], 0.5),
 
-		_enemy(&"rat", "Rat", 0.2, 0.3, 1.25, 0.0, 1.0, 8.0, CG.DamageType.PHYSICAL, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
+		## Issue 592: 0.4x, not 0.2x. A 20 hp rat died before it could be read;
+		## 40 puts it level with the Goblin and under the Cultist's 0.5x.
+		_enemy(&"rat", "Rat", 0.4, 0.3, 1.25, 0.0, 1.0, 8.0, CG.DamageType.PHYSICAL, [&"rat_bite"], ["Melee", "Weak", "Bleed"], 0.8),
 
 		_enemy(&"rat_king", "The Rat King", 4.2, 2.1, 0.3, 0.0, 1.0, 24.0, CG.DamageType.PHYSICAL, [&"rat_king_lash"], ["Ranged", "Miniboss", "Summoner"], 0.0),
 	]
