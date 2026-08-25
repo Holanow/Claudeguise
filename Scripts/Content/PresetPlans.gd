@@ -10,12 +10,6 @@ class_name PresetPlans
 ## Smite each cost 15, so 40 is "my own cost, plus the heal's, or I do not cast".
 const PRIEST_SPENDER_RESERVE := 40
 
-## Issue 488: the share of its own Rage a Warrior banks before it Executes. The
-## row read `self_resource_at_least 40` and the fixed Warrior's ceiling is
-## exactly 40, so 1.0 is that same row expressed against the pawn instead of
-## against a number, and 382 of 500 rolled Warriors stop being locked out of it.
-const EXECUTE_AT_FRACTION := 1.0
-
 ## Issue 166: the Mana below which a Channel is worth standing still for. It is
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
@@ -31,6 +25,11 @@ const SECOND_WIND_ABOVE_FALLBACK := 0.7
 ## It is `warrior_taunt`'s own `taunt_radius`, so the row cannot order a shout
 ## that reaches nobody.
 const TAUNT_AT_RADIUS := 350.0
+
+## Issue 592: how far the Geysermancer's Scald row and the Siege Master's Mark
+## row look for a target. It is `CoreActions.CASTER_REACH`, so neither row can
+## gate a cast at 200 while the spell it orders reaches 350.
+const CASTER_REACH := 350.0
 
 ## Condition and targeting ops that need a status to already be on somebody.
 ## Only the positive ones: `enemy_lacks_status` is satisfied by an untouched
@@ -108,9 +107,6 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				_plan(&"warrior_block_default", "Directional Block",
 					_condition(&"always", {}),
 					[_targeting(&"target_self"), _action_block(&"warrior_block")]),
-				_plan(&"warrior_execute_finisher", "Execute",
-					_condition(&"self_resource_at_least_fraction", {"fraction": EXECUTE_AT_FRACTION}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"warrior_execute")]),
 			]
 		# The player's own "one for speed, one for resistance" direction.
 		&"priest":
@@ -143,7 +139,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
 					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
-					_condition(&"enemy_in_range", {"range": 200.0}),
+					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
 				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
 					_condition(&"ally_has_harmful_status", {}),
@@ -157,7 +153,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"siege_master":
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
-					_condition(&"enemy_in_range", {"range": 220.0}),
+					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
 					_condition(&"self_resource_at_least", {"amount": 25}),

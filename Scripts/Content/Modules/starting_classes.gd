@@ -10,7 +10,7 @@ static func classes() -> Array[ClassDef]:
 			[CG.DamageType.PHYSICAL, CG.DamageType.EARTH],
 			CG.ResourceKind.RAGE,
 			{CG.Attribute.STR: 9, CG.Attribute.DEX: 2, CG.Attribute.AGI: 5, CG.Attribute.CON: 14, CG.Attribute.INT: 1, CG.Attribute.ATN: 1, CG.Attribute.WIS: 10},
-			[&"warrior_guard", &"warrior_execute", &"warrior_taunt", &"warrior_second_wind"]
+			[&"warrior_guard", &"warrior_taunt", &"warrior_second_wind"]
 		),
 		_class(
 			&"priest", "Priest",

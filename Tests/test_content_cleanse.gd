@@ -94,7 +94,7 @@ func test_the_ally_cleanse_fixture_still_has_headroom() -> void:
 	assert_true(on_an_ally >= MIN_ALLY_CLEANSES,
 		("ally cleanses have fallen to %d over %d seeds of %s (floor %d). The fixture is "
 		+ "about to stop measuring anything. DO NOT RAISE SEEDS: this count is driven by "
-		+ "GEOMETRY, not by sampling -- the cleanse reaches 200 units and a spread-out party "
+		+ "GEOMETRY, not by sampling -- the cleanse reaches 350 units and a spread-out party "
 		+ "puts the afflicted ally out of reach, so a starved room reads the same number at "
 		+ "every seed count (floor1_cover measured 2 at 6, 12, 24 and 48; floor1_room1 now "
 		+ "reads 0 at all four). Repoint ENCOUNTER at a room that bunches the party around a "
@@ -177,7 +177,7 @@ func test_scour_strips_poison_specifically() -> void:
 			ally = u
 	assert_not_null(caster)
 	assert_not_null(ally)
-	# Inside the cleanse's 200-unit reach, and afflicted.
+	# Inside the cleanse's 350-unit reach, and afflicted.
 	ally.position = caster.position + Vector2(50.0, 0.0)
 	ally.statuses[CG.Status.POISON] = state.tick + 300
 	var stripped := 0

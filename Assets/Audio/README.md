@@ -12,7 +12,7 @@ exactly the way `Assets/Units/` and `Assets/UI/` already work for pictures.
 ```
 Assets/Audio/event/death.ogg
 Assets/Audio/event/damage.ogg
-Assets/Audio/action/warrior_execute.ogg
+Assets/Audio/action/warrior_taunt.ogg
 ```
 
 No code change. No scene to edit. No import step, no registration, no restart of
@@ -37,7 +37,7 @@ A sound is looked up twice, specific first.
 1. `action/<action id>` plays for that one ability and nothing else.
 2. `event/<kind>` covers everything that ability did not claim.
 
-So `action/warrior_execute.ogg` gives the Warrior's finisher its own sound, and
+So `action/warrior_taunt.ogg` gives the Warrior's shout its own sound, and
 every other attack in the game still uses `event/action_fire`. You do not have
 to fill in the specific level at all. One file at `event/action_fire` is a
 complete sound design for every attack in the game.
