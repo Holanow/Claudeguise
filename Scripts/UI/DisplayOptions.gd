@@ -41,6 +41,12 @@ const OPTIONS := [
 		"default": true,
 	},
 	{
+		"id": &"part_animation",
+		"label": "Hands move",
+		"help": "Every creature with hands bobs them while it waits, winds them back and throws them forward on a melee blow, draws them back for a shot, and raises them for a spell. On by default: it is how a body reads as alive rather than as a sprite sliding across a floor, and the wind-up it plays over is already the telegraph, so a slow action visibly takes longer than a fast one. It moves the hands only, never the body, a bar or the fight itself. Turn it off to hold every silhouette exactly as it was drawn.",
+		"default": true,
+	},
+	{
 		"id": &"impact_particles",
 		"label": "Debris on every hit",
 		"help": "A short burst of chips thrown off whatever was hit, in that damage type's colour, so a blow that lands looks different from one that misses. On by default: it lasts under half a second, it is smaller than a body and it never covers one, and the freeze frame it goes with is on for the same reason. Turn it off if you would rather the screen stayed still.",

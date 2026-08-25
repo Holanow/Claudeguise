@@ -229,8 +229,40 @@ static func _build(shape_id: StringName, team: CG.Team) -> Texture2D:
 ## The composed pixels. `Tools/BakeParts.gd` writes these to disk so the game
 ## never pays for the composition, and this is the one place it happens, so the
 ## baked file and the runtime fallback cannot disagree.
+## Issue 583. A recipe cut at its animated parts: the layers below the first one,
+## then each animated part alone, then the layers above. A recipe naming no
+## animated part yields one slice, which is the flat composite and is why a
+## creature without hands needs no case anywhere.
+##
+## Each slice is `{"part": <name or &"">, "layers": [...]}`. The `part` is what
+## the view moves; `&""` is a static slab.
+static func slices_for(shape_id: StringName) -> Array:
+	var out: Array = []
+	var still: Array = []
+	for layer in layers_for(shape_id):
+		var part: StringName = layer["part"]
+		if not PartAnimation.animates(part):
+			still.append(layer)
+			continue
+		if not still.is_empty():
+			out.append({"part": &"", "layers": still})
+			still = []
+		out.append({"part": part, "layers": [layer]})
+	if not still.is_empty():
+		out.append({"part": &"", "layers": still})
+	return out
+
+## Whether this recipe has anything to animate at all.
+static func has_animated_part(shape_id: StringName) -> bool:
+	for layer in layers_for(shape_id):
+		if PartAnimation.animates(layer["part"]):
+			return true
+	return false
+
 static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
-	var layers := layers_for(shape_id)
+	return compose_layers(layers_for(shape_id), team)
+
+static func compose_layers(layers: Array, team: CG.Team) -> Image:
 	if layers.is_empty():
 		return null
 	var size := _canvas_size(layers)
