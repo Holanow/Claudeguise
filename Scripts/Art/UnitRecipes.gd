@@ -14,22 +14,29 @@ const PARTS_DIR := "res://Assets/Units/parts"
 ## carry a dark border and it is what keeps a body off the floor it stands on.
 const OUTLINE := Color("14121a")
 
+## The outline's width as a share of the canvas, so it survives the downsample.
+## A unit is drawn at 20-60 screen pixels from a 256-pixel file, so a border
+## authored at one pixel is gone by the time anybody sees it.
+const OUTLINE_SHARE := 0.031
+
 ## `team` on a layer takes `Palette.team_color` instead of `color`, which is the
 ## one place a side changes what a unit looks like.
 const RECIPES := {
 	&"goblin": [
 		{"part": &"body_skinny", "color": "5d7a3a"},
 		{"part": &"hands", "color": "7fa050"},
-		{"part": &"feet", "color": "3c4d28"},
 		{"part": &"head_round", "color": "7fa050"},
 		{"part": &"ears_pointed", "color": "6f8f4a"},
 		{"part": &"nose_triangle", "color": "8fb45c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
+	## The player: "Don't put earss on aaything but the goblin." I read the
+	## archer as the goblin, because it is the same creature with a hood on and
+	## the sheet the ruling was made against showed both as goblins. Deleting one
+	## line below takes the ears off it if that reading is wrong.
 	&"goblin_archer": [
 		{"part": &"body_skinny", "color": "4a6a52"},
 		{"part": &"hands", "color": "7fa050"},
-		{"part": &"feet", "color": "3c4d28"},
 		{"part": &"head_round", "color": "7fa050"},
 		{"part": &"ears_pointed", "color": "6f8f4a"},
 		{"part": &"nose_triangle", "color": "8fb45c"},
@@ -39,9 +46,7 @@ const RECIPES := {
 	&"warrior": [
 		{"part": &"body_muscular", "team": true},
 		{"part": &"hands_wide", "color": "d8b48c"},
-		{"part": &"feet", "color": "4a3a2c"},
 		{"part": &"head_round", "color": "d8b48c"},
-		{"part": &"ears_round", "color": "c8a47c"},
 		{"part": &"plume", "color": "b8503c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
@@ -56,15 +61,13 @@ const RECIPES := {
 	&"priest": [
 		{"part": &"body_skinny", "team": true},
 		{"part": &"hands", "color": "e0c0a0"},
-		{"part": &"feet", "color": "4a3a2c"},
 		{"part": &"head_round", "color": "e0c0a0"},
 		{"part": &"hood", "color": "e8dcb0"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
-	## No ears. `ears_round` is placed for a head at the TOP of the canvas, and on
-	## a low body it made the rat as tall as it is wide -- `test_art.gd` caught
-	## it, asserting what it has always asserted: the rat reads as the long low
-	## one. The art was wrong, not the test.
+	## No ears, twice over: `test_art.gd` caught round ears making the rat as tall
+	## as it is wide, and the player has since ruled that nothing but the goblin
+	## gets them at all.
 	&"rat": [
 		{"part": &"body_low", "color": "7a6a58"},
 		{"part": &"tail", "color": "8a7a68"},
@@ -90,6 +93,7 @@ static var _cache := {}
 
 static func clear_cache() -> void:
 	_cache.clear()
+	_rings.clear()
 
 static func compose(shape_id: StringName, team: CG.Team) -> Texture2D:
 	var key := "%s|%d" % [shape_id, int(team)]
@@ -134,6 +138,10 @@ static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
 		return null
 	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	out.fill(Color(0, 0, 0, 0))
+	# The player: "Every part needs to be outlined and heavier." So the ring is
+	# per part rather than around the union -- a head now carries its own edge
+	# where it crosses a body, which is where the weight comes from.
+	var width := maxi(1, roundi(float(size) * OUTLINE_SHARE))
 	for layer in layers:
 		var part := part_image(layer["part"])
 		# A missing part is a black square, per the player's ruling: an obvious
@@ -141,10 +149,8 @@ static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
 		if part == null:
 			_fill_square(out, Color.BLACK)
 			continue
+		_stamp(out, part_ring(layer["part"], width), OUTLINE)
 		_stamp(out, part, _layer_color(layer, team))
-	# The border scales with the canvas, or a one-pixel line authored at 256
-	# vanishes entirely by the time a 30-pixel goblin is drawn.
-	_outline(out, maxi(1, size / 32))
 	return out
 
 static func _layer_color(layer: Dictionary, team: CG.Team) -> Color:
@@ -172,6 +178,8 @@ static func _fill_square(out: Image, color: Color) -> void:
 ## recipe's rather than the file's -- one `body_skinny` serves a green goblin
 ## and a robed priest.
 static func _stamp(out: Image, part: Image, color: Color) -> void:
+	if part == null:
+		return
 	for y in mini(out.get_height(), part.get_height()):
 		for x in mini(out.get_width(), part.get_width()):
 			var a := part.get_pixel(x, y).a
@@ -183,18 +191,32 @@ static func _stamp(out: Image, part: Image, color: Color) -> void:
 ## A one-pixel dark border around the composed silhouette. Around the OUTSIDE,
 ## never between two parts: an outline on every seam turns a body into a
 ## diagram, and the sprites this replaces outline the creature and not its arms.
-static func _outline(out: Image, width: int = 1) -> void:
-	var n := out.get_width()
-	for _pass in maxi(1, width):
-		var edge: Array = []
-		for y in n:
-			for x in n:
-				if out.get_pixel(x, y).a > 0.0:
-					continue
-				if _touches_ink(out, x, y):
-					edge.append(Vector2i(x, y))
-		for p: Vector2i in edge:
-			out.set_pixel(p.x, p.y, OUTLINE)
+## The ring just outside a part, `width` pixels thick. Cached per (part, width):
+## a dilation is the most expensive thing in this file and a part is named by
+## every recipe that uses it, on both teams.
+static var _rings := {}
+
+static func part_ring(part: StringName, width: int) -> Image:
+	var key := "%s|%d" % [part, width]
+	if _rings.has(key):
+		return _rings[key]
+	var src := part_image(part)
+	var ring: Image = null
+	if src != null:
+		ring = Image.create(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8)
+		ring.fill(Color(0, 0, 0, 0))
+		var grown := src.duplicate()
+		for _pass in maxi(1, width):
+			var edge: Array = []
+			for y in grown.get_height():
+				for x in grown.get_width():
+					if grown.get_pixel(x, y).a <= 0.0 and _touches_ink(grown, x, y):
+						edge.append(Vector2i(x, y))
+			for p: Vector2i in edge:
+				grown.set_pixel(p.x, p.y, Color.WHITE)
+				ring.set_pixel(p.x, p.y, Color.WHITE)
+	_rings[key] = ring
+	return ring
 
 static func _touches_ink(img: Image, x: int, y: int) -> bool:
 	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:

@@ -25,6 +25,14 @@ const N := 256
 ## edit to any of them.
 const DESIGN := 32.0
 
+## The capsule's half-width, in design units. Every other body's width is stated
+## against it because the taper floor below is a ratio, not a number of pixels.
+const CAPSULE_HALF_WIDTH := 5.0
+
+## The player's floor on the inverted triangle: "they should never get more
+## narrow than half the capsule body sizes."
+const MIN_TAPER := 0.5
+
 static func _scale() -> float:
 	return float(N) / DESIGN
 
@@ -99,22 +107,28 @@ func _parts() -> Dictionary:
 	var out := {}
 
 	# --- the player's three body types -------------------------------------
-	# Skinny, a capsule.
+	# Skinny, a capsule. CAPSULE_HALF_WIDTH is the reference every other body is
+	# measured against, because the player set the taper floor as a ratio to it.
 	var skinny := _blank()
-	_ellipse(skinny, 16.0, 15.0, 4.0, 4.0)
-	_rect(skinny, 12, 15, 20, 27)
-	_ellipse(skinny, 16.0, 27.0, 4.0, 4.0)
+	_ellipse(skinny, 16.0, 14.0, CAPSULE_HALF_WIDTH, CAPSULE_HALF_WIDTH)
+	_rect(skinny, int(16.0 - CAPSULE_HALF_WIDTH), 14, int(16.0 + CAPSULE_HALF_WIDTH), 28)
+	_ellipse(skinny, 16.0, 28.0, CAPSULE_HALF_WIDTH, CAPSULE_HALF_WIDTH)
 	out["body_skinny"] = skinny
 
-	# Muscular, an inverted triangle: wide at the shoulders, narrow at the hips.
+	# Muscular, an inverted triangle. The player: "For the inverted triangle
+	# bodies they should never get more narrow than half the capsule body sizes."
+	# So it is a trapezoid rather than a triangle -- a true triangle ends in a
+	# point, which is narrower than any floor.
 	var muscular := _blank()
-	_tri(muscular, Vector2(5.0, 12.0), Vector2(27.0, 12.0), Vector2(16.0, 31.0))
-	_ellipse(muscular, 16.0, 13.0, 11.0, 3.0)
+	var hip := CAPSULE_HALF_WIDTH * MIN_TAPER
+	_tri(muscular, Vector2(4.0, 12.0), Vector2(28.0, 12.0), Vector2(16.0 - hip, 30.0))
+	_tri(muscular, Vector2(28.0, 12.0), Vector2(16.0 + hip, 30.0), Vector2(16.0 - hip, 30.0))
+	_ellipse(muscular, 16.0, 13.0, 12.0, 3.5)
 	out["body_muscular"] = muscular
 
 	# Rotund, a circle.
 	var rotund := _blank()
-	_ellipse(rotund, 16.0, 22.0, 10.0, 9.5)
+	_ellipse(rotund, 16.0, 21.5, 11.0, 10.5)
 	out["body_rotund"] = rotund
 
 	# A fourth that is not one of the three, for the things that are not people.
@@ -125,7 +139,7 @@ func _parts() -> Dictionary:
 
 	# --- heads --------------------------------------------------------------
 	var head := _blank()
-	_ellipse(head, 16.0, 8.0, 5.0, 5.0)
+	_ellipse(head, 16.0, 7.5, 5.5, 5.5)
 	out["head_round"] = head
 
 	var tall := _blank()
@@ -133,7 +147,7 @@ func _parts() -> Dictionary:
 	out["head_tall"] = tall
 
 	var small := _blank()
-	_ellipse(small, 16.0, 9.0, 3.5, 3.5)
+	_ellipse(small, 16.0, 8.5, 4.2, 4.2)
 	out["head_small"] = small
 
 	# A head that sits forward on a low body rather than on top of a tall one.
@@ -149,10 +163,6 @@ func _parts() -> Dictionary:
 	_tri(ears, Vector2(20.0, 5.4), Vector2(25.4, 2.8), Vector2(20.0, 9.8))
 	out["ears_pointed"] = ears
 
-	var ears_round := _blank()
-	_ellipse(ears_round, 10.5, 5.0, 2.5, 2.5)
-	_ellipse(ears_round, 21.5, 5.0, 2.5, 2.5)
-	out["ears_round"] = ears_round
 
 	# The nose, a small triangle, pointing the way the unit faces.
 	var nose := _blank()
@@ -205,28 +215,19 @@ func _parts() -> Dictionary:
 	out["spikes"] = spikes
 
 	# --- hands, plain circles, the player's word --------------------------
-	# The circle is the player's word for the HAND. The arm it hangs on is not
-	# decoration: straight horizontal stubs read as a T-pose, which is a posture
-	# nobody asked for.
+	# The player: "ditch arms and let the hands float around." So there is no
+	# limb, and the T-pose the arms produced cannot come back by being angled
+	# differently -- there is nothing left to angle.
 	var hands := _blank()
-	_limb(hands, Vector2(12.5, 16.0), Vector2(8.5, 25.0), 1.6)
-	_limb(hands, Vector2(19.5, 16.0), Vector2(23.5, 25.0), 1.6)
-	_ellipse(hands, 8.0, 26.0, 2.5, 2.5)
-	_ellipse(hands, 24.0, 26.0, 2.5, 2.5)
+	_ellipse(hands, 7.5, 21.0, 3.0, 3.0)
+	_ellipse(hands, 24.5, 21.0, 3.0, 3.0)
 	out["hands"] = hands
 
 	var hands_wide := _blank()
-	_limb(hands_wide, Vector2(10.0, 14.0), Vector2(5.0, 23.0), 2.2)
-	_limb(hands_wide, Vector2(22.0, 14.0), Vector2(27.0, 23.0), 2.2)
-	_ellipse(hands_wide, 4.5, 24.5, 3.0, 3.0)
-	_ellipse(hands_wide, 27.5, 24.5, 3.0, 3.0)
+	_ellipse(hands_wide, 4.0, 19.0, 3.8, 3.8)
+	_ellipse(hands_wide, 28.0, 19.0, 3.8, 3.8)
 	out["hands_wide"] = hands_wide
 
-	# Feet, for the same reason hands are: a body with nothing under it floats.
-	var feet := _blank()
-	_ellipse(feet, 12.5, 30.0, 3.0, 2.0)
-	_ellipse(feet, 19.5, 30.0, 3.0, 2.0)
-	out["feet"] = feet
 
 	return out
 
