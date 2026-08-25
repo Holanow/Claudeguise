@@ -22,26 +22,27 @@ const BASE_ENEMY_COUNT := 2
 ## wins, then the pawn's remaining health on each win, in seed order. Exact
 ## rather than a tolerance, because the simulation is deterministic -- the same
 ## seed gives the same fight, so a range here would only hide movement.
-## Re-measured on #544, which deleted `DefaultBehavior`'s automatic retreat.
-## Warrior, Abomination and Geysermancer did not move; Siege Master and Priest
-## did, because a preset plan still leaves movement to the fallback.
+## Re-measured on #556, which separated the two casters. Only the two casters
+## moved: the Warrior, the Abomination and the Siege Master are untouched by it.
 const RECORDED := {
 	&"warrior": {"wins": 10, "hp": [80, 77, 77, 80, 80, 80, 77, 80, 80, 80]},
 	&"abomination": {"wins": 10, "hp": [81, 81, 81, 81, 93, 89, 96, 81, 81, 93]},
 	&"siege_master": {"wins": 10, "hp": [45, 61, 61, 45, 37, 68, 61, 53, 61, 45]},
-	&"geysermancer": {"wins": 10, "hp": [91, 91, 72, 54, 72, 91, 54, 82, 72, 72]},
-	&"priest": {"wins": 10, "hp": [100, 94, 94, 100, 100, 100, 100, 94, 100, 94]},
+	&"geysermancer": {"wins": 10, "hp": [72, 91, 72, 91, 91, 91, 91, 91, 91, 91]},
+	&"priest": {"wins": 10, "hp": [88, 100, 88, 94, 94, 100, 88, 100, 94, 100]},
 }
 
 ## The same fight with no plan rows at all, which is what `PartySelect` deploys.
 ## Recorded separately because it is the arm #544 was about: it read 0 wins for
-## all three ranged classes and now reads what is below.
+## all three ranged classes and now reads what is below. **#556 took the
+## Geysermancer's 0 to 10**, which is the +25% attack power arriving on the one
+## arm that had no plan to spend anything else on.
 const RECORDED_PLANLESS := {
 	&"warrior": {"wins": 10, "hp": [71, 84, 84, 71, 84, 84, 84, 74, 74, 84]},
 	&"abomination": {"wins": 10, "hp": [93, 81, 81, 93, 81, 93, 74, 96, 81, 81]},
 	&"siege_master": {"wins": 10, "hp": [76, 92, 92, 68, 76, 92, 61, 76, 92, 92]},
-	&"geysermancer": {"wins": 0, "hp": []},
-	&"priest": {"wins": 10, "hp": [56, 60, 56, 48, 53, 59, 44, 46, 66, 45]},
+	&"geysermancer": {"wins": 10, "hp": [63, 53, 16, 16, 63, 34, 6, 6, 16, 53]},
+	&"priest": {"wins": 10, "hp": [56, 50, 50, 64, 59, 59, 44, 46, 66, 45]},
 }
 
 ## Preset plans, not the planless fallback: a planless Siege Master never builds
