@@ -21,6 +21,10 @@ func _init() -> void:
 	_say("encounters: " + str(encounter_ids))
 
 	_say("")
+	_say("=== 0. HOW FAR AWAY THE NEAREST ENEMY IS AT SPAWN, EVERY ENCOUNTER ===")
+	_spawn_distance_table(class_ids, encounter_ids)
+
+	_say("")
 	_say("=== 1. CAN EACH PRESET ROW'S CONDITION HOLD AT THE FIRST IDLE INSTANT? ===")
 	_first_instant_table(class_ids, Registry.get_encounter(encounter_ids[0]))
 
@@ -50,19 +54,35 @@ func _init() -> void:
 
 # ---------------------------------------------------------------------------
 
-## Every buildable party, the same leave-one-out set `SampleFights` uses.
+## Every buildable party: leave-one-out, so every class is in four of the five
+## and none is dropped by its position in the roster. Issue 350.
 func _parties(class_ids: Array) -> Array:
 	var out := []
-	if class_ids.size() > 4:
-		for skip in class_ids.size():
-			var party := []
-			for i in class_ids.size():
-				if i != skip:
-					party.append(class_ids[i])
-			out.append(party)
-	elif class_ids.size() >= 1:
-		out.append(class_ids.slice(0, mini(4, class_ids.size())))
+	for skip in class_ids.size():
+		var party := []
+		for i in class_ids.size():
+			if i != skip:
+				party.append(class_ids[i])
+		out.append(party)
 	return out
+
+## The nearest enemy at tick 1, per encounter, over the whole buildable party --
+## the number every proximity-gated row is measured against at its first instant.
+func _spawn_distance_table(class_ids: Array, encounter_ids: Array) -> void:
+	for eid in encounter_ids:
+		var party: Array[PawnData] = []
+		for cid in _parties(class_ids)[0]:
+			party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
+		var state := CombatSim.build(party, Registry.get_encounter(eid), 0)
+		var nearest := INF
+		var farthest := 0.0
+		for u in state.units:
+			if u.pawn == null:
+				continue
+			var d := _nearest_enemy_distance(state, u)
+			nearest = minf(nearest, d)
+			farthest = maxf(farthest, d)
+		_say("  %-20s nearest pawn-to-enemy %.0f, farthest %.0f" % [eid, nearest, farthest])
 
 ## For each class, each preset row, and the very first tick of a fight: does the
 ## row's CONDITION hold, and does the row produce an intent?
