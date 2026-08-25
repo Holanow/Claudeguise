@@ -386,9 +386,14 @@ func _hook_cast() -> Dictionary:
 					if state.tick * FRAMES_PER_TICK <= HOOK_LEAD:
 						continue
 					var victim := state.unit(e.target_id)
+					# The target has to SURVIVE the hook or there is no drag to
+					# photograph. The first cast this scan found killed a Goblin
+					# outright and the clip showed a death plate for 132 frames.
+					if victim == null or not victim.alive or victim.pull_ticks_left <= 0:
+						continue
 					return {"room": room_id, "seed": s, "tick": state.tick,
-						"target": e.target_id,
-						"name": "nobody" if victim == null else victim.display_name}
+						"target": e.target_id, "name": victim.display_name,
+						"hp": victim.hp}
 				cursor = state.events.size()
 	return {}
 
@@ -602,8 +607,8 @@ func _clip_hook_drag() -> void:
 		await _capture()
 		_frame()
 	_say("hook_drag", from, SHOWY,
-		"%s seed %d, hook lands on %s at tick %d, dragged and stunned for %d ticks (%d frames)" % [
-			hook["room"], hook["seed"], hook["name"], hook["tick"],
+		"%s seed %d, hook lands on %s at tick %d (survives on %d hp), dragged and stunned for %d ticks (%d frames)" % [
+			hook["room"], hook["seed"], hook["name"], hook["tick"], hook["hp"],
 			CombatSim.PULL_TICKS, CombatSim.PULL_TICKS * FRAMES_PER_TICK])
 	await _teardown()
 
