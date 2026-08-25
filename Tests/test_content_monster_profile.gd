@@ -15,7 +15,9 @@ const BEFORE := {
 	&"the_warden":    {"hp": 1000, "dmg": 58, "move": 1.4, "dr": 0.05, "radius": 22.0, "type": CG.DamageType.PHYSICAL},
 	&"brute":         {"hp": 320,  "dmg": 24, "move": 1.8, "dr": 0.15, "radius": 18.0, "type": CG.DamageType.PHYSICAL},
 	&"stalker":       {"hp": 30,   "dmg": 5,  "move": 3.8, "dr": 0.0,  "radius": 10.0, "type": CG.DamageType.PHYSICAL},
-	&"rat":           {"hp": 20,   "dmg": 3,  "move": 5.0, "dr": 0.0,  "radius": 8.0,  "type": CG.DamageType.PHYSICAL},
+	## The one row that is NOT the pre-#542 value: issue 592 took the Rat from
+	## 0.2x to 0.4x on the player's ruling, so 20 became 40 on purpose.
+	&"rat":           {"hp": 40,   "dmg": 3,  "move": 5.0, "dr": 0.0,  "radius": 8.0,  "type": CG.DamageType.PHYSICAL},
 	&"rat_king":      {"hp": 420,  "dmg": 21, "move": 1.2, "dr": 0.0,  "radius": 24.0, "type": CG.DamageType.PHYSICAL},
 	&"siege_engine":  {"hp": 140,  "dmg": 16, "move": 0.0, "dr": 0.0,  "radius": 20.0, "type": CG.DamageType.PHYSICAL},
 }

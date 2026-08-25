@@ -18,6 +18,11 @@ const CHANNEL_COOLDOWN := 150
 ##
 const ARENA_SPAN := 1200.0
 
+## Issue 592: how far the Geysermancer and the Siege Master operate. It is well
+## past the 200 every other ranged attack sits at, and past the Warden's 270,
+## so the two long-range classes reach across a room a Goblin has to cross.
+const CASTER_REACH := 350.0
+
 ## `abomination_grapple`'s own three numbers, named because
 ## `IMMOLATE_TICK_POWER_SCALE` below is derived from them and a literal repeated
 ## in two places is a literal that drifts.
@@ -36,7 +41,7 @@ static func actions() -> Array[ActionDef]:
 	return [
 		_action(&"warrior_strike", "Strike", "A reliable melee swing that costs nothing.", CG.DamageType.PHYSICAL, 40.0, 6, 8, 1.0, 0, 0),
 		_targets_self(_action_status(&"warrior_guard", "Guard", "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage.", CG.DamageType.EARTH, 0.0, 4, 10, 0.0, 20, CG.Status.BLOCK, 90)),
-		_action(&"warrior_execute", "Execute", "A heavy melee blow that deals twice the damage of a Strike. Costs 20 Rage.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
+		_action(&"warrior_execute", "Execute", "Retired from the Warrior on issue 592; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 40.0, 8, 10, 2.0, 20, 40),
 		_action_taunt(&"warrior_taunt", "Taunt", "Forces every enemy within 350 units to attack the caster for 16 seconds.", 6, 10, 350.0, 240),
 		_action_self_buff(&"warrior_block", "Directional Block", "Raises a shield that stops a travelling shot aimed at an ally standing behind it, for 10 seconds.", CG.DamageType.EARTH, 6, 10, CG.Status.SHIELDING, 150),
 
@@ -48,15 +53,15 @@ static func actions() -> Array[ActionDef]:
 		_action_ally_buff(&"priest_haste", "Haste", "Speeds up an ally's actions by 30% for 10 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.HASTE, 150),
 		_action_ally_buff(&"priest_ward", "Ward", "Reduces damage taken by an ally by 25% for 10 seconds. Costs 15 Mana.", CG.DamageType.DIVINE, 220.0, 8, 10, 15, CG.Status.SHIELD, 150),
 
-		_restores(_projectile(_leaves_pool(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 200 units. Leaves a small pool of water where it lands, which puts out any burning ground it touches. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.WATER, 200.0, 8, 10, 0.5, 0, 0, true), SMALL_POOL_RADIUS), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
-		_consumes(_projectile(_leaves_pool(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 200 units away. Against a burning target it snuffs the flames and hits far harder. Leaves a large pool of water where it lands, which puts out any burning ground it touches. Costs 20 Mana.", CG.DamageType.WATER, 200.0, 50.0, 12, 12, 0.8, 20, true), LARGE_POOL_RADIUS), RANGED_PROJECTILE_SPEED), CG.Status.BURN, BURN_CONSUME_POWER_SCALE),
-		_projectile(_action_status(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 200 units away, setting it alight for 6 seconds. Costs 15 Mana.", CG.DamageType.FIRE, 200.0, 8, 8, 1.0, 15, CG.Status.BURN, BURN_DURATION_TICKS, true), RANGED_PROJECTILE_SPEED),
+		_restores(_projectile(_leaves_pool(_action(&"geyser_spout", "Spout", "A jet of scalding water dealing damage at up to 350 units. Leaves a small pool of water where it lands, which puts out any burning ground it touches. Costs nothing and returns 3 Mana when it lands.", CG.DamageType.WATER, CASTER_REACH, 8, 10, 0.5, 0, 0, true), SMALL_POOL_RADIUS), RANGED_PROJECTILE_SPEED), MAGIC_BASIC_ATTACK_MANA),
+		_consumes(_projectile(_leaves_pool(_action_splash(&"geyser_blast", "Geyser Blast", "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 350 units away. Against a burning target it snuffs the flames and hits far harder. Leaves a large pool of water where it lands, which puts out any burning ground it touches. Costs 20 Mana.", CG.DamageType.WATER, CASTER_REACH, 50.0, 12, 12, 0.8, 20, true), LARGE_POOL_RADIUS), RANGED_PROJECTILE_SPEED), CG.Status.BURN, BURN_CONSUME_POWER_SCALE),
+		_projectile(_action_status(&"geyser_scald", "Scald", "A focused burst of fire at a single target up to 350 units away, setting it alight for 6 seconds. Costs 15 Mana.", CG.DamageType.FIRE, CASTER_REACH, 8, 8, 1.0, 15, CG.Status.BURN, BURN_DURATION_TICKS, true), RANGED_PROJECTILE_SPEED),
 		_action_channel(&"channel_mana", "Channel", "Spends 3 seconds drawing back 25 Mana. Costs nothing, and a stun breaks it.", CHANNEL_WIND_UP, CHANNEL_COOLDOWN, CHANNEL_MANA),
 
-		_action_cleanse(&"geyser_cleanse", "Scour", "Boils every harmful effect off an ally within 200 units. Costs 10 Mana.", 200.0, 8, 10, 10, 60),
+		_action_cleanse(&"geyser_cleanse", "Scour", "Boils every harmful effect off an ally within 350 units. Costs 10 Mana.", CASTER_REACH, 8, 10, 10, 60),
 
-		_projectile(_action(&"siege_master_shot", "Shot", "A ranged shot dealing damage at up to 200 units. Costs nothing.", CG.DamageType.PHYSICAL, 200.0, 8, 10, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
-		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 220 units, reducing its damage reduction by 25 percentage points for 10 seconds.", CG.DamageType.PHYSICAL, 220.0, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action(&"siege_master_shot", "Shot", "A ranged shot dealing damage at up to 350 units. Costs nothing.", CG.DamageType.PHYSICAL, CASTER_REACH, 8, 10, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
+		_projectile(_action_status(&"spotter_mark", "Spotter's Mark", "Marks a target within 350 units, reducing its damage reduction by 25 percentage points for 10 seconds.", CG.DamageType.PHYSICAL, CASTER_REACH, 10, 10, 1.0, 15, CG.Status.MARKED, 150, true), RANGED_PROJECTILE_SPEED),
 		_summon_cap(_action_summon(&"build_siege_engine", "Build Siege Engine", "Spends 6 seconds building a Siege Engine with 140 health. It cannot move and only fires at enemies you have marked. Two at most. Costs 20 Mana.", 90, 20, 20, &"siege_engine"), 2),
 
 		# Issue 62: abomination_claw, restored. The player's own direction --
@@ -74,7 +79,7 @@ static func actions() -> Array[ActionDef]:
 		_action(&"warden_axe", "Executioner's Axe", "A melee swing at up to 55 units, with a 0.7-second wind-up.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
 		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A ranged attack at up to 270 units.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 
-		_projectile(_marked_only(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 4 seconds.", CG.DamageType.PHYSICAL, ARENA_SPAN, 45, 15, 1.0, 0, 0, true)), RANGED_PROJECTILE_SPEED),
+		_projectile(_marked_only(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 2 seconds.", CG.DamageType.PHYSICAL, ARENA_SPAN, 22, 8, 1.0, 0, 0, true)), RANGED_PROJECTILE_SPEED),
 
 		_action(&"grunt_smash", "Smash", "Retired from the bestiary; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 40.0, 10, 10, 1.0, 0, 0),
 		_action(&"archer_shot", "Arrow", "Retired from the bestiary; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 220.0, 12, 10, 0.8, 0, 0),

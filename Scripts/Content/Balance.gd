@@ -29,15 +29,16 @@ const ATTACK_POWER_PER_POINT := 2.185
 const ATTACK_VARIANCE_SPREAD := 0.55
 
 const DAMAGE_REDUCTION_PER_CON := 0.01
-const NATURAL_DAMAGE_REDUCTION_CAP := 0.3
+const NATURAL_DAMAGE_REDUCTION_CAP := 0.9
 const STATUS_SHIELD_REDUCTION := 0.25
 const STATUS_BLOCK_REDUCTION := 0.25
-const MAX_DAMAGE_REDUCTION := 0.85
+const MAX_DAMAGE_REDUCTION := 0.9
 
-## Fraction shaved off an action's ticks per point of AGI, capped so a very
-## fast pawn still takes at least half the base time.
+## Fraction shaved off an action's ticks per point of AGI. Issue 592 raised the
+## cap to 0.9; `scale_action_ticks` floors the resolved count at one tick, so
+## nothing here can take an action to zero.
 const AGI_TICK_SCALE_PER_POINT := 0.015
-const MAX_AGI_TICK_SCALE := 0.5
+const MAX_AGI_TICK_SCALE := 0.9
 
 ## Issue 20: percent of max resource per second. Mana large and slow, Energy
 ## small and fast, per README.md. Rage is never read here on a timer Ã¢â‚¬-- wren's
