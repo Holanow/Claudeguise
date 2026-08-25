@@ -74,7 +74,7 @@ static func actions() -> Array[ActionDef]:
 		_action(&"warden_axe", "Executioner's Axe", "A melee swing at up to 55 units, with a 0.7-second wind-up.", CG.DamageType.PHYSICAL, 55.0, 20, 22, 2.4, 0, 0),
 		_projectile(_action(&"warden_chain_toss", "Chain Toss", "A ranged attack at up to 270 units.", CG.DamageType.PHYSICAL, 270.0, 16, 18, 1.0, 0, 0, true), RANGED_PROJECTILE_SPEED),
 
-		_projectile(_marked_only(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 4 seconds.", CG.DamageType.PHYSICAL, ARENA_SPAN, 45, 15, 1.0, 0, 0, true)), RANGED_PROJECTILE_SPEED),
+		_projectile(_marked_only(_action(&"siege_engine_bolt", "Engine Bolt", "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 2 seconds.", CG.DamageType.PHYSICAL, ARENA_SPAN, 22, 8, 1.0, 0, 0, true)), RANGED_PROJECTILE_SPEED),
 
 		_action(&"grunt_smash", "Smash", "Retired from the bestiary; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 40.0, 10, 10, 1.0, 0, 0),
 		_action(&"archer_shot", "Arrow", "Retired from the bestiary; kept only so an older test fixture referencing it by name still resolves.", CG.DamageType.PHYSICAL, 220.0, 12, 10, 0.8, 0, 0),
