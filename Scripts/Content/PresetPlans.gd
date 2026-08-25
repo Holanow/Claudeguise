@@ -26,6 +26,11 @@ const SECOND_WIND_ABOVE_FALLBACK := 0.7
 ## that reaches nobody.
 const TAUNT_AT_RADIUS := 350.0
 
+## Issue 592: how far the Geysermancer's Scald row and the Siege Master's Mark
+## row look for a target. It is `CoreActions.CASTER_REACH`, so neither row can
+## gate a cast at 200 while the spell it orders reaches 350.
+const CASTER_REACH := 350.0
+
 ## Condition and targeting ops that need a status to already be on somebody.
 ## Only the positive ones: `enemy_lacks_status` is satisfied by an untouched
 ## enemy, so it is not a dependency.
@@ -134,7 +139,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
 					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
-					_condition(&"enemy_in_range", {"range": 200.0}),
+					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
 					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
 				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
 					_condition(&"ally_has_harmful_status", {}),
@@ -148,7 +153,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"siege_master":
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
-					_condition(&"enemy_in_range", {"range": 220.0}),
+					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
 					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
 					_condition(&"self_resource_at_least", {"amount": 25}),
