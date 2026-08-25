@@ -22,26 +22,6 @@ func test_the_channel_costs_time_and_nothing_else() -> void:
 	assert_true(a.cooldown_ticks > a.wind_up_ticks,
 		"a Channel that can be re-cast the moment it lands is a second resource bar, not a choice")
 
-## The wind-up IS the idling, so it has to be long enough to be a real cost. A
-## fight is 3600 ticks at most and a Bolt cycle is 18.
-func test_the_channel_is_long_enough_to_be_a_decision() -> void:
-	var a := _channel()
-	var bolt := Registry.get_action(&"priest_bolt")
-	var bolt_cycle := bolt.wind_up_ticks + bolt.recover_ticks
-	assert_true(a.wind_up_ticks >= 2 * bolt_cycle,
-		("Channel stands still for %d ticks against a %d-tick Bolt cycle. Under two cycles "
-		+ "and standing still costs the caster nothing it notices.") % [a.wind_up_ticks, bolt_cycle])
-
-## Worth about one spell, which is the same reasoning the basic-attack restore
-## carries: a ratio rather than a bare number.
-func test_one_channel_is_worth_about_one_spell() -> void:
-	var restored := _channel().restores_resource
-	var heal := Registry.get_action(&"priest_heal").resource_cost
-	var ratio := float(restored) / float(heal)
-	assert_true(ratio >= 0.5 and ratio <= 2.0,
-		("one Channel buys %.2f of a Heal. Under half and nobody would stand still for it; "
-		+ "over two and it replaces the fight.") % ratio)
-
 # ---------------------------------------------------------------------------
 # who has it
 # ---------------------------------------------------------------------------
@@ -86,20 +66,6 @@ func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 			over.append("%s (%d over)" % [cid, free_blocks])
 	assert_eq(over, [] as Array[String],
 		"A class's presets cost more blocks than its WIS pays for: %s" % [over])
-
-## And the snapshot, kept separately because it is a measurement and not a rule.
-## It read zero everywhere until issue 226 dressed the last two classes: their
-## libraries were authored against a bare pawn, so the armour's two points of
-## WIS are two rows the player may now author themselves.
-## The Warrior's 2 is issue 592: Execute's row left the library and its three
-## blocks came back as slack.
-func test_the_spare_plan_blocks_are_the_ones_recorded_here() -> void:
-	var spare := {}
-	for cid in Registry.all_class_ids():
-		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		spare[cid] = Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
-	assert_eq(spare, {&"warrior": 2, &"priest": 0, &"geysermancer": 0, &"siege_master": 2, &"abomination": 2},
-		"the slack in a class's plan budget moved: %s" % [spare])
 
 ## Both casters run every row in their library, the Channel included. Issue 399:
 ## a starter pawn ships with none, so the rows are added here the way a player

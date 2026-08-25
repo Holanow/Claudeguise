@@ -423,3 +423,35 @@ func test_a_unit_whose_only_action_is_cooling_does_not_idle_in_range() -> void:
 	var intent := _decide_against_a_dummy(goblin, 15.0)
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
 		"unchanged from before issue 214: with nothing usable, behaviour is what it was")
+
+
+## Issue 544, moved here from `test_baseline_one_vs_two.gd` when #610 deleted
+## that file's snapshot: the fallback stopped firing once a Goblin was inside
+## 60% of a ranged pawn's own range, which cost a Geysermancer every action
+## after tick 81 of 279.
+func test_a_planless_ranged_pawn_keeps_attacking_when_crowded() -> void:
+	var e := Encounter.new()
+	e.id = &"a_pawn_crowded_by_two_goblins"
+	var spawns: Array[Dictionary] = []
+	for i in 2:
+		spawns.append({"enemy_id": &"goblin", "position": Vector2(150.0, -50.0 + 100.0 * float(i))})
+	e.enemy_spawns = spawns
+	e.party_spawns = [Vector2(-350.0, 0.0)]
+
+	var pawn := PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "geysermancer")
+	pawn.armor = null
+	pawn.accessory = null
+	var party: Array[PawnData] = [pawn]
+	var state := CombatSim.build(party, e, 0)
+	var pawn_id := -1
+	for u in state.units:
+		if u.pawn != null:
+			pawn_id = u.id
+	CombatSim.run(state)
+	var started := 0
+	for ev in state.events:
+		if ev.kind == CG.EventKind.ACTION_START and ev.source_id == pawn_id:
+			started += 1
+	assert_true(started > 2,
+		"a planless Geysermancer started %d actions in %d ticks; 2 is #544's automatic retreat back"
+		% [started, state.tick])
