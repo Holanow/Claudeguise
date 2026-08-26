@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="StatusDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/StatusDef.gd" id="1_statusdef"]
+
+[resource]
+script = ExtResource("1_statusdef")
+status = 3
+harmful = true
+hit_scaled = true
+deals_damage_over_time = true
+dot_damage_type = 1
+damage_per_magnitude_per_tick = 0.0056
+icon_name = &"status/burn"
