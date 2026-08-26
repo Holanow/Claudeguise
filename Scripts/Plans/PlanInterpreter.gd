@@ -3,43 +3,11 @@ class_name PlanInterpreter
 
 
 ## Turns a pawn's plans into one Intent per tick.
-
-## Whitelists, one per PlanBlock.Kind. An op not listed here is unknown and
-## fails loudly rather than being silently skipped, per the issue: a skipped
-## block reads to a player as the plan simply not working.
 ##
-## The CONDITION whitelist is `CONDITION_OPS` below and is derived: these are
-## the ops that read a value out of `block.args`, and the named pawn states in
-## `STATE_CONDITIONS` are appended to them.
-const VALUE_CONDITION_OPS := [
-	&"always",
-	&"self_hp_below_fraction",
-	&"ally_below_hp_fraction",
-	&"self_resource_at_least",
-	&"self_resource_at_least_fraction",
-	&"self_resource_below",
-	&"enemy_in_range",
-	&"ally_has_harmful_status",
-	&"enemy_has_status",
-	&"enemy_lacks_status",
-]
-const TARGETING_OPS := [
-	&"target_nearest_enemy",
-	&"target_lowest_hp_fraction_ally",
-	&"target_lowest_hp_fraction_enemy",
-	&"target_self",
-	&"target_ally_with_harmful_status",
-	&"target_enemy_with_status",
-	&"target_enemy_without_status",
-	## Issue 588: so a written plan can aim at the player's click deliberately,
-	## rather than having its own targeting silently overruled.
-	&"target_focused_enemy",
-]
-const ACTION_OPS := [&"use_action"]
-const DURATION_OPS := [&"once"]
-
-## Issue 97. One op, not three.
-const MOVEMENT_OPS := [&"keep_distance", &"move_into_cover", &"leave_harmful_ground"]
+## Issue 640: the op vocabulary is not here any more. One `Resource` subclass
+## per op under `Scripts/Plans/Blocks/` carries its own arguments and its own
+## evaluator, `BlockCatalog` maps a name to a script, and an invalid block is
+## unrepresentable rather than caught by a whitelist.
 
 ## Issue 316: how far behind a piece of cover a pawn stands, in world units.
 const COVER_STANDOFF := 20.0
@@ -57,112 +25,14 @@ const SAFE_GROUND_DIRECTIONS := 16
 ## How close to the requested distance counts as arrived, in world units.
 const KEEP_DISTANCE_BAND := 15.0
 
-## Issue 22: op -> {kind, key, default, [min, max, step]}, the argument shape
-## each value CONDITION op reads, so InspectPanel can build a value editor
-## without evaluating a condition.
-const VALUE_CONDITION_ARG_SHAPE := {
-	&"always": {"kind": "none"},
-	&"self_hp_below_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
-	&"ally_below_hp_fraction": {"kind": "fraction", "key": "fraction", "default": 0.5},
-	&"self_resource_at_least": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
-	## Issue 488: the same question as a share of the pawn's own ceiling. An
-	## absolute amount is a per-pawn scale compared against a fixed number --
-	## 40 is all of a Warrior's Rage and 39% of a Priest's Mana -- so a rolled
-	## pawn can be locked out of a row it was authored to fire.
-	&"self_resource_at_least_fraction": {"kind": "fraction", "key": "fraction", "default": 1.0},
-	&"self_resource_below": {"kind": "amount", "key": "amount", "min": 0, "max": 999, "step": 1, "default": 0},
-	## **`step` 5, not 10, and a rendered screen is what found it.** A `SpinBox`
-	&"enemy_in_range": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 100.0},
-	&"ally_has_harmful_status": {"kind": "none"},
-	&"enemy_has_status": {"kind": "status", "key": "status", "default": 0},
-	&"enemy_lacks_status": {"kind": "status", "key": "status", "default": 0},
-}
-
-## Issue 495: **a pawn's state, as something any CONDITION row can ask about.**
-##
-## One entry per named state: the sentence the editor prints and the predicate
-## that answers it. The whitelist, the argument shape, `_eval_condition`'s
-## dispatch and `describe_op`'s sentence are all derived from this, so the next
-## state is one entry plus one static func and nothing else. A state never takes
-## an argument; anything that needs a number is a value condition instead.
-static var STATE_CONDITIONS := {
-	## Issue 384: reads `CombatSim.standing_harms`, the one place "does this
-	## ground cost me anything" is answered.
-	&"self_on_harmful_ground": {"text": "standing on harmful ground", "holds": _on_harmful_ground},
-	&"self_on_safe_ground": {"text": "standing on safe ground", "holds": _on_safe_ground},
-	## Issue 495: cover from the current focus, matching `move_into_cover`, which
-	## takes cover from the threat the row picked rather than from everyone.
-	&"self_in_cover": {"text": "in cover from the target", "holds": _in_cover},
-	&"self_not_in_cover": {"text": "not in cover from the target", "holds": _not_in_cover},
-	## Issue 588: the player has clicked an enemy and it is still alive. Global
-	## rather than per-unit, because the focus is one thing the party shares.
-	&"enemy_is_focused": {"text": "the player has focused an enemy", "holds": _enemy_is_focused},
-}
-
-## The CONDITION whitelist and the editor's argument shapes, both derived, so a
-## state condition cannot be in one and missing from the other.
-static var CONDITION_OPS: Array = VALUE_CONDITION_OPS + STATE_CONDITIONS.keys()
-static var CONDITION_ARG_SHAPE: Dictionary = _build_condition_arg_shape()
-
-static func _build_condition_arg_shape() -> Dictionary:
-	var out := VALUE_CONDITION_ARG_SHAPE.duplicate(true)
-	for op in STATE_CONDITIONS:
-		out[op] = {"kind": "none"}
-	return out
-
-# ---------------------------------------------------------------------------
-# The state predicates. One per entry in STATE_CONDITIONS, and nothing else
-# reaches them.
-
-static func _on_harmful_ground(state: CombatState, unit: CombatUnit) -> bool:
-	return CombatSim.standing_harms(state, unit.position)
-
-static func _on_safe_ground(state: CombatState, unit: CombatUnit) -> bool:
-	return not CombatSim.standing_harms(state, unit.position)
-
-## No focus, or a dead one, is not cover: the pair stays a strict complement, so
-## `self_not_in_cover` holds on the first tick of a fight and the two-row plan
-## "not in cover -> take cover / in cover -> act" starts from the right half.
-static func _in_cover(state: CombatState, unit: CombatUnit) -> bool:
-	var threat := state.unit(unit.focus_id)
-	if threat == null or not threat.alive:
-		return false
-	return in_cover_from(state, unit, unit.position, threat)
-
-static func _not_in_cover(state: CombatState, unit: CombatUnit) -> bool:
-	return not _in_cover(state, unit)
-
-## Issue 588. Takes `unit` it does not read, because every entry in
-## `STATE_CONDITIONS` is called with the same two arguments.
-static func _enemy_is_focused(state: CombatState, _unit: CombatUnit) -> bool:
-	return DefaultBehavior.player_focus(state, state.living(CG.Team.ENEMY)) != null
-
-## Issue 97: the same shape `CONDITION_ARG_SHAPE` carries, for the MOVEMENT ops,
-## so the plan editor can build a value editor for the distance a block holds.
-const MOVEMENT_ARG_SHAPE := {
-	&"keep_distance": {"kind": "range", "key": "range", "min": 0, "max": 1000, "step": 5, "default": 120.0},
-	&"move_into_cover": {"kind": "none"},
-	## Issue 420: no argument, for the same reason `self_on_harmful_ground` has
-	## none -- `CombatSim.standing_harms` is the only place "does this ground
-	## cost me anything" is answered, and a distance would invite the player to
-	## tune a number the room, not the pawn, decides.
-	&"leave_harmful_ground": {"kind": "none"},
-}
-
-## push_error is the loud, real failure. This is a testable side channel: the
-## test suite has no way to assert a push_error happened, so an unknown op also
-## records here, naming the op and the plan, and a test can read and clear it.
-static var last_error: String = ""
-
 ## Issue 269: how many of a pawn's plans it can actually pay for, and **the one
 ## place that question is answered.**
 ##
 ## `InspectPanel` dims every row from index `active_plan_count(pawn)` down and
 ## writes "Inert" on it; `decide()` below stops iterating at the same index. Two
 ## implementations of this rule would drift, and the drift is precisely the
-## defect it was written to fix: a row the screen calls inert that the pawn fires
-## anyway, which is the pawn-behaviour principle inverted -- the player can see
-## the mark and the pawn ignores it.
+## defect it was written to fix: a row the screen calls inert that the pawn
+## fires anyway.
 static func active_plan_count(pawn: PawnData) -> int:
 	if pawn == null:
 		return 0
@@ -177,7 +47,6 @@ static func active_plan_count(pawn: PawnData) -> int:
 	return count
 
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
-	last_error = ""
 	if unit.pawn == null:
 		return null
 	var active := active_plan_count(unit.pawn)
@@ -196,89 +65,36 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 static func condition_holds(state: CombatState, unit: CombatUnit, plan: Plan) -> bool:
 	if plan.condition == null:
 		return true
-	return _eval_condition(state, unit, plan, plan.condition)
+	return plan.condition.holds(state, unit)
 
 # ---------------------------------------------------------------------------
 
+## Blocks run in list order, and that order is load-bearing: every TARGETING
+## block writes `unit.focus_id` as it goes, so a later one overrules an earlier.
 static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
 	var action_id: StringName = &""
-	var movement: PlanBlock = null
+	var movement: MovementBlock = null
 	for block in plan.blocks:
-		match block.kind:
-			PlanBlock.Kind.TARGETING:
-				var target_id := _eval_targeting(state, unit, plan, block)
-				if target_id != -1:
-					unit.focus_id = target_id
-			PlanBlock.Kind.ACTION:
-				if not ACTION_OPS.has(block.op):
-					_fail(plan, block)
-					return null
-				action_id = block.args.get("action_id", &"")
-			PlanBlock.Kind.DURATION:
-				if not DURATION_OPS.has(block.op):
-					_fail(plan, block)
-					return null
-			PlanBlock.Kind.CONDITION:
-				if not CONDITION_OPS.has(block.op):
-					_fail(plan, block)
-					return null
-			PlanBlock.Kind.MOVEMENT:
-				if not MOVEMENT_OPS.has(block.op):
-					_fail(plan, block)
-					return null
-				movement = block
+		if block is TargetingBlock:
+			var target_id := (block as TargetingBlock).pick(state, unit)
+			if target_id != -1:
+				unit.focus_id = target_id
+		elif block is UseActionBlock:
+			action_id = (block as UseActionBlock).action_id
+		elif block is MovementBlock:
+			movement = block
 	if movement != null:
-		if movement.op == &"move_into_cover":
-			return _run_into_cover(state, unit, plan, action_id)
-		if movement.op == &"leave_harmful_ground":
-			return _run_leave_harmful_ground(state, unit, plan, action_id)
-		return _run_movement(state, unit, plan, movement, action_id)
+		return movement.run(state, unit, plan, action_id)
 	if action_id == &"" or unit.focus_id == -1:
 		return null
-	if not _action_can_fire(state, unit, action_id):
+	if not action_can_fire(state, unit, action_id):
 		return null
-	return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
-
-## Issue 97: **the first time the plan layer decides where a pawn stands.**
-##
-## Everything above this function either fires an action or returns null, and
-## null means `DefaultBehavior` decides -- including all movement. This file's
-## own comment on `_target_in_range` said so plainly: *"PlanInterpreter has
-## never handled movement, that is DefaultBehavior's whole job."* So where a
-## pawn stood was never visible in a plan, which is issue 98's principle, and
-## kiting was its loudest symptom: a pawn backing out of a fight the player told
-## it to join, with nowhere to go and change it.
-static func _run_movement(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock, action_id: StringName) -> Intent:
-	var target := state.unit(unit.focus_id)
-	if target == null or not target.alive:
-		return null
-
-	var wanted := float(block.args.get("range", 0.0))
-	var dist := unit.position.distance_to(target.position)
-	var away := unit.position - target.position
-	if away.length() < 0.0001:
-		away = Vector2(1.0, 0.0)
-
-	## Standing on harm is not standing at the requested distance: the row
-	## promises ground that does not harm, so the band alone cannot mean arrived.
-	var arrived := absf(dist - wanted) <= KEEP_DISTANCE_BAND \
-		and not CombatSim.standing_harms(state, unit.position)
-	if not arrived:
-		var anchor = kite_anchor(state, unit, target.position, away.normalized(), wanted)
-		if anchor == null:
-			return null
-		return Intent.move_to(anchor, plan.id)
-
-	if action_id == &"" or not _action_can_fire(state, unit, action_id):
-		return Intent.idle(plan.id)
 	return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
 
 ## Issue 424: the point on the band the row sends the pawn to, and it is the
 ## nearest one that does not harm. Distance from the target is exactly `wanted`
 ## on every bearing, so the row keeps the promise it makes; only which side of
-## the target it holds from moves. Null when the whole band burns or is walled,
-## and the row then steps aside the way `move_into_cover` does in a room with no
-## cover.
+## the target it holds from moves. Null when the whole band burns or is walled.
 static func kite_anchor(state: CombatState, unit: CombatUnit, centre: Vector2, bearing: Vector2, wanted: float):
 	var step := TAU / float(SAFE_GROUND_DIRECTIONS)
 	for i in SAFE_GROUND_DIRECTIONS / 2 + 1:
@@ -302,51 +118,6 @@ static func action_target_id(unit: CombatUnit, action_id: StringName) -> int:
 	var action = Registry.get_action(action_id)
 	return unit.id if action != null and action.targets_self else unit.focus_id
 
-## Issue 316: put something solid between this pawn and the enemy the plan is
-## aimed at, then act from there.
-##
-## Cover from the FOCUS, not from everyone: the targeting block above already
-## decided which enemy matters, so the player picks it in the same row they can
-## see. Being in cover from every archer at once is usually not a position that
-## exists.
-static func _run_into_cover(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
-	var threat := state.unit(unit.focus_id)
-	if threat == null or not threat.alive:
-		return null
-	## Cover from the target is also cover from your own shot: this game's cover
-	## is binary line of sight, with no peeking out. Measured before it was
-	## written -- "take cover, then Scald" held 54.6% cover and 10/20 wins
-	## against 20/20, because the pawn stood behind a pillar it could not shoot
-	## past until the tick limit. The pairing has no satisfying position, so the
-	## row steps aside for the next one rather than idling out the fight.
-	if _action_needs_line_of_sight(action_id):
-		return null
-	if in_cover_from(state, unit, unit.position, threat):
-		if action_id == &"" or not _action_can_fire(state, unit, action_id):
-			return Intent.idle(plan.id)
-		return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
-	var spot = _cover_spot(state, unit, threat)
-	if spot == null:
-		return null
-	return Intent.move_to(spot, plan.id)
-
-## Issue 420: the only movement op that is not defined relative to a target.
-##
-## `keep_distance` holds a distance from the focus and `move_into_cover` puts
-## something between the pawn and the focus, so neither can say anything about
-## the ground underfoot -- which is the one thing that matters when the threat
-## is the floor. Falls through when nothing in reach is clear, the same way
-## `_run_into_cover` steps aside when the room offers no cover.
-static func _run_leave_harmful_ground(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
-	if not CombatSim.standing_harms(state, unit.position):
-		if action_id == &"" or not _action_can_fire(state, unit, action_id):
-			return Intent.idle(plan.id)
-		return Intent.use_action(action_id, action_target_id(unit, action_id), plan.id)
-	var spot = safe_spot(state, unit)
-	if spot == null:
-		return null
-	return Intent.move_to(spot, plan.id)
-
 ## The nearest standing spot within `SAFE_GROUND_REACH` that does not harm, or
 ## null when everything in reach does. Deterministic: radius outward, then a
 ## fixed ring of directions, first match wins.
@@ -368,7 +139,7 @@ static func safe_spot(state: CombatState, unit: CombatUnit):
 	return null
 
 ## True when the action can only be used with a clear line to its target.
-static func _action_needs_line_of_sight(action_id: StringName) -> bool:
+static func action_needs_line_of_sight(action_id: StringName) -> bool:
 	if action_id == &"":
 		return false
 	var action = Registry.get_action(action_id)
@@ -383,10 +154,19 @@ static func in_cover_from(state: CombatState, unit: CombatUnit, pos: Vector2, th
 		return true
 	return CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, pos)
 
+## Whether the pawn stands in cover from its own focus right now. No focus, or a
+## dead one, is not cover: `SelfInCoverBlock` and `SelfNotInCoverBlock` stay a
+## strict complement, so a plan that starts "not in cover" starts true.
+static func unit_in_cover(state: CombatState, unit: CombatUnit) -> bool:
+	var threat := state.unit(unit.focus_id)
+	if threat == null or not threat.alive:
+		return false
+	return in_cover_from(state, unit, unit.position, threat)
+
 ## The nearest standing spot that is in cover from `threat`, or null when the
 ## room offers none. Deterministic: fixed iteration order and a strict
 ## improvement test, so ties go to the earlier candidate rather than the rng.
-static func _cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit):
+static func cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit):
 	var best = null
 	var best_dist := INF
 	for f in state.terrain:
@@ -426,7 +206,7 @@ static func _cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit
 	return best
 
 ## Every gate `_run_blocks` applies to an action, asked as one question.
-static func _action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
+static func action_can_fire(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	return _unit_has_action(unit, action_id) \
 		and _target_in_range(state, unit, action_id) \
 		and _target_in_los(state, unit, action_id) \
@@ -443,9 +223,8 @@ static func _unit_has_action(unit: CombatUnit, action_id: StringName) -> bool:
 ## Issue 14a: a plan must not order a shot it already knows will miss. The
 ## focused target's distance is checked against the action's own range here,
 ## once, right before the intent is built -- the one place both numbers are
-## available together, regardless of which targeting op or condition (if any)
-## picked the target. Out of range falls through (returns null from decide(),
-## via _run_blocks) rather than trying to move into range itself:
+## available together. Out of range falls through rather than trying to move
+## into range itself.
 static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null:
@@ -455,15 +234,10 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 		return false
 	return unit.position.distance_to(target.position) <= action.range_units
 
-## Issue 34: not a duplicate of `ActionDef.requires_line_of_sight`'s resolve-time
-## check -- the two answer different questions. This one asks "should I even aim
-## at this?" *before* committing, so a unit with a blocked but in-range target
-## has a reason to walk instead of freezing on a shot it can already see is
-## hopeless. The resolve-time check still runs later on whatever this lets
-## through, and still catches a target that steps behind cover mid-wind-up
-## (issue 28's own case) -- restoring this does not touch that. Only actions
-## that opted into `requires_line_of_sight` are gated; an unflagged action was
-## never blocked by a wall and still is not.
+## Issue 34: not a duplicate of the resolve-time line-of-sight check -- this one
+## asks "should I even aim at this?" before committing, so a unit with a blocked
+## but in-range target has a reason to walk instead of freezing on a shot it can
+## already see is hopeless.
 static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null or not action.requires_line_of_sight:
@@ -474,11 +248,9 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 	return not Terrain.line_is_blocked(state.terrain, unit.position, target.position)
 
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
-## action the unit cannot actually pay for right now -- not enough resource,
-## or still on cooldown -- must not commit CombatSim to refusing it and
-## burning the tick. Falls through to the next plan (or DefaultBehavior)
-## exactly like an out-of-range shot does, rather than special-casing Rage or
-## rewriting the plan's own condition to route around the gap.
+## action the unit cannot actually pay for right now -- not enough resource, or
+## still on cooldown -- must not commit CombatSim to refusing it and burning the
+## tick.
 static func can_afford(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null:
@@ -490,7 +262,7 @@ static func can_afford(state: CombatState, unit: CombatUnit, action_id: StringNa
 	return true
 
 ## Issue 93: the summon cap, and it is a gate on *choosing* the action rather
-## than a refusal at spawn time. Same shape and same reasoning as `can_afford`
+## than a refusal at spawn time. Same shape and same reasoning as `can_afford`.
 static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null or action.max_active_summons <= 0 or action.summons_unit_id == &"":
@@ -502,9 +274,7 @@ static func _summon_slot_free(state: CombatState, unit: CombatUnit, action_id: S
 	return live < action.max_active_summons
 
 ## Issue 93: an action that may only be aimed at an enemy carrying MARKED. Same
-## fall-through shape as the range and line-of-sight checks above: a plan aiming
-## an engine at an unmarked target steps aside rather than ordering a shot the
-## engine is not allowed to take.
+## fall-through shape as the range and line-of-sight checks above.
 static func _target_is_marked(state: CombatState, unit: CombatUnit, action_id: StringName) -> bool:
 	var action = Registry.get_action(action_id)
 	if action == null or not action.requires_marked_target:
@@ -512,142 +282,15 @@ static func _target_is_marked(state: CombatState, unit: CombatUnit, action_id: S
 	var target := state.unit(unit.focus_id)
 	return target != null and target.has_status(CG.Status.MARKED)
 
-static func _eval_condition(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> bool:
-	if not CONDITION_OPS.has(block.op):
-		_fail(plan, block)
-		return false
-	if STATE_CONDITIONS.has(block.op):
-		return bool((STATE_CONDITIONS[block.op]["holds"] as Callable).call(state, unit))
-	match block.op:
-		&"always":
-			return true
-		&"self_hp_below_fraction":
-			return unit.hp_fraction() < float(block.args.get("fraction", 1.0))
-		&"ally_below_hp_fraction":
-			var fraction := float(block.args.get("fraction", 1.0))
-			for ally in state.living(unit.team):
-				if ally.hp_fraction() < fraction:
-					return true
-			return false
-		&"self_resource_at_least":
-			return unit.resource >= int(block.args.get("amount", 0))
-		&"self_resource_at_least_fraction":
-			return unit.resource >= int(ceil(float(unit.resource_max) * float(block.args.get("fraction", 1.0))))
-		&"self_resource_below":
-			return unit.resource < int(block.args.get("amount", 0))
-		&"enemy_in_range":
-			var range_units := float(block.args.get("range", 0.0))
-			var nearest := _nearest(state, unit, _enemy_team(unit.team))
-			if nearest == null:
-				return false
-			return unit.position.distance_to(nearest.position) <= range_units
-		&"ally_has_harmful_status":
-			return _nearest_afflicted_ally(state, unit) != null
-		&"enemy_has_status":
-			return _nearest_enemy_with_status(state, unit, _status_arg(block)) != null
-		&"enemy_lacks_status":
-			return _nearest_enemy_without_status(state, unit, _status_arg(block)) != null
-	return false
+# ---------------------------------------------------------------------------
+# The shared searches. Blocks call these rather than each carrying their own,
+# so a condition and the targeting op that pairs with it cannot disagree about
+# which unit qualifies.
 
-static func _eval_targeting(state: CombatState, unit: CombatUnit, plan: Plan, block: PlanBlock) -> int:
-	if not TARGETING_OPS.has(block.op):
-		_fail(plan, block)
-		return -1
-	match block.op:
-		&"target_nearest_enemy":
-			var n := _nearest(state, unit, _enemy_team(unit.team))
-			return n.id if n != null else -1
-		&"target_lowest_hp_fraction_ally":
-			var a := _lowest_hp_fraction(state.living(unit.team))
-			return a.id if a != null else -1
-		&"target_lowest_hp_fraction_enemy":
-			var e := _lowest_hp_fraction(state.living(_enemy_team(unit.team)))
-			return e.id if e != null else -1
-		&"target_self":
-			return unit.id
-		&"target_ally_with_harmful_status":
-			var afflicted := _nearest_afflicted_ally(state, unit)
-			return afflicted.id if afflicted != null else -1
-		&"target_enemy_with_status":
-			var marked := _nearest_enemy_with_status(state, unit, _status_arg(block))
-			return marked.id if marked != null else -1
-		&"target_enemy_without_status":
-			var clean := _nearest_enemy_without_status(state, unit, _status_arg(block))
-			return clean.id if clean != null else -1
-		&"target_focused_enemy":
-			var focused := DefaultBehavior.player_focus(state, state.living(_enemy_team(unit.team)))
-			return focused.id if focused != null else -1
-	return -1
-
-## Issue 21a: a human-readable fragment for one block, for the pawn-inspect
-## screen. Display only -- never called from decide()/condition_holds(), so a
-## bad string here cannot affect a fight. An unknown op still names itself
-## rather than going blank, since a player reading "??? " and a player reading
-## "unknown op 'x'" are getting different amounts of information from the same
-## bug.
-static func describe_op(op: StringName, args: Dictionary) -> String:
-	if STATE_CONDITIONS.has(op):
-		return String(STATE_CONDITIONS[op]["text"])
-	match op:
-		&"always":
-			return "always"
-		&"self_hp_below_fraction":
-			return "self hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
-		&"ally_below_hp_fraction":
-			return "an ally's hp below %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
-		&"self_resource_at_least":
-			return "self resource at least %d" % int(args.get("amount", 0))
-		&"self_resource_at_least_fraction":
-			return "self resource at least %d%%" % int(round(float(args.get("fraction", 1.0)) * 100.0))
-		&"self_resource_below":
-			return "self resource below %d" % int(args.get("amount", 0))
-		&"enemy_in_range":
-			return "an enemy within %d units" % int(args.get("range", 0.0))
-		&"ally_has_harmful_status":
-			return "an ally has a harmful status"
-		&"enemy_has_status":
-			return "an enemy has %s" % _status_word(int(args.get("status", 0)))
-		&"enemy_lacks_status":
-			return "an enemy has no %s" % _status_word(int(args.get("status", 0)))
-		&"target_nearest_enemy":
-			return "the nearest enemy"
-		&"target_lowest_hp_fraction_ally":
-			return "the ally with the lowest hp"
-		&"target_lowest_hp_fraction_enemy":
-			return "the enemy with the lowest hp"
-		&"target_self":
-			return "self"
-		&"target_ally_with_harmful_status":
-			return "the nearest ally with a harmful status"
-		&"target_enemy_with_status":
-			return "the nearest enemy with %s" % _status_word(int(args.get("status", 0)))
-		&"target_enemy_without_status":
-			return "the nearest enemy without %s" % _status_word(int(args.get("status", 0)))
-		&"target_focused_enemy":
-			return "the enemy the player focused"
-		&"use_action":
-			var action_id: StringName = args.get("action_id", &"")
-			var action := Registry.get_action(action_id)
-			return "use %s" % (action.display_name if action != null else String(action_id))
-		&"once":
-			return "once"
-		&"keep_distance":
-			var wanted := int(args.get("range", 0.0))
-			return "close to the target" if wanted <= 0 else "hold %d units from the target, on ground that does not harm" % wanted
-		&"move_into_cover":
-			return "move into cover from the target"
-		&"leave_harmful_ground":
-			return "move off harmful ground"
-	return "unknown op '%s'" % op
-
-static func _fail(plan: Plan, block: PlanBlock) -> void:
-	last_error = "unknown block op '%s' in plan '%s'" % [block.op, plan.id]
-	push_error("PlanInterpreter: %s" % last_error)
-
-static func _enemy_team(team: CG.Team) -> CG.Team:
+static func enemy_team(team: CG.Team) -> CG.Team:
 	return CG.Team.ENEMY if team == CG.Team.PLAYER else CG.Team.PLAYER
 
-static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> CombatUnit:
+static func nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
 	for candidate in state.living(team):
@@ -657,13 +300,10 @@ static func _nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Com
 			best = candidate
 	return best
 
-## The nearest living ally carrying any status `CG.is_harmful` classifies as
-## harmful, or null. `unit` counts as an ally at distance 0, so a poisoned
-## caster scrubs itself first.
-static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
+static func nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
-	for foe in state.living(_enemy_team(unit.team)):
+	for foe in state.living(enemy_team(unit.team)):
 		if not foe.has_status(status):
 			continue
 		var d := unit.position.distance_to(foe.position)
@@ -672,13 +312,12 @@ static func _nearest_enemy_with_status(state: CombatState, unit: CombatUnit, sta
 			best = foe
 	return best
 
-## Issue 206: the complement of `_nearest_enemy_with_status`, and the same
-## condition/targeting pair discipline -- one function so the two ops cannot
-## disagree about which enemy qualifies.
-static func _nearest_enemy_without_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
+## Issue 206: the complement of `nearest_enemy_with_status`, so the two ops
+## cannot disagree about which enemy qualifies.
+static func nearest_enemy_without_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
-	for foe in state.living(_enemy_team(unit.team)):
+	for foe in state.living(enemy_team(unit.team)):
 		if foe.has_status(status):
 			continue
 		var d := unit.position.distance_to(foe.position)
@@ -687,18 +326,10 @@ static func _nearest_enemy_without_status(state: CombatState, unit: CombatUnit, 
 			best = foe
 	return best
 
-## The status a block names. Defaults to `CG.Status.SHIELD` (0) rather than
-## erroring, matching how every other arg here reads a missing key -- and a plan
-## asking about SHIELD on an enemy simply never holds, which is a visible no-op
-## rather than a crash.
-static func _status_arg(block: PlanBlock) -> CG.Status:
-	return int(block.args.get("status", 0)) as CG.Status
-
-## Player-facing name for a status, for the plan sentences.
-static func _status_word(status: int) -> String:
-	return String(CG.Status.keys()[status]).capitalize()
-
-static func _nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
+## The nearest living ally carrying any status `CG.is_harmful` classifies as
+## harmful, or null. `unit` counts as an ally at distance 0, so a poisoned
+## caster scrubs itself first.
+static func nearest_afflicted_ally(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
 	for ally in state.living(unit.team):
@@ -716,7 +347,7 @@ static func _has_harmful_status(u: CombatUnit) -> bool:
 			return true
 	return false
 
-static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
+static func lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_fraction := INF
 	for u in units:
@@ -725,3 +356,7 @@ static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 			best_fraction = f
 			best = u
 	return best
+
+## Player-facing name for a status, for the plan sentences.
+static func status_word(status: int) -> String:
+	return String(CG.Status.keys()[status]).capitalize()

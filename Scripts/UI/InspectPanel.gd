@@ -2,7 +2,6 @@ extends Control
 class_name InspectPanel
 
 const PlanScript := preload("res://Scripts/Core/Plan.gd")
-const PlanBlockScript := preload("res://Scripts/Core/PlanBlock.gd")
 const GlossaryLabelScript := preload("res://Scripts/UI/GlossaryLabel.gd")
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
@@ -509,13 +508,13 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 	# focus moves before the action reads it) -- they are not the same fact and
 	# reordering the array to suit the screen would change what a plan does.
 	for block in plan.blocks:
-		if block.kind == PlanBlockScript.Kind.ACTION and block.op == &"use_action":
+		if block is UseActionBlock:
 			var skill := _action_picker(pawn, block)
 			skill.size_flags_stretch_ratio = SKILL_SHARE
 			chips.add_child(skill)
 	for block in plan.blocks:
-		if block.kind == PlanBlockScript.Kind.TARGETING and PlanInterpreter.TARGETING_OPS.has(block.op):
-			var target := _targeting_picker(pawn, block)
+		if block is TargetingBlock:
+			var target := _targeting_picker(pawn, plan, block)
 			target.size_flags_stretch_ratio = TARGET_SHARE
 			chips.add_child(target)
 	chips.add_child(_movement_editor(pawn, plan))
@@ -578,13 +577,9 @@ func _add_plan(pawn: PawnData) -> void:
 	var plan := PlanScript.new()
 	plan.id = StringName("custom_plan_%d" % (pawn.plans.size() + 1))
 	plan.display_name = "New plan"
-	var targeting := PlanBlockScript.new()
-	targeting.kind = PlanBlockScript.Kind.TARGETING
-	targeting.op = _available_targetings(pawn)[0]
-	var action := PlanBlockScript.new()
-	action.kind = PlanBlockScript.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": actions[0]}
+	var targeting := BlockCatalog.targeting(_available_targetings(pawn)[0])
+	var action := UseActionBlock.new()
+	action.action_id = actions[0]
 	plan.blocks = [targeting, action]
 	pawn.plans.append(plan)
 	call_deferred("_build_detail", pawn)
@@ -774,15 +769,14 @@ func _library_row_texts(plan) -> Array[String]:
 	var skill := "Nothing"
 	var target := "No target"
 	for block in plan.blocks:
-		if block.kind == PlanBlockScript.Kind.ACTION and block.op == &"use_action":
-			skill = _action_display_name(block.args.get("action_id", &""))
-		elif block.kind == PlanBlockScript.Kind.TARGETING:
-			target = _cap_first(PlanInterpreter.describe_op(block.op, block.args))
-		elif block.kind == PlanBlockScript.Kind.MOVEMENT:
-			skill = "%s, then %s" % [_cap_first(PlanInterpreter.describe_op(block.op, block.args)), skill]
-	var condition_op: StringName = plan.condition.op if plan.condition != null else &"always"
-	var condition_args: Dictionary = plan.condition.args if plan.condition != null else {}
-	return [skill, target, _cap_first(PlanInterpreter.describe_op(condition_op, condition_args))] as Array[String]
+		if block is UseActionBlock:
+			skill = _action_display_name((block as UseActionBlock).action_id)
+		elif block is TargetingBlock:
+			target = _cap_first(block.describe())
+		elif block is MovementBlock:
+			skill = "%s, then %s" % [_cap_first(block.describe()), skill]
+	var condition: ConditionBlock = plan.condition if plan.condition != null else AlwaysBlock.new()
+	return [skill, target, _cap_first(condition.describe())] as Array[String]
 
 ## Takes the row as-is. It is charged exactly what its blocks total, which is
 ## what building the same row by hand charges -- no special case, or the budget
@@ -796,18 +790,18 @@ func _add_preset(pawn: PawnData, plan) -> void:
 # ---------------------------------------------------------------------------
 # What a block offers: the only place a picker learns what it may offer.
 #
-# Today these return the interpreter's full whitelists and the class's own
-# actions. Narrowing them to what a pawn has actually found is a change here
-# and nowhere else, so every picker goes through them rather than reading
-# `TARGETING_OPS` / `starting_actions` directly.
+# Today these return the catalog's full order and the class's own actions.
+# Narrowing them to what a pawn has actually found is a change here and nowhere
+# else, so every picker goes through them rather than reading `BlockCatalog` or
+# `starting_actions` directly.
 func _available_conditions(_pawn: PawnData) -> Array:
-	return PlanInterpreter.CONDITION_OPS
+	return BlockCatalog.CONDITION_OPS
 
 func _available_movements(_pawn: PawnData) -> Array:
-	return PlanInterpreter.MOVEMENT_OPS
+	return BlockCatalog.MOVEMENT_OPS
 
 func _available_targetings(_pawn: PawnData) -> Array:
-	return PlanInterpreter.TARGETING_OPS
+	return BlockCatalog.TARGETING_OPS
 
 ## Issue 100: `Registry.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
 func _available_actions(pawn: PawnData) -> Array:
@@ -825,44 +819,47 @@ func _move_plan(pawn: PawnData, index: int, delta: int) -> void:
 	pawn.plans[target] = tmp
 	call_deferred("_build_detail", pawn)
 
-## A TARGETING block's choices are PlanInterpreter.TARGETING_OPS — the same
-## whitelist decide() itself checks against, so nothing this picker can select
-## is a value the interpreter would reject. None of those ops read `args`
-func _targeting_picker(pawn: PawnData, block) -> Control:
+## A TARGETING block's choices are `BlockCatalog.TARGETING_OPS`, in the catalog's
+## own order, so nothing this picker can select is a block the interpreter would
+## reject -- the script it builds is the whitelist.
+func _targeting_picker(pawn: PawnData, plan, block: TargetingBlock) -> Control:
 	var ops := _available_targetings(pawn)
+	var current_op := BlockCatalog.op_of(block)
 	var picker := _block_chip()
 	var current := 0
 	for i in ops.size():
 		var op: StringName = ops[i]
-		# The block's own args for the entry it is already on, the same
-		# correction `_condition_editor` above carries and for the same reason:
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, block.args if op == block.op else {})))
-		if op == block.op:
+		# The block's own operands for the entry it is already on, the same
+		# correction `_condition_editor` below carries and for the same reason:
+		picker.add_item(_cap_first(block.describe() if op == current_op else BlockCatalog.targeting(op).describe()))
+		if op == current_op:
 			current = i
 	picker.selected = current
 	_caption_tooltip(picker)
-	picker.item_selected.connect(func(idx): _set_targeting(block, ops[idx]))
+	picker.item_selected.connect(func(idx): _set_targeting(plan, block, ops[idx]))
 	return picker
 
 ## Deferred for the same reason as `_move_plan`: called from the picker's own
-## `item_selected` signal, and a rebuild frees that same picker.
-func _set_targeting(block, op: StringName) -> void:
-	block.op = op
-	block.args = {}
+## `item_selected` signal, and a rebuild frees that same picker. Swapping the op
+## swaps the block, in place, so the plan's execution order does not move.
+func _set_targeting(plan, block: TargetingBlock, op: StringName) -> void:
+	var index := plan.blocks.find(block)
+	if index != -1:
+		plan.blocks[index] = BlockCatalog.targeting(op)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 ## An ACTION block's choices are the pawn's own `starting_actions` — what it
 ## can actually do, not every action in the Registry. Empty is a real state
 ## (a class with no actions is not this slice's problem to invent one for)
 ## and is shown disabled rather than left looking broken.
-func _action_picker(pawn: PawnData, block) -> Control:
+func _action_picker(pawn: PawnData, block: UseActionBlock) -> Control:
 	var picker := _block_chip()
 	var choices := _available_actions(pawn)
 	if choices.is_empty():
 		picker.add_item("(no actions)")
 		picker.disabled = true
 		return picker
-	var current_id: StringName = block.args.get("action_id", &"")
+	var current_id: StringName = block.action_id
 	var current := 0
 	for i in choices.size():
 		var action_id: StringName = choices[i]
@@ -883,13 +880,13 @@ func _action_picker(pawn: PawnData, block) -> Control:
 	return picker
 
 ## Deferred for the same reason as `_move_plan`.
-func _set_action(block, action_id: StringName) -> void:
-	block.args = {"action_id": action_id}
+func _set_action(block: UseActionBlock, action_id: StringName) -> void:
+	block.action_id = action_id
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 ## Issue 386. `keep_distance` and `move_into_cover` were built, tested and
 ## correct, and no player could create either: nothing outside `CoverProbe` and
-## the tests ever constructed a `PlanBlock.Kind.MOVEMENT`, so where a pawn stood
+## the tests ever constructed a movement block, so where a pawn stood
 ## was `DefaultBehavior`'s to decide for every plan a player could write.
 const NO_MOVEMENT := &""
 const NO_MOVEMENT_CAPTION := "default movement"
@@ -903,7 +900,7 @@ const MOVEMENT_NO_ROOM := "No plan block free, and a movement block costs 1. Rem
 ## be paid for and never read.
 static func movement_block_of(plan):
 	for block in plan.blocks:
-		if block.kind == PlanBlockScript.Kind.MOVEMENT:
+		if block is MovementBlock:
 			return block
 	return null
 
@@ -912,14 +909,14 @@ static func movement_block_of(plan):
 func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 	var block = movement_block_of(plan)
 	var ops := _available_movements(pawn)
+	var current_op := BlockCatalog.op_of(block)
 	var picker := _block_chip()
 	picker.add_item(NO_MOVEMENT_CAPTION)
 	var current := 0
 	for i in ops.size():
 		var op: StringName = ops[i]
-		var preview: Dictionary = block.args if block != null and op == block.op else _default_movement_args(op)
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, preview)))
-		if block != null and op == block.op:
+		picker.add_item(_cap_first(block.describe() if op == current_op else BlockCatalog.movement(op).describe()))
+		if op == current_op:
 			current = i + 1
 	picker.selected = current
 	_caption_tooltip(picker)
@@ -931,12 +928,6 @@ func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 		NO_MOVEMENT if idx == 0 else ops[idx - 1]))
 	return picker
 
-func _default_movement_args(op: StringName) -> Dictionary:
-	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE.get(op, {"kind": "none"})
-	if shape.get("kind") == "none":
-		return {}
-	return {shape["key"]: shape["default"]}
-
 ## Deferred for the same reason as `_move_plan`. A swap replaces the block in
 ## place, so only going from none to some costs a block and only going back
 ## refunds one.
@@ -945,33 +936,11 @@ func _set_movement(pawn: PawnData, plan, op: StringName) -> void:
 	if op == NO_MOVEMENT:
 		if block != null:
 			plan.blocks.erase(block)
+	elif block == null:
+		plan.blocks.append(BlockCatalog.movement(op))
 	else:
-		if block == null:
-			block = PlanBlockScript.new()
-			block.kind = PlanBlockScript.Kind.MOVEMENT
-			plan.blocks.append(block)
-		block.op = op
-		block.args = _default_movement_args(op)
+		plan.blocks[plan.blocks.find(block)] = BlockCatalog.movement(op)
 	call_deferred("_build_detail", pawn)
-
-## Deferred for the same reason as `_move_plan`.
-func _set_movement_arg(block, key: String, value) -> void:
-	block.args[key] = value
-	call_deferred("_build_detail", _pawns[_selected_index])
-
-## The distance a `keep_distance` block holds, beside the chip that named it.
-## Shaped from `PlanInterpreter.MOVEMENT_ARG_SHAPE`, the same way the condition
-## editor is shaped from `CONDITION_ARG_SHAPE`.
-func _movement_value_editor(block) -> Control:
-	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE.get(block.op, {"kind": "none"})
-	var spin := SpinBox.new()
-	spin.custom_minimum_size = Vector2(96.0, _TOUCH)
-	spin.min_value = shape["min"]
-	spin.max_value = shape["max"]
-	spin.step = shape["step"]
-	spin.value = float(block.args.get(shape["key"], shape["default"]))
-	spin.value_changed.connect(func(v): _set_movement_arg(block, shape["key"], v))
-	return spin
 
 ## The chip plus its value editor, sharing the row the way the condition does.
 func _movement_editor(pawn: PawnData, plan) -> Control:
@@ -980,10 +949,10 @@ func _movement_editor(pawn: PawnData, plan) -> Control:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_movement_picker(pawn, plan))
 	var block = movement_block_of(plan)
-	var has_value: bool = block != null and PlanInterpreter.MOVEMENT_ARG_SHAPE.get(block.op, {"kind": "none"}).get("kind") != "none"
-	row.size_flags_stretch_ratio = MOVEMENT_WITH_VALUE_SHARE if has_value else MOVEMENT_SHARE
-	if has_value:
-		row.add_child(_movement_value_editor(block))
+	var operands: Array[Dictionary] = block.operands() if block != null else []
+	row.size_flags_stretch_ratio = MOVEMENT_WITH_VALUE_SHARE if not operands.is_empty() else MOVEMENT_SHARE
+	for p in operands:
+		row.add_child(_operand_editor(block, p))
 	return row
 
 ## A plan's trigger: "when <condition>". `plan.condition == null` and a block
@@ -1002,23 +971,18 @@ func _condition_editor(plan) -> Control:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_stretch_ratio = CONDITION_SHARE
 
-	var current_op: StringName = plan.condition.op if plan.condition != null else &"always"
+	var condition: ConditionBlock = plan.condition if plan.condition != null else AlwaysBlock.new()
+	var current_op := BlockCatalog.op_of(condition)
 	var ops := _available_conditions(_pawns[_selected_index] if _selected_index < _pawns.size() else null)
 	var picker := _block_chip()
 	var current := 0
 	for i in ops.size():
 		var op: StringName = ops[i]
-		# The selected entry has to read the plan's own live value, not the
-		# op's default -- rook found this on a real launch: the dropdown read
-		# "Self hp below 50%" while the spinbox beside it read 65%, because
-		# every entry (including the current one) was captioned from
-		# _default_condition_args regardless of what the condition was
-		# actually set to. An unselected entry still previews its own
-		# default, which is exactly what picking it sets (_set_condition_op
-		# resets args to the default on swap), so only the current entry
-		# needs the real args.
-		var preview_args: Dictionary = plan.condition.args if op == current_op and plan.condition != null else _default_condition_args(op)
-		picker.add_item(_cap_first(PlanInterpreter.describe_op(op, preview_args)))
+		# The selected entry reads the plan's own live block; every other one
+		# previews a fresh block of that op, which is exactly what picking it
+		# builds. Captioning the current entry from a default too is how the
+		# dropdown once read "Self hp below 50%" beside a spinbox reading 65%.
+		picker.add_item(_cap_first(condition.describe() if op == current_op else BlockCatalog.condition(op).describe()))
 		if op == current_op:
 			current = i
 	picker.selected = current
@@ -1026,16 +990,10 @@ func _condition_editor(plan) -> Control:
 	picker.item_selected.connect(func(idx): _set_condition_op(plan, ops[idx]))
 	row.add_child(picker)
 
-	var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(current_op, {"kind": "none"})
-	if shape.get("kind") != "none" and plan.condition != null:
-		row.add_child(_condition_value_editor(plan.condition, shape))
+	if plan.condition != null:
+		for p in plan.condition.operands():
+			row.add_child(_operand_editor(plan.condition, p))
 	return row
-
-func _default_condition_args(op: StringName) -> Dictionary:
-	var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(op, {"kind": "none"})
-	if shape.get("kind") == "none":
-		return {}
-	return {shape["key"]: shape["default"]}
 
 ## Deferred for the same reason as `_move_plan` — called from the picker's own
 ## `item_selected` signal, and a rebuild frees that same picker. Creates the
@@ -1043,47 +1001,52 @@ func _default_condition_args(op: StringName) -> Dictionary:
 ## overwrites the existing one, args reset to the new op's own default rather
 ## than carried over from an op that meant something else by them.
 func _set_condition_op(plan, op: StringName) -> void:
-	if plan.condition == null:
-		var block := PlanBlockScript.new()
-		block.kind = PlanBlockScript.Kind.CONDITION
-		plan.condition = block
-	plan.condition.op = op
-	plan.condition.args = _default_condition_args(op)
+	plan.condition = BlockCatalog.condition(op)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
-## One SpinBox, shaped by `PlanInterpreter.CONDITION_ARG_SHAPE`, sitting inline
-## in the row right after the condition chip it belongs to — issue 96 asks for
-## the condition to read as an editable sentence with its selector in it, not
-## as a separate labelled field underneath. "fraction" is the one case
-## that does not store what it shows: the control reads and writes whole
-## percent (0-100) because that is what `describe_op` prints, and it is
-## rescaled to the 0.0-1.0 `PlanInterpreter` actually reads on the way out.
-func _condition_value_editor(block, shape: Dictionary) -> Control:
-	var key: String = shape["key"]
-	if shape["kind"] == "status":
-		return _condition_status_editor(block, key, int(shape["default"]))
+## One control per exported operand, sitting inline in the row right after the
+## chip it belongs to -- issue 96 asks for the condition to read as an editable
+## sentence with its selector in it, not as a labelled field underneath.
+##
+## Issue 640: the bounds come from the field's own `@export_range`, not from a
+## hand-written shape table. A float bounded at 1.0 is a fraction, and it is the
+## one case that does not store what it shows: the control reads and writes
+## whole percent because that is what `describe()` prints.
+func _operand_editor(block: PlanBlock, property: Dictionary) -> Control:
+	var key: StringName = property["name"]
+	if property["type"] == TYPE_INT and property["hint"] == PROPERTY_HINT_ENUM:
+		return _status_operand_editor(block, key)
+	var bounds := _range_of(property)
+	var scale := 100.0 if _is_fraction(property) else 1.0
 	var spin := SpinBox.new()
 	spin.custom_minimum_size = Vector2(96.0, _TOUCH)
-	if shape["kind"] == "fraction":
-		spin.min_value = 0
-		spin.max_value = 100
-		spin.step = 5
+	spin.min_value = bounds.x * scale
+	spin.max_value = bounds.y * scale
+	spin.step = bounds.z * scale
+	if scale != 1.0:
 		spin.suffix = "%"
-		spin.value = roundf(float(block.args.get(key, shape["default"])) * 100.0)
-		spin.value_changed.connect(func(v): _set_condition_arg(block, key, v / 100.0))
-	else:
-		spin.min_value = shape["min"]
-		spin.max_value = shape["max"]
-		spin.step = shape["step"]
-		spin.value = float(block.args.get(key, shape["default"]))
-		spin.value_changed.connect(func(v): _set_condition_arg(block, key, v if shape["kind"] == "range" else int(v)))
+	spin.value = roundf(float(block.get(key)) * scale) if scale != 1.0 else float(block.get(key))
+	var to_int: bool = property["type"] == TYPE_INT
+	spin.value_changed.connect(func(v): _set_operand(block, key, int(v) if to_int else v / scale))
 	return spin
 
+## `min,max,step` out of an `@export_range` hint string.
+func _range_of(property: Dictionary) -> Vector3:
+	var parts := String(property["hint_string"]).split(",")
+	if parts.size() < 3:
+		return Vector3(0.0, 999.0, 1.0)
+	return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+
+## A float operand whose ceiling is 1.0 is a share, and shares are shown as
+## whole percent. Nothing else in the vocabulary is bounded that tightly.
+func _is_fraction(property: Dictionary) -> bool:
+	return property["type"] == TYPE_FLOAT and _range_of(property).y == 1.0
+
 ## A status is picked, not counted. Names come from `CG.Status.keys()`, the same
-## source `CombatLogView._status_name` and `PlanInterpreter._status_word` read,
+## source `CombatLogView._status_name` and `PlanInterpreter.status_word` read,
 ## so the editor, the log and the plan sentence cannot call one status three
 ## different things.
-func _condition_status_editor(block, key: String, fallback: int) -> Control:
+func _status_operand_editor(block: PlanBlock, key: StringName) -> Control:
 	## Issue 396: 140 fixed took a fifth of the party screen's row for a word as
 	## short as "Burn", and the chip beside it paid for it in blank chevrons.
 	var picker := OptionButton.new()
@@ -1092,17 +1055,18 @@ func _condition_status_editor(block, key: String, fallback: int) -> Control:
 	picker.fit_to_longest_item = false
 	picker.clip_text = true
 	AppTheme.keep_popup_on_screen(picker)
-	var current := int(block.args.get(key, fallback))
+	var current := int(block.get(key))
 	for i in CG.Status.keys().size():
 		picker.add_item(String(CG.Status.keys()[i]).capitalize(), i)
 		if i == current:
 			picker.selected = picker.item_count - 1
-	picker.item_selected.connect(func(idx): _set_condition_arg(block, key, picker.get_item_id(idx)))
+	picker.item_selected.connect(func(idx): _set_operand(block, key, picker.get_item_id(idx)))
 	return picker
 
-## Deferred for the same reason as `_move_plan`.
-func _set_condition_arg(block, key: String, value) -> void:
-	block.args[key] = value
+## Deferred for the same reason as `_move_plan`. The key is a real property name
+## off `get_property_list()`, so this cannot write an operand nothing reads.
+func _set_operand(block: PlanBlock, key: StringName, value) -> void:
+	block.set(key, value)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 ## Issue 396: a chip narrower than this renders as a bare chevron with no text
