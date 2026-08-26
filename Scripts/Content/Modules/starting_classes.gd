@@ -78,6 +78,12 @@ static func _class(id: StringName, display_name: String, method: CG.Method, styl
 		dts.append(int(d))
 	c.damage_types = dts
 	c.resource_kind = resource_kind
-	c.base_attributes = base_attributes
-	c.starting_actions = starting_actions
+	var attrs := {}
+	for k in base_attributes:
+		attrs[ClassDef.ATTRIBUTE_NAME[k]] = base_attributes[k]
+	c.base_attributes = attrs
+	var acts: Array[ActionDef] = []
+	for a in starting_actions:
+		acts.append(load("res://Scripts/Content/Actions/%s.tres" % a))
+	c.starting_actions = acts
 	return c

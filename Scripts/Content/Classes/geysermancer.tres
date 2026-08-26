@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ClassDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ClassDef.gd" id="1_sjyba"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="2_wpgpm"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/geyser_blast.tres" id="3_sm6uq"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/geyser_scald.tres" id="4_ifs2u"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/geyser_cleanse.tres" id="5_vmm67"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/channel_mana.tres" id="6_laelr"]
+
+[resource]
+script = ExtResource("1_sjyba")
+id = &"geysermancer"
+display_name = "Geysermancer"
+method = 1
+style = 1
+role_secondary = 1
+damage_types = Array[int]([2, 1])
+resource_kind = 0
+base_attributes = {
+"AGI": 6,
+"ATN": 7,
+"CON": 3,
+"DEX": 0,
+"INT": 10,
+"STR": 0,
+"WIS": 6
+}
+starting_actions = Array[ExtResource("2_wpgpm")]([ExtResource("3_sm6uq"), ExtResource("4_ifs2u"), ExtResource("5_vmm67"), ExtResource("6_laelr")])
