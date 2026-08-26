@@ -53,7 +53,7 @@ func test_con_text_reads_the_real_hp_and_reduction_constants() -> void:
 
 func test_poison_text_reads_the_real_damage_percent() -> void:
 	var text := Glossary.status_text(CG.Status.POISON)
-	assert_true(text.contains("%.2f" % Balance.POISON_DAMAGE_PERCENT_PER_TICK), text)
+	assert_true(text.contains("%.2f" % StatusLibrary.of(CG.Status.POISON).damage_percent_of_max_hp_per_tick), text)
 
 ## Issue 121, finch: **burn no longer has a percentage to read.** Its rate is a
 ## fraction of the hit that lit it, so there is no single number to print -- a
@@ -69,19 +69,19 @@ func test_burn_text_states_its_rule_and_names_the_combo() -> void:
 
 func test_marked_text_reads_the_real_vulnerability_bonus() -> void:
 	var text := Glossary.status_text(CG.Status.MARKED)
-	assert_true(text.contains("%d%%" % int(round(Balance.MARKED_VULNERABILITY_BONUS * 100.0))), text)
+	assert_true(text.contains("%d%%" % int(round(StatusLibrary.of(CG.Status.MARKED).vulnerability * 100.0))), text)
 
 func test_shield_and_block_text_read_their_own_real_reduction() -> void:
-	assert_true(Glossary.status_text(CG.Status.SHIELD).contains("%d%%" % int(round(Balance.STATUS_SHIELD_REDUCTION * 100.0))))
-	assert_true(Glossary.status_text(CG.Status.BLOCK).contains("%d%%" % int(round(Balance.STATUS_BLOCK_REDUCTION * 100.0))))
+	assert_true(Glossary.status_text(CG.Status.SHIELD).contains("%d%%" % int(round(StatusLibrary.of(CG.Status.SHIELD).damage_reduction * 100.0))))
+	assert_true(Glossary.status_text(CG.Status.BLOCK).contains("%d%%" % int(round(StatusLibrary.of(CG.Status.BLOCK).damage_reduction * 100.0))))
 
 func test_haste_text_reads_the_real_tick_scale() -> void:
 	var text := Glossary.status_text(CG.Status.HASTE)
-	assert_true(text.contains("%d%%" % int(round(Balance.HASTE_TICK_SCALE * 100.0))), text)
+	assert_true(text.contains("%d%%" % int(round(StatusLibrary.of(CG.Status.HASTE).tick_scale * 100.0))), text)
 
 func test_slowed_text_reads_the_real_speed_scale() -> void:
 	var text := Glossary.status_text(CG.Status.SLOWED)
-	assert_true(text.contains("%d%%" % int(round(Balance.SLOWED_SPEED_SCALE * 100.0))), text)
+	assert_true(text.contains("%d%%" % int(round(StatusLibrary.of(CG.Status.SLOWED).speed_scale * 100.0))), text)
 
 # ---------------------------------------------------------------------------
 # GlossaryTooltip: the themed popup every hoverable node returns.

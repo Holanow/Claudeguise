@@ -20,7 +20,7 @@ const _PATTERNS := [
 ]
 
 ## Actions whose description states a poison rate per second. Derived from
-## `Balance.POISON_DAMAGE_PERCENT_PER_TICK` in the assertion, not retyped.
+## the POISON `StatusDef`'s own number in the assertion, not retyped.
 const _POISON_RATE_ACTIONS := [&"abomination_claw", &"cultist_bolt"]
 
 func test_every_duration_in_an_ability_description_matches_its_own_ticks() -> void:
@@ -65,7 +65,7 @@ func test_every_duration_in_an_ability_description_matches_its_own_ticks() -> vo
 
 func test_the_poison_rate_a_description_promises_is_the_rate_it_deals() -> void:
 	var Balance = load("res://Scripts/Content/Balance.gd")
-	var per_second: float = Balance.POISON_DAMAGE_PERCENT_PER_TICK * float(CG.TICKS_PER_SECOND)
+	var per_second: float = StatusLibrary.of(CG.Status.POISON).damage_percent_of_max_hp_per_tick * float(CG.TICKS_PER_SECOND)
 	var re := RegEx.new()
 	re.compile("([0-9]+(?:\\.[0-9]+)?)% of its max health per second")
 	for id in _POISON_RATE_ACTIONS:

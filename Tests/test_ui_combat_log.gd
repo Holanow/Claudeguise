@@ -386,7 +386,7 @@ func test_miss_reads_differently_from_a_landed_hit_and_a_fully_mitigated_one() -
 # ---------------------------------------------------------------------------
 
 ## The defect, reproduced: the ground line was reached by elimination -- "not
-## BURN and not POISON" -- so BLEED, which joined `_DOT_STATUSES` long after
+## BURN and not POISON" -- so BLEED, which joined the list long after
 ## that branch was written, printed "Geysermancer takes 2 Physical damage from
 ## the ground" in the Rat King's nest, which has no terrain at all. Bleed is the
 ## King's signature mechanic and the log credited the floor.
@@ -408,21 +408,21 @@ func test_a_bleed_tick_is_dropped_from_the_log() -> void:
 ## The guard, so the next damage-over-time status does not repeat this. The
 ## branch is now written the other way round -- a hazard tick is the one that
 ## leaves `status` at its unset default, and everything else with no source is
-## an affliction -- and this walks CombatSim's own `_DOT_STATUSES` rather than a
+## an affliction -- and this walks CombatSim's own `_DOT_ORDER` rather than a
 ## list typed here, so a status added there fails this without anyone editing a
-## test. `_DOT_STATUSES` is the same dictionary `_tick_dot_statuses` iterates,
-## so the two cannot disagree.
+## test. `_DOT_ORDER` is the same list `_tick_dot_statuses` iterates, so the
+## two cannot disagree.
 func test_no_damage_over_time_status_is_ever_credited_to_the_ground() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
-	assert_false(CombatSim._DOT_STATUSES.is_empty(), "the walk must have something to walk")
-	for status in CombatSim._DOT_STATUSES:
+	assert_false(CombatSim._DOT_ORDER.is_empty(), "the walk must have something to walk")
+	for status in CombatSim._DOT_ORDER:
 		var e := CombatEvent.make(CG.EventKind.DAMAGE, 1)
 		e.source_id = -1
 		e.target_id = 1
 		e.amount = 2
 		e.amount_before_mitigation = 2
-		e.damage_type = CombatSim._DOT_STATUSES[status]
+		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		e.status = status
 		var line := view.line_for_event(state, e)
 		assert_eq(line, "", "%s ticked into the log as: %s" % [CG.Status.keys()[status], line])
@@ -880,11 +880,11 @@ func test_the_status_filter_covers_every_dot() -> void:
 	DisplayOptions.reset()
 	var state := _make_state()
 	var view := CombatLogView.new()
-	assert_false(CombatSim._DOT_STATUSES.is_empty(), "the walk must have something to walk")
+	assert_false(CombatSim._DOT_ORDER.is_empty(), "the walk must have something to walk")
 	DisplayOptions.set_enabled(&"log_status_damage", true)
-	for status in CombatSim._DOT_STATUSES:
+	for status in CombatSim._DOT_ORDER:
 		var e := _status_tick(40, 1, status)
-		e.damage_type = CombatSim._DOT_STATUSES[status]
+		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		assert_ne(view.line_for_event(state, e), "",
 			"%s is a damage-over-time tick and the switch must reach it" % CG.Status.keys()[status])
 	DisplayOptions.reset()

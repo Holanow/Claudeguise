@@ -195,7 +195,7 @@ func test_marking_an_enemy_strips_its_hide() -> void:
 		"MARKED did nothing to an enemy: %f before, %f after. This is issue 364." % [before, after])
 
 ## `spotter_mark` is the only thing in content that marks an enemy, and every
-## enemy hide is under MARKED_VULNERABILITY_BONUS, so a mark removes all of it.
+## enemy hide is under MARKED's vulnerability, so a mark removes all of it.
 func test_a_marked_enemy_keeps_no_hide_at_all() -> void:
 	var u := _hided_enemy()
 	u.statuses[CG.Status.MARKED] = 999
@@ -218,7 +218,7 @@ func test_a_shielded_enemy_is_actually_shielded() -> void:
 	u.enemy_id = Registry.all_enemy_ids()[0]
 	var bare: float = SimDeps._default_damage_reduction(u)
 	u.statuses[CG.Status.SHIELD] = 999
-	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + Balance.STATUS_SHIELD_REDUCTION)
+	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + StatusLibrary.of(CG.Status.SHIELD).damage_reduction)
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.SHIELD)
 
 func test_a_blocking_enemy_is_actually_blocking() -> void:
@@ -226,7 +226,7 @@ func test_a_blocking_enemy_is_actually_blocking() -> void:
 	u.enemy_id = Registry.all_enemy_ids()[0]
 	var bare: float = SimDeps._default_damage_reduction(u)
 	u.statuses[CG.Status.BLOCK] = 999
-	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + Balance.STATUS_BLOCK_REDUCTION)
+	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + StatusLibrary.of(CG.Status.BLOCK).damage_reduction)
 
 ## The seam and Balance must agree for every target, which is the property the
 ## old enemy short-circuit broke.

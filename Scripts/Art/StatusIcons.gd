@@ -9,10 +9,12 @@ class_name StatusIcons
 static func rim_color(status: CG.Status) -> Color:
 	return Palette.HP_LOW if CG.is_harmful(status) else Palette.HP_FULL
 
-## The file this badge is drawn from: `Assets/UI/status/bleed.png`. Lower-cased
-## enum name, so it is guessable without reading any code.
+## The file this badge is drawn from: `Assets/UI/status/bleed.png`. Authored on
+## the `StatusDef` rather than derived from the enum name, so the icon sits
+## beside everything else the status is; every one of the thirteen is still the
+## lower-cased enum name, and the transcription test holds them to it.
 static func art_name(status: CG.Status) -> StringName:
-	return StringName("status/%s" % String(CG.Status.keys()[status]).to_lower())
+	return StatusLibrary.of(status).icon_name
 
 static func has_glyph(status: CG.Status) -> bool:
 	return UIArt.has_art(art_name(status))
