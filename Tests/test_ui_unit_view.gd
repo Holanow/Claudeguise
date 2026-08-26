@@ -2,6 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 const PawnDataScript := preload("res://Scripts/Core/PawnData.gd")
 const BattleViewScript := preload("res://Scripts/UI/BattleView.gd")
+const BattleScene := preload("res://Scenes/Battle.tscn")
 
 ## UnitView reads CombatUnit directly for position and bars (the issue allows
 ## this; only "things that happened" must come from events). These tests check
@@ -461,6 +462,99 @@ func test_visual_offset_is_deterministic_for_exactly_coincident_units() -> void:
 	var second := UnitView.visual_offset(b, [a, b])
 	assert_eq(first, second, "the same fight must nudge the same unit the same way every time")
 
+## Issue 604. The cache's whole claim is that it returns the same answer, so a
+## whole fight is walked with both paths side by side: `state.units` hits the
+## armed cache, a duplicate of it holds the same units and misses.
+func test_the_armed_offset_cache_returns_the_uncached_answer() -> void:
+	var party: Array[PawnData] = []
+	for id in [&"warrior", &"priest", &"geysermancer", &"siege_master"]:
+		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
+	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
+	var deaths := 0
+	var spawns := state.units.size()
+	var compared := 0
+	while state.outcome == CombatState.Outcome.UNRESOLVED:
+		CombatSim.step(state)
+		UnitView.note_tick(state)
+		var loose: Array = state.units.duplicate()
+		for u in state.units:
+			assert_eq(UnitView.visual_offset(u, state.units), UnitView.visual_offset(u, loose),
+				"cached nudge for unit %d at tick %d differs from the direct scan" % [u.id, state.tick])
+			compared += 1
+	for u in state.units:
+		if not u.alive:
+			deaths += 1
+	assert_true(compared > 1000, "only %d comparisons, so this walked no real fight" % compared)
+	assert_true(deaths > 0, "no unit died, so the cache was never asked about a corpse")
+	assert_true(state.units.size() > spawns, "nothing spawned, so a mid-tick unit list was never seen")
+
+## The placement drag is the one thing that moves a body without the tick
+## moving, so arming the cache has to drop what it holds every time rather than
+## treating "same tick" as "same answers".
+func test_arming_the_cache_again_on_the_same_tick_drops_what_it_held() -> void:
+	var state := CombatState.new(0)
+	var a := _make_unit(0, Vector2(-500.0, 0.0))
+	var b := _make_unit(1, Vector2.ZERO)
+	state.units.append(a)
+	state.units.append(b)
+	UnitView.note_tick(state)
+	assert_eq(UnitView.visual_offset(a, state.units), Vector2.ZERO, "the fixture must start apart")
+	a.position = Vector2(5.0, 0.0)
+	UnitView.note_tick(state)
+	assert_true(UnitView.visual_offset(a, state.units).length() > 0.0,
+		"a body moved outside a step still reads the nudge its old position earned")
+
+## And the same thing through the control a player uses: drag one pawn onto
+## another after the fight has ticked, and the body has to be redrawn where the
+## new crowd puts it.
+func test_a_placement_drag_after_a_tick_redraws_with_the_new_nudge() -> void:
+	var cfg := RunConfig.new()
+	var ids := Registry.all_class_ids()
+	var party: Array[PawnData] = []
+	for i in 4:
+		party.append(PawnFactory.make_starter_pawn(ids[i % ids.size()], StringName("p%d" % i), "Pawn %d" % i))
+	cfg.party = party
+	cfg.encounter_id = CG.DEFAULT_ENCOUNTER
+	cfg.seed = 12345
+	var view = in_tree(BattleScene.instantiate())
+	view._ready()
+	var none: Array[Vector2] = []
+	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), none)
+	view.start_fight()
+	view._process(CG.TICK_SECONDS)
+	assert_true(view.state.tick > 0, "the fixture must have ticked, or nothing armed the cache")
+
+	var placed: Array[Vector2] = view.placements()
+	assert_true(placed.size() >= 2, "this needs two pawns to stack")
+	placed[0] = placed[1]
+	view._apply_placements(placed)
+
+	var pawn: CombatUnit = null
+	for u in view.state.units:
+		if u.team == CG.Team.PLAYER and u.enemy_id == &"":
+			pawn = u
+			break
+	var loose: Array = view.state.units.duplicate()
+	assert_true(UnitView.visual_offset(pawn, loose).length() > 0.0,
+		"the drag must have stacked two bodies, or this proves nothing")
+	assert_eq(view._curr_drawn[pawn.id], UnitView.drawn_position(pawn, loose),
+		"the dragged body is drawn where the crowd it left put it")
+
+## The other half: a caller that steps the simulation itself and never arms the
+## cache must not be served the previous tick's answers.
+func test_an_unarmed_caller_is_never_served_a_stale_nudge() -> void:
+	var state := CombatState.new(0)
+	var a := _make_unit(0, Vector2(-5.0, 0.0))
+	var b := _make_unit(1, Vector2(5.0, 0.0))
+	state.units.append(a)
+	state.units.append(b)
+	UnitView.note_tick(state)
+	var close := UnitView.visual_offset(a, state.units)
+	assert_true(close.length() > 0.0, "the fixture must overlap, or this proves nothing")
+	a.position = Vector2(-800.0, 0.0)
+	assert_eq(UnitView.visual_offset(a, state.units.duplicate()), Vector2.ZERO,
+		"an unarmed array must be scanned, not answered from the last armed tick")
+
 # ---------------------------------------------------------------------------
 # should_show_label (issue 41: dense rooms piled enemy names on top of each other)
 # ---------------------------------------------------------------------------
@@ -790,7 +884,7 @@ func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> 
 	var party: Array[PawnDataScript] = []
 	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
 		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
-	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 3)
+	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
 	var disagreed := 0
 	var looked := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:
