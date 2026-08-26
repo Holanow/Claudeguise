@@ -13,8 +13,8 @@ extends SceneTree
 ## `focus_id`. Run `-- verify` to re-run every fight unprobed and confirm the
 ## outcomes and tick counts did not move.
 
-const SEEDS := 20
-const ROOMS := [&"floor1_cover", &"floor1_chokepoint", &"floor1_colonnade"]
+const SEEDS := 6
+const ROOMS := [&"floor1_cover", &"floor1_chokepoint", &"floor1_hazard", &"floor1_horde"]
 const PARTY := [&"geysermancer", &"siege_master", &"priest", &"warrior"]
 
 ## A pawn counts as ranged when its longest sighted action outreaches this.

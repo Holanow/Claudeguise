@@ -309,15 +309,15 @@ func unit_body(id: int) -> RID:
 ## stops every unit blocking itself, and excluding the target makes hitting it
 ## success rather than obstruction.
 func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
-	if a.is_equal_approx(b):
-		return false
 	## Ground a unit can stand in hides it from outside but not from someone
 	## standing in it with them. A wall is not that: nothing stands in a wall,
-	## so it blocks however it contains the line.
+	## so it blocks however it contains the line, zero length included.
 	var ca = at(cell_of(a))
 	var cb = at(cell_of(b))
-	if ca != null and cb != null and ca.blocks_sight() and not ca.blocks_movement() 			and cb.blocks_sight() and not cb.blocks_movement():
+	if _standable_cover(ca) and _standable_cover(cb):
 		return false
+	if a.is_equal_approx(b):
+		return ca != null and ca.blocks_sight()
 	var st := PhysicsServer2D.space_get_direct_state(_space)
 	if st == null:
 		return false
@@ -335,6 +335,9 @@ func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
 			excluded.append(rid)
 	q.exclude = excluded
 	return not st.intersect_ray(q).is_empty()
+
+static func _standable_cover(cell) -> bool:
+	return cell != null and cell.blocks_sight() and not cell.blocks_movement()
 
 ## True when a body of `radius` centred at `p` overlaps ground it cannot enter.
 ## Grid arithmetic rather than a physics query: movement asks this several
