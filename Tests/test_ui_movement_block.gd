@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 ## Issue 386. `keep_distance` (#97) and `move_into_cover` (#347) are built,
 ## tested and correct, and a player cannot create either: `_new_plan` builds
 ## only TARGETING and ACTION, there is no movement picker, and no preset plan
@@ -14,8 +21,8 @@ func _make_pawn(wis: int = 8) -> PawnData:
 	cls.role_primary = CG.Role.DPS
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
-	cls.starting_actions = [&"test_swing"]
-	cls.base_attributes = {CG.Attribute.WIS: wis}
+	cls.starting_actions = [_fixture_action(&"test_swing")]
+	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"

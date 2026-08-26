@@ -7,7 +7,8 @@ func _pawn(method: CG.Method, style: CG.Style, attrs: Dictionary) -> PawnData:
 	var c := ClassDef.new()
 	c.method = method
 	c.style = style
-	c.base_attributes = attrs
+	for k in attrs:
+		c.base_attributes[ClassDef.ATTRIBUTE_NAME[k]] = attrs[k]
 	c.resource_kind = CG.ResourceKind.MANA
 	var p := PawnData.new()
 	p.pawn_class = c

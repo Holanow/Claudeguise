@@ -20,15 +20,44 @@ class_name ClassDef
 
 @export var resource_kind: CG.ResourceKind = CG.ResourceKind.ENERGY
 
-## Keyed by CG.Attribute. Base spread before equipment. Balance.gd turns these
-## into the derived numbers the simulation uses.
+## Keyed by attribute NAME, e.g. "STR". Base spread before equipment. Balance.gd
+## turns these into the derived numbers the simulation uses.
 @export var base_attributes: Dictionary = {}
 
-## ActionDef ids this class starts with, in no particular order.
-@export var starting_actions: Array[StringName] = []
+## The actions this class starts with, in list order. Order is load-bearing:
+## DefaultBehavior picks the first affordable action in it.
+@export var starting_actions: Array[ActionDef] = []
+
+## Issue 628: the `.tres` names its attributes rather than numbering them, so
+## the enum's order is not part of the file format.
+const ATTRIBUTE_NAME := {
+	CG.Attribute.STR: "STR",
+	CG.Attribute.DEX: "DEX",
+	CG.Attribute.AGI: "AGI",
+	CG.Attribute.CON: "CON",
+	CG.Attribute.INT: "INT",
+	CG.Attribute.ATN: "ATN",
+	CG.Attribute.WIS: "WIS",
+}
 
 func attribute(a: CG.Attribute) -> int:
-	return int(base_attributes.get(a, 0))
+	return int(base_attributes.get(ATTRIBUTE_NAME[a], 0))
+
+## Every key of `base_attributes` that is not an attribute name. A misspelling
+## would otherwise read as zero, which is a wrongness nothing would show.
+func invalid_attribute_keys() -> Array[String]:
+	var bad: Array[String] = []
+	for k in base_attributes:
+		if not ATTRIBUTE_NAME.values().has(k):
+			bad.append(str(k))
+	return bad
+
+func starting_action_ids() -> Array[StringName]:
+	var out: Array[StringName] = []
+	for a in starting_actions:
+		if a != null:
+			out.append(a.id)
+	return out
 
 ## Issue 131: what this class counts as, for gear that gates on tags. Derived
 ## from the four fields above rather than authored, so a class cannot claim a

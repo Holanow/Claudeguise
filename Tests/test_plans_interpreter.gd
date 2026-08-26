@@ -44,7 +44,7 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 func _test_class(id: StringName = &"testclass") -> ClassDef:
 	var cls := ClassDef.new()
 	cls.id = id
-	cls.base_attributes = {CG.Attribute.WIS: 8}
+	cls.base_attributes = {"WIS": 8}
 	return cls
 
 
@@ -267,7 +267,7 @@ func _three(a: CombatUnit, b: CombatUnit, c: CombatUnit) -> CombatState:
 
 func _cleanse_pawn() -> PawnData:
 	var cls := _test_class(&"geysermancer")
-	cls.starting_actions = [&"geyser_cleanse"]
+	cls.starting_actions = [Registry.get_action(&"geyser_cleanse")]
 	var pawn := PawnData.new()
 	pawn.pawn_class = cls
 	pawn.plans = [_plan(

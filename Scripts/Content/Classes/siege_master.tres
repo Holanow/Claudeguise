@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ClassDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ClassDef.gd" id="1_mmsdi"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="2_2ybkp"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/spotter_mark.tres" id="3_0ru86"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/build_siege_engine.tres" id="4_tdbxh"]
+
+[resource]
+script = ExtResource("1_mmsdi")
+id = &"siege_master"
+display_name = "Siege Master"
+style = 2
+role_secondary = 2
+damage_types = Array[int]([0, 7])
+resource_kind = 0
+base_attributes = {
+"AGI": 5,
+"ATN": 2,
+"CON": 4,
+"DEX": 9,
+"INT": 2,
+"STR": 3,
+"WIS": 4
+}
+starting_actions = Array[ExtResource("2_2ybkp")]([ExtResource("3_0ru86"), ExtResource("4_tdbxh")])

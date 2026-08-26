@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ClassDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ClassDef.gd" id="1_31i7k"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="2_kriqh"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/priest_heal.tres" id="3_nabga"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/priest_smite.tres" id="4_b7t4o"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/priest_haste.tres" id="5_vhuxk"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/priest_ward.tres" id="6_umqas"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/channel_mana.tres" id="7_p73tv"]
+
+[resource]
+script = ExtResource("1_31i7k")
+id = &"priest"
+display_name = "Priest"
+method = 1
+style = 1
+role_primary = 4
+role_secondary = 1
+damage_types = Array[int]([5, 3])
+resource_kind = 0
+base_attributes = {
+"AGI": 4,
+"ATN": 9,
+"CON": 3,
+"DEX": 0,
+"INT": 8,
+"STR": 1,
+"WIS": 8
+}
+starting_actions = Array[ExtResource("2_kriqh")]([ExtResource("3_nabga"), ExtResource("4_b7t4o"), ExtResource("5_vhuxk"), ExtResource("6_umqas"), ExtResource("7_p73tv")])

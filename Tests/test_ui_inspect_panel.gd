@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
 ## Issue 21b: pawn inspection between fights. Issue 6 added editing: reorder a
@@ -23,13 +30,13 @@ func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
 	cls.role_primary = role
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
-	cls.starting_actions = [&"test_swing"]
+	cls.starting_actions = [_fixture_action(&"test_swing")]
 	# WIS is the plan block budget (Balance.plan_block_budget). Left at the
 	# ClassDef default of 0 every fixture would sit permanently over budget and
 	# every Add button would be disabled, which is a different screen from the
 	# one most of these tests mean to exercise. The budget tests set it
 	# themselves.
-	cls.base_attributes = {CG.Attribute.WIS: wis}
+	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -264,7 +271,7 @@ func test_plans_list_in_priority_order() -> void:
 ## use_action blocks with no matching plan block are what "unused" means here.
 func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing", &"test_unused"]
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_unused")]
 	var plan := _make_plan("Swing plan")
 	var action_block := PlanBlock.new()
 	action_block.kind = PlanBlock.Kind.ACTION
@@ -399,9 +406,9 @@ func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 	var action_block := PlanBlock.new()
 	action_block.kind = PlanBlock.Kind.ACTION
 	action_block.op = &"use_action"
-	action_block.args = {"action_id": pawn.pawn_class.starting_actions[0]}
+	action_block.args = {"action_id": pawn.pawn_class.starting_action_ids()[0]}
 	var picker: OptionButton = panel._action_picker(pawn, action_block)
-	var action = Registry.get_action(pawn.pawn_class.starting_actions[0])
+	var action = Registry.get_action(pawn.pawn_class.starting_action_ids()[0])
 	assert_not_null(action)
 	assert_true(picker.tooltip_text.contains(action.description),
 		"the skill block's hover must carry the description, got '%s'" % picker.tooltip_text)
@@ -537,7 +544,7 @@ func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight()
 ## the swap reaches the real interpreter the same way the targeting swap does.
 func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing", &"test_alt"]
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_alt")]
 	var targeting := PlanBlock.new()
 	targeting.kind = PlanBlock.Kind.TARGETING
 	targeting.op = &"target_nearest_enemy"
@@ -717,7 +724,7 @@ func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 ## interpreter will run -- not a row that only exists on this screen.
 func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing"]
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing")]
 	pawn.plans = []
 
 	var panel := InspectPanel.create()
@@ -866,7 +873,7 @@ func _pawn_over_budget() -> PawnData:
 	panel.free()
 	# Two plans, two blocks each, and a budget of 3: the first row is paid for
 	# and the second is one block past the end.
-	pawn.pawn_class.base_attributes = {CG.Attribute.WIS: 3}
+	pawn.pawn_class.base_attributes = {"WIS": 3}
 	return pawn
 
 func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> void:
@@ -1029,7 +1036,7 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 
 	var priest := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	priest.pawn = pawn
-	priest.actions = pawn.pawn_class.starting_actions
+	priest.actions = pawn.pawn_class.starting_action_ids()
 	priest.resource = 999
 	var hurt_ally := _melee_unit(1, CG.Team.PLAYER, Vector2(10, 0), 0.2)
 	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(300, 0))
