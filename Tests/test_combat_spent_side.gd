@@ -19,25 +19,33 @@ func _unit(id: int, team: CG.Team, pos: Vector2) -> CombatUnit:
 func _marked_only_action() -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"fixture_marked_bolt"
-	a.requires_marked_target = true
-	a.range_units = 9000.0
-	a.power_scale = 1.0
+	a.targeting = ActionTargeting.new()
+	a.targeting.requires_marked_target = true
+	a.targeting.range_units = 9000.0
+	var hit := HitEffect.new()
+	hit.power_scale = 1.0
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _plain_action() -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"fixture_bolt"
-	a.range_units = 9000.0
-	a.power_scale = 1.0
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 9000.0
 	a.cooldown_ticks = 600
+	var hit := HitEffect.new()
+	hit.power_scale = 1.0
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _marking_action() -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"fixture_mark"
-	a.range_units = 9000.0
-	a.applies_status_enabled = true
-	a.applies_status = CG.Status.MARKED
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 9000.0
+	var mark := StatusEffect.new()
+	mark.status = CG.Status.MARKED
+	a.effects = [HitEffect.new(), mark] as Array[AbilityEffect]
 	return a
 
 ## Idle so nothing in the fixture ever fires. Every outcome below is then the

@@ -36,9 +36,12 @@ func _make_action() -> ActionDef:
 	a.id = &"one_shot"
 	a.wind_up_ticks = 5
 	a.recover_ticks = 0
-	a.range_units = 999.0
-	a.power_scale = 1.0
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.power_scale = 1.0
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _make_state() -> CombatState:

@@ -24,9 +24,13 @@ func _shot() -> ActionDef:
 	a.id = &"probe_shot"
 	a.wind_up_ticks = 1
 	a.recover_ticks = 1
-	a.range_units = 9999.0
-	a.projectile_speed = 20.0
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 9999.0
+	a.delivery = ActionDelivery.new()
+	a.delivery.speed = 20.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 ## Every action this file uses, and a flat attack power so a hit is a known
@@ -254,8 +258,11 @@ func test_damage_the_shield_did_not_stop_does_not_spend_it() -> void:
 	melee.id = &"probe_melee"
 	melee.wind_up_ticks = 1
 	melee.recover_ticks = 1
-	melee.range_units = 9999.0
-	melee.damage_type = CG.DamageType.PHYSICAL
+	melee.targeting = ActionTargeting.new()
+	melee.targeting.range_units = 9999.0
+	var melee_hit := HitEffect.new()
+	melee_hit.damage_type = CG.DamageType.PHYSICAL
+	melee.effects = [melee_hit] as Array[AbilityEffect]
 	var deps := _deps([block, melee], 7.0)
 	var state := CombatState.new(7)
 	var attacker := _unit(0, CG.Team.ENEMY, 100, Vector2.ZERO)

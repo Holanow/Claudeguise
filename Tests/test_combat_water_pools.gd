@@ -14,8 +14,16 @@ func _fire(rect: Rect2 = FIRE) -> Terrain.Feature:
 func _pool_action(half_width: float) -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"fixture_pool"
-	a.range_units = 9000.0
-	a.leaves_pool_radius = half_width
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 9000.0
+	var fx: Array[AbilityEffect] = [HitEffect.new()]
+	## A half-width of 0 leaves no pool. A `PoolEffect` at radius 0 is still an
+	## effect the sim runs, so the absent case has to be absent.
+	if half_width > 0.0:
+		var pool := PoolEffect.new()
+		pool.radius = half_width
+		fx.append(pool)
+	a.effects = fx
 	return a
 
 ## A caster, a victim it can always reach, and whatever terrain the test wants.
