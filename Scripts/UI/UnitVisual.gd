@@ -107,6 +107,21 @@ func offset_slot(slot: StringName, offset: Vector2) -> void:
 ## drawing white over one at alpha `a` and tinting it toward white by `a` put the
 ## same colour on the screen -- the white copy of the body that used to slide out
 ## from under a thrust hand cannot exist any more.
+## Where a slot is drawn this frame, in this node's parent space. Averaged over
+## the slot's sprites because a recipe may put two of them there, and composed
+## through both transforms so the mirror on this node is already applied.
+func slot_offset(slot: StringName) -> Vector2:
+	if not _slots.has(slot):
+		return Vector2.ZERO
+	var node: Node2D = _slots[slot]
+	var kids := node.get_children()
+	if kids.is_empty():
+		return Vector2.ZERO
+	var sum := Vector2.ZERO
+	for k in kids:
+		sum += node.transform * (k as Node2D).position
+	return transform * (sum / float(kids.size()))
+
 func flash(color: Color, strength: float) -> void:
 	for slot in _slots.values():
 		for sprite in (slot as Node2D).get_children():

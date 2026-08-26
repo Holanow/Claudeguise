@@ -6,9 +6,10 @@ class_name VFXLayer
 ## a new kind of flourish is a new resource rather than another exported field on
 ## every action that will never use it.
 ##
-## Ported from the god-guise proof. The primitives it composes -- shake, hit stop,
-## bursts -- already existed in `BattleView`; what did not exist was any way for
-## one action to say which of them it wants.
+## It lives in Core, not Art, and that is load-bearing: `ActionDef` names it, and
+## a simulation file that names view code breaks the separation the fingerprint
+## rests on. The DESCRIPTION of a look is data; the PLAYING of it is the view,
+## which is why every subclass lives under `Scripts/Art/VFX/Layers`.
 enum Cue { WIND_UP, RELEASE, IMPACT }
 
 @export var cue: Cue = Cue.IMPACT

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="AbilityVFX" format=3]
 
-[ext_resource type="Script" path="res://Scripts/Art/VFX/VFXLayer.gd" id="1_33sis"]
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_33sis"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_vxoxl"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/BeamLayer.gd" id="3_v47so"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="4_gf0ui"]
@@ -8,7 +8,7 @@
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="6_8r01s"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="7_6ujfh"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/HitStopLayer.gd" id="8_yang3"]
-[ext_resource type="Script" path="res://Scripts/Art/VFX/AbilityVFX.gd" id="9_rd4a6"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="9_rd4a6"]
 
 [sub_resource type="Resource" id="Resource_deu6d"]
 script = ExtResource("2_vxoxl")

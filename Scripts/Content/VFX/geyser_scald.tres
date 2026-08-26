@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="AbilityVFX" format=3]
 
-[ext_resource type="Script" path="res://Scripts/Art/VFX/VFXLayer.gd" id="1_mwpfm"]
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_mwpfm"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/BeamLayer.gd" id="2_dd3ap"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="3_o5tsn"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="4_ji1af"]
-[ext_resource type="Script" path="res://Scripts/Art/VFX/AbilityVFX.gd" id="5_x1u1j"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="5_x1u1j"]
 
 [sub_resource type="Resource" id="Resource_44unb"]
 script = ExtResource("2_dd3ap")

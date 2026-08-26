@@ -10,6 +10,8 @@ class_name VFXDirector
 
 ## id -> Vector2 in this node's own space. Supplied by the view.
 var position_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.ZERO
+## Where the unit's hands are. Falls back to the body when a recipe has none.
+var hand_of_fn: Callable = func(id: int) -> Vector2: return Vector2.ZERO
 var shake_fn: Callable = func(_pixels: float) -> void: pass
 var hit_stop_fn: Callable = func() -> void: pass
 
@@ -21,6 +23,13 @@ func _ready() -> void:
 
 func position_of(id: int) -> Vector2:
 	return position_of_fn.call(id)
+
+func hand_of(id: int) -> Vector2:
+	return hand_of_fn.call(id)
+
+## Layers ask for an anchor by name rather than choosing a Callable themselves.
+func anchor_of(id: int, hands: bool) -> Vector2:
+	return hand_of(id) if hands else position_of(id)
 
 func shake(pixels: float) -> void:
 	shake_fn.call(pixels)
@@ -50,8 +59,8 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(holder):
 			_followers.remove_at(i)
 			continue
-		holder.position = position_of(int(holder.get_meta(&"unit_id"))) \
-			+ Vector2(holder.get_meta(&"offset"))
+		holder.position = anchor_of(int(holder.get_meta(&"unit_id")),
+			bool(holder.get_meta(&"hands"))) + Vector2(holder.get_meta(&"offset"))
 
 # ---------------------------------------------------------------------------
 # Primitives. Everything a layer may do to the screen is here, which is what
@@ -97,11 +106,12 @@ func make_beam(shader_path: String, from: Vector2, to: Vector2, width: float) ->
 
 ## Tracks a unit for as long as it lives, which a wind-up tell needs because the
 ## caster is often still walking when it starts.
-func follow(rect: ColorRect, unit_id: int, offset: Vector2) -> void:
+func follow(rect: ColorRect, unit_id: int, offset: Vector2, hands: bool = false) -> void:
 	var holder := rect.get_parent() as Node2D
 	holder.set_meta(&"unit_id", unit_id)
 	holder.set_meta(&"offset", offset)
-	holder.position = position_of(unit_id) + offset
+	holder.set_meta(&"hands", hands)
+	holder.position = anchor_of(unit_id, hands) + offset
 	_followers.append(holder)
 
 func place(rect: ColorRect, at: Vector2) -> void:

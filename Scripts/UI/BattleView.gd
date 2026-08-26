@@ -1194,6 +1194,7 @@ func _ensure_layers() -> void:
 	if _vfx == null or not is_instance_valid(_vfx):
 		_vfx = VFXDirector.new()
 		_vfx.position_of_fn = _vfx_position_of
+		_vfx.hand_of_fn = _vfx_hand_of
 		_vfx.shake_fn = _vfx_shake
 		_vfx.hit_stop_fn = _hit_stop
 		_arena.add_child(_vfx)
@@ -1436,6 +1437,13 @@ func _vfx_position_of(id: int) -> Vector2:
 	if view == null:
 		return Vector2.ZERO
 	return view.position
+
+## Where the caster's hands are drawn, so a beam leaves the pose throwing it.
+func _vfx_hand_of(id: int) -> Vector2:
+	var view = _unit_views.get(id)
+	if view == null:
+		return Vector2.ZERO
+	return view.hand_anchor()
 
 ## A layer asks for a shake in pixels; the toggle still decides.
 func _vfx_shake(pixels: float) -> void:

@@ -10,10 +10,12 @@ class_name BeamLayer
 @export var hold_seconds: float = 0.10
 @export var fade_seconds: float = 0.22
 @export var offset: Vector2 = Vector2(0, -6)
+## The player's note: a beam should leave the hands, not the chest.
+@export var from_hands: bool = true
 
 func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
-	var from: Vector2 = director.position_of(ctx["source_id"]) + offset
+	var from: Vector2 = director.anchor_of(ctx["source_id"], from_hands) + offset
 	var to: Vector2 = director.position_of(ctx["target_id"])
 	if from == to:
 		return

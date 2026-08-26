@@ -8,6 +8,8 @@ class_name ChargeOrbLayer
 @export var size: float = 118.0
 @export var offset: Vector2 = Vector2(0, -6)
 @export var on_target: bool = false
+## The gathering charge belongs in the hands that are drawing it.
+@export var on_hands: bool = true
 
 func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
@@ -17,7 +19,7 @@ func play(ctx: Dictionary) -> void:
 		return
 	orb.material.set_shader_parameter("inner_colour", inner_colour)
 	orb.material.set_shader_parameter("outer_colour", outer_colour)
-	director.follow(orb, who, offset)
+	director.follow(orb, who, offset, on_hands and not on_target)
 	var seconds: float = ctx["seconds"]
 	director.tween_shader(orb, "charge", 0.0, 1.0, seconds, Tween.EASE_IN, Tween.TRANS_QUAD)
 	director.free_after(orb, seconds)
