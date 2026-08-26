@@ -166,15 +166,12 @@ const _SEPARATION_STRENGTH := 0.5
 ## a stale answer -- it simply misses.
 static var _offset := {}
 static var _offset_units: Array = []
-static var _offset_tick := -1
 
-## Idempotent: arming the tick already armed keeps the answers it holds.
+## Arming always drops what is held: the placement drag moves bodies without
+## the tick moving, so "same tick" cannot mean "same answers".
 static func note_tick(state: CombatState) -> void:
-	if state.tick == _offset_tick and is_same(state.units, _offset_units):
-		return
 	_offset.clear()
 	_offset_units = state.units
-	_offset_tick = state.tick
 
 static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
 	if not is_same(units, _offset_units):

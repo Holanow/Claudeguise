@@ -1051,6 +1051,10 @@ func _apply_placements(positions: Array[Vector2]) -> void:
 	# Issue 501. The only place a unit moves outside `CombatSim.step`, so the
 	# only place that has to say so: without this the first tick after a drag
 	# slides every pawn in from wherever it was standing before.
+	# Issue 604: and the only other place the scrum-nudge cache has to be armed,
+	# for the same reason -- a body moved here without one reads the nudge the
+	# positions before the drag earned.
+	UnitView.note_tick(state)
 	_curr_drawn = _drawn_snapshot()
 	for id in _unit_views:
 		_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
