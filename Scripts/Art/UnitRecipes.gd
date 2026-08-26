@@ -220,6 +220,38 @@ static func slots_for(shape_id: StringName) -> Array:
 		out.append({"slot": slot, "layers": by_slot[slot]})
 	return out
 
+## Issue 630. Which chunk of a body a slot's parts leave with when the body comes
+## apart. Slots are a drawing taxonomy and chunks are a physical one: eyes and a
+## hat travel with the head they are worn on, a barrel does not travel with a
+## wheel. A slot named nowhere here -- `Extra` -- gives every part its own chunk.
+const CHUNK_OF_SLOT := {
+	&"Body": &"body",
+	&"Head": &"head", &"Headwear": &"head", &"Face": &"head",
+	&"Hands": &"hands",
+}
+
+## A part in no slot lands in `Extra` and is therefore its own chunk, so a part
+## added later flies on its own rather than silently joining the body it was
+## drawn over.
+static func chunk_of(part: StringName) -> StringName:
+	return CHUNK_OF_SLOT.get(slot_of(part), part)
+
+## The recipe cut into the chunks a death throws: runs of ADJACENT layers, in the
+## order `slots_for` draws them, that share a chunk. Adjacent rather than
+## gathered, so the chunks stack back into the drawn body exactly -- every part
+## carries its own outline ring, so a layer pulled back under one it was drawn
+## over is visible.
+static func chunks_for(shape_id: StringName) -> Array:
+	var out: Array = []
+	for entry in slots_for(shape_id):
+		for layer in entry["layers"]:
+			var chunk := chunk_of(layer["part"])
+			if not out.is_empty() and out[-1]["chunk"] == chunk:
+				out[-1]["layers"].append(layer)
+				continue
+			out.append({"chunk": chunk, "layers": [layer]})
+	return out
+
 ## Whether this recipe has anything to animate at all: whether its `Hands` slot
 ## holds a part `PartAnimation` moves.
 static func has_animated_part(shape_id: StringName) -> bool:
