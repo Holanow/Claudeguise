@@ -1022,9 +1022,9 @@ func _operand_editor(block: PlanBlock, property: Dictionary) -> Control:
 	var scale := 100.0 if _is_fraction(property) else 1.0
 	var spin := SpinBox.new()
 	spin.custom_minimum_size = Vector2(96.0, _TOUCH)
-	spin.min_value = bounds.x * scale
-	spin.max_value = bounds.y * scale
-	spin.step = bounds.z * scale
+	spin.min_value = snappedf(bounds.x * scale, RANGE_PRECISION)
+	spin.max_value = snappedf(bounds.y * scale, RANGE_PRECISION)
+	spin.step = snappedf(bounds.z * scale, RANGE_PRECISION)
 	if scale != 1.0:
 		spin.suffix = "%"
 	spin.value = roundf(float(block.get(key)) * scale) if scale != 1.0 else float(block.get(key))
@@ -1032,7 +1032,13 @@ func _operand_editor(block: PlanBlock, property: Dictionary) -> Control:
 	spin.value_changed.connect(func(v): _set_operand(block, key, int(v) if to_int else v / scale))
 	return spin
 
-## `min,max,step` out of an `@export_range` hint string.
+## `min,max,step` out of an `@export_range` hint string, snapped.
+##
+## The snap is not cosmetic. Reading "0.05" back off the hint gives
+## 0.05000000074505806, so the percent step came out at 5.00000007 and a
+## SpinBox snaps its own value to its step: the Warrior's 50% guard row drew as
+## 50.0000007. Measured by `Tools/OperandEditorAudit.gd` against the shape table
+## this replaced, which is the only reason it was caught.
 func _range_of(property: Dictionary) -> Vector3:
 	var parts := String(property["hint_string"]).split(",")
 	if parts.size() < 3:
@@ -1042,7 +1048,12 @@ func _range_of(property: Dictionary) -> Vector3:
 ## A float operand whose ceiling is 1.0 is a share, and shares are shown as
 ## whole percent. Nothing else in the vocabulary is bounded that tightly.
 func _is_fraction(property: Dictionary) -> bool:
-	return property["type"] == TYPE_FLOAT and _range_of(property).y == 1.0
+	return property["type"] == TYPE_FLOAT and is_equal_approx(_range_of(property).y, 1.0)
+
+## How exactly a bound off a hint string is taken. Every step in the block
+## vocabulary is a whole unit or larger once shown, so a thousandth is far below
+## anything authored and far above the 32-bit noise.
+const RANGE_PRECISION := 0.001
 
 ## A status is picked, not counted. Names come from `CG.Status.keys()`, the same
 ## source `CombatLogView._status_name` and `PlanInterpreter.status_word` read,

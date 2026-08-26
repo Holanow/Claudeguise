@@ -1515,3 +1515,30 @@ func test_a_dropdown_is_capped_below_the_screen_it_opens_on() -> void:
 	assert_true(AppTheme.popup_max_height(control) > 200,
 		"and one capped too hard shows nothing")
 	control.free()
+
+## Issue 640: the spinner's bounds come off the field's own `@export_range`, and
+## reading a hint string back is not exact -- "0.05" returns 0.05000000074505806,
+## which made the step 5.00000007 and a SpinBox snaps its value to its own step,
+## so a 50% row drew as 50.0000007. Measured against the shape table this
+## replaced: 18 ops, 3 wrong before the snap, 0 after.
+func test_a_share_spinner_is_exactly_the_percent_control_it_was() -> void:
+	var panel := InspectPanel.create()
+	var checked := 0
+	for op in BlockCatalog.CONDITION_OPS + BlockCatalog.MOVEMENT_OPS:
+		var block: PlanBlock = PlanFixtures.block(op)
+		for property in block.operands():
+			if property["type"] != TYPE_FLOAT or not is_equal_approx(
+					float(String(property["hint_string"]).split(",")[1]), 1.0):
+				continue
+			var spin := panel._operand_editor(block, property) as SpinBox
+			assert_not_null(spin, "%s's share must get a spinner" % op)
+			assert_eq(spin.min_value, 0.0)
+			assert_eq(spin.max_value, 100.0)
+			assert_eq(spin.step, 5.0, "%s: an inexact step makes the SpinBox redraw the value" % op)
+			assert_eq(spin.suffix, "%")
+			assert_eq(spin.value, float(block.get(property["name"])) * 100.0,
+				"%s: the control must show the number the plan holds" % op)
+			checked += 1
+			spin.free()
+	assert_true(checked >= 3, "only %d share operands were checked" % checked)
+	panel.free()
