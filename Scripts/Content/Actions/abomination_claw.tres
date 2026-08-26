@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_dis55"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_gv2ba"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_nqgyd"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_vvdj7"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_dgrsg"]
+
+[sub_resource type="Resource" id="Resource_ifr30"]
+script = ExtResource("2_gv2ba")
+damage_type = 6
+
+[sub_resource type="Resource" id="Resource_0haoc"]
+script = ExtResource("3_nqgyd")
+status = 8
+duration_ticks = 90
+
+[sub_resource type="Resource" id="Resource_p7rf2"]
+script = ExtResource("5_dgrsg")
+range_units = 45.0
+
+[resource]
+script = ExtResource("4_vvdj7")
+id = &"abomination_claw"
+display_name = "Claw"
+description = "A melee strike that poisons the target for 4.5% of its max health per second, for 6 seconds. Costs nothing."
+wind_up_ticks = 7
+recover_ticks = 9
+targeting = SubResource("Resource_p7rf2")
+effects = Array[ExtResource("1_dis55")]([SubResource("Resource_ifr30"), SubResource("Resource_0haoc")])

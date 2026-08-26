@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_3myci"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_eeupq"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_4doan"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/PoolEffect.gd" id="4_vcr5u"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="5_w7jbl"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="6_n2e5x"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="7_lmpqx"]
+
+[sub_resource type="Resource" id="Resource_8cf8s"]
+script = ExtResource("1_3myci")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_mbbih"]
+script = ExtResource("3_4doan")
+damage_type = 2
+power_scale = 0.5
+
+[sub_resource type="Resource" id="Resource_3i88f"]
+script = ExtResource("4_vcr5u")
+radius = 25.0
+
+[sub_resource type="Resource" id="Resource_mgwiv"]
+script = ExtResource("5_w7jbl")
+amount = 3
+
+[sub_resource type="Resource" id="Resource_1hbci"]
+script = ExtResource("7_lmpqx")
+range_units = 350.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("6_n2e5x")
+id = &"geyser_spout"
+display_name = "Spout"
+description = "A jet of scalding water dealing damage at up to 350 units. Leaves a small pool of water where it lands, which puts out any burning ground it touches. Costs nothing and returns 3 Mana when it lands."
+wind_up_ticks = 8
+recover_ticks = 10
+targeting = SubResource("Resource_1hbci")
+delivery = SubResource("Resource_8cf8s")
+effects = Array[ExtResource("2_eeupq")]([SubResource("Resource_mbbih"), SubResource("Resource_3i88f"), SubResource("Resource_mgwiv")])

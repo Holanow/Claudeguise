@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_7bxg0"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_8ba1l"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_4davg"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="4_tgp76"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_rcafh"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_kpt38"]
+
+[sub_resource type="Resource" id="Resource_0x1oy"]
+script = ExtResource("1_7bxg0")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_6ft07"]
+script = ExtResource("3_4davg")
+damage_type = 5
+power_scale = 0.5
+
+[sub_resource type="Resource" id="Resource_d1xcg"]
+script = ExtResource("4_tgp76")
+amount = 3
+
+[sub_resource type="Resource" id="Resource_3o6ks"]
+script = ExtResource("6_kpt38")
+range_units = 220.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_rcafh")
+id = &"priest_bolt"
+display_name = "Bolt"
+description = "A ranged bolt of divine light dealing damage at up to 220 units. Costs nothing and returns 3 Mana when it lands."
+wind_up_ticks = 8
+recover_ticks = 10
+targeting = SubResource("Resource_3o6ks")
+delivery = SubResource("Resource_0x1oy")
+effects = Array[ExtResource("2_8ba1l")]([SubResource("Resource_6ft07"), SubResource("Resource_d1xcg")])

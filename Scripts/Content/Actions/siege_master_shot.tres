@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_7ixnk"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_12j3j"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_5ktmf"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_oqvs4"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_1ej3c"]
+
+[sub_resource type="Resource" id="Resource_a7w4i"]
+script = ExtResource("1_7ixnk")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_s78rc"]
+script = ExtResource("3_5ktmf")
+
+[sub_resource type="Resource" id="Resource_vpvsh"]
+script = ExtResource("5_1ej3c")
+range_units = 350.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("4_oqvs4")
+id = &"siege_master_shot"
+display_name = "Shot"
+description = "A ranged shot dealing damage at up to 350 units. Costs nothing."
+wind_up_ticks = 8
+recover_ticks = 10
+targeting = SubResource("Resource_vpvsh")
+delivery = SubResource("Resource_a7w4i")
+effects = Array[ExtResource("2_12j3j")]([SubResource("Resource_s78rc")])

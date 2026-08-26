@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_q307n"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_4wp8e"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_brl55"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_b5cjc"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_lfetw"]
+
+[sub_resource type="Resource" id="Resource_m8moj"]
+script = ExtResource("2_4wp8e")
+
+[sub_resource type="Resource" id="Resource_24vjn"]
+script = ExtResource("3_brl55")
+status = 1
+duration_ticks = 45
+
+[sub_resource type="Resource" id="Resource_j8jj7"]
+script = ExtResource("5_lfetw")
+range_units = 40.0
+
+[resource]
+script = ExtResource("4_b5cjc")
+id = &"rat_bite"
+display_name = "Bite"
+description = "A fast melee bite at up to 40 units that adds a stack of Bleed."
+wind_up_ticks = 3
+recover_ticks = 4
+targeting = SubResource("Resource_j8jj7")
+effects = Array[ExtResource("1_q307n")]([SubResource("Resource_m8moj"), SubResource("Resource_24vjn")])

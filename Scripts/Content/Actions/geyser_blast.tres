@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_wtyj1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_smo6x"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_rmt4v"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/PoolEffect.gd" id="4_ka0r0"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_huajo"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_hhwd7"]
+
+[sub_resource type="Resource" id="Resource_bks1l"]
+script = ExtResource("1_wtyj1")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_ukmyh"]
+script = ExtResource("3_rmt4v")
+damage_type = 2
+power_scale = 0.8
+consumes_status_enabled = true
+consumes_status = 3
+consumed_power_scale = 1.0
+
+[sub_resource type="Resource" id="Resource_cov6l"]
+script = ExtResource("4_ka0r0")
+radius = 50.0
+
+[sub_resource type="Resource" id="Resource_bqxf8"]
+script = ExtResource("6_hhwd7")
+range_units = 350.0
+splash_radius = 50.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_huajo")
+id = &"geyser_blast"
+display_name = "Geyser Blast"
+description = "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 350 units away. Against a burning target it snuffs the flames and hits far harder. Leaves a large pool of water where it lands, which puts out any burning ground it touches. Costs 20 Mana."
+wind_up_ticks = 12
+recover_ticks = 12
+resource_cost = 20
+targeting = SubResource("Resource_bqxf8")
+delivery = SubResource("Resource_bks1l")
+effects = Array[ExtResource("2_smo6x")]([SubResource("Resource_ukmyh"), SubResource("Resource_cov6l")])
