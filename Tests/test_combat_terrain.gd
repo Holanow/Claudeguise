@@ -170,8 +170,8 @@ func test_determinism_holds_with_terrain_in_play() -> void:
 
 	var make_state := func(seed: int) -> CombatState:
 		var s := CombatState.new(seed)
-		s.terrain.append(wall)
-		s.terrain.append(hazard)
+		s.grid.stamp_features([wall])
+		s.grid.stamp_features([hazard])
 		var u := _unit(0, CG.Team.PLAYER, 40, Vector2(-50, -20), [])
 		s.units.append(u)
 		s.units.append(_dummy_enemy(1))

@@ -705,8 +705,8 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 # ---------------------------------------------------------------------------
 
 ## The one place the ground changes after `build()`. Issue 625: a cell is one
-## kind of ground, so water simply takes the cells it covers and the fire that
-## was in them is gone -- no rectangle is cut and nothing overlaps.
+## kind of ground, so nothing is cut. Issue 496's ruling survives it -- water
+## is SPENT putting fire out, so a cell that was burning ends up bare, not wet.
 static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, half: float, at: Vector2) -> void:
 	var water := TerrainGrid.Cell.new()
 	water.kind = Terrain.Kind.WATER
@@ -716,8 +716,11 @@ static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDe
 		var was = state.grid.at(c)
 		if was != null and was.kind == Terrain.Kind.WATER:
 			continue
-		if was != null and was.kind == Terrain.Kind.HAZARD and was.damage_type == CG.DamageType.FIRE:
+		if was != null and Terrain.is_burning(was):
+			state.grid.clear_cell(TerrainGrid.Layer.EFFECTS, c)
+			state.grid.clear_cell(TerrainGrid.Layer.FLOOR, c)
 			doused.append(c)
+			continue
 		wetted.append(c)
 		state.grid.stamp_rect(TerrainGrid.Layer.EFFECTS, TerrainGrid.rect_of(c), water)
 	if not doused.is_empty():

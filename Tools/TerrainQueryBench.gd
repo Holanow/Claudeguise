@@ -10,13 +10,15 @@ func _initialize() -> void:
 	print("terrain query cost, %d reps per row" % REPS)
 	print("%8s %14s %16s %12s" % ["features", "line_is_blocked", "point_is_blocked", "hazards_at"])
 	for n in COUNTS:
-		var features := _build(n)
+		## Built once, outside every timed loop: the tilemap pays construction
+		## at fight start, and timing it per query would measure the wrong thing.
+		var grid := TerrainGrid.from_features(_build(n))
 		var pts := _probe_points()
 		print("%8d %12.1f us %14.1f us %10.1f us" % [
 			n,
-			_time_line(features, pts),
-			_time_point(features, pts),
-			_time_hazards(features, pts),
+			_time_line(grid, pts),
+			_time_point(grid, pts),
+			_time_hazards(grid, pts),
 		])
 	quit(0)
 
@@ -48,20 +50,20 @@ func _probe_points() -> Array[Vector2]:
 			rng.randf_range(-CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT)))
 	return out
 
-func _time_line(features: Array, pts: Array[Vector2]) -> float:
+func _time_line(grid: TerrainGrid, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		TerrainGrid.from_features(features).sight_blocked(pts[i % 64], pts[(i * 7 + 3) % 64])
+		grid.sight_blocked(pts[i % 64], pts[(i * 7 + 3) % 64])
 	return float(Time.get_ticks_usec() - t) / float(REPS)
 
-func _time_point(features: Array, pts: Array[Vector2]) -> float:
+func _time_point(grid: TerrainGrid, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		TerrainGrid.from_features(features).move_blocked(pts[i % 64], 22.0)
+		grid.move_blocked(pts[i % 64], 22.0)
 	return float(Time.get_ticks_usec() - t) / float(REPS)
 
-func _time_hazards(features: Array, pts: Array[Vector2]) -> float:
+func _time_hazards(grid: TerrainGrid, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		TerrainGrid.from_features(features).hazards_at(pts[i % 64])
+		grid.hazards_at(pts[i % 64])
 	return float(Time.get_ticks_usec() - t) / float(REPS)

@@ -182,7 +182,7 @@ func test_determinism_holds_with_line_of_sight_in_play() -> void:
 
 	var make_state := func(seed: int) -> CombatState:
 		var s := CombatState.new(seed)
-		s.terrain.append(_wall())
+		s.grid.stamp_features([_wall()])
 		var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
 		var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
 		s.units.append(attacker)
