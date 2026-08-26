@@ -22,42 +22,30 @@ func _initialize() -> void:
 		_verify()
 		return
 	print("ticks a living ranged pawn had NO line to any living enemy in range")
-	print("%-22s %10s %12s %12s %10s" % [
-		"room", "pawn-ticks", "no line", "terrain only", "bodies"])
+	print("%-22s %10s %12s" % ["room", "pawn-ticks", "no line"])
 	var t_all := 0
 	var t_none := 0
-	var t_terrain := 0
 	for room in ROOMS:
 		var r := _measure(room)
 		t_all += r[0]
 		t_none += r[1]
-		t_terrain += r[2]
-		_row(String(room), r[0], r[1], r[2])
+		_row(String(room), r[0], r[1])
 	print("")
-	_row("EVERY ROOM", t_all, t_none, t_terrain)
+	_row("EVERY ROOM", t_all, t_none)
 	quit(0)
 
-func _row(label: String, all: int, none: int, terrain_only: int) -> void:
-	var d := float(maxi(1, all))
-	print("%-22s %10d %7d %4.1f%% %7d %4.1f%% %6d %4.1f%%" % [
-		label, all,
-		none, 100.0 * float(none) / d,
-		terrain_only, 100.0 * float(terrain_only) / d,
-		none - terrain_only, 100.0 * float(none - terrain_only) / d])
+func _row(label: String, all: int, none: int) -> void:
+	print("%-22s %10d %7d %4.1f%%" % [
+		label, all, none, 100.0 * float(none) / float(maxi(1, all))])
 
-## Returns [ranged pawn-ticks, no line at all, no line from terrain alone].
-## The terrain-only arm excludes every unit body from the ray, so the same
-## fight yields the before-number and the after-number with no second run and
-## no perturbation at all.
+## Returns [ranged pawn-ticks, no line at all]. The terrain-only and bodies
+## columns are gone with the ruling that put bodies on the sight layer: nothing
+## but ground is in that space now, so all three columns would be one number.
 func _measure(room: StringName) -> Array:
 	var all := 0
 	var none := 0
-	var terrain_only := 0
 	for s in SEEDS:
 		var state := CombatSim.build(_party(), Registry.get_encounter(room), s, SimDeps.new())
-		var every_id: Array[int] = []
-		for u in state.units:
-			every_id.append(u.id)
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			for u in state.units:
 				if not u.alive:
@@ -66,24 +54,17 @@ func _measure(room: StringName) -> Array:
 				if reach < RANGED_MIN:
 					continue
 				all += 1
-				if not _has_line(state, u, reach, [u.id]):
+				if not _has_line(state, u, reach):
 					none += 1
-				if not _has_line(state, u, reach, every_id):
-					terrain_only += 1
 			CombatSim.step(state)
-	return [all, none, terrain_only]
+	return [all, none]
 
-## True when some living enemy is inside `reach` and the grid gives a line to
-## it. The target is excluded from the ray, as `CombatSim` excludes it: hitting
-## the thing you aimed at is success, not obstruction.
-func _has_line(state: CombatState, u: CombatUnit, reach: float, ignore: Array[int]) -> bool:
+## True when some living enemy is inside `reach` and the grid gives a line to it.
+func _has_line(state: CombatState, u: CombatUnit, reach: float) -> bool:
 	for foe in state.living(_other(u.team)):
 		if u.position.distance_to(foe.position) > reach:
 			continue
-		var mask: Array[int] = ignore.duplicate()
-		if not mask.has(foe.id):
-			mask.append(foe.id)
-		if not state.grid.sight_blocked(u.position, foe.position, mask):
+		if not state.grid.sight_blocked(u.position, foe.position):
 			return true
 	return false
 
@@ -119,7 +100,7 @@ func _verify() -> void:
 			while b.outcome == CombatState.Outcome.UNRESOLVED and b.tick < CG.MAX_TICKS:
 				for u in b.units:
 					if u.alive and _sighted_reach(u) >= RANGED_MIN:
-						_has_line(b, u, _sighted_reach(u), [u.id])
+						_has_line(b, u, _sighted_reach(u))
 				CombatSim.step(b)
 			if a.outcome != b.outcome or a.tick != b.tick or a.events.size() != b.events.size():
 				perturbed += 1

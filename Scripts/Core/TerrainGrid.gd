@@ -31,8 +31,6 @@ var _cells: Array[Dictionary] = [{}, {}]
 var _space: RID = RID()
 var _terrain_body: RID = RID()
 var _cell_shape: RID = RID()
-var _unit_shapes: Dictionary = {}
-var _unit_bodies: Dictionary = {}
 
 ## Cell -> the shape index in `_terrain_body` that makes it opaque, so a stamp
 ## that stops blocking sight can take its collider away again.
@@ -53,10 +51,6 @@ func _init() -> void:
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_PREDELETE:
 		return
-	for rid in _unit_bodies.values():
-		PhysicsServer2D.free_rid(rid)
-	for rid in _unit_shapes.values():
-		PhysicsServer2D.free_rid(rid)
 	if _terrain_body.is_valid():
 		PhysicsServer2D.free_rid(_terrain_body)
 	if _cell_shape.is_valid():
@@ -274,49 +268,16 @@ func _refresh_collider(c: Vector2i) -> void:
 	PhysicsServer2D.body_set_collision_layer(_terrain_body, BIT_SIGHT)
 	_sight_shapes[c] = idx
 
-## Issue 625, the player's ruling: a unit's own body blocks line of sight, so a
-## melee line in front of casters protects them. Called once per tick, before
-## anything decides; a unit that died since the last call loses its body here.
-func sync_units(units: Array) -> void:
-	for u in units:
-		if not u.alive:
-			_drop_unit(u.id)
-			continue
-		if not _unit_bodies.has(u.id):
-			_make_unit(u.id, u.radius)
-		PhysicsServer2D.body_set_state(_unit_bodies[u.id],
-			PhysicsServer2D.BODY_STATE_TRANSFORM, Transform2D(0.0, u.position))
-
-func _make_unit(id: int, radius: float) -> void:
-	var shape := PhysicsServer2D.circle_shape_create()
-	PhysicsServer2D.shape_set_data(shape, radius)
-	var body := PhysicsServer2D.body_create()
-	PhysicsServer2D.body_set_mode(body, PhysicsServer2D.BODY_MODE_STATIC)
-	PhysicsServer2D.body_set_space(body, _space)
-	PhysicsServer2D.body_add_shape(body, shape)
-	PhysicsServer2D.body_set_collision_layer(body, BIT_SIGHT)
-	_unit_shapes[id] = shape
-	_unit_bodies[id] = body
-
-func _drop_unit(id: int) -> void:
-	if not _unit_bodies.has(id):
-		return
-	PhysicsServer2D.free_rid(_unit_bodies[id])
-	PhysicsServer2D.free_rid(_unit_shapes[id])
-	_unit_bodies.erase(id)
-	_unit_shapes.erase(id)
-
-func unit_body(id: int) -> RID:
-	return _unit_bodies.get(id, RID())
-
 # ------------------------------------------------------------------- querying
 
-## True when nothing opaque stands between `a` and `b`. The ray is masked to
-## the sight layer, so the first hit means blocked and nothing is re-cast.
-## `ignore` are the shooter and the intended target: excluding the shooter
-## stops every unit blocking itself, and excluding the target makes hitting it
-## success rather than obstruction.
-func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
+## True when opaque ground stands between `a` and `b`. The ray is masked to the
+## sight layer, so the first hit means blocked and nothing is re-cast.
+##
+## Bodies are not on that layer. They were, on the ruling in issue 625, and the
+## player withdrew it: "we can make bodies disappear if it makes work go".
+## Measured at the time it came out, a ranged pawn had no line to anything for
+## 81.8% of its life and 73.7 of those points were other units.
+func sight_blocked(a: Vector2, b: Vector2) -> bool:
 	## Ground a unit can stand in hides it from outside but not from someone
 	## standing in it with them. A wall is not that: nothing stands in a wall,
 	## so it blocks however it contains the line, zero length included.
@@ -336,12 +297,6 @@ func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
 	## geometry did and what `test_combat_sightline_endpoints` asserts. Without
 	## this a ray starting inside a shape reports no hit at all.
 	q.hit_from_inside = true
-	var excluded: Array[RID] = []
-	for id in ignore:
-		var rid: RID = _unit_bodies.get(id, RID())
-		if rid.is_valid():
-			excluded.append(rid)
-	q.exclude = excluded
 	return not st.intersect_ray(q).is_empty()
 
 static func _standable_cover(cell) -> bool:

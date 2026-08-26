@@ -150,7 +150,7 @@ static func action_needs_line_of_sight(action_id: StringName) -> bool:
 ## called rather than copied, so the plan layer and the projectile cannot
 ## disagree about what counts as cover.
 static func in_cover_from(state: CombatState, unit: CombatUnit, pos: Vector2, threat: CombatUnit) -> bool:
-	if state.grid.sight_blocked(threat.position, pos, [threat.id, unit.id]):
+	if state.grid.sight_blocked(threat.position, pos):
 		return true
 	return CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, pos)
 
@@ -180,7 +180,7 @@ static func cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit)
 			continue
 		if state.grid.move_blocked(spot, unit.radius):
 			continue
-		if not state.grid.sight_blocked(threat.position, spot, [threat.id, unit.id]):
+		if not state.grid.sight_blocked(threat.position, spot):
 			continue
 		best_dist = d
 		best = spot
@@ -242,7 +242,7 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 	var target := state.unit(action_target_id(unit, action_id))
 	if target == null:
 		return false
-	return not state.grid.sight_blocked(unit.position, target.position, [unit.id, target.id])
+	return not state.grid.sight_blocked(unit.position, target.position)
 
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
 ## action the unit cannot actually pay for right now -- not enough resource, or

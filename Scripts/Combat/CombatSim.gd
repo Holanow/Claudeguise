@@ -51,10 +51,6 @@ static func step(state: CombatState, deps: SimDeps = null) -> void:
 	if deps == null:
 		deps = SimDeps.new()
 	state.tick += 1
-	## Issue 625: a unit's body blocks line of sight, so every body's position
-	## is put into the sight space before anything looks down a line. One sync
-	## point, and a unit that died since the last tick loses its body here.
-	state.grid.sync_units(state.units)
 	_decide_phase(state, deps)
 	_resolve_phase(state, deps)
 	_tick_phase(state, deps)
@@ -769,7 +765,7 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 		return out
 	if unit.position.distance_to(primary.position) > action.range_units:
 		return out
-	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position, [unit.id, primary.id]):
+	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position):
 		return out
 	return _splash_targets(state, primary, action)
 
@@ -1141,7 +1137,7 @@ static func _sustain_targets(state: CombatState, unit: CombatUnit, action: Actio
 	for other in state.living(side):
 		if unit.position.distance_to(other.position) > action.sustain.radius:
 			continue
-		if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, other.position, [unit.id, other.id]):
+		if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, other.position):
 			continue
 		out.append(other)
 	return out
@@ -1234,7 +1230,7 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 		return false
 	if p.position.distance_to(target.position) > target.radius:
 		return false
-	if action.requires_line_of_sight and state.grid.sight_blocked(p.position, target.position, [p.source_id, target.id]):
+	if action.requires_line_of_sight and state.grid.sight_blocked(p.position, target.position):
 		return false
 	return true
 
