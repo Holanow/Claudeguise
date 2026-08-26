@@ -137,10 +137,10 @@ func _decide_with_block_plan(pawn: PawnData) -> Intent:
 	var plan := Plan.new()
 	plan.id = &"equipment_block_probe"
 	plan.display_name = "Block"
-	plan.condition = _block_of(PlanBlock.Kind.CONDITION, &"always", {})
+	plan.condition = _block_of(&"always", {})
 	var blocks: Array[PlanBlock] = []
-	blocks.append(_block_of(PlanBlock.Kind.TARGETING, &"target_self", {}))
-	blocks.append(_block_of(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_block"}))
+	blocks.append(_block_of(&"target_self", {}))
+	blocks.append(_block_of(&"use_action", {"action_id": &"warrior_block"}))
 	plan.blocks = blocks
 	pawn.plans = [plan]
 	return PlanInterpreter.decide(state, self_unit)
@@ -445,12 +445,8 @@ func test_stripping_the_weapons_stops_every_one_of_those_attacks() -> void:
 		assert_eq(int(counts.get(granted, 0)), 0,
 			"an unarmed party still fired %s, so it does not come from the weapon" % granted)
 
-func _block_of(kind: PlanBlock.Kind, op: StringName, args: Dictionary) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = kind
-	b.op = op
-	b.args = args
-	return b
+func _block_of(op: StringName, args: Dictionary = {}) -> PlanBlock:
+	return PlanFixtures.block(op, args)
 
 # ---------------------------------------------------------------------------
 # Issue 160: the Directional Block reaches a real fight.

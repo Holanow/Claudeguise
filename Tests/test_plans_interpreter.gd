@@ -22,17 +22,13 @@ func _melee_unit(id: int, team: CG.Team, pos: Vector2, hp_frac: float = 1.0) -> 
 	u.focus_id = -1
 	return u
 
-func _block(kind: PlanBlock.Kind, op: StringName, args: Dictionary = {}) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = kind
-	b.op = op
-	b.args = args
-	return b
+func _block(op: StringName, args: Dictionary = {}) -> PlanBlock:
+	return PlanFixtures.block(op, args)
 
 func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Plan:
 	var p := Plan.new()
 	p.id = id
-	p.condition = condition
+	p.condition = condition as ConditionBlock
 	p.blocks = blocks
 	return p
 
@@ -58,7 +54,7 @@ func test_condition_holds_null_condition_always_true() -> void:
 func test_condition_self_hp_below_fraction() -> void:
 	var hurt := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO, 0.2)
 	var state := _state_with(hurt, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
-	var plan := _plan(&"p", _block(PlanBlock.Kind.CONDITION, &"self_hp_below_fraction", {"fraction": 0.5}), [])
+	var plan := _plan(&"p", _block(&"self_hp_below_fraction", {"fraction": 0.5}), [])
 	assert_true(PlanInterpreter.condition_holds(state, hurt, plan))
 
 	var healthy := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO, 1.0)
@@ -76,8 +72,8 @@ func test_decide_fires_and_tags_source_plan() -> void:
 	pawn.pawn_class = pawn_class
 	pawn.plans = [
 		_plan(&"strike_nearest", null, [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+			_block(&"target_nearest_enemy"),
+			_block(&"use_action", {"action_id": &"warrior_strike"}),
 		]),
 	]
 	attacker.pawn = pawn
@@ -98,9 +94,9 @@ func test_decide_returns_null_when_no_plan_fires() -> void:
 	var pawn := PawnData.new()
 	pawn.pawn_class = _test_class()
 	pawn.plans = [
-		_plan(&"only_when_hurt", _block(PlanBlock.Kind.CONDITION, &"self_hp_below_fraction", {"fraction": 0.1}), [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+		_plan(&"only_when_hurt", _block(&"self_hp_below_fraction", {"fraction": 0.1}), [
+			_block(&"target_nearest_enemy"),
+			_block(&"use_action", {"action_id": &"warrior_strike"}),
 		]),
 	]
 	attacker.pawn = pawn
@@ -108,76 +104,34 @@ func test_decide_returns_null_when_no_plan_fires() -> void:
 	assert_eq(PlanInterpreter.decide(state, attacker), null)
 
 
-func test_unknown_op_fails_loudly_and_names_the_op_and_plan() -> void:
-	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
-	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
-	var state := _state_with(attacker, target)
-
-	var pawn := PawnData.new()
-	pawn.pawn_class = _test_class()
-	pawn.plans = [
-		_plan(&"nonsense_plan", null, [
-			_block(PlanBlock.Kind.TARGETING, &"do_a_barrel_roll"),
-		]),
-	]
-	attacker.pawn = pawn
-
-	PlanInterpreter.last_error = ""
-	var intent := PlanInterpreter.decide(state, attacker)
-	assert_eq(intent, null)
-	assert_true(PlanInterpreter.last_error.contains("do_a_barrel_roll"), "error should name the op")
-	assert_true(PlanInterpreter.last_error.contains("nonsense_plan"), "error should name the plan")
+## Issue 640: `describe()` is display only, called by the pawn-inspect screen
+## and never by decide()/condition_holds(). Every op the catalog offers has a
+## sentence, and it is the block's own.
+func test_every_block_describes_itself() -> void:
+	assert_eq(PlanFixtures.block(&"always").describe(), "always")
+	assert_eq(PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.35}).describe(), "self hp below 35%")
+	assert_eq(PlanFixtures.block(&"ally_below_hp_fraction", {"fraction": 0.5}).describe(), "an ally's hp below 50%")
+	assert_eq(PlanFixtures.block(&"self_resource_at_least", {"amount": 60}).describe(), "self resource at least 60")
+	assert_eq(PlanFixtures.block(&"enemy_in_range", {"range_units": 220.0}).describe(), "an enemy within 220 units")
+	assert_eq(PlanFixtures.block(&"target_nearest_enemy").describe(), "the nearest enemy")
+	assert_eq(PlanFixtures.block(&"target_lowest_hp_fraction_ally").describe(), "the ally with the lowest hp")
+	assert_eq(PlanFixtures.block(&"target_lowest_hp_fraction_enemy").describe(), "the enemy with the lowest hp")
+	assert_eq(PlanFixtures.block(&"target_self").describe(), "self")
+	assert_eq(PlanFixtures.block(&"use_action", {"action_id": &"warrior_strike"}).describe(), "use Strike")
+	assert_eq(PlanFixtures.block(&"once").describe(), "once")
 
 
-func test_valid_ops_only_produce_no_error() -> void:
-	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
-	var target := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
-	var state := _state_with(attacker, target)
-
-	var pawn := PawnData.new()
-	pawn.pawn_class = _test_class()
-	pawn.plans = [
-		_plan(&"clean_plan", null, [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
-		]),
-	]
-	attacker.pawn = pawn
-
-	PlanInterpreter.last_error = ""
-	PlanInterpreter.decide(state, attacker)
-	assert_eq(PlanInterpreter.last_error, "")
-
-
-## Issue 21a: describe_op is display-only, called by pike's pawn-inspect
-## screen, never by decide()/condition_holds(). Covers every whitelisted op
-## plus the unknown-op fallback.
-func test_describe_op_covers_every_whitelisted_op() -> void:
-	assert_eq(PlanInterpreter.describe_op(&"always", {}), "always")
-	assert_eq(PlanInterpreter.describe_op(&"self_hp_below_fraction", {"fraction": 0.35}), "self hp below 35%")
-	assert_eq(PlanInterpreter.describe_op(&"ally_below_hp_fraction", {"fraction": 0.5}), "an ally's hp below 50%")
-	assert_eq(PlanInterpreter.describe_op(&"self_resource_at_least", {"amount": 60}), "self resource at least 60")
-	assert_eq(PlanInterpreter.describe_op(&"enemy_in_range", {"range": 220.0}), "an enemy within 220 units")
-	assert_eq(PlanInterpreter.describe_op(&"target_nearest_enemy", {}), "the nearest enemy")
-	assert_eq(PlanInterpreter.describe_op(&"target_lowest_hp_fraction_ally", {}), "the ally with the lowest hp")
-	assert_eq(PlanInterpreter.describe_op(&"target_lowest_hp_fraction_enemy", {}), "the enemy with the lowest hp")
-	assert_eq(PlanInterpreter.describe_op(&"target_self", {}), "self")
-	assert_eq(PlanInterpreter.describe_op(&"use_action", {"action_id": &"warrior_strike"}), "use Strike")
-	assert_eq(PlanInterpreter.describe_op(&"once", {}), "once")
-
-
-## Issue 22: CONDITION_ARG_SHAPE used to be InspectPanel.gd's own copy of this
-## fact, duplicating what _eval_condition's match statement already encodes.
-func test_condition_arg_shape_covers_exactly_the_condition_ops() -> void:
-	for op in PlanInterpreter.CONDITION_OPS:
-		assert_true(PlanInterpreter.CONDITION_ARG_SHAPE.has(op), "CONDITION_ARG_SHAPE missing an entry for %s" % op)
-	for op in PlanInterpreter.CONDITION_ARG_SHAPE.keys():
-		assert_true(PlanInterpreter.CONDITION_OPS.has(op), "CONDITION_ARG_SHAPE has an entry for %s, not a real condition op" % op)
-
-
-func test_describe_op_unknown_op_names_itself_rather_than_going_blank() -> void:
-	var described := PlanInterpreter.describe_op(&"do_a_barrel_roll", {})
-	assert_true(described.contains("do_a_barrel_roll"), "unknown op description should still name the op")
+## Issue 640: the catalog is the whitelist, so nothing can be offered in the
+## editor and have no sentence, and nothing can carry an operand the block does
+## not declare. The old `CONDITION_ARG_SHAPE` said this about a hand-written
+## table; this says it about the real fields.
+func test_every_catalog_block_has_a_sentence_and_real_operands() -> void:
+	for table in [BlockCatalog.CONDITIONS, BlockCatalog.TARGETING, BlockCatalog.MOVEMENT]:
+		for op in table:
+			var block: PlanBlock = table[op].new()
+			assert_true(block.describe() != "", "%s has no sentence" % op)
+			for property in block.operands():
+				assert_true(property["name"] in block, "%s names an operand it does not have" % op)
 
 
 ## Issue 22: a pawn that cannot afford its first plan's action must fall
@@ -189,12 +143,12 @@ func _two_plan_pawn() -> PawnData:
 	pawn.pawn_class = _test_class()
 	pawn.plans = [
 		_plan(&"expensive_first", null, [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_execute"}),
+			_block(&"target_nearest_enemy"),
+			_block(&"use_action", {"action_id": &"warrior_execute"}),
 		]),
 		_plan(&"free_second", null, [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+			_block(&"target_nearest_enemy"),
+			_block(&"use_action", {"action_id": &"warrior_strike"}),
 		]),
 	]
 	return pawn
@@ -272,10 +226,10 @@ func _cleanse_pawn() -> PawnData:
 	pawn.pawn_class = cls
 	pawn.plans = [_plan(
 		&"scour",
-		_block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"),
+		_block(&"ally_has_harmful_status"),
 		[
-			_block(PlanBlock.Kind.TARGETING, &"target_ally_with_harmful_status"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"geyser_cleanse"}),
+			_block(&"target_ally_with_harmful_status"),
+			_block(&"use_action", {"action_id": &"geyser_cleanse"}),
 		]
 	)]
 	return pawn
@@ -286,7 +240,7 @@ func test_ally_has_harmful_status_holds_only_for_a_harmful_one() -> void:
 	var ally := _melee_unit(1, CG.Team.PLAYER, Vector2(30, 0))
 	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(100, 0))
 	var state := _three(caster, ally, enemy)
-	var plan := _plan(&"p", _block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"), [])
+	var plan := _plan(&"p", _block(&"ally_has_harmful_status"), [])
 
 	assert_false(PlanInterpreter.condition_holds(state, caster, plan), "nobody afflicted")
 
@@ -303,7 +257,7 @@ func test_ally_has_harmful_status_ignores_the_enemy_team() -> void:
 	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(40, 0))
 	enemy.statuses[CG.Status.POISON] = 999
 	var state := _three(caster, ally, enemy)
-	var plan := _plan(&"p", _block(PlanBlock.Kind.CONDITION, &"ally_has_harmful_status"), [])
+	var plan := _plan(&"p", _block(&"ally_has_harmful_status"), [])
 	assert_false(PlanInterpreter.condition_holds(state, caster, plan),
 		"a poisoned enemy is not a reason to cleanse -- the whole point of the op is that it never aims at one")
 

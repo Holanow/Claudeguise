@@ -1,19 +1,22 @@
 extends Resource
 class_name PlanBlock
 
-## One block inside a plan. The kind is not decoration: CONDITION gates the
-## plan, TARGETING resolves instantly and moves the pawn's focus, ACTION is the
-## only kind that takes time, DURATION says how long the action repeats.
+## One block inside a plan, and **the subclass is the op**. `ConditionBlock`
+## gates the plan, `TargetingBlock` resolves instantly and moves the pawn's
+## focus, `UseActionBlock` is the only kind that takes time, `OnceBlock` says
+## how long the action repeats, and `MovementBlock` says where the pawn stands.
 
-## Append only, never insert. Plans are authored data, and a reordered enum
-## silently reinterprets every plan that already exists.
-enum Kind { CONDITION, TARGETING, ACTION, DURATION, MOVEMENT }
+## The sentence the plan editor prints for this block.
+func describe() -> String:
+	return ""
 
-## Which selector or predicate this block runs. An unknown id must fail loudly
-## rather than be skipped: a silently ignored block reads to a player as the
-## plan simply not working.
-@export var op: StringName = &""
-@export var kind: Kind = Kind.ACTION
-
-## Operands. Shape depends on op and is documented beside each op in Scripts/Plans/.
-@export var args: Dictionary = {}
+## The exported operands this block carries, in declaration order, straight out
+## of `get_property_list()`. The editor builds its controls from these, so a
+## control cannot describe an argument the evaluator does not read.
+func operands() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for p in get_property_list():
+		var usage: int = p["usage"]
+		if usage & PROPERTY_USAGE_SCRIPT_VARIABLE and usage & PROPERTY_USAGE_EDITOR:
+			out.append(p)
+	return out

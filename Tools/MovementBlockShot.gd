@@ -59,9 +59,9 @@ func _run() -> bool:
 	var chips := _pickers(panel._detail_box)
 	var moved := false
 	for chip in chips:
-		if chip.get_item_count() == PlanInterpreter.MOVEMENT_OPS.size() + 1 \
+		if chip.get_item_count() == BlockCatalog.MOVEMENT_OPS.size() + 1 \
 				and chip.get_item_text(0) == InspectPanel.NO_MOVEMENT_CAPTION and not chip.disabled:
-			chip.item_selected.emit(1 + PlanInterpreter.MOVEMENT_OPS.find(&"keep_distance"))
+			chip.item_selected.emit(1 + BlockCatalog.MOVEMENT_OPS.find(&"keep_distance"))
 			moved = true
 			break
 	if not moved:
@@ -71,7 +71,7 @@ func _run() -> bool:
 
 	var block = InspectPanel.movement_block_of(pawn.plans[0])
 	print("MovementBlockShot: plan 1 now holds %s %s, %d blocks" % [
-		block.op if block != null else "nothing", block.args if block != null else {},
+		BlockCatalog.op_of(block) if block != null else &"nothing", block.describe() if block != null else "",
 		pawn.plans[0].block_count()])
 	await _shot("wren_movement_block")
 	return block != null

@@ -5,17 +5,9 @@ extends "res://Tests/TestCase.gd"
 ## pawn stands, it does not choose what the action is aimed at.
 
 func _blocks(targeting_op: StringName, action_id: StringName, hold: float) -> Array[PlanBlock]:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = targeting_op
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"keep_distance"
-	movement.args = {"range": hold}
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": action_id}
+	var targeting := PlanFixtures.block(targeting_op)
+	var movement := PlanFixtures.block(&"keep_distance", {"range_units": hold})
+	var action := PlanFixtures.block(&"use_action", {"action_id": action_id})
 	return [targeting, movement, action]
 
 
@@ -78,13 +70,8 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 ## two. A self-buff under enemy targeting used to fall through to
 ## `DefaultBehavior`, which is a pawn acting on a rule written in no plan.
 func test_a_self_buff_under_enemy_targeting_fires_rather_than_falling_through() -> void:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"warrior_taunt"}
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"warrior_taunt"})
 	var blocks: Array[PlanBlock] = [targeting, action]
 	var s := _situation(&"warrior", blocks, Vector2(400.0, 0.0))
 	var state: CombatState = s[0]

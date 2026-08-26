@@ -46,10 +46,11 @@ func test_a_decorative_hazard_does_not_hold_the_condition() -> void:
 
 func test_the_pair_is_offered_to_the_editor_with_no_argument() -> void:
 	for op in [&"self_on_harmful_ground", &"self_on_safe_ground"]:
-		assert_true(PlanInterpreter.CONDITION_OPS.has(op), "%s must be in the condition dropdown" % op)
-		assert_eq(String(PlanInterpreter.CONDITION_ARG_SHAPE[op].get("kind", "")), "none",
+		assert_true(BlockCatalog.CONDITION_OPS.has(op), "%s must be in the condition dropdown" % op)
+		var block := BlockCatalog.condition(op)
+		assert_true(block.operands().is_empty(),
 			"%s takes no argument, so the editor must not build a value box for it" % op)
-		assert_ne(PlanInterpreter.describe_op(op, {}), "unknown op '%s'" % op,
+		assert_true(block.describe() != "",
 			"%s needs a sentence, or the plan row reads as a bug" % op)
 
 # ---------------------------------------------------------------------------
@@ -129,9 +130,7 @@ func _holds(state: CombatState, unit: CombatUnit, op: StringName) -> bool:
 	return PlanInterpreter.condition_holds(state, unit, plan)
 
 func _condition(op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.CONDITION
-	b.op = op
+	var b := PlanFixtures.block(op)
 	return b
 
 func _pawn_unit(at: Vector2) -> CombatUnit:
@@ -146,19 +145,11 @@ func _pawn_unit(at: Vector2) -> CombatUnit:
 ## One plan: gate on `op`, aim at the nearest enemy, use `action_id`. A
 ## `keep_distance` block is added only when `hold` is positive.
 func _plan(op: StringName, action_id: StringName, hold: float = 0.0) -> Plan:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": action_id}
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var action := PlanFixtures.block(&"use_action", {"action_id": action_id})
 	var blocks: Array[PlanBlock] = [targeting]
 	if hold > 0.0:
-		var movement := PlanBlock.new()
-		movement.kind = PlanBlock.Kind.MOVEMENT
-		movement.op = &"keep_distance"
-		movement.args = {"range": hold}
+		var movement := PlanFixtures.block(&"keep_distance", {"range_units": hold})
 		blocks.append(movement)
 	blocks.append(action)
 
