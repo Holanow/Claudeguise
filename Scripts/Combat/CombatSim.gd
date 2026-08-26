@@ -544,7 +544,7 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) 
 ## alone. False for everything else, which is every status that does not stack
 ## and the last stack of one that does.
 static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.Status, deps: SimDeps) -> bool:
-	if not _STACKING_STATUSES.has(status):
+	if not StatusLibrary.of(status).stacks:
 		return false
 	var remaining := float(unit.status_magnitude.get(status, 0.0)) - 1.0
 	if remaining < 1.0:
@@ -563,15 +563,14 @@ static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.St
 ## that. Fires before _tick_statuses checks expiry, so the tick a status
 ## expires on still deals its damage; the tick after, it does not, matching
 ## the hazard "stops the tick after it leaves" behaviour.
-const _DOT_STATUSES := {
-	CG.Status.BURN: CG.DamageType.FIRE,
-	CG.Status.POISON: CG.DamageType.PROFANE,
-	CG.Status.BLEED: CG.DamageType.PHYSICAL,
-}
+## THE ORDER IS LOAD-BEARING, which is why this is a list here rather than a
+## walk of the defs: two afflictions on one unit draw the fight's RNG in this
+## sequence. What each deals is `StatusDef.dot_damage_type`.
+const _DOT_ORDER: Array = [CG.Status.BURN, CG.Status.POISON, CG.Status.BLEED]
 
 ## THREE STATUSES, THREE SCALING RULES, one expression:
 static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
-	for status in _DOT_STATUSES:
+	for status in _DOT_ORDER:
 		if not unit.has_status(status):
 			continue
 		var interval: int = maxi(1, int(deps.status_tick_interval.call(status)))
@@ -592,7 +591,7 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		var applied := before - unit.hp
 		var e := _event(CG.EventKind.DAMAGE, state.tick, source, unit.id, &"")
 		e.amount = applied
-		e.damage_type = _DOT_STATUSES[status]
+		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		e.status = status
 		state.emit(e)
 		if _kill_if_dead(state, unit, source, &""):
@@ -948,25 +947,18 @@ static func _kill_summons_of(state: CombatState, summoner: CombatUnit) -> void:
 # per-application payload, which is why nothing in this game stacks and why every
 # damage-over-time status scaled off the same thing.
 
-## Statuses that accumulate instead of refreshing: applying one again adds a
-## stack rather than replacing what was there.
-const _STACKING_STATUSES := {
-	CG.Status.BLEED: true,
-}
-
-## Statuses whose magnitude is the damage of the hit that applied them.
-const _HIT_SCALED_STATUSES := {
-	CG.Status.BURN: true,
-}
-
 ## Writes the status, its expiry and its magnitude in one place, so the three
 ## cannot be set inconsistently by two call sites.
 static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: StatusEffect, dealt: int) -> void:
 	var status: CG.Status = fx.status
 	var carried := float(target.status_magnitude.get(status, 0.0))
-	if _STACKING_STATUSES.has(status):
+	## Issue 627: which of the two rules a status follows is `StatusDef.stacks`
+	## and `StatusDef.hit_scaled`, beside everything else about it, rather than
+	## two one-entry dictionaries here.
+	var def := StatusLibrary.of(status)
+	if def.stacks:
 		target.status_magnitude[status] = carried + 1.0
-	elif _HIT_SCALED_STATUSES.has(status):
+	elif def.hit_scaled:
 		target.status_magnitude[status] = maxf(carried, float(dealt))
 	elif fx.magnitude > 0.0:
 		## Issue 593: authored on the action. A refresh refills to full rather

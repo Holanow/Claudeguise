@@ -69,9 +69,6 @@ var haste_tick_scale: Callable = _default_haste_tick_scale
 ## only owns applying it.
 var slowed_speed_scale: Callable = _default_slowed_speed_scale
 
-## Half speed. A placeholder, not a balance decision -- see the comment above.
-const _DEFAULT_SLOWED_SPEED_SCALE := 0.5
-
 static func _default_max_hp(pawn: PawnData) -> int:
 	return Balance.max_hp(pawn)
 
@@ -119,10 +116,11 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 		if enemy_def != null and enemy_def.damage_reduction > best_v:
 			best_v = enemy_def.damage_reduction
 			best = CG.MitigationCause.HIDE
-	if unit.has_status(CG.Status.SHIELD) and Balance.STATUS_SHIELD_REDUCTION > best_v:
-		best_v = Balance.STATUS_SHIELD_REDUCTION
+	var shield_dr := StatusLibrary.of(CG.Status.SHIELD).damage_reduction
+	if unit.has_status(CG.Status.SHIELD) and shield_dr > best_v:
+		best_v = shield_dr
 		best = CG.MitigationCause.SHIELD
-	if unit.has_status(CG.Status.BLOCK) and Balance.STATUS_BLOCK_REDUCTION > best_v:
+	if unit.has_status(CG.Status.BLOCK) and StatusLibrary.of(CG.Status.BLOCK).damage_reduction > best_v:
 		best = CG.MitigationCause.BLOCK
 	## MARKED can take the total to zero, and a cause naming something that
 	## removed nothing is the lie this whole seam exists to prevent.
@@ -163,41 +161,29 @@ static func _default_rage_gain_on_damage_taken(unit: CombatUnit, damage: int) ->
 static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
 	return Balance.status_damage_per_tick(unit, status)
 
-## BLEED'S PLACEHOLDER NUMBERS, and why they are here rather than in Balance.
-##
-const _BLEED_DAMAGE_PER_STACK_PER_TICK := 1.0
-
-## Every 5 ticks, a third of a second. The player's *"does damage less often"*,
-## against POISON's every single tick -- a rhythm a player can tell apart
-## without reading a number.
-const _BLEED_TICK_INTERVAL := 5
-
-## Two seconds per stack. What makes a bleed read down 3, 2, 1 rather than
-## vanishing whole the tick the thing applying it dies.
-const _BLEED_STACK_DECAY_TICKS := 30
-
+## Issue 627: bleed's three numbers and slowed's scale used to be consts here.
+## Two of them had a twin in `Balance` and the twins disagreed about which was
+## live -- bleed's damage was read from `Balance` and the const here was dead;
+## slowed's was the other way round. Both pairs happened to hold the same
+## value. They are one field each on a `StatusDef` now.
 static func _default_status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> float:
 	return Balance.status_damage_per_magnitude(unit, status)
 
 static func _default_status_tick_interval(status: CG.Status) -> int:
-	if status == CG.Status.BLEED:
-		return _BLEED_TICK_INTERVAL
-	return 1
+	return StatusLibrary.of(status).tick_interval
 
 static func _default_status_stack_decay_ticks(status: CG.Status) -> int:
-	if status == CG.Status.BLEED:
-		return _BLEED_STACK_DECAY_TICKS
-	return 0
+	return StatusLibrary.of(status).stack_decay_ticks
 
 static func _default_haste_tick_scale(unit: CombatUnit) -> float:
 	return Balance.haste_tick_scale(unit)
 
 static func _default_slowed_speed_scale(_unit: CombatUnit) -> float:
-	return _DEFAULT_SLOWED_SPEED_SCALE
+	return Balance.slowed_speed_scale(_unit)
 
 ## 1.0 is "idling recovers no faster than any other tick", which is what every
 ## fight in this project has always done. See the field's own comment above for
-## why this default is not a placeholder in the way _DEFAULT_SLOWED_SPEED_SCALE
-## is one.
+## why this default is not a placeholder in the way slowed's speed scale is
+## one.
 static func _default_idle_resource_regen_scale(_unit: CombatUnit) -> float:
 	return 1.0
