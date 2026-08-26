@@ -156,7 +156,9 @@ func test_a_pool_over_an_edge_keeps_only_the_half_that_missed() -> void:
 	assert_eq(pools.size(), 8,
 		"half the pool overlapped the fire and went with it; half remains")
 	var fires := _of_kind(bundle[0], Terrain.Kind.HAZARD)
-	assert_eq(fires.size(), 196 - 8, "and the fire lost exactly the same ground")
+	## This fire runs x 0..200, whose cell centres are columns 0..12 -- 13, not
+	## the 14 rows, because it starts on a cell edge rather than around one.
+	assert_eq(fires.size(), 13 * 14 - 8, "and the fire lost exactly the same ground")
 
 func test_water_only_cancels_fire_and_leaves_other_hazards_alone() -> void:
 	var tar := Terrain.hazard(FIRE, 0, CG.DamageType.EARTH)
@@ -171,22 +173,10 @@ func test_a_pool_across_two_fires_is_cut_by_both() -> void:
 		_fire(Rect2(10.0, -100.0, 190.0, 200.0)),
 	], _pool_action(25.0))
 	_cast(bundle)
-	## Issue 625, and it is a real consequence rather than a rounding detail:
-	## the 20-wide gap here is wider than a cell and STILL does not survive,
-	## because it straddles cells -1 and 0 and each fire touches one of them.
-	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 0,
-		"a gap neither fire leaves a whole cell of is no gap at all")
-
-## The same rule where the gap does hold a whole free cell: cells -1 and 0 span
-## -15..15, and fires stopping at -15 and starting at 15 touch neither.
-func test_a_gap_wide_enough_to_hold_a_whole_cell_stays_wet() -> void:
-	var bundle := _arena([
-		_fire(Rect2(-200.0, -100.0, 185.0, 200.0)),
-		_fire(Rect2(15.0, -100.0, 185.0, 200.0)),
-	], _pool_action(25.0))
-	_cast(bundle)
+	## The 20-wide gap holds the centres of columns -1 and 0 and neither fire
+	## does, so those two columns of the pool survive: 2 x 4 cells.
 	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 8,
-		"the two free columns of the pool, four cells each, are still water")
+		"both fires took a bite, leaving the gap between them wet")
 
 ## A split fire is still the fire it was split from.
 func test_the_parts_of_a_split_hazard_keep_what_made_it_dangerous() -> void:

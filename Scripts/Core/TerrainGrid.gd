@@ -240,7 +240,15 @@ static func from_features(features: Array) -> TerrainGrid:
 ## room is written in to the one a fight asks.
 func stamp_features(features: Array) -> void:
 	for f in features:
-		_write(Layer.FLOOR, cells_overlapping(f.rect), cell_from_feature(f))
+		_write(Layer.FLOOR, authored_cells(f.rect), cell_from_feature(f))
+
+## The cells an authored rectangle becomes. By centre, so a wall keeps roughly
+## the footprint it was drawn with and never grows a corridor shut -- except
+## where that would claim nothing at all, which is any feature thinner than a
+## cell, and a wall that is not there is worse than one that moved.
+static func authored_cells(r: Rect2) -> Array[Vector2i]:
+	var by_centre := cells_in_rect(r)
+	return by_centre if not by_centre.is_empty() else cells_overlapping(r)
 
 # ------------------------------------------------------------------ colliders
 
