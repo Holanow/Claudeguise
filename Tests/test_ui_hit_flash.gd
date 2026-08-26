@@ -255,3 +255,31 @@ func _modulates(visual: UnitVisual) -> Array:
 		for sprite in slot.get_children():
 			out.append(sprite.modulate)
 	return out
+
+## The player's ruling, and the arena is where it stopped being true. `draw_unit`
+## drew a black square for a shape with no art; a sprite tree of six empty slots
+## draws NOTHING, and an invisible unit is issue #75 -- a defect that reads as the
+## unit not existing rather than as art being missing.
+func test_a_shape_with_no_recipe_is_a_visible_black_square() -> void:
+	assert_false(UnitRecipes.has_recipe(&"not_a_real_shape"),
+		"this test needs a shape nothing draws")
+	var visual := in_tree(UnitVisual.new())
+	visual.build(&"not_a_real_shape", CG.Team.ENEMY, 40.0)
+	var drawn: Array = []
+	for slot in visual._body.get_children():
+		for sprite in slot.get_children():
+			drawn.append(sprite)
+	assert_eq(drawn.size(), 1, "a shape with no recipe must draw exactly one mark")
+	assert_not_null(drawn[0].texture, "the mark has no texture")
+	assert_eq(drawn[0].modulate, Color.BLACK, "the mark is not black")
+	assert_eq(drawn[0].scale, Vector2(80.0, 80.0),
+		"the square must fill the footprint, or it is a speck rather than a defect")
+
+	# The negative half: a real shape must NOT get the square.
+	var goblin := in_tree(UnitVisual.new())
+	goblin.build(&"goblin", CG.Team.ENEMY, 40.0)
+	var parts := 0
+	for slot in goblin._body.get_children():
+		parts += slot.get_child_count()
+	assert_eq(parts, UnitArt.sprites_for(&"goblin", CG.Team.ENEMY).size(),
+		"a goblin must draw its own parts and nothing else")

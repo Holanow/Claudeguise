@@ -54,24 +54,36 @@ func build(shape_id: StringName, team: CG.Team, radius: float) -> void:
 		_slots[slot] = node
 	var n := UnitArt.canvas_size(shape_id, team)
 	var scale_to := 1.0 if n <= 0.0 else (radius * 2.0) / n
-	for s in UnitArt.sprites_for(shape_id, team):
-		# A missing part is a black square, per the player's ruling: an obvious
-		# defect beats a silent hole in a body.
+	var sprites := UnitArt.sprites_for(shape_id, team)
+	# A shape with no recipe at all is a black square, per the player's ruling.
+	# Six empty slots would draw nothing, and an invisible unit is a worse defect
+	# than an obvious one -- it is issue #75 all over again.
+	if sprites.is_empty():
+		_add(&"Body", _black_square(), Color.BLACK, Vector2(radius * 2.0, radius * 2.0), &"")
+		return
+	for s in sprites:
+		# A missing part file is a black square too, and for the same reason.
 		var tex: Texture2D = s["tex"]
 		var missing := tex == null
-		var color: Color = Color.BLACK if missing else s["color"]
-		var sprite := Sprite2D.new()
-		sprite.texture = _black_square() if missing else tex
-		sprite.centered = true
-		sprite.scale = Vector2(radius * 2.0, radius * 2.0) if missing \
-			else Vector2(scale_to, scale_to)
-		sprite.modulate = color
-		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		sprite.set_meta(&"part", s["part"])
-		sprite.set_meta(&"color", color)
-		(_slots[s["slot"]] as Node2D).add_child(sprite)
+		_add(s["slot"],
+			_black_square() if missing else tex,
+			Color.BLACK if missing else s["color"],
+			Vector2(radius * 2.0, radius * 2.0) if missing else Vector2(scale_to, scale_to),
+			s["part"])
 
-## One white pixel, scaled to the footprint. The missing-part square.
+func _add(slot: StringName, tex: Texture2D, color: Color, scale_to: Vector2, part: StringName) -> void:
+	var sprite := Sprite2D.new()
+	sprite.texture = tex
+	sprite.centered = true
+	sprite.scale = scale_to
+	sprite.modulate = color
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.set_meta(&"part", part)
+	sprite.set_meta(&"color", color)
+	(_slots[slot] as Node2D).add_child(sprite)
+
+## One white pixel, scaled to the footprint. The black square, and it is white in
+## the file because every sprite here takes its colour from `modulate`.
 static var _square: Texture2D = null
 
 static func _black_square() -> Texture2D:
@@ -80,14 +92,6 @@ static func _black_square() -> Texture2D:
 		img.set_pixel(0, 0, Color.WHITE)
 		_square = ImageTexture.create_from_image(img)
 	return _square
-
-## Whether this body drew nothing at all, which is the missing-art case
-## `UnitView` answers with a black square.
-func is_empty() -> bool:
-	for slot in _slots.values():
-		if (slot as Node2D).get_child_count() > 0:
-			return false
-	return true
 
 ## Where one slot sits this frame, relative to where its parts were authored.
 ## `PartAnimation` scales its throw per part, so the offset is applied to each
