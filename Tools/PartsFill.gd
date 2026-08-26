@@ -10,10 +10,9 @@ func _init() -> void:
 	print("  %-18s %-7s %6s %6s   %s" % ["shape", "source", "fillX", "fillY", "extent at r=40"])
 	for id in Silhouettes.shape_ids():
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var tex := UnitArt.texture_for(id, team)
-			if tex == null:
+			if not UnitArt.has_art(id, team):
 				continue
-			var frac := UnitArt.opaque_fraction(tex)
+			var frac := UnitArt.opaque_fraction(id, team)
 			var box := Silhouettes.drawn_extent(id, radius, team)
 			print("  %-18s %-7s %6.2f %6.2f   %5.1f x %5.1f" % [
 				id, "recipe" if UnitRecipes.has_recipe(id) else "png",

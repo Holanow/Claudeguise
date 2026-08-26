@@ -223,26 +223,35 @@ func test_the_flash_never_reaches_the_simulation() -> void:
 		assert_eq(u.radius, before[i][2])
 	_clear()
 
-## The mask is the artwork's own opaque pixels, white. It is built once per
-## texture and kept: rebuilding it per body per frame is a `get_image` copy of
-## the whole file on a hot path.
-func test_the_white_mask_matches_the_art_and_is_cached() -> void:
-	var tex := UnitArt.texture_for(&"warrior", CG.Team.PLAYER)
-	if tex == null:
-		return
-	var mask := UnitView.flash_mask(tex)
-	assert_true(mask != null, "art exists, so a mask must")
-	assert_true(mask == UnitView.flash_mask(tex), "the mask must be built once")
-	assert_eq(mask.get_size(), tex.get_size())
-	var lit := mask.get_image()
-	var art := tex.get_image()
-	var checked := 0
-	for x in range(0, lit.get_width(), 3):
-		for y in range(0, lit.get_height(), 3):
-			var a := art.get_pixel(x, y)
-			var w := lit.get_pixel(x, y)
-			assert_almost_eq(w.a, a.a)
-			if a.a > 0.0:
-				assert_eq(Color(w.r, w.g, w.b), Color.WHITE)
-				checked += 1
-	assert_true(checked > 0, "the mask sampled no opaque pixel at all")
+## The flash is a tint on the part sprites rather than a white copy drawn over
+## them. The parts are binary-alpha masks, so tinting one toward white by `a` and
+## drawing white over it at alpha `a` put the same colour on the screen -- and the
+## white copy that used to slide out from under a thrust hand cannot exist.
+func test_the_flash_tints_every_part_toward_white() -> void:
+	var visual := in_tree(UnitVisual.new())
+	visual.build(&"warrior", CG.Team.PLAYER, 40.0)
+	var own := UnitArt.sprites_for(&"warrior", CG.Team.PLAYER)
+	assert_false(own.is_empty(), "the warrior has no parts; this test measures nothing")
+
+	visual.flash(Color.WHITE, 0.0)
+	var rested := _modulates(visual)
+	assert_eq(rested.size(), own.size(), "a sprite per part")
+	for i in own.size():
+		assert_eq(rested[i], own[i]["color"], "an unstruck part is not its own colour")
+
+	visual.flash(Color.WHITE, 1.0)
+	for c: Color in _modulates(visual):
+		assert_eq(c, Color.WHITE, "a fully lit part is not white")
+
+	visual.flash(Color.WHITE, 0.5)
+	var half := _modulates(visual)
+	for i in own.size():
+		assert_eq(half[i], (own[i]["color"] as Color).lerp(Color.WHITE, 0.5),
+			"a half-lit part is not halfway to white")
+
+func _modulates(visual: UnitVisual) -> Array:
+	var out: Array = []
+	for slot in visual._body.get_children():
+		for sprite in slot.get_children():
+			out.append(sprite.modulate)
+	return out

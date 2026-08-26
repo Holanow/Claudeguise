@@ -286,26 +286,6 @@ static func flash_color(damage_type: int) -> Color:
 		return Color.WHITE
 	return Color.WHITE.lerp(Palette.damage_color(damage_type), clampf(flash_tint, 0.0, 1.0))
 
-## The body's own artwork with every opaque pixel turned white, built once per
-## texture and kept beside it. Drawn over the body at the flash's alpha, so the
-## flash is exactly the silhouette rather than a rectangle over it.
-static var _flash_masks := {}
-
-static func flash_mask(tex: Texture2D) -> Texture2D:
-	var key := tex.get_instance_id()
-	if _flash_masks.has(key):
-		return _flash_masks[key]
-	var image := tex.get_image()
-	var out: Texture2D = null
-	if image != null:
-		var white := Image.create(image.get_width(), image.get_height(), false, Image.FORMAT_RGBA8)
-		for x in image.get_width():
-			for y in image.get_height():
-				white.set_pixel(x, y, Color(1.0, 1.0, 1.0, image.get_pixel(x, y).a))
-		out = ImageTexture.create_from_image(white)
-	_flash_masks[key] = out
-	return out
-
 ## `INF` is "not running": adding a delta to it leaves it not running.
 var _squash_age: float = INF
 var _flash_age: float = INF
@@ -382,86 +362,58 @@ func advance_anim(delta: float, alpha: float) -> void:
 	queue_redraw()
 
 ## Where one animated part sits this frame, in the body's own draw space.
-## The idle bob runs underneath the action pose rather than being replaced by
-## it, so a body mid-wind-up is still breathing.
-func _part_offset(u: CombatUnit, part: StringName, radius: float, facing: bool) -> Vector2:
+## The idle bob runs underneath the action pose rather than being replaced by it,
+## so a body mid-wind-up is still breathing.
+##
+## Not turned round for facing the way it used to be: the mirror is a scale on
+## `UnitVisual`'s own node now, so a child offset is mirrored with the body.
+func _part_offset(u: CombatUnit, radius: float) -> Vector2:
 	var off := PartAnimation.idle_offset(_anim_seconds, PartAnimation.phase_for(u.id), radius)
-	# The wind-up, and only the wind-up. At the fire #516's recoil and #531's
-	# loose kick take over the follow-through.
+	# The wind-up, and only the wind-up. At the fire #516's recoil and #531's loose
+	# kick take over the follow-through.
 	if u.action_ticks_total > 0 and u.action_ticks_left > 0:
 		var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
 		var kind := PartAnimation.kind_for(Registry.get_action(u.current_action))
 		off += PartAnimation.action_offset(kind, done / float(u.action_ticks_total), radius)
-	off *= float(PartAnimation.PARTS.get(part, 1.0))
-	# `signed_rect` mirrors the texture but not this offset, so forward has to
-	# be turned round by hand.
-	if facing:
-		off.x = -off.x
 	return off
 
 ## Whether this body has anything to animate at all. False means the toggle is
-## off or this recipe names no animated part, and either way the flat composite
-## is drawn exactly as it was before this issue.
+## off or this recipe puts nothing in its `Hands` slot, and either way the body is
+## posed exactly as it was baked.
 func can_animate(u: CombatUnit) -> bool:
-	return animating() and not UnitArt.slices_for(_shape_id(u), u.team).is_empty()
+	return animating() and UnitRecipes.has_animated_part(_shape_id(u))
 
-## The body drawn as its baked slices, each animated part displaced.
-func _draw_animated_parts(u: CombatUnit, radius: float, mask_color: Color = Color(0, 0, 0, 0)) -> bool:
-	if not can_animate(u):
-		return false
-	var slices := UnitArt.slices_for(_shape_id(u), u.team)
-	var facing := facing_left(u)
-	for s in slices:
-		var tex: Texture2D = s["tex"]
-		var center := Vector2.ZERO
-		if s["part"] != &"":
-			center = _part_offset(u, s["part"], radius, facing)
-		if mask_color.a <= 0.0:
-			UnitArt.draw(self, tex, radius, facing, center)
-			continue
-		var mask := flash_mask(tex)
-		if mask != null:
-			draw_texture_rect(mask, UnitArt.signed_rect(mask, radius, facing, center), false, mask_color)
-	return true
+## The sprite tree, built once per body and re-posed every frame. Everything that
+## moves a body -- facing, the impact squash, the recoil, the hands -- is a
+## transform on a node in here, and nothing under it is redrawn to do it.
+var _visual: UnitVisual = null
 
-## The one place the impact transform is applied, and it covers the body and
-## nothing else. Bars, badges, name plates and hover targets are the reading
-## surface and must not move because a hit landed. Anchored at the drawn body's
-## bottom edge, so a squashed body keeps its feet on the floor.
-func _draw_body(u: CombatUnit, radius: float) -> void:
-	var squash := squash_scale(_squash_age)
-	var recoil := recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels)
-	var moved := squash != Vector2.ONE or recoil != Vector2.ZERO
-	if moved:
-		var bottom := drawn_bottom(_shape_id(u), u.team, radius)
-		draw_set_transform(recoil + Vector2(0.0, bottom * (1.0 - squash.y)), 0.0, squash)
-	if not _draw_animated_parts(u, radius):
-		Silhouettes.draw_unit(self, _shape_id(u), radius, u.team, _accent(u), facing_left(u))
-	# Inside the same transform, so a body that is both squashed and lit stays
-	# one object rather than a white copy of itself sliding out from under it.
-	_draw_flash(u, radius)
-	if moved:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+func _sync_visual(u: CombatUnit, radius: float) -> void:
+	if _visual == null:
+		_visual = UnitVisual.new()
+		add_child(_visual)
+	_visual.build(_shape_id(u), u.team, radius)
+	_visual.pose(facing_left(u), squash_scale(_squash_age),
+		recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels),
+		drawn_bottom(_shape_id(u), u.team, radius))
+	_visual.offset_slot(&"Hands",
+		_part_offset(u, radius) if can_animate(u) else Vector2.ZERO)
+	_visual.flash(flash_color(_flash_type), flash_strength(_flash_age))
+	_visual.set_focus_line(_focus_line_to(u))
 
-## Issue 553. The body's own silhouette, white, over the top of it.
-func _draw_flash(u: CombatUnit, radius: float) -> void:
-	var strength := flash_strength(_flash_age)
-	if strength <= 0.0:
-		return
-	var color := flash_color(_flash_type)
-	color.a = strength
-	# Issue 583: the same slices at the same offsets, so a flash covers a hand
-	# that has thrust out from under the flat composite's own mask.
-	if _draw_animated_parts(u, radius, color):
-		return
-	var tex := UnitArt.texture_for(_shape_id(u), u.team)
-	# The missing-sprite fallback is a black square, so the flash is a square too.
-	if tex == null:
-		draw_rect(Rect2(Vector2(-radius, -radius), Vector2(radius, radius) * 2.0), color)
-		return
-	var mask := flash_mask(tex)
-	if mask != null:
-		draw_texture_rect(mask, UnitArt.signed_rect(mask, radius, facing_left(u)), false, color)
+## Who is this unit currently after. Answers "why is that side winning" by itself,
+## before a single number changes: a target being focused by three units at once
+## reads differently from one being ignored. `INF` is no line, and `UnitVisual`
+## draws it under the body.
+func _focus_line_to(u: CombatUnit) -> Vector2:
+	if u.focus_id < 0 or u.current_action == &"":
+		return Vector2.INF
+	if _has_active_projectile(u):
+		return Vector2.INF
+	var target := _state.unit(u.focus_id)
+	if target == null or not target.alive:
+		return Vector2.INF
+	return target.position - u.position
 
 func _draw() -> void:
 	var u := _unit()
@@ -470,9 +422,7 @@ func _draw() -> void:
 
 	var radius := display_radius(u)
 
-	_draw_targeting_line(u)
-
-	_draw_body(u, radius)
+	_sync_visual(u, radius)
 
 	_draw_concentration_badge(u, radius)
 
@@ -515,7 +465,7 @@ static func draw_plate_tether(ci: CanvasItem, u: CombatUnit, units: Array, chip:
 	var points := plate_tether(u, units, chip, body_at)
 	var color := Palette.team_color(u.team)
 	color.a = TETHER_ALPHA
-	# Backed, the way `_draw_targeting_line` is: the bar tether is ten pixels
+	# Backed, the way the focus line is: the bar tether is ten pixels
 	# long and this one crosses the scrum, so it needs the same dark stroke
 	# under it to stay a line over a body.
 	ci.draw_line(points[0], points[1], Color(Palette.BACKGROUND, 0.5), TETHER_WIDTH * 3.0)
@@ -744,21 +694,6 @@ static func _layout_key_for(state: CombatState) -> String:
 		h = h * 31 + hash([u.id, u.alive, roundi(u.position.x), roundi(u.position.y),
 			u.alive and label_visible(u, state)])
 	return "%d|%d|%d" % [state.units.size(), h, state.tick]
-
-## Who is this unit currently after. Answers "why is that side winning" by
-## itself, before a single number changes: a target being focused by three
-## units at once reads differently from one being ignored.
-func _draw_targeting_line(u: CombatUnit) -> void:
-	if u.focus_id < 0 or u.current_action == &"":
-		return
-	if _has_active_projectile(u):
-		return
-	var target := _state.unit(u.focus_id)
-	if target == null or not target.alive:
-		return
-	var to_target := target.position - u.position
-	draw_line(Vector2.ZERO, to_target, Color(Palette.BACKGROUND, 0.5), 4.5)
-	draw_line(Vector2.ZERO, to_target, Palette.FOCUS_LINE, 2.5)
 
 func _has_active_projectile(u: CombatUnit) -> bool:
 	if _state == null:
