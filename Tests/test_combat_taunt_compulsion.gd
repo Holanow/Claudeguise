@@ -26,8 +26,11 @@ func _strike(id: StringName, range_units: float) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 0
 	a.recover_ticks = 0
-	a.range_units = range_units
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = range_units
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _taunt(id: StringName) -> ActionDef:
@@ -35,13 +38,16 @@ func _taunt(id: StringName) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 0
 	a.recover_ticks = 0
-	a.range_units = 0.0 # self-targeted, exactly as warrior_taunt is authored
-	a.damage_type = CG.DamageType.PHYSICAL
-	a.power_scale = 0.0
-	a.applies_status = CG.Status.TAUNTING
-	a.applies_status_enabled = true
-	a.status_duration_ticks = _TAUNT_TICKS
-	a.taunt_radius = _TAUNT_RADIUS
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 0.0 # self-targeted, exactly as warrior_taunt is authored
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	hit.power_scale = 0.0
+	var jeer := StatusEffect.new()
+	jeer.status = CG.Status.TAUNTING
+	jeer.duration_ticks = _TAUNT_TICKS
+	jeer.taunt_radius = _TAUNT_RADIUS
+	a.effects = [hit, jeer] as Array[AbilityEffect]
 	return a
 
 func _deps(actions: Array) -> SimDeps:
@@ -177,9 +183,11 @@ func test_a_cleanse_frees_a_compelled_unit() -> void:
 	var claw := _strike(&"claw", 40.0)
 	var cleanse := ActionDef.new()
 	cleanse.id = &"cleanse"
-	cleanse.range_units = 999.0
-	cleanse.heals = true
-	cleanse.cleanses_harmful = true
+	cleanse.targeting = ActionTargeting.new()
+	cleanse.targeting.range_units = 999.0
+	var mend := HitEffect.new()
+	mend.heals = true
+	cleanse.effects = [mend, CleanseEffect.new()] as Array[AbilityEffect]
 
 	var state := _arena(taunt)
 	state.unit(1).position = Vector2(20.0, 0.0)
@@ -302,7 +310,7 @@ func test_an_untaunted_unit_decides_for_itself() -> void:
 ## authored wrong should look wrong, not reach the whole arena.
 func test_a_taunt_with_no_radius_compels_nobody() -> void:
 	var taunt := _taunt(&"roar")
-	taunt.taunt_radius = 0.0
+	taunt.status_effect().taunt_radius = 0.0
 	var state := _arena(taunt)
 	_roar(state, _deps([taunt, _strike(&"claw", 40.0)]), taunt)
 
