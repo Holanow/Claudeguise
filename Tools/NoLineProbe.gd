@@ -1,13 +1,7 @@
 extends SceneTree
 
 ## Issue 625: how often does a ranged pawn have a line to nothing at all?
-##
-## Issue 481 was *"a pawn that reaches cover with nothing to do there wins 0 of
-## 20"*. Bodies blocking sight brings that back at scale: a ranged pawn behind
-## its own frontline has no legal target, `_action_can_fire` rejects every row
-## in silence, and the pawn looks broken. If this number is large the fix is an
-## **authored movement row that seeks a firing line, never a hidden rule.**
-##
+
 ## SAMPLES BEFORE `step()`, per ENGINEER.md. Reads positions and asks the grid;
 ## never calls `decide`, so it draws nothing from `state.rng` and writes no
 ## `focus_id`. Run `-- verify` to re-run every fight unprobed and confirm the
