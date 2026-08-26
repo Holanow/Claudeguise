@@ -1224,6 +1224,9 @@ func _process(delta: float) -> void:
 		_prev_drawn = _curr_drawn
 		_prev_shots = _curr_shots
 		CombatSim.step(state)
+		# Issue 604. The one place the scrum-nudge cache is armed, and it is here
+		# because everything downstream of a step reads `state.units`.
+		UnitView.note_tick(state)
 		_curr_drawn = _drawn_snapshot()
 		_curr_shots = _shot_snapshot()
 		stepped = true

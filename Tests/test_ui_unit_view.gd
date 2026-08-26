@@ -461,6 +461,47 @@ func test_visual_offset_is_deterministic_for_exactly_coincident_units() -> void:
 	var second := UnitView.visual_offset(b, [a, b])
 	assert_eq(first, second, "the same fight must nudge the same unit the same way every time")
 
+## Issue 604. The cache's whole claim is that it returns the same answer, so a
+## whole fight is walked with both paths side by side: `state.units` hits the
+## armed cache, a duplicate of it holds the same units and misses.
+func test_the_armed_offset_cache_returns_the_uncached_answer() -> void:
+	var party: Array[PawnData] = []
+	for id in [&"warrior", &"priest", &"geysermancer", &"siege_master"]:
+		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
+	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
+	var deaths := 0
+	var spawns := state.units.size()
+	var compared := 0
+	while state.outcome == CombatState.Outcome.UNRESOLVED:
+		CombatSim.step(state)
+		UnitView.note_tick(state)
+		var loose: Array = state.units.duplicate()
+		for u in state.units:
+			assert_eq(UnitView.visual_offset(u, state.units), UnitView.visual_offset(u, loose),
+				"cached nudge for unit %d at tick %d differs from the direct scan" % [u.id, state.tick])
+			compared += 1
+	for u in state.units:
+		if not u.alive:
+			deaths += 1
+	assert_true(compared > 1000, "only %d comparisons, so this walked no real fight" % compared)
+	assert_true(deaths > 0, "no unit died, so the cache was never asked about a corpse")
+	assert_true(state.units.size() > spawns, "nothing spawned, so a mid-tick unit list was never seen")
+
+## The other half: a caller that steps the simulation itself and never arms the
+## cache must not be served the previous tick's answers.
+func test_an_unarmed_caller_is_never_served_a_stale_nudge() -> void:
+	var state := CombatState.new(0)
+	var a := _make_unit(0, Vector2(-5.0, 0.0))
+	var b := _make_unit(1, Vector2(5.0, 0.0))
+	state.units.append(a)
+	state.units.append(b)
+	UnitView.note_tick(state)
+	var close := UnitView.visual_offset(a, state.units)
+	assert_true(close.length() > 0.0, "the fixture must overlap, or this proves nothing")
+	a.position = Vector2(-800.0, 0.0)
+	assert_eq(UnitView.visual_offset(a, state.units.duplicate()), Vector2.ZERO,
+		"an unarmed array must be scanned, not answered from the last armed tick")
+
 # ---------------------------------------------------------------------------
 # should_show_label (issue 41: dense rooms piled enemy names on top of each other)
 # ---------------------------------------------------------------------------
@@ -790,7 +831,7 @@ func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> 
 	var party: Array[PawnDataScript] = []
 	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
 		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
-	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 3)
+	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
 	var disagreed := 0
 	var looked := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:
