@@ -22,7 +22,7 @@ var recover_ticks: Callable = _default_recover_ticks
 ## Decision layer. Same reasoning: CombatSim.gd never names PlanInterpreter or
 ## DefaultBehavior directly, so a test can hand-write "attack nearest enemy"
 var plan_decide: Callable = PlanInterpreter.decide
-var default_decide: Callable = DefaultBehavior.decide
+var default_decide: Callable = DefaultPlan.decide
 
 ## Which attack a unit falls back to on one side of the melee/ranged split.
 ## `(actions: Array[ActionDef], want_ranged: bool) -> ActionDef`.
