@@ -18,70 +18,48 @@ func _reset() -> void:
 # finer cut.
 # ---------------------------------------------------------------------------
 
-func test_fragments_recompose_the_flat_composite() -> void:
+func test_the_chunks_hold_every_part_once_in_draw_order() -> void:
+	# The only thing that can silently change what a death throws. A part that
+	# lands in no chunk vanishes at the moment of the death; a part that lands in
+	# two is drawn twice; and a cut that reorders them stacks the body wrong,
+	# which shows because each part carries its own outline ring.
 	var checked := 0
 	for id in UnitRecipes.recipe_ids():
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var flat := UnitRecipes.compose_image(id, team)
-			var built := Image.create(flat.get_width(), flat.get_height(), false, Image.FORMAT_RGBA8)
-			built.fill(Color(0, 0, 0, 0))
-			for cut in UnitRecipes.fragments_for(id):
-				var chunk := UnitRecipes.compose_layers(cut["layers"], team)
-				built.blend_rect(chunk, Rect2i(Vector2i.ZERO, chunk.get_size()), Vector2i.ZERO)
-			assert_eq(_differing_pixels(flat, built), 0,
-				"%s (%d): the chunks do not stack back into the body" % [id, int(team)])
+			var thrown: Array = []
+			for cut in UnitArt.fragments_for(id, team):
+				for part in cut["pieces"]:
+					thrown.append(part["tex"])
+			var drawn: Array = []
+			for sprite in UnitArt.sprites_for(id, team):
+				drawn.append(sprite["tex"])
+			assert_eq(thrown, drawn,
+				"%s (%d): the chunks are not the drawn body" % [id, int(team)])
 			checked += 1
 	assert_true(checked >= 38, "only %d bodies were cut" % checked)
 
-func _differing_pixels(a: Image, b: Image) -> int:
-	var n := 0
-	for y in a.get_height():
-		for x in a.get_width():
-			if a.get_pixel(x, y) != b.get_pixel(x, y):
-				n += 1
-	return n
-
-## Contiguous, not gathered, and asserted over every recipe rather than over the
-## one that happened to show it: a part baked OVER another is pulled back under
-## it the moment the cut is allowed to reorder, and each part has its own outline
-## ring, so the reorder shows. An earlier version of this test named the Rat
-## King's `spikes`, which #594 then deleted out from under it.
-func test_a_chunk_is_a_run_of_adjacent_layers() -> void:
-	for id in UnitRecipes.recipe_ids():
-		var flat: Array = []
-		for cut in UnitRecipes.fragments_for(id):
-			for layer in cut["layers"]:
-				flat.append(layer["part"])
-		var want: Array = []
-		for layer in UnitRecipes.layers_for(id):
-			want.append(layer["part"])
-		assert_eq(flat, want, "%s: the cut reordered the recipe" % id)
-
-## A hat is head. #594 added `hat_low` for the Rat King's, and an unmapped hat
+## A hat is headwear. #594 added `hat_low` for the Rat King's, and an unmapped hat
 ## flies on its own while the head it was sitting on goes the other way.
-func test_every_headwear_part_flies_with_the_head() -> void:
+func test_every_headwear_part_flies_in_the_headwear_slot() -> void:
 	for part in [&"hat", &"hat_low", &"hood", &"helm", &"plume", &"crown"]:
-		assert_eq(UnitRecipes.group_for(part), &"head",
-			"'%s' is worn on a head and must leave with it" % part)
+		assert_eq(UnitRecipes.slot_of(part), &"Headwear",
+			"'%s' is worn on a head and must leave with the headwear" % part)
 
-## A part nobody has grouped is its own chunk rather than silently joining the
-## body it was drawn over.
-func test_an_unknown_part_is_its_own_chunk() -> void:
-	assert_eq(UnitRecipes.group_for(&"head_round"), &"head")
-	assert_eq(UnitRecipes.group_for(&"body_skinny"), &"body")
-	assert_eq(UnitRecipes.group_for(&"hands_wide"), &"hands")
-	assert_eq(UnitRecipes.group_for(&"a_part_that_does_not_exist"),
-		&"a_part_that_does_not_exist")
+## A part nobody has put in a slot lands in `Extra` rather than silently joining
+## the body it was drawn over.
+func test_an_unknown_part_lands_in_extra() -> void:
+	assert_eq(UnitRecipes.slot_of(&"head_round"), &"Head")
+	assert_eq(UnitRecipes.slot_of(&"body_skinny"), &"Body")
+	assert_eq(UnitRecipes.slot_of(&"hands_wide"), &"Hands")
+	assert_eq(UnitRecipes.slot_of(&"a_part_that_does_not_exist"), &"Extra")
 
 ## Every unit in the game has to come apart, or the cue is one the player learns
 ## to expect and then does not get.
 func test_every_recipe_comes_apart_into_at_least_two_chunks() -> void:
 	for id in UnitRecipes.recipe_ids():
-		assert_true(UnitRecipes.fragments_for(id).size() >= 2,
-			"%s flies in one piece, which is not coming apart" % id)
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			assert_false(UnitArt.fragments_for(id, team).is_empty(),
-				"%s (%d) has no fragment files on disk" % [id, int(team)])
+			assert_true(UnitArt.fragments_for(id, team).size() >= 2,
+				"%s (%d) flies in one piece, which is not coming apart" % [id, int(team)])
 
 # ---------------------------------------------------------------------------
 # The toggle, both directions

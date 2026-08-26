@@ -53,7 +53,8 @@ func _ready() -> void:
 		_slots.append({"age": INF, "fresh": false, "origin": Vector2.ZERO,
 			"radius": 0.0, "facing": false, "pieces": []})
 
-## Throws `fragments` -- `UnitArt.fragments_for`'s output -- apart from `at`.
+## Throws `fragments` -- `UnitArt.fragments_for`'s output, one entry per slot --
+## apart from `at`.
 ## Refused while the option is off, the same gate `UnitView.struck` applies, so
 ## nothing can start an effect that will never be drawn.
 func explode(at: Vector2, radius: float, facing_left: bool, fragments: Array, unit_id: int) -> void:
@@ -76,20 +77,20 @@ func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int) -
 	var out: Array = []
 	var jitter := PartAnimation.phase_for(unit_id)
 	for i in fragments.size():
-		var tex: Texture2D = fragments[i]["tex"]
-		var pivot := UnitArt.opaque_rect(radius, tex).get_center()
+		var parts: Array = fragments[i]["pieces"]
+		var pivot := _ink_center(radius, parts)
 		if facing_left:
 			pivot.x = -pivot.x
-		# Fanned rather than thrown along the chunk's own offset: the hands are
-		# one texture holding a hand each side, so its ink is centred on the body
-		# and has no direction of its own to be thrown along.
+		# Fanned rather than thrown along the chunk's own offset: the Hands slot
+		# holds a hand each side, so its ink is centred on the body and has no
+		# direction of its own to be thrown along.
 		var t := (float(i) + 0.5) / float(fragments.size())
 		var angle := -PI * 0.5 + (t - 0.5) * FAN + sin(jitter + float(i)) * 0.22
 		if facing_left:
 			angle = -PI - angle
 		var speed := lerpf(LAUNCH_MIN, LAUNCH_MAX, fposmod(jitter * 0.37 + float(i) * 0.41, 1.0))
 		out.append({
-			"tex": tex,
+			"parts": parts,
 			"pivot": pivot,
 			"pos": Vector2.ZERO,
 			"vel": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, pivot.y * PIVOT_THROW),
@@ -97,6 +98,18 @@ func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int) -
 			"spin": SPIN * TAU * (fposmod(jitter + float(i) * 0.7, 2.0) - 1.0),
 		})
 	return out
+
+## Where a chunk's ink sits, in the space it is drawn into: the union of the
+## parts in it. A slot holding a head and its eyes tumbles about the head rather
+## than about the canvas the parts share.
+static func _ink_center(radius: float, parts: Array) -> Vector2:
+	var box := Rect2()
+	var any := false
+	for part in parts:
+		var r := UnitArt.opaque_rect(radius, part["tex"])
+		box = r if not any else box.merge(r)
+		any = true
+	return box.get_center()
 
 ## Spent by `BattleView._render`, never by a `_process` of this node's own. The
 ## guard is here as well because this is the fifth effect to have to honour it
@@ -180,12 +193,14 @@ func _draw() -> void:
 			continue
 		var tint := tint_at(age)
 		for piece in slot["pieces"]:
-			var tex: Texture2D = piece["tex"]
-			var rect := UnitArt.signed_rect(tex, slot["radius"], slot["facing"])
 			var pivot: Vector2 = piece["pivot"]
-			# Rotated about the chunk's own ink, not about the canvas it was
-			# baked on: a head is nowhere near the middle of that canvas, and
-			# spinning the canvas makes it orbit rather than tumble.
+			# Rotated about the chunk's own ink, not about the canvas its parts
+			# were authored on: a head is nowhere near the middle of that canvas,
+			# and spinning the canvas makes it orbit rather than tumble.
 			draw_set_transform(slot["origin"] + piece["pos"] + pivot, piece["angle"], Vector2.ONE)
-			draw_texture_rect(tex, Rect2(rect.position - pivot, rect.size), false, tint)
+			for part in piece["parts"]:
+				var tex: Texture2D = part["tex"]
+				var rect := UnitArt.signed_rect(tex, slot["radius"], slot["facing"])
+				draw_texture_rect(tex, Rect2(rect.position - pivot, rect.size), false,
+					(part["color"] as Color) * tint)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

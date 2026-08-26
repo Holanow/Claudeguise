@@ -11,52 +11,46 @@ const FRAME := 1.0 / 60.0
 func setup() -> void:
 	DisplayOptions.reset()
 
-## The slicing is the only thing that can silently change what a body looks
-## like, so it is compared pixel for pixel rather than eyeballed. Stamping the
-## slices in order must reproduce the flat composite exactly.
-func test_slices_recompose_the_flat_composite() -> void:
+## The `Hands` slot is the animated part, and moving it must not change what the
+## rest of the body looks like. There is nothing left to recompose: a slot is a
+## node, and a node that moves takes exactly its own sprites with it.
+func test_the_animated_part_is_the_hands_slot() -> void:
 	var checked := 0
 	for id in UnitRecipes.recipe_ids():
 		if not UnitRecipes.has_animated_part(id):
 			continue
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var flat := UnitRecipes.compose_image(id, team)
-			var built := Image.create(flat.get_width(), flat.get_height(), false, Image.FORMAT_RGBA8)
-			built.fill(Color(0, 0, 0, 0))
-			for slice in UnitRecipes.slices_for(id):
-				var part := UnitRecipes.compose_layers(slice["layers"], team)
-				built.blend_rect(part, Rect2i(Vector2i.ZERO, part.get_size()), Vector2i.ZERO)
-			assert_eq(_differing_pixels(flat, built), 0,
-				"%s (%d): slices do not recompose the flat body" % [id, int(team)])
-			checked += 1
-	assert_true(checked >= 20, "only %d bodies carried an animated part" % checked)
+		var moved: Array = []
+		for entry in UnitRecipes.slots_for(id):
+			for layer in entry["layers"]:
+				if PartAnimation.animates(layer["part"]):
+					moved.append(entry["slot"])
+		assert_eq(moved.size(), 1, "%s has %d animated parts, not one" % [id, moved.size()])
+		assert_eq(moved[0], &"Hands", "%s animates a part outside the Hands slot" % id)
+		checked += 1
+	assert_true(checked >= 10, "only %d bodies carried an animated part" % checked)
 
-func _differing_pixels(a: Image, b: Image) -> int:
-	var n := 0
-	for y in a.get_height():
-		for x in a.get_width():
-			if a.get_pixel(x, y) != b.get_pixel(x, y):
-				n += 1
-	return n
-
-## Absence is the default. A creature with no animated part yields no slices
-## and needs no case anywhere else.
-func test_a_recipe_with_no_animated_part_has_no_slices() -> void:
+## Absence is the default. A creature with no animated part has an empty `Hands`
+## slot and needs no case anywhere else.
+func test_a_recipe_with_no_animated_part_has_an_empty_hands_slot() -> void:
 	assert_false(UnitRecipes.has_animated_part(&"grub"), "the grub has no hands")
 	assert_false(UnitRecipes.has_animated_part(&"siege_engine"), "the engine has no hands")
-	assert_true(UnitArt.slices_for(&"grub", CG.Team.ENEMY).is_empty(),
+	assert_true(_slot(&"grub", &"Hands").is_empty(),
 		"a handless recipe must offer nothing to animate")
 	assert_true(UnitRecipes.has_animated_part(&"goblin"), "the goblin has hands")
-	assert_eq(UnitArt.slices_for(&"goblin", CG.Team.ENEMY).size(), 3,
-		"body, hands, features")
+	assert_eq(_slot(&"goblin", &"Hands").size(), 1, "one pair of hands")
+
+func _slot(id: StringName, slot: StringName) -> Array:
+	for entry in UnitRecipes.slots_for(id):
+		if entry["slot"] == slot:
+			return entry["layers"]
+	return []
 
 ## The whole point of the part rule: one entry covers every recipe naming it.
 func test_one_part_entry_covers_many_creatures() -> void:
 	var bodies := {}
 	for id in UnitRecipes.recipe_ids():
-		for slice in UnitRecipes.slices_for(id):
-			if slice["part"] != &"":
-				bodies[id] = slice["part"]
+		for layer in _slot(id, &"Hands"):
+			bodies[id] = layer["part"]
 	assert_true(bodies.size() >= 15,
 		"two part entries should cover most of the roster, got %d" % bodies.size())
 	assert_eq(PartAnimation.PARTS.size(), 2, "two animated parts are authored")
@@ -141,18 +135,18 @@ func test_a_frozen_picture_does_not_animate() -> void:
 	view._process(FRAME)
 	assert_eq(view._unit_views[0]._anim_seconds, frozen_at, "a hit stop did not hold the hands")
 
-## The toggle, and the refusal that goes with it: off means the flat composite,
-## which is exactly what shipped before this issue.
-func test_the_toggle_off_draws_the_flat_body() -> void:
+## The toggle, and the refusal that goes with it: off means the `Hands` slot sits
+## exactly where its parts were authored.
+func test_the_toggle_off_leaves_the_hands_where_they_were_authored() -> void:
 	var view = _fight()
 	var unit_view = view._unit_views[0]
 	assert_true(UnitView.animating(), "hands move by default")
 	assert_true(unit_view.can_animate(view.state.unit(0)),
-		"a goblin's hands should be drawable as slices")
+		"a goblin's hands should be animatable")
 	DisplayOptions.set_enabled(UnitView.ANIM_OPTION, false)
 	assert_false(UnitView.animating(), "the toggle did not take")
 	assert_false(unit_view.can_animate(view.state.unit(0)),
-		"the toggle off must fall back to the flat composite")
+		"the toggle off must leave the hands unmoved")
 
 ## The body itself is #501's, and this must never touch it.
 func test_the_animation_never_moves_the_body() -> void:

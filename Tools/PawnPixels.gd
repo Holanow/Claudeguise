@@ -92,13 +92,11 @@ func _report_units(arena_scale: float) -> void:
 		if not u.alive:
 			continue
 		var shape := UnitView.shape_id(u)
-		var tex := UnitArt.texture_for(shape, u.team)
 		var box := u.radius * UnitView.DISPLAY_SCALE * 2.0
 		var ink := UnitView.drawn_box(shape, u.team, u.radius * UnitView.DISPLAY_SCALE)
-		var file := Vector2.ZERO if tex == null else Vector2(tex.get_width(), tex.get_height())
-		var tex_ink := Vector2.ZERO
-		if tex != null and tex.get_image() != null:
-			tex_ink = Vector2(tex.get_image().get_used_rect().size)
+		var n := UnitArt.canvas_size(shape, u.team)
+		var file := Vector2(n, n)
+		var tex_ink := Vector2(UnitArt.body_used_rect(shape, u.team).size)
 		print("%-14s %6.0f %8.0f %9s %9s %11s %13s" % [
 			String(u.display_name).substr(0, 14), u.radius, box,
 			"%.0fx%.0f" % [file.x, file.y],

@@ -284,6 +284,49 @@ func _parts() -> Dictionary:
 
 	return out
 
+## The colour every part is outlined in. The existing sprites all carry a dark
+## border and it is what keeps a body off the floor it stands on.
+const OUTLINE := Color("14121a")
+
+## The outline's width as a share of the canvas, so it survives the downsample. A
+## unit is drawn at 20-60 screen pixels from a 256-pixel file, so a border
+## authored at one pixel is gone by the time anybody sees it.
+const OUTLINE_SHARE := 0.031
+
+## The part with its own ring baked around it: fill in white, ring in `OUTLINE`.
+##
+## Per part rather than around the composed union, which is the property the
+## player asked for -- "Every part needs to be outlined and heavier" -- and which
+## slots now get for free: a head drawn over a body carries its own edge because
+## its ring travels with it in its own texture.
+func _outlined(mask: Image) -> Image:
+	var out := Image.create(N, N, false, Image.FORMAT_RGBA8)
+	out.fill(Color(1.0, 1.0, 1.0, 0.0))
+	var grown := mask.duplicate()
+	for _pass in maxi(1, roundi(float(N) * OUTLINE_SHARE)):
+		var edge: Array = []
+		for y in N:
+			for x in N:
+				if grown.get_pixel(x, y).a <= 0.0 and _touches_ink(grown, x, y):
+					edge.append(Vector2i(x, y))
+		for p: Vector2i in edge:
+			grown.set_pixel(p.x, p.y, Color.WHITE)
+			out.set_pixel(p.x, p.y, OUTLINE)
+	for y in N:
+		for x in N:
+			if mask.get_pixel(x, y).a > 0.0:
+				out.set_pixel(x, y, Color.WHITE)
+	return out
+
+func _touches_ink(img: Image, x: int, y: int) -> bool:
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var q := Vector2i(x, y) + d
+		if q.x < 0 or q.y < 0 or q.x >= N or q.y >= N:
+			continue
+		if img.get_pixel(q.x, q.y).a > 0.0:
+			return true
+	return false
+
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var parts := _parts()
@@ -295,90 +338,7 @@ func _init() -> void:
 		if used.size.x <= 0 or used.size.y <= 0:
 			printerr("BakeParts: '%s' puts no ink on the canvas" % name)
 			continue
-		img.save_png("%s/%s.png" % [OUT_DIR, name])
-	print("BakeParts: %d part(s) at %dx%d written to %s" % [names.size(), N, N, OUT_DIR])
-	_bake_units()
+		_outlined(img).save_png("%s/%s.png" % [OUT_DIR, name])
+		print("  %-16s ink %3d x %3d of %d" % [name, used.size.x, used.size.y, N])
+	print("BakeParts: %d outlined part(s) at %dx%d written to %s" % [names.size(), N, N, OUT_DIR])
 	quit(0)
-
-## Every recipe, composed and written as `<id>.<side>.png`. `UnitArt.texture_for`
-## looks for a side-specific file BEFORE a shared one, so a composed unit beats
-## the older single drawing without a line of lookup code.
-##
-## Baked rather than composed at run time because at 256 the composition is
-## hundreds of thousands of per-pixel operations, and a fresh unit appearing
-## mid-fight must not stall the frame it appears on.
-func _bake_units() -> void:
-	UnitRecipes.clear_cache()
-	var total := 0
-	for id in UnitRecipes.recipe_ids():
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var img := UnitRecipes.compose_image(id, team)
-			if img == null:
-				printerr("BakeParts: recipe '%s' composed nothing" % id)
-				continue
-			img.save_png(UnitArt.path_for(id, team))
-			total += 1
-		var used := UnitRecipes.compose_image(id, CG.Team.PLAYER).get_used_rect()
-		print("  %-16s ink %3d x %3d of %d" % [id, used.size.x, used.size.y, N])
-	print("BakeParts: %d composed unit file(s) written to %s" % [total, UnitArt.ART_DIR])
-	_bake_slices()
-
-## Issue 583. The same recipes, cut at their animated parts, so the view can move
-## one part without compositing anything at draw time. A recipe with no animated
-## part writes nothing: absence is the default, not a case to handle.
-func _bake_slices() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(UnitArt.SLICE_DIR))
-	var total := 0
-	for id in UnitRecipes.recipe_ids():
-		if not UnitRecipes.has_animated_part(id):
-			continue
-		var slices := UnitRecipes.slices_for(id)
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			for i in slices.size():
-				var img := UnitRecipes.compose_layers(slices[i]["layers"], team)
-				if img == null:
-					printerr("BakeParts: '%s' slice %d composed nothing" % [id, i])
-					continue
-				img.save_png(UnitArt.slice_path(id, team, i))
-				total += 1
-	print("BakeParts: %d slice file(s) written to %s" % [total, UnitArt.SLICE_DIR])
-	_bake_fragments()
-
-## Issue 589. The same recipes cut again, into the chunks a death throws. A cut
-## that yields one chunk writes nothing: a body that comes apart into itself has
-## not come apart, and `UnitArt.fragments_for` refuses it on the same test.
-func _bake_fragments() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(UnitArt.FRAGMENT_DIR))
-	var total := 0
-	for id in UnitRecipes.recipe_ids():
-		var cuts := UnitRecipes.fragments_for(id)
-		if cuts.size() < 2:
-			print("  %-16s one chunk, not written" % id)
-			continue
-		var groups := PackedStringArray()
-		for cut in cuts:
-			groups.append(String(cut["group"]))
-		print("  %-16s %d chunk(s): %s" % [id, cuts.size(), ", ".join(groups)])
-		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			for i in cuts.size():
-				var img := UnitRecipes.compose_layers(cuts[i]["layers"], team)
-				if img == null:
-					printerr("BakeParts: '%s' fragment %d composed nothing" % [id, i])
-					continue
-				img.save_png(UnitArt.fragment_path(id, team, i))
-				total += 1
-			for i in range(cuts.size(), STALE_LIMIT):
-				_drop(UnitArt.fragment_path(id, team, i))
-	print("BakeParts: %d fragment file(s) written to %s" % [total, UnitArt.FRAGMENT_DIR])
-
-## How high to look for a chunk file this recipe no longer writes. A recipe that
-## loses a part leaves its old top chunk on disk, where nothing loads it and git
-## tracks it forever -- #594 cut the Rat King from four chunks to three and did
-## exactly that.
-const STALE_LIMIT := 16
-
-func _drop(path: String) -> void:
-	if not FileAccess.file_exists(path):
-		return
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	print("  dropped stale %s" % path.get_file())

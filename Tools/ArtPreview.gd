@@ -72,7 +72,7 @@ func _draw() -> void:
 	)
 	draw_string(
 		font, Vector2(_MARGIN.x, 66.0),
-		"NEW = issue 566, composed from parts in Assets/Units/parts  ·  old = one hand-drawn PNG  ·  left: readable size  ·  right: true on-screen size in the arena",
+		"Every body is a stack of part sprites from Assets/Units/parts  ·  left: readable size  ·  right: true on-screen size in the arena",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM
 	)
 
