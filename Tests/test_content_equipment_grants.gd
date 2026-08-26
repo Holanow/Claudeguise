@@ -73,7 +73,7 @@ func test_the_union_keeps_every_class_action_too() -> void:
 	var pawn := _warrior()
 	pawn.armor = Registry.get_equipment(&"plate_mail")
 	var available := Registry.actions_for_pawn(pawn)
-	for action_id in pawn.pawn_class.starting_actions:
+	for action_id in pawn.pawn_class.starting_action_ids():
 		assert_true(available.has(action_id),
 			"equipping something dropped class action %s" % action_id)
 
@@ -151,9 +151,9 @@ func _decide_with_block_plan(pawn: PawnData) -> Intent:
 
 func test_the_warrior_traded_block_for_second_wind() -> void:
 	var warrior := Registry.get_class_def(&"warrior")
-	assert_false(warrior.starting_actions.has(&"warrior_block"),
+	assert_false(warrior.starting_action_ids().has(&"warrior_block"),
 		"Block should come from plate now, not from the class")
-	assert_true(warrior.starting_actions.has(&"warrior_second_wind"),
+	assert_true(warrior.starting_action_ids().has(&"warrior_second_wind"),
 		"the Warrior should have gained a self-sustain")
 
 ## Self-only, and asserted through the field that makes it so rather than by
@@ -259,7 +259,7 @@ func test_every_weapon_provides_exactly_one_basic_attack() -> void:
 func test_no_class_still_carries_a_basic_attack_of_its_own() -> void:
 	for cid in Registry.all_class_ids():
 		var def := Registry.get_class_def(cid)
-		for action_id in def.starting_actions:
+		for action_id in def.starting_action_ids():
 			assert_false(_is_basic_attack(Registry.get_action(action_id)),
 				"%s still ships %s, a free attack of its own -- issue 129 moves those onto weapons" % [cid, action_id])
 

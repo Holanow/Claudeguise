@@ -31,7 +31,7 @@ func test_every_starting_action_is_reachable_by_a_player() -> void:
 	for cid in CLASSES:
 		var c := StringName(cid)
 		var def := Registry.get_class_def(c)
-		for action_id in def.starting_actions:
+		for action_id in def.starting_action_ids():
 			if fired.has(action_id):
 				continue
 			library_only.append("%s/%s" % [cid, action_id])
@@ -232,7 +232,7 @@ func _fight_count() -> int:
 func _reachable_action_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for cid in Registry.all_class_ids():
-		for a in Registry.get_class_def(cid).starting_actions:
+		for a in Registry.get_class_def(cid).starting_action_ids():
 			if not out.has(a):
 				out.append(a)
 	# Equipment grants are a real reachability path as of issue 100, and this

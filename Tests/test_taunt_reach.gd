@@ -43,7 +43,7 @@ func _victims() -> Array[Dictionary]:
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
 		var ids: Array[StringName] = []
 		if pawn.pawn_class != null:
-			ids.append_array(pawn.pawn_class.starting_actions)
+			ids.append_array(pawn.pawn_class.starting_action_ids())
 		for e in pawn.equipment():
 			ids.append_array(e.granted_actions)
 		out.append({"name": String(class_id), "speed": Balance.move_speed(pawn), "reach": _reach(ids)})

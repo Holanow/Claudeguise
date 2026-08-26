@@ -32,10 +32,15 @@ func _cleanse_action(id: StringName, cleanses: bool) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 2
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.heals = true
-	a.cleanses_harmful = cleanses
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.heals = true
+	hit.damage_type = CG.DamageType.PHYSICAL
+	var fx: Array[AbilityEffect] = [hit]
+	if cleanses:
+		fx.append(CleanseEffect.new())
+	a.effects = fx
 	return a
 
 func _deps_with_action(action: ActionDef) -> SimDeps:
@@ -265,7 +270,7 @@ func test_a_cleanse_does_not_fire_on_a_target_its_own_damage_killed() -> void:
 	# death resolution for exactly this reason. A cleanse is placed beside it
 	# and must behave the same: no scrubbing a corpse.
 	var cleanse := _cleanse_action(&"cleanse", true)
-	cleanse.heals = false
+	cleanse.hit().heals = false
 	var deps := _deps_with_action(cleanse)
 	deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _r = null) -> float: return 999.0
 

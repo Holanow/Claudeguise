@@ -139,7 +139,7 @@ func test_healer_heals_hurt_ally() -> void:
 	priest.position = Vector2.ZERO
 	priest.hp_max = 100
 	priest.hp = 100
-	priest.actions = priest_pawn.pawn_class.starting_actions.duplicate()
+	priest.actions = priest_pawn.pawn_class.starting_action_ids()
 
 	var hurt_ally := CombatUnit.new()
 	hurt_ally.id = 1
@@ -176,7 +176,7 @@ func test_healer_does_not_heal_full_health_allies() -> void:
 	priest.position = Vector2.ZERO
 	priest.hp_max = 100
 	priest.hp = 100
-	priest.actions = priest_pawn.pawn_class.starting_actions.duplicate()
+	priest.actions = priest_pawn.pawn_class.starting_action_ids()
 
 	var healthy_ally := CombatUnit.new()
 	healthy_ally.id = 1
@@ -219,7 +219,7 @@ func test_a_pull_action_never_retreats_from_a_target_it_is_built_to_close_on() -
 	abom.resource_kind = CG.ResourceKind.RAGE
 	abom.resource_max = 100
 	abom.resource = 0
-	abom.actions = abom_pawn.pawn_class.starting_actions.duplicate()
+	abom.actions = abom_pawn.pawn_class.starting_action_ids()
 
 	var enemy := _immobile_dummy(1, CG.Team.ENEMY, Vector2(60.0, 0.0))
 	var state := CombatState.new(0)
@@ -242,7 +242,7 @@ func test_no_living_enemies_means_idle() -> void:
 	priest.id = 0
 	priest.team = CG.Team.PLAYER
 	priest.pawn = priest_pawn
-	priest.actions = priest_pawn.pawn_class.starting_actions.duplicate()
+	priest.actions = priest_pawn.pawn_class.starting_action_ids()
 
 	var state := CombatState.new(0)
 	state.units.append(priest)
@@ -264,7 +264,7 @@ func test_default_behaviour_never_reaches_for_the_geysermancers_cleanse() -> voi
 	geo.resource_kind = CG.ResourceKind.MANA
 	geo.resource_max = 100
 	geo.resource = 100
-	geo.actions = geo_pawn.pawn_class.starting_actions.duplicate()
+	geo.actions = geo_pawn.pawn_class.starting_action_ids()
 	assert_true(geo.actions.has(&"geyser_cleanse"), "fixture is only meaningful while the class actually carries it")
 
 	var dying_ally := _immobile_dummy(1, CG.Team.PLAYER, Vector2(20.0, 0.0))
