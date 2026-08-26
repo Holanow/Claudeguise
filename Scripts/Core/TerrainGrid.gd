@@ -17,8 +17,11 @@ const CELL := 15.0
 ## `EFFECTS` is what spells paint and a spell may not erase a wall.
 enum Layer { FLOOR, EFFECTS }
 
-## Physics layer bits, matching the `TileSet`'s two physics layers.
-const BIT_MOVEMENT := 1
+## The one physics layer there is. Issue 625 specified two, but movement never
+## asked a physics query -- `move_blocked` is grid arithmetic -- and the
+## Movement bit was declared and read nowhere. The two-layer `TileSet` is the
+## follow-up's, and the intent lives in the issue rather than in a dead
+## constant.
 const BIT_SIGHT := 2
 
 ## Each cell's collider is grown by this much, so neighbours overlap slightly.
