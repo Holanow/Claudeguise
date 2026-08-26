@@ -89,11 +89,11 @@ func _cost(units: int, hands: bool, redraw_only: bool = false) -> void:
 		await RenderingServer.frame_post_draw
 		frames += 1
 	var spent := Time.get_ticks_usec() - t0
-	print("HandCost: %d units, %-11s: %d us per rendered frame (n=%d, %d bodies animated, %d draw calls a body)" % [
+	print("HandCost: %d units, %-11s: %d us per rendered frame (n=%d, %d bodies animated, %d sprites in a warrior)" % [
 		state.units.size(),
 		"redraw only" if redraw_only else ("hands on" if hands else "hands off"),
 		0 if frames == 0 else spent / frames, frames, animated,
-		3 if hands else 1])
+		UnitArt.sprites_for(&"warrior", CG.Team.PLAYER).size()])
 	DisplayOptions.reset()
 	_view.queue_free()
 	_view = null

@@ -5,19 +5,8 @@ class_name UnitRecipes
 ## Issue 566. What a unit is made of, rather than a drawing of it.
 ##
 ## A recipe is a stack of parts from `Assets/Units/parts/`, bottom first, each
-## with a colour. `compose` layers them into ONE texture per (shape, team) and
-## caches it, so the arena still issues one `draw_texture_rect` per body.
-
-const PARTS_DIR := "res://Assets/Units/parts"
-
-## The colour every composed silhouette is outlined in. The existing sprites all
-## carry a dark border and it is what keeps a body off the floor it stands on.
-const OUTLINE := Color("14121a")
-
-## The outline's width as a share of the canvas, so it survives the downsample.
-## A unit is drawn at 20-60 screen pixels from a 256-pixel file, so a border
-## authored at one pixel is gone by the time anybody sees it.
-const OUTLINE_SHARE := 0.031
+## with a colour. `slots_for` sorts that stack into the fixed slots `UnitVisual`
+## builds its sprite tree from; nothing here composes anything.
 
 ## `team` on a layer takes `Palette.team_color` instead of `color`, which is the
 ## one place a side changes what a unit looks like.
@@ -189,7 +178,7 @@ static func recipe_ids() -> Array[StringName]:
 ##
 ## Headwear sits UNDER Face rather than over it, which is a deliberate departure
 ## from the order the issue named: a hood covers the pixels the eyes are drawn on
-## and the composited stack has always drawn the eyes last, so Face-over-Headwear
+## and the stack this replaces always drew the eyes last, so Face-over-Headwear
 ## takes the eyes off the Priest, the Cultist, both hooded dungeon soldiers, the
 ## Siege Master and The Warden.
 const SLOTS: Array[StringName] = [&"Body", &"Head", &"Headwear", &"Face", &"Hands", &"Extra"]

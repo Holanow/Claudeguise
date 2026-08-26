@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Issue 566. How much of its own canvas each unit's art fills, recipe and
-## drawing side by side. I reported the composed units as drawing SMALLER than
+## drawing side by side. I reported the recipe units as drawing SMALLER than
 ## the hand-drawn ones off a glance at a contact sheet; this asks the question
 ## of the pixels instead.
 

@@ -135,18 +135,18 @@ func test_a_frozen_picture_does_not_animate() -> void:
 	view._process(FRAME)
 	assert_eq(view._unit_views[0]._anim_seconds, frozen_at, "a hit stop did not hold the hands")
 
-## The toggle, and the refusal that goes with it: off means the flat composite,
-## which is exactly what shipped before this issue.
-func test_the_toggle_off_draws_the_flat_body() -> void:
+## The toggle, and the refusal that goes with it: off means the `Hands` slot sits
+## exactly where its parts were authored.
+func test_the_toggle_off_leaves_the_hands_where_they_were_authored() -> void:
 	var view = _fight()
 	var unit_view = view._unit_views[0]
 	assert_true(UnitView.animating(), "hands move by default")
 	assert_true(unit_view.can_animate(view.state.unit(0)),
-		"a goblin's hands should be drawable as slices")
+		"a goblin's hands should be animatable")
 	DisplayOptions.set_enabled(UnitView.ANIM_OPTION, false)
 	assert_false(UnitView.animating(), "the toggle did not take")
 	assert_false(unit_view.can_animate(view.state.unit(0)),
-		"the toggle off must fall back to the flat composite")
+		"the toggle off must leave the hands unmoved")
 
 ## The body itself is #501's, and this must never touch it.
 func test_the_animation_never_moves_the_body() -> void:
