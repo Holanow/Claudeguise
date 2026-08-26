@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_elyk4"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_7xukm"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_01wr4"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_xm1c8"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_jvav8"]
+
+[sub_resource type="Resource" id="Resource_ntayl"]
+script = ExtResource("1_elyk4")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_7tv4u"]
+script = ExtResource("3_01wr4")
+
+[sub_resource type="Resource" id="Resource_ajgr7"]
+script = ExtResource("5_jvav8")
+range_units = 1200.0
+requires_line_of_sight = true
+requires_marked_target = true
+
+[resource]
+script = ExtResource("4_xm1c8")
+id = &"siege_engine_bolt"
+display_name = "Engine Bolt"
+description = "A ranged attack that reaches anywhere in the arena, but only at an enemy the Siege Master has marked. Fires once every 2 seconds."
+wind_up_ticks = 22
+recover_ticks = 8
+targeting = SubResource("Resource_ajgr7")
+delivery = SubResource("Resource_ntayl")
+effects = Array[ExtResource("2_7xukm")]([SubResource("Resource_7tv4u")])

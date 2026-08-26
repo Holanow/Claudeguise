@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_0wv4e"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_ywr8y"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_y7cbg"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_gla4b"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_a856w"]
+
+[sub_resource type="Resource" id="Resource_grkcv"]
+script = ExtResource("1_0wv4e")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_0rh7f"]
+script = ExtResource("3_y7cbg")
+
+[sub_resource type="Resource" id="Resource_ds0an"]
+script = ExtResource("5_a856w")
+range_units = 270.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("4_gla4b")
+id = &"warden_chain_toss"
+display_name = "Chain Toss"
+description = "A ranged attack at up to 270 units."
+wind_up_ticks = 16
+recover_ticks = 18
+targeting = SubResource("Resource_ds0an")
+delivery = SubResource("Resource_grkcv")
+effects = Array[ExtResource("2_ywr8y")]([SubResource("Resource_0rh7f")])

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_0kwqf"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_iqxri"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_qux3g"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_fsrd4"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_4su5o"]
+
+[sub_resource type="Resource" id="Resource_sy1ia"]
+script = ExtResource("2_iqxri")
+damage_type = 5
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_doeyu"]
+script = ExtResource("3_qux3g")
+duration_ticks = 150
+
+[sub_resource type="Resource" id="Resource_ly1xc"]
+script = ExtResource("5_4su5o")
+range_units = 220.0
+
+[resource]
+script = ExtResource("4_fsrd4")
+id = &"priest_ward"
+display_name = "Ward"
+description = "Reduces damage taken by an ally by 25% for 10 seconds. Costs 15 Mana."
+wind_up_ticks = 8
+recover_ticks = 10
+cooldown_ticks = 150
+resource_cost = 15
+targeting = SubResource("Resource_ly1xc")
+effects = Array[ExtResource("1_0kwqf")]([SubResource("Resource_sy1ia"), SubResource("Resource_doeyu")])

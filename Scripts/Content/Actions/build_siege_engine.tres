@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_t1rbk"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_fma5r"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/SummonEffect.gd" id="3_2kpj5"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_imt8m"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_ayyj5"]
+
+[sub_resource type="Resource" id="Resource_u2l2l"]
+script = ExtResource("2_fma5r")
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_a78de"]
+script = ExtResource("3_2kpj5")
+unit_id = &"siege_engine"
+max_active = 2
+
+[sub_resource type="Resource" id="Resource_3fovn"]
+script = ExtResource("5_ayyj5")
+targets_self = true
+
+[resource]
+script = ExtResource("4_imt8m")
+id = &"build_siege_engine"
+display_name = "Build Siege Engine"
+description = "Spends 6 seconds building a Siege Engine with 140 health. It cannot move and only fires at enemies you have marked. Two at most. Costs 20 Mana."
+wind_up_ticks = 90
+recover_ticks = 20
+resource_cost = 20
+targeting = SubResource("Resource_3fovn")
+effects = Array[ExtResource("1_t1rbk")]([SubResource("Resource_u2l2l"), SubResource("Resource_a78de")])

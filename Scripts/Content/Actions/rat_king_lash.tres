@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_qlhx5"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_ytlps"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/SummonEffect.gd" id="3_vrqw3"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_fl5vb"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_16v1w"]
+
+[sub_resource type="Resource" id="Resource_ns1sr"]
+script = ExtResource("2_ytlps")
+
+[sub_resource type="Resource" id="Resource_eg3rw"]
+script = ExtResource("3_vrqw3")
+unit_id = &"rat"
+
+[sub_resource type="Resource" id="Resource_41r1p"]
+script = ExtResource("5_16v1w")
+range_units = 200.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("4_fl5vb")
+id = &"rat_king_lash"
+display_name = "Tail Lash"
+description = "A ranged strike at up to 200 units that leaves a rat behind."
+wind_up_ticks = 20
+recover_ticks = 22
+targeting = SubResource("Resource_41r1p")
+effects = Array[ExtResource("1_qlhx5")]([SubResource("Resource_ns1sr"), SubResource("Resource_eg3rw")])

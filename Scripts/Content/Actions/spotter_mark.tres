@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_6vfdq"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_xp5ql"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_xw6ds"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_k4yld"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_6fk3e"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_nx0w8"]
+
+[sub_resource type="Resource" id="Resource_5qjtu"]
+script = ExtResource("1_6vfdq")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_dqa5x"]
+script = ExtResource("3_xw6ds")
+
+[sub_resource type="Resource" id="Resource_f1ku4"]
+script = ExtResource("4_k4yld")
+status = 7
+duration_ticks = 150
+
+[sub_resource type="Resource" id="Resource_npsht"]
+script = ExtResource("6_nx0w8")
+range_units = 350.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_6fk3e")
+id = &"spotter_mark"
+display_name = "Spotter's Mark"
+description = "Marks a target within 350 units, reducing its damage reduction by 25 percentage points for 10 seconds."
+wind_up_ticks = 10
+recover_ticks = 10
+resource_cost = 15
+targeting = SubResource("Resource_npsht")
+delivery = SubResource("Resource_5qjtu")
+effects = Array[ExtResource("2_xp5ql")]([SubResource("Resource_dqa5x"), SubResource("Resource_f1ku4")])

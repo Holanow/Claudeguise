@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_vdi36"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_gvwfm"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_qsdwc"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionSustain.gd" id="4_8u1bk"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_5cvnl"]
+
+[sub_resource type="Resource" id="Resource_2hqdb"]
+script = ExtResource("2_gvwfm")
+damage_type = 1
+power_scale = 0.15555555555555556
+
+[sub_resource type="Resource" id="Resource_ls5t8"]
+script = ExtResource("4_8u1bk")
+cost_per_tick = 1
+radius = 90.0
+
+[sub_resource type="Resource" id="Resource_bp0a5"]
+script = ExtResource("5_5cvnl")
+targets_self = true
+
+[resource]
+script = ExtResource("3_qsdwc")
+id = &"abomination_immolate"
+display_name = "Immolate"
+description = "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking a Grapple's worth of damage each second. Costs 1 Rage to light and 15 Rage a second to hold."
+wind_up_ticks = 15
+resource_cost = 1
+targeting = SubResource("Resource_bp0a5")
+effects = Array[ExtResource("1_vdi36")]([SubResource("Resource_2hqdb")])
+sustain = SubResource("Resource_ls5t8")

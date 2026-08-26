@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_n85dd"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_m6a0n"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/CleanseEffect.gd" id="3_v83fn"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_sc5fl"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3tl1j"]
+
+[sub_resource type="Resource" id="Resource_o6yv4"]
+script = ExtResource("2_m6a0n")
+damage_type = 2
+power_scale = 0.0
+heals = true
+
+[sub_resource type="Resource" id="Resource_f5p18"]
+script = ExtResource("3_v83fn")
+
+[sub_resource type="Resource" id="Resource_wylkj"]
+script = ExtResource("5_3tl1j")
+range_units = 350.0
+
+[resource]
+script = ExtResource("4_sc5fl")
+id = &"geyser_cleanse"
+display_name = "Scour"
+description = "Boils every harmful effect off an ally within 350 units. Costs 10 Mana."
+wind_up_ticks = 8
+recover_ticks = 10
+cooldown_ticks = 60
+resource_cost = 10
+targeting = SubResource("Resource_wylkj")
+effects = Array[ExtResource("1_n85dd")]([SubResource("Resource_o6yv4"), SubResource("Resource_f5p18")])

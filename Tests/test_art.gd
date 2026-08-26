@@ -825,7 +825,13 @@ func _baked_ids(kind: String) -> Array[StringName]:
 	for file in dir.get_files():
 		if file.ends_with(".png"):
 			out.append(StringName(file.get_basename()))
-	out.sort()
+	## By String, not by StringName. Godot orders StringNames by their intern
+	## pointer, so a bare `sort()` here returns whatever order the run happened
+	## to intern them in -- and `_DELIBERATE_SHARED_GLYPHS` is keyed on the
+	## lexicographic pair. Issue 621 changed when action ids get interned and
+	## turned that into two failures. `Registry._sort_ids` already does this.
+	out.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return String(a) < String(b))
 	return out
 
 
