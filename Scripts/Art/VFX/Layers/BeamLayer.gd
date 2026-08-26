@@ -22,6 +22,7 @@ func play(ctx: Dictionary) -> void:
 	var beam: ColorRect = director.make_beam("res://Shaders/VFX/beam.gdshader", from, to, width)
 	if beam == null:
 		return
+	director.follow_beam(beam, ctx["source_id"], from_hands, to)
 	beam.material.set_shader_parameter("core_colour", core_colour)
 	beam.material.set_shader_parameter("edge_colour", edge_colour)
 	director.tween_shader(beam, "extend", 0.0, 1.0, extend_seconds, Tween.EASE_OUT, Tween.TRANS_EXPO)

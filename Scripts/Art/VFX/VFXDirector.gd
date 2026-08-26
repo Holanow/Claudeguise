@@ -17,6 +17,7 @@ var hit_stop_fn: Callable = func() -> void: pass
 
 var _rng := RandomNumberGenerator.new()
 var _followers: Array[Node2D] = []
+var _beams: Array[Node2D] = []
 
 func _ready() -> void:
 	_rng.seed = 12345
@@ -61,6 +62,20 @@ func _process(_delta: float) -> void:
 			continue
 		holder.position = anchor_of(int(holder.get_meta(&"unit_id")),
 			bool(holder.get_meta(&"hands"))) + Vector2(holder.get_meta(&"offset"))
+	for i in range(_beams.size() - 1, -1, -1):
+		var beam := _beams[i]
+		if not is_instance_valid(beam):
+			_beams.remove_at(i)
+			continue
+		var rect: ColorRect = beam.get_meta(&"rect")
+		if not is_instance_valid(rect):
+			_beams.remove_at(i)
+			continue
+		var from := anchor_of(int(beam.get_meta(&"unit_id")), bool(beam.get_meta(&"hands")))
+		var to: Vector2 = beam.get_meta(&"to")
+		beam.position = from
+		beam.rotation = (to - from).angle()
+		rect.size.x = from.distance_to(to)
 
 # ---------------------------------------------------------------------------
 # Primitives. Everything a layer may do to the screen is here, which is what
@@ -104,6 +119,18 @@ func make_beam(shader_path: String, from: Vector2, to: Vector2, width: float) ->
 	add_child(holder)
 	return rect
 
+## Re-roots a beam on its caster every frame. Without this the origin is fixed
+## where the hands were at the instant it fired, and the hands then keep moving
+## through the recover and the idle bob, so the beam visibly detaches from the
+## pose throwing it. The far end stays where the blast landed.
+func follow_beam(rect: ColorRect, source_id: int, hands: bool, to: Vector2) -> void:
+	var holder := rect.get_parent() as Node2D
+	holder.set_meta(&"unit_id", source_id)
+	holder.set_meta(&"hands", hands)
+	holder.set_meta(&"to", to)
+	holder.set_meta(&"rect", rect)
+	_beams.append(holder)
+
 ## Tracks a unit for as long as it lives, which a wind-up tell needs because the
 ## caster is often still walking when it starts.
 func follow(rect: ColorRect, unit_id: int, offset: Vector2, hands: bool = false) -> void:
@@ -134,6 +161,7 @@ func free_after(rect: ColorRect, seconds: float) -> void:
 	after(seconds, func():
 		if is_instance_valid(holder):
 			_followers.erase(holder)
+			_beams.erase(holder)
 			holder.queue_free())
 
 ## A timer that ignores time scale, so a hit stop cannot strand a cleanup.
