@@ -185,7 +185,7 @@ func test_a_shielder_out_of_its_own_radius_does_not_intercept() -> void:
 
 func test_shielding_never_blocks_a_friendly_shot() -> void:
 	var heal_shot := _shot(&"heal_shot", 20.0)
-	heal_shot.heals = true
+	heal_shot.hit().heals = true
 	var deps := _deps_with_action(heal_shot, 6.0)
 
 	var state := CombatState.new(306)

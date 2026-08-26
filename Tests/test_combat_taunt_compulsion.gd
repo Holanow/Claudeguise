@@ -310,7 +310,7 @@ func test_an_untaunted_unit_decides_for_itself() -> void:
 ## authored wrong should look wrong, not reach the whole arena.
 func test_a_taunt_with_no_radius_compels_nobody() -> void:
 	var taunt := _taunt(&"roar")
-	taunt.taunt_radius = 0.0
+	taunt.status_effect().taunt_radius = 0.0
 	var state := _arena(taunt)
 	_roar(state, _deps([taunt, _strike(&"claw", 40.0)]), taunt)
 

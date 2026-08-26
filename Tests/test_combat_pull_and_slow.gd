@@ -324,8 +324,8 @@ func test_cleansing_the_stun_takes_the_target_off_the_chain() -> void:
 	var hook := _hook(&"hook", 70.0)
 	var mend := _hook(&"mend", 0.0)
 	mend.wind_up_ticks = 6
-	mend.heals = true
-	mend.cleanses_harmful = true
+	mend.hit().heals = true
+	mend.effects.append(CleanseEffect.new())
 	var deps := _deps_with_actions([hook, mend], 1.0)
 
 	var state := CombatState.new(112)

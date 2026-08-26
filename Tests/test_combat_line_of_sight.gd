@@ -22,7 +22,7 @@ func _sighted(id: StringName, wind_up: int, recover: int, range_units: float) ->
 
 func _unsighted(id: StringName, wind_up: int, recover: int, range_units: float) -> ActionDef:
 	var a := _sighted(id, wind_up, recover, range_units)
-	a.requires_line_of_sight = false
+	a.targeting.requires_line_of_sight = false
 	return a
 
 func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringName]) -> CombatUnit:

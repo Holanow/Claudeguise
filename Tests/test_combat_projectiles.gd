@@ -386,7 +386,7 @@ func test_determinism_holds_with_projectiles_in_play() -> void:
 
 func test_line_of_sight_is_rechecked_every_tick_the_shot_travels() -> void:
 	var shot := _shot(&"shot", 20.0)
-	shot.requires_line_of_sight = true
+	shot.targeting.requires_line_of_sight = true
 	var deps := _deps_with_action(shot, 9.0)
 
 	var state := CombatState.new(209)

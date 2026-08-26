@@ -270,7 +270,7 @@ func test_a_cleanse_does_not_fire_on_a_target_its_own_damage_killed() -> void:
 	# death resolution for exactly this reason. A cleanse is placed beside it
 	# and must behave the same: no scrubbing a corpse.
 	var cleanse := _cleanse_action(&"cleanse", true)
-	cleanse.heals = false
+	cleanse.hit().heals = false
 	var deps := _deps_with_action(cleanse)
 	deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _r = null) -> float: return 999.0
 
