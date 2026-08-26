@@ -137,10 +137,27 @@ func test_the_floating_part_detector_sees_a_gap() -> void:
 	assert_true(_largest_island(split) < _ink_pixels(split), "a line with a hole in it must not")
 
 
-## The composed art the game draws, as pixels.
+## The body the game draws, flattened to pixels. Nothing composes a unit any
+## more -- it is a stack of part sprites -- so the check that a part is attached
+## to the rest of the body has to flatten the stack itself.
 func _composed(id: StringName) -> Image:
-	var tex := UnitArt.texture_for(id, CG.Team.ENEMY)
-	return null if tex == null else tex.get_image()
+	var sprites := UnitArt.sprites_for(id, CG.Team.ENEMY)
+	if sprites.is_empty():
+		return null
+	var out: Image = null
+	for s in sprites:
+		var tex: Texture2D = s["tex"]
+		if tex == null:
+			continue
+		var img := tex.get_image()
+		if out == null:
+			out = Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8)
+			out.fill(Color(0, 0, 0, 0))
+		for y in mini(out.get_height(), img.get_height()):
+			for x in mini(out.get_width(), img.get_width()):
+				if img.get_pixel(x, y).a > 0.0:
+					out.set_pixel(x, y, Color.WHITE)
+	return out
 
 
 func _ink_pixels(img: Image) -> int:
@@ -296,10 +313,9 @@ func test_fill_ratio_reads_the_real_art() -> void:
 	# because of it.** There is only one path now, so the defect is structurally
 	# impossible; the assertion that remains is that the number comes from the
 	# sprite's opaque pixels rather than from its file dimensions.
-	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER), "warrior.png is gone; this test measures nothing")
+	assert_true(UnitArt.has_art(&"warrior", CG.Team.PLAYER), "the warrior has no parts; this test measures nothing")
 	var ratio := Silhouettes.fill_ratio(&"warrior", CG.Team.PLAYER)
-	var tex := UnitArt.texture_for(&"warrior", CG.Team.PLAYER)
-	assert_eq(ratio, UnitArt.opaque_fraction(tex))
+	assert_eq(ratio, UnitArt.opaque_fraction(&"warrior", CG.Team.PLAYER))
 	assert_true(ratio.x > 0.0 and ratio.x <= 1.0, "fill_ratio is out of range: %s" % ratio)
 
 
@@ -315,15 +331,15 @@ func test_fill_ratio_ignores_a_sprites_transparent_margin() -> void:
 			image.set_pixel(x, y, Color.WHITE)
 	var tex := ImageTexture.create_from_image(image)
 	var file_fraction := Vector2(tex.get_width(), tex.get_height()) / maxf(tex.get_width(), tex.get_height())
-	var opaque := UnitArt.opaque_fraction(tex)
+	var opaque := UnitArt.texture_fraction(tex)
 	assert_true(opaque.y < file_fraction.y - 0.1,
 		"opaque_fraction returned the file's height (%.2f), margin included" % file_fraction.y)
 	assert_eq(opaque, Vector2(1.0, 0.25), "opaque_fraction is not the opaque band")
 	# And on a real sprite the extent must agree with the fraction, or the two
 	# answers drift.
 	assert_true(UnitArt.has_art(&"siege_master", CG.Team.PLAYER),
-		"this half measures the texture path; without a PNG for siege_master it measures nothing")
-	var shipped := UnitArt.opaque_fraction(UnitArt.texture_for(&"siege_master", CG.Team.PLAYER))
+		"this half measures a real body; without parts for siege_master it measures nothing")
+	var shipped := UnitArt.opaque_fraction(&"siege_master", CG.Team.PLAYER)
 	var extent := Silhouettes.drawn_extent(&"siege_master", 100.0, CG.Team.PLAYER)
 	assert_true(absf(extent.size.y / 200.0 - shipped.y) < 0.01,
 		"drawn_extent and opaque_fraction disagree about the same sprite")
@@ -337,7 +353,7 @@ func test_a_fully_transparent_sprite_does_not_collapse_to_nothing() -> void:
 	var image := Image.create(8, 4, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0.0, 0.0, 0.0, 0.0))
 	var tex := ImageTexture.create_from_image(image)
-	assert_eq(UnitArt.opaque_fraction(tex), Vector2(1.0, 0.5),
+	assert_eq(UnitArt.texture_fraction(tex), Vector2(1.0, 0.5),
 		"a blank sprite must fall back to its file box, not to a zero-size extent")
 
 
@@ -407,40 +423,48 @@ func test_a_mirrored_sprite_is_drawn_in_the_same_place() -> void:
 	# negation belongs on the rect and not on the size that positions it.
 	for id in Silhouettes.shape_ids():
 		for team in [CG.Team.PLAYER, CG.Team.ENEMY]:
-			var tex := UnitArt.texture_for(id, team)
-			if tex == null:
-				continue
-			var right := UnitArt.signed_rect(tex, 33.0, false, Vector2(100.0, 40.0))
-			var left := UnitArt.signed_rect(tex, 33.0, true, Vector2(100.0, 40.0))
-			assert_true(left.size.x < 0.0, "%s is not mirrored when it faces left" % id)
-			# NOT `left.abs()`. `Rect2.abs()` normalises by moving `position`
-			assert_eq(left.position, right.position,
-				"%s moves when it is mirrored: %s vs %s" % [id, left.position, right.position])
-			assert_eq(left.size.x, -right.size.x, "%s changes width when mirrored" % id)
-			assert_eq(right.get_center(), Vector2(100.0, 40.0),
-				"%s is not drawn on the centre it was given" % id)
+			for s in UnitArt.sprites_for(id, team):
+				var tex: Texture2D = s["tex"]
+				if tex == null:
+					continue
+				_assert_mirrors_in_place(id, tex)
+
+
+func _assert_mirrors_in_place(id: StringName, tex: Texture2D) -> void:
+	var right := UnitArt.signed_rect(tex, 33.0, false, Vector2(100.0, 40.0))
+	var left := UnitArt.signed_rect(tex, 33.0, true, Vector2(100.0, 40.0))
+	assert_true(left.size.x < 0.0, "%s is not mirrored when it faces left" % id)
+	# NOT `left.abs()`. `Rect2.abs()` normalises by moving `position`
+	assert_eq(left.position, right.position,
+		"%s moves when it is mirrored: %s vs %s" % [id, left.position, right.position])
+	assert_eq(left.size.x, -right.size.x, "%s changes width when mirrored" % id)
+	assert_eq(right.get_center(), Vector2(100.0, 40.0),
+		"%s is not drawn on the centre it was given" % id)
 
 
 func test_a_missing_art_file_is_not_an_error() -> void:
 	# Dropping in art is opt-in per unit, so the absence of a file has to be
 	# silent. If this ever pushed an error, the console would be unreadable and
 	# people would learn to ignore it.
-	assert_eq(UnitArt.texture_for(&"definitely_not_a_unit", CG.Team.PLAYER), null)
+	assert_eq(UnitArt.sprites_for(&"definitely_not_a_unit", CG.Team.PLAYER), [])
 	assert_false(UnitArt.has_art(&"definitely_not_a_unit", CG.Team.ENEMY))
 
 
 func test_the_replacement_instructions_match_the_real_content() -> void:
-	# Assets/Units/README.md tells whoever replaces the art which filenames to
-	# use. If somebody adds an enemy and does not update it, that person finds
-	# out here rather than the artist finding out by dropping in a PNG that
-	# never appears.
+	# Assets/Units/README.md tells whoever adds a creature what each one is made
+	# of. If somebody adds an enemy and does not update it, that person finds out
+	# here rather than the next reader finding a table missing a row.
+	#
+	# It looked for `<id>.png` until units stopped being one file each. There is
+	# no such file to name any more, so it looks for the id itself -- and the id
+	# in the table is what the recipe is keyed by.
 	var readme := FileAccess.get_file_as_string("res://Assets/Units/README.md")
 	assert_ne(readme, "", "Assets/Units/README.md is missing")
 
 	for class_id in Registry.all_class_ids():
 		assert_true(
-			readme.contains("%s.png" % class_id),
-			"class '%s' is registered but Assets/Units/README.md does not list %s.png" % [class_id, class_id]
+			readme.contains("`%s`" % class_id),
+			"class '%s' is registered but Assets/Units/README.md does not list it" % class_id
 		)
 
 	var checked := 0
@@ -448,8 +472,8 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
 			var enemy_id: StringName = spawn.get("enemy_id", &"")
 			assert_true(
-				readme.contains("%s.png" % enemy_id),
-				"enemy '%s' spawns but Assets/Units/README.md does not list %s.png" % [enemy_id, enemy_id]
+				readme.contains("`%s`" % enemy_id),
+				"enemy '%s' spawns but Assets/Units/README.md does not list it" % enemy_id
 			)
 			checked += 1
 	assert_true(checked > 0, "no enemy spawns checked; this test would pass on an empty game")

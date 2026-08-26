@@ -360,21 +360,23 @@ func _card(row: Dictionary) -> Control:
 func _portrait(row: Dictionary) -> Control:
 	var pawn: PawnData = row["pawn"]
 	var shape: StringName = pawn.pawn_class.id if pawn.pawn_class != null else &""
-	var tex := UnitArt.texture_for(shape, CG.Team.PLAYER)
-	if tex == null:
-		var black := ColorRect.new()
-		black.color = Color.BLACK
-		black.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
-		return _hoverable(black, row)
-	var box := TextureRect.new()
+	var box := Portrait.new()
+	box.shape = shape
 	box.custom_minimum_size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
-	box.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	box.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	box.texture = tex
 	if not bool(row["alive"]):
 		box.modulate = Color(1.0, 1.0, 1.0, 0.45)
 	return _hoverable(box, row)
+
+## One pawn's body at portrait size. Drawn through `Silhouettes.draw_unit` rather
+## than shown as a texture, because a unit is a stack of part sprites and there is
+## no one composed image of it to hand a `TextureRect`.
+class Portrait extends Control:
+	var shape: StringName = &""
+
+	func _draw() -> void:
+		var radius := minf(size.x, size.y) * 0.5
+		Silhouettes.draw_unit(self, shape, radius, CG.Team.PLAYER,
+			CG.DamageType.PHYSICAL, false, size * 0.5)
 
 ## The class in words and what this pawn was wearing when it fought, derived
 ## both times: `Glossary` owns the first and `EquipPanel.item_effect_text` owns

@@ -5,19 +5,8 @@ class_name UnitRecipes
 ## Issue 566. What a unit is made of, rather than a drawing of it.
 ##
 ## A recipe is a stack of parts from `Assets/Units/parts/`, bottom first, each
-## with a colour. `compose` layers them into ONE texture per (shape, team) and
-## caches it, so the arena still issues one `draw_texture_rect` per body.
-
-const PARTS_DIR := "res://Assets/Units/parts"
-
-## The colour every composed silhouette is outlined in. The existing sprites all
-## carry a dark border and it is what keeps a body off the floor it stands on.
-const OUTLINE := Color("14121a")
-
-## The outline's width as a share of the canvas, so it survives the downsample.
-## A unit is drawn at 20-60 screen pixels from a 256-pixel file, so a border
-## authored at one pixel is gone by the time anybody sees it.
-const OUTLINE_SHARE := 0.031
+## with a colour. `slots_for` sorts that stack into the fixed slots `UnitVisual`
+## builds its sprite tree from; nothing here composes anything.
 
 ## `team` on a layer takes `Palette.team_color` instead of `color`, which is the
 ## one place a side changes what a unit looks like.
@@ -184,210 +173,64 @@ static func recipe_ids() -> Array[StringName]:
 	out.sort()
 	return out
 
-## One composed texture per (shape, team). Built once and kept for the process:
-## the alternative is layering at draw time, which is the draw-call multiplier
-## issue 566 was worried about and this avoids entirely.
-static var _cache := {}
-
-static func clear_cache() -> void:
-	_cache.clear()
-	_rings.clear()
-
-static func compose(shape_id: StringName, team: CG.Team) -> Texture2D:
-	var key := "%s|%d" % [shape_id, int(team)]
-	if _cache.has(key):
-		return _cache[key]
-	var made := _build(shape_id, team)
-	_cache[key] = made
-	return made
-
-## Part images live for the process too. A part is read by every recipe that
-## names it, and `get_image` copies the whole file each time.
-static var _part_images := {}
-
-static func part_image(part: StringName) -> Image:
-	if _part_images.has(part):
-		return _part_images[part]
-	var img: Image = null
-	var path := "%s/%s.png" % [PARTS_DIR, part]
-	if FileAccess.file_exists(path):
-		var loaded := Image.new()
-		if loaded.load(path) == OK:
-			loaded.convert(Image.FORMAT_RGBA8)
-			img = loaded
-		else:
-			push_error("UnitRecipes: %s exists but could not be read" % path)
-	_part_images[part] = img
-	return img
-
-static func _build(shape_id: StringName, team: CG.Team) -> Texture2D:
-	var img := compose_image(shape_id, team)
-	return null if img == null else ImageTexture.create_from_image(img)
-
-## The composed pixels. `Tools/BakeParts.gd` writes these to disk so the game
-## never pays for the composition, and this is the one place it happens, so the
-## baked file and the runtime fallback cannot disagree.
-## Issue 583. A recipe cut at its animated parts: the layers below the first one,
-## then each animated part alone, then the layers above. A recipe naming no
-## animated part yields one slice, which is the flat composite and is why a
-## creature without hands needs no case anywhere.
+## The fixed slots a body is built from, in draw order. Tree order in
+## `UnitVisual` is this order, so nothing sorts at runtime.
 ##
-## Each slice is `{"part": <name or &"">, "layers": [...]}`. The `part` is what
-## the view moves; `&""` is a static slab.
-static func slices_for(shape_id: StringName) -> Array:
-	var out: Array = []
-	var still: Array = []
-	for layer in layers_for(shape_id):
-		var part: StringName = layer["part"]
-		if not PartAnimation.animates(part):
-			still.append(layer)
-			continue
-		if not still.is_empty():
-			out.append({"part": &"", "layers": still})
-			still = []
-		out.append({"part": part, "layers": [layer]})
-	if not still.is_empty():
-		out.append({"part": &"", "layers": still})
-	return out
+## Headwear sits UNDER Face rather than over it, which is a deliberate departure
+## from the order the issue named: a hood covers the pixels the eyes are drawn on
+## and the stack this replaces always drew the eyes last, so Face-over-Headwear
+## takes the eyes off the Priest, the Cultist, both hooded dungeon soldiers, the
+## Siege Master and The Warden.
+const SLOTS: Array[StringName] = [&"Body", &"Head", &"Headwear", &"Face", &"Hands", &"Extra"]
 
-## Issue 589. Which chunk of a body a part leaves with when the body comes apart.
-## A part named nowhere here is its own chunk, so a part added later flies on its
-## own rather than silently joining the body it was drawn over.
-const FRAGMENT_GROUPS := {
-	&"body_skinny": &"body", &"body_muscular": &"body",
-	&"body_rotund": &"body", &"body_low": &"body", &"feet": &"body",
-	&"head_round": &"head", &"head_small": &"head", &"head_tall": &"head",
-	&"head_snouted": &"head", &"eyes": &"head", &"eyes_snout": &"head",
-	&"ears_pointed": &"head", &"ears_round": &"head", &"nose_triangle": &"head",
-	&"mandibles": &"head", &"tusks": &"head", &"horns": &"head",
-	&"hat": &"head", &"hat_low": &"head", &"hood": &"head",
-	&"helm": &"head", &"plume": &"head", &"crown": &"head",
-	&"hands": &"hands", &"hands_wide": &"hands",
+## Which slot a part goes in. A part named nowhere here lands in `Extra`, so a
+## part added later draws last rather than silently joining a group it was never
+## put in.
+const SLOT_OF := {
+	&"body_skinny": &"Body", &"body_muscular": &"Body",
+	&"body_rotund": &"Body", &"body_low": &"Body", &"feet": &"Body",
+	&"head_round": &"Head", &"head_small": &"Head",
+	&"head_tall": &"Head", &"head_snouted": &"Head",
+	&"hat": &"Headwear", &"hat_low": &"Headwear", &"hood": &"Headwear",
+	&"helm": &"Headwear", &"plume": &"Headwear", &"crown": &"Headwear",
+	&"horns": &"Headwear", &"spikes": &"Headwear",
+	&"eyes": &"Face", &"eyes_snout": &"Face",
+	&"ears_pointed": &"Face", &"ears_round": &"Face",
+	&"nose_triangle": &"Face", &"mandibles": &"Face", &"tusks": &"Face",
+	&"hands": &"Hands", &"hands_wide": &"Hands",
 }
 
-static func group_for(part: StringName) -> StringName:
-	return FRAGMENT_GROUPS.get(part, part)
+static func slot_of(part: StringName) -> StringName:
+	return SLOT_OF.get(part, &"Extra")
 
-## The recipe cut into the chunks a death throws: runs of ADJACENT layers that
-## share a group. Adjacent rather than gathered, so the chunks stack back into
-## the flat composite in the order it was composed: each part carries its own
-## outline ring, so a layer pulled back under one it was baked over is visible.
+## The recipe sorted into its slots: one entry per slot in `SLOTS` order, each
+## carrying the layers that landed in it in the order the recipe named them.
 ##
-## Each entry is `{"group": <name>, "layers": [...]}`, the same shape
-## `slices_for` yields, and `compose_layers` builds either one.
-static func fragments_for(shape_id: StringName) -> Array:
-	var out: Array = []
+## A slot with nothing in it is kept and is empty, because `UnitVisual` builds
+## one node per slot whatever the recipe holds -- "an empty slot is a hidden
+## sprite" is what makes a Goblin and a Rat King the same tree.
+static func slots_for(shape_id: StringName) -> Array:
+	var by_slot := {}
+	for slot in SLOTS:
+		by_slot[slot] = []
 	for layer in layers_for(shape_id):
-		var group := group_for(layer["part"])
-		if not out.is_empty() and out[-1]["group"] == group:
-			out[-1]["layers"].append(layer)
-			continue
-		out.append({"group": group, "layers": [layer]})
+		by_slot[slot_of(layer["part"])].append(layer)
+	var out: Array = []
+	for slot in SLOTS:
+		out.append({"slot": slot, "layers": by_slot[slot]})
 	return out
 
-## Whether this recipe has anything to animate at all.
+## Whether this recipe has anything to animate at all: whether its `Hands` slot
+## holds a part `PartAnimation` moves.
 static func has_animated_part(shape_id: StringName) -> bool:
 	for layer in layers_for(shape_id):
 		if PartAnimation.animates(layer["part"]):
 			return true
 	return false
 
-static func compose_image(shape_id: StringName, team: CG.Team) -> Image:
-	return compose_layers(layers_for(shape_id), team)
-
-static func compose_layers(layers: Array, team: CG.Team) -> Image:
-	if layers.is_empty():
-		return null
-	var size := _canvas_size(layers)
-	if size <= 0:
-		return null
-	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	out.fill(Color(0, 0, 0, 0))
-	# The player: "Every part needs to be outlined and heavier." So the ring is
-	# per part rather than around the union -- a head now carries its own edge
-	# where it crosses a body, which is where the weight comes from.
-	var width := maxi(1, roundi(float(size) * OUTLINE_SHARE))
-	for layer in layers:
-		var part := part_image(layer["part"])
-		# A missing part is a black square, per the player's ruling: an obvious
-		# defect beats a silent hole in a body.
-		if part == null:
-			_fill_square(out, Color.BLACK)
-			continue
-		_stamp(out, part_ring(layer["part"], width), OUTLINE)
-		_stamp(out, part, _layer_color(layer, team))
-	return out
-
-static func _layer_color(layer: Dictionary, team: CG.Team) -> Color:
+## The colour one layer is drawn in. `team` takes `Palette.team_color` instead of
+## `color`, which is the one place a side changes what a unit looks like.
+static func layer_color(layer: Dictionary, team: CG.Team) -> Color:
 	if layer.get("team", false):
 		return Palette.team_color(team)
 	return Color(layer.get("color", "ffffff"))
-
-## Every part shares one canvas, so the composed size is simply the part size.
-## Read off the first part that loads rather than assumed, so changing
-## `BakeParts.N` needs no edit here.
-static func _canvas_size(layers: Array) -> int:
-	for layer in layers:
-		var part := part_image(layer["part"])
-		if part != null:
-			return part.get_width()
-	return 0
-
-static func _fill_square(out: Image, color: Color) -> void:
-	var n := out.get_width()
-	for y in n:
-		for x in n:
-			out.set_pixel(x, y, color)
-
-## Alpha-over, in `color`. The parts are white masks, so the colour is the
-## recipe's rather than the file's -- one `body_skinny` serves a green goblin
-## and a robed priest.
-static func _stamp(out: Image, part: Image, color: Color) -> void:
-	if part == null:
-		return
-	for y in mini(out.get_height(), part.get_height()):
-		for x in mini(out.get_width(), part.get_width()):
-			var a := part.get_pixel(x, y).a
-			if a <= 0.0:
-				continue
-			var src := Color(color.r, color.g, color.b, a)
-			out.set_pixel(x, y, out.get_pixel(x, y).blend(src))
-
-## A one-pixel dark border around the composed silhouette. Around the OUTSIDE,
-## never between two parts: an outline on every seam turns a body into a
-## diagram, and the sprites this replaces outline the creature and not its arms.
-## The ring just outside a part, `width` pixels thick. Cached per (part, width):
-## a dilation is the most expensive thing in this file and a part is named by
-## every recipe that uses it, on both teams.
-static var _rings := {}
-
-static func part_ring(part: StringName, width: int) -> Image:
-	var key := "%s|%d" % [part, width]
-	if _rings.has(key):
-		return _rings[key]
-	var src := part_image(part)
-	var ring: Image = null
-	if src != null:
-		ring = Image.create(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8)
-		ring.fill(Color(0, 0, 0, 0))
-		var grown := src.duplicate()
-		for _pass in maxi(1, width):
-			var edge: Array = []
-			for y in grown.get_height():
-				for x in grown.get_width():
-					if grown.get_pixel(x, y).a <= 0.0 and _touches_ink(grown, x, y):
-						edge.append(Vector2i(x, y))
-			for p: Vector2i in edge:
-				grown.set_pixel(p.x, p.y, Color.WHITE)
-				ring.set_pixel(p.x, p.y, Color.WHITE)
-	_rings[key] = ring
-	return ring
-
-static func _touches_ink(img: Image, x: int, y: int) -> bool:
-	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var q := Vector2i(x, y) + d
-		if q.x < 0 or q.y < 0 or q.x >= img.get_width() or q.y >= img.get_height():
-			continue
-		if img.get_pixel(q.x, q.y).a > 0.0:
-			return true
-	return false
