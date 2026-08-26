@@ -287,7 +287,7 @@ static func kite_anchor(state: CombatState, unit: CombatUnit, centre: Vector2, b
 			spot = Vector2(
 				clampf(spot.x, -CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
 				clampf(spot.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT))
-			if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+			if state.grid.move_blocked(spot, unit.radius):
 				continue
 			if CombatSim.standing_harms(state, spot):
 				continue
@@ -359,7 +359,7 @@ static func safe_spot(state: CombatState, unit: CombatUnit):
 			spot = Vector2(
 				clampf(spot.x, -CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_WIDTH),
 				clampf(spot.y, -CG.ARENA_HALF_HEIGHT, CG.ARENA_HALF_HEIGHT))
-			if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+			if state.grid.move_blocked(spot, unit.radius):
 				continue
 			if CombatSim.standing_harms(state, spot):
 				continue
@@ -379,7 +379,7 @@ static func _action_needs_line_of_sight(action_id: StringName) -> bool:
 ## called rather than copied, so the plan layer and the projectile cannot
 ## disagree about what counts as cover.
 static func in_cover_from(state: CombatState, unit: CombatUnit, pos: Vector2, threat: CombatUnit) -> bool:
-	if Terrain.line_is_blocked(state.terrain, threat.position, pos):
+	if state.grid.sight_blocked(threat.position, pos, [threat.id, unit.id]):
 		return true
 	return CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, pos)
 
@@ -389,21 +389,18 @@ static func in_cover_from(state: CombatState, unit: CombatUnit, pos: Vector2, th
 static func _cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit):
 	var best = null
 	var best_dist := INF
-	for f in state.terrain:
-		if not f.blocks_sight():
-			continue
-		var centre: Vector2 = f.rect.get_center()
+	for c in state.grid.sight_blocking_cells():
+		var centre: Vector2 = TerrainGrid.rect_of(c).get_center()
 		var away := centre - threat.position
 		if away.length() < 0.0001:
 			continue
-		var extent := 0.5 * maxf(f.rect.size.x, f.rect.size.y)
-		var spot := centre + away.normalized() * (extent + COVER_STANDOFF)
+		var spot := centre + away.normalized() * (TerrainGrid.CELL * 0.5 + COVER_STANDOFF)
 		var d := unit.position.distance_to(spot)
 		if d >= best_dist:
 			continue
-		if Terrain.point_is_blocked(state.terrain, spot, unit.radius):
+		if state.grid.move_blocked(spot, unit.radius):
 			continue
-		if not Terrain.line_is_blocked(state.terrain, threat.position, spot):
+		if not state.grid.sight_blocked(threat.position, spot, [threat.id, unit.id]):
 			continue
 		best_dist = d
 		best = spot
@@ -417,7 +414,7 @@ static func _cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit
 		var d2 := unit.position.distance_to(spot2)
 		if d2 >= best_dist:
 			continue
-		if Terrain.point_is_blocked(state.terrain, spot2, unit.radius):
+		if state.grid.move_blocked(spot2, unit.radius):
 			continue
 		if not CombatSim.shot_would_be_shielded(state, unit.team, threat.team, threat.position, spot2):
 			continue
@@ -471,7 +468,7 @@ static func _target_in_los(state: CombatState, unit: CombatUnit, action_id: Stri
 	var target := state.unit(action_target_id(unit, action_id))
 	if target == null:
 		return false
-	return not Terrain.line_is_blocked(state.terrain, unit.position, target.position)
+	return not state.grid.sight_blocked(unit.position, target.position, [unit.id, target.id])
 
 ## Issue 22: same shape as 14a's range check, same reasoning. A plan whose
 ## action the unit cannot actually pay for right now -- not enough resource,

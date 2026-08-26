@@ -905,7 +905,7 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	set_paused(false)
 	_rebuild_units()
 	_build_deploy_band()
-	_arena.terrain = state.terrain
+	_arena.grid = state.grid
 	_arena.projectiles = []
 	_arena.shot_positions = {}
 	_prev_drawn = {}
@@ -1033,7 +1033,7 @@ func _move_grabbed_to(point: Vector2) -> void:
 		return
 	var u := state.unit(_grabbed_unit_id)
 	var target := LevelEditorCanvas.clamp_to_deploy_zone(point, u.radius)
-	if Terrain.point_is_blocked(state.terrain, target, u.radius):
+	if state.grid.move_blocked(target, u.radius):
 		return
 	var next := placements()
 	next[index] = target
