@@ -6,25 +6,17 @@ extends "res://Tests/TestCase.gd"
 const RANGE := 120.0
 
 func _movement(range_units: float) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.MOVEMENT
-	b.op = &"keep_distance"
-	b.args = {"range": range_units}
+	var b := PlanFixtures.block(&"keep_distance", {"range_units": range_units})
 	return b
 
 
 func _targeting() -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.TARGETING
-	b.op = &"target_nearest_enemy"
+	var b := PlanFixtures.block(&"target_nearest_enemy")
 	return b
 
 
 func _action(action_id: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.ACTION
-	b.op = &"use_action"
-	b.args = {"action_id": action_id}
+	var b := PlanFixtures.block(&"use_action", {"action_id": action_id})
 	return b
 
 
@@ -186,23 +178,6 @@ func test_a_movement_block_alone_is_a_complete_plan() -> void:
 	var me: CombatUnit = s[1]
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_eq(PlanInterpreter.last_error, "", "a movement-only plan is not an error")
-
-
-## An unknown movement op fails loudly like every other kind, rather than being
-## skipped. A silently ignored block reads to a player as the plan simply not
-## working, which is this interpreter's own stated rule.
-func test_an_unknown_movement_op_fails_loudly() -> void:
-	var bad := PlanBlock.new()
-	bad.kind = PlanBlock.Kind.MOVEMENT
-	bad.op = &"sashay"
-	var plan := _plan([_targeting(), bad, _action(&"geyser_spout")])
-	var s := _situation(plan, Vector2(RANGE, 0.0))
-	var state: CombatState = s[0]
-	var me: CombatUnit = s[1]
-	PlanInterpreter.decide(state, me)
-	assert_true(PlanInterpreter.last_error.find("sashay") != -1,
-		"an unknown movement op must name itself, got '%s'" % PlanInterpreter.last_error)
 
 
 ## Determinism, which this project treats as sacred and which a movement rule

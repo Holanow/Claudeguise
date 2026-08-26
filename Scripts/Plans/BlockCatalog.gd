@@ -63,7 +63,7 @@ static func movement(op: StringName) -> MovementBlock:
 static func op_of(block: PlanBlock) -> StringName:
 	if block == null:
 		return &""
-	var script := block.get_script()
+	var script: Script = block.get_script()
 	for table in [CONDITIONS, TARGETING, MOVEMENT]:
 		for op in table:
 			if table[op] == script:

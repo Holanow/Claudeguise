@@ -8,32 +8,33 @@ extends "res://Tests/TestCase.gd"
 const _SEED := 11
 
 # ---------------------------------------------------------------------------
-# The seam. These assertions are about `STATE_CONDITIONS` rather than about
-# cover, and they are what makes the next state one table entry plus one static
-# func.
+# The seam. Issue 640 replaced `STATE_CONDITIONS` with one class per state, so
+# these assertions are now about the classes: a state takes no operand, it
+# reaches the editor's dropdown, and it has a sentence of its own.
 
-func test_every_state_in_the_table_reaches_the_editor_and_the_interpreter() -> void:
-	assert_true(PlanInterpreter.STATE_CONDITIONS.size() >= 4, "the table lost its entries")
-	for op in PlanInterpreter.STATE_CONDITIONS:
-		var entry: Dictionary = PlanInterpreter.STATE_CONDITIONS[op]
-		assert_true(PlanInterpreter.CONDITION_OPS.has(op), "%s must be in the condition dropdown" % op)
-		assert_eq(String(PlanInterpreter.CONDITION_ARG_SHAPE[op].get("kind", "")), "none",
+const STATES := [
+	&"self_on_harmful_ground", &"self_on_safe_ground",
+	&"self_in_cover", &"self_not_in_cover", &"enemy_is_focused",
+]
+
+func test_every_state_reaches_the_editor_and_the_interpreter() -> void:
+	for op in STATES:
+		assert_true(BlockCatalog.CONDITION_OPS.has(op), "%s must be in the condition dropdown" % op)
+		var block := BlockCatalog.condition(op)
+		assert_true(block.operands().is_empty(),
 			"a state takes no argument, so the editor must not build a value box for %s" % op)
-		assert_eq(PlanInterpreter.describe_op(op, {}), String(entry["text"]),
-			"%s's sentence must come from the table, or the row reads as a bug" % op)
-		assert_true((entry["holds"] as Callable).is_valid(), "%s has no predicate" % op)
+		assert_true(block.describe() != "",
+			"%s's sentence must come from the block, or the row reads as a bug" % op)
 
-## The other half of the derivation: nothing is in the whitelist twice, and
-## nothing is in it that neither table names.
-func test_the_whitelist_is_exactly_the_two_tables() -> void:
+## The other half of the derivation: nothing is in the dropdown twice, and every
+## entry builds a real condition.
+func test_the_dropdown_is_exactly_the_catalog() -> void:
 	var seen := {}
-	for op in PlanInterpreter.CONDITION_OPS:
-		assert_false(seen.has(op), "%s is in CONDITION_OPS twice" % op)
+	for op in BlockCatalog.CONDITION_OPS:
+		assert_false(seen.has(op), "%s is in the condition catalog twice" % op)
 		seen[op] = true
-		assert_true(PlanInterpreter.VALUE_CONDITION_OPS.has(op) or PlanInterpreter.STATE_CONDITIONS.has(op),
-			"%s is in the whitelist and in neither table" % op)
-	for op in PlanInterpreter.STATE_CONDITIONS:
-		assert_false(PlanInterpreter.VALUE_CONDITION_OPS.has(op), "%s is both a state and a value condition" % op)
+		assert_true(BlockCatalog.condition(op) is ConditionBlock,
+			"%s does not build a condition" % op)
 
 # ---------------------------------------------------------------------------
 # The predicate
@@ -157,32 +158,28 @@ func _unit(id: int, team: CG.Team, at: Vector2) -> CombatUnit:
 func _holds(state: CombatState, unit: CombatUnit, op: StringName) -> bool:
 	var plan := Plan.new()
 	plan.id = &"probe"
-	plan.condition = _block(PlanBlock.Kind.CONDITION, op)
+	plan.condition = _block(op) as ConditionBlock
 	return PlanInterpreter.condition_holds(state, unit, plan)
 
 func _cover_plan() -> Plan:
 	var p := Plan.new()
 	p.id = &"cover_move"
 	p.display_name = "Take cover"
-	p.condition = _block(PlanBlock.Kind.CONDITION, &"self_not_in_cover")
+	p.condition = _block(&"self_not_in_cover") as ConditionBlock
 	p.blocks = [
-		_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-		_block(PlanBlock.Kind.MOVEMENT, &"move_into_cover"),
+		_block(&"target_nearest_enemy"),
+		_block(&"move_into_cover"),
 	]
 	return p
 
 func _act_plan(op: StringName, action_id: StringName) -> Plan:
-	var action := _block(PlanBlock.Kind.ACTION, &"use_action")
-	action.args = {"action_id": action_id}
+	var action := PlanFixtures.block(&"use_action", {"action_id": action_id})
 	var p := Plan.new()
 	p.id = &"cover_act"
 	p.display_name = "Act from cover"
-	p.condition = _block(PlanBlock.Kind.CONDITION, op)
-	p.blocks = [_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"), action]
+	p.condition = _block(op) as ConditionBlock
+	p.blocks = [_block(&"target_nearest_enemy"), action]
 	return p
 
-func _block(kind, op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = kind
-	b.op = op
-	return b
+func _block(op: StringName) -> PlanBlock:
+	return PlanFixtures.block(op)

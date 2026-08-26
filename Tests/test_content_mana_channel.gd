@@ -75,7 +75,7 @@ func test_both_casters_run_every_row_including_the_channel() -> void:
 		var pawn := PawnFactory.make_preset_pawn(cid, cid, String(cid))
 		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size(),
 			"a starter %s cannot pay for its own last row" % cid)
-		assert_eq(pawn.plans[pawn.plans.size() - 1].blocks[1].args.get("action_id", &""), CHANNEL,
+		assert_eq((pawn.plans[pawn.plans.size() - 1].blocks[1] as UseActionBlock).action_id, CHANNEL,
 			"the Channel is not the %s's last row, so the assertion above proves something else" % cid)
 
 ## The Robes are what pay for it, asserted rather than assumed: take them off and

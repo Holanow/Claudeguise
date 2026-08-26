@@ -53,21 +53,20 @@ func _init() -> void:
 func _gated_rows(class_id: StringName) -> Array:
 	var out := []
 	for p in PresetPlans.for_class(class_id):
-		if p.condition != null and RESOURCE_OPS.has(p.condition.op):
+		if p.condition is SelfResourceAtLeastBlock or p.condition is SelfResourceAtLeastFractionBlock:
 			out.append([p.id, p.condition])
 	return out
 
-const RESOURCE_OPS := [&"self_resource_at_least", &"self_resource_at_least_fraction"]
 
 ## What a condition block demands of a pawn whose ceiling is `ceiling`. Mirrors
 ## `PlanInterpreter._eval_condition`, which is the source of truth.
 static func requirement(block: PlanBlock, ceiling: int) -> int:
-	if block.op == &"self_resource_at_least_fraction":
-		return int(ceil(float(ceiling) * float(block.args.get("fraction", 1.0))))
-	return int(block.args.get("amount", 0))
+	if block is SelfResourceAtLeastFractionBlock:
+		return int(ceil(float(ceiling) * (block as SelfResourceAtLeastFractionBlock).fraction))
+	return (block as SelfResourceAtLeastBlock).amount
 
 static func describe(block: PlanBlock) -> String:
-	return PlanInterpreter.describe_op(block.op, block.args)
+	return block.describe()
 
 ## The ceiling a pawn of this class has when every rolled attribute sits on its
 ## own floor. Nothing the roller can produce goes below this.

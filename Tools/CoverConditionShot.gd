@@ -39,7 +39,7 @@ func _pickers(node: Node) -> Array:
 func _condition_chips(panel) -> Array:
 	var out := []
 	for chip in _pickers(panel._detail_box):
-		if chip.get_item_count() == PlanInterpreter.CONDITION_OPS.size() and not chip.disabled:
+		if chip.get_item_count() == BlockCatalog.CONDITION_OPS.size() and not chip.disabled:
 			out.append(chip)
 	return out
 
@@ -72,17 +72,17 @@ func _run() -> bool:
 
 	## Row 1 asks whether the pawn is out of cover, row 2 whether it is in it:
 	## the two halves of the pair, on two ordinary rows, in one screenshot.
-	chips[0].item_selected.emit(PlanInterpreter.CONDITION_OPS.find(&"self_not_in_cover"))
+	chips[0].item_selected.emit(BlockCatalog.CONDITION_OPS.find(&"self_not_in_cover"))
 	await _settle()
 	var again := _condition_chips(panel)
 	if again.size() < 2:
 		print("CoverConditionShot: the panel did not rebuild both rows")
 		return false
-	again[1].item_selected.emit(PlanInterpreter.CONDITION_OPS.find(&"self_in_cover"))
+	again[1].item_selected.emit(BlockCatalog.CONDITION_OPS.find(&"self_in_cover"))
 	await _settle()
 
 	print("CoverConditionShot: row 1 reads '%s', row 2 reads '%s'" % [
-		pawn.plans[0].condition.op, pawn.plans[1].condition.op])
+		BlockCatalog.op_of(pawn.plans[0].condition), BlockCatalog.op_of(pawn.plans[1].condition)])
 	await _shot("wren_cover_condition")
-	return pawn.plans[0].condition.op == &"self_not_in_cover" \
-		and pawn.plans[1].condition.op == &"self_in_cover"
+	return pawn.plans[0].condition is SelfNotInCoverBlock \
+		and pawn.plans[1].condition is SelfInCoverBlock

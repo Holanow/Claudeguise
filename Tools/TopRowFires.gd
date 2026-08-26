@@ -60,7 +60,7 @@ func _sample(class_id: StringName, encounter_ids: Array) -> void:
 
 	print("")
 	print("======== %s: top row '%s' over %d fights ========" % [class_id, top.id, fights])
-	print("  condition: %s" % PlanInterpreter.describe_op(top.condition.op, top.condition.args))
+	print("  condition: %s" % (top.condition.describe() if top.condition != null else "always"))
 	print("  lowest hp fraction this class ever reached: %.2f" % min_hp)
 	var keys := by_plan.keys()
 	keys.sort()

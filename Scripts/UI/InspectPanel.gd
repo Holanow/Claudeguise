@@ -250,8 +250,8 @@ func _actions_used_in_plans(pawn: PawnData) -> Array:
 	var out := []
 	for plan in pawn.plans:
 		for block in plan.blocks:
-			if block.op == &"use_action":
-				out.append(block.args.get("action_id", &""))
+			if block is UseActionBlock:
+				out.append((block as UseActionBlock).action_id)
 	return out
 
 ## Not `_line()`: its word-autowrap makes a Label report a near-zero minimum
@@ -843,7 +843,7 @@ func _targeting_picker(pawn: PawnData, plan, block: TargetingBlock) -> Control:
 ## `item_selected` signal, and a rebuild frees that same picker. Swapping the op
 ## swaps the block, in place, so the plan's execution order does not move.
 func _set_targeting(plan, block: TargetingBlock, op: StringName) -> void:
-	var index := plan.blocks.find(block)
+	var index: int = plan.blocks.find(block)
 	if index != -1:
 		plan.blocks[index] = BlockCatalog.targeting(op)
 	call_deferred("_build_detail", _pawns[_selected_index])
@@ -949,7 +949,9 @@ func _movement_editor(pawn: PawnData, plan) -> Control:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_movement_picker(pawn, plan))
 	var block = movement_block_of(plan)
-	var operands: Array[Dictionary] = block.operands() if block != null else []
+	var operands: Array[Dictionary] = []
+	if block != null:
+		operands = block.operands()
 	row.size_flags_stretch_ratio = MOVEMENT_WITH_VALUE_SHARE if not operands.is_empty() else MOVEMENT_SHARE
 	for p in operands:
 		row.add_child(_operand_editor(block, p))
