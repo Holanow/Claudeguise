@@ -8,7 +8,8 @@ extends SceneTree
 ## outcomes and tick counts did not move.
 
 const SEEDS := 6
-const ROOMS := [&"floor1_cover", &"floor1_chokepoint", &"floor1_hazard", &"floor1_horde"]
+const ROOMS := [&"floor1_cover", &"floor1_chokepoint", &"floor1_hazard",
+	&"floor1_horde", &"floor1_warden", &"floor1_rat_king"]
 const PARTY := [&"geysermancer", &"siege_master", &"priest", &"warrior"]
 
 ## A pawn counts as ranged when its longest sighted action outreaches this.
@@ -33,7 +34,7 @@ func _initialize() -> void:
 		t_terrain += r[2]
 		_row(String(room), r[0], r[1], r[2])
 	print("")
-	_row("ALL THREE", t_all, t_none, t_terrain)
+	_row("EVERY ROOM", t_all, t_none, t_terrain)
 	quit(0)
 
 func _row(label: String, all: int, none: int, terrain_only: int) -> void:
