@@ -36,12 +36,15 @@ $recordPath = Join-Path $PSScriptRoot 'sim_fingerprint.txt'
 # is read by `BattleView` and by nothing below the presentation layer (#570).
 # `SampleFights.gd` is IN the set: the instrument is part of the measurement,
 # and editing it moves the output.
+## Issue 633: `.tres` counts as source. Content left GDScript in #621 and #628,
+## so hashing only `*.gd` would let an edited action or class move no hash while
+## the gate printed `sim pass` on a changed simulation.
 function Get-SourceHash {
     $files = @()
     foreach ($dir in @('Combat', 'Content', 'Core', 'Floor', 'Plans')) {
         $path = Join-Path $repo "Scripts\$dir"
         if (Test-Path $path) {
-            $files += Get-ChildItem -Path $path -Recurse -File -Filter *.gd
+            $files += Get-ChildItem -Path $path -Recurse -File -Include *.gd, *.tres
         }
     }
     $files += Get-Item (Join-Path $repo 'Tools\SampleFights.gd')

@@ -119,7 +119,7 @@ func _real_unit(class_id: StringName, id: int) -> CombatUnit:
 	u.pawn = _pawn(class_id)
 	u.hp_max = 100
 	u.hp = 100
-	u.actions = def.starting_actions.duplicate()
+	u.actions = def.starting_action_ids()
 	return u
 
 ## A running cooldown produces a chip that names the action and says how long is
