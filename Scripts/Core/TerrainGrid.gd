@@ -309,6 +309,15 @@ func unit_body(id: int) -> RID:
 ## stops every unit blocking itself, and excluding the target makes hitting it
 ## success rather than obstruction.
 func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
+	if a.is_equal_approx(b):
+		return false
+	## Ground a unit can stand in hides it from outside but not from someone
+	## standing in it with them. A wall is not that: nothing stands in a wall,
+	## so it blocks however it contains the line.
+	var ca = at(cell_of(a))
+	var cb = at(cell_of(b))
+	if ca != null and cb != null and ca.blocks_sight() and not ca.blocks_movement() 			and cb.blocks_sight() and not cb.blocks_movement():
+		return false
 	var st := PhysicsServer2D.space_get_direct_state(_space)
 	if st == null:
 		return false
