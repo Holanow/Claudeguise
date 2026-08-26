@@ -32,7 +32,7 @@ func _init() -> void:
 				if me != null and me.alive:
 					alive += 1
 					var foe := _nearest_foe(state, me)
-					if foe != null and Terrain.line_is_blocked(state.terrain, foe.position, me.position):
+					if foe != null and state.grid.sight_blocked(foe.position, me.position):
 						in_cover += 1
 			if state.outcome == CombatState.Outcome.PLAYER_WIN:
 				wins += 1

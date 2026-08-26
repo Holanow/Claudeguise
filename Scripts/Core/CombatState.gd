@@ -18,11 +18,11 @@ var units: Array[CombatUnit] = []
 
 var rng: RandomNumberGenerator = null
 
-## Room features: walls, pillars, hazards, pits. Empty by default, so a fight
-## built without an encounter's terrain behaves exactly as it did before this
-## existed -- which is what lets issue 13a land without invalidating a single
-## tuning measurement teal has taken.
-var terrain: Array = []
+## The ground, as cells. Issue 625: this replaces the array of rectangles, so
+## a cell is one kind of ground or it is nothing. Never reassigned after
+## `build()` -- `BattleView` hands it to `ArenaFloor` once and it mutates in
+## place, the same contract `units` already has.
+var grid: TerrainGrid = TerrainGrid.new()
 
 ## Shots in flight or already resolved, in launch order. Append-only like
 ## units, for the same reason: nothing external references one by id today,

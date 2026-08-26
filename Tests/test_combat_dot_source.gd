@@ -174,7 +174,7 @@ func test_a_hazard_lit_burn_stays_anonymous() -> void:
 	pit.status_duration_ticks = 20
 
 	var state := _arena()
-	state.terrain = [pit]
+	state.grid.stamp_features([pit])
 	var deps := _deps([])
 	for _i in 3:
 		CombatSim.step(state, deps)
@@ -199,7 +199,7 @@ func test_a_pit_does_not_steal_a_burn_a_pawn_lit() -> void:
 	var state := _arena()
 	var deps := _deps([scald])
 	_strike(state, deps, scald, 2)
-	state.terrain = [pit]
+	state.grid.stamp_features([pit])
 	for _i in 3:
 		CombatSim.step(state, deps)
 

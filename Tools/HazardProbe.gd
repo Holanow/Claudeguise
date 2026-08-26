@@ -55,7 +55,7 @@ func _init() -> void:
 							pawn_alive += 1
 							if standing:
 								pawn_burning += 1
-								for h in Terrain.hazards_at(state.terrain, u.position):
+								for h in state.grid.hazards_at(u.position):
 									pawn_hazard_damage += h.damage_per_tick
 						else:
 							enemy_alive += 1
