@@ -36,7 +36,7 @@ func _init() -> void:
 							nearest = f
 					if nearest != null and nearest.id != t.id:
 						stale += 1
-					if not Terrain.line_is_blocked(state.terrain, u.position, t.position):
+					if not state.grid.sight_blocked(u.position, t.position):
 						continue
 					blocked += 1
 					gaps_to_focus.append(u.position.distance_to(t.position))

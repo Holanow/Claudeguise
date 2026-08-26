@@ -22,7 +22,7 @@ const _SPAWN := Vector2(-120.0, 0.0)
 
 func test_the_pair_reads_the_ground_under_the_unit_and_nothing_else() -> void:
 	var state := CombatState.new(_SEED)
-	state.terrain = [Terrain.hazard(Rect2(-10.0, -10.0, 20.0, 20.0), 2, CG.DamageType.FIRE)]
+	state.grid.stamp_features([Terrain.hazard(Rect2(-10.0, -10.0, 20.0, 20.0), 2, CG.DamageType.FIRE)])
 	var unit := _pawn_unit(Vector2.ZERO)
 	state.units.append(unit)
 
@@ -39,7 +39,7 @@ func test_the_pair_reads_the_ground_under_the_unit_and_nothing_else() -> void:
 ## the same reason it is invisible to `_avoid_hazard`.
 func test_a_decorative_hazard_does_not_hold_the_condition() -> void:
 	var state := CombatState.new(_SEED)
-	state.terrain = [Terrain.make(Terrain.Kind.HAZARD, Rect2(-10.0, -10.0, 20.0, 20.0))]
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.HAZARD, Rect2(-10.0, -10.0, 20.0, 20.0))])
 	var unit := _pawn_unit(Vector2.ZERO)
 	state.units.append(unit)
 	assert_false(_holds(state, unit, &"self_on_harmful_ground"), "a hazard that costs nothing is not harmful ground")

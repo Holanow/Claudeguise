@@ -21,6 +21,11 @@ enum Layer { FLOOR, EFFECTS }
 const BIT_MOVEMENT := 1
 const BIT_SIGHT := 2
 
+## Each cell's collider is grown by this much, so neighbours overlap slightly.
+## A ray running exactly along the seam between two cells hits neither
+## otherwise, and `y = 0` is a seam every fixture in the suite sits on.
+const _CELL_OVERLAP := 0.05
+
 var _cells: Array[Dictionary] = [{}, {}]
 
 var _space: RID = RID()
@@ -39,9 +44,9 @@ func _init() -> void:
 	_terrain_body = PhysicsServer2D.body_create()
 	PhysicsServer2D.body_set_mode(_terrain_body, PhysicsServer2D.BODY_MODE_STATIC)
 	PhysicsServer2D.body_set_space(_terrain_body, _space)
-	PhysicsServer2D.body_set_collision_layer(_terrain_body, BIT_SIGHT)
 	_cell_shape = PhysicsServer2D.rectangle_shape_create()
-	PhysicsServer2D.shape_set_data(_cell_shape, Vector2(CELL * 0.5, CELL * 0.5))
+	PhysicsServer2D.shape_set_data(_cell_shape,
+		Vector2(CELL * 0.5 + _CELL_OVERLAP, CELL * 0.5 + _CELL_OVERLAP))
 
 ## Godot's physics RIDs are not reference counted, so a grid that is collected
 ## without this leaks a space, a body and every shape it made.
@@ -79,6 +84,18 @@ static func cells_in_rect(r: Rect2) -> Array[Vector2i]:
 			var c := Vector2i(x, y)
 			if r.has_point(rect_of(c).get_center()):
 				out.append(c)
+	return out
+
+## Every cell `r` touches at all. Authored terrain stamps with this rather than
+## by cell centres: a wall thinner than a cell covers no centre and would
+## vanish, and a wall that is not there is worse than one that grew.
+static func cells_overlapping(r: Rect2) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var lo := cell_of(r.position)
+	var hi := cell_of(r.end - Vector2(0.0001, 0.0001))
+	for y in range(lo.y, hi.y + 1):
+		for x in range(lo.x, hi.x + 1):
+			out.append(Vector2i(x, y))
 	return out
 
 static func cells_in_circle(centre: Vector2, radius: float) -> Array[Vector2i]:
@@ -175,6 +192,37 @@ func sight_blocking_cells() -> Array[Vector2i]:
 	out.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
 	return out
 
+## How many cells hold ground of any kind. The successor to counting features:
+## issue 554 measured a pool stored 147 times over, and a cell is wet once.
+func count() -> int:
+	var seen: Dictionary = {}
+	for layer in [Layer.FLOOR, Layer.EFFECTS]:
+		for c in _cells[layer]:
+			seen[c] = true
+	return seen.size()
+
+## Every cell holding ground, in a fixed order, so a digest of the ground is
+## the same two runs running.
+func sorted_cells() -> Array[Vector2i]:
+	var seen: Dictionary = {}
+	for layer in [Layer.FLOOR, Layer.EFFECTS]:
+		for c in _cells[layer]:
+			seen[c] = true
+	var out: Array[Vector2i] = []
+	out.assign(seen.keys())
+	out.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
+	return out
+
+## Every cell of `kind`, either layer, in no particular order.
+func cells_of_kind(kind: Terrain.Kind) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for layer in [Layer.FLOOR, Layer.EFFECTS]:
+		for c in _cells[layer]:
+			var cell = at(c)
+			if cell != null and cell.kind == kind and not out.has(c):
+				out.append(c)
+	return out
+
 ## No ground of any kind. Units are not ground, so a grid holding only unit
 ## bodies is still empty and the callers that skip terrain work still skip it.
 func is_empty() -> bool:
@@ -185,9 +233,14 @@ func is_empty() -> bool:
 ## would give.
 static func from_features(features: Array) -> TerrainGrid:
 	var g := TerrainGrid.new()
-	for f in features:
-		g.stamp_rect(Layer.FLOOR, f.rect, cell_from_feature(f))
+	g.stamp_features(features)
 	return g
+
+## Writes authored rectangles onto the floor. The one bridge from the format a
+## room is written in to the one a fight asks.
+func stamp_features(features: Array) -> void:
+	for f in features:
+		_write(Layer.FLOOR, cells_overlapping(f.rect), cell_from_feature(f))
 
 # ------------------------------------------------------------------ colliders
 
@@ -204,8 +257,13 @@ func _refresh_collider(c: Vector2i) -> void:
 	if not opaque:
 		return
 	var idx := PhysicsServer2D.body_get_shape_count(_terrain_body)
-	PhysicsServer2D.body_add_shape(_terrain_body, _cell_shape,
+	PhysicsServer2D.body_add_shape(_terrain_body, _cell_shape)
+	PhysicsServer2D.body_set_shape_transform(_terrain_body, idx,
 		Transform2D(0.0, rect_of(c).get_center()))
+	## After the shape, never before. A collision layer set on a body with no
+	## shapes does not reach the broadphase, and the body is then invisible to
+	## every masked query for the rest of its life.
+	PhysicsServer2D.body_set_collision_layer(_terrain_body, BIT_SIGHT)
 	_sight_shapes[c] = idx
 
 ## Issue 625, the player's ruling: a unit's own body blocks line of sight, so a
@@ -227,8 +285,8 @@ func _make_unit(id: int, radius: float) -> void:
 	var body := PhysicsServer2D.body_create()
 	PhysicsServer2D.body_set_mode(body, PhysicsServer2D.BODY_MODE_STATIC)
 	PhysicsServer2D.body_set_space(body, _space)
-	PhysicsServer2D.body_set_collision_layer(body, BIT_SIGHT)
 	PhysicsServer2D.body_add_shape(body, shape)
+	PhysicsServer2D.body_set_collision_layer(body, BIT_SIGHT)
 	_unit_shapes[id] = shape
 	_unit_bodies[id] = body
 
@@ -257,6 +315,10 @@ func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
 	var q := PhysicsRayQueryParameters2D.create(a, b)
 	q.collision_mask = BIT_SIGHT
 	q.collide_with_areas = false
+	## A unit standing inside a pillar is hidden by it, which is what the float
+	## geometry did and what `test_combat_sightline_endpoints` asserts. Without
+	## this a ray starting inside a shape reports no hit at all.
+	q.hit_from_inside = true
 	var excluded: Array[RID] = []
 	for id in ignore:
 		var rid: RID = _unit_bodies.get(id, RID())
@@ -269,13 +331,13 @@ func sight_blocked(a: Vector2, b: Vector2, ignore: Array[int] = []) -> bool:
 ## Grid arithmetic rather than a physics query: movement asks this several
 ## times per unit per tick and it needs no colliders to answer.
 func move_blocked(p: Vector2, radius: float) -> bool:
-	for c in cells_in_rect(Rect2(p - Vector2(radius, radius), Vector2(radius, radius) * 2.0)):
+	for c in cells_overlapping(Rect2(p - Vector2(radius, radius), Vector2(radius, radius) * 2.0)):
 		var cell = at(c)
-		if cell != null and cell.blocks_movement():
-			return true
-	for c in cells_in_circle(p, radius):
-		var cell = at(c)
-		if cell != null and cell.blocks_movement():
+		if cell == null or not cell.blocks_movement():
+			continue
+		var r := rect_of(c)
+		var nearest := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+		if nearest.distance_to(p) <= radius:
 			return true
 	return false
 

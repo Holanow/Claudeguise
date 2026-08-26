@@ -79,7 +79,7 @@ func test_no_focus_and_a_dead_focus_are_both_not_in_cover() -> void:
 ## The ground pair moved into the same table and must still answer the same way.
 func test_the_ground_pair_still_reads_the_ground() -> void:
 	var state := CombatState.new(_SEED)
-	state.terrain = [Terrain.hazard(Rect2(-10.0, -10.0, 20.0, 20.0), 2, CG.DamageType.FIRE)]
+	state.grid.stamp_features([Terrain.hazard(Rect2(-10.0, -10.0, 20.0, 20.0), 2, CG.DamageType.FIRE)])
 	var unit := _unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	state.units.append(unit)
 	assert_true(_holds(state, unit, &"self_on_harmful_ground"))
@@ -138,7 +138,7 @@ func _casts_from_cover(op: StringName) -> int:
 ## A wall on the x axis, a focus beyond it, and the pawn behind it.
 func _state_with_a_wall() -> CombatState:
 	var state := CombatState.new(_SEED)
-	state.terrain = [Terrain.make(Terrain.Kind.WALL, Rect2(-20.0, -20.0, 40.0, 40.0))]
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(-20.0, -20.0, 40.0, 40.0))])
 	var unit := _unit(0, CG.Team.PLAYER, Vector2(-100.0, 0.0))
 	unit.focus_id = 1
 	state.units.append(unit)

@@ -61,8 +61,8 @@ func _init() -> void:
 					## Which half of `in_cover_from` is answering, and whether a
 					## line-of-sight action could fire from there at all.
 					if focus != null and focus.alive and PlanInterpreter.in_cover_from(state, me, me.position, focus):
-						var by_terrain := Terrain.line_is_blocked(state.terrain, focus.position, me.position)
-						var can_shoot := foe_now != null and not Terrain.line_is_blocked(state.terrain, me.position, foe_now.position)
+						var by_terrain := state.grid.sight_blocked(focus.position, me.position)
+						var can_shoot := foe_now != null and not state.grid.sight_blocked(me.position, foe_now.position)
 						if by_terrain:
 							cover_terrain += 1
 							if can_shoot:
@@ -75,7 +75,7 @@ func _init() -> void:
 				if me != null and me.alive:
 					alive += 1
 					var foe := _nearest_foe(state, me)
-					if foe != null and Terrain.line_is_blocked(state.terrain, foe.position, me.position):
+					if foe != null and state.grid.sight_blocked(foe.position, me.position):
 						in_cover += 1
 			if state.outcome == CombatState.Outcome.PLAYER_WIN:
 				wins += 1

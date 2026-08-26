@@ -22,8 +22,7 @@ static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int,
 	## Sharing the encounter's array was harmless while nothing ever wrote to it
 	## and is not any more: pools were being written back into the room, so the
 	## next fight in the same process started in the last one's puddles.
-	for f in encounter.terrain:
-		state.grid.stamp_rect(TerrainGrid.Layer.FLOOR, f.rect, TerrainGrid.cell_from_feature(f))
+	state.grid.stamp_features(encounter.terrain)
 	var next_id := 0
 
 	for i in party.size():

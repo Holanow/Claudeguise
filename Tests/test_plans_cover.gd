@@ -45,7 +45,7 @@ func _situation(plan: Plan, pawn_at: Vector2, foe_at: Vector2, features: Array, 
 	me.position = pawn_at
 	me.resource = me.resource_max
 	foe.position = foe_at
-	state.terrain = features
+	state.grid.stamp_features(features)
 	return [state, me, foe]
 
 
@@ -60,7 +60,7 @@ func test_a_pawn_in_the_open_moves_behind_the_pillar() -> void:
 	assert_not_null(intent, "a movement block owns the tick; it must not fall through silently")
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
 	assert_eq(intent.source_plan, &"cover_test", "the log must be able to name the plan that moved the pawn")
-	assert_true(Terrain.line_is_blocked(state.terrain, foe.position, intent.destination),
+	assert_true(state.grid.sight_blocked(foe.position, intent.destination),
 		"the destination must actually be out of sight, got %s" % intent.destination)
 
 
@@ -84,7 +84,7 @@ func test_a_pawn_already_in_cover_holds_still() -> void:
 	var state: CombatState = s[0]
 	var me: CombatUnit = s[1]
 	var foe: CombatUnit = s[2]
-	assert_true(Terrain.line_is_blocked(state.terrain, foe.position, me.position),
+	assert_true(state.grid.sight_blocked(foe.position, me.position),
 		"fixture check: this pawn should start in cover")
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.IDLE, "already in cover means arrived, not keep walking")

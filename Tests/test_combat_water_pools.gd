@@ -26,7 +26,7 @@ func _arena(terrain: Array, action: ActionDef) -> Array:
 	state.units.append(caster)
 	var foe := _unit(1, CG.Team.ENEMY, Vector2.ZERO)
 	state.units.append(foe)
-	state.terrain = terrain
+	state.grid.stamp_features(terrain)
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName) -> ActionDef: return action if id == action.id else null
 	deps.plan_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return null
@@ -51,79 +51,27 @@ func _cast(bundle: Array) -> void:
 	caster.intent = Intent.use_action(&"fixture_pool", bundle[2].id)
 	CombatSim.step(state, bundle[3])
 
+## Issue 625: cells, not features. A pool is the ground it covers and there is
+## no longer any such thing as two features of the same kind on one spot.
 func _of_kind(state: CombatState, kind: Terrain.Kind) -> Array:
-	var out: Array = []
-	for f in state.terrain:
-		if f.kind == kind:
-			out.append(f)
-	return out
+	return state.grid.cells_of_kind(kind)
 
-## Issue 554: the painted parts, not `rect`. A pool is one feature holding many
-## rects now and its `rect` is the bounding box, so summing that reports ground
-## nothing ever wetted -- and every assertion below would still have passed.
-func _area(features: Array) -> float:
-	var total := 0.0
-	for f in features:
-		for r in f.regions():
-			total += r.size.x * r.size.y
-	return total
+## Issue 625: ground covered, counted in cells. A cell is wet once, so this is
+## the union by construction rather than by a containment check.
+func _area(cells: Array) -> float:
+	return float(cells.size()) * TerrainGrid.CELL * TerrainGrid.CELL
 
-## Every rect a pool actually stores, across features.
 func _stamps(state: CombatState) -> Array:
-	var out: Array = []
-	for f in _of_kind(state, Terrain.Kind.WATER):
-		out.append_array(f.regions())
-	return out
+	return _of_kind(state, Terrain.Kind.WATER)
 
 func _wet(state: CombatState, p: Vector2) -> bool:
-	for f in _of_kind(state, Terrain.Kind.WATER):
-		if f.contains_point(p):
-			return true
-	return false
+	var cell = state.grid.cell_at(p)
+	return cell != null and cell.kind == Terrain.Kind.WATER
 
 # --- the geometry -----------------------------------------------------------
 
-func test_a_rect_with_nothing_taken_out_of_it_survives_whole() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 10, 10), Rect2(100, 100, 5, 5))
-	assert_eq(parts.size(), 1, "no overlap, no cut")
-	assert_eq(parts[0], Rect2(0, 0, 10, 10))
-
-func test_a_hole_punched_in_the_middle_leaves_four_parts() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(10, 10, 10, 10))
-	assert_eq(parts.size(), 4, "above, below, left and right of the hole")
-	assert_almost_eq(_rect_area(parts), 30.0 * 30.0 - 10.0 * 10.0, 0.001,
-		"the parts must cover exactly what the hole did not")
-
-func test_a_cut_across_one_edge_leaves_one_part() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(-5, -5, 40, 10))
-	assert_eq(parts.size(), 1, "the strip spans the full width, so only the remainder below survives")
-	assert_eq(parts[0], Rect2(0, 5, 30, 25))
-
-func test_a_rect_swallowed_whole_leaves_nothing() -> void:
-	assert_eq(Terrain.subtract(Rect2(5, 5, 10, 10), Rect2(0, 0, 30, 30)).size(), 0)
-
-## The trap rook named: a subtraction that leaves slivers fills `terrain` with
-## features nothing can see and everything walks.
-func test_slivers_are_dropped_rather_than_kept() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(0.1, -5, 40, 40))
-	assert_eq(parts.size(), 0,
-		"a 0.1-wide leftover is not a feature, it is a rounding artefact: got %s" % [parts])
-
-func test_the_order_of_the_parts_is_fixed() -> void:
-	for _i in 5:
-		var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(10, 10, 10, 10))
-		assert_eq(parts[0], Rect2(0, 0, 30, 10), "above first")
-		assert_eq(parts[1], Rect2(0, 20, 30, 10), "then below")
-		assert_eq(parts[2], Rect2(0, 10, 10, 10), "then left")
-		assert_eq(parts[3], Rect2(20, 10, 10, 10), "then right")
-
-func _rect_area(parts: Array[Rect2]) -> float:
-	var total := 0.0
-	for r in parts:
-		total += r.size.x * r.size.y
-	return total
-
-# --- which actions carry it, which is content and was got wrong once --------
+## Issue 625 deleted `Terrain.subtract` and the six tests that covered it: a
+## cell is one kind of ground, so there is no rectangle left to cut.
 
 ## Issue 496: Scald is the FIRE spell, so a pool under it puts out the burn it
 ## just applied. It is on the free WATER basic attack instead.
@@ -171,7 +119,7 @@ func test_a_pool_does_nothing_on_its_own() -> void:
 	assert_false(pool.applies_status_enabled, "no status")
 	assert_false(pool.blocks_movement(), "and it does not block a foot")
 	assert_false(pool.blocks_sight(), "or a line of sight")
-	assert_eq(Terrain.hazards_at(bundle[0].terrain, Vector2.ZERO).size(), 0,
+	assert_eq(TerrainGrid.from_features(bundle[0].terrain).hazards_at(Vector2.ZERO).size(), 0,
 		"a pool is not a hazard, so nothing standing in it takes a tick of anything")
 
 ## **The player's ruling, and the expensive half of it: the whole hazard is not
@@ -184,9 +132,9 @@ func test_a_pool_inside_a_fire_punches_a_hole_rather_than_erasing_it() -> void:
 	assert_eq(fires.size(), 4, "fire minus the pool is four parts, not nothing")
 	assert_almost_eq(_area(fires), 200.0 * 200.0 - 50.0 * 50.0, 0.001,
 		"exactly the shared ground came off and no more")
-	assert_true(Terrain.hazards_at(bundle[0].terrain, Vector2(90.0, 0.0)).size() > 0,
+	assert_true(TerrainGrid.from_features(bundle[0].terrain).hazards_at(Vector2(90.0, 0.0)).size() > 0,
 		"ground the pool never touched is still on fire")
-	assert_eq(Terrain.hazards_at(bundle[0].terrain, Vector2.ZERO).size(), 0,
+	assert_eq(TerrainGrid.from_features(bundle[0].terrain).hazards_at(Vector2.ZERO).size(), 0,
 		"and the ground it did touch is not")
 
 ## The other half of "pools do not survive cancelation": the pool loses the same
@@ -314,8 +262,8 @@ func test_a_fight_does_not_leave_its_pools_in_the_room() -> void:
 
 func _digest(state: CombatState) -> String:
 	var parts: Array[String] = []
-	for f in state.terrain:
-		parts.append("%d:%s" % [f.kind, f.rect])
+	for c in state.grid.sorted_cells():
+		parts.append("%d:%s" % [state.grid.at(c).kind, c])
 	for u in state.units:
 		parts.append("%d:%d:%s" % [u.id, u.hp, u.position])
 	return "|".join(parts)
@@ -403,9 +351,3 @@ func test_a_cast_on_dry_ground_still_paints() -> void:
 	assert_true(_wet(bundle[0], Vector2(400.0, 400.0)))
 
 
-## An authored feature has no parts, so nothing above may change how one reads.
-func test_an_authored_feature_is_still_exactly_its_rect() -> void:
-	var f := Terrain.hazard(FIRE, 2, CG.DamageType.FIRE)
-	assert_eq(f.regions(), [FIRE] as Array[Rect2], "a feature with no parts is its own rect")
-	assert_true(f.contains_point(Vector2.ZERO))
-	assert_false(f.contains_point(Vector2(9000.0, 0.0)))

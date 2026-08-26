@@ -55,7 +55,7 @@ func _situation(plan: Plan, pawn_at: Vector2, foe_at: Vector2, features: Array) 
 	me.position = pawn_at
 	me.resource = me.resource_max
 	foe.position = foe_at
-	state.terrain = features
+	state.grid.stamp_features(features)
 	return [state, me, foe]
 
 
@@ -141,7 +141,7 @@ func test_the_destination_is_never_inside_terrain() -> void:
 	var me: CombatUnit = s[1]
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_false(Terrain.point_is_blocked(state.terrain, intent.destination, me.radius),
+	assert_false(state.grid.move_blocked(intent.destination, me.radius),
 		"walked into a wall at %s" % intent.destination)
 	assert_false(CombatSim.standing_harms(state, intent.destination))
 

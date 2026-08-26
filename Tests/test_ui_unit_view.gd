@@ -57,7 +57,7 @@ func test_display_radius_scales_the_raw_radius() -> void:
 	assert_almost_eq(UnitView.display_radius(u), 22.0 * UnitView.DISPLAY_SCALE, 0.001)
 
 ## The one regression that would matter most here: CombatSim reads
-## unit.radius for real movement collision (Terrain.point_is_blocked), so a
+## unit.radius for real movement collision (TerrainGrid.move_blocked), so a
 ## rendering fix that mutated it would be a balance change wearing a UI
 ## issue's clothes. display_radius must only ever read it.
 func test_display_radius_does_not_mutate_the_units_own_radius() -> void:

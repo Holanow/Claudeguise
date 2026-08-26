@@ -3,7 +3,7 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 28a: line of sight is measured the same place and the same moment as
 ## range -- at the moment the effect lands, against ActionDef.requires_line_of_sight
-## and Terrain.line_is_blocked. Same helper shapes as test_combat_sim.gd and
+## and TerrainGrid.sight_blocked. Same helper shapes as test_combat_sim.gd and
 ## test_combat_terrain.gd; not shared via preload since GDScript test files
 ## don't share state.
 
@@ -60,7 +60,7 @@ func test_a_wall_blocks_a_line_of_sight_action() -> void:
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(1)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
 	state.units.append(attacker)
@@ -107,7 +107,7 @@ func test_a_target_that_steps_behind_cover_during_the_windup_is_missed() -> void
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(3)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 100), []) # clear of the wall at commit
 	state.units.append(attacker)
@@ -134,7 +134,7 @@ func test_a_target_that_steps_out_from_behind_cover_during_the_windup_is_hit() -
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(4)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), []) # behind the wall at commit
 	state.units.append(attacker)
@@ -160,7 +160,7 @@ func test_an_action_without_the_flag_fires_straight_through_a_wall() -> void:
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(5)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
 	state.units.append(attacker)

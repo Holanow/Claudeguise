@@ -51,17 +51,17 @@ func _probe_points() -> Array[Vector2]:
 func _time_line(features: Array, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		Terrain.line_is_blocked(features, pts[i % 64], pts[(i * 7 + 3) % 64])
+		TerrainGrid.from_features(features).sight_blocked(pts[i % 64], pts[(i * 7 + 3) % 64])
 	return float(Time.get_ticks_usec() - t) / float(REPS)
 
 func _time_point(features: Array, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		Terrain.point_is_blocked(features, pts[i % 64], 22.0)
+		TerrainGrid.from_features(features).move_blocked(pts[i % 64], 22.0)
 	return float(Time.get_ticks_usec() - t) / float(REPS)
 
 func _time_hazards(features: Array, pts: Array[Vector2]) -> float:
 	var t := Time.get_ticks_usec()
 	for i in REPS:
-		Terrain.hazards_at(features, pts[i % 64])
+		TerrainGrid.from_features(features).hazards_at(pts[i % 64])
 	return float(Time.get_ticks_usec() - t) / float(REPS)

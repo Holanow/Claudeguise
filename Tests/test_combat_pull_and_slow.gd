@@ -157,7 +157,7 @@ func test_a_pull_stops_at_a_wall_instead_of_passing_through_it() -> void:
 
 	var state := CombatState.new(103)
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(20, -100), Vector2(20, 200)))
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
 	state.units.append(caster)
