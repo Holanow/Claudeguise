@@ -70,8 +70,8 @@ func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
 	var action_id: StringName = &""
 	for cid in Registry.all_class_ids():
 		var cls := Registry.get_class_def(cid)
-		if cls != null and not cls.starting_actions.is_empty():
-			action_id = cls.starting_actions[0]
+		if cls != null and not cls.starting_action_ids().is_empty():
+			action_id = cls.starting_action_ids()[0]
 			break
 	if action_id == &"":
 		return

@@ -123,7 +123,7 @@ static func actions_for_pawn(pawn: PawnData) -> Array[StringName]:
 	if pawn == null:
 		return out
 	if pawn.pawn_class != null:
-		for a in pawn.pawn_class.starting_actions:
+		for a in pawn.pawn_class.starting_action_ids():
 			if not out.has(a):
 				out.append(a)
 	for e in pawn.equipment():

@@ -35,7 +35,7 @@ func test_every_mana_caster_has_the_channel_and_nobody_else_does() -> void:
 		&"siege_master": false, &"warrior": false, &"abomination": false}
 	for cid in Registry.all_class_ids():
 		var def := Registry.get_class_def(cid)
-		var has: bool = def.starting_actions.has(CHANNEL)
+		var has: bool = def.starting_action_ids().has(CHANNEL)
 		assert_eq(has, bool(expected.get(cid, false)),
 			"%s %s the Channel" % [cid, "has" if has else "does not have"])
 

@@ -100,7 +100,7 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 static func _collect_player_actions(pawn: PawnData) -> Array[StringName]:
 	var out: Array[StringName] = []
 	if pawn.pawn_class != null:
-		for a in pawn.pawn_class.starting_actions:
+		for a in pawn.pawn_class.starting_action_ids():
 			if not out.has(a):
 				out.append(a)
 	for e in pawn.equipment():
