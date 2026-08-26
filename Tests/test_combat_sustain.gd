@@ -354,7 +354,7 @@ func test_a_wall_spares_a_target_when_the_action_asks_for_line_of_sight() -> voi
 	var action := _aura(1)
 	action.targeting.requires_line_of_sight = true
 	var state := _arena(action)
-	state.terrain = [Terrain.make(Terrain.Kind.WALL, Rect2(15.0, -40.0, 6.0, 80.0))]
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(15.0, -40.0, 6.0, 80.0))])
 	var deps := _deps(action)
 	for i in 3:
 		CombatSim.step(state, deps)

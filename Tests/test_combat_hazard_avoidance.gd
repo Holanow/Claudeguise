@@ -19,7 +19,7 @@ func _fire(rect: Rect2, damage: int = 5):
 
 func _state(features: Array, start: Vector2 = Vector2(-100.0, 0.0)) -> CombatState:
 	var state := CombatState.new(9100)
-	state.terrain = features
+	state.grid.stamp_features(features)
 	state.units.append(_unit(0, CG.Team.PLAYER, start))
 	state.units.append(_unit(1, CG.Team.ENEMY, Vector2(5000.0, 0.0)))
 	return state

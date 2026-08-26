@@ -13,7 +13,7 @@ func test_standing_harms_counts_damage_and_status_but_not_a_decorative_hazard() 
 	var decorative := Terrain.make(Terrain.Kind.HAZARD, Rect2(40.0, 0.0, 10.0, 10.0))
 
 	var state := CombatState.new(1)
-	state.terrain = [damaging, status_only, decorative]
+	state.grid.stamp_features([damaging, status_only, decorative])
 
 	assert_true(CombatSim.standing_harms(state, Vector2(5.0, 5.0)), "damage per tick harms")
 	assert_true(CombatSim.standing_harms(state, Vector2(25.0, 5.0)), "a status with a duration harms even with no damage")
@@ -22,11 +22,11 @@ func test_standing_harms_counts_damage_and_status_but_not_a_decorative_hazard() 
 
 func test_standing_harms_ignores_walls_and_pillars_that_share_a_rect_with_nothing() -> void:
 	var state := CombatState.new(1)
-	state.terrain = [
+	state.grid.stamp_features([
 		Terrain.make(Terrain.Kind.WALL, Rect2(0.0, 0.0, 10.0, 10.0)),
 		Terrain.make(Terrain.Kind.PIT, Rect2(20.0, 0.0, 10.0, 10.0)),
 		Terrain.make(Terrain.Kind.PILLAR, Rect2(40.0, 0.0, 10.0, 10.0)),
-	]
+	])
 	assert_false(CombatSim.standing_harms(state, Vector2(5.0, 5.0)), "a wall is not a hazard")
 	assert_false(CombatSim.standing_harms(state, Vector2(25.0, 5.0)), "a pit is not a hazard")
 	assert_false(CombatSim.standing_harms(state, Vector2(45.0, 5.0)), "a pillar is not a hazard")

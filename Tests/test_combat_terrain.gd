@@ -38,7 +38,7 @@ func _dummy_enemy(id: int) -> CombatUnit:
 func test_a_unit_cannot_walk_through_a_wall() -> void:
 	var state := CombatState.new(60)
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -100), Vector2(20, 200)))
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2(-50, 0), [])
 	unit.move_speed = 999.0
 	state.units.append(unit)
@@ -66,7 +66,7 @@ func test_a_unit_walks_through_empty_space_normally() -> void:
 func test_a_unit_in_a_hazard_takes_damage_per_tick_and_stops_after_leaving() -> void:
 	var state := CombatState.new(62)
 	var hazard := Terrain.hazard(Rect2(Vector2(-20, -20), Vector2(40, 40)), 5, CG.DamageType.FIRE)
-	state.terrain.append(hazard)
+	state.grid.stamp_features([hazard])
 	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [])
 	state.units.append(unit)
 	state.units.append(_dummy_enemy(1))
@@ -101,7 +101,7 @@ func test_a_unit_routes_around_a_wall_when_a_lateral_path_exists() -> void:
 	# shapes of the same obstacle, not the same case twice.
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -5), Vector2(20, 10)))
 	var state := CombatState.new(63)
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2(-50, -20), [])
 	unit.move_speed = 8.0
 	# Explicit and small, not the ambient CombatUnit default: this test's
@@ -134,7 +134,7 @@ func test_finding_a_unit_approaching_a_wall_head_on_can_get_stuck() -> void:
 	# reach. This measures whether that happens, rather than assuming it.
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -200), Vector2(20, 350)))
 	var state := CombatState.new(64)
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var unit := _unit(0, CG.Team.PLAYER, 10, Vector2(-50, 0), [])
 	unit.move_speed = 8.0
 	unit.radius = 5.0
@@ -170,8 +170,8 @@ func test_determinism_holds_with_terrain_in_play() -> void:
 
 	var make_state := func(seed: int) -> CombatState:
 		var s := CombatState.new(seed)
-		s.terrain.append(wall)
-		s.terrain.append(hazard)
+		s.grid.stamp_features([wall])
+		s.grid.stamp_features([hazard])
 		var u := _unit(0, CG.Team.PLAYER, 40, Vector2(-50, -20), [])
 		s.units.append(u)
 		s.units.append(_dummy_enemy(1))
@@ -208,7 +208,7 @@ func test_determinism_holds_with_terrain_in_play() -> void:
 func test_a_unit_reaches_a_target_beyond_a_wall_corner() -> void:
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(0, -200), Vector2(20, 250)))
 	var state := CombatState.new(65)
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2(-100, -80), [])
 	unit.move_speed = 8.0
 	unit.radius = 22.0
@@ -236,9 +236,9 @@ func test_a_unit_with_no_route_stops_rather_than_creeps() -> void:
 	# Three walls forming a box open only away from the target, so neither
 	# axis nor the diagonal ever makes progress toward it.
 	var state := CombatState.new(66)
-	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -60), Vector2(20, 10)))) # top
-	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, 50), Vector2(20, 10)))) # bottom
-	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -50), Vector2(10, 100)))) # right-facing wall between unit and target
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -60), Vector2(20, 10)))]) # top
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, 50), Vector2(20, 10)))]) # bottom
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(-10, -50), Vector2(10, 100)))]) # right-facing wall between unit and target
 	var unit := _unit(0, CG.Team.PLAYER, 30, Vector2(-50, 0), [])
 	unit.move_speed = 8.0
 	unit.radius = 5.0

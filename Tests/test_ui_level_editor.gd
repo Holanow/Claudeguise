@@ -87,7 +87,7 @@ func test_remove_terrain_removes_the_right_index() -> void:
 	assert_eq(c.terrain[0].kind, Terrain.Kind.PIT)
 	c.free()
 
-## Acceptance criterion 4: reuses Terrain.point_is_blocked directly, the same
+## Acceptance criterion 4: reuses TerrainGrid.move_blocked directly, the same
 ## function the real simulation's movement code answers with -- this and a
 ## real fight can never disagree about what "blocked" means.
 func test_has_blocked_enemy_true_only_when_an_enemy_overlaps_blocking_terrain() -> void:
@@ -102,7 +102,7 @@ func test_has_blocked_enemy_true_only_when_an_enemy_overlaps_blocking_terrain() 
 
 func test_has_blocked_enemy_ignores_non_blocking_terrain() -> void:
 	var c := _make_canvas()
-	# PILLAR blocks sight, not movement -- Terrain.point_is_blocked (and the
+	# PILLAR blocks sight, not movement -- TerrainGrid.move_blocked (and the
 	# real simulation) must not treat it as blocking an enemy's spawn.
 	c.place_terrain(Terrain.Kind.PILLAR, Rect2(-20.0, -20.0, 40.0, 40.0))
 	c.place_enemy(&"goblin", Vector2(0.0, 0.0), 22.0)

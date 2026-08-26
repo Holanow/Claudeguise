@@ -404,8 +404,7 @@ func test_line_of_sight_is_rechecked_every_tick_the_shot_travels() -> void:
 	# guarantees the LOS check is what blocks the hit specifically, rather
 	# than the shot merely running out of range before reaching the wall's
 	# x-extent, which "in range but blocked" needs to isolate.
-	state.terrain.append(Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(85, -50), Vector2(30, 100))))
-
+	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(85, -50), Vector2(30, 100)))])
 	for i in 10:
 		CombatSim.step(state, deps)
 
