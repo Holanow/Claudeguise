@@ -53,7 +53,7 @@ func _ready() -> void:
 		_slots.append({"age": INF, "fresh": false, "origin": Vector2.ZERO,
 			"radius": 0.0, "facing": false, "pieces": []})
 
-## Throws `fragments` -- `UnitArt.fragments_for`'s output, one entry per slot --
+## Throws `fragments` -- `UnitArt.fragments_for`'s output, one entry per chunk --
 ## apart from `at`.
 ## Refused while the option is off, the same gate `UnitView.struck` applies, so
 ## nothing can start an effect that will never be drawn.
@@ -81,7 +81,7 @@ func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int) -
 		var pivot := _ink_center(radius, parts)
 		if facing_left:
 			pivot.x = -pivot.x
-		# Fanned rather than thrown along the chunk's own offset: the Hands slot
+		# Fanned rather than thrown along the chunk's own offset: the hands chunk
 		# holds a hand each side, so its ink is centred on the body and has no
 		# direction of its own to be thrown along.
 		var t := (float(i) + 0.5) / float(fragments.size())
@@ -100,7 +100,7 @@ func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int) -
 	return out
 
 ## Where a chunk's ink sits, in the space it is drawn into: the union of the
-## parts in it. A slot holding a head and its eyes tumbles about the head rather
+## parts in it. A chunk holding a head and its eyes tumbles about the head rather
 ## than about the canvas the parts share.
 static func _ink_center(radius: float, parts: Array) -> Vector2:
 	var box := Rect2()

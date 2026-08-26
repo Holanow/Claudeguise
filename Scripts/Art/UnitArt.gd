@@ -56,21 +56,19 @@ static func clear_cache() -> void:
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return not sprites_for(shape_id, team).is_empty()
 
-## Issue 589. Which chunk of a body a part leaves with when the body comes apart:
-## the slot it is drawn in. A part in no slot lands in `Extra` and flies on its
-## own, which is the property a hat leaving with the wrong chunk once broke.
+## Issue 589, re-cut by #630. The chunks a death throws, from `chunks_for` rather
+## than from the slots: a head leaves with the face and the hat worn on it, and a
+## siege engine's wheels and barrel leave separately.
 static func fragments_for(shape_id: StringName, team: CG.Team) -> Array:
 	var out: Array = []
-	for entry in UnitRecipes.slots_for(shape_id):
-		if entry["layers"].is_empty():
-			continue
+	for entry in UnitRecipes.chunks_for(shape_id):
 		var pieces: Array = []
 		for layer in entry["layers"]:
 			var tex := part_texture(layer["part"])
 			if tex == null:
 				return []
 			pieces.append({"tex": tex, "color": UnitRecipes.layer_color(layer, team)})
-		out.append({"group": entry["slot"], "pieces": pieces})
+		out.append({"group": entry["chunk"], "pieces": pieces})
 	# One chunk is the whole body, and a body that flies in one piece has not come
 	# apart.
 	return out if out.size() >= 2 else []
