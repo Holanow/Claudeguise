@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_rjwdb"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_633k8"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_sn7ek"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_52i7a"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_l6sc2"]
+
+[sub_resource type="Resource" id="Resource_2e8ep"]
+script = ExtResource("2_633k8")
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_y4516"]
+script = ExtResource("3_sn7ek")
+status = 10
+duration_ticks = 120
+taunt_radius = 200.0
+
+[sub_resource type="Resource" id="Resource_4bytt"]
+script = ExtResource("5_l6sc2")
+targets_self = true
+
+[resource]
+script = ExtResource("4_52i7a")
+id = &"brute_roar"
+display_name = "Roar"
+description = "Forces every enemy within 200 units to attack the Brute for 8 seconds. It cannot roar again for another 16 seconds."
+wind_up_ticks = 8
+recover_ticks = 9
+cooldown_ticks = 240
+targeting = SubResource("Resource_4bytt")
+effects = Array[ExtResource("1_rjwdb")]([SubResource("Resource_2e8ep"), SubResource("Resource_y4516")])

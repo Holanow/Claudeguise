@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_7qjdd"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_42djq"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="3_t3ioc"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_0bsr4"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_cnqvd"]
+
+[sub_resource type="Resource" id="Resource_iekdn"]
+script = ExtResource("2_42djq")
+damage_type = 7
+power_scale = 0.0
+heals = true
+
+[sub_resource type="Resource" id="Resource_ey2js"]
+script = ExtResource("3_t3ioc")
+amount = 25
+
+[sub_resource type="Resource" id="Resource_tfdkx"]
+script = ExtResource("5_cnqvd")
+targets_self = true
+
+[resource]
+script = ExtResource("4_0bsr4")
+id = &"channel_mana"
+display_name = "Channel"
+description = "Spends 3 seconds drawing back 25 Mana. Costs nothing, and a stun breaks it."
+wind_up_ticks = 45
+cooldown_ticks = 150
+targeting = SubResource("Resource_tfdkx")
+effects = Array[ExtResource("1_7qjdd")]([SubResource("Resource_iekdn"), SubResource("Resource_ey2js")])

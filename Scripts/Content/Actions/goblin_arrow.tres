@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_3syx5"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_y8ei2"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_3u7ms"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_abl67"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_unne3"]
+
+[sub_resource type="Resource" id="Resource_qdhuf"]
+script = ExtResource("1_3syx5")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_rji0r"]
+script = ExtResource("3_3u7ms")
+
+[sub_resource type="Resource" id="Resource_rm8hf"]
+script = ExtResource("5_unne3")
+range_units = 200.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("4_abl67")
+id = &"goblin_arrow"
+display_name = "Arrow"
+description = "A ranged shot dealing damage at up to 200 units."
+wind_up_ticks = 8
+recover_ticks = 8
+targeting = SubResource("Resource_rm8hf")
+delivery = SubResource("Resource_qdhuf")
+effects = Array[ExtResource("2_y8ei2")]([SubResource("Resource_rji0r")])

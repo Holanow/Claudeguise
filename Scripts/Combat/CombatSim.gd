@@ -444,7 +444,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 		push_error("CombatSim: unit %d tried unknown action '%s'" % [unit.id, intent.action_id])
 		return
 
-	if action.sustain_cost_per_tick > 0 and unit.sustaining == action.id:
+	if action.sustain != null and unit.sustaining == action.id:
 		return
 
 	if unit.resource < action.resource_cost:
@@ -645,16 +645,17 @@ static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
 static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
-	if action.summons_unit_id != &"":
-		_spawn_summon(state, unit, action, deps)
+	var summon := action.summon_effect()
+	if summon != null:
+		_spawn_summon(state, unit, action, summon, deps)
 
-	if action.sustain_cost_per_tick > 0:
+	if action.sustain != null:
 		_begin_sustain(state, unit, action)
 	else:
 		var targets := _resolve_targets(state, unit, action)
 		if targets.is_empty():
 			state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
-		elif action.projectile_speed > 0.0:
+		elif action.delivery != null:
 			_spawn_projectile(state, unit, targets[0], action, deps)
 		else:
 			for target in targets:
@@ -673,10 +674,12 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 ## Everything a source gains from a hit that actually connected: Rage, and issue
 ## 165's `ActionDef.restores_resource`.
 static func _on_hit_landed(state: CombatState, source: CombatUnit, action: ActionDef, deps: SimDeps, at: Vector2 = Vector2.ZERO) -> void:
-	if action != null and action.leaves_pool_radius > 0.0:
-		_leave_pool(state, source, action, at)
-	if action != null and action.restores_resource > 0:
-		source.resource = clampi(source.resource + action.restores_resource, 0, source.resource_max)
+	if action != null:
+		for fx in action.effects:
+			if fx is PoolEffect:
+				_leave_pool(state, source, action, fx.radius, at)
+			elif fx is RestoreEffect:
+				source.resource = clampi(source.resource + fx.amount, 0, source.resource_max)
 	if source.resource_kind != CG.ResourceKind.RAGE:
 		return
 	var gained := _stochastic_round(state, deps.rage_gain_on_attack.call(source))
@@ -700,8 +703,7 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 ## The one place `state.terrain` changes after `build()`. Water and fire
 ## annihilate the ground they share: the fire keeps what the pool did not cover
 ## and the pool keeps what the fire did not, each as up to four parts.
-static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, at: Vector2) -> void:
-	var half := action.leaves_pool_radius
+static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, half: float, at: Vector2) -> void:
 	var pool_parts: Array[Rect2] = [Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)]
 	var kept: Array = []
 	for feature in state.terrain:
@@ -779,10 +781,10 @@ static func _emit_terrain(state: CombatState, kind: CG.EventKind, caster: Combat
 
 ## Issue 12: the one place `state.units` grows after `build()`. Appends only --
 ## never inserts, never reorders -- so a new unit's id is `state.units.size()`
-static func _spawn_summon(state: CombatState, caster: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
-	var enemy_def: EnemyDef = deps.enemy_lookup.call(action.summons_unit_id)
+static func _spawn_summon(state: CombatState, caster: CombatUnit, action: ActionDef, fx: SummonEffect, deps: SimDeps) -> void:
+	var enemy_def: EnemyDef = deps.enemy_lookup.call(fx.unit_id)
 	var new_id := state.units.size()
-	var summon := _build_enemy_unit(new_id, enemy_def, action.summons_unit_id, caster.position, caster.team)
+	var summon := _build_enemy_unit(new_id, enemy_def, fx.unit_id, caster.position, caster.team)
 	state.units.append(summon)
 	## Issue 193. Emitted after the append, so `state.unit(target_id)` already
 	## resolves for anything reading the event on this tick.
@@ -819,40 +821,54 @@ static func _splash_targets(state: CombatState, primary: CombatUnit, action: Act
 			out.append(other)
 	return out
 
+## Issue 621: runs `action.effects` in the order the author listed them. The
+## death check is not an effect -- it is bookkeeping the sim owes between the
+## hit and anything that needs a live body, so it fires immediately before the
+## first effect whose `needs_live_target()` is true, and once after the list.
 static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps, onto_shield: bool = false) -> void:
 	if not target.alive:
 		return
 
-	var bonus := _consume_status(state, unit, target, action)
-
-	## How hard this hit landed, after mitigation, or 0 for a heal. Read below by
-	## `_apply_status` for a status whose magnitude is the hit that applied it.
+	## How hard the hit landed, after mitigation, or 0 for a heal. Read by a
+	## `StatusEffect` whose magnitude is the hit that applied it.
 	var dealt := 0
-	if action.heals:
+	var settled := false
+	for fx in action.effects:
+		if fx.needs_live_target() and not settled:
+			_kill_if_dead(state, target, unit.id, action.id)
+			settled = true
+			if not target.alive:
+				return
+		if fx is HitEffect:
+			dealt = _apply_hit(state, unit, target, action, fx, deps, onto_shield)
+		elif fx is StatusEffect:
+			## Issue 593: `covers_target` names an ally and shields the CASTER.
+			if action.covers_target:
+				_face_to_cover(state, unit, target)
+				_apply_status(state, unit, unit, action, fx, dealt)
+			else:
+				_apply_status(state, unit, target, action, fx, dealt)
+		elif fx is PullEffect:
+			_apply_pull(state, unit, target, action, fx)
+		elif fx is CleanseEffect:
+			_cleanse_harmful(state, unit, target, action)
+
+	if not settled:
+		_kill_if_dead(state, target, unit.id, action.id)
+
+## The heal-or-damage half of one `HitEffect`, including the status it eats to
+## pay for itself. Returns the mitigated damage, or 0 for a heal.
+static func _apply_hit(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, fx: HitEffect, deps: SimDeps, onto_shield: bool) -> int:
+	var bonus := _consume_status(state, unit, target, action, fx)
+	if fx.heals:
 		_apply_heal(state, unit, target, action, bonus, deps)
-	elif action.covers_target:
+		return 0
+	if action.covers_target:
 		## Issue 593: the ally is where the Warrior looks, not something it hits.
 		## Without this the block emits a 0-damage DAMAGE event on the ally it is
 		## protecting, which reads in the log as the Warrior attacking it.
-		pass
-	else:
-		dealt = _apply_damage(state, unit, target, action, bonus, deps, onto_shield)
-
-	if action.applies_status_enabled:
-		## Issue 593: `covers_target` names an ally and shields the CASTER.
-		if action.covers_target:
-			_face_to_cover(state, unit, target)
-			_apply_status(state, unit, unit, action, dealt)
-		else:
-			_apply_status(state, unit, target, action, dealt)
-
-	_kill_if_dead(state, target, unit.id, action.id)
-
-	if action.pull_distance > 0.0 and target.alive:
-		_apply_pull(state, unit, target, action)
-
-	if action.cleanses_harmful and target.alive:
-		_cleanse_harmful(state, unit, target, action)
+		return 0
+	return _apply_damage(state, unit, target, action, bonus, deps, onto_shield)
 
 ## The heal half. `applied` is what the health bar actually moved, so a heal on
 ## a target already at full emits nothing rather than a HEAL of 0.
@@ -945,37 +961,37 @@ const _HIT_SCALED_STATUSES := {
 
 ## Writes the status, its expiry and its magnitude in one place, so the three
 ## cannot be set inconsistently by two call sites.
-static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, dealt: int) -> void:
-	var status: CG.Status = action.applies_status
+static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: StatusEffect, dealt: int) -> void:
+	var status: CG.Status = fx.status
 	var carried := float(target.status_magnitude.get(status, 0.0))
 	if _STACKING_STATUSES.has(status):
 		target.status_magnitude[status] = carried + 1.0
 	elif _HIT_SCALED_STATUSES.has(status):
 		target.status_magnitude[status] = maxf(carried, float(dealt))
-	elif action.status_magnitude > 0.0:
+	elif fx.magnitude > 0.0:
 		## Issue 593: authored on the action. A refresh refills to full rather
 		## than topping up, so re-raising a half-spent block is worth doing.
-		target.status_magnitude[status] = maxf(carried, action.status_magnitude)
+		target.status_magnitude[status] = maxf(carried, fx.magnitude)
 
-	target.statuses[status] = state.tick + action.status_duration_ticks
+	target.statuses[status] = state.tick + fx.duration_ticks
 	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
 	target.status_source[status] = caster.id
 	if status == CG.Status.TAUNTING:
-		target.taunt_radius = action.taunt_radius
-		_broadcast_taunt(state, target, action.status_duration_ticks)
+		target.taunt_radius = fx.taunt_radius
+		_broadcast_taunt(state, target, fx.duration_ticks)
 
 	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
 	se.status = status
 	se.amount = int(target.status_magnitude.get(status, 0.0))
 	state.emit(se)
 
-## Strips `action.consumes_status` off the target and returns the bonus power it
+## Strips `fx.consumes_status` off the target and returns the bonus power it
 ## paid, or 0.0 when the action consumes nothing or the target is not carrying
 ## it. Every action in the game today takes the second branch.
-static func _consume_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> float:
-	if not action.consumes_status_enabled:
+static func _consume_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: HitEffect) -> float:
+	if not fx.consumes_status_enabled:
 		return 0.0
-	var status: CG.Status = action.consumes_status
+	var status: CG.Status = fx.consumes_status
 	if not target.has_status(status):
 		return 0.0
 	var magnitude := float(target.status_magnitude.get(status, 0.0))
@@ -983,7 +999,7 @@ static func _consume_status(state: CombatState, caster: CombatUnit, target: Comb
 	var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, caster.id, target.id, action.id)
 	e.status = status
 	state.emit(e)
-	return action.consumed_power_scale * magnitude
+	return fx.consumed_power_scale * magnitude
 
 ## The one place a status comes off a unit. Every erasure goes through here so
 ## `statuses`, `status_magnitude` and the two fields that shadow a status
@@ -1063,16 +1079,18 @@ static func _cleanse_harmful(state: CombatState, caster: CombatUnit, target: Com
 		e.status = status
 		state.emit(e)
 
-## Issue 14: drags `target` toward `caster` by up to `action.pull_distance`,
+## Issue 14: drags `target` toward `caster` by up to `fx.distance`,
 ## world units, over `PULL_TICKS` and stunning it for the same span.
-static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef) -> void:
+static func _apply_pull(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: PullEffect) -> void:
 	var to_caster := caster.position - target.position
 	var dist := to_caster.length()
 	if dist <= 0.0001:
 		return # already on top of the caster; nothing to drag
-	var travel := minf(action.pull_distance, dist)
+	var travel := minf(fx.distance, dist)
 	target.pull_step = to_caster.normalized() * (travel / float(PULL_TICKS))
 	target.pull_ticks_left = PULL_TICKS
+	if not fx.stuns:
+		return
 	target.statuses[CG.Status.STUN] = state.tick + PULL_TICKS
 	target.status_source[CG.Status.STUN] = caster.id
 	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
@@ -1132,16 +1150,16 @@ static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 	if unit.sustaining == &"":
 		return
 	var action: ActionDef = deps.action_lookup.call(unit.sustaining)
-	if action == null or action.sustain_cost_per_tick <= 0:
+	if action == null or action.sustain == null:
 		_end_sustain(state, unit)
 		return
-	if unit.resource < action.sustain_cost_per_tick:
+	if unit.resource < action.sustain.cost_per_tick:
 		_end_sustain(state, unit)
 		return
 
-	unit.resource -= action.sustain_cost_per_tick
+	unit.resource -= action.sustain.cost_per_tick
 	var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
-	spent.amount = action.sustain_cost_per_tick
+	spent.amount = action.sustain.cost_per_tick
 	state.emit(spent)
 
 	for target in _sustain_targets(state, unit, action):
@@ -1150,11 +1168,12 @@ static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 ## Everyone inside the channel's radius this tick.
 static func _sustain_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
 	var out: Array[CombatUnit] = []
-	if action.sustain_radius <= 0.0:
+	if action.sustain.radius <= 0.0:
 		return out
-	var side := unit.team if action.heals else _enemy_team(unit.team)
+	var h := action.hit()
+	var side := unit.team if h != null and h.heals else _enemy_team(unit.team)
 	for other in state.living(side):
-		if unit.position.distance_to(other.position) > action.sustain_radius:
+		if unit.position.distance_to(other.position) > action.sustain.radius:
 			continue
 		if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, other.position):
 			continue
@@ -1168,7 +1187,7 @@ static func _enemy_team(team: CG.Team) -> CG.Team:
 # projectiles
 # ---------------------------------------------------------------------------
 
-## Issue 18: launched instead of resolving instantly when `action.projectile_speed
+## Issue 18: launched instead of resolving instantly when `action.delivery
 ## > 0.0`. `aim_point` is the target's position at this exact moment and is
 ## never recomputed -- no homing, which is what lets a target walk out of the
 ## way (it isn't there when the shot arrives) as well as walk into one early
@@ -1186,7 +1205,7 @@ static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: Co
 	p.origin = caster.position
 	p.aim_point = target.position
 	p.position = caster.position
-	p.speed = action.projectile_speed
+	p.speed = action.delivery.speed
 	p.spawn_tick = state.tick
 	state.projectiles.append(p)
 

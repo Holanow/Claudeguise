@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_k3m7i"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_mp2nq"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_pxq8q"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_ifo7p"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_eng1r"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_28cpg"]
+
+[sub_resource type="Resource" id="Resource_2mpom"]
+script = ExtResource("1_k3m7i")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_anouw"]
+script = ExtResource("3_pxq8q")
+
+[sub_resource type="Resource" id="Resource_gf23d"]
+script = ExtResource("4_ifo7p")
+status = 7
+duration_ticks = 90
+
+[sub_resource type="Resource" id="Resource_qk6ib"]
+script = ExtResource("6_28cpg")
+range_units = 220.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_eng1r")
+id = &"stalker_mark"
+display_name = "Mark"
+description = "Marks a target within 220 units for 6 seconds, stripping its natural armour."
+wind_up_ticks = 4
+recover_ticks = 5
+cooldown_ticks = 60
+targeting = SubResource("Resource_qk6ib")
+delivery = SubResource("Resource_2mpom")
+effects = Array[ExtResource("2_mp2nq")]([SubResource("Resource_anouw"), SubResource("Resource_gf23d")])

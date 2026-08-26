@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_gjhac"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_ovft1"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_jy2rv"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_oo0yj"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3cb40"]
+
+[sub_resource type="Resource" id="Resource_wa8qy"]
+script = ExtResource("2_ovft1")
+damage_type = 4
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_4u4bk"]
+script = ExtResource("3_jy2rv")
+status = 11
+duration_ticks = 3600
+magnitude = 40.0
+
+[sub_resource type="Resource" id="Resource_dcb08"]
+script = ExtResource("5_3cb40")
+range_units = 1200.0
+covers_target = true
+
+[resource]
+script = ExtResource("4_oo0yj")
+id = &"warrior_block"
+display_name = "Directional Block"
+description = "Turns to face the nearest enemy to a chosen ally and raises a shield. It stops travelling shots crossing its front and soaks 40 damage before it breaks. It can be raised for any ally in the room."
+wind_up_ticks = 6
+recover_ticks = 10
+cooldown_ticks = 150
+targeting = SubResource("Resource_dcb08")
+effects = Array[ExtResource("1_gjhac")]([SubResource("Resource_wa8qy"), SubResource("Resource_4u4bk")])

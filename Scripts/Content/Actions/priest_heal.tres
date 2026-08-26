@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_6ul5b"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_2ud1g"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_omsjh"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_ndjca"]
+
+[sub_resource type="Resource" id="Resource_xk0gq"]
+script = ExtResource("2_2ud1g")
+damage_type = 5
+power_scale = 1.4
+heals = true
+
+[sub_resource type="Resource" id="Resource_xvne1"]
+script = ExtResource("4_ndjca")
+range_units = 220.0
+
+[resource]
+script = ExtResource("3_omsjh")
+id = &"priest_heal"
+display_name = "Heal"
+description = "Restores health to an ally within 220 units."
+wind_up_ticks = 8
+recover_ticks = 10
+resource_cost = 25
+targeting = SubResource("Resource_xvne1")
+effects = Array[ExtResource("1_6ul5b")]([SubResource("Resource_xk0gq")])

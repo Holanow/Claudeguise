@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_n5uhg"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_l4mad"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_pwq30"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_nd2c4"]
+
+[sub_resource type="Resource" id="Resource_ujvfr"]
+script = ExtResource("2_l4mad")
+power_scale = 2.2
+heals = true
+
+[sub_resource type="Resource" id="Resource_6lra3"]
+script = ExtResource("4_nd2c4")
+targets_self = true
+
+[resource]
+script = ExtResource("3_pwq30")
+id = &"warrior_second_wind"
+display_name = "Second Wind"
+description = "Draws on a reserve of stamina to heal the Warrior for a moderate amount. Can only be done occasionally. Costs 15 Rage."
+wind_up_ticks = 15
+recover_ticks = 12
+cooldown_ticks = 450
+resource_cost = 15
+targeting = SubResource("Resource_6lra3")
+effects = Array[ExtResource("1_n5uhg")]([SubResource("Resource_ujvfr")])

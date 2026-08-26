@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_vkxca"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_umkis"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_ep22d"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_roskq"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_jgrje"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_nqqff"]
+
+[sub_resource type="Resource" id="Resource_n1cbs"]
+script = ExtResource("1_vkxca")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_w3kh6"]
+script = ExtResource("3_ep22d")
+damage_type = 1
+
+[sub_resource type="Resource" id="Resource_jay58"]
+script = ExtResource("4_roskq")
+status = 3
+duration_ticks = 90
+
+[sub_resource type="Resource" id="Resource_pfl7p"]
+script = ExtResource("6_nqqff")
+range_units = 350.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_jgrje")
+id = &"geyser_scald"
+display_name = "Scald"
+description = "A focused burst of fire at a single target up to 350 units away, setting it alight for 6 seconds. Costs 15 Mana."
+wind_up_ticks = 8
+recover_ticks = 8
+resource_cost = 15
+targeting = SubResource("Resource_pfl7p")
+delivery = SubResource("Resource_n1cbs")
+effects = Array[ExtResource("2_umkis")]([SubResource("Resource_w3kh6"), SubResource("Resource_jay58")])

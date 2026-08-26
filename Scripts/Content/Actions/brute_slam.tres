@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_1aw2g"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_0evk1"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_y4aei"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_kj7y4"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3lqqc"]
+
+[sub_resource type="Resource" id="Resource_0ju3e"]
+script = ExtResource("2_0evk1")
+power_scale = 2.0
+
+[sub_resource type="Resource" id="Resource_ces7c"]
+script = ExtResource("3_y4aei")
+status = 5
+duration_ticks = 8
+
+[sub_resource type="Resource" id="Resource_gxqpm"]
+script = ExtResource("5_3lqqc")
+range_units = 50.0
+
+[resource]
+script = ExtResource("4_kj7y4")
+id = &"brute_slam"
+display_name = "Slam"
+description = "A heavy melee blow at up to 50 units that stuns for 0.5 seconds, cancelling whatever the target was casting."
+wind_up_ticks = 16
+recover_ticks = 18
+targeting = SubResource("Resource_gxqpm")
+effects = Array[ExtResource("1_1aw2g")]([SubResource("Resource_0ju3e"), SubResource("Resource_ces7c")])

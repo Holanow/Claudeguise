@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_83w80"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_kexjg"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_m7no6"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_5ph6v"]
+
+[sub_resource type="Resource" id="Resource_i655s"]
+script = ExtResource("2_kexjg")
+
+[sub_resource type="Resource" id="Resource_y8p2u"]
+script = ExtResource("4_5ph6v")
+range_units = 45.0
+
+[resource]
+script = ExtResource("3_m7no6")
+id = &"ghoul_maul"
+display_name = "Maul"
+description = "A melee blow at up to 45 units, with a 0.5-second wind-up."
+wind_up_ticks = 14
+recover_ticks = 14
+targeting = SubResource("Resource_y8p2u")
+effects = Array[ExtResource("1_83w80")]([SubResource("Resource_i655s")])

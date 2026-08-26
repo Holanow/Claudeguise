@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_6vjtq"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_0yto0"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_nm4yl"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_wmhj1"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_a76my"]
+
+[sub_resource type="Resource" id="Resource_y22db"]
+script = ExtResource("2_0yto0")
+damage_type = 4
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_uqlaw"]
+script = ExtResource("3_nm4yl")
+status = 6
+duration_ticks = 90
+
+[sub_resource type="Resource" id="Resource_8c6lp"]
+script = ExtResource("5_a76my")
+targets_self = true
+
+[resource]
+script = ExtResource("4_wmhj1")
+id = &"warrior_guard"
+display_name = "Guard"
+description = "Raises a block that reduces damage taken by 25% for 6 seconds. Costs 20 Rage."
+wind_up_ticks = 4
+recover_ticks = 10
+resource_cost = 20
+targeting = SubResource("Resource_8c6lp")
+effects = Array[ExtResource("1_6vjtq")]([SubResource("Resource_y22db"), SubResource("Resource_uqlaw")])

@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_28qy7"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_g0vmt"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_armqv"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_bilvy"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_npw8m"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_pb5iy"]
+
+[sub_resource type="Resource" id="Resource_12a8q"]
+script = ExtResource("1_28qy7")
+speed = 32.5
+
+[sub_resource type="Resource" id="Resource_s02wm"]
+script = ExtResource("3_armqv")
+damage_type = 6
+power_scale = 0.7
+
+[sub_resource type="Resource" id="Resource_3m48e"]
+script = ExtResource("4_bilvy")
+status = 8
+duration_ticks = 90
+
+[sub_resource type="Resource" id="Resource_32gdh"]
+script = ExtResource("6_pb5iy")
+range_units = 200.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("5_npw8m")
+id = &"cultist_bolt"
+display_name = "Dark Bolt"
+description = "A ranged bolt at up to 200 units that poisons the target for 4.5% of its max health per second, for 6 seconds."
+wind_up_ticks = 10
+recover_ticks = 10
+targeting = SubResource("Resource_32gdh")
+delivery = SubResource("Resource_12a8q")
+effects = Array[ExtResource("2_g0vmt")]([SubResource("Resource_s02wm"), SubResource("Resource_3m48e")])
