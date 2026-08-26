@@ -10,6 +10,9 @@ extends "res://Tests/TestCase.gd"
 ## wrong, so nothing could ever go red, and the player is reading a number the
 ## pawn is not using.
 
+## Issue 640: the bounds are read off the block's own `@export_range`, which is
+## what `InspectPanel._operand_editor` reads. There is no shape table left to
+## disagree with the field.
 func test_every_authored_condition_argument_is_drawable_in_the_editor() -> void:
 	var checked := 0
 	for class_id in Registry.all_class_ids():
@@ -18,34 +21,33 @@ func test_every_authored_condition_argument_is_drawable_in_the_editor() -> void:
 			for b in plan.blocks:
 				blocks.append(b)
 			for block in blocks:
-				if block == null or block.kind != PlanBlock.Kind.CONDITION:
+				if not (block is ConditionBlock):
 					continue
-				var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(block.op, {"kind": "none"})
-				var kind: String = shape.get("kind", "none")
-				if kind == "none" or kind == "status":
-					continue
-				var key: String = shape["key"]
-				assert_true(
-					block.args.has(key),
-					"%s/%s states op %s with no '%s' argument" % [class_id, plan.id, block.op, key]
-				)
-				var raw := float(block.args[key])
-				# The editor's own units. "fraction" is edited as whole percent.
-				var shown := raw * 100.0 if kind == "fraction" else raw
-				var step := 5.0 if kind == "fraction" else float(shape["step"])
-				var lo := 0.0 if kind == "fraction" else float(shape["min"])
-				var hi := 100.0 if kind == "fraction" else float(shape["max"])
-				checked += 1
-				assert_true(
-					shown >= lo and shown <= hi,
-					"%s/%s: %s = %s is outside the editor's %s..%s" % [class_id, plan.id, key, shown, lo, hi]
-				)
-				assert_almost_eq(
-					shown, snappedf(shown, step), 0.0001,
-					"%s/%s: %s = %s is not on the editor's step of %s, so the SpinBox draws %s instead" % [
-						class_id, plan.id, key, shown, step, snappedf(shown, step)
-					]
-				)
+				for property in block.operands():
+					if property["type"] == TYPE_INT and property["hint"] == PROPERTY_HINT_ENUM:
+						continue
+					var parts := String(property["hint_string"]).split(",")
+					assert_true(parts.size() >= 3,
+						"%s/%s: %s has no export range, so the editor cannot bound it" % [
+							class_id, plan.id, property["name"]])
+					# The editor's own units. A share is edited as whole percent.
+					var scale := 100.0 if float(parts[1]) == 1.0 else 1.0
+					var lo := float(parts[0]) * scale
+					var hi := float(parts[1]) * scale
+					var step := float(parts[2]) * scale
+					var shown := float(block.get(property["name"])) * scale
+					checked += 1
+					assert_true(
+						shown >= lo and shown <= hi,
+						"%s/%s: %s = %s is outside the editor's %s..%s" % [
+							class_id, plan.id, property["name"], shown, lo, hi]
+					)
+					assert_almost_eq(
+						shown, snappedf(shown, step), 0.0001,
+						"%s/%s: %s = %s is not on the editor's step of %s, so the SpinBox draws %s instead" % [
+							class_id, plan.id, property["name"], shown, step, snappedf(shown, step)
+						]
+					)
 	# Non-vacuity: sixteen preset plans carry a numeric condition today, and a
 	# walk that finds none must not read as a pass.
 	assert_true(checked >= 10, "only %d condition arguments were checked" % checked)

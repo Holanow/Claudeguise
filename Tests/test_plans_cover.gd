@@ -7,18 +7,11 @@ extends "res://Tests/TestCase.gd"
 const PILLAR_AT := Rect2(0.0, -40.0, 60.0, 80.0)
 
 func _plan_with(action_id: StringName = &"") -> Plan:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"move_into_cover"
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var movement := PlanFixtures.block(&"move_into_cover")
 	var blocks: Array[PlanBlock] = [targeting, movement]
 	if action_id != &"":
-		var action := PlanBlock.new()
-		action.kind = PlanBlock.Kind.ACTION
-		action.op = &"use_action"
-		action.args = {"action_id": action_id}
+		var action := PlanFixtures.block(&"use_action", {"action_id": action_id})
 		blocks.append(action)
 	var p := Plan.new()
 	p.id = &"cover_test"
@@ -73,7 +66,6 @@ func test_an_empty_room_falls_through_to_the_next_plan() -> void:
 	var me: CombatUnit = s[1]
 	assert_true(PlanInterpreter.decide(state, me) == null,
 		"with no cover in the room the block must let the next row try")
-	assert_eq(PlanInterpreter.last_error, "", "no cover is not an error")
 
 
 ## Already behind the pillar: the pawn stays put rather than shuffling, which is
@@ -128,7 +120,6 @@ func test_a_line_of_sight_action_makes_the_row_step_aside() -> void:
 		"fixture check: this test is meaningless if Scald stops needing a clear line")
 	assert_true(PlanInterpreter.decide(state, me) == null,
 		"cover and a line-of-sight shot cannot both be had; the row must let the next one try")
-	assert_eq(PlanInterpreter.last_error, "", "an unsatisfiable pairing is not a malformed plan")
 
 
 ## The complement, and the reason the rule is about line of sight rather than
@@ -240,5 +231,5 @@ func test_two_equal_pieces_of_cover_resolve_deterministically() -> void:
 ## The op is readable in the plan editor, the thing #97 found broken for
 ## `keep_distance`. A block the player cannot read is one they cannot use.
 func test_the_cover_op_is_readable_and_editable() -> void:
-	assert_eq(PlanInterpreter.describe_op(&"move_into_cover", {}), "move into cover from the target")
-	assert_true(PlanInterpreter.MOVEMENT_ARG_SHAPE.has(&"move_into_cover"))
+	assert_eq(BlockCatalog.movement(&"move_into_cover").describe(), "move into cover from the target")
+	assert_true(BlockCatalog.MOVEMENT_OPS.has(&"move_into_cover"))

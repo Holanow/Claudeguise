@@ -52,7 +52,7 @@ func _movement_pickers() -> Array[Node]:
 	if panel == null:
 		return out
 	for n in _walk(panel):
-		if n is OptionButton and n.item_count == PlanInterpreter.MOVEMENT_OPS.size() + 1 \
+		if n is OptionButton and n.item_count == BlockCatalog.MOVEMENT_OPS.size() + 1 \
 				and n.get_item_text(0) == InspectPanel.NO_MOVEMENT_CAPTION:
 			out.append(n)
 	return out
@@ -99,7 +99,7 @@ func _run() -> void:
 		print("HarmfulGroundShot:   %s" % picker.get_item_text(i))
 	await _shot("finch_movement_dropdown")
 
-	var wanted := 1 + PlanInterpreter.MOVEMENT_OPS.find(&"leave_harmful_ground")
+	var wanted := 1 + BlockCatalog.MOVEMENT_OPS.find(&"leave_harmful_ground")
 	picker.selected = wanted
 	picker.item_selected.emit(wanted)
 	await _settle(8)

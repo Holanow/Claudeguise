@@ -94,8 +94,8 @@ func test_preset_plan_actions_resolve() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		for plan in PresetPlans.for_class(id):
 			for block in plan.blocks:
-				if block.op == &"use_action":
-					var action_id: StringName = block.args.get("action_id", &"")
+				if block is UseActionBlock:
+					var action_id: StringName = (block as UseActionBlock).action_id
 					assert_not_null(Registry.get_action(action_id), "%s plan %s uses unknown action %s" % [id, plan.id, action_id])
 
 
@@ -134,8 +134,8 @@ func test_no_preset_plan_ever_orders_an_out_of_range_shot() -> void:
 			var far_enemy := _unit(2, CG.Team.ENEMY, Vector2(0.0, 5000.0), 10)
 			state.units.append(far_enemy)
 
-			if plan.condition != null and plan.condition.op == &"enemy_in_range":
-				var cond_range := float(plan.condition.args.get("range", 0.0))
+			if plan.condition is EnemyInRangeBlock:
+				var cond_range := (plan.condition as EnemyInRangeBlock).range_units
 				var near_enemy := _unit(3, CG.Team.ENEMY, Vector2(cond_range * 0.9, 0.0), 100)
 				state.units.append(near_enemy)
 
@@ -174,21 +174,19 @@ func _unit(id: int, team: CG.Team, pos: Vector2, hp: int) -> CombatUnit:
 ## A self unit configured, from the plan's own condition, to make that
 ## condition hold — so the test actually exercises the firing path rather than
 ## trivially passing because the condition never triggers.
-func _adversarial_self(condition: PlanBlock) -> CombatUnit:
+func _adversarial_self(condition: ConditionBlock) -> CombatUnit:
 	var u := _unit(0, CG.Team.PLAYER, Vector2.ZERO, 100)
 	if condition == null:
 		return u
-	match condition.op:
-		&"self_hp_below_fraction":
-			var fraction := float(condition.args.get("fraction", 1.0))
-			u.hp = maxi(1, int(u.hp_max * fraction * 0.5))
-		&"self_resource_at_least":
-			var amount := int(condition.args.get("amount", 0))
-			u.resource_max = amount + 100
-			u.resource = amount + 50
-		&"self_resource_at_least_fraction":
-			u.resource_max = 100
-			u.resource = 100
+	if condition is SelfHpBelowBlock:
+		u.hp = maxi(1, int(u.hp_max * (condition as SelfHpBelowBlock).fraction * 0.5))
+	elif condition is SelfResourceAtLeastBlock:
+		var amount := (condition as SelfResourceAtLeastBlock).amount
+		u.resource_max = amount + 100
+		u.resource = amount + 50
+	elif condition is SelfResourceAtLeastFractionBlock:
+		u.resource_max = 100
+		u.resource = 100
 	return u
 
 
@@ -300,6 +298,6 @@ func test_warrior_guards_proactively_not_only_when_nearly_dead() -> void:
 			guard_plan = p
 	assert_not_null(guard_plan, "expected warrior to still ship a guard-when-hurt plan")
 	assert_not_null(guard_plan.condition, "expected warrior_guard_when_hurt to carry a trigger condition")
-	assert_eq(guard_plan.condition.op, &"self_hp_below_fraction")
-	assert_true(guard_plan.condition.args.has("fraction"),
+	assert_true(guard_plan.condition is SelfHpBelowBlock)
+	assert_true((guard_plan.condition as SelfHpBelowBlock).fraction > 0.0,
 		"the guard row names no fraction, so its condition can never hold")

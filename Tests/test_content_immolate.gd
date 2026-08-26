@@ -44,7 +44,7 @@ func test_the_aura_reaches_further_than_the_grip() -> void:
 	var plan: Plan = _immolate_plan()
 	assert_not_null(plan, "the Abomination should ship %s" % IMMOLATE_PLAN)
 	assert_almost_eq(
-		float(plan.condition.args.get("range", -1.0)), immolate.sustain_radius, 0.0001,
+		(plan.condition as EnemyInRangeBlock).range_units, immolate.sustain_radius, 0.0001,
 		"the plan should hold the channel over exactly the ground the channel reaches"
 	)
 

@@ -31,11 +31,6 @@ const TAUNT_AT_RADIUS := 350.0
 ## gate a cast at 200 while the spell it orders reaches 350.
 const CASTER_REACH := 350.0
 
-## Condition and targeting ops that need a status to already be on somebody.
-## Only the positive ones: `enemy_lacks_status` is satisfied by an untouched
-## enemy, so it is not a dependency.
-const STATUS_REQUIRING_OPS := [&"enemy_has_status", &"target_enemy_with_status"]
-
 ## What a library row needs before it can do anything, and which rows in the
 ## same library supply it. Issue 434: the content already knows "Blast the
 ## burning" is inert until something applies BURN and nothing says so.
@@ -57,24 +52,28 @@ static func row_dependencies(class_id: StringName) -> Dictionary:
 		out[plan.id] = {"status": status, "supplied_by": suppliers}
 	return out
 
-## The `CG.Status` this row's condition or targeting demands, or -1.
+## The `CG.Status` this row's condition or targeting demands, or -1. Only the
+## positive ops count: `EnemyLacksStatusBlock` is satisfied by an untouched
+## enemy, so it is not a dependency.
 static func required_status(plan: Plan) -> int:
 	var blocks: Array[PlanBlock] = []
 	if plan.condition != null:
 		blocks.append(plan.condition)
 	blocks.append_array(plan.blocks)
 	for b in blocks:
-		if STATUS_REQUIRING_OPS.has(b.op) and b.args.has("status"):
-			return int(b.args["status"])
+		if b is EnemyHasStatusBlock:
+			return int((b as EnemyHasStatusBlock).status)
+		if b is TargetEnemyWithStatusBlock:
+			return int((b as TargetEnemyWithStatusBlock).status)
 	return -1
 
 ## Every `CG.Status` this row's own actions put on somebody.
 static func applied_statuses(plan: Plan) -> Array[int]:
 	var out: Array[int] = []
 	for b in plan.blocks:
-		if b.kind != PlanBlock.Kind.ACTION:
+		if not (b is UseActionBlock):
 			continue
-		var action: ActionDef = Registry.get_action(b.args.get("action_id", &""))
+		var action: ActionDef = Registry.get_action((b as UseActionBlock).action_id)
 		if action != null and action.applies_status_enabled:
 			out.append(int(action.applies_status))
 	return out
@@ -96,21 +95,21 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"warrior":
 			return [
 				_plan(&"warrior_taunt_when_they_close", "Taunt when they close",
-					_condition(&"enemy_in_range", {"range": TAUNT_AT_RADIUS}),
-					[_targeting(&"target_self"), _action_block(&"warrior_taunt")]),
+					_enemy_in_range(TAUNT_AT_RADIUS),
+					[TargetSelfBlock.new(), _use(&"warrior_taunt")]),
 				_plan(&"warrior_second_wind_when_hurt", "Second wind when hurt",
-					_condition(&"self_hp_below_fraction", {"fraction": SECOND_WIND_ABOVE_FALLBACK}),
-					[_targeting(&"target_self"), _action_block(&"warrior_second_wind")]),
+					_self_hp_below(SECOND_WIND_ABOVE_FALLBACK),
+					[TargetSelfBlock.new(), _use(&"warrior_second_wind")]),
 				_plan(&"warrior_guard_when_hurt", "Guard when hurt",
-					_condition(&"self_hp_below_fraction", {"fraction": 0.65}),
-					[_targeting(&"target_self"), _action_block(&"warrior_guard")]),
+					_self_hp_below(0.65),
+					[TargetSelfBlock.new(), _use(&"warrior_guard")]),
 				## Issue 593: the row NAMES THE ALLY, which is the whole point.
 				## `target_self` here would be the invisible auto-pick the
 				## pawn-behaviour principle forbids -- the player must be able to
 				## see, and change, who the Warrior puts itself in front of.
 				_plan(&"warrior_block_default", "Cover the weakest ally",
-					_condition(&"always", {}),
-					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"warrior_block")]),
+					AlwaysBlock.new(),
+					[TargetLowestHpAllyBlock.new(), _use(&"warrior_block")]),
 			]
 		# The player's own "one for speed, one for resistance" direction.
 		&"priest":
@@ -119,20 +118,20 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 				## same spell at 0.5, so the row only becomes an edit the player can
 				## watch by firing on ticks the fallback would spend attacking.
 				_plan(&"priest_heal_hurt_ally", "Heal before they break",
-					_condition(&"ally_below_hp_fraction", {"fraction": HEAL_ABOVE_FALLBACK}),
-					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_heal")]),
+					_ally_hp_below(HEAL_ABOVE_FALLBACK),
+					[TargetLowestHpAllyBlock.new(), _use(&"priest_heal")]),
 				_plan(&"priest_ward_default", "Ward",
-					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
-					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_ward")]),
+					_resource_at_least(PRIEST_SPENDER_RESERVE),
+					[TargetLowestHpAllyBlock.new(), _use(&"priest_ward")]),
 				_plan(&"priest_haste_default", "Haste",
-					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
-					[_targeting(&"target_lowest_hp_fraction_ally"), _action_block(&"priest_haste")]),
+					_resource_at_least(PRIEST_SPENDER_RESERVE),
+					[TargetLowestHpAllyBlock.new(), _use(&"priest_haste")]),
 				_plan(&"priest_smite_nearest", "Smite",
-					_condition(&"self_resource_at_least", {"amount": PRIEST_SPENDER_RESERVE}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"priest_smite")]),
+					_resource_at_least(PRIEST_SPENDER_RESERVE),
+					[TargetNearestEnemyBlock.new(), _use(&"priest_smite")]),
 				_plan(&"priest_channel_when_dry", "Channel when dry",
-					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
-					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
+					_resource_below(CHANNEL_WHEN_BELOW),
+					[TargetSelfBlock.new(), _use(&"channel_mana")]),
 			]
 		## Issue 406: the fire pair leads, because the library is priority order once
 		## added and Scour is the least Geysermancer row in it. Blast stays above
@@ -140,47 +139,47 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"geysermancer":
 			return [
 				_plan(&"geyser_blast_the_burning", "Blast the burning",
-					_condition(&"enemy_has_status", {"status": CG.Status.BURN}),
-					[_targeting(&"target_enemy_with_status", {"status": CG.Status.BURN}), _action_block(&"geyser_blast")]),
+					_enemy_has(CG.Status.BURN),
+					[_target_enemy_with(CG.Status.BURN), _use(&"geyser_blast")]),
 				_plan(&"geyser_scald_finisher", "Scald the weakest",
-					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
-					[_targeting(&"target_lowest_hp_fraction_enemy"), _action_block(&"geyser_scald")]),
+					_enemy_in_range(CASTER_REACH),
+					[TargetLowestHpEnemyBlock.new(), _use(&"geyser_scald")]),
 				_plan(&"geyser_scour_afflicted", "Scour the afflicted",
-					_condition(&"ally_has_harmful_status", {}),
-					[_targeting(&"target_ally_with_harmful_status"), _action_block(&"geyser_cleanse")]),
+					AllyHasHarmfulStatusBlock.new(),
+					[TargetAfflictedAllyBlock.new(), _use(&"geyser_cleanse")]),
 				_plan(&"geyser_channel_when_dry", "Channel when dry",
-					_condition(&"self_resource_below", {"amount": CHANNEL_WHEN_BELOW}),
-					[_targeting(&"target_self"), _action_block(&"channel_mana")]),
+					_resource_below(CHANNEL_WHEN_BELOW),
+					[TargetSelfBlock.new(), _use(&"channel_mana")]),
 			]
 		## Issue 432: Mark leads. `siege_engine_bolt` is marked-only, so an engine
 		## built before anything carries MARKED has nothing to shoot at.
 		&"siege_master":
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
-					_condition(&"enemy_in_range", {"range": CASTER_REACH}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"spotter_mark")]),
+					_enemy_in_range(CASTER_REACH),
+					[TargetNearestEnemyBlock.new(), _use(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
-					_condition(&"self_resource_at_least", {"amount": 25}),
-					[_targeting(&"target_self"), _action_block(&"build_siege_engine")]),
+					_resource_at_least(25),
+					[TargetSelfBlock.new(), _use(&"build_siege_engine")]),
 			]
 		&"abomination":
 			return [
 				_plan(&"abomination_claw_the_unpoisoned", "Claw whoever is not poisoned",
-					_condition(&"enemy_lacks_status", {"status": CG.Status.POISON}),
-					[_targeting(&"target_enemy_without_status", {"status": CG.Status.POISON}), _action_block(&"abomination_claw")]),
+					_enemy_lacks(CG.Status.POISON),
+					[_target_enemy_without(CG.Status.POISON), _use(&"abomination_claw")]),
 				_plan(&"abomination_grapple_close", "Grapple",
-					_condition(&"enemy_in_range", {"range": 45.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_grapple")]),
+					_enemy_in_range(45.0),
+					[TargetNearestEnemyBlock.new(), _use(&"abomination_grapple")]),
 				_plan(&"abomination_immolate_dump", "Immolate what is close but not gripped",
-					_condition(&"enemy_in_range", {"range": 90.0}),
-					[_targeting(&"target_self"), _action_block(&"abomination_immolate")]),
+					_enemy_in_range(90.0),
+					[TargetSelfBlock.new(), _use(&"abomination_immolate")]),
 				_plan(&"abomination_hook_far", "Hook",
-					_condition(&"enemy_in_range", {"range": 140.0}),
-					[_targeting(&"target_nearest_enemy"), _action_block(&"abomination_hook")]),
+					_enemy_in_range(140.0),
+					[TargetNearestEnemyBlock.new(), _use(&"abomination_hook")]),
 			]
 	return []
 
-static func _plan(id: StringName, display_name: String, condition: PlanBlock, blocks: Array[PlanBlock]) -> Plan:
+static func _plan(id: StringName, display_name: String, condition: ConditionBlock, blocks: Array[PlanBlock]) -> Plan:
 	var p := Plan.new()
 	p.id = id
 	p.display_name = display_name
@@ -188,23 +187,56 @@ static func _plan(id: StringName, display_name: String, condition: PlanBlock, bl
 	p.blocks = blocks
 	return p
 
-static func _condition(op: StringName, args: Dictionary) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.CONDITION
-	b.op = op
-	b.args = args
+# Builders for the blocks that carry an operand. A block with no operand is
+# constructed at the call site, because `TargetSelfBlock.new()` already says
+# everything a helper would.
+
+static func _use(action_id: StringName) -> UseActionBlock:
+	var b := UseActionBlock.new()
+	b.action_id = action_id
 	return b
 
-static func _targeting(op: StringName, args: Dictionary = {}) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.TARGETING
-	b.op = op
-	b.args = args
+static func _enemy_in_range(units: float) -> EnemyInRangeBlock:
+	var b := EnemyInRangeBlock.new()
+	b.range_units = units
 	return b
 
-static func _action_block(action_id: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.ACTION
-	b.op = &"use_action"
-	b.args = {"action_id": action_id}
+static func _self_hp_below(fraction: float) -> SelfHpBelowBlock:
+	var b := SelfHpBelowBlock.new()
+	b.fraction = fraction
+	return b
+
+static func _ally_hp_below(fraction: float) -> AllyHpBelowBlock:
+	var b := AllyHpBelowBlock.new()
+	b.fraction = fraction
+	return b
+
+static func _resource_at_least(amount: int) -> SelfResourceAtLeastBlock:
+	var b := SelfResourceAtLeastBlock.new()
+	b.amount = amount
+	return b
+
+static func _resource_below(amount: int) -> SelfResourceBelowBlock:
+	var b := SelfResourceBelowBlock.new()
+	b.amount = amount
+	return b
+
+static func _enemy_has(status: CG.Status) -> EnemyHasStatusBlock:
+	var b := EnemyHasStatusBlock.new()
+	b.status = status
+	return b
+
+static func _enemy_lacks(status: CG.Status) -> EnemyLacksStatusBlock:
+	var b := EnemyLacksStatusBlock.new()
+	b.status = status
+	return b
+
+static func _target_enemy_with(status: CG.Status) -> TargetEnemyWithStatusBlock:
+	var b := TargetEnemyWithStatusBlock.new()
+	b.status = status
+	return b
+
+static func _target_enemy_without(status: CG.Status) -> TargetEnemyWithoutStatusBlock:
+	var b := TargetEnemyWithoutStatusBlock.new()
+	b.status = status
 	return b

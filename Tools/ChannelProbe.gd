@@ -89,7 +89,7 @@ func _strip_channel(pawn: PawnData, class_id: StringName) -> void:
 	for p in pawn.plans:
 		var uses_channel := false
 		for b in p.blocks:
-			if b.args.get("action_id", &"") == CHANNEL:
+			if b is UseActionBlock and (b as UseActionBlock).action_id == CHANNEL:
 				uses_channel = true
 		if not uses_channel:
 			kept.append(p)

@@ -62,21 +62,15 @@ func _party(with_cover: bool, action_id: StringName) -> Array[PawnData]:
 	return out
 
 func _cover_plan(action_id: StringName) -> Plan:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"move_into_cover"
+	var targeting := TargetNearestEnemyBlock.new()
+	var movement := MoveIntoCoverBlock.new()
 	var p := Plan.new()
 	p.id = &"geyser_take_cover"
 	p.display_name = "Take cover"
 	p.blocks = [targeting, movement]
 	if action_id != &"":
-		var action := PlanBlock.new()
-		action.kind = PlanBlock.Kind.ACTION
-		action.op = &"use_action"
-		action.args = {"action_id": action_id}
+		var action := UseActionBlock.new()
+		action.action_id = action_id
 		p.blocks.append(action)
 	return p
 

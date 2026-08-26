@@ -92,17 +92,9 @@ func test_a_movement_block_can_carry_a_self_targeted_action() -> void:
 	var plan := Plan.new()
 	plan.id = &"kite_and_burn"
 	plan.display_name = "Immolate up close"
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"keep_distance"
-	movement.args = {"range": 0.0}
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"abomination_immolate"}
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var movement := PlanFixtures.block(&"keep_distance", {"range_units": 0.0})
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"abomination_immolate"})
 	plan.blocks = [targeting, movement, action]
 	pawn.plans = [plan]
 
@@ -135,17 +127,9 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 	var plan := Plan.new()
 	plan.id = &"grapple_from_afar"
 	plan.display_name = "Grapple"
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"keep_distance"
-	movement.args = {"range": 300.0}
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"abomination_grapple"}
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var movement := PlanFixtures.block(&"keep_distance", {"range_units": 300.0})
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"abomination_grapple"})
 	plan.blocks = [targeting, movement, action]
 	pawn.plans = [plan]
 
@@ -172,10 +156,7 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 ## The op names itself in the plan editor. An unnamed op renders as
 ## "unknown op 'keep_distance'" on the one screen this issue exists to fix.
 func test_the_movement_op_has_a_player_facing_sentence() -> void:
-	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 120.0}), "hold 120 units from the target, on ground that does not harm")
-	assert_eq(PlanInterpreter.describe_op(&"keep_distance", {"range": 0.0}), "close to the target")
-	for op in PlanInterpreter.MOVEMENT_OPS:
-		assert_true(PlanInterpreter.MOVEMENT_ARG_SHAPE.has(op),
-			"the editor cannot build a value editor for '%s' without an arg shape" % op)
-		assert_true(PlanInterpreter.describe_op(op, {}).find("unknown op") == -1,
-			"'%s' has no sentence" % op)
+	assert_eq(PlanFixtures.block(&"keep_distance", {"range_units": 120.0}).describe(), "hold 120 units from the target, on ground that does not harm")
+	assert_eq(PlanFixtures.block(&"keep_distance", {"range_units": 0.0}).describe(), "close to the target")
+	for op in BlockCatalog.MOVEMENT_OPS:
+		assert_true(BlockCatalog.movement(op).describe() != "", "'%s' has no sentence" % op)

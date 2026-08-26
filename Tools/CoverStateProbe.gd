@@ -129,9 +129,7 @@ func _swap_in_pair(pawn: PawnData, action_id: StringName, targeting: StringName)
 
 ## Take cover from the nearest enemy, gated on `condition` when one is named.
 func _cover_plan(action_id: StringName, condition: StringName) -> Plan:
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"move_into_cover"
+	var movement := MoveIntoCoverBlock.new()
 	var p := Plan.new()
 	p.id = &"cover_move"
 	p.display_name = "Take cover"
@@ -151,23 +149,17 @@ func _act_plan(action_id: StringName, targeting: StringName) -> Plan:
 	p.blocks = [_targeting(targeting), _action(action_id)]
 	return p
 
-func _condition(op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.CONDITION
-	b.op = op
+func _condition(op: StringName) -> ConditionBlock:
+	var b := BlockCatalog.condition(op)
 	return b
 
-func _targeting(op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.TARGETING
-	b.op = op
+func _targeting(op: StringName) -> TargetingBlock:
+	var b := BlockCatalog.targeting(op)
 	return b
 
-func _action(action_id: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.ACTION
-	b.op = &"use_action"
-	b.args = {"action_id": action_id}
+func _action(action_id: StringName) -> UseActionBlock:
+	var b := UseActionBlock.new()
+	b.action_id = action_id
 	return b
 
 func _geysermancer(state: CombatState) -> CombatUnit:
