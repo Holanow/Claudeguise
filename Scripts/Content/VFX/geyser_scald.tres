@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Art/VFX/VFXLayer.gd" id="1_mwpfm"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/BeamLayer.gd" id="2_dd3ap"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="3_o5tsn"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="4_ji1af"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/AbilityVFX.gd" id="5_x1u1j"]
+
+[sub_resource type="Resource" id="Resource_44unb"]
+script = ExtResource("2_dd3ap")
+core_colour = Color(0.95, 0.99, 1, 1)
+edge_colour = Color(0.25, 0.62, 0.9, 1)
+width = 40.0
+hold_seconds = 0.05
+fade_seconds = 0.14
+cue = 1
+
+[sub_resource type="Resource" id="Resource_2bjcr"]
+script = ExtResource("3_o5tsn")
+colour = Color(0.95, 0.99, 1, 1)
+size = 66.0
+seconds = 0.12
+delay = 0.05
+
+[sub_resource type="Resource" id="Resource_c73x5"]
+script = ExtResource("4_ji1af")
+amount = 18
+colour_hot = Color(0.95, 0.99, 1, 1)
+colour_cool = Color(0.25, 0.62, 0.9, 1)
+speed = 170.0
+lifetime = 0.5
+gravity = Vector2(0, 380)
+delay = 0.05
+
+[resource]
+script = ExtResource("5_x1u1j")
+display_name = "Scald"
+layers = Array[ExtResource("1_mwpfm")]([SubResource("Resource_44unb"), SubResource("Resource_2bjcr"), SubResource("Resource_c73x5")])
