@@ -27,10 +27,17 @@ func _shot(id: StringName, speed: float, splash: float = 0.0) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 1
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.projectile_speed = speed
-	a.splash_radius = splash
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	a.targeting.splash_radius = splash
+	## Speed 0 means no delivery at all, not a delivery at 0: the second one
+	## launches a shot that never arrives, which is a different fight.
+	if speed > 0.0:
+		a.delivery = ActionDelivery.new()
+		a.delivery.speed = speed
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _deps_with_action(action: ActionDef, power: float, los_blocked: bool = false) -> SimDeps:
@@ -379,7 +386,7 @@ func test_determinism_holds_with_projectiles_in_play() -> void:
 
 func test_line_of_sight_is_rechecked_every_tick_the_shot_travels() -> void:
 	var shot := _shot(&"shot", 20.0)
-	shot.requires_line_of_sight = true
+	shot.targeting.requires_line_of_sight = true
 	var deps := _deps_with_action(shot, 9.0)
 
 	var state := CombatState.new(209)

@@ -26,9 +26,18 @@ func _build_action(id: StringName, summons: StringName, wind_up: int = 0) -> Act
 	a.id = id
 	a.wind_up_ticks = wind_up
 	a.recover_ticks = 1
-	a.range_units = 0.0
-	a.power_scale = 0.0
-	a.summons_unit_id = summons
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 0.0
+	var hit := HitEffect.new()
+	hit.power_scale = 0.0
+	var fx: Array[AbilityEffect] = [hit]
+	## An empty id summons nothing, and that is a case one test uses. A
+	## `SummonEffect` naming "" would still be an effect the sim runs.
+	if summons != &"":
+		var call_up := SummonEffect.new()
+		call_up.unit_id = summons
+		fx.append(call_up)
+	a.effects = fx
 	return a
 
 func _engine_def(id: StringName, hp: int) -> EnemyDef:
@@ -145,7 +154,9 @@ func test_determinism_holds_with_summoning_in_play() -> void:
 	atk.id = &"atk"
 	atk.wind_up_ticks = 1
 	atk.recover_ticks = 1
-	atk.range_units = 999.0
+	atk.targeting = ActionTargeting.new()
+	atk.targeting.range_units = 999.0
+	atk.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var engine_def := _engine_def(&"engine", 6)
 	var actions_by_id := {build.id: build, atk.id: atk}
 	var enemies_by_id := {&"engine": engine_def}
@@ -206,7 +217,9 @@ func test_a_summoned_unit_can_fight_and_be_killed() -> void:
 	strike.id = &"strike"
 	strike.wind_up_ticks = 1
 	strike.recover_ticks = 1
-	strike.range_units = 999.0
+	strike.targeting = ActionTargeting.new()
+	strike.targeting.range_units = 999.0
+	strike.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var engine_def := _engine_def(&"engine", 4)
 	engine_def.actions = [strike.id]
 	var actions_by_id := {build.id: build, strike.id: strike}

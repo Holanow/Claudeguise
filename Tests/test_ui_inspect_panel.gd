@@ -21,6 +21,7 @@ func _make_action(id: String, name: String, description: String = "") -> ActionD
 	a.id = StringName(id)
 	a.display_name = name
 	a.description = description
+	a.effects = [HitEffect.new()] as Array[AbilityEffect]
 	return a
 
 func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
