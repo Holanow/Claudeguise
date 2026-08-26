@@ -451,17 +451,20 @@ func test_a_missing_art_file_is_not_an_error() -> void:
 
 
 func test_the_replacement_instructions_match_the_real_content() -> void:
-	# Assets/Units/README.md tells whoever replaces the art which filenames to
-	# use. If somebody adds an enemy and does not update it, that person finds
-	# out here rather than the artist finding out by dropping in a PNG that
-	# never appears.
+	# Assets/Units/README.md tells whoever adds a creature what each one is made
+	# of. If somebody adds an enemy and does not update it, that person finds out
+	# here rather than the next reader finding a table missing a row.
+	#
+	# It looked for `<id>.png` until units stopped being one file each. There is
+	# no such file to name any more, so it looks for the id itself -- and the id
+	# in the table is what the recipe is keyed by.
 	var readme := FileAccess.get_file_as_string("res://Assets/Units/README.md")
 	assert_ne(readme, "", "Assets/Units/README.md is missing")
 
 	for class_id in Registry.all_class_ids():
 		assert_true(
-			readme.contains("%s.png" % class_id),
-			"class '%s' is registered but Assets/Units/README.md does not list %s.png" % [class_id, class_id]
+			readme.contains("`%s`" % class_id),
+			"class '%s' is registered but Assets/Units/README.md does not list it" % class_id
 		)
 
 	var checked := 0
@@ -469,8 +472,8 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
 			var enemy_id: StringName = spawn.get("enemy_id", &"")
 			assert_true(
-				readme.contains("%s.png" % enemy_id),
-				"enemy '%s' spawns but Assets/Units/README.md does not list %s.png" % [enemy_id, enemy_id]
+				readme.contains("`%s`" % enemy_id),
+				"enemy '%s' spawns but Assets/Units/README.md does not list it" % enemy_id
 			)
 			checked += 1
 	assert_true(checked > 0, "no enemy spawns checked; this test would pass on an empty game")
