@@ -35,9 +35,18 @@ func _hook(id: StringName, pull: float, power: float = 5.0) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 2
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.pull_distance = pull
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	var fx: Array[AbilityEffect] = [hit]
+	## A pull of 0 is no pull at all. A `PullEffect` at distance 0 still stuns
+	## for `PULL_TICKS`, so leaving one in place is not the same action.
+	if pull > 0.0:
+		var drag := PullEffect.new()
+		drag.distance = pull
+		fx.append(drag)
+	a.effects = fx
 	return a
 
 func _deps_with_action(action: ActionDef, power: float) -> SimDeps:

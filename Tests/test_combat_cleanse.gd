@@ -32,10 +32,15 @@ func _cleanse_action(id: StringName, cleanses: bool) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 2
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.heals = true
-	a.cleanses_harmful = cleanses
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.heals = true
+	hit.damage_type = CG.DamageType.PHYSICAL
+	var fx: Array[AbilityEffect] = [hit]
+	if cleanses:
+		fx.append(CleanseEffect.new())
+	a.effects = fx
 	return a
 
 func _deps_with_action(action: ActionDef) -> SimDeps:

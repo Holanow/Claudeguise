@@ -31,8 +31,11 @@ func _melee(id: StringName, wind_up: int, recover: int, range_units: float) -> A
 	a.id = id
 	a.wind_up_ticks = wind_up
 	a.recover_ticks = recover
-	a.range_units = range_units
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = range_units
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 # ---------------------------------------------------------------------------

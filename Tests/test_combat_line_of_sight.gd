@@ -12,9 +12,12 @@ func _sighted(id: StringName, wind_up: int, recover: int, range_units: float) ->
 	a.id = id
 	a.wind_up_ticks = wind_up
 	a.recover_ticks = recover
-	a.range_units = range_units
-	a.damage_type = CG.DamageType.PHYSICAL
-	a.requires_line_of_sight = true
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = range_units
+	a.targeting.requires_line_of_sight = true
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _unsighted(id: StringName, wind_up: int, recover: int, range_units: float) -> ActionDef:

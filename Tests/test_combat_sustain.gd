@@ -30,10 +30,14 @@ func _aura(cost: int = _COST, radius: float = _RADIUS) -> ActionDef:
 	a.id = &"immolate"
 	a.wind_up_ticks = _WIND_UP
 	a.recover_ticks = 0
-	a.range_units = 999.0
-	a.damage_type = CG.DamageType.FIRE
-	a.sustain_cost_per_tick = cost
-	a.sustain_radius = radius
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	a.sustain = ActionSustain.new()
+	a.sustain.cost_per_tick = cost
+	a.sustain.radius = radius
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.FIRE
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 ## `default_decide` returns "use this action" forever, which is what a plan whose
@@ -416,7 +420,9 @@ func test_a_fight_with_no_sustained_action_emits_no_sustain_events() -> void:
 	var plain := ActionDef.new()
 	plain.id = &"strike"
 	plain.wind_up_ticks = _WIND_UP
-	plain.range_units = 999.0
+	plain.targeting = ActionTargeting.new()
+	plain.targeting.range_units = 999.0
+	plain.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var state := _arena(plain)
 	var deps := _deps(plain)
 	for i in 6:

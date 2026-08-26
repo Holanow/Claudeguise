@@ -28,10 +28,17 @@ func _shot(id: StringName, speed: float, splash: float = 0.0) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 1
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.projectile_speed = speed
-	a.splash_radius = splash
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	a.targeting.splash_radius = splash
+	## Speed 0 means no delivery at all, not a delivery at 0: the second one
+	## launches a shot that never arrives, which is a different fight.
+	if speed > 0.0:
+		a.delivery = ActionDelivery.new()
+		a.delivery.speed = speed
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _deps_with_action(action: ActionDef, power: float) -> SimDeps:
@@ -439,12 +446,15 @@ func test_applying_taunting_writes_taunt_radius_onto_the_unit() -> void:
 	taunt.id = &"taunt"
 	taunt.wind_up_ticks = 1
 	taunt.recover_ticks = 1
-	taunt.range_units = 999.0
-	taunt.power_scale = 0.0
-	taunt.applies_status_enabled = true
-	taunt.applies_status = CG.Status.TAUNTING
-	taunt.status_duration_ticks = 100
-	taunt.taunt_radius = 250.0
+	taunt.targeting = ActionTargeting.new()
+	taunt.targeting.range_units = 999.0
+	var taunt_hit := HitEffect.new()
+	taunt_hit.power_scale = 0.0
+	var taunt_fx := StatusEffect.new()
+	taunt_fx.status = CG.Status.TAUNTING
+	taunt_fx.duration_ticks = 100
+	taunt_fx.taunt_radius = 250.0
+	taunt.effects = [taunt_hit, taunt_fx] as Array[AbilityEffect]
 	var deps := _deps_with_action(taunt, 0.0)
 
 	var state := CombatState.new(308)
@@ -464,12 +474,15 @@ func test_taunt_radius_resets_when_taunting_expires() -> void:
 	taunt.id = &"taunt"
 	taunt.wind_up_ticks = 1
 	taunt.recover_ticks = 1
-	taunt.range_units = 999.0
-	taunt.power_scale = 0.0
-	taunt.applies_status_enabled = true
-	taunt.applies_status = CG.Status.TAUNTING
-	taunt.status_duration_ticks = 2
-	taunt.taunt_radius = 150.0
+	taunt.targeting = ActionTargeting.new()
+	taunt.targeting.range_units = 999.0
+	var taunt_hit := HitEffect.new()
+	taunt_hit.power_scale = 0.0
+	var taunt_fx := StatusEffect.new()
+	taunt_fx.status = CG.Status.TAUNTING
+	taunt_fx.duration_ticks = 2
+	taunt_fx.taunt_radius = 150.0
+	taunt.effects = [taunt_hit, taunt_fx] as Array[AbilityEffect]
 	var deps := _deps_with_action(taunt, 0.0)
 
 	var state := CombatState.new(309)
@@ -495,23 +508,29 @@ func test_reapplying_taunting_refreshes_taunt_radius() -> void:
 	weak_taunt.id = &"weak_taunt"
 	weak_taunt.wind_up_ticks = 1
 	weak_taunt.recover_ticks = 1
-	weak_taunt.range_units = 999.0
-	weak_taunt.power_scale = 0.0
-	weak_taunt.applies_status_enabled = true
-	weak_taunt.applies_status = CG.Status.TAUNTING
-	weak_taunt.status_duration_ticks = 100
-	weak_taunt.taunt_radius = 50.0
+	weak_taunt.targeting = ActionTargeting.new()
+	weak_taunt.targeting.range_units = 999.0
+	var weak_taunt_hit := HitEffect.new()
+	weak_taunt_hit.power_scale = 0.0
+	var weak_taunt_fx := StatusEffect.new()
+	weak_taunt_fx.status = CG.Status.TAUNTING
+	weak_taunt_fx.duration_ticks = 100
+	weak_taunt_fx.taunt_radius = 50.0
+	weak_taunt.effects = [weak_taunt_hit, weak_taunt_fx] as Array[AbilityEffect]
 
 	var strong_taunt := ActionDef.new()
 	strong_taunt.id = &"strong_taunt"
 	strong_taunt.wind_up_ticks = 1
 	strong_taunt.recover_ticks = 1
-	strong_taunt.range_units = 999.0
-	strong_taunt.power_scale = 0.0
-	strong_taunt.applies_status_enabled = true
-	strong_taunt.applies_status = CG.Status.TAUNTING
-	strong_taunt.status_duration_ticks = 100
-	strong_taunt.taunt_radius = 300.0
+	strong_taunt.targeting = ActionTargeting.new()
+	strong_taunt.targeting.range_units = 999.0
+	var strong_taunt_hit := HitEffect.new()
+	strong_taunt_hit.power_scale = 0.0
+	var strong_taunt_fx := StatusEffect.new()
+	strong_taunt_fx.status = CG.Status.TAUNTING
+	strong_taunt_fx.duration_ticks = 100
+	strong_taunt_fx.taunt_radius = 300.0
+	strong_taunt.effects = [strong_taunt_hit, strong_taunt_fx] as Array[AbilityEffect]
 
 	var actions_by_id := {weak_taunt.id: weak_taunt, strong_taunt.id: strong_taunt}
 	var deps := SimDeps.new()

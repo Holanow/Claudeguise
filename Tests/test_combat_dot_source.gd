@@ -31,12 +31,15 @@ func _hit(id: StringName, status: CG.Status, duration: int) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 0
 	a.recover_ticks = 0
-	a.range_units = 999.0
-	a.damage_type = CG.DamageType.PHYSICAL
-	a.power_scale = 1.0
-	a.applies_status = status
-	a.applies_status_enabled = true
-	a.status_duration_ticks = duration
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	hit.power_scale = 1.0
+	var applies := StatusEffect.new()
+	applies.status = status
+	applies.duration_ticks = duration
+	a.effects = [hit, applies] as Array[AbilityEffect]
 	return a
 
 func _deps(actions: Array, dot_rate: float = 3.0) -> SimDeps:
@@ -244,9 +247,11 @@ func test_a_cleanse_takes_the_source_too() -> void:
 	var jab := _hit(&"jab", CG.Status.POISON, 999)
 	var cleanse := ActionDef.new()
 	cleanse.id = &"cleanse"
-	cleanse.range_units = 999.0
-	cleanse.heals = true
-	cleanse.cleanses_harmful = true
+	cleanse.targeting = ActionTargeting.new()
+	cleanse.targeting.range_units = 999.0
+	var mend := HitEffect.new()
+	mend.heals = true
+	cleanse.effects = [mend, CleanseEffect.new()] as Array[AbilityEffect]
 
 	var state := _arena()
 	var deps := _deps([jab, cleanse])

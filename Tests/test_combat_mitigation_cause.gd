@@ -6,8 +6,11 @@ extends "res://Tests/TestCase.gd"
 func _attack() -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"swing"
-	a.range_units = 1000.0
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 1000.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func _unit(id: int, team: CG.Team, hp: int) -> CombatUnit:

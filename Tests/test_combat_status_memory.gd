@@ -31,12 +31,15 @@ func _hit(id: StringName, status: CG.Status, duration: int, power: float) -> Act
 	a.id = id
 	a.wind_up_ticks = 0
 	a.recover_ticks = 0
-	a.range_units = 999.0
-	a.damage_type = CG.DamageType.PHYSICAL
-	a.power_scale = power
-	a.applies_status = status
-	a.applies_status_enabled = true
-	a.status_duration_ticks = duration
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	hit.power_scale = power
+	var applies := StatusEffect.new()
+	applies.status = status
+	applies.duration_ticks = duration
+	a.effects = [hit, applies] as Array[AbilityEffect]
 	return a
 
 func _deps(actions: Array, power: float = 10.0) -> SimDeps:
@@ -270,12 +273,15 @@ func _consumer(id: StringName, status: CG.Status, scale: float) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 0
 	a.recover_ticks = 0
-	a.range_units = 999.0
-	a.damage_type = CG.DamageType.FIRE
-	a.power_scale = 1.0
-	a.consumes_status = status
-	a.consumes_status_enabled = true
-	a.consumed_power_scale = scale
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.FIRE
+	hit.power_scale = 1.0
+	hit.consumes_status = status
+	hit.consumes_status_enabled = true
+	hit.consumed_power_scale = scale
+	a.effects = [hit] as Array[AbilityEffect]
 	return a
 
 func test_consuming_a_burn_pays_out_by_how_hard_the_burn_was() -> void:
@@ -374,9 +380,11 @@ func test_a_cleanse_removes_the_stored_magnitude_too() -> void:
 	var cut := _hit(&"cut", CG.Status.BLEED, 999, 1.0)
 	var cleanse := ActionDef.new()
 	cleanse.id = &"cleanse"
-	cleanse.range_units = 999.0
-	cleanse.heals = true
-	cleanse.cleanses_harmful = true
+	cleanse.targeting = ActionTargeting.new()
+	cleanse.targeting.range_units = 999.0
+	var mend := HitEffect.new()
+	mend.heals = true
+	cleanse.effects = [mend, CleanseEffect.new()] as Array[AbilityEffect]
 
 	var state := _arena()
 	var deps := _deps([cut, cleanse])
