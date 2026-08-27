@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_t30fy"]
+
+[resource]
+script = ExtResource("1_t30fy")
+id = &"gown"
+display_name = "Gown"
+slot = 1
+description = "Layered and formal. Adds 2 Wisdom."
+attribute_flat = {
+6: 2
+}
+required_tags = Array[int]([7])

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_7mumf"]
+
+[resource]
+script = ExtResource("1_7mumf")
+id = &"sword"
+display_name = "Sword"
+description = "A straight blade. Its wielder attacks with a Strike."
+granted_actions = Array[StringName]([&"warrior_strike"])
+required_tags = Array[int]([0])
