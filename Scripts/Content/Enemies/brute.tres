@@ -8,7 +8,7 @@ id = &"brute"
 display_name = "Brute"
 hp_max = 320
 move_speed = 1.8
-radius = 18.0
+radius = 27.0
 attack_power = {
 0: 24
 }

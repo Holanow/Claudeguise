@@ -8,7 +8,7 @@ id = &"ghoul"
 display_name = "Ghoul"
 hp_max = 200
 move_speed = 1.6
-radius = 16.0
+radius = 24.0
 attack_power = {
 0: 20
 }

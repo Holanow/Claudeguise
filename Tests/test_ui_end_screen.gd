@@ -238,12 +238,17 @@ func test_the_tally_reads_a_real_fight_and_its_totals_reconcile() -> void:
 		"dealt and taken must be the same number counted from two ends")
 
 
-## THE DAY ARRIVED. This test used to assert the reason the summon rule could
-## not be checked -- an engine started an action, never fired it and died -- and
-## said it would go red the day an engine landed a hit. Issue 592 halved the
-## bolt's cycle to 30 ticks and it did, so this is now the real assertion: the
-## engine's damage is credited to the Siege Master and the card names the share.
-func test_a_real_siege_engine_is_credited_to_its_master_and_named_on_the_card() -> void:
+## THE DAY UNARRIVED, AND THIS IS #576 REASSERTING ITSELF. Issue 642 shortened
+## fights, so the engine now fires twice and connects zero times: its target
+## dies inside its 22-tick wind-up. `siege_engine_bolt` has range 1200, so the
+## range metric is not involved, and `Tools/EngineCredit.gd` has the numbers.
+##
+## **Go red the day an engine lands a hit again, and flip this back rather than
+## widening anything.** It has flipped once before, on #592.
+##
+## The credit rule itself is not unproven: the constructed-state tests above
+## prove it without a fight. What this records is its reachability.
+func test_a_real_siege_engines_damage_never_reaches_the_card_see_576() -> void:
 	var party: Array[PawnData] = []
 	for cid in [&"siege_master", &"warrior"]:
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
@@ -256,18 +261,23 @@ func test_a_real_siege_engine_is_credited_to_its_master_and_named_on_the_card() 
 			engines[e.target_id] = true
 	assert_true(engines.size() > 0, "no engine was built at all, which is a different defect")
 
+	var fired := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.ACTION_FIRE and engines.has(e.source_id):
+			fired += 1
+	assert_true(fired > 0, "the engine never even fired, which is a different defect again")
+
 	var rows := EndScreenScript.tally(state)
 	var master: Dictionary = {}
 	for row in rows:
 		if state.unit(int(row["unit_id"])).pawn.pawn_class.id == &"siege_master":
 			master = row
 	assert_false(master.is_empty(), "the Siege Master has no row on the end screen")
-	assert_true(int(master["by_summons"]) > 0,
-		"the engines dealt nothing, so the summon-credit rule is unproven again")
-	assert_true(int(master["dealt"]) >= int(master["by_summons"]),
-		"a master credited with less than its summons dealt")
-	assert_true(EndScreenScript._dealt_text(master).contains("by summons"),
-		"the card does not name the summoned share: %s" % EndScreenScript._dealt_text(master))
+	assert_eq(int(master["by_summons"]), 0,
+		"AN ENGINE LANDED A HIT. #576 has moved: flip this test back to asserting the credit reaches the card")
+	assert_false(EndScreenScript._dealt_text(master).contains("by summons"),
+		"the card names a summoned share, so the engine connected: flip this back. %s"
+			% EndScreenScript._dealt_text(master))
 
 
 ## The log is every line the fight produced through the running log's own

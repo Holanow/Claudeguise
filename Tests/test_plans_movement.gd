@@ -28,9 +28,10 @@ func _plan(blocks: Array[PlanBlock], id: StringName = &"kite_test") -> Plan:
 	return p
 
 
-## A two-unit fight built by hand: one player pawn carrying `plan`, one enemy at
-## `enemy_at`. Real `CombatSim.build` so the units are real, then the enemy is
-## moved to the distance the case is about.
+## A two-unit fight built by hand: one player pawn carrying `plan`, one enemy
+## `enemy_at` away **edge to edge**, which is what `keep_distance` measures
+## since issue 642. Real `CombatSim.build` so the units are real, then the enemy
+## is moved to the gap the case is about.
 func _situation(plan: Plan, enemy_at: Vector2, class_id: StringName = &"geysermancer") -> Array:
 	var pawn := PawnFactory.make_starter_pawn(class_id, &"p0", "P")
 	pawn.plans = [plan]
@@ -51,7 +52,7 @@ func _situation(plan: Plan, enemy_at: Vector2, class_id: StringName = &"geyserma
 			u.hp = 0
 			u.alive = false
 	me.position = Vector2.ZERO
-	foe.position = enemy_at
+	foe.position = enemy_at if enemy_at.length() < 0.0001 		else enemy_at + enemy_at.normalized() * (me.radius + foe.radius)
 	## Issue 325: the line above used to be a comment claiming this, while every
 	## other enemy stayed alive. It is an assertion now, so the claim cannot go
 	## quietly false again.
@@ -69,13 +70,14 @@ func test_keep_distance_retreats_when_the_target_is_too_close() -> void:
 	var s := _situation(plan, Vector2(40.0, 0.0))
 	var state: CombatState = s[0]
 	var me: CombatUnit = s[1]
+	var foe: CombatUnit = s[2]
 	var intent := PlanInterpreter.decide(state, me)
 	assert_not_null(intent, "a movement block must produce an intent, not fall through")
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
 	assert_eq(intent.source_plan, &"kite_test", "the log must be able to name the plan that moved the pawn")
 	assert_true(intent.destination.x < me.position.x,
 		"the enemy is to the right, so retreating means moving left, got %s" % intent.destination)
-	assert_almost_eq(intent.destination.distance_to(Vector2(40.0, 0.0)), RANGE, 1.0,
+	assert_almost_eq(intent.destination.distance_to(foe.position) - me.radius - foe.radius, RANGE, 1.0,
 		"a retreat should end at the distance the block asked for")
 
 
@@ -100,9 +102,10 @@ func test_keep_distance_closes_when_the_target_is_too_far() -> void:
 	var s := _situation(plan, Vector2(400.0, 0.0))
 	var state: CombatState = s[0]
 	var me: CombatUnit = s[1]
+	var foe: CombatUnit = s[2]
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_true(intent.destination.distance_to(Vector2(400.0, 0.0)) < 400.0,
+	assert_true(intent.destination.distance_to(foe.position) < me.position.distance_to(foe.position),
 		"range 0 means close all the way, got %s" % intent.destination)
 
 

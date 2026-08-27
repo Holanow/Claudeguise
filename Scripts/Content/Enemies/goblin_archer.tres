@@ -8,7 +8,7 @@ id = &"goblin_archer"
 display_name = "Goblin Archer"
 hp_max = 28
 move_speed = 3.2
-radius = 11.0
+radius = 16.5
 attack_power = {
 0: 8
 }

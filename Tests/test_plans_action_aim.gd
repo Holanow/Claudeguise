@@ -11,7 +11,8 @@ func _blocks(targeting_op: StringName, action_id: StringName, hold: float) -> Ar
 	return [targeting, movement, action]
 
 
-## One pawn of `class_id` carrying `blocks`, one living enemy at `foe_at`, every
+## One pawn of `class_id` carrying `blocks`, one living enemy `foe_at` away
+## **edge to edge**, which is what `keep_distance` measures since issue 642, every
 ## other enemy switched off. `alive` is a stored bool, so it is set directly --
 ## `hp = 0` does not kill a unit (issue 325).
 func _situation(class_id: StringName, blocks: Array[PlanBlock], foe_at: Vector2) -> Array:
@@ -34,7 +35,7 @@ func _situation(class_id: StringName, blocks: Array[PlanBlock], foe_at: Vector2)
 			u.alive = false
 	me.position = Vector2.ZERO
 	me.resource = me.resource_max
-	foe.position = foe_at
+	foe.position = foe_at if foe_at.length() < 0.0001 		else foe_at + foe_at.normalized() * (me.radius + foe.radius)
 	return [state, me, foe]
 
 

@@ -53,6 +53,7 @@ static func step(state: CombatState, deps: SimDeps = null) -> void:
 	state.tick += 1
 	_decide_phase(state, deps)
 	_resolve_phase(state, deps)
+	_separate_phase(state)
 	_tick_phase(state, deps)
 	_tick_projectiles(state, deps)
 	_check_outcome(state, deps)
@@ -209,7 +210,7 @@ static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDe
 		var a: ActionDef = deps.action_lookup.call(id)
 		if a != null:
 			defs.append(a)
-	var dist := unit.position.distance_to(taunter.position)
+	var dist := unit.gap(taunter)
 	var melee: ActionDef = deps.default_attack_action.call(defs, false)
 	var ranged: ActionDef = deps.default_attack_action.call(defs, true)
 	var chosen: ActionDef = melee
@@ -310,6 +311,49 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 		unit.position = slide_y
 	# else: fully blocked in every direction this tick. Stay put.
 	_update_facing_from_movement(unit, before)
+
+## Bodies do not stand inside each other (issue 642). Every push is computed
+## against one snapshot of the positions and only then applied, so the order
+## `state.units` happens to be in cannot change the answer, and each push is
+## walked through `_sweep` so separation can never post a unit into a wall or
+## off the arena.
+const _SEPARATION_STRENGTH := 0.5
+
+## No body is shoved faster than a body walks. Without a cap a pair spawned
+## exactly on top of each other teleports a full radius apart in one tick,
+## which is the summon case and reads as a glitch rather than as a crowd.
+const _SEPARATION_MAX_STEP := 4.0
+
+static func _separate_phase(state: CombatState) -> void:
+	var living: Array[CombatUnit] = []
+	for u in state.units:
+		if u.alive:
+			living.append(u)
+	if living.size() < 2:
+		return
+	var pushes := {}
+	for a in living:
+		var push := Vector2.ZERO
+		for b in living:
+			if b.id == a.id:
+				continue
+			var delta: Vector2 = a.position - b.position
+			var dist: float = delta.length()
+			var contact: float = a.radius + b.radius
+			if dist >= contact:
+				continue
+			if dist > 0.001:
+				push += delta / dist * (contact - dist) * _SEPARATION_STRENGTH
+			else:
+				# Exactly coincident: distance has no direction to push along.
+				var angle := float(a.id) * 2.4
+				push += Vector2(cos(angle), sin(angle)) * contact * _SEPARATION_STRENGTH
+		if push != Vector2.ZERO:
+			pushes[a.id] = push.limit_length(_SEPARATION_MAX_STEP)
+	for u in living:
+		var push = pushes.get(u.id)
+		if push != null:
+			u.position = _sweep(state, u, push)
 
 ## Issue 163: a step that would end in fire gives way to a clear one, when a
 ## clear one exists that still makes progress.
@@ -765,7 +809,7 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 	var primary := state.unit(unit.focus_id)
 	if primary == null or not primary.alive:
 		return out
-	if unit.position.distance_to(primary.position) > action.range_units:
+	if unit.gap(primary) > action.range_units:
 		return out
 	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position):
 		return out

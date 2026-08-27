@@ -68,7 +68,7 @@ func test_a_point_on_the_shield_wall_picks_the_shielder() -> void:
 	var u: CombatUnit = view.state.units[0]
 	u.facing = Vector2.RIGHT
 	u.statuses[CG.Status.SHIELDING] = view.state.tick + 100
-	var standoff := u.radius * UnitView.DISPLAY_SCALE
+	var standoff := u.radius
 	var on_plate := u.position + Vector2(standoff + ShieldWall.DEPTH * 0.5, ShieldWall.half_width() * 0.8)
 	assert_eq(BattleView.unit_at(view.state, on_plate), u.id)
 	view.free()
@@ -77,7 +77,7 @@ func test_the_shield_wall_is_not_pickable_when_the_status_is_down() -> void:
 	var view = _spawn_battle_view()
 	var u: CombatUnit = view.state.units[0]
 	u.facing = Vector2.RIGHT
-	var standoff := u.radius * UnitView.DISPLAY_SCALE
+	var standoff := u.radius
 	var on_plate := u.position + Vector2(standoff + ShieldWall.DEPTH * 0.5, ShieldWall.half_width() * 0.8)
 	assert_eq(BattleView.unit_at(view.state, on_plate), -1)
 	view.free()

@@ -221,8 +221,9 @@ func test_the_destination_is_still_on_the_band_it_was_told_to_hold() -> void:
 	var s := _situation(_kite(210.0), Vector2(-200.0, 0.0), Vector2(300.0, 0.0),
 		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
 	var foe: CombatUnit = s[2]
-	var intent := PlanInterpreter.decide(s[0], s[1])
-	assert_almost_eq(foe.position.distance_to(intent.destination), 210.0, 0.5,
+	var me: CombatUnit = s[1]
+	var intent := PlanInterpreter.decide(s[0], me)
+	assert_almost_eq(foe.position.distance_to(intent.destination) - me.radius - foe.radius, 210.0, 0.5,
 		"the destination must sit at the requested distance, not merely somewhere safe")
 
 ## The instrument check. With no fire authored the row names the point it always
@@ -232,19 +233,20 @@ func test_with_no_hazard_the_row_names_the_bearing_it_already_faced() -> void:
 	var foe: CombatUnit = s[2]
 	var me: CombatUnit = s[1]
 	var intent := PlanInterpreter.decide(s[0], me)
-	var straight: Vector2 = foe.position + (me.position - foe.position).normalized() * 210.0
+	var straight: Vector2 = foe.position 		+ (me.position - foe.position).normalized() * (210.0 + me.radius + foe.radius)
 	assert_almost_eq(intent.destination.distance_to(straight), 0.0, 0.5,
 		"unburnt and unblocked, the sweep must return the first bearing it tried")
 
 ## A pawn inside the band standing in fire has not arrived: the row promises
 ## ground that does not harm, so it keeps walking rather than firing from there.
 func test_standing_in_fire_inside_the_band_is_not_arriving() -> void:
-	var s := _situation(_kite(210.0), Vector2(90.0, 0.0), Vector2(300.0, 0.0),
+	var s := _situation(_kite(210.0), Vector2(33.0, 0.0), Vector2(300.0, 0.0),
 		[_fire(Rect2(-100.0, -270.0, 200.0, 540.0))])
 	var state: CombatState = s[0]
 	var me: CombatUnit = s[1]
 	assert_true(CombatSim.standing_harms(state, me.position), "the fixture puts the pawn in the fire")
-	assert_almost_eq(s[2].position.distance_to(me.position), 210.0, 0.5, "and inside the band")
+	assert_almost_eq(s[2].position.distance_to(me.position) - me.radius - s[2].radius, 210.0, 0.5,
+		"and inside the band")
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
 		"it held station in the fire because the band alone counted as arrived")

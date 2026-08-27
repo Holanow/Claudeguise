@@ -8,7 +8,7 @@ id = &"cultist"
 display_name = "Cultist"
 hp_max = 50
 move_speed = 3.0
-radius = 12.0
+radius = 18.0
 attack_power = {
 6: 11
 }

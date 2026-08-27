@@ -92,8 +92,8 @@ func _report_units(arena_scale: float) -> void:
 		if not u.alive:
 			continue
 		var shape := UnitView.shape_id(u)
-		var box := u.radius * UnitView.DISPLAY_SCALE * 2.0
-		var ink := UnitView.drawn_box(shape, u.team, u.radius * UnitView.DISPLAY_SCALE)
+		var box := UnitView.display_radius(u) * 2.0
+		var ink := UnitView.drawn_box(shape, u.team, UnitView.display_radius(u))
 		var n := UnitArt.canvas_size(shape, u.team)
 		var file := Vector2(n, n)
 		var tex_ink := Vector2(UnitArt.body_used_rect(shape, u.team).size)
@@ -114,7 +114,7 @@ func _report_screen_rects(origin: Vector2, arena_scale: float) -> void:
 			continue
 		var shape := UnitView.shape_id(u)
 		var centre := origin + UnitView.drawn_position(u, _battle.state.units) * arena_scale
-		var box := UnitView.drawn_box(shape, u.team, u.radius * UnitView.DISPLAY_SCALE)
+		var box := UnitView.drawn_box(shape, u.team, UnitView.display_radius(u))
 		var rect := Rect2(centre + box.position * arena_scale, box.size * arena_scale)
 		print("%-14s %.0f %.0f %.0f %.0f" % [
 			String(u.display_name).substr(0, 14), rect.position.x, rect.position.y,
@@ -130,7 +130,7 @@ func _report_plates(arena_scale: float) -> void:
 		if not u.alive or not layout.has(u.id):
 			continue
 		var plate: Rect2 = layout[u.id]
-		var body := UnitView.drawn_box(UnitView.shape_id(u), u.team, u.radius * UnitView.DISPLAY_SCALE)
+		var body := UnitView.drawn_box(UnitView.shape_id(u), u.team, UnitView.display_radius(u))
 		print("%-14s %13s %13s %9.2fx" % [
 			String(u.display_name).substr(0, 14),
 			"%.0f x %.0f" % [body.size.x * arena_scale, body.size.y * arena_scale],
@@ -149,7 +149,7 @@ func _report_raster(arena_scale: float) -> void:
 		if not u.alive:
 			continue
 		var shape := UnitView.shape_id(u)
-		var radius := u.radius * UnitView.DISPLAY_SCALE * arena_scale
+		var radius := UnitView.display_radius(u) * arena_scale
 		var vp := SubViewport.new()
 		vp.size = Vector2i(256, 256)
 		vp.transparent_bg = true
@@ -170,7 +170,7 @@ func _report_raster(arena_scale: float) -> void:
 			for x in range(used.position.x, used.end.x):
 				if image.get_pixel(x, y).a > 0.0:
 					opaque += 1
-		var box := UnitView.drawn_box(shape, u.team, u.radius * UnitView.DISPLAY_SCALE)
+		var box := UnitView.drawn_box(shape, u.team, UnitView.display_radius(u))
 		print("%-14s %13s %13s %8d" % [
 			String(u.display_name).substr(0, 14),
 			"%.1f x %.1f" % [box.size.x * arena_scale, box.size.y * arena_scale],

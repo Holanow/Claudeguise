@@ -17,7 +17,7 @@ func _walk(state: CombatState, unit: CombatUnit, target_id: int, action: ActionD
 	var target := state.unit(target_id)
 	if target == null or not target.alive or action == null:
 		return null
-	var dist := unit.position.distance_to(target.position)
+	var dist := unit.gap(target)
 	var blocked: bool = action.requires_line_of_sight \
 		and state.grid.sight_blocked(unit.position, target.position)
 

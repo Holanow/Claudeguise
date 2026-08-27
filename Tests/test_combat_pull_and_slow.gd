@@ -120,8 +120,9 @@ func test_the_drag_moves_a_little_every_tick_rather_than_snapping() -> void:
 	assert_almost_eq(target.position.x, 100.0, 0.01, "and they sum to the full pull distance")
 
 func test_a_pull_never_drags_the_target_past_the_caster() -> void:
-	# pull_distance larger than the actual gap must not overshoot onto or past
-	# the caster -- the target lands on top of the caster at most, not beyond.
+	# pull_distance larger than the actual gap must not overshoot past the
+	# caster. Since issue 642 the two bodies stop at contact rather than at the
+	# caster's own centre, so "not beyond" is the whole of the claim.
 	var hook := _hook(&"hook", 500.0)
 	var deps := _deps_with_action(hook, 5.0)
 
@@ -136,7 +137,8 @@ func test_a_pull_never_drags_the_target_past_the_caster() -> void:
 	for _i in CombatSim.PULL_TICKS:
 		CombatSim.step(state, deps)
 
-	assert_almost_eq(target.position.x, 0.0, 0.01, "must land exactly at the caster, not past it")
+	assert_true(target.position.x >= 0.0 and target.position.x <= 30.0,
+		"must land between contact and where it started, never past the caster, got %.2f" % target.position.x)
 
 func test_zero_pull_distance_leaves_the_target_exactly_where_it_was() -> void:
 	# Every action that exists today has pull_distance == 0.0. This is the
@@ -146,7 +148,8 @@ func test_zero_pull_distance_leaves_the_target_exactly_where_it_was() -> void:
 
 	var state := CombatState.new(102)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(30, 0), [])
+	## Clear of the caster's body, or separation moves it and the claim is lost.
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(80, 0), [])
 	state.units.append(caster)
 	state.units.append(target)
 
@@ -154,7 +157,7 @@ func test_zero_pull_distance_leaves_the_target_exactly_where_it_was() -> void:
 	CombatSim.step(state, deps)
 	CombatSim.step(state, deps)
 
-	assert_eq(target.position, Vector2(30, 0), "pull_distance 0.0 must not move the target at all")
+	assert_eq(target.position, Vector2(80, 0), "pull_distance 0.0 must not move the target at all")
 
 # ---------------------------------------------------------------------------
 # criterion: a pull never places a unit inside terrain
@@ -302,7 +305,7 @@ func test_a_second_stun_landing_mid_drag_does_not_drag_the_target_further() -> v
 
 	var state := CombatState.new(113)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(170, 0), [])
 	state.units.append(caster)
 	state.units.append(target)
 
@@ -316,7 +319,7 @@ func test_a_second_stun_landing_mid_drag_does_not_drag_the_target_further() -> v
 	for _i in CombatSim.PULL_TICKS * 4:
 		CombatSim.step(state, deps)
 
-	assert_almost_eq(target.position.x, 30.0, 0.01, "70 units and no more, however long the stun runs")
+	assert_almost_eq(target.position.x, 100.0, 0.01, "70 units and no more, however long the stun runs")
 
 ## The stun is what authorises the drag, so stripping it stops the chain. This
 ## is the one thing that can end a pull early, and it is a real counter.

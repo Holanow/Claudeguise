@@ -91,7 +91,7 @@ id = &"sellsword"
 display_name = "Mercenary Sellsword"
 hp_max = 480
 move_speed = 2.4
-radius = 15.0
+radius = 22.5
 attack_power = {
 0: 20,
 7: 20

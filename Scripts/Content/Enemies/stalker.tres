@@ -8,7 +8,7 @@ id = &"stalker"
 display_name = "Stalker"
 hp_max = 30
 move_speed = 3.8
-radius = 10.0
+radius = 15.0
 attack_power = {
 0: 5
 }
