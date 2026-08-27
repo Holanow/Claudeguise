@@ -39,8 +39,8 @@ static func roll_drop(room_type: FloorRoom.Type, difficulty: int, rng: RandomNum
 ## only this function's body would.
 static func _pick_item(difficulty: int, rng: RandomNumberGenerator) -> EquipmentDef:
 	var _unused := difficulty
-	var ids := Registry.all_equipment_ids()
+	var ids := ItemLibrary.all_ids()
 	if ids.is_empty():
 		return null
 	var index := rng.randi_range(0, ids.size() - 1)
-	return Registry.get_equipment(ids[index])
+	return ItemLibrary.get_equipment(ids[index])

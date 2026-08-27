@@ -7,7 +7,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 const _WARRIOR := &"warrior"
 
 func _pawn(class_id: StringName) -> PawnData:
-	return PawnFactory.make_preset_pawn(class_id, class_id, Registry.get_class_def(class_id).display_name)
+	return PawnFactory.make_preset_pawn(class_id, class_id, ClassLibrary.get_class_def(class_id).display_name)
 
 func _party(class_ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
@@ -111,7 +111,7 @@ func test_the_classes_that_own_no_cooldown_are_told_so_in_words() -> void:
 		"nothing has fired yet, so it has them and none is running")
 
 func _real_unit(class_id: StringName, id: int) -> CombatUnit:
-	var def = Registry.get_class_def(class_id)
+	var def = ClassLibrary.get_class_def(class_id)
 	var u := CombatUnit.new()
 	u.id = id
 	u.team = CG.Team.PLAYER
@@ -132,7 +132,7 @@ func test_a_running_cooldown_names_its_action_and_its_seconds() -> void:
 
 	var gated := _first_action_with_a_cooldown(warrior)
 	assert_true(gated != &"", "the Warrior must own at least one gated action for this to test anything")
-	var action = Registry.get_action(gated)
+	var action = ActionLibrary.get_action(gated)
 	state.tick = 100
 	warrior.cooldowns[gated] = 100 + action.cooldown_ticks
 
@@ -172,7 +172,7 @@ func test_the_soonest_cooldown_is_first_and_the_list_is_capped() -> void:
 	state.tick = 0
 	var gated: Array = []
 	for action_id in warrior.actions:
-		var a = Registry.get_action(action_id)
+		var a = ActionLibrary.get_action(action_id)
 		if a != null and a.cooldown_ticks > 0:
 			gated.append(action_id)
 	assert_true(gated.size() >= 3, "got %d gated actions, this test needs three to prove a cap of two" % gated.size())
@@ -190,7 +190,7 @@ func test_the_soonest_cooldown_is_first_and_the_list_is_capped() -> void:
 
 func _first_action_with_a_cooldown(u: CombatUnit) -> StringName:
 	for action_id in u.actions:
-		var a = Registry.get_action(action_id)
+		var a = ActionLibrary.get_action(action_id)
 		if a != null and a.cooldown_ticks > 0:
 			return action_id
 	return &""

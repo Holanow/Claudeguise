@@ -95,7 +95,7 @@ func test_marked_status_lowers_damage_reduction() -> void:
 func test_enemy_units_read_their_own_damage_reduction_through_balance() -> void:
 	var u := CombatUnit.new()
 	u.enemy_id = &"the_warden"
-	var warden := Registry.get_enemy(&"the_warden")
+	var warden := EnemyLibrary.get_enemy(&"the_warden")
 	assert_not_null(warden, "expected the_warden to be registered")
 	assert_almost_eq(Balance.damage_reduction(u), warden.damage_reduction)
 

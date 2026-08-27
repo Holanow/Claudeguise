@@ -8,7 +8,7 @@ class_name TargetPileOnBlock
 func pick(state: CombatState, unit: CombatUnit) -> int:
 	if TargetTaunterBlock.taunter(state, unit) != null:
 		return -1
-	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	if enemy_def == null or enemy_def.focus_bias <= 0.0:
 		return -1
 	var pile := _most_focused(state, unit)

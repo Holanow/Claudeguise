@@ -56,7 +56,7 @@ func _encounter():
 func _blow() -> Dictionary:
 	var best := {}
 	var best_size := 0.0
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		var cursor := 0
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -248,7 +248,7 @@ func _cost(units: int, on: bool, storm: bool) -> void:
 	# Off, so what a strip shows and what a stopwatch reads is this issue's
 	# effect rather than #515's freeze mixed in with it.
 	DisplayOptions.set_enabled(&"hit_stop", false)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

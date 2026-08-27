@@ -3,8 +3,8 @@ class_name SimDeps
 
 
 
-var enemy_lookup: Callable = Registry.get_enemy
-var action_lookup: Callable = Registry.get_action
+var enemy_lookup: Callable = EnemyLibrary.get_enemy
+var action_lookup: Callable = ActionLibrary.get_action
 
 var max_hp: Callable = _default_max_hp
 var max_resource: Callable = _default_max_resource
@@ -84,7 +84,7 @@ static func _default_move_speed(pawn: PawnData) -> float:
 static func _default_attack_power(unit: CombatUnit, action: ActionDef, rng: RandomNumberGenerator = null) -> float:
 	if unit.pawn != null:
 		return Balance.attack_power(unit.pawn, action.damage_type, rng) * action.power_scale * AbilityModifiers.power_multiplier(unit, action)
-	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	if enemy_def == null:
 		return 0.0
 	return float(enemy_def.attack_power.get(action.damage_type, 0)) * action.power_scale
@@ -112,7 +112,7 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 			best_v = unit.pawn.armor.damage_reduction
 			best = CG.MitigationCause.ARMOR
 	else:
-		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 		if enemy_def != null and enemy_def.damage_reduction > best_v:
 			best_v = enemy_def.damage_reduction
 			best = CG.MitigationCause.HIDE
@@ -138,10 +138,10 @@ static func _default_recover_ticks(unit: CombatUnit, action: ActionDef) -> int:
 		return Balance.scale_action_ticks(action.recover_ticks, unit.pawn)
 	return Balance.scale_enemy_action_ticks(action.recover_ticks, _enemy_action_speed(unit))
 
-## Issue 542. Same `Registry.get_enemy` the attack-power and hide branches above
+## Issue 542. Same `EnemyLibrary.get_enemy` the attack-power and hide branches above
 ## already do per call; an unknown enemy acts at its authored speed.
 static func _enemy_action_speed(unit: CombatUnit) -> float:
-	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	return MonsterProfile.BASE_ACTION_SPEED if enemy_def == null else enemy_def.action_speed
 
 static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:

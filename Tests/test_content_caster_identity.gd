@@ -26,9 +26,9 @@ func test_a_dps_library_leads_with_a_damaging_row() -> void:
 	for class_id in [&"geysermancer", &"priest"]:
 		var library := PresetPlans.for_class(class_id)
 		assert_false(library.is_empty(), "%s has no library" % class_id)
-		var first: ActionDef = Registry.get_action(_action_of(library[0]))
+		var first: ActionDef = ActionLibrary.get_action(_action_of(library[0]))
 		assert_not_null(first, "%s's first library row names no action" % class_id)
-		var wants_damage := Registry.get_class_def(class_id).role_primary == CG.Role.DPS
+		var wants_damage := ClassLibrary.get_class_def(class_id).role_primary == CG.Role.DPS
 		assert_eq(first.power_scale > 0.0 and not first.heals, wants_damage,
 			"%s leads with %s" % [class_id, first.id])
 

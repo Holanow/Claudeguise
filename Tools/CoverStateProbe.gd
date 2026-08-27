@@ -159,7 +159,7 @@ func _targeting(op: StringName) -> TargetingBlock:
 
 func _action(action_id: StringName) -> UseActionBlock:
 	var b := UseActionBlock.new()
-	b.action = Registry.get_action(action_id)
+	b.action = ActionLibrary.get_action(action_id)
 	return b
 
 func _geysermancer(state: CombatState) -> CombatUnit:

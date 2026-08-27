@@ -65,7 +65,7 @@ func _cost(units: int, hands: bool, redraw_only: bool = false) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"part_animation", hands)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

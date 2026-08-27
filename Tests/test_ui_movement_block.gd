@@ -4,7 +4,7 @@ extends "res://Tests/TestCase.gd"
 ## a fixture needs a real object even for an action nothing registers.
 ## Issue 658: `range_units` etc. now read from `targeting`, which a bare
 ## `ActionDef` leaves null (range 0). Before, an unregistered id fell through
-## every per-tick gate because `Registry.get_action` returned null for it;
+## every per-tick gate because `ActionLibrary.get_action` returned null for it;
 ## a large range keeps that same free pass now the block carries the
 ## resource itself.
 func _fixture_action(id: StringName) -> ActionDef:

@@ -15,7 +15,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 
 func _party() -> Array[PawnData]:
 	var party: Array[PawnData] = []
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	for i in mini(4, class_ids.size()):
 		party.append(PawnFactory.make_starter_pawn(
 			class_ids[i], StringName("p%d" % i), String(class_ids[i])))

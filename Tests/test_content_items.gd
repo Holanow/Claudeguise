@@ -6,11 +6,11 @@ extends "res://Tests/TestCase.gd"
 ## hand-typed list, so a future item is covered automatically.
 
 func test_at_least_one_item_per_slot_is_registered() -> void:
-	var ids := Registry.all_equipment_ids()
+	var ids := ItemLibrary.all_ids()
 	assert_true(ids.size() > 0, "expected at least one item registered")
 	var slots_seen := {}
 	for id in ids:
-		var item := Registry.get_equipment(id)
+		var item := ItemLibrary.get_equipment(id)
 		assert_not_null(item, "registered id %s did not resolve" % id)
 		slots_seen[item.slot] = true
 	assert_true(slots_seen.has(EquipmentDef.Slot.WEAPON), "no weapon registered")
@@ -22,8 +22,8 @@ func test_at_least_one_item_per_slot_is_registered() -> void:
 ## player cannot read is worse than no item.
 func test_every_item_has_a_description() -> void:
 	var checked := 0
-	for id in Registry.all_equipment_ids():
-		var item := Registry.get_equipment(id)
+	for id in ItemLibrary.all_ids():
+		var item := ItemLibrary.get_equipment(id)
 		checked += 1
 		assert_false(item.description.is_empty(), "item %s has no description" % id)
 	assert_true(checked > 0, "expected at least one item to check")
@@ -34,8 +34,8 @@ func test_every_item_has_a_description() -> void:
 ## an item with no attribute_percent, no attribute_flat, no damage_reduction
 ## and no granted_actions is a field nobody filled in.
 func test_every_item_changes_something() -> void:
-	for id in Registry.all_equipment_ids():
-		var item := Registry.get_equipment(id)
+	for id in ItemLibrary.all_ids():
+		var item := ItemLibrary.get_equipment(id)
 		var changes_something := (
 			not item.attribute_percent.is_empty()
 			or not item.attribute_flat.is_empty()
@@ -50,8 +50,8 @@ func test_every_item_changes_something() -> void:
 ## layer is Wisdom only.
 func test_gear_grants_wisdom_and_actions_and_nothing_else() -> void:
 	var offenders := []
-	for id in Registry.all_equipment_ids():
-		var item := Registry.get_equipment(id)
+	for id in ItemLibrary.all_ids():
+		var item := ItemLibrary.get_equipment(id)
 		if not item.attribute_percent.is_empty():
 			offenders.append("%s carries a percent bonus %s" % [id, item.attribute_percent])
 		if item.damage_reduction != 0.0:
@@ -66,8 +66,8 @@ func test_gear_grants_wisdom_and_actions_and_nothing_else() -> void:
 ## a slot and a picker row. Issue 489 deleted eight of those.
 func test_no_registered_piece_is_inert() -> void:
 	var inert := []
-	for id in Registry.all_equipment_ids():
-		var item := Registry.get_equipment(id)
+	for id in ItemLibrary.all_ids():
+		var item := ItemLibrary.get_equipment(id)
 		if item.granted_actions.is_empty() and int(item.attribute_flat.get(CG.Attribute.WIS, 0)) == 0:
 			inert.append(String(id))
 	assert_eq(inert, [], "these pieces do nothing at all")
@@ -77,7 +77,7 @@ func test_no_registered_piece_is_inert() -> void:
 
 
 func test_equipment_ids_are_unique_and_sorted() -> void:
-	var ids := Registry.all_equipment_ids()
+	var ids := ItemLibrary.all_ids()
 	var seen := {}
 	for id in ids:
 		assert_false(seen.has(id), "duplicate equipment id %s" % id)
@@ -101,11 +101,11 @@ func test_equipment_ids_are_unique_and_sorted() -> void:
 ## nobody can arm, which is the failure this field could silently cause if a
 ## restriction were set too narrow.
 func test_every_class_can_equip_at_least_one_weapon() -> void:
-	for class_id in Registry.all_class_ids():
-		var c := Registry.get_class_def(class_id)
+	for class_id in ClassLibrary.all_ids():
+		var c := ClassLibrary.get_class_def(class_id)
 		var can_equip_something := false
-		for item_id in Registry.all_equipment_ids():
-			var item := Registry.get_equipment(item_id)
+		for item_id in ItemLibrary.all_ids():
+			var item := ItemLibrary.get_equipment(item_id)
 			if item.slot == EquipmentDef.Slot.WEAPON and item.allows_class(c):
 				can_equip_something = true
 				break

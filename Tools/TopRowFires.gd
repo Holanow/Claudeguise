@@ -7,7 +7,7 @@ extends SceneTree
 const SEEDS := 20
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.pickable_encounter_ids()
 	for cid in class_ids:
 		_sample(cid, encounter_ids)
@@ -28,7 +28,7 @@ func _sample(class_id: StringName, encounter_ids: Array) -> void:
 	var min_hp := 1.0
 	for encounter_id in encounter_ids:
 		var encounter := Registry.get_encounter(encounter_id)
-		for party_ids in _parties(Registry.all_class_ids()):
+		for party_ids in _parties(ClassLibrary.all_ids()):
 			if not party_ids.has(class_id):
 				continue
 			for s in SEEDS:

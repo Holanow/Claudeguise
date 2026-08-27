@@ -14,7 +14,7 @@ func _init() -> void:
 		var casts := 0
 		for s in SEEDS:
 			var party: Array[PawnData] = []
-			for cid in Registry.all_class_ids():
+			for cid in ClassLibrary.all_ids():
 				var p := PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
 				if strip:
 					p.armor = null

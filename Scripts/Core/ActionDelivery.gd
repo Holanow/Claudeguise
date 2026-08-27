@@ -14,6 +14,10 @@ class_name ActionDelivery
 
 ## Total angle the `count` projectiles fan across. Ignored when `count <= 1`.
 @export var spread_degrees: float = 0.0
+## `count` shots at `count` DIFFERENT enemies, nearest first, instead of all of
+## them at one. Falls back to the primary target for any shot that finds nobody
+## left, so a two-bolt volley into a lone survivor is still two bolts.
+@export var separate_targets: bool = false
 
 ## Degrees per tick a projectile may turn toward its live target position. 0
 ## is straight flight, which is every delivery that existed before issue 671.

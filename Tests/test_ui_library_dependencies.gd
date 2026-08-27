@@ -50,7 +50,7 @@ func test_a_row_that_needs_another_row_says_which_one() -> void:
 ## PR rather than faked with a fixture.
 func test_every_declared_dependency_reaches_the_screen() -> void:
 	var seen := 0
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var deps := PresetPlans.row_dependencies(class_id)
 		if deps.is_empty():
 			continue

@@ -15,13 +15,13 @@ func _init() -> void:
 	Registry._load()
 	var build_us := Time.get_ticks_usec() - t0
 
-	var ids := Registry.all_action_ids()
+	var ids := ActionLibrary.all_ids()
 	var lookups := 0
 	var sink := 0.0
 	var t1 := Time.get_ticks_usec()
 	for _i in LOOKUP_REPEATS:
 		for id in ids:
-			var a := Registry.get_action(id)
+			var a := ActionLibrary.get_action(id)
 			sink += a.power_scale
 			lookups += 1
 	var lookup_us := Time.get_ticks_usec() - t1
@@ -30,7 +30,7 @@ func _init() -> void:
 	var t2 := Time.get_ticks_usec()
 	for _i in LOOKUP_REPEATS:
 		for id in ids:
-			var a := Registry.get_action(id)
+			var a := ActionLibrary.get_action(id)
 			for fx in a.effects:
 				if fx is HitEffect:
 					sink2 += fx.power_scale

@@ -56,7 +56,7 @@ func test_the_pair_is_offered_to_the_editor_with_no_argument() -> void:
 # ---------------------------------------------------------------------------
 # The loop. #381's shape: the edit must reach the simulation.
 func test_a_movement_block_can_carry_a_zero_range_self_buff() -> void:
-	var guard := Registry.get_action(&"warrior_guard")
+	var guard := ActionLibrary.get_action(&"warrior_guard")
 	assert_eq(guard.range_units, 0.0, "the constraint is about a stated range of 0; warrior_guard no longer states one")
 	assert_true(guard.targets_self)
 

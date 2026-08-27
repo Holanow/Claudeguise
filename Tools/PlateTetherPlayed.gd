@@ -78,7 +78,7 @@ func _run() -> void:
 
 	# Re-found by class id before each click: clicking a card rebuilds the row,
 	# so a list of nodes gathered once is stale by the second click.
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var card := _card_for(select, cid)
 		if card != null:
 			await _click(card)

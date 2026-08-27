@@ -57,7 +57,7 @@ func _demand() -> Dictionary:
 	var samples: Array[int] = []
 	for encounter_id in Registry.pickable_encounter_ids():
 		var encounter = Registry.get_encounter(encounter_id)
-		for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			var state := CombatSim.build(_party(party_ids), encounter, SEED)
 			var deaths: Array[int] = []
 			var hits: Array[int] = []
@@ -143,7 +143,7 @@ func _cost(units: int, explode: bool, demand: Dictionary) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(DeathExplosionScript.OPTION, explode)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

@@ -116,7 +116,7 @@ func test_a_line_of_sight_action_makes_the_row_step_aside() -> void:
 		[Terrain.make(Terrain.Kind.PILLAR, PILLAR_AT)])
 	var state: CombatState = s[0]
 	var me: CombatUnit = s[1]
-	assert_true(Registry.get_action(&"geyser_scald").requires_line_of_sight,
+	assert_true(ActionLibrary.get_action(&"geyser_scald").requires_line_of_sight,
 		"fixture check: this test is meaningless if Scald stops needing a clear line")
 	assert_true(PlanInterpreter.decide(state, me) == null,
 		"cover and a line-of-sight shot cannot both be had; the row must let the next one try")
@@ -126,7 +126,7 @@ func test_a_line_of_sight_action_makes_the_row_step_aside() -> void:
 ## about actions in general: a self-buff needs no line to anything, so "move
 ## into cover and raise your shield" is exactly the plan that does work.
 func test_a_self_buff_still_fires_from_cover() -> void:
-	assert_false(Registry.get_action(&"warrior_block").requires_line_of_sight,
+	assert_false(ActionLibrary.get_action(&"warrior_block").requires_line_of_sight,
 		"fixture check: Directional Block must not need a clear line")
 
 

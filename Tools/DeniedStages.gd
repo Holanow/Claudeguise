@@ -59,7 +59,7 @@ func _init() -> void:
 
 func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 	for id in u.actions:
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null or a.heals or not a.requires_line_of_sight:
 			continue
 		if u.position.distance_to(t.position) <= a.range_units:
@@ -67,7 +67,7 @@ func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 	return false
 
 func _buildable_parties() -> Array:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	ids.sort()
 	var out := []
 	for skip in ids.size():

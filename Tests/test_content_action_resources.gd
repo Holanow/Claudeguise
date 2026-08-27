@@ -56,16 +56,16 @@ func test_a_files_name_is_its_action_id() -> void:
 			"%s holds an action whose id is '%s'" % [path, a.id])
 
 func test_every_action_the_registry_knows_came_from_the_library() -> void:
-	assert_eq(Registry.all_action_ids().size(), ActionLibrary.PATHS.size(),
+	assert_eq(ActionLibrary.all_ids().size(), ActionLibrary.PATHS.size(),
 		"the registry and the manifest disagree about how many actions exist")
 
 ## A `.tres` loaded twice is the SAME instance, so every unit in the game reads
 ## one object. Nothing writes an action any more, which is what makes that safe.
 func test_the_registry_hands_out_one_shared_instance_per_action() -> void:
-	var a := Registry.get_action(&"warrior_strike")
+	var a := ActionLibrary.get_action(&"warrior_strike")
 	assert_true(a.resource_path != "",
 		"a registry action must be a loaded resource rather than a fixture")
-	assert_true(a == Registry.get_action(&"warrior_strike"),
+	assert_true(a == ActionLibrary.get_action(&"warrior_strike"),
 		"two lookups of one id must be the same instance, not a copy")
 
 ## A fixture composes an action the same way a `.tres` does. The four tests

@@ -295,7 +295,7 @@ func _action_chip(action_id: StringName) -> Control:
 	chip.set_script(GlossaryLabelScript)
 	chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	var action := Registry.get_action(action_id)
+	var action := ActionLibrary.get_action(action_id)
 	if action == null:
 		chip.text = "%s (not registered)" % String(action_id).capitalize()
 		chip.add_theme_color_override("font_color", Palette.HP_LOW)
@@ -313,7 +313,7 @@ func _action_description(action) -> String:
 	return action.description if action.description != "" else "(no description yet)"
 
 func _action_display_name(action_id: StringName) -> String:
-	var action := Registry.get_action(action_id)
+	var action := ActionLibrary.get_action(action_id)
 	return action.display_name if action != null else String(action_id).capitalize()
 
 ## The whole plans section, as a flat list of controls the caller adds in
@@ -806,9 +806,9 @@ func _available_movements(_pawn: PawnData) -> Array:
 func _available_targetings(_pawn: PawnData) -> Array:
 	return BlockCatalog.TARGETING_OPS
 
-## Issue 100: `Registry.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
+## Issue 100: `ActionLibrary.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
 func _available_actions(pawn: PawnData) -> Array:
-	return Registry.actions_for_pawn(pawn)
+	return ActionLibrary.actions_for_pawn(pawn)
 
 ## The `ActionDef` behind an id this pawn actually offers. Checked against the
 ## pawn's own class first -- carried as `ActionDef` since #628 -- so a fixture
@@ -820,7 +820,7 @@ func _resolve_pawn_action(pawn: PawnData, action_id: StringName) -> ActionDef:
 		for a in pawn.pawn_class.starting_actions:
 			if a.id == action_id:
 				return a
-	return Registry.get_action(action_id)
+	return ActionLibrary.get_action(action_id)
 
 ## Swaps two plans' priority by index and redraws. `pawn.plans` is the same
 ## array PartySelect/BattleView hand into CombatState, so this is the whole
@@ -886,7 +886,7 @@ func _action_picker(pawn: PawnData, block: UseActionBlock) -> Control:
 	# does, not a longer copy of the word already printed on the chip. Issue
 	# 68's whole premise is that reading is hover's job now, and this is the
 	# one chip on the row that has something to read.
-	var chosen = Registry.get_action(choices[current])
+	var chosen = ActionLibrary.get_action(choices[current])
 	if chosen != null:
 		picker.tooltip_text = "%s\n%s" % [chosen.display_name, _action_description(chosen)]
 	else:
@@ -1154,7 +1154,7 @@ func _default_rows(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 	var actions: Array[ActionDef] = []
 	for id in _available_actions(pawn):
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a != null:
 			actions.append(a)
 
