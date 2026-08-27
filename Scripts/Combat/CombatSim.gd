@@ -1170,18 +1170,9 @@ static func _enemy_team(team: CG.Team) -> CG.Team:
 # ---------------------------------------------------------------------------
 
 ## Issue 18: launched instead of resolving instantly when `action.delivery
-## > 0.0`. `aim_point` is the target's position at this exact moment and is
-## never recomputed -- no homing, which is what lets a target walk out of the
-## way (it isn't there when the shot arrives) as well as walk into one early
-## (`_advance_projectile`'s own hit check, below). `recover_ticks` and any
-## RAGE-on-commit bookkeeping already happened in `_fire_action` before this
-## is called and do not wait for impact; only the projectile's own effect
-## (`_apply_action_effect`) and its RAGE-on-landed-hit gain (`_on_hit_landed`)
-## are deferred to `_advance_projectile`.
-## Issue 671: `count` projectiles fanned evenly across `spread_degrees`,
-## centred on the aim. `count <= 1` spawns exactly the one shot this loop
-## always spawned, at `aim_offset` 0.0, so a delivery nobody has touched
-## behaves byte-for-byte as it did before this issue.
+## > 0.0`, and issue 671: `count` shots fanned across `spread_degrees`.
+## `count <= 1` spawns exactly the one shot this loop always spawned, so a
+## delivery nobody has touched behaves as it did before.
 static func _spawn_projectiles(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	var count := maxi(1, action.delivery.count)
 	var spread := deg_to_rad(action.delivery.spread_degrees)
