@@ -76,7 +76,7 @@ static func attribute_text(a: CG.Attribute) -> String:
 
 ## The data half of the status hover text.
 ##
-## A status with a Balance-owned number reads it. BLEED, TAUNTED, STUN and
+## A status with a number on its `StatusDef` reads it. BLEED, TAUNTED, STUN and
 ## TAUNTING have none to duplicate -- magnitude and duration are
 ## per-action data on whichever ActionDef grants them, and TAUNTING's radius is
 ## `ActionDef.taunt_radius`, applied by `_apply_taunt` -- so their sentence
@@ -85,9 +85,9 @@ static func attribute_text(a: CG.Attribute) -> String:
 static func status_text(s: CG.Status) -> String:
 	match s:
 		CG.Status.SHIELD:
-			return "Reduces incoming damage by %d%% while it lasts." % int(round(Balance.STATUS_SHIELD_REDUCTION * 100.0))
+			return "Reduces incoming damage by %d%% while it lasts." % int(round(StatusLibrary.of(s).damage_reduction * 100.0))
 		CG.Status.BLOCK:
-			return "Reduces incoming damage by %d%% while it lasts." % int(round(Balance.STATUS_BLOCK_REDUCTION * 100.0))
+			return "Reduces incoming damage by %d%% while it lasts." % int(round(StatusLibrary.of(s).damage_reduction * 100.0))
 		CG.Status.BLEED:
 			return "Deals damage each tick for a fixed duration."
 		CG.Status.TAUNTED:
@@ -95,15 +95,15 @@ static func status_text(s: CG.Status) -> String:
 		CG.Status.BURN:
 			return "Burns for a share of the hit that lit it, each tick, until it wears off. A Geyser Blast snuffs it out and hits far harder for doing so."
 		CG.Status.POISON:
-			return "Deals %.2f%% of max hp each tick for a fixed duration." % Balance.POISON_DAMAGE_PERCENT_PER_TICK
+			return "Deals %.2f%% of max hp each tick for a fixed duration." % StatusLibrary.of(s).damage_percent_of_max_hp_per_tick
 		CG.Status.HASTE:
-			return "Speeds up wind-up and recovery to %d%% of their normal length." % int(round(Balance.HASTE_TICK_SCALE * 100.0))
+			return "Speeds up wind-up and recovery to %d%% of their normal length." % int(round(StatusLibrary.of(s).tick_scale * 100.0))
 		CG.Status.STUN:
 			return "Locks out actions entirely while it lasts."
 		CG.Status.MARKED:
-			return "Reduces this unit's damage reduction by %d%%, so every hit against it lands harder." % int(round(Balance.MARKED_VULNERABILITY_BONUS * 100.0))
+			return "Reduces this unit's damage reduction by %d%%, so every hit against it lands harder." % int(round(StatusLibrary.of(s).vulnerability * 100.0))
 		CG.Status.SLOWED:
-			return "Reduces move speed to %d%% of normal while it lasts. Does not affect action timing." % int(round(Balance.SLOWED_SPEED_SCALE * 100.0))
+			return "Reduces move speed to %d%% of normal while it lasts. Does not affect action timing." % int(round(StatusLibrary.of(s).speed_scale * 100.0))
 		CG.Status.TAUNTING:
 			return "Forces nearby enemies to target this unit while it lasts."
 		CG.Status.SHIELDING:
@@ -130,9 +130,10 @@ static func status_text(s: CG.Status) -> String:
 static func status_magnitude_text(status: CG.Status, magnitude: int) -> String:
 	if magnitude <= 0:
 		return ""
-	if CombatSim._STACKING_STATUSES.has(status):
+	var def := StatusLibrary.of(status)
+	if def.stacks:
 		return "%d stack%s" % [magnitude, "" if magnitude == 1 else "s"]
-	if CombatSim._HIT_SCALED_STATUSES.has(status):
+	if def.hit_scaled:
 		return "strength %d" % magnitude
 	## Issue 593: the block is spent by damage rather than by time, so the
 	## number a player needs is how much of it is left.

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="DamageTypeDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/DamageTypeDef.gd" id="1_damagetype"]
+
+[resource]
+script = ExtResource("1_damagetype")
+damage_type = 3
+id = &"air"
+display_name = "Air"
+color = Color(0.749019607843, 0.878431372549, 0.909803921569, 1)
