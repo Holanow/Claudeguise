@@ -204,14 +204,7 @@ static func attribute_name(a: Attribute) -> String:
 		Attribute.WIS: return "WIS"
 	return "?"
 
+## Issue 631: the eight names live on the `DamageTypeDef` resources now.
 static func damage_type_name(d: DamageType) -> String:
-	match d:
-		DamageType.PHYSICAL: return "Physical"
-		DamageType.FIRE: return "Fire"
-		DamageType.WATER: return "Water"
-		DamageType.AIR: return "Air"
-		DamageType.EARTH: return "Earth"
-		DamageType.DIVINE: return "Divine"
-		DamageType.PROFANE: return "Profane"
-		DamageType.RAW: return "Raw"
-	return "?"
+	var def := DamageTypeLibrary.of(d)
+	return def.display_name if def != null else "?"

@@ -47,17 +47,11 @@ const FONT_SIZE_FLOATER := 34
 ## looking at a screenshot.
 const TOUCH_TARGET_MIN := 48.0
 
+## Issue 631: the eight colours live on the `DamageType` resources now, so this
+## is the one reader rather than one of several parallel tables.
 static func damage_color(d: CG.DamageType) -> Color:
-	match d:
-		CG.DamageType.PHYSICAL: return Color("d8d3c4")
-		CG.DamageType.FIRE: return Color("e8703a")
-		CG.DamageType.WATER: return Color("4aa3d8")
-		CG.DamageType.AIR: return Color("bfe0e8")
-		CG.DamageType.EARTH: return Color("a8834b")
-		CG.DamageType.DIVINE: return Color("f2e08a")
-		CG.DamageType.PROFANE: return Color("9c5fbd")
-		CG.DamageType.RAW: return Color("ff5fa8")
-	return TEXT
+	var def := DamageTypeLibrary.of(d)
+	return def.color if def != null else TEXT
 
 static func team_color(t: CG.Team) -> Color:
 	return TEAM_PLAYER if t == CG.Team.PLAYER else TEAM_ENEMY

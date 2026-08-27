@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DamageTypeDef" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/DamageTypeDef.gd" id="1_damagetype"]
+[ext_resource type="Resource" path="res://Scripts/Core/Statuses/burn.tres" id="2_status"]
+
+[resource]
+script = ExtResource("1_damagetype")
+damage_type = 1
+id = &"fire"
+display_name = "Fire"
+color = Color(0.909803921569, 0.439215686275, 0.227450980392, 1)
+applied_status = ExtResource("2_status")
