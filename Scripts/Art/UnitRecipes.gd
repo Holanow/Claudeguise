@@ -115,6 +115,17 @@ const RECIPES := {
 		{"part": &"horns", "color": "e0d4b8"},
 		{"part": &"eyes", "color": "2a1c10"},
 	],
+	## Issue 671: the floor's elite. A professional in real armour, so he reads
+	## as harder than the goblins beside him without being louder -- helm and
+	## plume rather than horns or a crown, which belong to the bosses.
+	&"sellsword": [
+		{"part": &"body_muscular", "color": "4a4f5e"},
+		{"part": &"hands_wide", "color": "c8a888"},
+		{"part": &"head_small", "color": "c8a888"},
+		{"part": &"helm", "color": "9aa3b4"},
+		{"part": &"plume", "color": "8c3b4a"},
+		{"part": &"eyes", "color": "1a1a22"},
+	],
 	&"cultist": [
 		{"part": &"body_skinny", "color": "4a2f5a"},
 		{"part": &"hands", "color": "c8a0b8"},

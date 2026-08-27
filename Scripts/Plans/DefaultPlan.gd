@@ -51,12 +51,12 @@ static func _run(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
 			action_block = block
 		elif block is MovementBlock:
 			movement = block
-	var action_id := &"" if action_block == null else action_block.resolve(state, unit, target_id)
+	var action: ActionDef = null if action_block == null else action_block.resolve(state, unit, target_id)
 	if movement != null:
-		return movement.aim(state, unit, target_id, action_id)
-	if action_id == &"" or target_id == -1:
+		return movement.aim(state, unit, target_id, action)
+	if action == null or target_id == -1:
 		return null
-	return Intent.use_action(action_id, target_id)
+	return Intent.use_action(action.id, target_id)
 
 # ---------------------------------------------------------------------------
 # The rows.
@@ -135,7 +135,7 @@ static func all_actions(unit: CombatUnit) -> Array[ActionDef]:
 static func candidates(state: CombatState, unit: CombatUnit) -> Array[ActionDef]:
 	var affordable: Array[ActionDef] = []
 	for a in all_actions(unit):
-		if PlanInterpreter.can_afford(state, unit, a.id):
+		if PlanInterpreter.can_afford(state, unit, a):
 			affordable.append(a)
 	if first_heal(affordable) == null and attacks(affordable).is_empty():
 		return all_actions(unit)
@@ -236,7 +236,7 @@ static func self_buff(state: CombatState, unit: CombatUnit) -> ActionDef:
 			continue
 		if a.heals or a.sustain_cost_per_tick > 0 or a.summons_unit_id != &"":
 			continue
-		if not PlanInterpreter.can_afford(state, unit, a.id):
+		if not PlanInterpreter.can_afford(state, unit, a):
 			continue
 		if _nearest_enemy_distance(state, unit) > _buff_reach(unit, a):
 			continue

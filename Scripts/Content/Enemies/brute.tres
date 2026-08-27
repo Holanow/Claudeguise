@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_46l8v"]
+
+[resource]
+script = ExtResource("1_46l8v")
+id = &"brute"
+display_name = "Brute"
+hp_max = 320
+move_speed = 1.8
+radius = 27.0
+attack_power = {
+0: 24
+}
+damage_reduction = 0.15
+actions = Array[StringName]([&"brute_slam", &"brute_roar"])
+display_tags = Array[String](["Melee", "Tough", "Stun", "Taunt"])

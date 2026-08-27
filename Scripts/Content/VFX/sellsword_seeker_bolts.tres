@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_jlv2b"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="2_1e5s5"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="3_jbwi0"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="4_oxul8"]
+
+[sub_resource type="Resource" id="Resource_q1g1u"]
+script = ExtResource("2_1e5s5")
+colour = Color(0.4, 0.58, 0.92, 1)
+size = 54.0
+seconds = 0.12
+
+[sub_resource type="Resource" id="Resource_s1m10"]
+script = ExtResource("3_jbwi0")
+amount = 14
+colour_hot = Color(0.86, 0.9, 0.98, 1)
+colour_cool = Color(0.4, 0.58, 0.92, 1)
+speed = 150.0
+lifetime = 0.4
+gravity = Vector2(0, 90)
+
+[resource]
+script = ExtResource("4_oxul8")
+display_name = "Seeker Bolts"
+layers = Array[ExtResource("1_jlv2b")]([SubResource("Resource_q1g1u"), SubResource("Resource_s1m10")])

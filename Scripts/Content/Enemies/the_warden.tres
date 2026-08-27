@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_tmy0m"]
+
+[resource]
+script = ExtResource("1_tmy0m")
+id = &"the_warden"
+display_name = "The Warden"
+hp_max = 1000
+radius = 33.0
+move_speed = 1.4
+attack_power = {
+0: 58
+}
+damage_reduction = 0.05
+actions = Array[StringName]([&"warden_axe", &"warden_chain_toss"])
+display_tags = Array[String](["Melee", "Ranged", "Boss"])

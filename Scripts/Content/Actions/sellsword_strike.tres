@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_ab8fx"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_hitfx"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_sbadef"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_sbtgt"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/sellsword_strike.tres" id="vfx_sellsword_strike"]
+
+[sub_resource type="Resource" id="Resource_sthit"]
+script = ExtResource("2_hitfx")
+
+[sub_resource type="Resource" id="Resource_sttg1"]
+script = ExtResource("4_sbtgt")
+range_units = 45.0
+
+[resource]
+script = ExtResource("3_sbadef")
+id = &"sellsword_strike"
+display_name = "Strike"
+description = "A plain melee cut at up to 45 units. No cooldown."
+wind_up_ticks = 8
+recover_ticks = 8
+targeting = SubResource("Resource_sttg1")
+effects = Array[ExtResource("1_ab8fx")]([SubResource("Resource_sthit")])
+vfx = ExtResource("vfx_sellsword_strike")

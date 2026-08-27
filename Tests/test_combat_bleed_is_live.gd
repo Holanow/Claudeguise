@@ -2,7 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 
 ## #130's other half: BLEED had a stacking mechanism sitting on top of an effect
-## with no base. It was in `CombatSim._DOT_STATUSES` and multiplied correctly,
+## with no base. It was in `CombatSim`'s damage-over-time list and multiplied
 ## and it multiplied **zero**, because `Balance.status_damage_per_tick` has no
 ## BLEED case and every magnitude seam defaulted to inert.
 

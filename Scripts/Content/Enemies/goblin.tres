@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_4i8l0"]
+
+[resource]
+script = ExtResource("1_4i8l0")
+id = &"goblin"
+display_name = "Goblin"
+hp_max = 35
+move_speed = 4.0
+radius = 16.5
+attack_power = {
+0: 9
+}
+actions = Array[StringName]([&"goblin_stab"])
+display_tags = Array[String](["Melee", "Weak"])
+focus_bias = 0.7

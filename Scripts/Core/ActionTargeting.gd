@@ -25,3 +25,10 @@ class_name ActionTargeting
 
 ## This action may only be used against a target carrying `CG.Status.MARKED`.
 @export var requires_marked_target: bool = false
+
+## 0.0 means no angular restriction, which is every action before issue 671.
+## Above zero, a target must be within this many degrees of the caster's
+## `facing` -- the angle between `facing` and the direction to the target,
+## not a total cone width -- **and** inside `splash_radius`, which for an arc
+## action is measured from the caster rather than from the primary target.
+@export var arc_degrees: float = 0.0

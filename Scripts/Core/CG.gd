@@ -101,13 +101,13 @@ enum Status {
 	SUSTAINING,
 }
 
-## Whether a status is something a unit would want removed. Cleanse needs this
-## and nothing else does yet.
+## Whether a status is something a unit would want removed. Issue 627: the
+## seven-member list this used to hold is now `StatusDef.harmful`, one field on
+## the file that owns everything else about the status. The signature stays,
+## because twenty call sites read it and none of them care where it comes from.
 static func is_harmful(s: Status) -> bool:
-	match s:
-		Status.BLEED, Status.BURN, Status.POISON, Status.STUN, 		Status.MARKED, Status.SLOWED, Status.TAUNTED:
-			return true
-	return false
+	var def := StatusLibrary.of(s)
+	return def != null and def.harmful
 
 ## What a decision layer asks a unit to do on a tick. The plan interpreter and
 ## the default behaviour both produce these; the simulation consumes them and is
@@ -204,14 +204,7 @@ static func attribute_name(a: Attribute) -> String:
 		Attribute.WIS: return "WIS"
 	return "?"
 
+## Issue 631: the eight names live on the `DamageTypeDef` resources now.
 static func damage_type_name(d: DamageType) -> String:
-	match d:
-		DamageType.PHYSICAL: return "Physical"
-		DamageType.FIRE: return "Fire"
-		DamageType.WATER: return "Water"
-		DamageType.AIR: return "Air"
-		DamageType.EARTH: return "Earth"
-		DamageType.DIVINE: return "Divine"
-		DamageType.PROFANE: return "Profane"
-		DamageType.RAW: return "Raw"
-	return "?"
+	var def := DamageTypeLibrary.of(d)
+	return def.display_name if def != null else "?"

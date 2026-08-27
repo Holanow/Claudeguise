@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_1y6w3"]
+
+[resource]
+script = ExtResource("1_1y6w3")
+id = &"goblin_archer"
+display_name = "Goblin Archer"
+hp_max = 28
+move_speed = 3.2
+radius = 16.5
+attack_power = {
+0: 8
+}
+actions = Array[StringName]([&"goblin_arrow"])
+display_tags = Array[String](["Ranged", "Weak"])
+focus_bias = 0.6

@@ -127,8 +127,8 @@ func test_screen_builds_its_pickers_and_canvas() -> void:
 
 ## Registry has no all_enemy_ids() (proposed to dace on the board); this
 ## checks the fallback derivation actually reaches the real bestiary rather
-## than an empty or partial list. `floor1_enemies.gd` registers five enemies
-## and every one of them is used by at least one registered encounter today,
+## than an empty or partial list. `EnemyLibrary` registers ten enemies and every
+## one of them is used by at least one registered encounter today,
 ## so this is a real assertion against real content, not a fixture standing
 ## in for it.
 func test_bestiary_picker_offers_every_enemy_used_by_a_registered_encounter() -> void:
