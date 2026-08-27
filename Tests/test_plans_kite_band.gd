@@ -78,9 +78,11 @@ func test_the_same_unit_fires_at_something_slower_instead_of_backing_off() -> vo
 ## rim of range whiffs against anything that steps back during the wind-up.
 func test_a_unit_beyond_its_commit_distance_still_closes() -> void:
 	var stalker := _stalker()
-	var intent := _decide(stalker, 210.0)
+	## Issue 642: the commit window is edge to edge, so the two bodies' radii
+	## have to be clear of it as well as the window itself.
+	var intent := _decide(stalker, 260.0)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_true(intent.destination.distance_to(Vector2(210.0, 0.0)) < 210.0,
+	assert_true(intent.destination.distance_to(Vector2(260.0, 0.0)) < 260.0,
 		"beyond 0.85 of its reach the unit approaches, got %s" % intent.destination)
 
 

@@ -84,11 +84,12 @@ func test_taunt_overrides_the_nearest_enemy() -> void:
 func test_taunt_out_of_its_own_radius_does_not_override() -> void:
 	var state := CombatState.new(1)
 	var attacker := _unit(0, CG.Team.PLAYER, &"goblin_archer", Vector2.ZERO)
-	# Beyond the ranged commit window (170), so the baseline behaviour is
-	# closing distance on it -- unambiguous MOVE_TO(nearest.position).
-	var nearest := _immobile_dummy(1, CG.Team.ENEMY, Vector2(180.0, 0.0))
+	# Beyond the ranged commit window, which issue 642 measures edge to edge,
+	# so the baseline behaviour is closing distance on it -- unambiguous
+	# MOVE_TO(nearest.position).
+	var nearest := _immobile_dummy(1, CG.Team.ENEMY, Vector2(250.0, 0.0))
 	# Taunting, but taunt_radius does not reach the attacker's position.
-	var taunter := _taunter(2, Vector2(300.0, 0.0), 10.0)
+	var taunter := _taunter(2, Vector2(400.0, 0.0), 10.0)
 	state.units.append(attacker)
 	state.units.append(nearest)
 	state.units.append(taunter)

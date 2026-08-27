@@ -77,7 +77,7 @@ func test_a_cleanse_strips_every_harmful_status_from_its_target() -> void:
 
 	var state := CombatState.new(870)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	ally.statuses[CG.Status.POISON] = _LONG
 	ally.statuses[CG.Status.BURN] = _LONG
 	ally.statuses[CG.Status.SLOWED] = _LONG
@@ -103,7 +103,7 @@ func test_a_cleanse_emits_one_status_expired_per_status_it_removes() -> void:
 
 	var state := CombatState.new(871)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	ally.statuses[CG.Status.POISON] = _LONG
 	ally.statuses[CG.Status.MARKED] = _LONG
 	state.units.append(caster)
@@ -142,7 +142,7 @@ func _order_of_removals(cleanse: ActionDef, statuses: Array) -> Array:
 	var deps := _deps_with_action(cleanse)
 	var state := CombatState.new(872)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	for s in statuses:
 		ally.statuses[s] = _LONG
 	state.units.append(caster)
@@ -168,7 +168,7 @@ func test_a_cleanse_actually_undoes_what_the_status_was_doing() -> void:
 
 	var state := CombatState.new(873)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	ally.statuses[CG.Status.SLOWED] = _LONG
 	state.units.append(caster)
 	state.units.append(ally)
@@ -176,7 +176,7 @@ func test_a_cleanse_actually_undoes_what_the_status_was_doing() -> void:
 
 	ally.intent = Intent.move_to(Vector2(400, 0))
 	CombatSim.step(state, deps)
-	assert_almost_eq(ally.position.x, 40.0, 0.01, "SLOWED at scale 0 pins the ally in place")
+	assert_almost_eq(ally.position.x, 80.0, 0.01, "SLOWED at scale 0 pins the ally in place")
 
 	caster.intent = Intent.use_action(cleanse.id, ally.id)
 	CombatSim.step(state, deps) # commits
@@ -202,7 +202,7 @@ func test_a_cleanse_leaves_beneficial_statuses_alone() -> void:
 
 	var state := CombatState.new(874)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	ally.statuses[CG.Status.SHIELD] = _LONG
 	ally.statuses[CG.Status.HASTE] = _LONG
 	ally.statuses[CG.Status.POISON] = _LONG
@@ -229,7 +229,7 @@ func test_an_action_that_does_not_cleanse_removes_nothing() -> void:
 
 	var state := CombatState.new(875)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [plain.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	ally.statuses[CG.Status.POISON] = _LONG
 	ally.statuses[CG.Status.BURN] = _LONG
 	state.units.append(caster)
@@ -253,7 +253,7 @@ func test_a_cleanse_on_an_unafflicted_ally_is_silent() -> void:
 
 	var state := CombatState.new(876)
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [cleanse.id])
-	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(40, 0), [])
+	var ally := _unit(1, CG.Team.PLAYER, 30, Vector2(80, 0), [])
 	state.units.append(caster)
 	state.units.append(ally)
 	state.units.append(_dummy_enemy(2))
