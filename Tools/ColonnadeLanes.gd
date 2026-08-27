@@ -84,7 +84,7 @@ func _heat(lanes: Array[PackedFloat32Array]) -> void:
 
 func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 	for id in u.actions:
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null or a.heals or not a.requires_line_of_sight:
 			continue
 		if u.position.distance_to(t.position) <= a.range_units:
@@ -101,7 +101,7 @@ func _without_terrain(enc: RoomData) -> RoomData:
 
 func _parties() -> Array:
 	var names := PackedStringArray()
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		names.append(String(id))
 	names.sort()
 	var out := []

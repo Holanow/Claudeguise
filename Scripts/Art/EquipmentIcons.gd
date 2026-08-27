@@ -46,7 +46,7 @@ static func draw_item(canvas: CanvasItem, item: EquipmentDef, rect: Rect2) -> vo
 ## second function and not a default argument: the equip screen has the def in
 ## hand and should not pay a registry lookup per icon per frame.
 static func draw_item_by_id(canvas: CanvasItem, item_id: StringName, rect: Rect2) -> void:
-	draw_item(canvas, Registry.get_equipment(item_id), rect)
+	draw_item(canvas, ItemLibrary.get_equipment(item_id), rect)
 
 ## An unfilled slot: the plate, dimmed, with no glyph. The equip screen shows
 ## three per pawn and most of them are empty most of the time.

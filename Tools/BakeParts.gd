@@ -271,16 +271,57 @@ func _parts() -> Dictionary:
 	# The player: "ditch arms and let the hands float around." So there is no
 	# limb, and the T-pose the arms produced cannot come back by being angled
 	# differently -- there is nothing left to angle.
-	var hands := _blank()
-	_ellipse(hands, 7.5, 21.0, 3.0, 3.0)
-	_ellipse(hands, 24.5, 21.0, 3.0, 3.0)
-	out["hands"] = hands
+	#
+	# Issue 584: one recipe slot held both hands as a single sprite, so they
+	# could only move together -- a sword slash would swing the off-hand
+	# identically. Split into two parts, one per named slot (`HandMain`,
+	# `HandOff`), mirror images of the old pair's two ellipses.
+	var hand := _blank()
+	_ellipse(hand, 24.5, 21.0, 3.0, 3.0)
+	out["hand"] = hand
 
-	var hands_wide := _blank()
-	_ellipse(hands_wide, 4.0, 19.0, 3.8, 3.8)
-	_ellipse(hands_wide, 28.0, 19.0, 3.8, 3.8)
-	out["hands_wide"] = hands_wide
+	var hand_off := _blank()
+	_ellipse(hand_off, 7.5, 21.0, 3.0, 3.0)
+	out["hand_off"] = hand_off
 
+	var hand_wide := _blank()
+	_ellipse(hand_wide, 28.0, 19.0, 3.8, 3.8)
+	out["hand_wide"] = hand_wide
+
+	var hand_wide_off := _blank()
+	_ellipse(hand_wide_off, 4.0, 19.0, 3.8, 3.8)
+	out["hand_wide_off"] = hand_wide_off
+
+	# --- weapons, drawn where the wielder's own HandMain sits --------------
+	# One shape per starting weapon (#584). Grip sits at the same point as the
+	# hand that holds it, so `rotate_slot`'s pivot -- the canvas centre, which
+	# `offset_slot` already treats as the body's own origin -- swings the
+	# weapon and the hand through the same arc.
+	var sword := _blank()
+	_limb(sword, Vector2(28.0, 19.0), Vector2(28.0, 23.0), 0.9)
+	_rect(sword, 25, 18, 31, 19)
+	_limb(sword, Vector2(28.0, 18.0), Vector2(30.0, 3.0), 1.1)
+	out["sword"] = sword
+
+	var staff := _blank()
+	_limb(staff, Vector2(24.5, 21.0), Vector2(27.0, 3.0), 1.0)
+	_ellipse(staff, 27.0, 3.0, 1.6, 1.6)
+	out["staff"] = staff
+
+	var orb := _blank()
+	_ellipse(orb, 27.0, 17.0, 3.0, 3.0)
+	out["orb"] = orb
+
+	var bow := _blank()
+	_tri(bow, Vector2(28.0, 19.0), Vector2(33.0, 10.0), Vector2(30.0, 9.0))
+	_tri(bow, Vector2(28.0, 19.0), Vector2(33.0, 28.0), Vector2(30.0, 29.0))
+	_limb(bow, Vector2(30.0, 9.0), Vector2(30.0, 29.0), 0.4)
+	out["bow"] = bow
+
+	var sickle := _blank()
+	_limb(sickle, Vector2(28.0, 19.0), Vector2(31.0, 12.0), 1.0)
+	_tri(sickle, Vector2(31.0, 12.0), Vector2(34.0, 9.0), Vector2(30.0, 9.0))
+	out["sickle"] = sickle
 
 	return out
 
@@ -318,6 +359,20 @@ func _outlined(mask: Image) -> Image:
 				out.set_pixel(x, y, Color.WHITE)
 	return out
 
+## Issue 690. The mean position of every opaque pixel, on the outlined image
+## that actually ships. `UnitVisual` pivots a part's rotation about this
+## instead of the canvas centre, so a hand or blade near the canvas edge turns
+## in place rather than orbiting the body.
+static func _centroid(img: Image) -> Vector2:
+	var sum := Vector2.ZERO
+	var count := 0
+	for y in N:
+		for x in N:
+			if img.get_pixel(x, y).a > 0.0:
+				sum += Vector2(x, y)
+				count += 1
+	return sum / float(count) if count > 0 else Vector2(N, N) * 0.5
+
 func _touches_ink(img: Image, x: int, y: int) -> bool:
 	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var q := Vector2i(x, y) + d
@@ -332,13 +387,19 @@ func _init() -> void:
 	var parts := _parts()
 	var names := parts.keys()
 	names.sort()
+	var centroids := {}
 	for name in names:
 		var img: Image = parts[name]
 		var used := img.get_used_rect()
 		if used.size.x <= 0 or used.size.y <= 0:
 			printerr("BakeParts: '%s' puts no ink on the canvas" % name)
 			continue
-		_outlined(img).save_png("%s/%s.png" % [OUT_DIR, name])
-		print("  %-16s ink %3d x %3d of %d" % [name, used.size.x, used.size.y, N])
+		var outlined := _outlined(img)
+		outlined.save_png("%s/%s.png" % [OUT_DIR, name])
+		var c := _centroid(outlined)
+		centroids[name] = [c.x, c.y]
+		print("  %-16s ink %3d x %3d of %d, centroid (%.1f, %.1f)" % [name, used.size.x, used.size.y, N, c.x, c.y])
+	var f := FileAccess.open("%s/centroids.json" % OUT_DIR, FileAccess.WRITE)
+	f.store_string(JSON.stringify(centroids, "  "))
 	print("BakeParts: %d outlined part(s) at %dx%d written to %s" % [names.size(), N, N, OUT_DIR])
 	quit(0)

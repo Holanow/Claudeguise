@@ -26,7 +26,7 @@ var _capturing := false
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.all_encounter_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("ContactSheet: no content registered")
@@ -77,7 +77,7 @@ func _party(ids: Array) -> Array[PawnData]:
 	for cid in ids:
 		# `cls.display_name`, the same source PartySelect uses, not `String(cid)`.
 		out.append(PawnFactory.make_starter_pawn(
-			cid, StringName("%s_%d" % [cid, out.size()]), Registry.get_class_def(cid).display_name
+			cid, StringName("%s_%d" % [cid, out.size()]), ClassLibrary.get_class_def(cid).display_name
 		))
 	return out
 

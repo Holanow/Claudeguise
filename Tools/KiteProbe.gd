@@ -83,7 +83,7 @@ func _sample_tick(state: CombatState, totals: Dictionary, before: Dictionary) ->
 func _best_attack_range(unit: CombatUnit) -> float:
 	var best := -1.0
 	for id in unit.actions:
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a == null or a.heals or a.power_scale <= 0.0:
 			continue
 		best = maxf(best, a.range_units)
@@ -101,7 +101,7 @@ func _nearest_foe(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	return best
 
 func _parties() -> Array:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	var out := []
 	for skip in ids.size():
 		var party := []

@@ -100,11 +100,11 @@ func _labels() -> Array:
 			"radius": float(spawn.get("radius", 22.0))})
 	return out
 
-## Registry.get_enemy for a display name rather than the raw id reaching the
+## EnemyLibrary.get_enemy for a display name rather than the raw id reaching the
 ## screen -- the same rule InspectPanel's own tests hold every label on this
 ## project to.
 static func enemy_label(spawn: Dictionary) -> String:
-	var enemy_def := Registry.get_enemy(spawn.enemy_id)
+	var enemy_def := EnemyLibrary.get_enemy(spawn.enemy_id)
 	return enemy_def.display_name if enemy_def != null else String(spawn.enemy_id)
 
 func _draw_deploy_zone() -> void:

@@ -9,7 +9,7 @@
 
 [sub_resource type="Resource" id="Resource_12a8q"]
 script = ExtResource("1_28qy7")
-speed = 32.5
+speed = 16.0
 
 [sub_resource type="Resource" id="Resource_s02wm"]
 script = ExtResource("3_armqv")

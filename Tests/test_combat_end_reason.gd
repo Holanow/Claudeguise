@@ -93,7 +93,7 @@ func test_an_empty_side_is_never_reported_as_stranded() -> void:
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == &"abomination":
 			continue
 		out.append(PawnFactory.make_preset_pawn(

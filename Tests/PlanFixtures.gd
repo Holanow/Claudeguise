@@ -19,7 +19,7 @@ static func block(op: StringName, args: Dictionary = {}) -> PlanBlock:
 	## so ~250 call sites written for the old field did not have to move.
 	if op == &"use_action" and args.has("action_id"):
 		args = args.duplicate()
-		args["action"] = Registry.get_action(args["action_id"])
+		args["action"] = ActionLibrary.get_action(args["action_id"])
 		args.erase("action_id")
 	for key in args:
 		if not _declares(made, key):

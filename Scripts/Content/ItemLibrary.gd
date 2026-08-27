@@ -22,3 +22,27 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Items/gown.tres",
 	"res://Scripts/Content/Items/censer.tres",
 ]
+
+## Sorted by id, because dictionary iteration order is not something a fight
+## may depend on. Issue #658 lever 3A.
+static func all_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	ids.assign(_by_id.keys())
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return String(a) < String(b))
+	return ids
+static var _by_id: Dictionary = {}
+static var _loaded: bool = false
+
+static func _load() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	for path in PATHS:
+		var i: EquipmentDef = load(path)
+		_by_id[i.id] = i
+
+static func get_equipment(id: StringName) -> EquipmentDef:
+	_load()
+	return _by_id.get(id)

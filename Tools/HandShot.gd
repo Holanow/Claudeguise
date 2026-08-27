@@ -75,7 +75,7 @@ func _live(hands: bool) -> void:
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		out.append(PawnFactory.make_starter_pawn(id, StringName("p%d" % out.size()), String(id)))
 		if out.size() == 4:
 			break

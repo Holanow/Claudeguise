@@ -9,3 +9,4 @@ display_name = "Sickle"
 description = "A curved, filthy blade. Its wielder attacks with a poisoning Claw."
 granted_actions = Array[StringName]([&"abomination_claw"])
 required_tags = Array[int]([1, 2])
+part = &"sickle"

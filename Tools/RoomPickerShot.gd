@@ -82,7 +82,7 @@ func _run() -> void:
 
 	## The parties rotate room by room so the shots between them hold every
 	## class; the reachability checks below do not depend on which party plays.
-	var parties: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())
+	var parties: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	var shot_classes := {}
 
 	var reached := {}
@@ -140,7 +140,7 @@ func _run() -> void:
 		"ALL %d ROOMS REACHABLE THROUGH THE CONTROLS (reached %d)" % [offered.size(), reached.size()])
 
 	var missing := []
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		if not shot_classes.has(id):
 			missing.append(String(id))
 	_check(missing.is_empty(), "every class appears in some room shot (missing: %s)" % str(missing))

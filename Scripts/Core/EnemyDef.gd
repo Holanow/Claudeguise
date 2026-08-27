@@ -33,6 +33,10 @@ class_name EnemyDef
 
 @export var actions: Array[StringName] = []
 
+## Issue 685. The `part` an enemy without a `pawn`/`Weapon` draws in its
+## `Weapon` slot -- same values as `Weapon.part` (&"sword", &"bow", ...).
+@export var weapon_part: StringName = &""
+
 ## Tags shown to the player above the health bar.
 @export var display_tags: Array[String] = []
 

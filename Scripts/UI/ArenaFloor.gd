@@ -89,7 +89,7 @@ func _draw_projectile(p, at: Vector2) -> void:
 ## UnitView._shape_id's own fallback-to-known-default reasoning) rather
 ## than failing a whole frame's draw over one bad id.
 func _projectile_damage_type(p) -> CG.DamageType:
-	var action := Registry.get_action(p.action_id)
+	var action := ActionLibrary.get_action(p.action_id)
 	return action.damage_type if action != null else CG.DamageType.PHYSICAL
 
 ## Four kinds, two axes (blocks movement / blocks sight), and no new Palette

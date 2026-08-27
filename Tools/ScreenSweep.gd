@@ -53,7 +53,7 @@ func _ready() -> void:
 ## issue 327 cannot come back silently.
 func _coverage_ok() -> bool:
 	var missing: Array[String] = []
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		if not _classes_shot.has(id):
 			missing.append(String(id))
 	if missing.is_empty():
@@ -193,7 +193,7 @@ func _fresh_main() -> void:
 
 func _run() -> void:
 	await _party_select_empty()
-	var parties := sweep_parties(Registry.all_class_ids())
+	var parties := sweep_parties(ClassLibrary.all_ids())
 	for i in parties.size():
 		var tag := "p%d" % (i + 1)
 		print("ScreenSweep: %s = %s" % [tag, ", ".join(PackedStringArray(parties[i]))])
@@ -322,7 +322,7 @@ func _level_editor() -> void:
 ## The floor map, reached via Start Run, plus whichever room resolves first.
 func _floor_map_and_end_of_fight() -> void:
 	await _fresh_main()
-	var parties := sweep_parties(Registry.all_class_ids())
+	var parties := sweep_parties(ClassLibrary.all_ids())
 	if parties.is_empty() or not _select_classes(parties[0]):
 		return
 	await get_tree().process_frame

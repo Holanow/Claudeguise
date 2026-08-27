@@ -125,7 +125,7 @@ static func _attack_row(unit: CombatUnit) -> Plan:
 static func all_actions(unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for id in unit.actions:
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a != null:
 			out.append(a)
 	return out

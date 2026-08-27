@@ -57,8 +57,8 @@ func _ready() -> void:
 ## hand-building fixes the roster and the fight itself, not just the screen.
 func _build_roster() -> void:
 	_available.clear()
-	for class_id in Registry.all_class_ids():
-		var cls: ClassDef = Registry.get_class_def(class_id)
+	for class_id in ClassLibrary.all_ids():
+		var cls: ClassDef = ClassLibrary.get_class_def(class_id)
 		if cls == null:
 			continue
 		_available.append(PawnFactory.make_rolled_pawn(class_id, class_id, cls.display_name, _roster_seed))

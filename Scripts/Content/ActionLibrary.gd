@@ -48,3 +48,44 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Actions/warrior_strike.tres",
 	"res://Scripts/Content/Actions/warrior_taunt.tres",
 ]
+
+## Sorted by id, because dictionary iteration order is not something a fight
+## may depend on. Issue #658 lever 3A.
+static func all_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	ids.assign(_by_id.keys())
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return String(a) < String(b))
+	return ids
+static var _by_id: Dictionary = {}
+static var _loaded: bool = false
+
+static func _load() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	for path in PATHS:
+		var a: ActionDef = load(path)
+		_by_id[a.id] = a
+
+static func get_action(id: StringName) -> ActionDef:
+	_load()
+	return _by_id.get(id)
+
+## Issue 100: everything a pawn can actually do -- its class's `starting_actions`
+## plus whatever its equipment grants. Moved off `Registry` in #658; it was
+## never a registry lookup, just habitually parked on one.
+static func actions_for_pawn(pawn: PawnData) -> Array[StringName]:
+	var out: Array[StringName] = []
+	if pawn == null:
+		return out
+	if pawn.pawn_class != null:
+		for a in pawn.pawn_class.starting_action_ids():
+			if not out.has(a):
+				out.append(a)
+	for e in pawn.equipment():
+		for a in e.granted_actions:
+			if not out.has(a):
+				out.append(a)
+	return out

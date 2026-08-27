@@ -15,7 +15,7 @@ func _say(line: String = "") -> void:
 	print(line)
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.all_encounter_ids()
 	_say("classes: " + str(class_ids))
 	_say("encounters: " + str(encounter_ids))

@@ -47,7 +47,7 @@ func _demand() -> Dictionary:
 	var most_in_a_tick := 0
 	for encounter_id in Registry.pickable_encounter_ids():
 		var encounter = Registry.get_encounter(encounter_id)
-		for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			var state := CombatSim.build(_party(party_ids), encounter, SEED)
 			var per_tick: Array[int] = []
 			var cursor := 0
@@ -127,7 +127,7 @@ func _cost(units: int, particles: bool, per_tick: int) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"impact_particles", particles)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

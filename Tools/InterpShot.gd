@@ -45,7 +45,7 @@ func _encounter():
 ## step, because that is where a 15Hz snap is largest and a lerp most visible.
 func _fastest_walk() -> Dictionary:
 	var best := {"tick": -1, "id": -1, "moved": 0.0, "party": []}
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		var was := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -158,7 +158,7 @@ func _clone(src: CombatUnit, id: int) -> CombatUnit:
 
 func _cost(units: int) -> void:
 	seed(SEED)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

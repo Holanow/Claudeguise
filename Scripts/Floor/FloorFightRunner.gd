@@ -55,7 +55,7 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 			alive_classes[p.pawn_class.id] = true
 
 	var pool: Array[StringName] = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		if not alive_classes.has(class_id):
 			pool.append(class_id)
 
@@ -68,7 +68,7 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 	var out: Array[PawnData] = []
 	for i in mini(CELL_CANDIDATE_COUNT, pool.size()):
 		var class_id: StringName = pool[i]
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var pawn_id := StringName("%s_cell_%d" % [class_id, room.id])
 		out.append(PawnFactory.make_starter_pawn(class_id, pawn_id, cls.display_name))
 	return out

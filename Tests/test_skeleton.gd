@@ -99,7 +99,7 @@ func test_every_attribute_has_a_name() -> void:
 func test_registry_loads_without_duplicate_ids() -> void:
 	# Empty today. It stays meaningful the moment content lands, and it is
 	# cheap enough to be worth having before that.
-	assert_not_null(Registry.all_class_ids())
+	assert_not_null(ClassLibrary.all_ids())
 	assert_not_null(Registry.all_encounter_ids())
 
 

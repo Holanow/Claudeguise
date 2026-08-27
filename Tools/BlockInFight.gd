@@ -24,7 +24,7 @@ func _init() -> void:
 		var encounter := Registry.get_encounter(encounter_id)
 		for s in SEEDS:
 			var party: Array[PawnData] = []
-			for cid in Registry.all_class_ids():
+			for cid in ClassLibrary.all_ids():
 				party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
 			var state := CombatSim.build(party, encounter, s)
 			var outcome := CombatSim.run(state)

@@ -147,7 +147,7 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 func test_every_roster_pawn_starts_with_no_plans_and_a_library_to_add_from() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.is_empty():
 		return
 	for pawn in screen.available_pawns():
@@ -387,9 +387,9 @@ func test_the_middle_column_lists_the_actions_once_and_with_the_gear_in() -> voi
 	screen._ready()
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
-	var available: Array = Registry.actions_for_pawn(pawn)
+	var available: Array = ActionLibrary.actions_for_pawn(pawn)
 	assert_true(available.size() > 0, "this pawn has no actions, so this test measures nothing")
-	var first: ActionDef = Registry.get_action(available[0])
+	var first: ActionDef = ActionLibrary.get_action(available[0])
 	assert_true(_all_label_text(screen._equip_panel).contains(first.display_name),
 		"the equipment panel must name every action the pawn can call, not only the granted ones")
 	assert_false(_all_label_text(screen._inspect_panel).contains("Actions"),

@@ -45,7 +45,7 @@ func _measure(room_id: StringName) -> void:
 	var back_to_back := 0
 	var late_deaths := 0
 
-	for party_ids in _parties(Registry.all_class_ids()):
+	for party_ids in _parties(ClassLibrary.all_ids()):
 		for s in SEEDS:
 			var party: Array[PawnData] = []
 			for cid in party_ids:

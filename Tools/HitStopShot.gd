@@ -51,7 +51,7 @@ func _encounter():
 ## through it: a hold on a screen where nothing was moving proves nothing.
 func _walked_death() -> Dictionary:
 	var best := {"tick": -1, "id": -1, "moved": 0.0, "party": []}
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		var was := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
