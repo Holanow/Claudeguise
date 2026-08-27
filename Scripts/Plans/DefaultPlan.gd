@@ -224,7 +224,7 @@ static func best_attack(state: CombatState, unit: CombatUnit, target: CombatUnit
 		return ranged
 	if ranged == null:
 		return melee
-	if unit.position.distance_to(target.position) <= melee.range_units * MELEE_COMMIT_FRACTION:
+	if unit.gap(target) <= melee.range_units * MELEE_COMMIT_FRACTION:
 		return melee
 	return ranged
 

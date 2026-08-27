@@ -8,7 +8,7 @@ func holds(state: CombatState, unit: CombatUnit) -> bool:
 	var nearest := PlanInterpreter.nearest(state, unit, PlanInterpreter.enemy_team(unit.team))
 	if nearest == null:
 		return false
-	return unit.position.distance_to(nearest.position) <= range_units
+	return unit.gap(nearest) <= range_units
 
 func describe() -> String:
 	return "an enemy within %d units" % int(range_units)

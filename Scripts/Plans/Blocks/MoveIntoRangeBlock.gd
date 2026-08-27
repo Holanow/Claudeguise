@@ -14,7 +14,7 @@ func _walk(state: CombatState, unit: CombatUnit, target_id: int, action_id: Stri
 	var action: ActionDef = Registry.get_action(action_id)
 	if target == null or not target.alive or action == null:
 		return null
-	if unit.position.distance_to(target.position) <= action.range_units:
+	if unit.gap(target) <= action.range_units:
 		return act_here(state, unit, target_id, action_id, plan)
 	return Intent.move_to(target.position, &"" if plan == null else plan.id)
 

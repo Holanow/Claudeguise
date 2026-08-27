@@ -207,7 +207,7 @@ static func _compelled_intent(unit: CombatUnit, taunter: CombatUnit, deps: SimDe
 		var a: ActionDef = deps.action_lookup.call(id)
 		if a != null:
 			defs.append(a)
-	var dist := unit.position.distance_to(taunter.position)
+	var dist := unit.gap(taunter)
 	var melee: ActionDef = deps.default_attack_action.call(defs, false)
 	var ranged: ActionDef = deps.default_attack_action.call(defs, true)
 	var chosen: ActionDef = melee
@@ -807,7 +807,7 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 	var primary := state.unit(unit.focus_id)
 	if primary == null or not primary.alive:
 		return out
-	if CombatUnit.gap(unit, primary) > action.range_units:
+	if unit.gap(primary) > action.range_units:
 		return out
 	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position):
 		return out

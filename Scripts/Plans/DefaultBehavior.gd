@@ -45,7 +45,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if heal_action != null:
 		var neediest := _lowest_hp_fraction(_heal_candidates(state, unit, heal_action))
 		if neediest != null and neediest.hp_fraction() <= HEAL_THRESHOLD_FRACTION:
-			var dist_to_ally := CombatUnit.gap(unit, neediest)
+			var dist_to_ally := unit.gap(neediest)
 			if dist_to_ally <= heal_action.range_units:
 				return Intent.use_action(heal_action.id, neediest.id)
 			return Intent.move_to(neediest.position)
@@ -63,7 +63,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if attack_action == null:
 		return Intent.idle()
 
-	var dist := CombatUnit.gap(unit, target)
+	var dist := unit.gap(target)
 
 	if unit.move_speed <= 0.0:
 		if dist > attack_action.range_units:
@@ -225,7 +225,7 @@ static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, t
 		return ranged
 	if ranged == null:
 		return melee
-	var dist := CombatUnit.gap(unit, target)
+	var dist := unit.gap(target)
 	if dist <= melee.range_units * MELEE_COMMIT_FRACTION:
 		return melee
 	return ranged
