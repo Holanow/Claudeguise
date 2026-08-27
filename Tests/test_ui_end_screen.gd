@@ -238,20 +238,16 @@ func test_the_tally_reads_a_real_fight_and_its_totals_reconcile() -> void:
 		"dealt and taken must be the same number counted from two ends")
 
 
-## THE DAY UNARRIVED, AND THIS IS #576 RESERTING ITSELF. This test has flipped
-## once already: it used to assert that an engine started an action, never fired
-## it and died, and said it would go red the day one landed a hit. #592 halved
-## the bolt cycle, the day came, and it became the real assertion.
+## THE DAY UNARRIVED, AND THIS IS #576 REASSERTING ITSELF. Issue 642 shortened
+## fights, so the engine now fires twice and connects zero times: its target
+## dies inside its 22-tick wind-up. `siege_engine_bolt` has range 1200, so the
+## range metric is not involved, and `Tools/EngineCredit.gd` has the numbers.
 ##
-## #642 shortened fights and it has gone back. `Tools/EngineCredit.gd`, same
-## fight both sides: the engine now fires TWICE and connects ZERO times, because
-## its target dies inside its 22-tick wind-up. `siege_engine_bolt` has range
-## 1200, so the range metric is not involved -- `_resolve_targets` finds
-## `focus_id` on a corpse. **Go red the day an engine lands a hit again, and
-## flip this back rather than widening anything.**
+## **Go red the day an engine lands a hit again, and flip this back rather than
+## widening anything.** It has flipped once before, on #592.
 ##
-## The credit rule itself is NOT unproven: the constructed-state tests above
-## prove it without needing a fight. What this records is its reachability.
+## The credit rule itself is not unproven: the constructed-state tests above
+## prove it without a fight. What this records is its reachability.
 func test_a_real_siege_engines_damage_never_reaches_the_card_see_576() -> void:
 	var party: Array[PawnData] = []
 	for cid in [&"siege_master", &"warrior"]:
