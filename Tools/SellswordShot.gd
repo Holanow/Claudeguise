@@ -4,7 +4,7 @@ extends Node
 ## a strip. The whole point of an authored look is that somebody looks at it.
 
 const OUT := "res://Screenshots/rook_671_sellsword_crescent.png"
-const CROP := Vector2i(300, 210)
+const CROP := Vector2i(420, 280)
 const COLS := 4
 const ZOOM := 2
 const FRAMES := 12
