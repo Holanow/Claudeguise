@@ -17,6 +17,6 @@ class_name Encounter
 ## Party start points, in party order. A short list means the sim places the rest.
 @export var party_spawns: Array[Vector2] = []
 
-## `Terrain.Feature` walls, pillars, hazards and pits. Untyped to match
+## `TerrainFeature` walls, pillars, hazards and pits. Untyped to match
 ## `Terrain.gd`'s API. Copied onto `CombatState` by `CombatSim.build`.
 @export var terrain: Array = []

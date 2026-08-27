@@ -8,7 +8,7 @@ extends "res://Tests/TestCase.gd"
 
 const FIRE := Rect2(-100.0, -100.0, 200.0, 200.0)
 
-func _fire(rect: Rect2 = FIRE) -> Terrain.Feature:
+func _fire(rect: Rect2 = FIRE) -> TerrainFeature:
 	return Terrain.hazard(rect, 2, CG.DamageType.FIRE)
 
 func _pool_action(half_width: float) -> ActionDef:

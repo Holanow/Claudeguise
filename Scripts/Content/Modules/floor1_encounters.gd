@@ -18,7 +18,7 @@ const _PARTY_SPAWNS: Array[Vector2] = [
 
 ## A HAZARD whose whole effect is a status. `Terrain.hazard()` takes a damage
 ## number and no status, and I did not ask rook for a second constructor:
-static func _status_hazard(rect: Rect2, status: CG.Status, ticks: int) -> Terrain.Feature:
+static func _status_hazard(rect: Rect2, status: CG.Status, ticks: int) -> TerrainFeature:
 	var f := Terrain.make(Terrain.Kind.HAZARD, rect)
 	f.applies_status_enabled = true
 	f.applies_status = status

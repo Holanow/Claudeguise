@@ -38,7 +38,7 @@ func _idle_deps() -> SimDeps:
 
 ## One victim standing in one hazard, and one distant enemy so the fight does
 ## not end before the status has ticked.
-func _stand_in(pit: Terrain.Feature, ticks: int) -> CombatUnit:
+func _stand_in(pit: TerrainFeature, ticks: int) -> CombatUnit:
 	var state := CombatState.new(_SEED)
 	state.grid.stamp_features([pit])
 	state.units.append(_unit(0, CG.Team.PLAYER, 500, Vector2.ZERO))
@@ -57,7 +57,7 @@ func _magnitude_for_a_whole_point(status: CG.Status) -> float:
 	var per_magnitude: float = deps.status_damage_per_magnitude.call(u, status)
 	return ceil(1.0 / per_magnitude)
 
-func _burn_pit(magnitude: float) -> Terrain.Feature:
+func _burn_pit(magnitude: float) -> TerrainFeature:
 	var pit := Terrain.make(Terrain.Kind.HAZARD, Rect2(-50.0, -50.0, 100.0, 100.0))
 	pit.applies_status_enabled = true
 	pit.applies_status = _magnitude_only_statuses()[0]

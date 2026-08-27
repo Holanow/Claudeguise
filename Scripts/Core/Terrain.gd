@@ -17,45 +17,26 @@ enum Kind {
 	WATER,   ## passable, harmless, and puts out burning ground it touches
 }
 
-class Feature extends RefCounted:
-	var kind: Kind = Kind.WALL
-	var rect: Rect2 = Rect2()
+## Issue 668: Feature is `TerrainFeature`, its own file and a Resource. A plain
+## RefCounted inside an exported array is silently dropped on save, which is
+## what stopped an encounter being a `.tres`.
 
-	## HAZARD only. Damage per tick to a unit standing on ground this stamps.
-	var damage_per_tick: int = 0
-	var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
-
-	var applies_status: CG.Status = CG.Status.SHIELD
-	var applies_status_enabled: bool = false
-	var status_duration_ticks: int = 0
-
-	## How hard the applied status hits, for the statuses whose whole damage rate
-	## is a multiple of a magnitude the applying hit normally supplies. A hazard
-	## has no hit, so it declares one here or its status ticks for nothing.
-	var status_magnitude: float = 0.0
-
-	func blocks_movement() -> bool:
-		return kind == Kind.WALL or kind == Kind.PIT
-
-	func blocks_sight() -> bool:
-		return kind == Kind.WALL or kind == Kind.PILLAR
-
-static func make(kind: Kind, rect: Rect2) -> Feature:
-	var f := Feature.new()
+static func make(kind: Kind, rect: Rect2) -> TerrainFeature:
+	var f := TerrainFeature.new()
 	f.kind = kind
 	f.rect = rect
 	return f
 
 ## Issue 492: a pool of water. It does nothing on its own, which is the whole
 ## of its definition -- no damage, no status, no movement cost.
-static func pool(rect: Rect2) -> Feature:
+static func pool(rect: Rect2) -> TerrainFeature:
 	return make(Kind.WATER, rect)
 
 ## Ground that is on fire, which is the only thing a pool reacts to.
 static func is_burning(f) -> bool:
 	return f.kind == Kind.HAZARD and f.damage_type == CG.DamageType.FIRE
 
-static func hazard(rect: Rect2, damage_per_tick: int, damage_type: CG.DamageType) -> Feature:
+static func hazard(rect: Rect2, damage_per_tick: int, damage_type: CG.DamageType) -> TerrainFeature:
 	var f := make(Kind.HAZARD, rect)
 	f.damage_per_tick = damage_per_tick
 	f.damage_type = damage_type
