@@ -1,29 +1,13 @@
 extends "res://Tests/TestCase.gd"
 
 
-## The player, after the gate went from 328s to 57s by deleting every test that
-## ran one:
-##
-## > "any test that wants to run a fight that is more than a dummyroom or more
-## > than 1 seed now needs to strongly justify why it needs it"
-##
-## This is that rule with teeth. A rule nobody checks is not a rule -- the same
-## reason `Tools/gate.ps1` counts comment blocks rather than the board asking
-## people to keep them short.
-##
-## **Before adding a name below, try the three cheaper answers first**, because
-## between them they cover almost every reason a test used to run a fight:
-##
-## - **`Tools/DummyRoom.gd`** fires every action at a dummy and checks it does
-##   what its own `effects` array declares. That is "the mechanic is reachable",
-##   which is what a five-party twenty-seed sweep was usually buying.
-## - **`Tools/StompCheck.gd`** runs each room once. A stall reads as a
-##   non-contest there.
-## - **The `sim` fingerprint** is a stronger determinism proof than any test
-##   asserting that two runs of one seed agree.
-##
-## An entry here needs a sentence saying what the test proves that none of those
-## three can, and one seed unless it says why not.
+## The player, after the gate went 328s to 57s by deleting every test that ran
+## one: any test wanting a fight beyond a dummy room or one seed must justify
+## it. A rule nobody checks is not a rule. Detail in ENGINEER.md.
+
+## Try Tools/DummyRoom.gd, Tools/StompCheck.gd and the sim fingerprint first.
+## Between them they cover almost every reason a test used to run a fight.
+## An entry below needs a sentence saying what none of those three can prove.
 
 const ALLOWED := {
 	## Names the call inside a string constant in order to search for it, the
