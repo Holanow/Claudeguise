@@ -79,11 +79,11 @@ func test_the_focus_cannot_pull_a_target_out_of_a_narrowed_candidate_list() -> v
 # ---------------------------------------------------------------------------
 
 func test_when_focused_is_parameterless_like_the_other_state_conditions() -> void:
-	assert_true(PlanInterpreter.STATE_CONDITIONS.has(&"enemy_is_focused"))
-	assert_true(PlanInterpreter.CONDITION_OPS.has(&"enemy_is_focused"),
-		"the editor's whitelist derives from the table, so it should be there too")
-	assert_eq(PlanInterpreter.CONDITION_ARG_SHAPE[&"enemy_is_focused"], {"kind": "none"})
-	assert_ne(PlanInterpreter.describe_op(&"enemy_is_focused", {}), "unknown op 'enemy_is_focused'",
+	assert_true(BlockCatalog.CONDITION_OPS.has(&"enemy_is_focused"),
+		"the editor's dropdown is the catalog, so it should be there")
+	var block := BlockCatalog.condition(&"enemy_is_focused")
+	assert_true(block.operands().is_empty())
+	assert_true(block.describe() != "",
 		"a condition with no sentence is a condition the player cannot read")
 
 func test_the_focus_condition_holds_only_while_a_living_enemy_is_focused() -> void:
@@ -92,10 +92,8 @@ func test_the_focus_condition_holds_only_while_a_living_enemy_is_focused() -> vo
 	var plan := Plan.new()
 	plan.id = &"focus_test"
 	plan.display_name = "When focused"
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"enemy_is_focused"
-	plan.condition = condition
+	var condition := PlanFixtures.block(&"enemy_is_focused")
+	plan.condition = condition as ConditionBlock
 
 	assert_false(PlanInterpreter.condition_holds(state, me, plan), "nothing focused yet")
 	var foe := _enemies(state)[0]
@@ -110,39 +108,29 @@ func test_the_focus_condition_holds_only_while_a_living_enemy_is_focused() -> vo
 func test_target_focused_enemy_aims_at_the_click_and_reports_nobody_without_one() -> void:
 	var state := _party_state()
 	var me := _pawn(state)
-	var block := PlanBlock.new()
-	block.kind = PlanBlock.Kind.TARGETING
-	block.op = &"target_focused_enemy"
-	var plan := Plan.new()
-	plan.id = &"t"
-	plan.display_name = "T"
+	var block := BlockCatalog.targeting(&"target_focused_enemy")
 
-	assert_eq(PlanInterpreter._eval_targeting(state, me, plan, block), -1, "no focus, no target")
+	assert_eq(block.pick(state, me), -1, "no focus, no target")
 	var foe := _enemies(state)[1]
 	state.player_focus_id = foe.id
-	assert_eq(PlanInterpreter._eval_targeting(state, me, plan, block), foe.id)
-	assert_true(PlanInterpreter.TARGETING_OPS.has(&"target_focused_enemy"),
+	assert_eq(block.pick(state, me), foe.id)
+	assert_true(BlockCatalog.TARGETING_OPS.has(&"target_focused_enemy"),
 		"the editor builds its picker from this list")
-	assert_ne(PlanInterpreter.describe_op(&"target_focused_enemy", {}), "unknown op 'target_focused_enemy'")
+	assert_true(block.describe() != "")
 
 ## An authored TARGETING block is NOT overruled by the focus. This is the
 ## binding principle and it is the reason `target_focused_enemy` exists.
 func test_an_authored_targeting_block_still_aims_where_it_says() -> void:
 	var state := _party_state()
 	var me := _pawn(state)
-	var block := PlanBlock.new()
-	block.kind = PlanBlock.Kind.TARGETING
-	block.op = &"target_nearest_enemy"
-	var plan := Plan.new()
-	plan.id = &"t"
-	plan.display_name = "T"
+	var block := BlockCatalog.targeting(&"target_nearest_enemy")
 
-	var without := PlanInterpreter._eval_targeting(state, me, plan, block)
+	var without := block.pick(state, me)
 	var other: CombatUnit = null
 	for f in _enemies(state):
 		if f.id != without:
 			other = f
 			break
 	state.player_focus_id = other.id
-	assert_eq(PlanInterpreter._eval_targeting(state, me, plan, block), without,
+	assert_eq(block.pick(state, me), without,
 		"the row says nearest, so it aims at the nearest whatever the player clicked")

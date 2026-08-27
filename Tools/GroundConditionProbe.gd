@@ -32,11 +32,7 @@ func _sweep(party: Array, gate: bool) -> Dictionary:
 			var p := PawnFactory.make_preset_pawn(party[i], "%s_%d" % [party[i], i], party[i])
 			if gate:
 				for plan in p.plans:
-					if plan.condition == null:
-						plan.condition = PlanBlock.new()
-						plan.condition.kind = PlanBlock.Kind.CONDITION
-					plan.condition.op = &"self_on_safe_ground"
-					plan.condition.args = {}
+					plan.condition = SelfOnSafeGroundBlock.new()
 			pawns.append(p)
 		var state := CombatSim.build(pawns, Registry.get_encounter(&"floor1_hazard"), seed_value)
 		CombatSim.run(state)

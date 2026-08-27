@@ -22,7 +22,7 @@ static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int,
 	## Sharing the encounter's array was harmless while nothing ever wrote to it
 	## and is not any more: pools were being written back into the room, so the
 	## next fight in the same process started in the last one's puddles.
-	state.terrain = encounter.terrain.duplicate()
+	state.grid.stamp_features(encounter.terrain)
 	var next_id := 0
 
 	for i in party.size():
@@ -100,7 +100,7 @@ static func _build_player_unit(id: int, pawn: PawnData, pos: Vector2, deps: SimD
 static func _collect_player_actions(pawn: PawnData) -> Array[StringName]:
 	var out: Array[StringName] = []
 	if pawn.pawn_class != null:
-		for a in pawn.pawn_class.starting_actions:
+		for a in pawn.pawn_class.starting_action_ids():
 			if not out.has(a):
 				out.append(a)
 	for e in pawn.equipment():
@@ -311,7 +311,7 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 ## Issue 163: a step that would end in fire gives way to a clear one, when a
 ## clear one exists that still makes progress.
 static func _avoid_hazard(state: CombatState, unit: CombatUnit, to_dest: Vector2, speed: float, direct: Vector2) -> Vector2:
-	if state.terrain.is_empty() or not _hazard_harms(state, direct):
+	if state.grid.is_empty() or not _hazard_harms(state, direct):
 		return direct
 	var goal := unit.position + to_dest
 	if to_dest.length() <= 0.0001:
@@ -345,7 +345,7 @@ static func standing_harms(state: CombatState, p: Vector2) -> bool:
 ## so both count, and a decorative hazard authored with neither is correctly
 ## ignored.
 static func _hazard_harms(state: CombatState, p: Vector2) -> bool:
-	for hazard in Terrain.hazards_at(state.terrain, p):
+	for hazard in state.grid.hazards_at(p):
 		if hazard.damage_per_tick > 0:
 			return true
 		if hazard.applies_status_enabled and hazard.status_duration_ticks > 0:
@@ -408,7 +408,7 @@ static func _sweep(state: CombatState, unit: CombatUnit, step: Vector2) -> Vecto
 	while travelled < length:
 		travelled = minf(travelled + _MOVE_SWEEP_STEP, length)
 		var candidate := _clamp_to_arena(unit.position + direction * travelled)
-		if Terrain.point_is_blocked(state.terrain, candidate, unit.radius):
+		if state.grid.move_blocked(candidate, unit.radius):
 			break
 		last_good = candidate
 	return last_good
@@ -621,9 +621,9 @@ static func _apply_hazard_status(state: CombatState, unit: CombatUnit, hazard) -
 ## an event per hit so the log and floaters see it, and stops the tick after
 ## it leaves -- membership is just re-checked each tick, no decay to track.
 static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
-	if state.terrain.is_empty():
+	if state.grid.is_empty():
 		return
-	for hazard in Terrain.hazards_at(state.terrain, unit.position):
+	for hazard in state.grid.hazards_at(unit.position):
 		_apply_hazard_status(state, unit, hazard)
 		if hazard.damage_per_tick <= 0:
 			continue
@@ -699,76 +699,38 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 # terrain that appears mid-fight (issue 492)
 # ---------------------------------------------------------------------------
 
-## The one place `state.terrain` changes after `build()`. Water and fire
-## annihilate the ground they share: the fire keeps what the pool did not cover
-## and the pool keeps what the fire did not, each as up to four parts.
+## The one place the ground changes after `build()`. Issue 625: a cell is one
+## kind of ground, so nothing is cut. Issue 496's ruling survives it -- water
+## is SPENT putting fire out, so a cell that was burning ends up bare, not wet.
 static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, half: float, at: Vector2) -> void:
-	var pool_parts: Array[Rect2] = [Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)]
-	var kept: Array = []
-	for feature in state.terrain:
-		if not Terrain.is_burning(feature) or pool_parts.is_empty():
-			kept.append(feature)
+	var water := TerrainGrid.Cell.new()
+	water.kind = Terrain.Kind.WATER
+	var doused: Array[Vector2i] = []
+	var wetted: Array[Vector2i] = []
+	for c in TerrainGrid.cells_in_rect(Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)):
+		var was = state.grid.at(c)
+		if was != null and was.kind == Terrain.Kind.WATER:
 			continue
-		var fire_parts: Array[Rect2] = [feature.rect]
-		var surviving_pool: Array[Rect2] = []
-		var touched := false
-		for p in pool_parts:
-			var cut: Array[Rect2] = []
-			for fr in fire_parts:
-				if fr.intersects(p):
-					touched = true
-					cut.append_array(Terrain.subtract(fr, p))
-				else:
-					cut.append(fr)
-			fire_parts = cut
-			surviving_pool.append_array(Terrain.subtract(p, feature.rect))
-		pool_parts = surviving_pool
-		if not touched:
-			kept.append(feature)
+		if was != null and Terrain.is_burning(was):
+			state.grid.clear_cell(TerrainGrid.Layer.EFFECTS, c)
+			state.grid.clear_cell(TerrainGrid.Layer.FLOOR, c)
+			doused.append(c)
 			continue
+		wetted.append(c)
+		state.grid.stamp_rect(TerrainGrid.Layer.EFFECTS, TerrainGrid.rect_of(c), water)
+	if not doused.is_empty():
 		_emit_terrain(state, CG.EventKind.TERRAIN_REMOVED, caster, action,
-			feature.kind, feature.rect, CG.TerrainChange.DOUSED)
-		for fr in fire_parts:
-			var part = _copy_feature(feature, fr)
-			kept.append(part)
-			_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
-				part.kind, fr, CG.TerrainChange.DOUSED)
-	## Issue 554: one pool, painted. Every cast stamps the same water feature
-	## rather than appending its own, so overlapping casts fuse instead of
-	## stacking; a stamp landing on ground that is already wet stores nothing.
-	var pool_feature = _water_feature(kept)
-	for pr in pool_parts:
-		if pool_feature == null:
-			pool_feature = Terrain.pool(pr)
-			kept.append(pool_feature)
-		elif not Terrain.paint(pool_feature, pr):
-			continue
+			Terrain.Kind.HAZARD, _bounds(doused), CG.TerrainChange.DOUSED)
+	if not wetted.is_empty():
 		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
-			Terrain.Kind.WATER, pr, CG.TerrainChange.CAST)
-	## Replaced in place, never reassigned: `BattleView` hands `state.terrain` to
-	## `ArenaFloor` once at fight start, so a new array leaves the view drawing
-	## the room as authored forever. Same contract `state.units` already has.
-	state.terrain.assign(kept)
+			Terrain.Kind.WATER, _bounds(wetted), CG.TerrainChange.CAST)
 
-## The fight's one pool, or null before anything has been cast. There is at most
-## one: nothing ever splits a water feature, and every cast paints into this one.
-static func _water_feature(features: Array):
-	for f in features:
-		if f.kind == Terrain.Kind.WATER:
-			return f
-	return null
-
-## The same feature over a different rect. Every field is copied rather than the
-## damaging ones only, so a split tar pit stays a tar pit.
-static func _copy_feature(f, rect: Rect2):
-	var out := Terrain.make(f.kind, rect)
-	out.damage_per_tick = f.damage_per_tick
-	out.damage_type = f.damage_type
-	out.applies_status = f.applies_status
-	out.applies_status_enabled = f.applies_status_enabled
-	out.status_duration_ticks = f.status_duration_ticks
-	out.status_magnitude = f.status_magnitude
-	out.parts = f.parts.duplicate()
+## The one rectangle covering a run of cells, for an event that has always
+## carried a rect and whose readers only draw it.
+static func _bounds(cells: Array[Vector2i]) -> Rect2:
+	var out := TerrainGrid.rect_of(cells[0])
+	for i in range(1, cells.size()):
+		out = out.merge(TerrainGrid.rect_of(cells[i]))
 	return out
 
 static func _emit_terrain(state: CombatState, kind: CG.EventKind, caster: CombatUnit, action: ActionDef, terrain_kind, rect: Rect2, change: CG.TerrainChange) -> void:
@@ -802,7 +764,7 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 		return out
 	if unit.position.distance_to(primary.position) > action.range_units:
 		return out
-	if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, primary.position):
+	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position):
 		return out
 	return _splash_targets(state, primary, action)
 
@@ -1167,7 +1129,7 @@ static func _sustain_targets(state: CombatState, unit: CombatUnit, action: Actio
 	for other in state.living(side):
 		if unit.position.distance_to(other.position) > action.sustain.radius:
 			continue
-		if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, other.position):
+		if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, other.position):
 			continue
 		out.append(other)
 	return out
@@ -1260,7 +1222,7 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 		return false
 	if p.position.distance_to(target.position) > target.radius:
 		return false
-	if action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, p.position, target.position):
+	if action.requires_line_of_sight and state.grid.sight_blocked(p.position, target.position):
 		return false
 	return true
 

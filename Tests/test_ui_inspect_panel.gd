@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
 
 ## Issue 21b: pawn inspection between fights. Issue 6 added editing: reorder a
@@ -14,6 +21,7 @@ func _make_action(id: String, name: String, description: String = "") -> ActionD
 	a.id = StringName(id)
 	a.display_name = name
 	a.description = description
+	a.effects = [HitEffect.new()] as Array[AbilityEffect]
 	return a
 
 func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
@@ -23,13 +31,13 @@ func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
 	cls.role_primary = role
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
-	cls.starting_actions = [&"test_swing"]
+	cls.starting_actions = [_fixture_action(&"test_swing")]
 	# WIS is the plan block budget (Balance.plan_block_budget). Left at the
 	# ClassDef default of 0 every fixture would sit permanently over budget and
 	# every Add button would be disabled, which is a different screen from the
 	# one most of these tests mean to exercise. The budget tests set it
 	# themselves.
-	cls.base_attributes = {CG.Attribute.WIS: wis}
+	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -66,19 +74,11 @@ func test_the_priority_number_label_does_not_autowrap() -> void:
 ## them captioning them.
 func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 	var pawn := _make_pawn()
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_hp_below_fraction"
-	condition.args = {"fraction": 0.35}
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_self"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"test_swing"}
+	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.35})
+	var targeting := PlanFixtures.block(&"target_self")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
 	var plan := _make_plan("Guard when hurt")
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
@@ -219,18 +219,10 @@ func test_availability_is_stated_on_screen() -> void:
 func test_plan_blocks_read_in_a_players_language_via_describe_op() -> void:
 	var pawn := _make_pawn()
 	var plan := _make_plan("Guard when hurt")
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_hp_below_fraction"
-	condition.args = {"fraction": 0.35}
-	plan.condition = condition
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_self"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"test_swing"}
+	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.35})
+	plan.condition = condition as ConditionBlock
+	var targeting := PlanFixtures.block(&"target_self")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
@@ -250,7 +242,7 @@ func test_plan_blocks_read_in_a_players_language_via_describe_op() -> void:
 func test_plans_list_in_priority_order() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = [_plan_with_condition("first", &"self_hp_below_fraction", {"fraction": 0.35}),
-		_plan_with_condition("second", &"enemy_in_range", {"range": 45.0})]
+		_plan_with_condition("second", &"enemy_in_range", {"range_units": 45.0})]
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
@@ -264,12 +256,9 @@ func test_plans_list_in_priority_order() -> void:
 ## use_action blocks with no matching plan block are what "unused" means here.
 func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing", &"test_unused"]
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_unused")]
 	var plan := _make_plan("Swing plan")
-	var action_block := PlanBlock.new()
-	action_block.kind = PlanBlock.Kind.ACTION
-	action_block.op = &"use_action"
-	action_block.args = {"action_id": &"test_swing"}
+	var action_block := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
 	plan.blocks = [action_block]
 	pawn.plans = [plan]
 	var panel := InspectPanel.create()
@@ -396,12 +385,9 @@ func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 	panel._ready()
 	panel.open([pawn])
 
-	var action_block := PlanBlock.new()
-	action_block.kind = PlanBlock.Kind.ACTION
-	action_block.op = &"use_action"
-	action_block.args = {"action_id": pawn.pawn_class.starting_actions[0]}
+	var action_block := PlanFixtures.block(&"use_action", {"action_id": pawn.pawn_class.starting_action_ids()[0]})
 	var picker: OptionButton = panel._action_picker(pawn, action_block)
-	var action = Registry.get_action(pawn.pawn_class.starting_actions[0])
+	var action = Registry.get_action(pawn.pawn_class.starting_action_ids()[0])
 	assert_not_null(action)
 	assert_true(picker.tooltip_text.contains(action.description),
 		"the skill block's hover must carry the description, got '%s'" % picker.tooltip_text)
@@ -419,7 +405,7 @@ func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 func test_reorder_swaps_plan_priority_in_pawns_plans_array() -> void:
 	var pawn := _make_pawn()
 	var guard := _plan_with_condition("guard", &"self_hp_below_fraction", {"fraction": 0.35})
-	var execute := _plan_with_condition("execute", &"enemy_in_range", {"range": 45.0})
+	var execute := _plan_with_condition("execute", &"enemy_in_range", {"range_units": 45.0})
 	pawn.plans = [guard, execute]
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -486,13 +472,8 @@ func test_reorder_buttons_disable_at_the_ends() -> void:
 ## reaches a fight, not just the label on this screen.
 func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight() -> void:
 	var pawn := _make_pawn()
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_self"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"test_swing"}
+	var targeting := PlanFixtures.block(&"target_self")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
 	var plan := _make_plan("Always act")
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
@@ -501,10 +482,10 @@ func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight()
 	panel._ready()
 	panel.open([pawn])
 
-	assert_true(PlanInterpreter.TARGETING_OPS.has(&"target_nearest_enemy"))
-	panel._set_targeting(targeting, &"target_nearest_enemy")
-	assert_eq(targeting.op, &"target_nearest_enemy")
-	assert_eq(targeting.args, {})
+	assert_true(BlockCatalog.TARGETING_OPS.has(&"target_nearest_enemy"))
+	panel._set_targeting(plan, targeting, &"target_nearest_enemy")
+	assert_true(plan.blocks[0] is TargetNearestEnemyBlock)
+	assert_true(plan.blocks[0].operands().is_empty())
 
 	var self_unit := CombatUnit.new()
 	self_unit.id = 0
@@ -537,14 +518,9 @@ func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight()
 ## the swap reaches the real interpreter the same way the targeting swap does.
 func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing", &"test_alt"]
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"test_swing"}
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_alt")]
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
 	var plan := _make_plan("Always act")
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
@@ -561,7 +537,7 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	assert_not_null(action_picker, "action picker should offer exactly the class's two starting actions")
 
 	panel._set_action(action, &"test_alt")
-	assert_eq(action.args.get("action_id"), &"test_alt")
+	assert_eq(action.action_id, &"test_alt")
 
 	var attacker := CombatUnit.new()
 	attacker.id = 0
@@ -596,12 +572,9 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 ## screen's text.
 func test_condition_op_swap_changes_whether_it_holds_in_a_fight() -> void:
 	var pawn := _make_pawn()
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_resource_at_least"
-	condition.args = {"amount": 999}
+	var condition := PlanFixtures.block(&"self_resource_at_least", {"amount": 999})
 	var plan := _make_plan("Guarded")
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	pawn.plans = [plan]
 
 	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
@@ -614,8 +587,8 @@ func test_condition_op_swap_changes_whether_it_holds_in_a_fight() -> void:
 	panel.open([pawn])
 	panel._set_condition_op(plan, &"always")
 
-	assert_eq(condition.op, &"always")
-	assert_eq(condition.args, {})
+	assert_true(plan.condition is AlwaysBlock)
+	assert_true(plan.condition.operands().is_empty())
 	assert_true(PlanInterpreter.condition_holds(state, attacker, plan), "condition swap should reach the interpreter")
 	panel.free()
 
@@ -624,12 +597,9 @@ func test_condition_op_swap_changes_whether_it_holds_in_a_fight() -> void:
 ## a true one.
 func test_condition_value_edit_changes_the_threshold_in_a_fight() -> void:
 	var pawn := _make_pawn()
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_hp_below_fraction"
-	condition.args = {"fraction": 0.1}
+	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.1})
 	var plan := _make_plan("Guarded")
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	pawn.plans = [plan]
 
 	# 95%, not full hp: below a 99% threshold and not below a 10% one, so the
@@ -643,9 +613,9 @@ func test_condition_value_edit_changes_the_threshold_in_a_fight() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
-	panel._set_condition_arg(condition, "fraction", 0.99)
+	panel._set_operand(plan.condition, &"fraction", 0.99)
 
-	assert_almost_eq(float(condition.args.get("fraction")), 0.99)
+	assert_almost_eq((plan.condition as SelfHpBelowBlock).fraction, 0.99)
 	assert_true(PlanInterpreter.condition_holds(state, mostly_healthy, plan), "value edit should reach the interpreter")
 	panel.free()
 
@@ -664,8 +634,8 @@ func test_editing_a_null_condition_creates_a_real_block() -> void:
 	panel._set_condition_op(plan, &"enemy_in_range")
 
 	assert_not_null(plan.condition)
-	assert_eq(plan.condition.op, &"enemy_in_range")
-	assert_eq(plan.condition.args, {"range": 100.0})
+	assert_true(plan.condition is EnemyInRangeBlock)
+	assert_eq((plan.condition as EnemyInRangeBlock).range_units, 100.0)
 	panel.free()
 
 ## The condition picker offers every op PlanInterpreter whitelists, no more
@@ -682,20 +652,17 @@ func test_condition_picker_offers_every_condition_op() -> void:
 	var pickers := _find_option_buttons(panel._detail_box)
 	var condition_picker: OptionButton = null
 	for p in pickers:
-		if p.item_count == PlanInterpreter.CONDITION_OPS.size():
+		if p.item_count == BlockCatalog.CONDITION_OPS.size():
 			condition_picker = p
-	assert_not_null(condition_picker, "expected one picker offering all %d condition ops" % PlanInterpreter.CONDITION_OPS.size())
+	assert_not_null(condition_picker, "expected one picker offering all %d condition ops" % BlockCatalog.CONDITION_OPS.size())
 	panel.free()
 
 ## rook found this on a real launch: the dropdown read "Self hp below 50%"
 func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 	var pawn := _make_pawn()
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_hp_below_fraction"
-	condition.args = {"fraction": 0.65}
+	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.65})
 	var plan := _make_plan("Guard when hurt")
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	pawn.plans = [plan]
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -717,7 +684,7 @@ func test_selected_condition_captions_the_real_value_not_the_default() -> void:
 ## interpreter will run -- not a row that only exists on this screen.
 func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
 	var pawn := _make_pawn()
-	pawn.pawn_class.starting_actions = [&"test_swing"]
+	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing")]
 	pawn.plans = []
 
 	var panel := InspectPanel.create()
@@ -737,7 +704,6 @@ func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
 	assert_not_null(intent, "an added plan must fire, not just appear")
 	assert_eq(intent.action_id, &"test_swing")
 	assert_eq(intent.target_id, enemy.id, "a new plan targets the nearest enemy")
-	assert_eq(PlanInterpreter.last_error, "", "the added plan must use only whitelisted ops")
 	panel.free()
 
 ## A new plan lands last so it cannot silently outrank a plan the player
@@ -866,7 +832,7 @@ func _pawn_over_budget() -> PawnData:
 	panel.free()
 	# Two plans, two blocks each, and a budget of 3: the first row is paid for
 	# and the second is one block past the end.
-	pawn.pawn_class.base_attributes = {CG.Attribute.WIS: 3}
+	pawn.pawn_class.base_attributes = {"WIS": 3}
 	return pawn
 
 func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> void:
@@ -1029,7 +995,7 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 
 	var priest := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	priest.pawn = pawn
-	priest.actions = pawn.pawn_class.starting_actions
+	priest.actions = pawn.pawn_class.starting_action_ids()
 	priest.resource = 999
 	var hurt_ally := _melee_unit(1, CG.Team.PLAYER, Vector2(10, 0), 0.2)
 	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(300, 0))
@@ -1090,15 +1056,14 @@ func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void
 			var plan = pawn.plans[i]
 			if plan.condition == null:
 				continue
-			var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(plan.condition.op, {"kind": "none"})
-			if shape.get("kind") == "none":
+			if plan.condition.operands().is_empty():
 				continue
 			var controls := _find_option_buttons(rows[i]).size() + _spin_boxes_in(rows[i]).size()
 			# skill + target + condition op = 3 pickers, and the value editor is
 			# the fourth control. Three means the value editor is missing.
 			assert_true(controls >= 4,
-				"%s plan %d (%s, %s) has no editor for its condition value" % [
-					class_id, i + 1, plan.condition.op, shape.get("kind")])
+				"%s plan %d (%s) has no editor for its condition value" % [
+					class_id, i + 1, BlockCatalog.op_of(plan.condition)])
 			checked += 1
 		panel.free()
 	assert_true(checked > 0, "no real pawn has a condition that takes a value; this test measured nothing")
@@ -1107,12 +1072,9 @@ func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void
 ## status the plan is really on, and picking another one reaches the interpreter.
 func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() -> void:
 	var pawn := _make_pawn()
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"enemy_has_status"
-	condition.args = {"status": CG.Status.BURN}
+	var condition := PlanFixtures.block(&"enemy_has_status", {"status": CG.Status.BURN})
 	var plan := _make_plan("Blast the burning")
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	pawn.plans = [plan]
 
 	var burning := _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0))
@@ -1134,7 +1096,7 @@ func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() ->
 	assert_true(status_picker != null,
 		"the status editor must show the status the plan is actually on, found: %s" % _selected_chip_text(row))
 
-	panel._set_condition_arg(condition, "status", CG.Status.POISON)
+	panel._set_operand(plan.condition, &"status", CG.Status.POISON)
 	assert_true(PlanInterpreter.condition_holds(state, watcher, plan),
 		"picking Poison must reach the interpreter, not just the label")
 	panel.free()
@@ -1145,10 +1107,7 @@ func test_a_status_condition_is_picked_and_the_pick_reaches_the_interpreter() ->
 func test_a_live_fight_marks_the_row_that_acted_and_the_rows_that_are_waiting() -> void:
 	var pawn := _make_pawn()
 	var hurt := _make_plan("Only when badly hurt")
-	var hurt_condition := PlanBlock.new()
-	hurt_condition.kind = PlanBlock.Kind.CONDITION
-	hurt_condition.op = &"self_hp_below_fraction"
-	hurt_condition.args = {"fraction": 0.1}
+	var hurt_condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.1})
 	hurt.condition = hurt_condition
 	var always := _make_plan("Always")
 	pawn.plans = [hurt, always]
@@ -1427,11 +1386,7 @@ func _find_option_buttons(node: Node) -> Array:
 ## chips, not about anything an engine control builds inside itself.
 func _plan_with_condition(name: String, op: StringName, args: Dictionary) -> Plan:
 	var plan := _make_plan(name)
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = op
-	condition.args = args
-	plan.condition = condition
+	plan.condition = PlanFixtures.block(op, args) as ConditionBlock
 	return plan
 
 ## Every block chip's currently selected caption, which is what a player reads.
@@ -1561,3 +1516,30 @@ func test_a_dropdown_is_capped_below_the_screen_it_opens_on() -> void:
 	assert_true(AppTheme.popup_max_height(control) > 200,
 		"and one capped too hard shows nothing")
 	control.free()
+
+## Issue 640: the spinner's bounds come off the field's own `@export_range`, and
+## reading a hint string back is not exact -- "0.05" returns 0.05000000074505806,
+## which made the step 5.00000007 and a SpinBox snaps its value to its own step,
+## so a 50% row drew as 50.0000007. Measured against the shape table this
+## replaced: 18 ops, 3 wrong before the snap, 0 after.
+func test_a_share_spinner_is_exactly_the_percent_control_it_was() -> void:
+	var panel := InspectPanel.create()
+	var checked := 0
+	for op in BlockCatalog.CONDITION_OPS + BlockCatalog.MOVEMENT_OPS:
+		var block: PlanBlock = PlanFixtures.block(op)
+		for property in block.operands():
+			if property["type"] != TYPE_FLOAT or not is_equal_approx(
+					float(String(property["hint_string"]).split(",")[1]), 1.0):
+				continue
+			var spin := panel._operand_editor(block, property) as SpinBox
+			assert_not_null(spin, "%s's share must get a spinner" % op)
+			assert_eq(spin.min_value, 0.0)
+			assert_eq(spin.max_value, 100.0)
+			assert_eq(spin.step, 5.0, "%s: an inexact step makes the SpinBox redraw the value" % op)
+			assert_eq(spin.suffix, "%")
+			assert_eq(spin.value, float(block.get(property["name"])) * 100.0,
+				"%s: the control must show the number the plan holds" % op)
+			checked += 1
+			spin.free()
+	assert_true(checked >= 3, "only %d share operands were checked" % checked)
+	panel.free()

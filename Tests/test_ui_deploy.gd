@@ -157,7 +157,7 @@ func test_dragging_past_the_line_pulls_the_pawn_back() -> void:
 	view.free()
 
 ## heron's rooms have walls and pits. Refused with the same
-## `Terrain.point_is_blocked` the simulation's own movement uses, so the screen
+## `TerrainGrid.move_blocked` the simulation's own movement uses, so the screen
 ## and the fight cannot disagree about what counts as blocked.
 func test_a_pawn_cannot_be_dropped_inside_a_wall() -> void:
 	var cfg := _cfg(1)

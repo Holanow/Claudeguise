@@ -73,7 +73,9 @@ func test_a_unit_using_an_action_recovers_only_the_ordinary_rate() -> void:
 	action.id = &"swing"
 	action.wind_up_ticks = 3
 	action.recover_ticks = 3
-	action.range_units = 999.0
+	action.targeting = ActionTargeting.new()
+	action.targeting.range_units = 999.0
+	action.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var state := _arena()
 	var deps := _deps(2.0, 3.0, Intent.use_action(action.id, 1))
 	deps.action_lookup = func(id: StringName): return action if id == action.id else null

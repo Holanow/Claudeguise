@@ -159,11 +159,35 @@ static func label_visible(u: CombatUnit, state: CombatState) -> bool:
 const _SEPARATION_PADDING := 1.3
 const _SEPARATION_STRENGTH := 0.5
 
+## Issue 604: the scan reads simulated positions, which move once a tick, while
+## the view repaints sixty times a second and asks several times per repaint.
+## Armed by `note_tick` after each `CombatSim.step`, and served only to the
+## array that was armed, so a caller stepping the sim by itself can never read
+## a stale answer -- it simply misses.
+static var _offset := {}
+static var _offset_units: Array = []
+
+## Arming always drops what is held: the placement drag moves bodies without
+## the tick moving, so "same tick" cannot mean "same answers".
+static func note_tick(state: CombatState) -> void:
+	_offset.clear()
+	_offset_units = state.units
+
+static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
+	if not is_same(units, _offset_units):
+		return _scrum_push(u, units)
+	var hit = _offset.get(u.id)
+	if hit != null:
+		return hit
+	var push := _scrum_push(u, units)
+	_offset[u.id] = push
+	return push
+
 ## Uses display_radius, not u.radius: the whole point of this nudge is to
 ## keep now-larger bodies from occluding each other, so it has to reason
 ## about the size actually drawn, not the smaller collision footprint the
 ## simulation moves around.
-static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
+static func _scrum_push(u: CombatUnit, units: Array) -> Vector2:
 	var push := Vector2.ZERO
 	var u_radius := display_radius(u)
 	for other in units:
@@ -380,6 +404,24 @@ func _part_offset(u: CombatUnit, radius: float) -> Vector2:
 ## Whether this body has anything to animate at all. False means the toggle is
 ## off or this recipe puts nothing in its `Hands` slot, and either way the body is
 ## posed exactly as it was baked.
+## Where this body's hands are drawn, in arena space. A cast leaves the hands,
+## and the hands move through the whole wind-up, so a beam anchored to the body
+## centre visibly detaches from the pose that is throwing it.
+## Every hand this body has, in arena space, tracked separately. Empty when the
+## recipe puts nothing in its Hands slot.
+func hand_anchors() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if _visual == null:
+		return out
+	for p in _visual.slot_points(&"Hands"):
+		out.append(position + p)
+	return out
+
+func hand_anchor() -> Vector2:
+	if _visual == null:
+		return position
+	return position + _visual.slot_offset(&"Hands")
+
 func can_animate(u: CombatUnit) -> bool:
 	return animating() and UnitRecipes.has_animated_part(_shape_id(u))
 

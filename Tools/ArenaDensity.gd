@@ -256,7 +256,7 @@ func _scale_arithmetic() -> void:
 		print("%-22s %8.1f%% %8.2f" % ["%.0f x %.0f" % [CG.ARENA_HALF_WIDTH * 2.0 * f, CG.ARENA_HALF_HEIGHT * 2.0 * f], 100.0 * w * h / na, (w * h / na) / (w * h / _arena_area)])
 	print("")
 	print("LEVER 3 -- BIGGER UNITS. PREDICTION. DISPLAY_SCALE is view-only;")
-	print("CombatUnit.radius feeds Terrain.point_is_blocked and changes fights.")
+	print("CombatUnit.radius feeds TerrainGrid.move_blocked and changes fights.")
 	print("Median nearest-neighbour gap between drawn bodies is %.0f world units at DISPLAY_SCALE %.1f." % [gap, UnitView.DISPLAY_SCALE])
 	print("%-8s %9s %11s" % ["scale", "ink%", "gap (units)"])
 	for sc: float in [1.5, 1.75, 2.0, 2.25, 2.5]:

@@ -48,7 +48,7 @@ func _panel(file: String) -> Node:
 func _condition_pickers() -> Array[Node]:
 	var out: Array[Node] = []
 	for n in _walk(_panel("InspectPanel.gd")):
-		if n is OptionButton and n.item_count == PlanInterpreter.CONDITION_OPS.size():
+		if n is OptionButton and n.item_count == BlockCatalog.CONDITION_OPS.size():
 			out.append(n)
 	return out
 
@@ -80,7 +80,7 @@ func _run() -> void:
 
 	# Pick the new entry through the picker's own signal, which is the whole
 	# point: the row a player edits has to be the one that changes the plan.
-	var wanted := PlanInterpreter.CONDITION_OPS.find(&"self_on_harmful_ground")
+	var wanted := BlockCatalog.CONDITION_OPS.find(&"self_on_harmful_ground")
 	picker.selected = wanted
 	picker.item_selected.emit(wanted)
 	await _settle(8)

@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 ## Issue 386. `keep_distance` (#97) and `move_into_cover` (#347) are built,
 ## tested and correct, and a player cannot create either: `_new_plan` builds
 ## only TARGETING and ACTION, there is no movement picker, and no preset plan
@@ -14,8 +21,8 @@ func _make_pawn(wis: int = 8) -> PawnData:
 	cls.role_primary = CG.Role.DPS
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
-	cls.starting_actions = [&"test_swing"]
-	cls.base_attributes = {CG.Attribute.WIS: wis}
+	cls.starting_actions = [_fixture_action(&"test_swing")]
+	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -55,7 +62,6 @@ func _decide(pawn: PawnData, gap: float):
 	var attacker := _unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	attacker.pawn = pawn
 	var enemy := _unit(1, CG.Team.ENEMY, Vector2(gap, 0.0))
-	PlanInterpreter.last_error = ""
 	return PlanInterpreter.decide(_state_with(attacker, enemy), attacker)
 
 ## ---------------------------------------------------------------------------
@@ -64,7 +70,7 @@ func _decide(pawn: PawnData, gap: float):
 func test_the_movement_picker_offers_no_movement_plus_every_interpreter_op() -> void:
 	var pair := _panel_with_one_plan()
 	var picker: OptionButton = pair[0]._movement_picker(pair[1], pair[1].plans[0])
-	assert_eq(picker.item_count, PlanInterpreter.MOVEMENT_OPS.size() + 1,
+	assert_eq(picker.item_count, BlockCatalog.MOVEMENT_OPS.size() + 1,
 		"every op the interpreter accepts, plus leaving it to the default")
 	assert_true(picker.get_item_text(0).findn("default") >= 0 or picker.get_item_text(0).findn("not") >= 0,
 		"entry 0 is the no-movement one: %s" % picker.get_item_text(0))
@@ -89,7 +95,6 @@ func test_picking_keep_distance_makes_a_block_the_interpreter_actually_runs() ->
 	assert_not_null(intent, "a movement block must fire, not just appear")
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO,
 		"standing inside the held distance, the pawn backs off")
-	assert_eq(PlanInterpreter.last_error, "", "the block must use only whitelisted ops")
 	panel.free()
 
 func test_picking_move_into_cover_reaches_the_interpreter_too() -> void:
@@ -97,9 +102,8 @@ func test_picking_move_into_cover_reaches_the_interpreter_too() -> void:
 	pair[0]._set_movement(pair[1], pair[1].plans[0], &"move_into_cover")
 	var block = _movement_block(pair[1].plans[0])
 	assert_not_null(block, "the block must exist")
-	assert_eq(block.op, &"move_into_cover")
+	assert_true(block is MoveIntoCoverBlock)
 	_decide(pair[1], 200.0)
-	assert_eq(PlanInterpreter.last_error, "", "the block must use only whitelisted ops")
 	pair[0].free()
 
 func test_the_distance_is_editable_and_the_interpreter_reads_the_edit() -> void:
@@ -109,11 +113,11 @@ func test_the_distance_is_editable_and_the_interpreter_reads_the_edit() -> void:
 	panel._set_movement(pawn, pawn.plans[0], &"keep_distance")
 	var block = _movement_block(pawn.plans[0])
 
-	panel._set_movement_arg(block, "range", 300.0)
+	panel._set_operand(block, &"range_units", 300.0)
 	var far = _decide(pawn, 100.0)
 	assert_eq(far.kind, CG.IntentKind.MOVE_TO, "100 units from a target it wants 300 from: back off")
 
-	panel._set_movement_arg(block, "range", 10.0)
+	panel._set_operand(block, &"range_units", 10.0)
 	var near = _decide(pawn, 100.0)
 	assert_eq(near.kind, CG.IntentKind.MOVE_TO, "100 units from a target it wants 10 from: close in")
 	assert_true(near.destination.length() < 100.0, "closing in moves toward the target: %s" % near.destination)
@@ -208,7 +212,7 @@ func _tooltips(node: Node) -> String:
 
 func _movement_block(plan):
 	for block in plan.blocks:
-		if block.kind == PlanBlock.Kind.MOVEMENT:
+		if block is MovementBlock:
 			return block
 	return null
 
@@ -227,11 +231,11 @@ func test_selecting_the_op_on_the_picker_itself_creates_the_block() -> void:
 	var pair := _panel_with_one_plan()
 	var pawn: PawnData = pair[1]
 	var picker: OptionButton = pair[0]._movement_picker(pawn, pawn.plans[0])
-	var wanted := PlanInterpreter.MOVEMENT_OPS.find(&"keep_distance")
+	var wanted: int = BlockCatalog.MOVEMENT_OPS.find(&"keep_distance")
 	picker.item_selected.emit(wanted + 1)
 	var block = _movement_block(pawn.plans[0])
 	assert_not_null(block, "picking the entry must create the block")
-	assert_eq(block.op, &"keep_distance")
+	assert_true(block is KeepDistanceBlock)
 	picker.free()
 	pair[0].free()
 

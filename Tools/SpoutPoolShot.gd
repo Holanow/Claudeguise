@@ -104,7 +104,7 @@ func _run() -> bool:
 	var battle := await _to_battle()
 	if battle == null:
 		return false
-	var authored: int = battle.state.terrain.size()
+	var authored: int = battle.state.grid.count()
 	var at := 0
 	for want in TICKS:
 		while at < want and battle.state.outcome == CombatState.Outcome.UNRESOLVED:
@@ -112,9 +112,9 @@ func _run() -> bool:
 			at += 1
 		await _settle(2)
 		print("SpoutPoolShot: tick %d, terrain %d (room authored %d)" % [
-			battle.state.tick, int(battle.state.terrain.size()), authored])
+			battle.state.tick, int(battle.state.grid.count()), authored])
 		await _shot("swift_496_spout_pools_tick%d" % want)
-	if int(battle.state.terrain.size()) <= authored:
+	if int(battle.state.grid.count()) <= authored:
 		print("SpoutPoolShot: the floor never changed -- nothing to show.")
 		return false
 	return true

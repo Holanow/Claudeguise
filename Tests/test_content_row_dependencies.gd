@@ -40,8 +40,8 @@ func test_a_negative_status_condition_is_not_a_dependency() -> void:
 func test_the_declaration_follows_the_row_rather_than_a_table() -> void:
 	var blast: Plan = _plan(&"geysermancer", &"geyser_blast_the_burning")
 	assert_eq(PresetPlans.required_status(blast), int(CG.Status.BURN))
-	blast.condition.args = {"status": CG.Status.POISON}
-	blast.blocks[0].args = {"status": CG.Status.POISON}
+	(blast.condition as EnemyHasStatusBlock).status = CG.Status.POISON
+	(blast.blocks[0] as TargetEnemyWithStatusBlock).status = CG.Status.POISON
 	assert_eq(PresetPlans.required_status(blast), int(CG.Status.POISON),
 		"the requirement is not read off the row")
 

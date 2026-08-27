@@ -38,7 +38,7 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))]
 	config.party = party
 	battle.begin(config)
-	assert_eq(battle._arena.terrain, battle.state.terrain)
+	assert_eq(battle._arena.grid, battle.state.grid)
 
 ## Issue 36's "while you are there": the room's name existed
 ## (Encounter.display_name) and nothing showed it, which is exactly what let
@@ -70,8 +70,8 @@ func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
 	var action_id: StringName = &""
 	for cid in Registry.all_class_ids():
 		var cls := Registry.get_class_def(cid)
-		if cls != null and not cls.starting_actions.is_empty():
-			action_id = cls.starting_actions[0]
+		if cls != null and not cls.starting_action_ids().is_empty():
+			action_id = cls.starting_action_ids()[0]
 			break
 	if action_id == &"":
 		return

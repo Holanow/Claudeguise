@@ -65,7 +65,7 @@ func _heat(lanes: Array[PackedFloat32Array]) -> void:
 			var f := Terrain.make(Terrain.Kind.PILLAR, rect)
 			var hit := [0, 0]
 			for l in lanes:
-				if Terrain.line_is_blocked([f], Vector2(l[0], l[1]), Vector2(l[2], l[3])):
+				if TerrainGrid.from_features([f]).sight_blocked(Vector2(l[0], l[1]), Vector2(l[2], l[3])):
 					hit[int(l[4])] += 1
 			counts["%d,%d" % [c, r]] = hit
 	for team in 2:

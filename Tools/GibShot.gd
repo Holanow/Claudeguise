@@ -10,6 +10,9 @@ extends Node
 ## a measurement and not a claim.
 
 const OUT_DIR := "res://Screenshots"
+## The stem every sheet this run writes is named from. #630 re-cut the chunks, so
+## it writes `sable_630_*` and leaves #589's committed evidence alone.
+const STEM := "sable_630"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 const FRAMES := 20
@@ -40,9 +43,9 @@ func _ready() -> void:
 	DisplayOptions.reset()
 	await _staged()
 	DisplayOptions.set_enabled(&"death_explosion", false)
-	await _strip(death, "sable_589_explosion_off")
+	await _strip(death, STEM + "_explosion_off")
 	DisplayOptions.set_enabled(&"death_explosion", true)
-	await _strip(death, "sable_589_explosion_on")
+	await _strip(death, STEM + "_explosion_on")
 	DisplayOptions.reset()
 	get_tree().quit(0)
 
@@ -51,11 +54,12 @@ func _ready() -> void:
 # else moves, so every moving pixel in a panel is the explosion.
 # ---------------------------------------------------------------------------
 
-## Three bodies that come apart differently: the goblin is the plain three-chunk
+## Four bodies that come apart differently: the goblin is the plain three-chunk
 ## case, the Rat King has a tail of its own and a hat that must leave with its
-## head, and the Siege Engine has no hands at all and comes apart into wheels
-## and a barrel.
-const STAGED := [&"goblin", &"rat_king", &"siege_engine"]
+## head, the Siege Engine has no hands at all and comes apart into wheels and a
+## barrel, and the Stalker is #630's control -- it wears nothing, so its body,
+## hands and tail must fly exactly as separately after the re-cut as before it.
+const STAGED := [&"goblin", &"rat_king", &"siege_engine", &"stalker"]
 const STAGED_CROP := Vector2i(96, 96)
 const STAGED_ZOOM := 5
 ## Panels across a staged row: one for the frozen rest pose, the rest spread
@@ -164,7 +168,16 @@ func _staged() -> void:
 		worst = maxi(worst, n)
 	print("  and across the whole %d-frame hold the busiest panel changes %d pixels" % [
 		frozen_frames, worst])
-	_save_rows("sable_589_staged", panels, STAGED_CROP, STAGED_ZOOM)
+	# What each row is actually made of, read off the shipped call rather than off
+	# the map, so the sheet's caption is a measurement. A chunk joining the wrong
+	# one looks right in any single frame, which is what this line is for.
+	print("GibShot chunks, from UnitArt.fragments_for:")
+	for id in STAGED:
+		var names := PackedStringArray()
+		for entry in UnitArt.fragments_for(id, CG.Team.ENEMY):
+			names.append("%s x%d" % [entry["group"], (entry["pieces"] as Array).size()])
+		print("  %-14s %d chunks: %s" % [id, names.size(), ", ".join(names)])
+	_save_rows(STEM + "_staged", panels, STAGED_CROP, STAGED_ZOOM)
 	_view.queue_free()
 	_view = null
 	await get_tree().process_frame

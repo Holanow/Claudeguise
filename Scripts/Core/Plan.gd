@@ -12,9 +12,9 @@ class_name Plan
 
 ## Evaluated each tick against the pawn's view of the fight. Null means the plan
 ## always wants to fire, which is how a default behaviour is written.
-@export var condition: PlanBlock
+@export var condition: ConditionBlock
 
-## Targeting, action and duration blocks in execution order.
+## Targeting, action, duration and movement blocks in execution order.
 @export var blocks: Array[PlanBlock] = []
 
 func block_count() -> int:

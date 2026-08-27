@@ -32,8 +32,39 @@ func test_every_starting_action_resolves() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		var c := Registry.get_class_def(id)
 		assert_true(c.starting_actions.size() >= 2, "%s should have a recognisable shape, has %d actions" % [id, c.starting_actions.size()])
-		for action_id in c.starting_actions:
+		for action_id in c.starting_action_ids():
 			assert_not_null(Registry.get_action(action_id), "%s references unknown action %s" % [id, action_id])
+
+
+## Issue 628: the class `.tres` points AT the action rather than naming it, so
+## the two must be the same object and not two copies that can drift.
+func test_a_starting_action_is_the_registry_instance() -> void:
+	for id in EXPECTED_CLASS_IDS:
+		var c := Registry.get_class_def(id)
+		for a in c.starting_actions:
+			assert_true(a == Registry.get_action(a.id), "%s carries a copy of %s, not the registered one" % [id, a.id])
+
+
+func test_attribute_name_covers_every_attribute() -> void:
+	for a in CG.Attribute.values():
+		assert_true(ClassDef.ATTRIBUTE_NAME.has(a), "CG.Attribute value %d has no name in ClassDef.ATTRIBUTE_NAME" % a)
+
+
+func test_every_class_names_all_seven_attributes() -> void:
+	for id in EXPECTED_CLASS_IDS:
+		var c := Registry.get_class_def(id)
+		assert_eq(Array(c.invalid_attribute_keys()), [], "%s has attribute keys that are not attribute names" % id)
+		assert_eq(c.base_attributes.size(), CG.Attribute.size(), "%s does not name all seven attributes" % id)
+
+
+## The negative half, and the reason the check exists: a misspelled key reads as
+## zero, which is a wrongness nothing on screen would show.
+func test_a_misspelled_attribute_key_is_reported() -> void:
+	var c := ClassDef.new()
+	c.base_attributes = {"Str": 9, "CON": 14}
+	assert_eq(Array(c.invalid_attribute_keys()), ["Str"], "a misspelled key should be named")
+	assert_eq(c.attribute(CG.Attribute.STR), 0, "a misspelled key silently reads as zero")
+	assert_eq(c.attribute(CG.Attribute.CON), 14)
 
 
 ## Plans per class. Two is the baseline. A class ships more when an action has
@@ -63,8 +94,8 @@ func test_preset_plan_actions_resolve() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		for plan in PresetPlans.for_class(id):
 			for block in plan.blocks:
-				if block.op == &"use_action":
-					var action_id: StringName = block.args.get("action_id", &"")
+				if block is UseActionBlock:
+					var action_id: StringName = (block as UseActionBlock).action_id
 					assert_not_null(Registry.get_action(action_id), "%s plan %s uses unknown action %s" % [id, plan.id, action_id])
 
 
@@ -75,7 +106,7 @@ func test_preset_plan_actions_resolve() -> void:
 func test_every_playable_classs_action_has_a_description() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		var c := Registry.get_class_def(id)
-		for action_id in c.starting_actions:
+		for action_id in c.starting_action_ids():
 			var action := Registry.get_action(action_id)
 			assert_false(action.description.is_empty(), "%s (used by %s) has no description" % [action_id, id])
 
@@ -103,15 +134,15 @@ func test_no_preset_plan_ever_orders_an_out_of_range_shot() -> void:
 			var far_enemy := _unit(2, CG.Team.ENEMY, Vector2(0.0, 5000.0), 10)
 			state.units.append(far_enemy)
 
-			if plan.condition != null and plan.condition.op == &"enemy_in_range":
-				var cond_range := float(plan.condition.args.get("range", 0.0))
+			if plan.condition is EnemyInRangeBlock:
+				var cond_range := (plan.condition as EnemyInRangeBlock).range_units
 				var near_enemy := _unit(3, CG.Team.ENEMY, Vector2(cond_range * 0.9, 0.0), 100)
 				state.units.append(near_enemy)
 
 			var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
 			pawn.plans = [plan]
 			self_unit.pawn = pawn
-			self_unit.actions = pawn.pawn_class.starting_actions.duplicate()
+			self_unit.actions = pawn.pawn_class.starting_action_ids()
 
 			var intent := PlanInterpreter.decide(state, self_unit)
 			if intent == null or intent.kind != CG.IntentKind.USE_ACTION:
@@ -143,21 +174,19 @@ func _unit(id: int, team: CG.Team, pos: Vector2, hp: int) -> CombatUnit:
 ## A self unit configured, from the plan's own condition, to make that
 ## condition hold — so the test actually exercises the firing path rather than
 ## trivially passing because the condition never triggers.
-func _adversarial_self(condition: PlanBlock) -> CombatUnit:
+func _adversarial_self(condition: ConditionBlock) -> CombatUnit:
 	var u := _unit(0, CG.Team.PLAYER, Vector2.ZERO, 100)
 	if condition == null:
 		return u
-	match condition.op:
-		&"self_hp_below_fraction":
-			var fraction := float(condition.args.get("fraction", 1.0))
-			u.hp = maxi(1, int(u.hp_max * fraction * 0.5))
-		&"self_resource_at_least":
-			var amount := int(condition.args.get("amount", 0))
-			u.resource_max = amount + 100
-			u.resource = amount + 50
-		&"self_resource_at_least_fraction":
-			u.resource_max = 100
-			u.resource = 100
+	if condition is SelfHpBelowBlock:
+		u.hp = maxi(1, int(u.hp_max * (condition as SelfHpBelowBlock).fraction * 0.5))
+	elif condition is SelfResourceAtLeastBlock:
+		var amount := (condition as SelfResourceAtLeastBlock).amount
+		u.resource_max = amount + 100
+		u.resource = amount + 50
+	elif condition is SelfResourceAtLeastFractionBlock:
+		u.resource_max = 100
+		u.resource = 100
 	return u
 
 
@@ -194,11 +223,11 @@ func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 			continue
 		for spawn in enc.party_spawns:
 			checked += 1
-			assert_false(Terrain.point_is_blocked(enc.terrain, spawn, 0.0), "%s has a party spawn inside a wall/pit at %s" % [encounter_id, spawn])
+			assert_false(TerrainGrid.from_features(enc.terrain).move_blocked(spawn, 0.0), "%s has a party spawn inside a wall/pit at %s" % [encounter_id, spawn])
 		for enemy_spawn in enc.enemy_spawns:
 			var pos: Vector2 = enemy_spawn.get("position", Vector2.ZERO)
 			checked += 1
-			assert_false(Terrain.point_is_blocked(enc.terrain, pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
+			assert_false(TerrainGrid.from_features(enc.terrain).move_blocked(pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
 	assert_true(checked > 0, "expected at least one encounter with terrain to check")
 
 
@@ -269,6 +298,6 @@ func test_warrior_guards_proactively_not_only_when_nearly_dead() -> void:
 			guard_plan = p
 	assert_not_null(guard_plan, "expected warrior to still ship a guard-when-hurt plan")
 	assert_not_null(guard_plan.condition, "expected warrior_guard_when_hurt to carry a trigger condition")
-	assert_eq(guard_plan.condition.op, &"self_hp_below_fraction")
-	assert_true(guard_plan.condition.args.has("fraction"),
+	assert_true(guard_plan.condition is SelfHpBelowBlock)
+	assert_true((guard_plan.condition as SelfHpBelowBlock).fraction > 0.0,
 		"the guard row names no fraction, so its condition can never hold")

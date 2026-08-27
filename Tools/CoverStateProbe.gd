@@ -61,8 +61,8 @@ func _init() -> void:
 					## Which half of `in_cover_from` is answering, and whether a
 					## line-of-sight action could fire from there at all.
 					if focus != null and focus.alive and PlanInterpreter.in_cover_from(state, me, me.position, focus):
-						var by_terrain := Terrain.line_is_blocked(state.terrain, focus.position, me.position)
-						var can_shoot := foe_now != null and not Terrain.line_is_blocked(state.terrain, me.position, foe_now.position)
+						var by_terrain := state.grid.sight_blocked(focus.position, me.position)
+						var can_shoot := foe_now != null and not state.grid.sight_blocked(me.position, foe_now.position)
 						if by_terrain:
 							cover_terrain += 1
 							if can_shoot:
@@ -75,7 +75,7 @@ func _init() -> void:
 				if me != null and me.alive:
 					alive += 1
 					var foe := _nearest_foe(state, me)
-					if foe != null and Terrain.line_is_blocked(state.terrain, foe.position, me.position):
+					if foe != null and state.grid.sight_blocked(foe.position, me.position):
 						in_cover += 1
 			if state.outcome == CombatState.Outcome.PLAYER_WIN:
 				wins += 1
@@ -129,9 +129,7 @@ func _swap_in_pair(pawn: PawnData, action_id: StringName, targeting: StringName)
 
 ## Take cover from the nearest enemy, gated on `condition` when one is named.
 func _cover_plan(action_id: StringName, condition: StringName) -> Plan:
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"move_into_cover"
+	var movement := MoveIntoCoverBlock.new()
 	var p := Plan.new()
 	p.id = &"cover_move"
 	p.display_name = "Take cover"
@@ -151,23 +149,17 @@ func _act_plan(action_id: StringName, targeting: StringName) -> Plan:
 	p.blocks = [_targeting(targeting), _action(action_id)]
 	return p
 
-func _condition(op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.CONDITION
-	b.op = op
+func _condition(op: StringName) -> ConditionBlock:
+	var b := BlockCatalog.condition(op)
 	return b
 
-func _targeting(op: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.TARGETING
-	b.op = op
+func _targeting(op: StringName) -> TargetingBlock:
+	var b := BlockCatalog.targeting(op)
 	return b
 
-func _action(action_id: StringName) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.ACTION
-	b.op = &"use_action"
-	b.args = {"action_id": action_id}
+func _action(action_id: StringName) -> UseActionBlock:
+	var b := UseActionBlock.new()
+	b.action_id = action_id
 	return b
 
 func _geysermancer(state: CombatState) -> CombatUnit:

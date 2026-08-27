@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 ## Issue 379 step 3. `CombatSim._decide_phase` checks `_compelling_taunter`
 ## **before** it calls the plan layer, so while TAUNTED a pawn's rows are not
 ## outranked -- they are not consulted. The screen went on drawing five live
@@ -10,8 +17,8 @@ func _make_pawn() -> PawnData:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
-	cls.starting_actions = [&"test_swing"]
-	cls.base_attributes = {CG.Attribute.WIS: 8}
+	cls.starting_actions = [_fixture_action(&"test_swing")]
+	cls.base_attributes = {"WIS": 8}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"

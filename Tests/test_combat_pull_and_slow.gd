@@ -35,9 +35,18 @@ func _hook(id: StringName, pull: float, power: float = 5.0) -> ActionDef:
 	a.id = id
 	a.wind_up_ticks = 2
 	a.recover_ticks = 1
-	a.range_units = 999.0
-	a.pull_distance = pull
-	a.damage_type = CG.DamageType.PHYSICAL
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 999.0
+	var hit := HitEffect.new()
+	hit.damage_type = CG.DamageType.PHYSICAL
+	var fx: Array[AbilityEffect] = [hit]
+	## A pull of 0 is no pull at all. A `PullEffect` at distance 0 still stuns
+	## for `PULL_TICKS`, so leaving one in place is not the same action.
+	if pull > 0.0:
+		var drag := PullEffect.new()
+		drag.distance = pull
+		fx.append(drag)
+	a.effects = fx
 	return a
 
 func _deps_with_action(action: ActionDef, power: float) -> SimDeps:
@@ -157,7 +166,7 @@ func test_a_pull_stops_at_a_wall_instead_of_passing_through_it() -> void:
 
 	var state := CombatState.new(103)
 	var wall := Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(20, -100), Vector2(20, 200)))
-	state.terrain.append(wall)
+	state.grid.stamp_features([wall])
 	var caster := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [hook.id])
 	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(100, 0), [])
 	state.units.append(caster)
@@ -315,8 +324,8 @@ func test_cleansing_the_stun_takes_the_target_off_the_chain() -> void:
 	var hook := _hook(&"hook", 70.0)
 	var mend := _hook(&"mend", 0.0)
 	mend.wind_up_ticks = 6
-	mend.heals = true
-	mend.cleanses_harmful = true
+	mend.hit().heals = true
+	mend.effects.append(CleanseEffect.new())
 	var deps := _deps_with_actions([hook, mend], 1.0)
 
 	var state := CombatState.new(112)

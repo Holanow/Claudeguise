@@ -48,8 +48,14 @@ Face first the Priest, the Cultist, both hooded dungeon soldiers, the Siege
 Master and The Warden all lose their eyes.
 
 A part named in no slot lands in `Extra`, so a part added later draws last rather
-than silently joining a group it was never put in. The slots are also the chunks
-a death throws (issue 589), which is why that matters twice.
+than silently joining a group it was never put in.
+
+**A slot is not a chunk.** Issue 630: slots are a drawing taxonomy and the chunks
+a death throws are a physical one. `UnitRecipes.CHUNK_OF_SLOT` maps `Head`,
+`Headwear` and `Face` into one `head` chunk, because a hat and a pair of eyes
+travel with the head they are worn on; `Extra` maps to nothing, so a siege
+engine's wheels and barrel leave separately and so does a part nobody has
+slotted.
 
 ## The parts vocabulary
 

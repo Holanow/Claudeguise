@@ -107,6 +107,30 @@ func offset_slot(slot: StringName, offset: Vector2) -> void:
 ## drawing white over one at alpha `a` and tinting it toward white by `a` put the
 ## same colour on the screen -- the white copy of the body that used to slide out
 ## from under a thrust hand cannot exist any more.
+## Every sprite in a slot, each in this node's parent space, composed through
+## both transforms so the mirror on this node is already applied. A recipe with
+## two hands returns two points: they move independently, and averaging them
+## into one anchor loses the thing that makes a two-handed cast read.
+func slot_points(slot: StringName) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if not _slots.has(slot):
+		return out
+	var node: Node2D = _slots[slot]
+	for k in node.get_children():
+		out.append(transform * (node.transform * (k as Node2D).position))
+	return out
+
+## The midpoint of a slot, for callers that want one point and do not care
+## which hand it came from.
+func slot_offset(slot: StringName) -> Vector2:
+	var points := slot_points(slot)
+	if points.is_empty():
+		return Vector2.ZERO
+	var sum := Vector2.ZERO
+	for p in points:
+		sum += p
+	return sum / float(points.size())
+
 func flash(color: Color, strength: float) -> void:
 	for slot in _slots.values():
 		for sprite in (slot as Node2D).get_children():

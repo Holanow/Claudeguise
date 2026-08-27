@@ -1,5 +1,12 @@
 extends "res://Tests/TestCase.gd"
 
+## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
+## a fixture needs a real object even for an action nothing registers.
+func _fixture_action(id: StringName) -> ActionDef:
+	var a := ActionDef.new()
+	a.id = id
+	return a
+
 const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen.
@@ -14,9 +21,9 @@ func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.
 	cls.role_secondary = role
 	cls.style = CG.Style.MELEE
 	cls.method = method
-	cls.starting_actions = [&"test_swing"]
+	cls.starting_actions = [_fixture_action(&"test_swing")]
 	cls.base_attributes = {
-		CG.Attribute.STR: 10, CG.Attribute.CON: 10, CG.Attribute.WIS: 8,
+		"STR": 10, "CON": 10, "WIS": 8,
 	}
 	return cls
 
@@ -86,7 +93,7 @@ func test_an_unequipped_pawn_is_offered_exactly_its_class_actions() -> void:
 	var pawn := _make_pawn()
 	var editor := InspectPanel.create()
 	editor._ready()
-	assert_eq(Array(editor._available_actions(pawn)), Array(pawn.pawn_class.starting_actions),
+	assert_eq(Array(editor._available_actions(pawn)), Array(pawn.pawn_class.starting_action_ids()),
 		"equipment must widen this list and nothing else")
 	editor.free()
 

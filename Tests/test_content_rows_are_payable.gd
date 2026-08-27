@@ -6,7 +6,6 @@ extends "res://Tests/TestCase.gd"
 ## exactly 40, so 382 of 500 rolled Warriors could not fire it and 62 more
 ## could only at exactly full Rage.
 
-const RESOURCE_OPS := [&"self_resource_at_least", &"self_resource_at_least_fraction"]
 
 ## The lowest ceiling the roller can produce for a class: every rolled
 ## attribute on its own floor.
@@ -18,14 +17,14 @@ func _floor_pawn(class_id: StringName) -> PawnData:
 
 ## What a resource condition demands of a pawn with this ceiling.
 func _requirement(block: PlanBlock, ceiling: int) -> int:
-	if block.op == &"self_resource_at_least_fraction":
-		return int(ceil(float(ceiling) * float(block.args.get("fraction", 1.0))))
-	return int(block.args.get("amount", 0))
+	if block is SelfResourceAtLeastFractionBlock:
+		return int(ceil(float(ceiling) * (block as SelfResourceAtLeastFractionBlock).fraction))
+	return (block as SelfResourceAtLeastBlock).amount
 
 func _resource_rows(class_id: StringName) -> Array:
 	var out := []
 	for p in PresetPlans.for_class(class_id):
-		if p.condition != null and RESOURCE_OPS.has(p.condition.op):
+		if p.condition is SelfResourceAtLeastBlock or p.condition is SelfResourceAtLeastFractionBlock:
 			out.append(p)
 	return out
 
@@ -53,9 +52,9 @@ func test_no_fixed_amount_row_sits_on_its_own_classes_ceiling() -> void:
 	for cid in Registry.all_class_ids():
 		var ceiling := Balance.max_resource(PawnFactory.make_starter_pawn(cid, &"p", String(cid)))
 		for plan in _resource_rows(cid):
-			if plan.condition.op != &"self_resource_at_least":
+			if not (plan.condition is SelfResourceAtLeastBlock):
 				continue
-			assert_true(int(plan.condition.args.get("amount", 0)) < ceiling,
+			assert_true((plan.condition as SelfResourceAtLeastBlock).amount < ceiling,
 				"%s asks for exactly what a fixed %s can hold (%d), which fires only on a full pool and only while two independent numbers stay equal" % [
 					plan.id, cid, ceiling])
 
@@ -71,13 +70,9 @@ func _unit(ceiling: int, resource: int) -> CombatUnit:
 
 ## `condition_holds` takes a Plan, so a bare condition needs one around it.
 func _gated(op: StringName, args: Dictionary) -> Plan:
-	var b := PlanBlock.new()
-	b.kind = PlanBlock.Kind.CONDITION
-	b.op = op
-	b.args = args
 	var plan := Plan.new()
 	plan.id = &"probe"
-	plan.condition = b
+	plan.condition = PlanFixtures.block(op, args) as ConditionBlock
 	return plan
 
 func _fraction(f: float) -> Plan:
@@ -95,9 +90,9 @@ func test_a_part_pool_rounds_up() -> void:
 	assert_true(PlanInterpreter.condition_holds(null, _unit(5, 3), _fraction(0.5)))
 
 func test_the_row_reads_as_a_percentage_in_the_plan_editor() -> void:
-	assert_eq(PlanInterpreter.describe_op(&"self_resource_at_least_fraction", {"fraction": 1.0}),
+	assert_eq(PlanFixtures.block(&"self_resource_at_least_fraction", {"fraction": 1.0}).describe(),
 		"self resource at least 100%")
-	assert_eq(PlanInterpreter.describe_op(&"self_resource_at_least_fraction", {"fraction": 0.5}),
+	assert_eq(PlanFixtures.block(&"self_resource_at_least_fraction", {"fraction": 0.5}).describe(),
 		"self resource at least 50%")
 
 ## The old op stays, untouched: plans are authored data and a reinterpreted op
@@ -108,6 +103,9 @@ func test_the_absolute_op_still_exists_and_still_means_an_absolute_amount() -> v
 	assert_false(PlanInterpreter.condition_holds(null, _unit(999, 39), plan))
 
 func test_the_new_op_has_an_editable_argument_shape() -> void:
-	var shape: Dictionary = PlanInterpreter.CONDITION_ARG_SHAPE.get(&"self_resource_at_least_fraction", {})
-	assert_eq(shape.get("kind", ""), "fraction",
-		"the plan editor builds its value editor from this, and an unshaped op gets no editor at all")
+	var operands := BlockCatalog.condition(&"self_resource_at_least_fraction").operands()
+	assert_eq(operands.size(), 1,
+		"the plan editor builds its value editor from this, and an operandless op gets no editor at all")
+	assert_eq(operands[0]["name"], &"fraction")
+	assert_eq(String(operands[0]["hint_string"]).split(",")[1], "1.0",
+		"a share is bounded at 1.0, which is what makes the editor draw it as percent")

@@ -795,7 +795,9 @@ func test_the_compulsion_stamps_its_own_sentinel_on_both_intents() -> void:
 
 	var claw := ActionDef.new()
 	claw.id = &"claw"
-	claw.range_units = 40.0
+	claw.targeting = ActionTargeting.new()
+	claw.targeting.range_units = 40.0
+	claw.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName) -> ActionDef:
 		return claw if id == &"claw" else null

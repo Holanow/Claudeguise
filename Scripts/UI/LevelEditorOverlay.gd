@@ -120,5 +120,7 @@ func _draw_deploy_zone() -> void:
 func _draw_enemy(spawn: Dictionary) -> void:
 	var pos: Vector2 = spawn.position
 	var radius: float = float(spawn.get("radius", 22.0))
-	var blocked: bool = Terrain.point_is_blocked(canvas.terrain, pos, radius)
+	## A throwaway grid rather than the rectangles: the editor should refuse
+	## exactly the spawns the fight would, and the fight asks cells.
+	var blocked: bool = TerrainGrid.from_features(canvas.terrain).move_blocked(pos, radius)
 	draw_circle(pos, radius, Palette.HP_LOW if blocked else Palette.TEAM_ENEMY)

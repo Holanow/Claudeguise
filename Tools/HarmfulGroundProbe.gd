@@ -65,20 +65,14 @@ func _party(movement_op: StringName) -> Array[PawnData]:
 	return out
 
 func _row(movement_op: StringName) -> Plan:
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_on_harmful_ground"
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = movement_op
+	var condition := SelfOnHarmfulGroundBlock.new()
+	var targeting := TargetNearestEnemyBlock.new()
+	var movement := BlockCatalog.movement(movement_op)
 	if movement_op == &"keep_distance":
-		movement.args = {"range": 210.0}
+		(movement as KeepDistanceBlock).range_units = 210.0
 	var p := Plan.new()
 	p.id = &"off_the_fire"
 	p.display_name = "Off the fire"
-	p.condition = condition
+	p.condition = condition as ConditionBlock
 	p.blocks = [targeting, movement]
 	return p

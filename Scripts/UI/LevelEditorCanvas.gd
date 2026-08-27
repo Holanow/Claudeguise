@@ -38,7 +38,7 @@ var current_terrain_kind: Terrain.Kind = Terrain.Kind.WALL
 ## One entry per placed enemy: {"enemy_id": StringName, "position": Vector2,
 ## "radius": float}. `radius` is carried here (not re-fetched from Registry
 ## every redraw) purely so this screen can validate placement with
-## `Terrain.point_is_blocked`, which takes a radius, without a second content
+## `TerrainGrid.move_blocked`, which takes a radius, without a second content
 ## lookup per frame.
 var enemy_spawns: Array[Dictionary] = []
 
@@ -162,14 +162,14 @@ func remove_terrain(index: int) -> void:
 	_redraw_all()
 
 ## Acceptance criterion 4: a room must not be saveable with an enemy standing
-## inside blocking terrain. Reuses `Terrain.point_is_blocked` directly rather
+## inside blocking terrain. Reuses `TerrainGrid.move_blocked` directly rather
 ## than re-deriving "is this point inside a wall or pit" — the exact function
 ## the real simulation's movement code answers the same question with, so
 ## this screen and a real fight can never disagree about what counts as
 ## blocked.
 func has_blocked_enemy() -> bool:
 	for spawn in enemy_spawns:
-		if Terrain.point_is_blocked(terrain, spawn.position, spawn.radius):
+		if TerrainGrid.from_features(terrain).move_blocked(spawn.position, spawn.radius):
 			return true
 	return false
 
@@ -208,7 +208,7 @@ func grab_party_spawn(world: Vector2) -> int:
 	return _held_party_index
 
 ## Moves the held spawn, clamped into the deploy zone. **Refuses a position
-## inside blocking terrain** using `Terrain.point_is_blocked` -- the same
+## inside blocking terrain** using `TerrainGrid.move_blocked` -- the same
 ## function the simulation's own movement answers that question with, so this
 ## screen and a real fight can never disagree about what counts as blocked. A
 ## refused move keeps the last good position rather than snapping somewhere the
@@ -217,7 +217,7 @@ func move_held_party_spawn(world: Vector2) -> bool:
 	if _held_party_index < 0 or _held_party_index >= party_spawns.size():
 		return false
 	var target := clamp_to_deploy_zone(world, party_radius)
-	if Terrain.point_is_blocked(terrain, target, party_radius):
+	if TerrainGrid.from_features(terrain).move_blocked(target, party_radius):
 		return false
 	party_spawns[_held_party_index] = target
 	if _overlay != null:

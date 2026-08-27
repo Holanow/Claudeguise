@@ -40,7 +40,7 @@ func _idle_deps() -> SimDeps:
 ## not end before the status has ticked.
 func _stand_in(pit: Terrain.Feature, ticks: int) -> CombatUnit:
 	var state := CombatState.new(_SEED)
-	state.terrain = [pit]
+	state.grid.stamp_features([pit])
 	state.units.append(_unit(0, CG.Team.PLAYER, 500, Vector2.ZERO))
 	state.units.append(_unit(1, CG.Team.ENEMY, 500, Vector2(600.0, 0.0)))
 	var deps := _idle_deps()
@@ -98,7 +98,7 @@ func test_a_weak_hazard_never_lowers_a_magnitude_already_carried() -> void:
 	var status: CG.Status = _magnitude_only_statuses()[0]
 	var pit := _burn_pit(2.0)
 	var state := CombatState.new(_SEED)
-	state.terrain = [pit]
+	state.grid.stamp_features([pit])
 	state.units.append(_unit(0, CG.Team.PLAYER, 500, Vector2.ZERO))
 	state.units.append(_unit(1, CG.Team.ENEMY, 500, Vector2(600.0, 0.0)))
 	var victim := state.unit(0)

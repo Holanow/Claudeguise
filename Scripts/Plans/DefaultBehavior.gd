@@ -68,14 +68,14 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if unit.move_speed <= 0.0:
 		if dist > attack_action.range_units:
 			return Intent.idle()
-		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+		if attack_action.requires_line_of_sight and state.grid.sight_blocked(unit.position, target.position):
 			return Intent.idle()
 		return Intent.use_action(attack_action.id, target.id)
 
 	var is_ranged := attack_action.range_units > MELEE_RANGE_THRESHOLD
 
 	if is_ranged:
-		if attack_action.requires_line_of_sight and Terrain.line_is_blocked(state.terrain, unit.position, target.position):
+		if attack_action.requires_line_of_sight and state.grid.sight_blocked(unit.position, target.position):
 			return Intent.move_to(target.position)
 		## Issue 544: no automatic retreat. A ranged unit that is in range fires;
 		## holding distance is `keep_distance`, which the player writes and can see.

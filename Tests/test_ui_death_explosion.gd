@@ -39,19 +39,71 @@ func test_the_chunks_hold_every_part_once_in_draw_order() -> void:
 	assert_true(checked >= 38, "only %d bodies were cut" % checked)
 
 ## A hat is headwear. #594 added `hat_low` for the Rat King's, and an unmapped hat
-## flies on its own while the head it was sitting on goes the other way.
-func test_every_headwear_part_flies_in_the_headwear_slot() -> void:
+## flies on its own while the head it was sitting on goes the other way. #630 made
+## the chunk a second question from the slot, so both are asked here.
+func test_every_headwear_part_flies_with_the_head_wearing_it() -> void:
 	for part in [&"hat", &"hat_low", &"hood", &"helm", &"plume", &"crown"]:
 		assert_eq(UnitRecipes.slot_of(part), &"Headwear",
-			"'%s' is worn on a head and must leave with the headwear" % part)
+			"'%s' is worn on a head and must be drawn as headwear" % part)
+		assert_eq(UnitRecipes.chunk_of(part), &"head",
+			"'%s' is worn on a head and must leave with it" % part)
 
 ## A part nobody has put in a slot lands in `Extra` rather than silently joining
-## the body it was drawn over.
-func test_an_unknown_part_lands_in_extra() -> void:
+## the body it was drawn over, and `Extra` is in no chunk, so it flies alone.
+func test_an_unknown_part_lands_in_extra_and_is_its_own_chunk() -> void:
 	assert_eq(UnitRecipes.slot_of(&"head_round"), &"Head")
 	assert_eq(UnitRecipes.slot_of(&"body_skinny"), &"Body")
 	assert_eq(UnitRecipes.slot_of(&"hands_wide"), &"Hands")
 	assert_eq(UnitRecipes.slot_of(&"a_part_that_does_not_exist"), &"Extra")
+	assert_eq(UnitRecipes.chunk_of(&"a_part_that_does_not_exist"),
+		&"a_part_that_does_not_exist",
+		"a part in no slot must fly on its own, not join what it was drawn over")
+
+## The chunks one body comes apart into, `[[chunk, [part, ...]], ...]` in draw
+## order.
+func _chunks(shape_id: StringName) -> Array:
+	var out: Array = []
+	for entry in UnitRecipes.chunks_for(shape_id):
+		var parts: Array = []
+		for layer in entry["layers"]:
+			parts.append(layer["part"])
+		out.append([entry["chunk"], parts])
+	return out
+
+## Issue 630's three named cases, written out in full rather than as properties:
+## the goblin's head kept its face, the Rat King's head kept its hat, and the
+## siege engine came apart again.
+func test_the_three_bodies_630_names_come_apart_the_way_the_issue_asks() -> void:
+	assert_eq(_chunks(&"goblin"), [
+		[&"body", [&"body_skinny"]],
+		[&"head", [&"head_round", &"ears_pointed", &"nose_triangle", &"eyes"]],
+		[&"hands", [&"hands"]],
+	], "a goblin's head flies bald")
+	assert_eq(_chunks(&"rat_king"), [
+		[&"body", [&"body_low"]],
+		[&"head", [&"head_snouted", &"hat_low", &"eyes_snout"]],
+		[&"tail", [&"tail"]],
+	], "the Rat King's hat flies alone")
+	assert_eq(_chunks(&"siege_engine"), [
+		[&"body", [&"body_rotund"]],
+		[&"wheels", [&"wheels"]],
+		[&"barrel", [&"barrel"]],
+	], "the siege engine's wheels and barrel fly as one piece")
+
+## The negative half, and it is the one that matters: the failure mode is a chunk
+## quietly joining one it is not attached to, which looks right in any one frame.
+## Nothing that was already flying separately may have been merged.
+func test_nothing_that_flew_separately_has_been_merged_into_something_else() -> void:
+	for id in UnitRecipes.recipe_ids():
+		for chunk in _chunks(id):
+			var slots := {}
+			for part in chunk[1]:
+				slots[UnitRecipes.slot_of(part)] = true
+			for pair in [[&"Body", &"Head"], [&"Body", &"Hands"], [&"Head", &"Hands"],
+					[&"Body", &"Extra"], [&"Head", &"Extra"], [&"Hands", &"Extra"]]:
+				assert_false(slots.has(pair[0]) and slots.has(pair[1]),
+					"%s: chunk '%s' holds both a %s part and a %s part" % [
+						id, chunk[0], pair[0], pair[1]])
 
 ## Every unit in the game has to come apart, or the cue is one the player learns
 ## to expect and then does not get.

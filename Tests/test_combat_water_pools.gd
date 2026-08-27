@@ -14,8 +14,16 @@ func _fire(rect: Rect2 = FIRE) -> Terrain.Feature:
 func _pool_action(half_width: float) -> ActionDef:
 	var a := ActionDef.new()
 	a.id = &"fixture_pool"
-	a.range_units = 9000.0
-	a.leaves_pool_radius = half_width
+	a.targeting = ActionTargeting.new()
+	a.targeting.range_units = 9000.0
+	var fx: Array[AbilityEffect] = [HitEffect.new()]
+	## A half-width of 0 leaves no pool. A `PoolEffect` at radius 0 is still an
+	## effect the sim runs, so the absent case has to be absent.
+	if half_width > 0.0:
+		var pool := PoolEffect.new()
+		pool.radius = half_width
+		fx.append(pool)
+	a.effects = fx
 	return a
 
 ## A caster, a victim it can always reach, and whatever terrain the test wants.
@@ -26,7 +34,7 @@ func _arena(terrain: Array, action: ActionDef) -> Array:
 	state.units.append(caster)
 	var foe := _unit(1, CG.Team.ENEMY, Vector2.ZERO)
 	state.units.append(foe)
-	state.terrain = terrain
+	state.grid.stamp_features(terrain)
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName) -> ActionDef: return action if id == action.id else null
 	deps.plan_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return null
@@ -51,79 +59,27 @@ func _cast(bundle: Array) -> void:
 	caster.intent = Intent.use_action(&"fixture_pool", bundle[2].id)
 	CombatSim.step(state, bundle[3])
 
+## Issue 625: cells, not features. A pool is the ground it covers and there is
+## no longer any such thing as two features of the same kind on one spot.
 func _of_kind(state: CombatState, kind: Terrain.Kind) -> Array:
-	var out: Array = []
-	for f in state.terrain:
-		if f.kind == kind:
-			out.append(f)
-	return out
+	return state.grid.cells_of_kind(kind)
 
-## Issue 554: the painted parts, not `rect`. A pool is one feature holding many
-## rects now and its `rect` is the bounding box, so summing that reports ground
-## nothing ever wetted -- and every assertion below would still have passed.
-func _area(features: Array) -> float:
-	var total := 0.0
-	for f in features:
-		for r in f.regions():
-			total += r.size.x * r.size.y
-	return total
+## Issue 625: ground covered, counted in cells. A cell is wet once, so this is
+## the union by construction rather than by a containment check.
+func _area(cells: Array) -> float:
+	return float(cells.size()) * TerrainGrid.CELL * TerrainGrid.CELL
 
-## Every rect a pool actually stores, across features.
 func _stamps(state: CombatState) -> Array:
-	var out: Array = []
-	for f in _of_kind(state, Terrain.Kind.WATER):
-		out.append_array(f.regions())
-	return out
+	return _of_kind(state, Terrain.Kind.WATER)
 
 func _wet(state: CombatState, p: Vector2) -> bool:
-	for f in _of_kind(state, Terrain.Kind.WATER):
-		if f.contains_point(p):
-			return true
-	return false
+	var cell = state.grid.cell_at(p)
+	return cell != null and cell.kind == Terrain.Kind.WATER
 
 # --- the geometry -----------------------------------------------------------
 
-func test_a_rect_with_nothing_taken_out_of_it_survives_whole() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 10, 10), Rect2(100, 100, 5, 5))
-	assert_eq(parts.size(), 1, "no overlap, no cut")
-	assert_eq(parts[0], Rect2(0, 0, 10, 10))
-
-func test_a_hole_punched_in_the_middle_leaves_four_parts() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(10, 10, 10, 10))
-	assert_eq(parts.size(), 4, "above, below, left and right of the hole")
-	assert_almost_eq(_rect_area(parts), 30.0 * 30.0 - 10.0 * 10.0, 0.001,
-		"the parts must cover exactly what the hole did not")
-
-func test_a_cut_across_one_edge_leaves_one_part() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(-5, -5, 40, 10))
-	assert_eq(parts.size(), 1, "the strip spans the full width, so only the remainder below survives")
-	assert_eq(parts[0], Rect2(0, 5, 30, 25))
-
-func test_a_rect_swallowed_whole_leaves_nothing() -> void:
-	assert_eq(Terrain.subtract(Rect2(5, 5, 10, 10), Rect2(0, 0, 30, 30)).size(), 0)
-
-## The trap rook named: a subtraction that leaves slivers fills `terrain` with
-## features nothing can see and everything walks.
-func test_slivers_are_dropped_rather_than_kept() -> void:
-	var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(0.1, -5, 40, 40))
-	assert_eq(parts.size(), 0,
-		"a 0.1-wide leftover is not a feature, it is a rounding artefact: got %s" % [parts])
-
-func test_the_order_of_the_parts_is_fixed() -> void:
-	for _i in 5:
-		var parts := Terrain.subtract(Rect2(0, 0, 30, 30), Rect2(10, 10, 10, 10))
-		assert_eq(parts[0], Rect2(0, 0, 30, 10), "above first")
-		assert_eq(parts[1], Rect2(0, 20, 30, 10), "then below")
-		assert_eq(parts[2], Rect2(0, 10, 10, 10), "then left")
-		assert_eq(parts[3], Rect2(20, 10, 10, 10), "then right")
-
-func _rect_area(parts: Array[Rect2]) -> float:
-	var total := 0.0
-	for r in parts:
-		total += r.size.x * r.size.y
-	return total
-
-# --- which actions carry it, which is content and was got wrong once --------
+## Issue 625 deleted `Terrain.subtract` and the six tests that covered it: a
+## cell is one kind of ground, so there is no rectangle left to cut.
 
 ## Issue 496: Scald is the FIRE spell, so a pool under it puts out the burn it
 ## just applied. It is on the free WATER basic attack instead.
@@ -153,25 +109,27 @@ func test_the_pool_is_on_the_action_a_pawn_nobody_configured_will_cast() -> void
 func test_a_spell_with_no_pool_radius_leaves_no_terrain() -> void:
 	var bundle := _arena([], _pool_action(0.0))
 	_cast(bundle)
-	assert_eq(bundle[0].terrain.size(), 0,
+	assert_eq(bundle[0].grid.count(), 0,
 		"every action in the game but two leaves nothing, and this is the control")
 
 func test_a_pool_appears_where_the_effect_landed() -> void:
 	var bundle := _arena([], _pool_action(25.0))
 	_cast(bundle)
 	var pools := _of_kind(bundle[0], Terrain.Kind.WATER)
-	assert_eq(pools.size(), 1)
-	assert_eq(pools[0].rect, Rect2(-25.0, -25.0, 50.0, 50.0), "centred on the target it hit")
+	## 4 x 4: a 50-wide stamp on the origin holds the centres of cells -2..1.
+	assert_eq(pools.size(), 16, "the 16 cells whose centres the stamp covered")
+	assert_true(_wet(bundle[0], Vector2.ZERO), "centred on the target it hit")
+	assert_false(_wet(bundle[0], Vector2(60.0, 0.0)), "and no further")
 
 func test_a_pool_does_nothing_on_its_own() -> void:
 	var bundle := _arena([], _pool_action(25.0))
 	_cast(bundle)
-	var pool: Terrain.Feature = _of_kind(bundle[0], Terrain.Kind.WATER)[0]
+	var pool = bundle[0].grid.cell_at(Vector2.ZERO)
 	assert_eq(pool.damage_per_tick, 0, "no damage")
 	assert_false(pool.applies_status_enabled, "no status")
 	assert_false(pool.blocks_movement(), "and it does not block a foot")
 	assert_false(pool.blocks_sight(), "or a line of sight")
-	assert_eq(Terrain.hazards_at(bundle[0].terrain, Vector2.ZERO).size(), 0,
+	assert_eq(bundle[0].grid.hazards_at(Vector2.ZERO).size(), 0,
 		"a pool is not a hazard, so nothing standing in it takes a tick of anything")
 
 ## **The player's ruling, and the expensive half of it: the whole hazard is not
@@ -181,12 +139,14 @@ func test_a_pool_inside_a_fire_punches_a_hole_rather_than_erasing_it() -> void:
 	var bundle := _arena([_fire()], _pool_action(25.0))
 	_cast(bundle)
 	var fires := _of_kind(bundle[0], Terrain.Kind.HAZARD)
-	assert_eq(fires.size(), 4, "fire minus the pool is four parts, not nothing")
-	assert_almost_eq(_area(fires), 200.0 * 200.0 - 50.0 * 50.0, 0.001,
+	## 196 authored cells (14 x 14) less the pool's 16. Issue 625: the hole is
+	## cells rather than four rectangles, and it is the same hole.
+	assert_eq(fires.size(), 196 - 16, "fire minus the pool is a hole in it, not nothing")
+	assert_almost_eq(_area(fires), float(196 - 16) * 225.0, 0.001,
 		"exactly the shared ground came off and no more")
-	assert_true(Terrain.hazards_at(bundle[0].terrain, Vector2(90.0, 0.0)).size() > 0,
+	assert_true(bundle[0].grid.hazards_at(Vector2(90.0, 0.0)).size() > 0,
 		"ground the pool never touched is still on fire")
-	assert_eq(Terrain.hazards_at(bundle[0].terrain, Vector2.ZERO).size(), 0,
+	assert_eq(bundle[0].grid.hazards_at(Vector2.ZERO).size(), 0,
 		"and the ground it did touch is not")
 
 ## The other half of "pools do not survive cancelation": the pool loses the same
@@ -201,18 +161,19 @@ func test_a_pool_over_an_edge_keeps_only_the_half_that_missed() -> void:
 	var bundle := _arena([_fire(Rect2(0.0, -100.0, 200.0, 200.0))], _pool_action(25.0))
 	_cast(bundle)
 	var pools := _of_kind(bundle[0], Terrain.Kind.WATER)
-	assert_almost_eq(_area(pools), 25.0 * 50.0, 0.001,
+	assert_eq(pools.size(), 8,
 		"half the pool overlapped the fire and went with it; half remains")
 	var fires := _of_kind(bundle[0], Terrain.Kind.HAZARD)
-	assert_almost_eq(_area(fires), 200.0 * 200.0 - 25.0 * 50.0, 0.001,
-		"and the fire lost exactly the same ground")
+	## This fire runs x 0..200, whose cell centres are columns 0..12 -- 13, not
+	## the 14 rows, because it starts on a cell edge rather than around one.
+	assert_eq(fires.size(), 13 * 14 - 8, "and the fire lost exactly the same ground")
 
 func test_water_only_cancels_fire_and_leaves_other_hazards_alone() -> void:
 	var tar := Terrain.hazard(FIRE, 0, CG.DamageType.EARTH)
 	var bundle := _arena([tar], _pool_action(25.0))
 	_cast(bundle)
-	assert_eq(_of_kind(bundle[0], Terrain.Kind.HAZARD).size(), 1, "a tar pit is not on fire")
-	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 1, "so nothing was spent putting it out")
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.HAZARD).size(), 196 - 16, "a tar pit is not on fire")
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 16, "so nothing was spent putting it out")
 
 func test_a_pool_across_two_fires_is_cut_by_both() -> void:
 	var bundle := _arena([
@@ -220,15 +181,18 @@ func test_a_pool_across_two_fires_is_cut_by_both() -> void:
 		_fire(Rect2(10.0, -100.0, 190.0, 200.0)),
 	], _pool_action(25.0))
 	_cast(bundle)
-	assert_almost_eq(_area(_of_kind(bundle[0], Terrain.Kind.WATER)), 20.0 * 50.0, 0.001,
-		"both fires took a 15-wide bite, leaving the 20-wide gap between them")
+	## The 20-wide gap holds the centres of columns -1 and 0 and neither fire
+	## does, so those two columns of the pool survive: 2 x 4 cells.
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 8,
+		"both fires took a bite, leaving the gap between them wet")
 
 ## A split fire is still the fire it was split from.
 func test_the_parts_of_a_split_hazard_keep_what_made_it_dangerous() -> void:
 	var bundle := _arena([_fire()], _pool_action(25.0))
 	_cast(bundle)
-	for f in _of_kind(bundle[0], Terrain.Kind.HAZARD):
-		assert_eq(f.damage_per_tick, 2, "a part that stopped hurting is a bug, not a split")
+	for c in _of_kind(bundle[0], Terrain.Kind.HAZARD):
+		var f = bundle[0].grid.at(c)
+		assert_eq(f.damage_per_tick, 2, "a cell that stopped hurting is a bug, not a hole")
 		assert_eq(f.damage_type, CG.DamageType.FIRE)
 
 # --- the view may not learn about this by reading state ----------------------
@@ -245,19 +209,20 @@ func test_every_change_to_the_terrain_is_in_the_event_stream() -> void:
 	_cast(bundle)
 	var events := _terrain_events(bundle[0])
 	assert_true(events.size() > 0, "a pool nobody was told about is a pool the view cannot draw")
-	var rebuilt: Array[Rect2] = [FIRE]
+	## Issue 625: an event carries the rectangle bounding the cells it changed,
+	## so the test is that the stream covers every cell the simulation holds --
+	## not that replaying rectangles reconstructs the floor, which stopped being
+	## how the floor is stored.
+	var announced: Array[Rect2] = []
 	for e in events:
-		if e.kind == CG.EventKind.TERRAIN_REMOVED:
-			rebuilt.erase(e.terrain_rect)
-		else:
-			rebuilt.append(e.terrain_rect)
-	var live: Array[Rect2] = []
-	for f in bundle[0].terrain:
-		live.append(f.rect)
-	assert_eq(rebuilt.size(), live.size(),
-		"replaying the stream must land on the same terrain the simulation holds")
-	for r in live:
-		assert_true(rebuilt.has(r), "the stream never mentioned %s" % r)
+		if e.kind == CG.EventKind.TERRAIN_ADDED:
+			announced.append(e.terrain_rect)
+	for c in _of_kind(bundle[0], Terrain.Kind.WATER):
+		var covered := false
+		for r in announced:
+			if r.has_point(TerrainGrid.rect_of(c).get_center()):
+				covered = true
+		assert_true(covered, "the stream never mentioned the water at %s" % c)
 
 func test_the_events_say_which_spell_did_it_and_why() -> void:
 	var bundle := _arena([_fire()], _pool_action(25.0))
@@ -286,11 +251,14 @@ func test_a_pool_that_touches_nothing_is_reported_as_cast() -> void:
 ## this shipped: the log said a pool had been left and the floor never changed.
 func test_a_reference_taken_before_the_cast_still_sees_the_terrain() -> void:
 	var bundle := _arena([_fire()], _pool_action(25.0))
-	var held: Array = bundle[0].terrain
+	var held: TerrainGrid = bundle[0].grid
+	var before := held.count()
 	_cast(bundle)
-	assert_eq(held.size(), bundle[0].terrain.size(),
-		"the view holds this array and must not be left looking at a stale copy")
-	assert_true(held.size() > 1, "and it must have actually changed")
+	assert_eq(held, bundle[0].grid,
+		"the view holds this grid and must not be left looking at a stale copy")
+	## The pool lands wholly inside the fire, so #496's ruling spends all of it
+	## and what the view must see change is the hole, not a puddle.
+	assert_true(held.count() < before, "and it must have actually changed")
 
 ## **The room is not a scratchpad.** `build()` shared the encounter's own array,
 ## which was harmless while terrain never changed: pools were written back into
@@ -314,8 +282,8 @@ func test_a_fight_does_not_leave_its_pools_in_the_room() -> void:
 
 func _digest(state: CombatState) -> String:
 	var parts: Array[String] = []
-	for f in state.terrain:
-		parts.append("%d:%s" % [f.kind, f.rect])
+	for c in state.grid.sorted_cells():
+		parts.append("%d:%s" % [state.grid.at(c).kind, c])
 	for u in state.units:
 		parts.append("%d:%d:%s" % [u.id, u.hp, u.position])
 	return "|".join(parts)
@@ -350,8 +318,8 @@ func test_two_overlapping_casts_leave_one_pool_not_two() -> void:
 	var bundle := _arena([], _pool_action(25.0))
 	_cast_at(bundle, Vector2.ZERO)
 	_cast_at(bundle, Vector2(20.0, 0.0))
-	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 1,
-		"two overlapping casts should fuse into one puddle, not stack two features")
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 5 * 4,
+		"two overlapping casts fuse: five columns of four, not sixteen plus twelve")
 
 
 ## Property one, and the whole reason a union of bounding boxes was rejected:
@@ -374,8 +342,8 @@ func test_a_fused_pool_stores_the_overlap_once() -> void:
 	var bundle := _arena([], _pool_action(25.0))
 	_cast_at(bundle, Vector2.ZERO)
 	_cast_at(bundle, Vector2(25.0, 0.0))
-	# Two 50x50 stamps offset by 25 cover 50x50 + 25x50.
-	assert_almost_eq(_area(_of_kind(bundle[0], Terrain.Kind.WATER)), 50.0 * 50.0 + 25.0 * 50.0, 0.001,
+	## Columns -2..1 and 0..2 union to five, times four rows.
+	assert_eq(_of_kind(bundle[0], Terrain.Kind.WATER).size(), 5 * 4,
 		"the overlapping half should be stored once, not twice")
 
 
@@ -403,9 +371,3 @@ func test_a_cast_on_dry_ground_still_paints() -> void:
 	assert_true(_wet(bundle[0], Vector2(400.0, 400.0)))
 
 
-## An authored feature has no parts, so nothing above may change how one reads.
-func test_an_authored_feature_is_still_exactly_its_rect() -> void:
-	var f := Terrain.hazard(FIRE, 2, CG.DamageType.FIRE)
-	assert_eq(f.regions(), [FIRE] as Array[Rect2], "a feature with no parts is its own rect")
-	assert_true(f.contains_point(Vector2.ZERO))
-	assert_false(f.contains_point(Vector2(9000.0, 0.0)))

@@ -2,7 +2,7 @@ extends "res://Tests/TestCase.gd"
 
 
 ## **Issue 376: a plan edit was accepted, echoed back, and the fight came out
-## byte-identical.** The plan editor writes one number into `PlanBlock.args` and
+## byte-identical.** The plan editor writes one number into a block and
 ## nothing in the suite asserted that number reaches a fight, which is the loop
 ## the whole game is built on. This file is that assertion.
 
@@ -40,21 +40,13 @@ func test_the_same_value_twice_is_the_same_fight() -> void:
 ## writes, and the only thing that differs between two runs here.
 func _fight(fraction: float) -> Dictionary:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior_0", "Warrior")
-	var condition := PlanBlock.new()
-	condition.kind = PlanBlock.Kind.CONDITION
-	condition.op = &"self_hp_below_fraction"
-	condition.args = {"fraction": fraction}
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_self"
-	var action := PlanBlock.new()
-	action.kind = PlanBlock.Kind.ACTION
-	action.op = &"use_action"
-	action.args = {"action_id": &"warrior_second_wind"}
+	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": fraction})
+	var targeting := PlanFixtures.block(&"target_self")
+	var action := PlanFixtures.block(&"use_action", {"action_id": &"warrior_second_wind"})
 	var plan := Plan.new()
 	plan.id = &"heal_when_hurt"
 	plan.display_name = "Heal when hurt"
-	plan.condition = condition
+	plan.condition = condition as ConditionBlock
 	plan.blocks = [targeting, action] as Array[PlanBlock]
 	pawn.plans = [plan] as Array[Plan]
 

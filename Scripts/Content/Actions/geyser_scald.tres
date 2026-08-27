@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_roskq"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_jgrje"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_nqqff"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/geyser_scald.tres" id="vfx_geyser_scald"]
 
 [sub_resource type="Resource" id="Resource_n1cbs"]
 script = ExtResource("1_vkxca")
@@ -36,3 +37,4 @@ resource_cost = 15
 targeting = SubResource("Resource_pfl7p")
 delivery = SubResource("Resource_n1cbs")
 effects = Array[ExtResource("2_umkis")]([SubResource("Resource_w3kh6"), SubResource("Resource_jay58")])
+vfx = ExtResource("vfx_geyser_scald")

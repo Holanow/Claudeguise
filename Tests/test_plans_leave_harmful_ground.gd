@@ -12,28 +12,19 @@ func _fire(rect: Rect2) -> Terrain.Feature:
 
 
 func _plan(action_id: StringName = &"", gated: bool = false) -> Plan:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"leave_harmful_ground"
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var movement := PlanFixtures.block(&"leave_harmful_ground")
 	var blocks: Array[PlanBlock] = [targeting, movement]
 	if action_id != &"":
-		var action := PlanBlock.new()
-		action.kind = PlanBlock.Kind.ACTION
-		action.op = &"use_action"
-		action.args = {"action_id": action_id}
+		var action := PlanFixtures.block(&"use_action", {"action_id": action_id})
 		blocks.append(action)
 	var p := Plan.new()
 	p.id = &"off_the_fire"
 	p.display_name = "Off the fire"
 	p.blocks = blocks
 	if gated:
-		var condition := PlanBlock.new()
-		condition.kind = PlanBlock.Kind.CONDITION
-		condition.op = &"self_on_harmful_ground"
-		p.condition = condition
+		var condition := PlanFixtures.block(&"self_on_harmful_ground")
+		p.condition = condition as ConditionBlock
 	return p
 
 
@@ -55,7 +46,7 @@ func _situation(plan: Plan, pawn_at: Vector2, foe_at: Vector2, features: Array) 
 	me.position = pawn_at
 	me.resource = me.resource_max
 	foe.position = foe_at
-	state.terrain = features
+	state.grid.stamp_features(features)
 	return [state, me, foe]
 
 
@@ -89,7 +80,6 @@ func test_a_room_with_no_hazard_never_moves_the_pawn() -> void:
 	var intent := PlanInterpreter.decide(state, me)
 	assert_not_null(intent)
 	assert_ne(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_eq(PlanInterpreter.last_error, "")
 
 
 ## Everything in reach harms: the row steps aside for the next one rather than
@@ -103,7 +93,6 @@ func test_a_pawn_with_nowhere_clear_falls_through_to_the_next_plan() -> void:
 	var me: CombatUnit = s[1]
 	assert_true(PlanInterpreter.decide(state, me) == null,
 		"with no clear ground the block must let the next row try")
-	assert_eq(PlanInterpreter.last_error, "", "nowhere to go is not an error")
 
 
 ## The nearest way out, not just any way out: from 40 units inside the western
@@ -141,7 +130,7 @@ func test_the_destination_is_never_inside_terrain() -> void:
 	var me: CombatUnit = s[1]
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.MOVE_TO)
-	assert_false(Terrain.point_is_blocked(state.terrain, intent.destination, me.radius),
+	assert_false(state.grid.move_blocked(intent.destination, me.radius),
 		"walked into a wall at %s" % intent.destination)
 	assert_false(CombatSim.standing_harms(state, intent.destination))
 
@@ -199,8 +188,8 @@ func test_the_gated_row_actually_gets_the_pawn_out_of_the_fire() -> void:
 
 ## The op is one block, so the row costs the same as any other movement row.
 func test_the_op_takes_no_argument_and_costs_one_block() -> void:
-	var shape: Dictionary = PlanInterpreter.MOVEMENT_ARG_SHAPE[&"leave_harmful_ground"]
-	assert_eq(shape.get("kind"), "none", "an argument here would be a number the room decides, not the pawn")
+	assert_true(BlockCatalog.movement(&"leave_harmful_ground").operands().is_empty(),
+		"an argument here would be a number the room decides, not the pawn")
 	assert_eq(_plan().block_count(), 2, "targeting plus movement, and the movement half is one block")
 
 
@@ -209,13 +198,8 @@ func test_the_op_takes_no_argument_and_costs_one_block() -> void:
 ## ground there, and `_avoid_hazard` diverts a step that lands in fire rather
 ## than a goal that sits in it.
 func _kite(range_units: float) -> Plan:
-	var targeting := PlanBlock.new()
-	targeting.kind = PlanBlock.Kind.TARGETING
-	targeting.op = &"target_nearest_enemy"
-	var movement := PlanBlock.new()
-	movement.kind = PlanBlock.Kind.MOVEMENT
-	movement.op = &"keep_distance"
-	movement.args = {"range": range_units}
+	var targeting := PlanFixtures.block(&"target_nearest_enemy")
+	var movement := PlanFixtures.block(&"keep_distance", {"range_units": range_units})
 	var kite := Plan.new()
 	kite.id = &"kite_210"
 	kite.display_name = "Hold %d" % int(range_units)
@@ -276,5 +260,5 @@ func test_a_band_that_burns_all_the_way_round_falls_through() -> void:
 
 
 func test_the_op_has_a_sentence_and_is_offered_to_the_editor() -> void:
-	assert_true(PlanInterpreter.MOVEMENT_OPS.has(&"leave_harmful_ground"))
-	assert_eq(PlanInterpreter.describe_op(&"leave_harmful_ground", {}), "move off harmful ground")
+	assert_true(BlockCatalog.MOVEMENT_OPS.has(&"leave_harmful_ground"))
+	assert_eq(BlockCatalog.movement(&"leave_harmful_ground").describe(), "move off harmful ground")

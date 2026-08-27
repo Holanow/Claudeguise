@@ -51,10 +51,11 @@ func test_the_heal_is_still_first_and_every_plan_under_it_reserves() -> void:
 		if Registry.get_action(action_id).resource_cost <= 0:
 			continue
 		seen += 1
-		assert_eq(plan.condition.op, &"self_resource_at_least",
+		assert_true(plan.condition is SelfResourceAtLeastBlock,
 			"%s sits under the heal and spends the heal's Mana, so its condition must state a reserve" % plan.id)
-		assert_true(int(plan.condition.args.get("amount", 0)) >= PresetPlans.PRIEST_SPENDER_RESERVE,
-			"%s reserves %s, less than PRIEST_SPENDER_RESERVE" % [plan.id, plan.condition.args.get("amount", 0)])
+		var reserve := (plan.condition as SelfResourceAtLeastBlock).amount
+		assert_true(reserve >= PresetPlans.PRIEST_SPENDER_RESERVE,
+			"%s reserves %s, less than PRIEST_SPENDER_RESERVE" % [plan.id, reserve])
 	assert_eq(seen, SPENDER_PLANS.size(),
 		"a Mana-spending plan was added or removed under the heal without this file being told")
 
@@ -111,6 +112,6 @@ func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 
 func _action_of(plan) -> StringName:
 	for b in plan.blocks:
-		if b.kind == PlanBlock.Kind.ACTION:
-			return StringName(b.args.get("action_id", &""))
+		if b is UseActionBlock:
+			return (b as UseActionBlock).action_id
 	return &""

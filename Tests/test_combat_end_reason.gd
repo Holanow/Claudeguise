@@ -25,11 +25,15 @@ func _turret(id: int, team: CG.Team) -> CombatUnit:
 func _deps() -> SimDeps:
 	var marked_only := ActionDef.new()
 	marked_only.id = &"fixture_marked_bolt"
-	marked_only.requires_marked_target = true
-	marked_only.range_units = 9000.0
+	marked_only.targeting = ActionTargeting.new()
+	marked_only.targeting.requires_marked_target = true
+	marked_only.targeting.range_units = 9000.0
+	marked_only.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var plain := ActionDef.new()
 	plain.id = &"fixture_bolt"
-	plain.range_units = 9000.0
+	plain.targeting = ActionTargeting.new()
+	plain.targeting.range_units = 9000.0
+	plain.effects = [HitEffect.new()] as Array[AbilityEffect]
 	var lookup := {&"fixture_marked_bolt": marked_only, &"fixture_bolt": plain}
 	var deps := SimDeps.new()
 	deps.action_lookup = func(id: StringName) -> ActionDef: return lookup.get(id, null)

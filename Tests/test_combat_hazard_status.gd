@@ -26,7 +26,7 @@ func _pit(damage: int, status_ticks: int) -> Object:
 
 func _state(feature) -> CombatState:
 	var state := CombatState.new(_SEED)
-	state.terrain = [feature]
+	state.grid.stamp_features([feature])
 	state.units.append(_unit(0, CG.Team.PLAYER, Vector2.ZERO))
 	state.units.append(_unit(1, CG.Team.ENEMY, Vector2(4000.0, 0.0)))
 	return state

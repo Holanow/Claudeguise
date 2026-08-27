@@ -8,17 +8,13 @@ extends "res://Tests/TestCase.gd"
 ## enforced only by the plan editor refusing to *add* a row -- and a row the
 ## screen labelled "Inert" fired exactly like a live one.
 
-func _block(kind: PlanBlock.Kind, op: StringName, args: Dictionary = {}) -> PlanBlock:
-	var b := PlanBlock.new()
-	b.kind = kind
-	b.op = op
-	b.args = args
-	return b
+func _block(op: StringName, args: Dictionary = {}) -> PlanBlock:
+	return PlanFixtures.block(op, args)
 
 func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Plan:
 	var p := Plan.new()
 	p.id = id
-	p.condition = condition
+	p.condition = condition as ConditionBlock
 	p.blocks = blocks
 	return p
 
@@ -27,17 +23,17 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 func _pawn_with_two_plans() -> PawnData:
 	var pawn_class := ClassDef.new()
 	pawn_class.id = &"budgettest"
-	pawn_class.base_attributes = {CG.Attribute.WIS: 2}
+	pawn_class.base_attributes = {"WIS": 2}
 	var pawn := PawnData.new()
 	pawn.pawn_class = pawn_class
 	pawn.plans = [
-		_plan(&"never", _block(PlanBlock.Kind.CONDITION, &"self_resource_at_least", {"amount": 999}), [
-			_block(PlanBlock.Kind.TARGETING, &"target_self"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+		_plan(&"never", _block(&"self_resource_at_least", {"amount": 999}), [
+			_block(&"target_self"),
+			_block(&"use_action", {"action_id": &"warrior_strike"}),
 		]),
 		_plan(&"strike", null, [
-			_block(PlanBlock.Kind.TARGETING, &"target_nearest_enemy"),
-			_block(PlanBlock.Kind.ACTION, &"use_action", {"action_id": &"warrior_strike"}),
+			_block(&"target_nearest_enemy"),
+			_block(&"use_action", {"action_id": &"warrior_strike"}),
 		]),
 	]
 	return pawn
@@ -111,7 +107,7 @@ func test_taking_the_wis_armour_off_strands_the_row_it_paid_for() -> void:
 ## one that always refused the last row.
 func test_nothing_is_skipped_when_the_plans_fit() -> void:
 	var pawn := _pawn_with_two_plans()
-	pawn.pawn_class.base_attributes = {CG.Attribute.WIS: 8}
+	pawn.pawn_class.base_attributes = {"WIS": 8}
 	assert_eq(PlanInterpreter.active_plan_count(pawn), 2)
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
