@@ -20,10 +20,18 @@ func _idle_unit(id: int, team: CG.Team) -> CombatUnit:
 	u.hp = 10
 	return u
 
-func _spy_deps(plan_result: Intent, default_result: Intent) -> SimDeps:
+## `unit.intent` is created and consumed inside one `step()` and cannot be read
+## after it -- the board's own rule, and reading it is why these four recorded no
+## assertion at all rather than failing honestly. The spy records which decider
+## it reached, which is the property under test anyway.
+func _spy_deps(plan_result: Intent, default_result: Intent, reached: Array) -> SimDeps:
 	var deps := SimDeps.new()
-	deps.plan_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return plan_result
-	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent: return default_result
+	deps.plan_decide = func(_s: CombatState, _u: CombatUnit) -> Intent:
+		reached.append(&"plan")
+		return plan_result
+	deps.default_decide = func(_s: CombatState, _u: CombatUnit) -> Intent:
+		reached.append(&"default")
+		return default_result
 	return deps
 
 func test_a_pawn_still_reaches_plan_decide_first() -> void:
@@ -33,8 +41,9 @@ func test_a_pawn_still_reaches_plan_decide_first() -> void:
 	state.units.append(unit)
 	var from_plan := Intent.idle(&"from_plan")
 	var from_default := Intent.idle(&"from_default")
-	CombatSim.step(state, _spy_deps(from_plan, from_default))
-	assert_eq(unit.intent.source_plan, &"from_plan", "a pawn must still reach plan_decide first, unchanged")
+	var reached: Array = []
+	CombatSim.step(state, _spy_deps(from_plan, from_default, reached))
+	assert_eq(reached, [&"plan"], "a pawn must still reach plan_decide first, unchanged")
 
 func test_an_enemy_with_no_plans_goes_straight_to_default_decide() -> void:
 	var state := CombatState.new(672)
@@ -42,8 +51,9 @@ func test_an_enemy_with_no_plans_goes_straight_to_default_decide() -> void:
 	state.units.append(unit)
 	var from_plan := Intent.idle(&"from_plan")
 	var from_default := Intent.idle(&"from_default")
-	CombatSim.step(state, _spy_deps(from_plan, from_default))
-	assert_eq(unit.intent.source_plan, &"from_default", "an enemy with no authored rows must never reach plan_decide")
+	var reached: Array = []
+	CombatSim.step(state, _spy_deps(from_plan, from_default, reached))
+	assert_eq(reached, [&"default"], "an enemy with no authored rows must never reach plan_decide")
 
 func test_an_enemy_carrying_plans_reaches_plan_decide() -> void:
 	var state := CombatState.new(673)
@@ -52,8 +62,9 @@ func test_an_enemy_carrying_plans_reaches_plan_decide() -> void:
 	state.units.append(unit)
 	var from_plan := Intent.idle(&"from_plan")
 	var from_default := Intent.idle(&"from_default")
-	CombatSim.step(state, _spy_deps(from_plan, from_default))
-	assert_eq(unit.intent.source_plan, &"from_plan", "an enemy carrying rows must reach plan_decide, same as a pawn")
+	var reached: Array = []
+	CombatSim.step(state, _spy_deps(from_plan, from_default, reached))
+	assert_eq(reached, [&"plan"], "an enemy carrying rows must reach plan_decide, same as a pawn")
 
 func test_an_enemy_carrying_plans_still_falls_through_when_none_fire() -> void:
 	var state := CombatState.new(674)
@@ -61,8 +72,10 @@ func test_an_enemy_carrying_plans_still_falls_through_when_none_fire() -> void:
 	unit.enemy_plans = [Plan.new()]
 	state.units.append(unit)
 	var from_default := Intent.idle(&"from_default")
-	CombatSim.step(state, _spy_deps(null, from_default)) # plan_decide returns null: nothing fired
-	assert_eq(unit.intent.source_plan, &"from_default", "null from plan_decide must still fall through to default_decide")
+	var reached: Array = []
+	CombatSim.step(state, _spy_deps(null, from_default, reached)) # plan_decide returns null: nothing fired
+	assert_eq(reached, [&"plan", &"default"],
+		"null from plan_decide must still fall through to default_decide, and must have tried the plan first")
 
 # ---------------------------------------------------------------------------
 # PlanInterpreter.decide itself: enemy_plans has no WIS budget, every row runs
