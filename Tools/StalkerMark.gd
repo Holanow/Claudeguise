@@ -1,8 +1,9 @@
 extends SceneTree
 
-## Issue 642: why `stalker_mark` lands 16 times on the colonnade where it landed
-## 51. Same 20 fights the test runs, counting what the Stalker did rather than
-## only what landed.
+## Issue 642. The instrument that attributed a since-closed regression in
+## `stalker_mark` on the colonnade to the Stalker dying early rather than to its
+## targeting: the same 20 fights the test runs, counting what the Stalker did
+## rather than only what landed.
 
 func _ids() -> Array[StringName]:
 	var names := PackedStringArray()
