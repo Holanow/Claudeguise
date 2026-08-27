@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_3ueni"]
+
+[resource]
+script = ExtResource("1_3ueni")
+id = &"bow"
+display_name = "Bow"
+description = "A recurve bow. Its wielder attacks with a Shot at range."
+granted_actions = Array[StringName]([&"siege_master_shot"])
+required_tags = Array[int]([0])

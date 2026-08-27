@@ -7,9 +7,7 @@ class_name Registry
 
 const MODULES: Array = [
 	preload("res://Scripts/Content/Modules/core_actions.gd"),
-	preload("res://Scripts/Content/Modules/floor1_enemies.gd"),
 	preload("res://Scripts/Content/Modules/floor1_encounters.gd"),
-	preload("res://Scripts/Content/Modules/core_items.gd"),
 	preload("res://Scripts/Content/Modules/authored_rooms.gd"),
 ]
 
@@ -30,6 +28,12 @@ static func _load() -> void:
 		if not bad.is_empty():
 			push_error("Registry: class '%s' has attribute keys that are not attribute names: %s" % [c.id, bad])
 		_register(_classes, c.id, c, "class")
+	for path in EnemyLibrary.PATHS:
+		var e: EnemyDef = load(path)
+		_register(_enemies, e.id, e, "enemy")
+	for path in ItemLibrary.PATHS:
+		var i: EquipmentDef = load(path)
+		_register(_items, i.id, i, "item")
 	for m in MODULES:
 		for c in m.classes():
 			_register(_classes, c.id, c, "class")

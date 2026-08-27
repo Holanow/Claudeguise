@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_4grb3"]
+
+[resource]
+script = ExtResource("1_4grb3")
+id = &"cultist"
+display_name = "Cultist"
+hp_max = 50
+move_speed = 3.0
+radius = 12.0
+attack_power = {
+6: 11
+}
+actions = Array[StringName]([&"cultist_bolt"])
+display_tags = Array[String](["Ranged", "Profane"])
+focus_bias = 0.4
