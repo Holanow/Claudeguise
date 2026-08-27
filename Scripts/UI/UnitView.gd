@@ -376,12 +376,13 @@ func _off_hand_angle(u: CombatUnit) -> float:
 	var kp := _action_progress(u)
 	return PartAnimation.off_hand_angle(kp[0], kp[1])
 
-## The part this unit's weapon draws in the `Weapon` slot. Empty for anything
-## unarmed or without a `PawnData` at all -- an enemy has no `pawn`.
+## The part this unit's weapon draws in the `Weapon` slot. Falls back to
+## `EnemyDef.weapon_part` for a unit with no `pawn` at all.
 func _weapon_part(u: CombatUnit) -> StringName:
-	if u.pawn == null or u.pawn.weapon == null:
-		return &""
-	return u.pawn.weapon.part
+	if u.pawn != null:
+		return &"" if u.pawn.weapon == null else u.pawn.weapon.part
+	var enemy_def := Registry.get_enemy(u.enemy_id)
+	return &"" if enemy_def == null else enemy_def.weapon_part
 
 ## Whether this body has anything to animate at all. False means the toggle is
 ## off or this recipe puts nothing in its `HandMain`/`HandOff` slots, and

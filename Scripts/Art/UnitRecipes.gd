@@ -133,7 +133,8 @@ const RECIPES := {
 	## plume rather than horns or a crown, which belong to the bosses.
 	&"sellsword": [
 		{"part": &"body_muscular", "color": "4a4f5e"},
-		{"part": &"hands_wide", "color": "c8a888"},
+		{"part": &"hand_wide", "color": "c8a888"},
+		{"part": &"hand_wide_off", "color": "c8a888"},
 		{"part": &"head_small", "color": "c8a888"},
 		{"part": &"helm", "color": "9aa3b4"},
 		{"part": &"plume", "color": "8c3b4a"},
@@ -204,15 +205,10 @@ static func recipe_ids() -> Array[StringName]:
 ## The fixed slots a body is built from, in draw order. Tree order in
 ## `UnitVisual` is this order, so nothing sorts at runtime.
 ##
-## Headwear sits UNDER Face rather than over it, which is a deliberate departure
-## from the order the issue named: a hood covers the pixels the eyes are drawn on
-## and the stack this replaces always drew the eyes last, so Face-over-Headwear
-## takes the eyes off the Priest, the Cultist, both hooded dungeon soldiers, the
-## Siege Master and The Warden.
-##
-## Issue 584: `Hands` split into two named slots, and `Weapon` sits between
-## them -- off-hand behind it, main hand in front -- so a weapon reads as
-## gripped rather than glued on top of both hands at once.
+## Headwear sits UNDER Face rather than over it: Face-over-Headwear is what
+## keeps the eyes on a hooded or helmed body. Issue 584 split `Hands` into
+## `HandOff` and `HandMain` with `Weapon` between them, so a held weapon
+## reads as gripped rather than glued on top of both hands at once.
 const SLOTS: Array[StringName] = [
 	&"Body", &"Head", &"Headwear", &"Face", &"HandOff", &"Weapon", &"HandMain", &"Extra",
 ]
