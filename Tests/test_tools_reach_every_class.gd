@@ -39,7 +39,7 @@ func test_the_guard_fires_on_the_lines_it_was_written_for() -> void:
 	# these is the exact line one of the seven tools carried.
 	assert_true(_takes_a_prefix('\tvar party_ids := class_ids.slice(0, mini(4, class_ids.size()))'),
 		"slicing the class list must be flagged")
-	assert_true(_takes_a_prefix('\tvar party_ids := ClassLibrary.all_ids().slice(0, 4)'),
+	assert_true(_takes_a_prefix('\tvar party_ids := Registry.all_class_ids().slice(0, 4)'),
 		"slicing the roster inline must be flagged")
 	assert_true(_takes_a_prefix('\tfor i in mini(4, class_ids.size()):'),
 		"looping the first four class ids must be flagged")
