@@ -3,7 +3,7 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 28a: line of sight is measured the same place and the same moment as
 ## range -- at the moment the effect lands, against ActionDef.requires_line_of_sight
-## and Terrain.line_is_blocked. Same helper shapes as test_combat_sim.gd and
+## and TerrainGrid.sight_blocked. Same helper shapes as test_combat_sim.gd and
 ## test_combat_terrain.gd; not shared via preload since GDScript test files
 ## don't share state.
 
@@ -46,26 +46,29 @@ func _deps(actions_by_id: Dictionary, power: float) -> SimDeps:
 	deps.default_decide = func(_state: CombatState, _unit: CombatUnit) -> Intent: return Intent.idle()
 	return deps
 
-## A wall between attacker (x=0) and target (x=10): thin, and short enough
-## (y -10..10) that a target well clear of that band (y=200) has an
-## unambiguously open line, while y=0 is unambiguously blocked. Full-height
-## would leave every plausible "clear" y still crossing the wall's x-band.
+## A wall between attacker (x=0) and target (x=45), short enough in y that a
+## target well clear of that band has an unambiguously open line.
+##
+## Issue 625 rescaled this fixture and did not change what it tests. It was a
+## 2-unit wall at x=4 with the target at x=10, all of which is inside ONE
+## 15-unit cell -- and inside one pawn, whose radius is 22. Snapped to cells the
+## attacker stood in its own wall. The wall now occupies a cell of its own.
 func _wall() -> Terrain.Feature:
-	return Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(4, -10), Vector2(2, 20)))
+	return Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(20, -20), Vector2(10, 40)))
 
 # ---------------------------------------------------------------------------
 # criterion 1: a wall blocks a sighted action; no wall lets it land
 # ---------------------------------------------------------------------------
 
 func test_a_wall_blocks_a_line_of_sight_action() -> void:
-	var atk := _sighted(&"atk", 3, 1, 15.0)
+	var atk := _sighted(&"atk", 3, 1, 150.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(1)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 0), [])
 	state.units.append(attacker)
 	state.units.append(target)
 
@@ -81,13 +84,13 @@ func test_a_wall_blocks_a_line_of_sight_action() -> void:
 	assert_eq(miss_count, 1, "a blocked shot is a MISS")
 
 func test_no_wall_lets_a_line_of_sight_action_land() -> void:
-	var atk := _sighted(&"atk", 3, 1, 15.0)
+	var atk := _sighted(&"atk", 3, 1, 150.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(2)
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 0), [])
 	state.units.append(attacker)
 	state.units.append(target)
 
@@ -102,24 +105,21 @@ func test_no_wall_lets_a_line_of_sight_action_land() -> void:
 # ---------------------------------------------------------------------------
 
 func test_a_target_that_steps_behind_cover_during_the_windup_is_missed() -> void:
-	# Range widened to 150 for this pair of tests: the "clear" position has to
-	# sit far enough in y that its line to the attacker unambiguously misses
-	# the wall's x-band, which puts it well outside a 15-unit range.
 	var atk := _sighted(&"atk", 3, 1, 150.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(3)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 100), []) # clear of the wall at commit
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 120), []) # clear of the wall at commit
 	state.units.append(attacker)
 	state.units.append(target)
 
 	attacker.intent = Intent.use_action(atk.id, target.id)
 	CombatSim.step(state, deps) # commits: clear line of sight at commit time
 
-	target.position = Vector2(10, 0) # steps behind the wall during the wind-up
+	target.position = Vector2(45, 0) # steps behind the wall during the wind-up
 
 	CombatSim.step(state, deps)
 	CombatSim.step(state, deps) # wind-up completes here
@@ -137,16 +137,16 @@ func test_a_target_that_steps_out_from_behind_cover_during_the_windup_is_hit() -
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(4)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), []) # behind the wall at commit
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 0), []) # behind the wall at commit
 	state.units.append(attacker)
 	state.units.append(target)
 
 	attacker.intent = Intent.use_action(atk.id, target.id)
 	CombatSim.step(state, deps) # commits: blocked at commit time, but range/sight are re-measured on landing, not at commit
 
-	target.position = Vector2(10, 100) # steps clear of the wall during the wind-up
+	target.position = Vector2(45, 120) # steps clear of the wall during the wind-up
 
 	CombatSim.step(state, deps)
 	CombatSim.step(state, deps) # wind-up completes here
@@ -158,14 +158,14 @@ func test_a_target_that_steps_out_from_behind_cover_during_the_windup_is_hit() -
 # ---------------------------------------------------------------------------
 
 func test_an_action_without_the_flag_fires_straight_through_a_wall() -> void:
-	var atk := _unsighted(&"atk", 3, 1, 15.0)
+	var atk := _unsighted(&"atk", 3, 1, 150.0)
 	var actions_by_id := {atk.id: atk}
 	var deps := _deps(actions_by_id, 10.0)
 
 	var state := CombatState.new(5)
-	state.terrain.append(_wall())
+	state.grid.stamp_features([_wall()])
 	var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
+	var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 0), [])
 	state.units.append(attacker)
 	state.units.append(target)
 
@@ -180,14 +180,14 @@ func test_an_action_without_the_flag_fires_straight_through_a_wall() -> void:
 # ---------------------------------------------------------------------------
 
 func test_determinism_holds_with_line_of_sight_in_play() -> void:
-	var atk := _sighted(&"atk", 3, 1, 15.0)
+	var atk := _sighted(&"atk", 3, 1, 150.0)
 	var actions_by_id := {atk.id: atk}
 
 	var make_state := func(seed: int) -> CombatState:
 		var s := CombatState.new(seed)
-		s.terrain.append(_wall())
+		s.grid.stamp_features([_wall()])
 		var attacker := _unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id])
-		var target := _unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [])
+		var target := _unit(1, CG.Team.ENEMY, 30, Vector2(45, 0), [])
 		s.units.append(attacker)
 		s.units.append(target)
 		attacker.intent = Intent.use_action(atk.id, target.id)

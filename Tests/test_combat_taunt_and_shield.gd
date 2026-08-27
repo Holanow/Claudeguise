@@ -78,8 +78,7 @@ func test_facing_is_unchanged_when_fully_blocked() -> void:
 
 	var wall := preload("res://Scripts/Core/Terrain.gd").make(
 		preload("res://Scripts/Core/Terrain.gd").Kind.WALL, Rect2(Vector2(-5, -200), Vector2(10, 400)))
-	state.terrain.append(wall)
-
+	state.grid.stamp_features([wall])
 	unit.intent = Intent.move_to(Vector2(100, 0)) # straight into the wall, no lateral component
 	CombatSim.step(state, deps)
 

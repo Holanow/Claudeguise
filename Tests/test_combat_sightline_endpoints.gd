@@ -17,7 +17,7 @@ func _pillar(rect: Rect2) -> Array:
 
 func test_two_units_inside_the_same_pillar_can_see_each_other() -> void:
 	var pillar := _pillar(Rect2(20.0, -250.0, 100.0, 100.0))
-	assert_false(Terrain.line_is_blocked(pillar, Vector2(30.0, -172.0), Vector2(80.0, -200.0)),
+	assert_false(TerrainGrid.from_features(pillar).sight_blocked(Vector2(30.0, -172.0), Vector2(80.0, -200.0)),
 		"both are standing in it; it is not between them")
 
 ## The exact state of seed 364: three units on one point. A degenerate segment
@@ -26,7 +26,7 @@ func test_two_units_inside_the_same_pillar_can_see_each_other() -> void:
 func test_a_unit_can_see_another_standing_on_the_same_point() -> void:
 	var pillar := _pillar(Rect2(20.0, -250.0, 100.0, 100.0))
 	var p := Vector2(30.48582, -172.1138)
-	assert_false(Terrain.line_is_blocked(pillar, p, p), "distance zero is never blocked")
+	assert_false(TerrainGrid.from_features(pillar).sight_blocked(p, p), "distance zero is never blocked")
 
 ## THE LIMIT OF THE RULE, and it is deliberate. A unit inside a pillar is still
 ## hidden from everyone outside it: cover keeps working, and standing *in* it
@@ -35,15 +35,15 @@ func test_a_unit_inside_a_pillar_is_still_hidden_from_outside_it() -> void:
 	var pillar := _pillar(Rect2(20.0, -250.0, 100.0, 100.0))
 	var inside := Vector2(70.0, -200.0)
 	var outside := Vector2(-350.0, -200.0)
-	assert_true(Terrain.line_is_blocked(pillar, inside, outside), "looking out of it")
-	assert_true(Terrain.line_is_blocked(pillar, outside, inside), "and being looked at, both ways")
+	assert_true(TerrainGrid.from_features(pillar).sight_blocked(inside, outside), "looking out of it")
+	assert_true(TerrainGrid.from_features(pillar).sight_blocked(outside, inside), "and being looked at, both ways")
 
 ## THE NEGATIVE, and it is the one that matters: the change must not stop
 ## pillars blocking anything. A pillar between two units outside it still does
 ## its whole job, which is the only reason the colonnade exists.
 func test_a_pillar_between_two_units_outside_it_still_blocks() -> void:
 	var pillar := _pillar(Rect2(20.0, -250.0, 100.0, 100.0))
-	assert_true(Terrain.line_is_blocked(pillar, Vector2(-100.0, -200.0), Vector2(300.0, -200.0)),
+	assert_true(TerrainGrid.from_features(pillar).sight_blocked(Vector2(-100.0, -200.0), Vector2(300.0, -200.0)),
 		"neither endpoint is inside it, so it is between them and it blocks")
 
 ## A WALL never exempts anything, whichever endpoints are inside it. Nothing can
@@ -53,11 +53,11 @@ func test_a_pillar_between_two_units_outside_it_still_blocks() -> void:
 ## state: a shot in flight, and a wall dropped over the target.
 func test_a_wall_never_stops_blocking_however_it_contains_the_line() -> void:
 	var wall := [Terrain.make(Terrain.Kind.WALL, Rect2(0.0, 0.0, 50.0, 50.0))]
-	assert_true(Terrain.line_is_blocked(wall, Vector2(25.0, 25.0), Vector2(30.0, 30.0)),
+	assert_true(TerrainGrid.from_features(wall).sight_blocked(Vector2(25.0, 25.0), Vector2(30.0, 30.0)),
 		"both endpoints inside a WALL still blocks; only a feature a unit can stand in is exempt")
-	assert_true(Terrain.line_is_blocked(wall, Vector2(25.0, 25.0), Vector2(200.0, 25.0)),
+	assert_true(TerrainGrid.from_features(wall).sight_blocked(Vector2(25.0, 25.0), Vector2(200.0, 25.0)),
 		"one endpoint inside blocks")
-	assert_true(Terrain.line_is_blocked(wall, Vector2(-100.0, 25.0), Vector2(200.0, 25.0)),
+	assert_true(TerrainGrid.from_features(wall).sight_blocked(Vector2(-100.0, 25.0), Vector2(200.0, 25.0)),
 		"and it still blocks a line that merely crosses it")
 
 # --- the fight --------------------------------------------------------------

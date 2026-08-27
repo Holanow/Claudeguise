@@ -11,10 +11,12 @@ const BOUNDARY_WIDTH := 2.0
 const GRID_ALPHA := 0.16
 const CENTER_LINE_ALPHA := 0.3
 
-## Set by BattleView from CombatState.terrain (Terrain.Feature, untyped Array
-## per Terrain.gd's own contract). Empty by default, so a screen built before
-## a fight exists (or against a fixture with no terrain) draws nothing extra.
+## Set by the level editor, which authors rectangles. A fight sets `grid`
+## instead; whichever is set is what gets drawn.
 var terrain: Array = []
+
+## Set by BattleView from CombatState.grid, once, and mutated in place after.
+var grid: TerrainGrid = null
 
 ## Set by BattleView from CombatState.projectiles every stepped tick.
 var projectiles: Array = []
@@ -58,8 +60,11 @@ func _draw() -> void:
 	draw_line(Vector2(-hw, 0.0), Vector2(hw, 0.0), center_color, 1.0)
 	draw_line(Vector2(0.0, -hh), Vector2(0.0, hh), center_color, 1.0)
 
-	for feature in terrain:
-		_draw_feature(feature)
+	if grid != null:
+		_draw_grid()
+	else:
+		for feature in terrain:
+			_draw_feature(feature)
 
 	ShieldWall.draw_all(self, units, UnitView.DISPLAY_SCALE, unit_positions)
 
@@ -111,14 +116,62 @@ func _draw_feature(feature) -> void:
 		## Issue 492. Flat and unstriped on purpose: a hazard's stripes say "do
 		## not stand here" and a pool is the one piece of ground that is safe.
 		Terrain.Kind.WATER:
-			## Issue 554: the painted parts, flat and seamless. They are disjoint,
-			## so one pass at one alpha reads as a single puddle -- filling
-			## overlapping stamps darkened every overlap, and outlining each one
-			## drew the seams the player asked to be rid of.
 			var water := Palette.damage_color(CG.DamageType.WATER)
 			water.a = 0.45
-			for r in feature.regions():
-				draw_rect(r, water)
+			draw_rect(feature.rect, water)
+
+## Issue 625: the ground as cells. Cells of one kind sit flush and read as one
+## shape, so only the edges where the kind changes get an outline -- filling
+## and outlining every cell drew a chessboard.
+func _draw_grid() -> void:
+	var seen: Dictionary = {}
+	for layer in [TerrainGrid.Layer.FLOOR, TerrainGrid.Layer.EFFECTS]:
+		for c in grid.cells(layer).keys():
+			if seen.has(c):
+				continue
+			seen[c] = true
+	var cells: Array = seen.keys()
+	cells.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
+	for c in cells:
+		_draw_cell(c, grid.at(c))
+	for c in cells:
+		_draw_cell_edges(c, grid.at(c))
+
+func _draw_cell(c: Vector2i, cell) -> void:
+	var r := TerrainGrid.rect_of(c)
+	match cell.kind:
+		Terrain.Kind.WALL, Terrain.Kind.PILLAR:
+			draw_rect(r, Palette.ARENA_EDGE)
+		Terrain.Kind.PIT:
+			draw_rect(r, Palette.BACKGROUND)
+		Terrain.Kind.HAZARD:
+			var color := Palette.damage_color(cell.damage_type)
+			color.a = 0.35
+			draw_rect(r, color)
+			_draw_hazard_stripes(r, color)
+		Terrain.Kind.WATER:
+			var water := Palette.damage_color(CG.DamageType.WATER)
+			water.a = 0.45
+			draw_rect(r, water)
+
+## The four sides of `c` that face different ground, so a block of cells is
+## outlined once round the outside instead of once per cell.
+func _draw_cell_edges(c: Vector2i, cell) -> void:
+	if cell.kind == Terrain.Kind.HAZARD or cell.kind == Terrain.Kind.WATER:
+		return
+	var color := Palette.TEXT_DIM if cell.kind != Terrain.Kind.PIT else Palette.ARENA_EDGE
+	var r := TerrainGrid.rect_of(c)
+	var sides := [
+		[Vector2i(0, -1), r.position, Vector2(r.end.x, r.position.y)],
+		[Vector2i(0, 1), Vector2(r.position.x, r.end.y), r.end],
+		[Vector2i(-1, 0), r.position, Vector2(r.position.x, r.end.y)],
+		[Vector2i(1, 0), Vector2(r.end.x, r.position.y), r.end],
+	]
+	for side in sides:
+		var other = grid.at(c + side[0])
+		if other != null and other.kind == cell.kind:
+			continue
+		draw_line(side[1], side[2], color, 2.0)
 
 const _HAZARD_STRIPE_SPACING := 20.0
 

@@ -29,7 +29,7 @@ func _sweep(preset: bool) -> void:
 			var state := CombatSim.build(party, encounter, s)
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				CombatSim.step(state)
-				peak = maxi(peak, state.terrain.size())
+				peak = maxi(peak, state.grid.count())
 			for e in state.events:
 				if e.kind == CG.EventKind.TERRAIN_ADDED:
 					casts += 1

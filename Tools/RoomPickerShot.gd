@@ -127,11 +127,11 @@ func _run() -> void:
 		for u in battle.state.units:
 			if u.team == CG.Team.ENEMY:
 				enemies += 1
-		var same_terrain: bool = battle.state.terrain.size() == room.terrain.size()
+		var same_terrain: bool = battle.state.grid.count() == room.terrain.size()
 		var same_enemies: bool = enemies == room.enemy_spawns.size()
 		_check(same_terrain and same_enemies,
 			"%s REACHES A REAL FIGHT (terrain %d/%d, enemies %d/%d)" % [
-				room_id, battle.state.terrain.size(), room.terrain.size(), enemies, room.enemy_spawns.size()])
+				room_id, battle.state.grid.count(), room.terrain.size(), enemies, room.enemy_spawns.size()])
 		reached[room_id] = true
 		await _settle()
 		await _shot("wren_room_%s" % String(room_id).replace("floor1_", ""))

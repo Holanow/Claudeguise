@@ -223,11 +223,11 @@ func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 			continue
 		for spawn in enc.party_spawns:
 			checked += 1
-			assert_false(Terrain.point_is_blocked(enc.terrain, spawn, 0.0), "%s has a party spawn inside a wall/pit at %s" % [encounter_id, spawn])
+			assert_false(TerrainGrid.from_features(enc.terrain).move_blocked(spawn, 0.0), "%s has a party spawn inside a wall/pit at %s" % [encounter_id, spawn])
 		for enemy_spawn in enc.enemy_spawns:
 			var pos: Vector2 = enemy_spawn.get("position", Vector2.ZERO)
 			checked += 1
-			assert_false(Terrain.point_is_blocked(enc.terrain, pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
+			assert_false(TerrainGrid.from_features(enc.terrain).move_blocked(pos, 0.0), "%s has an enemy spawn inside a wall/pit at %s" % [encounter_id, pos])
 	assert_true(checked > 0, "expected at least one encounter with terrain to check")
 
 

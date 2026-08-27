@@ -38,7 +38,7 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))]
 	config.party = party
 	battle.begin(config)
-	assert_eq(battle._arena.terrain, battle.state.terrain)
+	assert_eq(battle._arena.grid, battle.state.grid)
 
 ## Issue 36's "while you are there": the room's name existed
 ## (Encounter.display_name) and nothing showed it, which is exactly what let
