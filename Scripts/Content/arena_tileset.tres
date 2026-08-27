@@ -1,0 +1,37 @@
+[gd_resource type="TileSet" format=3]
+
+[ext_resource type="Texture2D" path="res://Assets/UI/terrain_tiles.png" id="1_vgyrp"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_f8aaw"]
+texture = ExtResource("1_vgyrp")
+texture_region_size = Vector2i(15, 15)
+0:0/0 = 0
+1:0/0 = 0
+1:0/0/custom_data_0 = 1
+2:0/0 = 0
+2:0/0/custom_data_0 = 2
+2:0/0/custom_data_3 = 9
+2:0/0/custom_data_4 = 1
+2:0/0/custom_data_5 = 45
+3:0/0 = 0
+3:0/0/custom_data_0 = 3
+4:0/0 = 0
+4:0/0/custom_data_0 = 4
+
+[resource]
+tile_size = Vector2i(15, 15)
+custom_data_layer_0/name = "kind"
+custom_data_layer_0/type = 2
+custom_data_layer_1/name = "damage_per_tick"
+custom_data_layer_1/type = 2
+custom_data_layer_2/name = "damage_type"
+custom_data_layer_2/type = 2
+custom_data_layer_3/name = "applies_status"
+custom_data_layer_3/type = 2
+custom_data_layer_4/name = "applies_status_enabled"
+custom_data_layer_4/type = 2
+custom_data_layer_5/name = "status_duration_ticks"
+custom_data_layer_5/type = 2
+custom_data_layer_6/name = "status_magnitude"
+custom_data_layer_6/type = 3
+sources/0 = SubResource("TileSetAtlasSource_f8aaw")
