@@ -27,6 +27,9 @@ const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 @export var from_tick: int = 0
 @export var to_tick: int = 120
 @export var label: String = "staged"
+## Prints the drawn state of every body each frame, for telling a view-side
+## difference between two takes from a simulation-side one.
+@export var trace: bool = false
 
 var _view: Node2D = null
 var _frames := 0
@@ -58,6 +61,8 @@ func _process(_delta: float) -> void:
 			_capture_started_at, _view.state.tick])
 	_frames += 1
 	_step()
+	if trace:
+		_trace()
 	if _view.state.tick >= to_tick or _view.state.outcome != CombatState.Outcome.UNRESOLVED:
 		_finish()
 
@@ -75,6 +80,16 @@ func _finish() -> void:
 		_capture_started_at, float(_capture_started_at) / 60.0])
 	get_tree().quit(0)
 
+## Drawn position and wind-up per body, which is what a recorded frame shows.
+func _trace() -> void:
+	var parts := PackedStringArray()
+	for id in _view._unit_views.keys():
+		var body = _view._unit_views[id]
+		var u: CombatUnit = _view.state.unit(id)
+		parts.append("%d@%.2f,%.2f%s" % [id, body.position.x, body.position.y,
+			"" if u == null or u.current_action == &"" else ("/" + String(u.current_action))])
+	print("TRACE %d tick=%d %s" % [_frames, _view.state.tick, " ".join(parts)])
+
 # ---------------------------------------------------------------------------
 
 func _build() -> bool:
@@ -89,7 +104,7 @@ func _build() -> bool:
 		printerr("StagedFight: the party is empty")
 		return false
 
-	var encounter := _encounter(pawns.size())
+	var encounter = _encounter()
 	if encounter == null:
 		return false
 	var cfg := RunConfig.new()
@@ -152,6 +167,7 @@ func _read_args() -> void:
 			"to": to_tick = int(value)
 			"fpt": frames_per_tick = maxi(1, int(value))
 			"label": label = value
+			"trace": trace = value == "1"
 			_: printerr("StagedFight: ignoring unknown argument '%s'" % key)
 
 func _string_names(value: String) -> Array[StringName]:
