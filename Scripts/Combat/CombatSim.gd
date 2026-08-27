@@ -842,6 +842,14 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
 
+	## Issue 632: statuses an ITEM adds to a landed hit. After the action's own
+	## effects, so an item can never pre-empt what the ability itself does, and
+	## only on a hit that actually landed -- an item that poisons on fire damage
+	## should not poison a miss.
+	if dealt > 0 and target.alive:
+		for extra in AbilityModifiers.added_statuses(unit, action):
+			_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
+
 	if not settled:
 		_kill_if_dead(state, target, unit.id, action.id)
 
@@ -939,6 +947,14 @@ static func _kill_summons_of(state: CombatState, summoner: CombatUnit) -> void:
 
 ## Writes the status, its expiry and its magnitude in one place, so the three
 ## cannot be set inconsistently by two call sites.
+## Issue 632: an item's status, routed through the same `_apply_status` the
+## action's own statuses use, so the two cannot drift apart.
+static func _grant_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, status: CG.Status, ticks: int) -> void:
+	var fx := StatusEffect.new()
+	fx.status = status
+	fx.duration_ticks = ticks
+	_apply_status(state, caster, target, action, fx, 0)
+
 static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: StatusEffect, dealt: int) -> void:
 	var status: CG.Status = fx.status
 	var carried := float(target.status_magnitude.get(status, 0.0))
@@ -1174,7 +1190,9 @@ static func _enemy_team(team: CG.Team) -> CG.Team:
 ## `count <= 1` spawns exactly the one shot this loop always spawned, so a
 ## delivery nobody has touched behaves as it did before.
 static func _spawn_projectiles(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
-	var count := maxi(1, action.delivery.count)
+	# Issue 632: an item may add shots. The action is untouched; the number is
+	# computed here for this caster only.
+	var count := maxi(1, action.delivery.count + AbilityModifiers.extra_targets(caster, action))
 	var spread := deg_to_rad(action.delivery.spread_degrees)
 	for i in count:
 		var offset := 0.0
