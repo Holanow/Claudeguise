@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_vig84"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_6lrqp"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_03l4r"]
+
+[node name="Room" type="Node2D" unique_id=1574762063]
+script = ExtResource("1_vig84")
+id = &"floor1_sellsword"
+display_name = "Floor 1, The Hired Blade"
+pickable = true
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=1222657546]
+tile_set = ExtResource("2_6lrqp")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=1455067100]
+
+[node name="@Marker2D@62" type="Marker2D" parent="PartySpawns" unique_id=1314822043]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@63" type="Marker2D" parent="PartySpawns" unique_id=487754801]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@64" type="Marker2D" parent="PartySpawns" unique_id=232219533]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@65" type="Marker2D" parent="PartySpawns" unique_id=1131694667]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=1597672856]
+
+[node name="@Marker2D@66" type="Marker2D" parent="EnemySpawns" unique_id=973564033]
+position = Vector2(240, 0)
+script = ExtResource("3_03l4r")
+enemy_id = &"sellsword"
+
+[node name="@Marker2D@67" type="Marker2D" parent="EnemySpawns" unique_id=2132010971]
+position = Vector2(120, -150)
+script = ExtResource("3_03l4r")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@68" type="Marker2D" parent="EnemySpawns" unique_id=786097812]
+position = Vector2(120, 150)
+script = ExtResource("3_03l4r")
+enemy_id = &"goblin"

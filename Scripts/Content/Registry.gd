@@ -7,8 +7,6 @@ class_name Registry
 
 const MODULES: Array = [
 	preload("res://Scripts/Content/Modules/core_actions.gd"),
-	preload("res://Scripts/Content/Modules/floor1_encounters.gd"),
-	preload("res://Scripts/Content/Modules/authored_rooms.gd"),
 ]
 
 static var _classes: Dictionary = {}
@@ -17,21 +15,6 @@ static var _enemies: Dictionary = {}
 static var _rooms: Dictionary = {}
 static var _items: Dictionary = {}
 static var _loaded: bool = false
-
-## Issue 680: an `Encounter` still coming from a content module, given the
-## same treatment `RoomLoader` gives a scene -- replay `stamp_features` and
-## read the cells back, rather than trust the authored rects twice.
-static func _room_data_from_encounter(e: Encounter) -> RoomData:
-	var grid := TerrainGrid.new()
-	grid.stamp_features(e.terrain)
-	var d := RoomData.new()
-	d.id = e.id
-	d.display_name = e.display_name
-	d.pickable = e.pickable
-	d.enemy_spawns = e.enemy_spawns
-	d.party_spawns = e.party_spawns
-	d.cells = grid.cells(TerrainGrid.Layer.FLOOR)
-	return d
 
 static func _load() -> void:
 	if _loaded:
@@ -59,8 +42,6 @@ static func _load() -> void:
 			_register(_actions, a.id, a, "action")
 		for e in m.enemies():
 			_register(_enemies, e.id, e, "enemy")
-		for e in m.encounters():
-			_register(_rooms, e.id, _room_data_from_encounter(e), "room")
 		for i in m.items():
 			_register(_items, i.id, i, "item")
 

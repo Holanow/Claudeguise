@@ -41,7 +41,7 @@ $recordPath = Join-Path $PSScriptRoot 'sim_fingerprint.txt'
 ## the gate printed `sim pass` on a changed simulation.
 function Get-SourceHash {
     $files = @()
-    foreach ($dir in @('Combat', 'Content', 'Core', 'Floor', 'Plans')) {
+    foreach ($dir in @('Combat', 'Content', 'Core', 'Floor', 'Plans', 'Rooms')) {
         $path = Join-Path $repo "Scripts\$dir"
         if (Test-Path $path) {
             $files += Get-ChildItem -Path $path -Recurse -File -Include *.gd, *.tres

@@ -24,7 +24,7 @@ const PRINTERS := [
 const VIEW_ONLY := ["UI", "Art", "Audio"]
 
 ## The simulation layers, walked directly by the guard below.
-const SIM_DIRS := ["Combat", "Content", "Core", "Floor", "Plans"]
+const SIM_DIRS := ["Combat", "Content", "Core", "Floor", "Plans", "Rooms"]
 
 ## How many view `class_name` globals the scan must find before it is believed.
 ## A scan that silently returned nothing would make the guard pass forever,

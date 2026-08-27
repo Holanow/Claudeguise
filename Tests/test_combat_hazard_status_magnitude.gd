@@ -130,14 +130,14 @@ func test_authored_terrain_that_applies_a_scaled_dot_declares_its_magnitude() ->
 		var encounter := Registry.get_encounter(encounter_id)
 		if encounter == null:
 			continue
-		for feature in encounter.terrain:
+		for cell in encounter.cells.values():
 			checked += 1
-			if not feature.applies_status_enabled:
+			if not cell.applies_status_enabled:
 				continue
-			if not magnitude_only.has(feature.applies_status):
+			if not magnitude_only.has(cell.applies_status):
 				continue
-			assert_true(feature.status_magnitude > 0.0,
+			assert_true(cell.status_magnitude > 0.0,
 				("%s applies status %d from terrain and declares no magnitude. That "
 				+ "status's whole damage rate is a multiple of one, so it will tick "
-				+ "for zero. Set `status_magnitude` on the feature.") % [encounter_id, feature.applies_status])
+				+ "for zero. Set `status_magnitude` on the feature.") % [encounter_id, cell.applies_status])
 	assert_true(checked > 0, "no terrain features found at all; this test measured nothing")

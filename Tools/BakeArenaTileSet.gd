@@ -4,13 +4,9 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://Tools/BakeArenaTileSet.gd
 ##
-## One tile per `Terrain.Kind`, at `TerrainGrid.CELL` so a tile is exactly a
-## grid cell and the authoring surface cannot disagree with the simulation about
-## where a wall is.
-##
-## Custom data only, and no physics layers. `TerrainGrid` builds its sight
-## colliders straight from `kind` and asks no physics query for movement, so a
-## collision layer here would be a second, unread answer to "does this block".
+## One tile per `Terrain.Kind` plus `EXTRA_TILES`, at `TerrainGrid.CELL` so a
+## tile is exactly a grid cell. Custom data only, no physics layers -- `TerrainGrid`
+## answers blocking from `kind` directly and never queries a collision layer.
 
 const CELL := 15
 const ATLAS := "res://Assets/UI/terrain_tiles.png"
@@ -38,6 +34,20 @@ const NUMBERS := {
 	},
 }
 
+## Issue 680: a tile IS its numbers, and the floor does NOT have exactly one
+## hazard -- the chokepoint's is a slow status (above), the Burn Pit's is fire
+## damage, and one shared `TileData` cannot hold both. Appended after the
+## per-`Kind` tiles so indices 0-4 and everything already baked onto them are
+## untouched; index 5 is HAZARD-shaped for movement/sight but carries its own
+## damage instead of the status.
+const EXTRA_TILES := [
+	{
+		"kind": Terrain.Kind.HAZARD,
+		"colour": Color(0.85, 0.35, 0.05),
+		"numbers": {"damage_per_tick": 2, "damage_type": CG.DamageType.FIRE},
+	},
+]
+
 func _initialize() -> void:
 	if not ResourceLoader.exists(ATLAS):
 		_bake_atlas()
@@ -49,9 +59,15 @@ func _initialize() -> void:
 
 func _bake_atlas() -> void:
 	var kinds := Terrain.Kind.values()
-	var img := Image.create(CELL * kinds.size(), CELL, false, Image.FORMAT_RGBA8)
-	for i in kinds.size():
-		var c: Color = COLOURS[kinds[i]]
+	var total := kinds.size() + EXTRA_TILES.size()
+	var img := Image.create(CELL * total, CELL, false, Image.FORMAT_RGBA8)
+	var colours: Array[Color] = []
+	for k in kinds:
+		colours.append(COLOURS[k])
+	for extra in EXTRA_TILES:
+		colours.append(extra["colour"])
+	for i in total:
+		var c: Color = colours[i]
 		for y in CELL:
 			for x in CELL:
 				## A one-pixel darker rim, so a run of the same tile still reads
@@ -86,11 +102,21 @@ func _bake_tileset() -> void:
 		var data := src.get_tile_data(coords, 0)
 		data.set_custom_data("kind", kinds[i])
 		## A tile IS its numbers: every cell painted with a tile shares one
-		## `TileData`, so a second hazard that slows for longer is a second
-		## tile, not a per-placement field. Floor 1 has exactly one hazard.
+		## `TileData`, so a second hazard needs a second tile, not a
+		## per-placement field -- see `EXTRA_TILES`.
 		for field in NUMBERS.get(kinds[i], {}):
 			data.set_custom_data(field, NUMBERS[kinds[i]][field])
 
+	for j in EXTRA_TILES.size():
+		var extra: Dictionary = EXTRA_TILES[j]
+		var coords := Vector2i(kinds.size() + j, 0)
+		src.create_tile(coords)
+		var data := src.get_tile_data(coords, 0)
+		data.set_custom_data("kind", extra["kind"])
+		for field in extra["numbers"]:
+			data.set_custom_data(field, extra["numbers"][field])
+
+	var total := kinds.size() + EXTRA_TILES.size()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT.get_base_dir()))
 	var err := ResourceSaver.save(ts, OUT)
-	print("wrote %s (err %d, %d tiles)" % [OUT, err, kinds.size()])
+	print("wrote %s (err %d, %d tiles)" % [OUT, err, total])

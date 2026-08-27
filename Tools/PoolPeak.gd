@@ -15,7 +15,7 @@ func _sweep(preset: bool) -> void:
 	print("=== %s pawns ===" % ["preset" if preset else "starter"])
 	for encounter_id in Registry.all_encounter_ids():
 		var encounter := Registry.get_encounter(encounter_id)
-		var authored := encounter.terrain.size()
+		var authored := encounter.cells.size()
 		var peak := 0
 		var casts := 0
 		var removed := 0

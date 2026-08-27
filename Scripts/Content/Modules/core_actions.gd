@@ -19,8 +19,5 @@ static func actions() -> Array[ActionDef]:
 static func enemies() -> Array[EnemyDef]:
 	return []
 
-static func encounters() -> Array[Encounter]:
-	return []
-
 static func items() -> Array[EquipmentDef]:
 	return []
