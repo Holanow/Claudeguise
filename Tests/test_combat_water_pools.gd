@@ -85,7 +85,7 @@ func _wet(state: CombatState, p: Vector2) -> bool:
 ## just applied. It is on the free WATER basic attack instead.
 func test_exactly_two_actions_leave_a_pool_and_neither_is_the_fire_spell() -> void:
 	var with_pool: Array[StringName] = []
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		if Registry.get_action(id).leaves_pool_radius > 0.0:
 			with_pool.append(id)
 	with_pool.sort_custom(func(a, b): return String(a) < String(b))

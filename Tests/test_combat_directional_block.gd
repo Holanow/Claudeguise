@@ -142,7 +142,7 @@ func test_the_block_starts_with_the_health_its_action_declares() -> void:
 ## A shield with no pool would be a shield with a timer wearing a new name.
 func test_a_shielding_action_in_the_content_always_carries_health() -> void:
 	var checked := 0
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var a := Registry.get_action(id)
 		if a == null or not a.applies_status_enabled or a.applies_status != CG.Status.SHIELDING:
 			continue

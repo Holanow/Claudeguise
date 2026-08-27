@@ -95,7 +95,7 @@ func test_the_abomination_has_exactly_one_armour_it_may_wear() -> void:
 
 func _offered(c: ClassDef, slot: int) -> Array[StringName]:
 	var out: Array[StringName] = []
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		var item := Registry.get_equipment(id)
 		if item.slot == slot and item.allows_class(c):
 			out.append(id)

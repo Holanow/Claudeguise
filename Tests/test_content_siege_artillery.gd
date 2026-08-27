@@ -45,7 +45,7 @@ func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
 	var slowest_other := 0
 	var total := 0
 	var n := 0
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		if id == &"siege_engine_bolt":
 			continue
 		var a := Registry.get_action(id)
@@ -76,7 +76,7 @@ func test_build_action_is_capped_at_two() -> void:
 ## every other action in the game must be untouched by them. Without this, a
 ## default flipped the wrong way would sail through every assertion above.
 func test_no_other_action_is_capped_or_marked_only() -> void:
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var a := Registry.get_action(id)
 		if id != &"siege_engine_bolt":
 			assert_false(a.requires_marked_target, "%s should not require a marked target" % id)

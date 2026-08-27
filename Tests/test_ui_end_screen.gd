@@ -340,7 +340,7 @@ func test_a_portrait_explains_the_class_and_the_gear_on_hover() -> void:
 	assert_true(bare.contains("Wore nothing."), "a naked pawn must say so: %s" % bare)
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"p0", "P0")
 	var item: EquipmentDef = null
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		var candidate := Registry.get_equipment(id)
 		if candidate.slot == EquipmentDef.Slot.WEAPON and candidate.allows_class(pawn.pawn_class):
 			item = candidate

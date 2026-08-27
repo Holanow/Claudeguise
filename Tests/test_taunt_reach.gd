@@ -47,7 +47,7 @@ func _victims() -> Array[Dictionary]:
 		for e in pawn.equipment():
 			ids.append_array(e.granted_actions)
 		out.append({"name": String(class_id), "speed": Balance.move_speed(pawn), "reach": _reach(ids)})
-	for enemy_id in Registry.all_enemy_ids():
+	for enemy_id in EnemyLibrary.all_ids():
 		var enemy := Registry.get_enemy(enemy_id)
 		if enemy == null or enemy.move_speed <= 0.0:
 			continue
@@ -71,7 +71,7 @@ func _reach(action_ids: Array[StringName]) -> float:
 
 func _taunt_actions() -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var a := Registry.get_action(id)
 		if a != null and a.applies_status_enabled and a.applies_status == CG.Status.TAUNTING and a.taunt_radius > 0.0:
 			out.append(a)

@@ -663,7 +663,7 @@ func _every_drawable_shape() -> Array:
 	var pawn_radius: float = CombatUnit.new().radius
 	for id in ClassLibrary.all_ids():
 		out.append([id, pawn_radius, CG.Team.PLAYER])
-	for id in Registry.all_enemy_ids():
+	for id in EnemyLibrary.all_ids():
 		var e = Registry.get_enemy(id)
 		out.append([id, e.radius if e != null else pawn_radius, CG.Team.ENEMY])
 	return out

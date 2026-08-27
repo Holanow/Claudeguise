@@ -25,7 +25,7 @@ func _print_drawn_sizes() -> void:
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, StringName("probe"), String(cid))
 		rows.append([String(cid), _pawn_radius(pawn)])
-	for eid in Registry.all_enemy_ids():
+	for eid in EnemyLibrary.all_ids():
 		var e := Registry.get_enemy(eid)
 		rows.append([String(eid), e.radius])
 	rows.sort_custom(func(a, b): return a[1] < b[1])

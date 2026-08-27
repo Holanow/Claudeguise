@@ -48,3 +48,14 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Actions/warrior_strike.tres",
 	"res://Scripts/Content/Actions/warrior_taunt.tres",
 ]
+
+## Same rule as `Registry._sort_ids`: sorted by id, because dictionary/array
+## iteration order is not something a fight may depend on. Issue #658 lever 3A.
+static func all_ids() -> Array[StringName]:
+	var ids: Array[StringName] = []
+	for path in PATHS:
+		var a: ActionDef = load(path)
+		ids.append(a.id)
+	ids.sort_custom(func(x: StringName, y: StringName) -> bool:
+		return String(x) < String(y))
+	return ids

@@ -42,14 +42,14 @@ func test_plate_mail_grants_directional_block() -> void:
 ## The negative half, and the one that would have caught the original defect:
 func test_at_least_one_registered_item_grants_an_action() -> void:
 	var granting := 0
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		if not Registry.get_equipment(id).granted_actions.is_empty():
 			granting += 1
 	assert_true(granting > 0,
 		"no registered item grants any action, so granted_actions is unreachable again")
 
 func test_every_granted_action_resolves() -> void:
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		for action_id in Registry.get_equipment(id).granted_actions:
 			assert_not_null(Registry.get_action(action_id),
 				"item %s grants unknown action %s" % [id, action_id])
@@ -170,7 +170,7 @@ func _is_basic_attack(action) -> bool:
 
 func _weapon_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		if Registry.get_equipment(id).slot == EquipmentDef.Slot.WEAPON:
 			out.append(id)
 	return out

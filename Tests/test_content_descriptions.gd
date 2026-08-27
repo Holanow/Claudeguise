@@ -25,7 +25,7 @@ const _POISON_RATE_ACTIONS := [&"abomination_claw", &"cultist_bolt"]
 
 func test_every_duration_in_an_ability_description_matches_its_own_ticks() -> void:
 	var checked := 0
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var action := Registry.get_action(id)
 		var text: String = action.description
 		var claimed := 0
