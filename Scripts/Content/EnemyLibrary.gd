@@ -5,8 +5,8 @@ class_name EnemyLibrary
 ## for the reason `ActionLibrary` and `ClassLibrary` give -- a `DirAccess` walk
 ## is ordered by the filesystem, and the registry may not be.
 ##
-## The order is the one the builders registered in, siege_engine first, because
-## `core_actions` came before `floor1_enemies` in `Registry.MODULES`.
+## The order is the one the deleted builders registered in, siege_engine
+## first. Kept because the fight depends on it, not because it is pretty.
 
 const PATHS: Array[String] = [
 	"res://Scripts/Content/Enemies/siege_engine.tres",

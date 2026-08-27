@@ -1,7 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CoreActions := preload("res://Scripts/Content/Modules/core_actions.gd")
-
 ## Issue 93: the Siege Engine as artillery -- unlimited reach, slow, immobile,
 ## and unable to choose its own targets.
 
@@ -20,16 +18,16 @@ func _party() -> Array[PawnData]:
 # what the content declares
 # ---------------------------------------------------------------------------
 
-## The guard `core_actions.gd`'s own comment promises instead of a stale note.
+## The guard the constant's own comment promises instead of a stale note.
 func test_arena_span_still_exceeds_the_real_arena_diagonal() -> void:
 	var diagonal := Vector2(CG.ARENA_HALF_WIDTH * 2.0, CG.ARENA_HALF_HEIGHT * 2.0).length()
-	assert_true(CoreActions.ARENA_SPAN > diagonal,
-		"ARENA_SPAN %f no longer covers the arena diagonal %f" % [CoreActions.ARENA_SPAN, diagonal])
+	assert_true(CG.ARENA_SPAN > diagonal,
+		"ARENA_SPAN %f no longer covers the arena diagonal %f" % [CG.ARENA_SPAN, diagonal])
 
 func test_engine_bolt_reaches_anywhere_and_only_at_a_marked_target() -> void:
 	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
 	assert_not_null(bolt, "siege_engine_bolt is missing from the registry")
-	assert_almost_eq(bolt.range_units, CoreActions.ARENA_SPAN, 0.0001,
+	assert_almost_eq(bolt.range_units, CG.ARENA_SPAN, 0.0001,
 		"the engine's reach should be the arena span")
 	assert_true(bolt.requires_marked_target,
 		"the engine must not be able to choose its own targets")
@@ -116,7 +114,7 @@ func _run(seed_value: int, encounter_id: StringName) -> Dictionary:
 				shots_at_unmarked += 1
 			var engine: CombatUnit = state.unit(e.source_id)
 			var target: CombatUnit = state.unit(e.target_id)
-			if engine != null and target != null 					and engine.position.distance_to(target.position) < CoreActions.ARENA_SPAN * 0.6:
+			if engine != null and target != null 					and engine.position.distance_to(target.position) < CG.ARENA_SPAN * 0.6:
 				shots_inside_kite_band += 1
 
 		while known < state.units.size():

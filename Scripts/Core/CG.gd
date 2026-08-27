@@ -11,6 +11,10 @@ const TICK_SECONDS := 1.0 / float(TICKS_PER_SECOND)
 const ARENA_HALF_WIDTH := 480.0
 const ARENA_HALF_HEIGHT := 270.0
 
+## "Reaches anywhere in the room", expressed as a real number. The Siege
+## Engine's bolt is authored at this.
+const ARENA_SPAN := 1200.0
+
 ## A fight that has not resolved by this tick is a draw. Stops a stalemate
 ## between two passive parties from hanging the runner.
 const MAX_TICKS := 3600

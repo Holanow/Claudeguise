@@ -27,7 +27,7 @@ const SECOND_WIND_ABOVE_FALLBACK := 0.7
 const TAUNT_AT_RADIUS := 350.0
 
 ## Issue 592: how far the Geysermancer's Scald row and the Siege Master's Mark
-## row look for a target. It is `CoreActions.CASTER_REACH`, so neither row can
+## row look for a target. It matches the reach below, so neither row can
 ## gate a cast at 200 while the spell it orders reaches 350.
 const CASTER_REACH := 350.0
 

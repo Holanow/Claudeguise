@@ -8,7 +8,7 @@ const _SIEGE_ENGINE := &"build_siege_engine"
 
 ## A Siege Master with exactly one action and the Mana to pay for it, so the
 ## default behaviour has nothing else it could pick. The engine's own 3-second
-## wind-up (90 ticks) is the real one from `core_actions.gd`, not a fixture
+## wind-up (90 ticks) is the real one from the action's `.tres`, not a fixture
 ## number -- if that action changes, this test follows it rather than asserting
 ## against a copy of it.
 func _caster() -> CombatUnit:

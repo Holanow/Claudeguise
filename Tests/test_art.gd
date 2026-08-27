@@ -880,8 +880,8 @@ func test_an_action_with_no_file_reports_no_icon() -> void:
 ## The pairs of actions that are allowed to draw the same glyph, and why. Any
 ## other pair is a collision and fails the test below.
 const _DELIBERATE_SHARED_GLYPHS := {
-	# `archer_shot` is retired from the bestiary -- `core_actions.gd` says so in
-	# its own description, and no enemy or class lists it. It survives only so an
+	# `archer_shot` is retired from the bestiary -- its own `.tres` description
+	# says so, and no enemy or class lists it. It survives only so an
 	# older fixture resolves, so it can never be drawn beside `goblin_arrow`, or
 	# at all.
 	"archer_shot|goblin_arrow": true,

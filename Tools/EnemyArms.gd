@@ -33,8 +33,8 @@ func _init() -> void:
 	quit(0)
 
 ## Every enemy that can appear on the ENEMY side of a pickable room, including
-## the ones summoned mid-fight. Derived rather than listed: `core_actions.gd`
-## also defines a Siege Engine, which fights on the PLAYER team, and scaling
+## the ones summoned mid-fight. Derived rather than listed: the content also
+## defines a Siege Engine, which fights on the PLAYER team, and scaling
 ## "all enemies" would nerf the player.
 func _hostile_ids() -> Array:
 	var ids := {}
