@@ -1,0 +1,55 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_nikj2"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_qtn0c"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_00nlx"]
+
+[node name="Room" type="Node2D" unique_id=1060398074]
+script = ExtResource("1_nikj2")
+id = &"floor1_rat_king"
+display_name = "Floor 1, The Nest"
+pickable = true
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=1434328588]
+tile_set = ExtResource("2_qtn0c")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=2131019010]
+
+[node name="@Marker2D@69" type="Marker2D" parent="PartySpawns" unique_id=1548616154]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@70" type="Marker2D" parent="PartySpawns" unique_id=1508815363]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@71" type="Marker2D" parent="PartySpawns" unique_id=685992822]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@72" type="Marker2D" parent="PartySpawns" unique_id=2082297903]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=2118881619]
+
+[node name="@Marker2D@73" type="Marker2D" parent="EnemySpawns" unique_id=1791580667]
+position = Vector2(330, 0)
+script = ExtResource("3_00nlx")
+enemy_id = &"rat_king"
+
+[node name="@Marker2D@74" type="Marker2D" parent="EnemySpawns" unique_id=816211838]
+position = Vector2(150, -140)
+script = ExtResource("3_00nlx")
+enemy_id = &"rat"
+
+[node name="@Marker2D@75" type="Marker2D" parent="EnemySpawns" unique_id=378693968]
+position = Vector2(160, -50)
+script = ExtResource("3_00nlx")
+enemy_id = &"rat"
+
+[node name="@Marker2D@76" type="Marker2D" parent="EnemySpawns" unique_id=951199264]
+position = Vector2(160, 50)
+script = ExtResource("3_00nlx")
+enemy_id = &"rat"
+
+[node name="@Marker2D@77" type="Marker2D" parent="EnemySpawns" unique_id=1125024850]
+position = Vector2(150, 140)
+script = ExtResource("3_00nlx")
+enemy_id = &"rat"

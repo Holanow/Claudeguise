@@ -42,7 +42,7 @@ var current_terrain_kind: Terrain.Kind = Terrain.Kind.WALL
 ## lookup per frame.
 var enemy_spawns: Array[Dictionary] = []
 
-## `Terrain.Feature`, same untyped-Array contract as `Encounter.terrain` and
+## `TerrainFeature`, same untyped-Array contract as `Encounter.terrain` and
 ## `CombatState.terrain`.
 var terrain: Array = []
 

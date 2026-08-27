@@ -5,11 +5,11 @@ extends SceneTree
 const SEEDS := 6
 
 func _initialize() -> void:
-	var enc := Encounter.new()
+	var enc := RoomData.new()
 	enc.id = &"probe_bridge"
 	enc.display_name = "The Narrows, elite"
 	var src := Registry.get_encounter(&"floor1_chokepoint")
-	enc.terrain = src.terrain
+	enc.cells = src.cells
 	enc.party_spawns = src.party_spawns
 	enc.enemy_spawns = [
 		{"enemy_id": &"sellsword", "position": Vector2(260.0, -90.0)},
@@ -18,7 +18,7 @@ func _initialize() -> void:
 		{"enemy_id": &"brute", "position": Vector2(360.0, -150.0)},
 		{"enemy_id": &"brute", "position": Vector2(360.0, 150.0)},
 	]
-	var classes := Registry.all_class_ids()
+	var classes := ClassLibrary.all_ids()
 	for skip in classes.size():
 		var ids: Array = []
 		for i in classes.size():

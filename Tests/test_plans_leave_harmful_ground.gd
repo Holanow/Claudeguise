@@ -7,7 +7,7 @@ extends "res://Tests/TestCase.gd"
 ## A band 200 wide, the width of the Burn Pit's, centred on the pawn's spot.
 const BAND := Rect2(-100.0, -270.0, 200.0, 540.0)
 
-func _fire(rect: Rect2) -> Terrain.Feature:
+func _fire(rect: Rect2) -> TerrainFeature:
 	return Terrain.hazard(rect, 2, CG.DamageType.FIRE)
 
 

@@ -1,0 +1,39 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_kebuk"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_0yt2r"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_jwr7r"]
+
+[node name="Room" type="Node2D" unique_id=820176272]
+script = ExtResource("1_kebuk")
+id = &"floor1_ghoul_den"
+display_name = "Floor 1, Ghoul Den"
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=256968783]
+tile_set = ExtResource("2_0yt2r")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=199847743]
+
+[node name="@Marker2D@14" type="Marker2D" parent="PartySpawns" unique_id=1104912034]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@15" type="Marker2D" parent="PartySpawns" unique_id=885799665]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@16" type="Marker2D" parent="PartySpawns" unique_id=741697396]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@17" type="Marker2D" parent="PartySpawns" unique_id=45603055]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=1070288915]
+
+[node name="@Marker2D@18" type="Marker2D" parent="EnemySpawns" unique_id=766073936]
+position = Vector2(200, -80)
+script = ExtResource("3_jwr7r")
+enemy_id = &"ghoul"
+
+[node name="@Marker2D@19" type="Marker2D" parent="EnemySpawns" unique_id=770572382]
+position = Vector2(200, 80)
+script = ExtResource("3_jwr7r")
+enemy_id = &"ghoul"

@@ -12,7 +12,7 @@ func _init() -> void:
 	_score("paint", _without_terrain(enc))
 	quit(0)
 
-func _score(label: String, enc: Encounter) -> void:
+func _score(label: String, enc: RoomData) -> void:
 	var fires := 0
 	var unit_ticks := 0
 	var ticks := 0
@@ -35,8 +35,8 @@ func _is_ranged(action_id: StringName) -> bool:
 	var a := ActionLibrary.get_action(action_id)
 	return a != null and not a.heals and a.requires_line_of_sight and a.range_units > 60.0
 
-func _without_terrain(enc: Encounter) -> Encounter:
-	var e := Encounter.new()
+func _without_terrain(enc: RoomData) -> RoomData:
+	var e := RoomData.new()
 	e.id = enc.id
 	e.display_name = enc.display_name
 	e.enemy_spawns = enc.enemy_spawns

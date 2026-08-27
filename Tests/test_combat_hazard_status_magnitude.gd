@@ -38,7 +38,7 @@ func _idle_deps() -> SimDeps:
 
 ## One victim standing in one hazard, and one distant enemy so the fight does
 ## not end before the status has ticked.
-func _stand_in(pit: Terrain.Feature, ticks: int) -> CombatUnit:
+func _stand_in(pit: TerrainFeature, ticks: int) -> CombatUnit:
 	var state := CombatState.new(_SEED)
 	state.grid.stamp_features([pit])
 	state.units.append(_unit(0, CG.Team.PLAYER, 500, Vector2.ZERO))
@@ -57,7 +57,7 @@ func _magnitude_for_a_whole_point(status: CG.Status) -> float:
 	var per_magnitude: float = deps.status_damage_per_magnitude.call(u, status)
 	return ceil(1.0 / per_magnitude)
 
-func _burn_pit(magnitude: float) -> Terrain.Feature:
+func _burn_pit(magnitude: float) -> TerrainFeature:
 	var pit := Terrain.make(Terrain.Kind.HAZARD, Rect2(-50.0, -50.0, 100.0, 100.0))
 	pit.applies_status_enabled = true
 	pit.applies_status = _magnitude_only_statuses()[0]
@@ -130,14 +130,14 @@ func test_authored_terrain_that_applies_a_scaled_dot_declares_its_magnitude() ->
 		var encounter := Registry.get_encounter(encounter_id)
 		if encounter == null:
 			continue
-		for feature in encounter.terrain:
+		for cell in encounter.cells.values():
 			checked += 1
-			if not feature.applies_status_enabled:
+			if not cell.applies_status_enabled:
 				continue
-			if not magnitude_only.has(feature.applies_status):
+			if not magnitude_only.has(cell.applies_status):
 				continue
-			assert_true(feature.status_magnitude > 0.0,
+			assert_true(cell.status_magnitude > 0.0,
 				("%s applies status %d from terrain and declares no magnitude. That "
 				+ "status's whole damage rate is a multiple of one, so it will tick "
-				+ "for zero. Set `status_magnitude` on the feature.") % [encounter_id, feature.applies_status])
+				+ "for zero. Set `status_magnitude` on the feature.") % [encounter_id, cell.applies_status])
 	assert_true(checked > 0, "no terrain features found at all; this test measured nothing")

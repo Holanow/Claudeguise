@@ -19,8 +19,8 @@ func _make_party() -> Array[PawnData]:
 	var out: Array[PawnData] = [pawn]
 	return out
 
-func _make_encounter() -> Encounter:
-	var e := Encounter.new()
+func _make_encounter() -> RoomData:
+	var e := RoomData.new()
 	e.enemy_spawns = [{"enemy_id": &"test_dummy", "position": Vector2(80.0, 0.0)}]
 	e.party_spawns = [Vector2(-80.0, 0.0)]
 	return e

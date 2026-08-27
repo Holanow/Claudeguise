@@ -257,7 +257,7 @@ func test_a_real_fight_never_emits_a_heal_the_bar_did_not_move() -> void:
 		PawnFactory.make_starter_pawn(&"priest", &"p0", "P0"),
 		PawnFactory.make_starter_pawn(&"warrior", &"p1", "P1"),
 	]
-	var e := Encounter.new()
+	var e := RoomData.new()
 	e.party_spawns = [Vector2(-80.0, -20.0), Vector2(-80.0, 20.0)]
 	e.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(80.0, 0.0)}]
 	var s := CombatSim.build(party, e, 7)

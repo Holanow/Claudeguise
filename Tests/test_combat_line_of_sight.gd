@@ -53,7 +53,7 @@ func _deps(actions_by_id: Dictionary, power: float) -> SimDeps:
 ## 2-unit wall at x=4 with the target at x=10, all of which is inside ONE
 ## 15-unit cell -- and inside one pawn, whose radius is 22. Snapped to cells the
 ## attacker stood in its own wall. The wall now occupies a cell of its own.
-func _wall() -> Terrain.Feature:
+func _wall() -> TerrainFeature:
 	return Terrain.make(Terrain.Kind.WALL, Rect2(Vector2(20, -20), Vector2(10, 40)))
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_q1dih"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_80hop"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_6fp1n"]
+
+[node name="Room" type="Node2D" unique_id=1215831773]
+script = ExtResource("1_q1dih")
+id = &"floor1_warden"
+display_name = "Floor 1, The Warden's Chamber"
+pickable = true
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=73459169]
+tile_set = ExtResource("2_80hop")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=1882527697]
+
+[node name="@Marker2D@78" type="Marker2D" parent="PartySpawns" unique_id=1842571748]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@79" type="Marker2D" parent="PartySpawns" unique_id=773345258]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@80" type="Marker2D" parent="PartySpawns" unique_id=1789532717]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@81" type="Marker2D" parent="PartySpawns" unique_id=1574409652]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=2006732177]
+
+[node name="@Marker2D@82" type="Marker2D" parent="EnemySpawns" unique_id=782766713]
+position = Vector2(200, 0)
+script = ExtResource("3_6fp1n")
+enemy_id = &"the_warden"

@@ -239,6 +239,14 @@ func stamp_features(features: Array) -> void:
 	for f in features:
 		_write(Layer.FLOOR, authored_cells(f.rect), cell_from_feature(f))
 
+## Writes a scene's already-painted cells straight to the floor, one write per
+## entry -- the room's `TileMapLayer` is the authoring surface now, so there is
+## no rect to rasterise. Issue 680.
+func stamp_cells(cells: Dictionary) -> void:
+	for c in cells:
+		var at_c: Array[Vector2i] = [c]
+		_write(Layer.FLOOR, at_c, cells[c])
+
 ## The cells an authored rectangle becomes. By centre, so a wall keeps roughly
 ## the footprint it was drawn with and never grows a corridor shut -- except
 ## where that would claim nothing at all, which is any feature thinner than a

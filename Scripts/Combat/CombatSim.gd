@@ -14,15 +14,15 @@ const PULL_TICKS := 7
 
 ## Builds the starting state: places both sides, derives hp and resources
 ## through `deps`, and emits FIGHT_START.
-static func build(party: Array[PawnData], encounter: Encounter, fight_seed: int, deps: SimDeps = null) -> CombatState:
+static func build(party: Array[PawnData], encounter: RoomData, fight_seed: int, deps: SimDeps = null) -> CombatState:
 	if deps == null:
 		deps = SimDeps.new()
 	var state := CombatState.new(fight_seed)
 	## Issue 492: the state owns its terrain, because terrain is mutable now.
-	## Sharing the encounter's array was harmless while nothing ever wrote to it
+	## Sharing the room's cells was harmless while nothing ever wrote to them
 	## and is not any more: pools were being written back into the room, so the
 	## next fight in the same process started in the last one's puddles.
-	state.grid.stamp_features(encounter.terrain)
+	state.grid.stamp_cells(encounter.cells)
 	var next_id := 0
 
 	for i in party.size():
@@ -73,7 +73,7 @@ static func run(state: CombatState, deps: SimDeps = null) -> CombatState.Outcome
 ## deploy screen has to open showing where each pawn *would* have started, and a
 ## screen that reimplemented the overflow rule would drift from the fight it is
 ## meant to be previewing. One rule, asked rather than copied.
-static func party_spawn_position(encounter: Encounter, index: int) -> Vector2:
+static func party_spawn_position(encounter: RoomData, index: int) -> Vector2:
 	if index < encounter.party_spawns.size():
 		return encounter.party_spawns[index]
 	var base := Vector2.ZERO

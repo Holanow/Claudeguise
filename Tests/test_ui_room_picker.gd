@@ -121,8 +121,8 @@ func test_the_summary_counts_what_the_room_really_contains() -> void:
 		assert_true(summary.contains("%d enemies" % room.enemy_spawns.size()),
 			"'%s' summary must state the real headcount, got: %s" % [id, summary])
 		var pillars := 0
-		for f in room.terrain:
-			if f.kind == Terrain.Kind.PILLAR:
+		for c in room.cells.values():
+			if c.kind == Terrain.Kind.PILLAR:
 				pillars += 1
 		if pillars > 0:
 			assert_true(summary.contains("%d pillar" % pillars),
@@ -133,7 +133,7 @@ func test_the_summary_counts_what_the_room_really_contains() -> void:
 func test_a_room_with_no_terrain_says_open_ground() -> void:
 	var bare: StringName = &""
 	for id in PartySelect.offered_rooms():
-		if Registry.get_encounter(id).terrain.is_empty():
+		if Registry.get_encounter(id).cells.is_empty():
 			bare = id
 			break
 	assert_true(bare != &"", "no offered room is open ground, so this check is vacuous")

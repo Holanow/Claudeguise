@@ -194,14 +194,14 @@ const _ENCOUNTER_FOR_TYPE := {
 	FloorRoom.Type.BOSS: &"floor1_warden",
 }
 
-static func _encounter_for(room: FloorRoom) -> Encounter:
+static func _encounter_for(room: FloorRoom) -> RoomData:
 	var encounter_id: StringName = _ENCOUNTER_FOR_TYPE.get(room.type, &"floor1_room1")
 	var base := Registry.get_encounter(encounter_id)
-	var scaled := Encounter.new()
+	var scaled := RoomData.new()
 	scaled.id = base.id
 	scaled.display_name = base.display_name
 	scaled.party_spawns = base.party_spawns
-	scaled.terrain = base.terrain
+	scaled.cells = base.cells
 	var count := clampi(room.difficulty, 1, base.enemy_spawns.size())
 	scaled.enemy_spawns = base.enemy_spawns.slice(0, count)
 	return scaled

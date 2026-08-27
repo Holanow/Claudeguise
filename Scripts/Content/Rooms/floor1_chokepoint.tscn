@@ -1,0 +1,81 @@
+[gd_scene format=4]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_g1y4i"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_wcp07"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_hhpwo"]
+
+[node name="Room" type="Node2D" unique_id=548031214]
+script = ExtResource("1_g1y4i")
+id = &"floor1_chokepoint"
+display_name = "Floor 1, The Narrows"
+pickable = true
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=97990188]
+tile_map_data = PackedByteArray("AAD//+7/AAADAAAAAAAAAO7/AAADAAAAAAABAO7/AAADAAAAAAACAO7/AAADAAAAAAD//+//AAADAAAAAAAAAO//AAADAAAAAAABAO//AAADAAAAAAACAO//AAADAAAAAAD///D/AAADAAAAAAAAAPD/AAADAAAAAAABAPD/AAADAAAAAAACAPD/AAADAAAAAAD///H/AAADAAAAAAAAAPH/AAADAAAAAAABAPH/AAADAAAAAAACAPH/AAADAAAAAAD///L/AAADAAAAAAAAAPL/AAADAAAAAAABAPL/AAADAAAAAAACAPL/AAADAAAAAAD///P/AAADAAAAAAAAAPP/AAADAAAAAAABAPP/AAADAAAAAAACAPP/AAADAAAAAAD///T/AAADAAAAAAAAAPT/AAADAAAAAAABAPT/AAADAAAAAAACAPT/AAADAAAAAAD///X/AAADAAAAAAAAAPX/AAADAAAAAAABAPX/AAADAAAAAAACAPX/AAADAAAAAAD///b/AAADAAAAAAAAAPb/AAADAAAAAAABAPb/AAADAAAAAAACAPb/AAADAAAAAAD///f/AAADAAAAAAAAAPf/AAADAAAAAAABAPf/AAADAAAAAAACAPf/AAADAAAAAAD///j/AAADAAAAAAAAAPj/AAADAAAAAAABAPj/AAADAAAAAAACAPj/AAADAAAAAAD///n/AAADAAAAAAAAAPn/AAADAAAAAAABAPn/AAADAAAAAAACAPn/AAADAAAAAAD///r/AAADAAAAAAAAAPr/AAADAAAAAAABAPr/AAADAAAAAAACAPr/AAADAAAAAAD///v/AAADAAAAAAAAAPv/AAADAAAAAAABAPv/AAADAAAAAAACAPv/AAADAAAAAAD//wQAAAADAAAAAAAAAAQAAAADAAAAAAABAAQAAAADAAAAAAACAAQAAAADAAAAAAD//wUAAAADAAAAAAAAAAUAAAADAAAAAAABAAUAAAADAAAAAAACAAUAAAADAAAAAAD//wYAAAADAAAAAAAAAAYAAAADAAAAAAABAAYAAAADAAAAAAACAAYAAAADAAAAAAD//wcAAAADAAAAAAAAAAcAAAADAAAAAAABAAcAAAADAAAAAAACAAcAAAADAAAAAAD//wgAAAADAAAAAAAAAAgAAAADAAAAAAABAAgAAAADAAAAAAACAAgAAAADAAAAAAD//wkAAAADAAAAAAAAAAkAAAADAAAAAAABAAkAAAADAAAAAAACAAkAAAADAAAAAAD//woAAAADAAAAAAAAAAoAAAADAAAAAAABAAoAAAADAAAAAAACAAoAAAADAAAAAAD//wsAAAADAAAAAAAAAAsAAAADAAAAAAABAAsAAAADAAAAAAACAAsAAAADAAAAAAD//wwAAAADAAAAAAAAAAwAAAADAAAAAAABAAwAAAADAAAAAAACAAwAAAADAAAAAAD//w0AAAADAAAAAAAAAA0AAAADAAAAAAABAA0AAAADAAAAAAACAA0AAAADAAAAAAD//w4AAAADAAAAAAAAAA4AAAADAAAAAAABAA4AAAADAAAAAAACAA4AAAADAAAAAAD//w8AAAADAAAAAAAAAA8AAAADAAAAAAABAA8AAAADAAAAAAACAA8AAAADAAAAAAD//xAAAAADAAAAAAAAABAAAAADAAAAAAABABAAAAADAAAAAAACABAAAAADAAAAAAD//xEAAAADAAAAAAAAABEAAAADAAAAAAABABEAAAADAAAAAAACABEAAAADAAAAAAD///z/AAACAAAAAAAAAPz/AAACAAAAAAABAPz/AAACAAAAAAACAPz/AAACAAAAAAD///3/AAACAAAAAAAAAP3/AAACAAAAAAABAP3/AAACAAAAAAACAP3/AAACAAAAAAD///7/AAACAAAAAAAAAP7/AAACAAAAAAABAP7/AAACAAAAAAACAP7/AAACAAAAAAD/////AAACAAAAAAAAAP//AAACAAAAAAABAP//AAACAAAAAAACAP//AAACAAAAAAD//wAAAAACAAAAAAAAAAAAAAACAAAAAAABAAAAAAACAAAAAAACAAAAAAACAAAAAAD//wEAAAACAAAAAAAAAAEAAAACAAAAAAABAAEAAAACAAAAAAACAAEAAAACAAAAAAD//wIAAAACAAAAAAAAAAIAAAACAAAAAAABAAIAAAACAAAAAAACAAIAAAACAAAAAAD//wMAAAACAAAAAAAAAAMAAAACAAAAAAABAAMAAAACAAAAAAACAAMAAAACAAAAAAA=")
+tile_set = ExtResource("2_wcp07")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=1364877721]
+
+[node name="@Marker2D@48" type="Marker2D" parent="PartySpawns" unique_id=527133581]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@49" type="Marker2D" parent="PartySpawns" unique_id=1986378483]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@50" type="Marker2D" parent="PartySpawns" unique_id=1385311782]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@51" type="Marker2D" parent="PartySpawns" unique_id=215213025]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=1310031426]
+
+[node name="@Marker2D@52" type="Marker2D" parent="EnemySpawns" unique_id=247584316]
+position = Vector2(150, -150)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@53" type="Marker2D" parent="EnemySpawns" unique_id=1274202069]
+position = Vector2(150, -50)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@54" type="Marker2D" parent="EnemySpawns" unique_id=1580148313]
+position = Vector2(150, 50)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@55" type="Marker2D" parent="EnemySpawns" unique_id=733006588]
+position = Vector2(150, 150)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@56" type="Marker2D" parent="EnemySpawns" unique_id=488467933]
+position = Vector2(230, -60)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@57" type="Marker2D" parent="EnemySpawns" unique_id=1303153073]
+position = Vector2(230, 60)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@58" type="Marker2D" parent="EnemySpawns" unique_id=27053132]
+position = Vector2(230, 200)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@59" type="Marker2D" parent="EnemySpawns" unique_id=847477054]
+position = Vector2(210, -200)
+script = ExtResource("3_hhpwo")
+enemy_id = &"cultist"
+
+[node name="@Marker2D@60" type="Marker2D" parent="EnemySpawns" unique_id=2088628494]
+position = Vector2(190, 0)
+script = ExtResource("3_hhpwo")
+enemy_id = &"ghoul"
+
+[node name="@Marker2D@61" type="Marker2D" parent="EnemySpawns" unique_id=493597225]
+position = Vector2(190, -220)
+script = ExtResource("3_hhpwo")
+enemy_id = &"ghoul"
