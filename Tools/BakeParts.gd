@@ -359,6 +359,20 @@ func _outlined(mask: Image) -> Image:
 				out.set_pixel(x, y, Color.WHITE)
 	return out
 
+## Issue 690. The mean position of every opaque pixel, on the outlined image
+## that actually ships. `UnitVisual` pivots a part's rotation about this
+## instead of the canvas centre, so a hand or blade near the canvas edge turns
+## in place rather than orbiting the body.
+static func _centroid(img: Image) -> Vector2:
+	var sum := Vector2.ZERO
+	var count := 0
+	for y in N:
+		for x in N:
+			if img.get_pixel(x, y).a > 0.0:
+				sum += Vector2(x, y)
+				count += 1
+	return sum / float(count) if count > 0 else Vector2(N, N) * 0.5
+
 func _touches_ink(img: Image, x: int, y: int) -> bool:
 	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var q := Vector2i(x, y) + d
@@ -373,13 +387,19 @@ func _init() -> void:
 	var parts := _parts()
 	var names := parts.keys()
 	names.sort()
+	var centroids := {}
 	for name in names:
 		var img: Image = parts[name]
 		var used := img.get_used_rect()
 		if used.size.x <= 0 or used.size.y <= 0:
 			printerr("BakeParts: '%s' puts no ink on the canvas" % name)
 			continue
-		_outlined(img).save_png("%s/%s.png" % [OUT_DIR, name])
-		print("  %-16s ink %3d x %3d of %d" % [name, used.size.x, used.size.y, N])
+		var outlined := _outlined(img)
+		outlined.save_png("%s/%s.png" % [OUT_DIR, name])
+		var c := _centroid(outlined)
+		centroids[name] = [c.x, c.y]
+		print("  %-16s ink %3d x %3d of %d, centroid (%.1f, %.1f)" % [name, used.size.x, used.size.y, N, c.x, c.y])
+	var f := FileAccess.open("%s/centroids.json" % OUT_DIR, FileAccess.WRITE)
+	f.store_string(JSON.stringify(centroids, "  "))
 	print("BakeParts: %d outlined part(s) at %dx%d written to %s" % [names.size(), N, N, OUT_DIR])
 	quit(0)

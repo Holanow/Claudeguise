@@ -65,19 +65,36 @@ func build(shape_id: StringName, team: CG.Team, radius: float, weapon_part: Stri
 	# Six empty slots would draw nothing, and an invisible unit is a worse defect
 	# than an obvious one -- it is issue #75 all over again.
 	if sprites.is_empty():
-		_add(&"Body", _black_square(), Color.BLACK, Vector2(radius * 2.0, radius * 2.0), &"")
+		_add(&"Body", _black_square(), Color.BLACK, Vector2(radius * 2.0, radius * 2.0), &"", &"")
 		return
+	# Issue 690. A weapon pivots about the hand that grips it, not about its own
+	# centroid -- one arm, one pivot, so the grip stays glued to the hand by
+	# construction rather than by two numbers that have to agree.
+	var main_hand_part: StringName = &""
+	for s in sprites:
+		if s["slot"] == &"HandMain":
+			main_hand_part = s["part"]
+			break
 	for s in sprites:
 		# A missing part file is a black square too, and for the same reason.
 		var tex: Texture2D = s["tex"]
 		var missing := tex == null
+		var pivot_part: StringName = s["part"]
+		if s["slot"] == &"Weapon" and main_hand_part != &"":
+			pivot_part = main_hand_part
 		_add(s["slot"],
 			_black_square() if missing else tex,
 			Color.BLACK if missing else s["color"],
 			Vector2(radius * 2.0, radius * 2.0) if missing else Vector2(scale_to, scale_to),
-			s["part"])
+			s["part"], &"" if missing else pivot_part)
 
-func _add(slot: StringName, tex: Texture2D, color: Color, scale_to: Vector2, part: StringName) -> void:
+## Issue 690. Every part is a full-canvas PNG and `centered = true`, so an
+## untouched sprite pivots about the canvas centre -- the body's centre, not
+## the part. `offset` moves the part's own opaque centroid onto this sprite's
+## local origin, so rotation (`rotate_slot`) turns about the part rather than
+## about the body; `position` compensates so the picture still lands exactly
+## where the old canvas-centre pivot put it before anything rotates.
+func _add(slot: StringName, tex: Texture2D, color: Color, scale_to: Vector2, part: StringName, pivot_part: StringName) -> void:
 	var sprite := Sprite2D.new()
 	sprite.texture = tex
 	sprite.centered = true
@@ -86,6 +103,13 @@ func _add(slot: StringName, tex: Texture2D, color: Color, scale_to: Vector2, par
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.set_meta(&"part", part)
 	sprite.set_meta(&"color", color)
+	var center := Vector2(tex.get_width(), tex.get_height()) * 0.5
+	var pivot := UnitArt.part_centroid(pivot_part, tex) if pivot_part != &"" else center
+	var rel := pivot - center
+	sprite.offset = -rel
+	var pivot_pos := rel * scale_to
+	sprite.set_meta(&"pivot_pos", pivot_pos)
+	sprite.position = pivot_pos
 	(_slots[slot] as Node2D).add_child(sprite)
 
 ## One white pixel, scaled to the footprint. The black square, and it is white in
@@ -109,7 +133,8 @@ func offset_slot(slot: StringName, offset: Vector2) -> void:
 		return
 	for sprite in (_slots[slot] as Node2D).get_children():
 		var part: StringName = sprite.get_meta(&"part", &"")
-		sprite.position = offset * float(PartAnimation.PARTS.get(part, 1.0))
+		var pivot_pos: Vector2 = sprite.get_meta(&"pivot_pos", Vector2.ZERO)
+		sprite.position = pivot_pos + offset * float(PartAnimation.PARTS.get(part, 1.0))
 
 ## How far a slot is turned this frame, from where its parts were authored.
 ## Mirrors `offset_slot`: applied per sprite and composed through the same
