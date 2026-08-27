@@ -83,7 +83,7 @@ static func _default_move_speed(pawn: PawnData) -> float:
 ## derive for them.
 static func _default_attack_power(unit: CombatUnit, action: ActionDef, rng: RandomNumberGenerator = null) -> float:
 	if unit.pawn != null:
-		return Balance.attack_power(unit.pawn, action.damage_type, rng) * action.power_scale
+		return Balance.attack_power(unit.pawn, action.damage_type, rng) * action.power_scale * AbilityModifiers.power_multiplier(unit, action)
 	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
 	if enemy_def == null:
 		return 0.0
