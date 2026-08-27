@@ -1135,66 +1135,19 @@ func _fixed_chip(text: String) -> Control:
 
 # ---------------------------------------------------------------------------
 # The default row: what a pawn does when no plan of its own fires.
+## Issue 654: this was 48 lines of hand-written prose that re-derived the
+## fallback's policy -- the heal threshold, the melee/ranged split, both commit
+## fractions, the taunter clause -- and it had already drifted. It printed "the
+## nearest enemy, or whoever is taunting" while a party pawn actually takes the
+## player's clicked enemy first. Nothing could go red: no test compared the
+## sentence to the behaviour, because both were written by one author in one
+## sitting. The rows say what they do now, and a sentence generated from a row
+## cannot disagree with the row.
 func _default_rows(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	var actions: Array[ActionDef] = []
-	for id in _available_actions(pawn):
-		var a: ActionDef = Registry.get_action(id)
-		if a != null:
-			actions.append(a)
-
-	# Skill, target, condition — the same order as an editable row above, so
-	# the column reads straight down.
-	var heal := _default_heal_action(actions)
-	if heal != null:
-		out.append(_fixed_row([
-			"Move into range, then %s" % heal.display_name,
-			"That ally",
-			"When an ally is at or below %d%% hp" % int(round(DefaultBehavior.HEAL_THRESHOLD_FRACTION * 100.0)),
-		]))
-
-	var melee := _default_attack_action(actions, false)
-	var ranged := _default_attack_action(actions, true)
-	var base := "Otherwise" if heal != null else "Always"
-	var target_text := "The nearest enemy, or whoever is taunting"
-	if melee == null and ranged == null:
-		out.append(_fixed_row(["Nothing. This pawn has no attack", target_text, base]))
-	elif melee != null and ranged != null:
-		# The only case with two rows to choose between, and the cut is the
-		# melee action's own commit distance, not MELEE_RANGE_THRESHOLD --
-		# that constant only sorts actions into the two piles, it never
-		# decides between them. No player class carries both today; The
-		# Warden does, which is why this branch exists at all.
-		var cut := int(melee.range_units * DefaultBehavior.MELEE_COMMIT_FRACTION)
-		out.append(_fixed_row([melee.display_name, target_text, "%s, within %d units" % [base, cut]]))
-		out.append(_fixed_row([_ranged_text(ranged), target_text, "Otherwise"]))
-	elif melee != null:
-		out.append(_fixed_row([_melee_text(melee), target_text, base]))
-	else:
-		out.append(_fixed_row([_ranged_text(ranged), target_text, base]))
+	for plan in FallbackPlan.rows_for(null):
+		out.append(_fixed_row(_library_row_texts(plan)))
 	return out
-
-func _melee_text(action: ActionDef) -> String:
-	return "Close to within %d units, then %s" % [
-		int(action.range_units * DefaultBehavior.MELEE_COMMIT_FRACTION), action.display_name]
-
-## Issue 544: the automatic back-off is gone, so the row no longer describes one.
-func _ranged_text(action: ActionDef) -> String:
-	return "Close to within %d units, then %s" % [
-		int(action.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION), action.display_name]
-
-## Mirrors `DefaultBehavior._first_heal`, including the `power_scale > 0.0`
-## part: `geyser_cleanse` sets `heals` and restores nothing, and the fallback
-## deliberately never reaches for it.
-func _default_heal_action(actions: Array[ActionDef]) -> ActionDef:
-	for a in actions:
-		if a.heals and a.power_scale > 0.0:
-			return a
-	return null
-
-## Issue 129: `DefaultBehavior` itself, not a mirror of it.
-func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
-	return DefaultBehavior.default_attack_action(actions, want_ranged)
 
 ## Named so a probe and a test can find the rows the panel builds for itself.
 const FALLBACK_ROW_NAME := "FallbackRow"

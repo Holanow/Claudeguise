@@ -317,3 +317,46 @@ static func _lowest_hp_fraction(units: Array[CombatUnit]) -> CombatUnit:
 			best_fraction = f
 			best = u
 	return best
+
+# ---------------------------------------------------------------------------
+# Issue 641. Thin public readers so the fallback's plan rows can ask the same
+# questions `decide` asks, without renaming anything the tests already call.
+# All of these are pure: no rng, no writes, so asking twice costs only time.
+
+## The candidate set `decide` works from, widening included (issue 166).
+static func candidates_for(state: CombatState, unit: CombatUnit) -> Array[ActionDef]:
+	var candidates := _actions_that_can_fire_now(state, unit)
+	if _first_heal(candidates) == null and _attack_candidates(candidates).is_empty():
+		candidates = _all_actions(unit)
+	return candidates
+
+## The ally the heal row would go to, or null when the row would not fire at
+## all. One function so the condition and the targeting cannot disagree.
+static func neediest_heal_target(state: CombatState, unit: CombatUnit) -> CombatUnit:
+	var heal_action := _first_heal(candidates_for(state, unit))
+	if heal_action == null:
+		return null
+	var neediest := _lowest_hp_fraction(_heal_candidates(state, unit, heal_action))
+	if neediest == null or neediest.hp_fraction() > HEAL_THRESHOLD_FRACTION:
+		return null
+	return neediest
+
+static func heal_action_for(state: CombatState, unit: CombatUnit) -> ActionDef:
+	return _first_heal(candidates_for(state, unit))
+
+static func self_buff_for(state: CombatState, unit: CombatUnit, enemies: Array[CombatUnit]) -> ActionDef:
+	return _self_targeted_to_cast(state, unit, enemies)
+
+static func attack_for(state: CombatState, unit: CombatUnit, target: CombatUnit) -> ActionDef:
+	return _choose_attack_action(candidates_for(state, unit), unit, target)
+
+static func choose_target(state: CombatState, unit: CombatUnit, enemies: Array[CombatUnit]) -> CombatUnit:
+	return _choose_target(state, unit, enemies)
+
+## The enemies a plan row may aim at: issue 93's mark filter is legality rather
+## than preference, so it is applied here and not offered as a row.
+static func legal_enemies(state: CombatState, unit: CombatUnit) -> Array[CombatUnit]:
+	var enemies := state.living(CG.Team.ENEMY if unit.team == CG.Team.PLAYER else CG.Team.PLAYER)
+	if _all_attacks_require_a_mark(candidates_for(state, unit)):
+		return _only_marked(enemies)
+	return enemies

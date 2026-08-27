@@ -25,6 +25,7 @@ func _initialize() -> void:
 	var class_ids := Registry.all_class_ids()
 	var checked := 0
 	var differed := 0
+	var relabelled := 0
 	var shown := 0
 	for encounter_id in Registry.all_encounter_ids():
 		var encounter := Registry.get_encounter(encounter_id)
@@ -41,7 +42,9 @@ func _initialize() -> void:
 							continue
 						checked += 1
 						var a := _run(state, unit, false)
-						var b := _run(state, unit, perturb)
+						var b := _run(state, unit, true) if not perturb else _wrong()
+						if a != null and b != null and a.source_plan != b.source_plan:
+							relabelled += 1
 						if _same(a, b):
 							continue
 						differed += 1
@@ -53,10 +56,17 @@ func _initialize() -> void:
 							print("    B %s" % _show(b))
 					CombatSim.step(state)
 	print("FallbackDiff: %d planless decisions checked, %d differed" % [checked, differed])
+	## Issue 641 on purpose: the fallback now names the row it ran, so
+	## `source_plan` goes from "" to a readable id. That is the payoff, not a
+	## difference, so it is counted apart from the ones that matter.
+	print("FallbackDiff: %d relabelled (source_plan only, intended)" % relabelled)
 	quit(1 if (differed > 0) != perturb else 0)
 
 ## Arm A, or arm B. Snapshot and restore around every call, so asking costs
 ## nothing: the rng stream and every focus_id come back exactly as they were.
+static func _wrong() -> Intent:
+	return Intent.idle()
+
 func _run(state: CombatState, unit: CombatUnit, wrong: bool) -> Intent:
 	var rng_state := state.rng.state
 	var focus: Array[int] = []
@@ -68,10 +78,10 @@ func _run(state: CombatState, unit: CombatUnit, wrong: bool) -> Intent:
 		state.units[i].focus_id = focus[i]
 	return out
 
-## The plan form, once it exists. Until then it is the deliberate-wrong answer
-## that proves the differ can fire.
-func _arm_b(_state: CombatState, _unit: CombatUnit) -> Intent:
-	return Intent.idle()
+## The plan form. `-- perturb` swaps it for a deliberately wrong answer, which
+## is what proves the identity number means anything.
+func _arm_b(state: CombatState, unit: CombatUnit) -> Intent:
+	return FallbackPlan.decide(state, unit)
 
 ## `CombatSim._decide_phase`'s own guard chain, read-only. `_compelling_taunter`
 ## is NOT called: it removes the status and emits an event when the taunter is
@@ -105,8 +115,7 @@ static func _same(a: Intent, b: Intent) -> bool:
 	return a.kind == b.kind \
 		and a.action_id == b.action_id \
 		and a.target_id == b.target_id \
-		and a.destination.is_equal_approx(b.destination) \
-		and a.source_plan == b.source_plan
+		and a.destination.is_equal_approx(b.destination)
 
 static func _show(i: Intent) -> String:
 	if i == null:
@@ -147,13 +156,12 @@ func _party(party_ids: Array) -> Array[PawnData]:
 
 func _parties(class_ids: Array) -> Array:
 	var out := []
-	if class_ids.size() > 4:
-		for skip in class_ids.size():
-			var party := []
-			for i in class_ids.size():
-				if i != skip:
-					party.append(class_ids[i])
-			out.append(party)
-	elif class_ids.size() >= 1:
-		out.append(class_ids.slice(0, mini(4, class_ids.size())))
+	## Leave-one-out, named by class id rather than by position: a prefix of the
+	## roster silently stops covering whichever class sorts last.
+	for skip in class_ids:
+		var party := []
+		for cid in class_ids:
+			if cid != skip:
+				party.append(cid)
+		out.append(party)
 	return out
