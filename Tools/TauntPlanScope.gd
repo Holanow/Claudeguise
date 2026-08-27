@@ -101,7 +101,7 @@ func _counterfactual(state: CombatState, unit: CombatUnit, taunter: CombatUnit, 
 	if planned.kind == CG.IntentKind.MOVE_TO:
 		row["plan_is_a_move"] = int(row.get("plan_is_a_move", 0)) + 1
 	elif planned.kind == CG.IntentKind.USE_ACTION:
-		var a: ActionDef = Registry.get_action(planned.action_id)
+		var a: ActionDef = ActionLibrary.get_action(planned.action_id)
 		if a != null and a.heals:
 			row["plan_not_an_attack"] = int(row["plan_not_an_attack"]) + 1
 		elif planned.target_id != taunter.id:

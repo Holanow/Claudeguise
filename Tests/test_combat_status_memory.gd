@@ -505,7 +505,7 @@ func test_a_live_magnitude_rate_does_consume_the_rng() -> void:
 func test_exactly_the_actions_that_should_consume_a_status_do() -> void:
 	var consuming: Array[StringName] = []
 	for id in Registry.all_action_ids():
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a != null and a.consumes_status_enabled:
 			consuming.append(id)
 	assert_eq(consuming, [&"geyser_blast"] as Array[StringName],

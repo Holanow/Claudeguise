@@ -32,7 +32,7 @@ func test_all_enemy_ids_is_not_empty() -> void:
 
 func test_every_id_in_all_enemy_ids_resolves() -> void:
 	for id in Registry.all_enemy_ids():
-		assert_not_null(Registry.get_enemy(id), "all_enemy_ids returned %s but get_enemy could not resolve it" % id)
+		assert_not_null(EnemyLibrary.get_enemy(id), "all_enemy_ids returned %s but get_enemy could not resolve it" % id)
 
 
 ## Not every registered enemy has to be used by an encounter -- that gap is

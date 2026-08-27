@@ -330,7 +330,7 @@ func test_the_telegraph_is_coloured_by_the_action_not_the_class_accent() -> void
 	var u := _make_unit(0, Vector2.ZERO)
 	u.current_action = &"priest_smite"
 	var view := UnitView.new()
-	var smite := Registry.get_action(&"priest_smite")
+	var smite := ActionLibrary.get_action(&"priest_smite")
 	assert_not_null(smite, "sanity: the registry defines the action this test names")
 	assert_eq(view._wind_up_damage_type(u), smite.damage_type)
 	assert_true(ActionIcons.has_glyph(u.current_action), "no ability icon for %s" % u.current_action)
@@ -664,7 +664,7 @@ func _every_drawable_shape() -> Array:
 	for id in Registry.all_class_ids():
 		out.append([id, pawn_radius, CG.Team.PLAYER])
 	for id in Registry.all_enemy_ids():
-		var e = Registry.get_enemy(id)
+		var e = EnemyLibrary.get_enemy(id)
 		out.append([id, e.radius if e != null else pawn_radius, CG.Team.ENEMY])
 	return out
 
@@ -754,7 +754,7 @@ func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> 
 	var PawnFactory := load("res://Scripts/Content/PawnFactory.gd")
 	var party: Array[PawnDataScript] = []
 	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
-		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
+		party.append(PawnFactory.make_starter_pawn(id, id, ClassLibrary.get_class_def(id).display_name))
 	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
 	var disagreed := 0
 	var looked := 0

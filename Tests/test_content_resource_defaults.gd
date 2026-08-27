@@ -60,7 +60,7 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 	for cid in Registry.all_class_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.weapon, "%s starts unarmed" % cid)
-		var action = Registry.get_action(pawn.weapon.granted_actions[0])
+		var action = ActionLibrary.get_action(pawn.weapon.granted_actions[0])
 		var restores: int = action.restores_resource
 		if bool(expected.get(cid, false)):
 			assert_true(restores > 0,
@@ -75,7 +75,7 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 ## would be an infinite-resource loop, and the two carrying this today are free.
 func test_no_action_returns_more_resource_than_it_costs() -> void:
 	for action_id in Registry.all_action_ids():
-		var a = Registry.get_action(action_id)
+		var a = ActionLibrary.get_action(action_id)
 		if a.restores_resource <= 0:
 			continue
 		assert_true(a.resource_cost == 0,
@@ -109,7 +109,7 @@ func test_a_rage_pawn_opens_empty_and_a_mana_pawn_opens_full() -> void:
 func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() -> void:
 	var with_pools: Array[StringName] = []
 	for enemy_id in Registry.all_enemy_ids():
-		var e = Registry.get_enemy(enemy_id)
+		var e = EnemyLibrary.get_enemy(enemy_id)
 		if e != null and e.resource_max > 0:
 			with_pools.append(enemy_id)
 	assert_eq(with_pools, [] as Array[StringName],
@@ -118,7 +118,7 @@ func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() 
 
 ## Wired at issue 165, replacing `test_the_mana_return_is_still_unwired`.
 func test_a_landed_bolt_returns_mana_and_a_miss_returns_none() -> void:
-	var bolt = Registry.get_action(&"priest_bolt")
+	var bolt = ActionLibrary.get_action(&"priest_bolt")
 	assert_true(bolt.restores_resource > 0, "no restore authored, so this proves nothing")
 	assert_true(bolt.projectile_speed > 0.0,
 		"priest_bolt stopped being a projectile, so this no longer covers the landing path")
@@ -149,7 +149,7 @@ func test_a_landed_bolt_returns_mana_and_a_miss_returns_none() -> void:
 	assert_eq(m.resource, 0, "a Bolt that MISSES returns nothing")
 
 func test_the_restore_never_passes_the_maximum() -> void:
-	var bolt = Registry.get_action(&"priest_bolt")
+	var bolt = ActionLibrary.get_action(&"priest_bolt")
 	var deps := _bolt_deps()
 	var state := _bolt_state()
 	var caster = state.unit(0)

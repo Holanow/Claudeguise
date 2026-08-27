@@ -599,7 +599,7 @@ func test_a_consumed_burn_reads_differently_from_one_that_ran_out() -> void:
 func test_the_real_blast_is_recognised_as_a_consume() -> void:
 	var state := _make_state()
 	var view := CombatLogView.new()
-	var blast = Registry.get_action(&"geyser_blast")
+	var blast = ActionLibrary.get_action(&"geyser_blast")
 	assert_true(blast != null, "geyser_blast is missing from the registry")
 	assert_true(blast.consumes_status_enabled, "geyser_blast no longer consumes anything; this test is measuring nothing")
 

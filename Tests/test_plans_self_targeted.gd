@@ -79,7 +79,7 @@ func test_a_pawn_never_self_buffs_from_the_fallback_layer() -> void:
 ## `_first_heal`'s, a channel is #219's, a summon is the plan layer's cap.
 func test_the_branch_declines_heals_channels_and_summons() -> void:
 	for id in [&"warrior_second_wind", &"abomination_immolate", &"build_siege_engine"]:
-		var action := Registry.get_action(id)
+		var action := ActionLibrary.get_action(id)
 		assert_not_null(action, "%s should exist" % id)
 		assert_true(action.targets_self, "%s is self-targeted, or this test proves nothing" % id)
 		var u := _unit(0, CG.Team.PLAYER, Vector2.ZERO, [id, &"goblin_stab"])
@@ -96,7 +96,7 @@ func test_the_branch_declines_heals_channels_and_summons() -> void:
 func test_no_action_states_zero_range_without_saying_it_targets_itself() -> void:
 	var checked := 0
 	for id in Registry.all_action_ids():
-		var action := Registry.get_action(id)
+		var action := ActionLibrary.get_action(id)
 		if action.range_units > 0.0:
 			continue
 		checked += 1
@@ -143,8 +143,8 @@ func test_the_brute_really_roars_and_it_really_lands_on_a_pawn() -> void:
 ## every tick from `unit.statuses`, because a status is state and the run of ticks
 ## it was held cannot be recovered from the event stream afterwards.
 func test_no_pawn_is_ever_locked_for_longer_than_the_roar_lasts() -> void:
-	var duration: int = Registry.get_action(ROAR).status_duration_ticks
-	var cooldown: int = Registry.get_action(ROAR).cooldown_ticks
+	var duration: int = ActionLibrary.get_action(ROAR).status_duration_ticks
+	var cooldown: int = ActionLibrary.get_action(ROAR).cooldown_ticks
 	assert_true(
 		cooldown > duration,
 		"the roar is up %d of every %d ticks, which is the permanent lock #58 forbids" % [duration, cooldown]
