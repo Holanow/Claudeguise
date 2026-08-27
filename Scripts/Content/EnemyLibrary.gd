@@ -19,4 +19,5 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Enemies/stalker.tres",
 	"res://Scripts/Content/Enemies/rat.tres",
 	"res://Scripts/Content/Enemies/rat_king.tres",
+	"res://Scripts/Content/Enemies/sellsword.tres",
 ]

@@ -98,6 +98,11 @@ var status_source: Dictionary = {}
 ## definition combined at build time.
 var actions: Array[StringName] = []
 
+## Issue 671. An enemy's own authored rows, copied from `EnemyDef.plans` at
+## build time. Empty for every unit before this field, and for a player pawn
+## always -- a pawn's plans live on `pawn.plans` instead.
+var enemy_plans: Array[Plan] = []
+
 func is_busy() -> bool:
 	return action_ticks_left > 0 or recover_ticks_left > 0
 
