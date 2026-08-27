@@ -25,6 +25,8 @@ const CONDITIONS := {
 	&"self_in_cover": preload("res://Scripts/Plans/Blocks/SelfInCoverBlock.gd"),
 	&"self_not_in_cover": preload("res://Scripts/Plans/Blocks/SelfNotInCoverBlock.gd"),
 	&"enemy_is_focused": preload("res://Scripts/Plans/Blocks/EnemyIsFocusedBlock.gd"),
+	&"ally_needs_my_heal": preload("res://Scripts/Plans/Blocks/AllyNeedsHealBlock.gd"),
+	&"enemy_within_buff_reach": preload("res://Scripts/Plans/Blocks/EnemyWithinBuffReachBlock.gd"),
 }
 
 const TARGETING := {
@@ -36,12 +38,18 @@ const TARGETING := {
 	&"target_enemy_with_status": preload("res://Scripts/Plans/Blocks/TargetEnemyWithStatusBlock.gd"),
 	&"target_enemy_without_status": preload("res://Scripts/Plans/Blocks/TargetEnemyWithoutStatusBlock.gd"),
 	&"target_focused_enemy": preload("res://Scripts/Plans/Blocks/TargetFocusedEnemyBlock.gd"),
+	&"target_nearest_attackable_enemy": preload("res://Scripts/Plans/Blocks/TargetNearestAttackableEnemyBlock.gd"),
+	&"target_taunter": preload("res://Scripts/Plans/Blocks/TargetTaunterBlock.gd"),
+	&"target_pile_on": preload("res://Scripts/Plans/Blocks/TargetPileOnBlock.gd"),
+	&"target_heal_target": preload("res://Scripts/Plans/Blocks/TargetHealTargetBlock.gd"),
 }
 
 const MOVEMENT := {
 	&"keep_distance": preload("res://Scripts/Plans/Blocks/KeepDistanceBlock.gd"),
 	&"move_into_cover": preload("res://Scripts/Plans/Blocks/MoveIntoCoverBlock.gd"),
 	&"leave_harmful_ground": preload("res://Scripts/Plans/Blocks/LeaveHarmfulGroundBlock.gd"),
+	&"move_into_range": preload("res://Scripts/Plans/Blocks/MoveIntoRangeBlock.gd"),
+	&"close_and_act": preload("res://Scripts/Plans/Blocks/CloseAndActBlock.gd"),
 }
 
 ## The picker orders, derived so a name cannot be in the map and missing here.
