@@ -6,7 +6,7 @@ extends SceneTree
 const SEEDS := 40
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	for encounter_id in Registry.all_encounter_ids():
 		var encounter := Registry.get_encounter(encounter_id)
 		for party_ids in _parties(class_ids):

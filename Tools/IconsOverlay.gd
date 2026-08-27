@@ -66,7 +66,7 @@ func _draw_badges(u, cx: float, y: float) -> void:
 func _draw_wind_up(u, cx: float, y: float) -> void:
 	if u.current_action == &"" or u.action_ticks_total <= 0:
 		return
-	var action = Registry.get_action(u.current_action)
+	var action = ActionLibrary.get_action(u.current_action)
 	if action == null:
 		return
 	var progress := clampf(float(u.action_ticks_total - u.action_ticks_left) / float(u.action_ticks_total), 0.0, 1.0)

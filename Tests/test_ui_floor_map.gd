@@ -101,7 +101,7 @@ func test_entering_a_trap_room_marks_it_visited_without_a_fight() -> void:
 ## Needs real Registry content (a fight room resolves through the real
 ## simulation), so this is a no-op rather than a false pass while empty.
 func test_a_fight_room_resolves_one_way_or_another() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.all_encounter_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		return
@@ -169,7 +169,7 @@ func test_equip_button_is_disabled_with_no_loot() -> void:
 
 ## Issue 42: the CELL room's own screen -- swift's FloorFightRunner API
 ## (cell_candidates/resolve_cell) existed and nothing called it. These need
-## real Registry content (cell_candidates reads Registry.all_class_ids()),
+## real Registry content (cell_candidates reads ClassLibrary.all_ids()),
 ## so they no-op rather than false-pass when content isn't loaded, same
 ## pattern as test_a_fight_room_resolves_one_way_or_another above.
 
@@ -190,7 +190,7 @@ func _make_cell_plan() -> FloorPlan:
 	return plan
 
 func test_entering_a_cell_with_no_losses_offers_nothing_to_pick() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.is_empty():
 		return
 	var view := _make_view()
@@ -207,7 +207,7 @@ func test_entering_a_cell_with_no_losses_offers_nothing_to_pick() -> void:
 	view.free()
 
 func test_entering_a_cell_with_a_loss_offers_real_candidates() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.size() < 2:
 		return
 	var view := _make_view()
@@ -224,7 +224,7 @@ func test_entering_a_cell_with_a_loss_offers_real_candidates() -> void:
 	view.free()
 
 func test_picking_a_cell_candidate_replaces_the_dead_pawn_and_enters_the_room() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.size() < 2:
 		return
 	var view := _make_view()
@@ -247,7 +247,7 @@ func test_picking_a_cell_candidate_replaces_the_dead_pawn_and_enters_the_room() 
 	view.free()
 
 func test_skipping_a_cell_leaves_the_party_untouched_but_still_enters() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.size() < 2:
 		return
 	var view := _make_view()

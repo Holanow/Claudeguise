@@ -4,7 +4,7 @@ extends "res://Tests/TestCase.gd"
 ## a fixture needs a real object even for an action nothing registers.
 ## Issue 658: `range_units` etc. now read from `targeting`, which a bare
 ## `ActionDef` leaves null (range 0). Before, an unregistered id fell through
-## every per-tick gate because `Registry.get_action` returned null for it;
+## every per-tick gate because `ActionLibrary.get_action` returned null for it;
 ## a large range keeps that same free pass now the block carries the
 ## resource itself.
 func _fixture_action(id: StringName) -> ActionDef:
@@ -65,7 +65,7 @@ func _panel() -> EquipPanel:
 ## `InspectPanel._available_actions` returned `starting_actions` alone -- so the
 ## ability fired and could never be planned.
 func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
-	var plate := Registry.get_equipment(&"plate_mail")
+	var plate := ItemLibrary.get_equipment(&"plate_mail")
 	assert_not_null(plate, "plate_mail must be registered for this test to mean anything")
 	assert_false(plate.granted_actions.is_empty(), "plate_mail must grant an action")
 	var granted: StringName = plate.granted_actions[0]
@@ -110,12 +110,12 @@ func test_an_unequipped_pawn_is_offered_exactly_its_class_actions() -> void:
 ## dropdown offering two is worse than either alone.
 func test_the_actions_row_shows_a_granted_action() -> void:
 	var pawn := _make_pawn()
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	var granted: StringName = pawn.armor.granted_actions[0]
 	var editor := InspectPanel.create()
 	editor._ready()
 	editor.open([pawn])
-	assert_true(_text_of(editor).contains(Registry.get_action(granted).display_name),
+	assert_true(_text_of(editor).contains(ActionLibrary.get_action(granted).display_name),
 		"the granted action's name must appear somewhere on the plan editor")
 	editor.free()
 
@@ -155,7 +155,7 @@ func test_each_slot_row_carries_an_icon_for_that_slot() -> void:
 func test_the_icon_follows_the_worn_item() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
 	var icons := _icons(controls[0])
 	assert_eq(icons.size(), 1)
@@ -359,7 +359,7 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.SUPPORT)
-	pawn.armor = Registry.get_equipment(&"robes")
+	pawn.armor = ItemLibrary.get_equipment(&"robes")
 	assert_not_null(pawn.armor, "robes must still be registered for this to mean anything")
 	var bare := panel._stripped(pawn)
 	assert_eq(bare.armor, null, "the stripped copy must wear nothing")
@@ -374,9 +374,9 @@ func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> voi
 func test_measuring_does_not_disturb_the_pawn() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	panel.open([pawn])
-	assert_eq(pawn.armor, Registry.get_equipment(&"plate_mail"),
+	assert_eq(pawn.armor, ItemLibrary.get_equipment(&"plate_mail"),
 		"drawing the screen must leave the pawn wearing what it wore")
 	panel.free()
 
@@ -405,7 +405,7 @@ func test_the_panel_starts_hidden_and_opens_on_a_party() -> void:
 ## unreachable feature on this project (PR #76).
 func test_every_glossary_chip_can_actually_receive_hover() -> void:
 	var pawn := _make_pawn()
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
 	var checked := 0
@@ -445,14 +445,14 @@ func _icons(node: Node) -> Array[Node]:
 ## the feature is unreachable however well it works underneath.
 func test_the_screen_names_all_three_slots_and_the_granted_skill() -> void:
 	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
-	pawn.armor = Registry.get_equipment(&"plate_mail")
+	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
 	var text := _text_of(panel)
 	for word in ["Weapon", "Armor", "Accessory", "Plate Mail"]:
 		assert_true(text.contains(word), "'%s' must be on the equip screen" % word)
 	var granted: StringName = pawn.armor.granted_actions[0]
-	assert_true(text.contains(Registry.get_action(granted).display_name),
+	assert_true(text.contains(ActionLibrary.get_action(granted).display_name),
 		"the skill the armor grants must be named on the screen")
 	assert_true(text.contains("Edit your pawns' plans"),
 		"and the screen must say where that skill can be planned with")

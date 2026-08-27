@@ -26,11 +26,11 @@ const SPENDER_PLANS := {
 ## Derived from the registry rather than retyped: two independent artifacts,
 ## which is the only version of this check that can fail.
 func test_the_reserve_covers_the_heal_plus_the_spender() -> void:
-	var heal_cost: int = Registry.get_action(HEAL_ID).resource_cost
+	var heal_cost: int = ActionLibrary.get_action(HEAL_ID).resource_cost
 	assert_true(heal_cost > 0, "a free heal would make this whole issue moot")
 	for plan_id in SPENDER_PLANS:
 		var action_id: StringName = SPENDER_PLANS[plan_id]
-		var cost: int = Registry.get_action(action_id).resource_cost
+		var cost: int = ActionLibrary.get_action(action_id).resource_cost
 		assert_true(PresetPlans.PRIEST_SPENDER_RESERVE >= heal_cost + cost,
 			"%s costs %d and priest_heal costs %d, so a Priest may cast it only from %d Mana or more, not %d" % [
 				action_id, cost, heal_cost, heal_cost + cost, PresetPlans.PRIEST_SPENDER_RESERVE
@@ -46,9 +46,9 @@ func test_the_heal_is_still_first_and_every_plan_under_it_reserves() -> void:
 	for i in range(1, plans.size()):
 		var plan = plans[i]
 		var action_id := _action_of(plan)
-		if action_id == &"" or Registry.get_action(action_id) == null:
+		if action_id == &"" or ActionLibrary.get_action(action_id) == null:
 			continue
-		if Registry.get_action(action_id).resource_cost <= 0:
+		if ActionLibrary.get_action(action_id).resource_cost <= 0:
 			continue
 		seen += 1
 		assert_true(plan.condition is SelfResourceAtLeastBlock,

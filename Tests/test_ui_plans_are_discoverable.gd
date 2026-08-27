@@ -8,9 +8,9 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 
 func _starter_party(size: int = 4) -> Array[PawnData]:
 	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids().slice(0, size):
+	for cid in ClassLibrary.all_ids().slice(0, size):
 		party.append(PawnFactory.make_starter_pawn(
-			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+			cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
 	return party
 
 func _unstamped_action(source_id: int) -> CombatEvent:
@@ -76,9 +76,9 @@ func test_the_end_card_points_at_the_plan_editor_when_nobody_has_a_plan() -> voi
 ## plans is furniture, and furniture is how the real case goes invisible.
 func test_the_end_card_says_nothing_when_every_pawn_has_a_plan() -> void:
 	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids().slice(0, 4):
+	for cid in ClassLibrary.all_ids().slice(0, 4):
 		party.append(PawnFactory.make_preset_pawn(
-			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+			cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	assert_eq(BattleView.plans_prompt(state), "")
 
@@ -95,9 +95,9 @@ func test_a_partly_planned_party_is_counted_not_rounded() -> void:
 ## as a pawn without a plan.
 func test_a_summon_is_not_a_pawn_missing_a_plan() -> void:
 	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids().slice(0, 2):
+	for cid in ClassLibrary.all_ids().slice(0, 2):
 		party.append(PawnFactory.make_preset_pawn(
-			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+			cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
 	var summon := CombatUnit.new()
 	summon.id = 900

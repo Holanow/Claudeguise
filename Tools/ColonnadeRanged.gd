@@ -32,7 +32,7 @@ func _score(label: String, enc: Encounter) -> void:
 		label, fires, unit_ticks, 1000.0 * float(fires) / float(maxi(1, unit_ticks)), ticks / 50])
 
 func _is_ranged(action_id: StringName) -> bool:
-	var a := Registry.get_action(action_id)
+	var a := ActionLibrary.get_action(action_id)
 	return a != null and not a.heals and a.requires_line_of_sight and a.range_units > 60.0
 
 func _without_terrain(enc: Encounter) -> Encounter:
@@ -45,7 +45,7 @@ func _without_terrain(enc: Encounter) -> Encounter:
 
 func _parties() -> Array:
 	var names := PackedStringArray()
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		names.append(String(id))
 	names.sort()
 	var out := []

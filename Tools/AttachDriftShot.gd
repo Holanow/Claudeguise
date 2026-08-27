@@ -46,7 +46,7 @@ func _encounter():
 ## the easiest drift to see.
 func _walk() -> Dictionary:
 	var best := {"tick": -1, "id": -1, "moved": 0.0, "party": [], "cover": false}
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		var was := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -72,7 +72,7 @@ func _walk() -> Dictionary:
 ## The first tick a unit dies with somebody still walking nearby, so the strip
 ## shows a number that should stay put beside a body that should not.
 func _kill() -> Dictionary:
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		var cursor := 0
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -291,7 +291,7 @@ func _cost(units: int, plates: bool, cover: bool) -> void:
 	seed(SEED)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	DisplayOptions.set_enabled(&"name_plates", plates)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build_view(party_ids)
 	var state: CombatState = _view.state
 	var source: Array = state.units.duplicate()

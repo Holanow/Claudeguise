@@ -28,7 +28,7 @@ func test_terrain_defaults_to_empty() -> void:
 ## against), so this is a no-op rather than a false pass while empty.
 func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 	var encounter_ids := Registry.all_encounter_ids()
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
 	var battle = in_tree(BattleScene.instantiate())
@@ -46,7 +46,7 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 ## room the fight is actually running, not a stand-in.
 func test_begin_shows_the_real_encounters_display_name() -> void:
 	var encounter_ids := Registry.all_encounter_ids()
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
 	var battle = in_tree(BattleScene.instantiate())
@@ -68,14 +68,14 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 
 func test_projectile_damage_type_reads_the_real_actions_damage_type() -> void:
 	var action_id: StringName = &""
-	for cid in Registry.all_class_ids():
-		var cls := Registry.get_class_def(cid)
+	for cid in ClassLibrary.all_ids():
+		var cls := ClassLibrary.get_class_def(cid)
 		if cls != null and not cls.starting_action_ids().is_empty():
 			action_id = cls.starting_action_ids()[0]
 			break
 	if action_id == &"":
 		return
-	var action := Registry.get_action(action_id)
+	var action := ActionLibrary.get_action(action_id)
 	var arena := ArenaFloor.new()
 	var p := Projectile.new()
 	p.action_id = action_id

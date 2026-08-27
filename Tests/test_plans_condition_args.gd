@@ -15,7 +15,7 @@ extends "res://Tests/TestCase.gd"
 ## disagree with the field.
 func test_every_authored_condition_argument_is_drawable_in_the_editor() -> void:
 	var checked := 0
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for plan in PresetPlans.for_class(class_id):
 			var blocks: Array = [plan.condition]
 			for b in plan.blocks:

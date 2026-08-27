@@ -7,7 +7,7 @@ const EXPECTED_CLASS_IDS := [
 
 
 func test_all_five_classes_are_registered() -> void:
-	var got := Registry.all_class_ids()
+	var got := ClassLibrary.all_ids()
 	assert_eq(got.size(), EXPECTED_CLASS_IDS.size())
 	for id in EXPECTED_CLASS_IDS:
 		assert_true(got.has(id), "missing class id %s" % id)
@@ -18,31 +18,31 @@ func test_no_duplicate_ids_anywhere() -> void:
 	# checks the observable consequence: every id we expect resolves, and
 	# nothing about loading it errors out into a missing entry.
 	for id in EXPECTED_CLASS_IDS:
-		assert_not_null(Registry.get_class_def(id), "missing class %s" % id)
+		assert_not_null(ClassLibrary.get_class_def(id), "missing class %s" % id)
 	assert_not_null(Registry.get_encounter(&"floor1_room1"))
 
 
 func test_every_class_has_one_or_two_damage_types() -> void:
 	for id in EXPECTED_CLASS_IDS:
-		var c := Registry.get_class_def(id)
+		var c := ClassLibrary.get_class_def(id)
 		assert_true(c.damage_types.size() >= 1 and c.damage_types.size() <= 2, "%s has %d damage types" % [id, c.damage_types.size()])
 
 
 func test_every_starting_action_resolves() -> void:
 	for id in EXPECTED_CLASS_IDS:
-		var c := Registry.get_class_def(id)
+		var c := ClassLibrary.get_class_def(id)
 		assert_true(c.starting_actions.size() >= 2, "%s should have a recognisable shape, has %d actions" % [id, c.starting_actions.size()])
 		for action_id in c.starting_action_ids():
-			assert_not_null(Registry.get_action(action_id), "%s references unknown action %s" % [id, action_id])
+			assert_not_null(ActionLibrary.get_action(action_id), "%s references unknown action %s" % [id, action_id])
 
 
 ## Issue 628: the class `.tres` points AT the action rather than naming it, so
 ## the two must be the same object and not two copies that can drift.
 func test_a_starting_action_is_the_registry_instance() -> void:
 	for id in EXPECTED_CLASS_IDS:
-		var c := Registry.get_class_def(id)
+		var c := ClassLibrary.get_class_def(id)
 		for a in c.starting_actions:
-			assert_true(a == Registry.get_action(a.id), "%s carries a copy of %s, not the registered one" % [id, a.id])
+			assert_true(a == ActionLibrary.get_action(a.id), "%s carries a copy of %s, not the registered one" % [id, a.id])
 
 
 func test_attribute_name_covers_every_attribute() -> void:
@@ -52,7 +52,7 @@ func test_attribute_name_covers_every_attribute() -> void:
 
 func test_every_class_names_all_seven_attributes() -> void:
 	for id in EXPECTED_CLASS_IDS:
-		var c := Registry.get_class_def(id)
+		var c := ClassLibrary.get_class_def(id)
 		assert_eq(Array(c.invalid_attribute_keys()), [], "%s has attribute keys that are not attribute names" % id)
 		assert_eq(c.base_attributes.size(), CG.Attribute.size(), "%s does not name all seven attributes" % id)
 
@@ -105,9 +105,9 @@ func test_preset_plan_actions_resolve() -> void:
 ## ActionDef's own doc comment, not a default.
 func test_every_playable_classs_action_has_a_description() -> void:
 	for id in EXPECTED_CLASS_IDS:
-		var c := Registry.get_class_def(id)
+		var c := ClassLibrary.get_class_def(id)
 		for action_id in c.starting_action_ids():
-			var action := Registry.get_action(action_id)
+			var action := ActionLibrary.get_action(action_id)
 			assert_false(action.description.is_empty(), "%s (used by %s) has no description" % [action_id, id])
 
 
@@ -148,7 +148,7 @@ func test_no_preset_plan_ever_orders_an_out_of_range_shot() -> void:
 			if intent == null or intent.kind != CG.IntentKind.USE_ACTION:
 				continue
 
-			var action := Registry.get_action(intent.action_id)
+			var action := ActionLibrary.get_action(intent.action_id)
 			var target := state.unit(intent.target_id)
 			assert_not_null(action, "%s plan %s fired an unknown action" % [class_id, plan.id])
 			assert_not_null(target, "%s plan %s fired at an unknown target id" % [class_id, plan.id])
@@ -197,7 +197,7 @@ func test_enemy_room_is_registered_and_populated() -> void:
 	assert_eq(enc.party_spawns.size(), 4)
 	for spawn in enc.enemy_spawns:
 		var enemy_id: StringName = spawn.get("enemy_id", &"")
-		assert_not_null(Registry.get_enemy(enemy_id), "encounter references unknown enemy %s" % enemy_id)
+		assert_not_null(EnemyLibrary.get_enemy(enemy_id), "encounter references unknown enemy %s" % enemy_id)
 
 
 ## Skeleton addition: the party deploys in the left third of the arena so
@@ -235,7 +235,7 @@ func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 ## taunt_radius, DefaultBehavior._nearest_taunter) already has its own
 ## tests; this checks the content built against it.
 func test_warrior_taunt_action_shape() -> void:
-	var a := Registry.get_action(&"warrior_taunt")
+	var a := ActionLibrary.get_action(&"warrior_taunt")
 	assert_not_null(a)
 	assert_eq(a.range_units, 0.0, "self-targeted, matching how it is cast (target_self)")
 	assert_true(a.applies_status_enabled)

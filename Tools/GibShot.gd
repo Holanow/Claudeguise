@@ -68,7 +68,7 @@ const STAGED_COLUMNS := 10
 
 func _staged() -> void:
 	DisplayOptions.set_enabled(&"death_explosion", true)
-	await _build_view(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build_view(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 	var state: CombatState = _view.state
 	state.units.clear()
 	var gap := float(CG.ARENA_HALF_WIDTH) * 1.6 / float(STAGED.size() + 1)
@@ -268,7 +268,7 @@ func _encounter():
 ## run-up. Simulation only: nothing here renders, so nothing here can perturb
 ## the strip the renderer then draws.
 func _first_death() -> Dictionary:
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		var state := CombatSim.build(_party(party_ids), _encounter(), SEED)
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			var cursor := state.events.size()

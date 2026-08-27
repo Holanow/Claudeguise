@@ -7,7 +7,7 @@ extends "res://Tests/TestCase.gd"
 ## behaviour, which needs many ticks of movement to become a "median distance"
 
 func _unit(id: int, team: CG.Team, enemy_id: StringName, pos: Vector2) -> CombatUnit:
-	var def := Registry.get_enemy(enemy_id)
+	var def := EnemyLibrary.get_enemy(enemy_id)
 	var u := CombatUnit.new()
 	u.id = id
 	u.team = team
@@ -163,7 +163,7 @@ func test_healer_heals_hurt_ally() -> void:
 
 	var intent := DefaultBehavior.decide(state, priest)
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION)
-	var action := Registry.get_action(intent.action_id)
+	var action := ActionLibrary.get_action(intent.action_id)
 	assert_true(action.heals, "should pick the heal action when an ally is below half hp")
 	assert_eq(intent.target_id, hurt_ally.id)
 
@@ -200,7 +200,7 @@ func test_healer_does_not_heal_full_health_allies() -> void:
 
 	var intent := DefaultBehavior.decide(state, priest)
 	if intent.kind == CG.IntentKind.USE_ACTION:
-		var action := Registry.get_action(intent.action_id)
+		var action := ActionLibrary.get_action(intent.action_id)
 		assert_false(action.heals, "should not spend a turn healing when nobody needs it")
 	else:
 		assert_eq(intent.kind, CG.IntentKind.MOVE_TO, "should still do something useful, like closing to attack range")

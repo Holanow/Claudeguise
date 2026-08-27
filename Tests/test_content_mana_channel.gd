@@ -6,7 +6,7 @@ extends "res://Tests/TestCase.gd"
 const CHANNEL := &"channel_mana"
 
 func _channel() -> ActionDef:
-	return Registry.get_action(CHANNEL)
+	return ActionLibrary.get_action(CHANNEL)
 
 # ---------------------------------------------------------------------------
 # the shape of the ability
@@ -33,22 +33,22 @@ func test_the_channel_costs_time_and_nothing_else() -> void:
 func test_every_mana_caster_has_the_channel_and_nobody_else_does() -> void:
 	var expected := {&"priest": true, &"geysermancer": true,
 		&"siege_master": false, &"warrior": false, &"abomination": false}
-	for cid in Registry.all_class_ids():
-		var def := Registry.get_class_def(cid)
+	for cid in ClassLibrary.all_ids():
+		var def := ClassLibrary.get_class_def(cid)
 		var has: bool = def.starting_action_ids().has(CHANNEL)
 		assert_eq(has, bool(expected.get(cid, false)),
 			"%s %s the Channel" % [cid, "has" if has else "does not have"])
 
 func test_the_two_classes_that_have_it_spend_mana() -> void:
 	for cid in [&"priest", &"geysermancer"]:
-		assert_eq(Registry.get_class_def(cid).resource_kind, CG.ResourceKind.MANA,
+		assert_eq(ClassLibrary.get_class_def(cid).resource_kind, CG.ResourceKind.MANA,
 			"%s no longer spends Mana, so the Channel on it restores nothing" % cid)
 
 ## The plan editor is where the player picks it up, and it offers what the pawn
 ## has rather than a second list.
 func test_the_plan_editor_offers_the_channel_to_a_starter_priest() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")
-	assert_true(Registry.actions_for_pawn(pawn).has(CHANNEL),
+	assert_true(ActionLibrary.actions_for_pawn(pawn).has(CHANNEL),
 		"a starter Priest cannot pick the Channel out of its own action list")
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ func test_the_plan_editor_offers_the_channel_to_a_starter_priest() -> void:
 ## name says and the half that is a rule rather than a snapshot.
 func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 	var over: Array[String] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		var free_blocks := Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
 		if free_blocks < 0:
@@ -152,7 +152,7 @@ func test_the_caster_stands_still_for_the_whole_wind_up() -> void:
 	assert_eq(moved, 0, "the caster moved during a Channel, so it is not idling for it")
 	## The wind-up is AGI-scaled, so the exact figure is the pawn's, not the
 	## action's. Two Bolt cycles is the floor the shape test above asserts.
-	var bolt := Registry.get_action(&"priest_bolt")
+	var bolt := ActionLibrary.get_action(&"priest_bolt")
 	assert_true(best >= bolt.wind_up_ticks + bolt.recover_ticks,
 		"the longest Channel held was %d ticks, under one Bolt cycle" % best)
 

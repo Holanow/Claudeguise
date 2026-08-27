@@ -9,8 +9,9 @@
 
 [sub_resource type="Resource" id="Resource_sbdlv"]
 script = ExtResource("1_swkdl")
-speed = 30.0
+speed = 13.0
 count = 2
+separate_targets = true
 spread_degrees = 16.0
 homing_strength = 7.0
 
@@ -28,9 +29,9 @@ script = ExtResource("4_sbadef")
 id = &"sellsword_seeker_bolts"
 display_name = "Seeker Bolts"
 description = "Two homing bolts at up to 240 units, each striking for less than one alone."
-wind_up_ticks = 10
+wind_up_ticks = 8
 recover_ticks = 10
-cooldown_ticks = 30
+cooldown_ticks = 24
 targeting = SubResource("Resource_sbtg1")
 delivery = SubResource("Resource_sbdlv")
 effects = Array[ExtResource("2_ab8fx")]([SubResource("Resource_sbhit")])

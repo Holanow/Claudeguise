@@ -59,7 +59,7 @@ func _to_battle() -> Node:
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
 			if n.class_def != null:
 				by_id[n.class_def.id] = n
-	for id in ScreenSweepScript.sweep_parties(Registry.all_class_ids())[-1]:
+	for id in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[-1]:
 		if by_id.has(id):
 			by_id[id].toggled.emit(true)
 	await _settle()
