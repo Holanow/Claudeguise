@@ -100,7 +100,7 @@ func test_registry_loads_without_duplicate_ids() -> void:
 	# Empty today. It stays meaningful the moment content lands, and it is
 	# cheap enough to be worth having before that.
 	assert_not_null(ClassLibrary.all_ids())
-	assert_not_null(Registry.all_encounter_ids())
+	assert_not_null(RoomLibrary.all_ids())
 
 
 func test_intent_factories_set_their_kind() -> void:

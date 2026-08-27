@@ -12,7 +12,7 @@ const LOOKUP_REPEATS := 10000
 
 func _init() -> void:
 	var t0 := Time.get_ticks_usec()
-	Registry._load()
+	ActionLibrary.get_action(&"warrior_strike")
 	var build_us := Time.get_ticks_usec() - t0
 
 	var ids := ActionLibrary.all_ids()

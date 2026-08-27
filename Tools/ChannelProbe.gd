@@ -18,7 +18,7 @@ const CASTERS := [&"priest", &"geysermancer"]
 
 func _init() -> void:
 	print("seeds per party per encounter: ", SEEDS)
-	var encounters := Registry.all_encounter_ids()
+	var encounters := RoomLibrary.all_ids()
 	for with_channel in [false, true]:
 		print("")
 		print("========================================================")
@@ -79,7 +79,7 @@ func _run(ids: Array, enc_id: StringName, s: int, with_channel: bool) -> Array:
 		if not with_channel:
 			_strip_channel(pawn, c)
 		party.append(pawn)
-	var state := CombatSim.build(party, Registry.get_encounter(enc_id), s)
+	var state := CombatSim.build(party, RoomLibrary.get_room(enc_id), s)
 	var outcome := CombatSim.run(state)
 	return [state, outcome]
 

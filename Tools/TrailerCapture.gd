@@ -215,7 +215,7 @@ func _pick_fight() -> Dictionary:
 	var best := {}
 	var best_score := -1.0
 	for room_id in ROOMS:
-		var encounter = Registry.get_encounter(room_id)
+		var encounter = RoomLibrary.get_room(room_id)
 		if encounter == null:
 			# Loud, not silent: a renamed room used to shrink the grid with
 			# nothing said, and the capture simply got less interesting.
@@ -256,7 +256,7 @@ func _play(encounter, s: int) -> Dictionary:
 ## The biggest body that dies in this fight, and the tick it dies on. Biggest,
 ## because four pixels of squash off an eleven-pixel goblin is not a money shot.
 func _best_death(room_id: StringName, s: int) -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(room_id), s)
 	var best := {}
 	var best_size := 0.0
 	var cursor := 0
@@ -281,7 +281,7 @@ func _best_death(room_id: StringName, s: int) -> Dictionary:
 ## InterpShot's scan, pinned to this trailer's party and room: the tick where
 ## some unit covers the most ground in one step is where a 15Hz snap is largest.
 func _fastest_walk(room_id: StringName, s: int) -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(room_id), s)
 	var best := {"tick": -1, "id": -1, "moved": 0.0}
 	var was := {}
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -303,7 +303,7 @@ func _fastest_walk(room_id: StringName, s: int) -> Dictionary:
 ## or a caster and the abomination outweighs both. `display_name` IS the class
 ## id here: `_party` names every pawn after the class it is.
 func _loose(room_id: StringName, s: int) -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(room_id), s)
 	var best := {}
 	var best_size := 0.0
 	var cursor := 0
@@ -334,7 +334,7 @@ func _loose(room_id: StringName, s: int) -> Dictionary:
 ## sampled BEFORE the step that spends it, which is the rule this project keeps
 ## getting wrong: a unit whose action ends inside a step reads as idle after it.
 func _player_actions(room_id: StringName, s: int) -> Array:
-	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(room_id), s)
 	var started := {}
 	var out: Array = []
 	var cursor := 0
@@ -367,7 +367,7 @@ func _player_actions(room_id: StringName, s: int) -> Array:
 ## won on deaths and shots and need not contain one at all.
 func _hook_cast() -> Dictionary:
 	for room_id in ROOMS:
-		var encounter = Registry.get_encounter(room_id)
+		var encounter = RoomLibrary.get_room(room_id)
 		if encounter == null:
 			continue
 		for s in range(1, SEEDS + 1):
@@ -396,7 +396,7 @@ func _hook_cast() -> Dictionary:
 ## The enemy with the most health left at `tick`, which is the one worth
 ## pointing four pawns at and the one whose convergence is longest on screen.
 func _fattest_enemy(room_id: StringName, s: int, tick: int) -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(room_id), s)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(room_id), s)
 	while state.tick < tick and state.outcome == CombatState.Outcome.UNRESOLVED:
 		CombatSim.step(state)
 	var best := {}
@@ -423,7 +423,7 @@ func _build_view(room_id: StringName, s: int) -> void:
 	_view = packed.instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(room_id))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(room_id))
 	_view.set_process(false)
 	_cue_cursor = 0
 	_cue_tick = -1

@@ -17,7 +17,7 @@ func _screen() -> PartySelect:
 func test_every_registered_room_is_either_offered_or_explicitly_not() -> void:
 	var offered := PartySelect.offered_rooms()
 	var unclassified: Array[String] = []
-	for id in Registry.all_encounter_ids():
+	for id in RoomLibrary.all_ids():
 		if offered.has(id):
 			continue
 		if PartySelect.NOT_OFFERED.has(id):
@@ -39,7 +39,7 @@ func test_the_offered_list_and_the_excluded_list_do_not_disagree() -> void:
 	# not exist is no longer expressible. The assertion stays because it is what
 	# says so.
 	for id in PartySelect.offered_rooms():
-		assert_not_null(Registry.get_encounter(id),
+		assert_not_null(RoomLibrary.get_room(id),
 			"the picker offers '%s' and no such room is registered" % id)
 
 ## Compared against `offered_rooms()`, which since issue #180 is the registry
@@ -64,7 +64,7 @@ func test_each_room_is_offered_under_its_display_name() -> void:
 	var picker: OptionButton = screen._room_picker
 	for i in picker.item_count:
 		var id = picker.get_item_metadata(i)
-		assert_eq(picker.get_item_text(i), Registry.get_encounter(id).display_name)
+		assert_eq(picker.get_item_text(i), RoomLibrary.get_room(id).display_name)
 		assert_false(picker.get_item_text(i).begins_with("floor1_"), "raw id on screen")
 	screen.free()
 
@@ -116,7 +116,7 @@ func test_picking_a_room_changes_the_room_the_fight_will_use() -> void:
 ## counts, so if the room changes underneath, this fails.
 func test_the_summary_counts_what_the_room_really_contains() -> void:
 	for id in PartySelect.offered_rooms():
-		var room = Registry.get_encounter(id)
+		var room = RoomLibrary.get_room(id)
 		var summary := PartySelect.room_summary(id)
 		assert_true(summary.contains("%d enemies" % room.enemy_spawns.size()),
 			"'%s' summary must state the real headcount, got: %s" % [id, summary])
@@ -133,7 +133,7 @@ func test_the_summary_counts_what_the_room_really_contains() -> void:
 func test_a_room_with_no_terrain_says_open_ground() -> void:
 	var bare: StringName = &""
 	for id in PartySelect.offered_rooms():
-		if Registry.get_encounter(id).cells.is_empty():
+		if RoomLibrary.get_room(id).cells.is_empty():
 			bare = id
 			break
 	assert_true(bare != &"", "no offered room is open ground, so this check is vacuous")

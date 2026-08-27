@@ -131,7 +131,7 @@ func _tool_scripts() -> Array[String]:
 ## The same fight, observed with `PlanInterpreter.decide` instead. `restore`
 ## puts `focus_id` back, which is the pattern that makes a probe exact.
 func _run_plan_fight(observe: bool, restore: bool) -> String:
-	var enc := Registry.get_encounter(&"floor1_room1")
+	var enc := RoomLibrary.get_room(&"floor1_room1")
 	var pawns: Array[PawnData] = [
 		PawnFactory.make_preset_pawn(&"warrior", &"p0", "P0"),
 		PawnFactory.make_preset_pawn(&"priest", &"p1", "P1"),
@@ -153,7 +153,7 @@ func _run_plan_fight(observe: bool, restore: bool) -> String:
 
 ## One real fight, summarised. `observe` adds exactly what a naive probe does.
 func _run_fight(observe: bool) -> String:
-	var enc := Registry.get_encounter(&"floor1_room1")
+	var enc := RoomLibrary.get_room(&"floor1_room1")
 	var pawns: Array[PawnData] = [
 		PawnFactory.make_starter_pawn(&"warrior", &"p0", "P0"),
 		PawnFactory.make_starter_pawn(&"priest", &"p1", "P1"),

@@ -17,8 +17,8 @@ const COVER_HALF_WIDTH := 110.0
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
 	var totals := {}
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		var c := {
 			"fights": 0, "casts": 0, "blocked": 0, "for_ally": 0, "for_self": 0,
 			"unmatched": 0, "shielding_ticks": 0,

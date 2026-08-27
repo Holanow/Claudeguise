@@ -8,13 +8,13 @@ const SEEDS := 40
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.pickable_encounter_ids()
+	var encounter_ids := RoomLibrary.pickable_ids()
 	print("classes: ", class_ids)
 	print("pickable encounters: ", encounter_ids)
 
 	var rows := []
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		print("")
 		print("ENCOUNTER: %s  (%s)" % [encounter_id, encounter.display_name])
 		print("  %-42s %6s %6s %6s   %s" % ["party (class left out)", "loss", "draw", "anydeath", "pawns dead 0/1/2/3/4"])

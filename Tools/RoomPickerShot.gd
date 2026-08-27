@@ -122,7 +122,7 @@ func _run() -> void:
 
 		# Compare the built fight against the room that was chosen. Terrain
 		# count and enemy positions, not the printed name.
-		var room = Registry.get_encounter(room_id)
+		var room = RoomLibrary.get_room(room_id)
 		var enemies := 0
 		for u in battle.state.units:
 			if u.team == CG.Team.ENEMY:

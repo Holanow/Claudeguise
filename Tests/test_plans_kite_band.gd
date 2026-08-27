@@ -100,7 +100,7 @@ func test_a_movement_block_can_carry_a_self_targeted_action() -> void:
 	plan.blocks = [targeting, movement, action]
 	pawn.plans = [plan]
 
-	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var state := CombatSim.build([pawn], RoomLibrary.get_room(&"floor1_ghoul_den"), 1, SimDeps.new())
 	var me: CombatUnit = null
 	var foe: CombatUnit = null
 	for u in state.units:
@@ -135,7 +135,7 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 	plan.blocks = [targeting, movement, action]
 	pawn.plans = [plan]
 
-	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var state := CombatSim.build([pawn], RoomLibrary.get_room(&"floor1_ghoul_den"), 1, SimDeps.new())
 	var me: CombatUnit = null
 	var foe: CombatUnit = null
 	for u in state.units:

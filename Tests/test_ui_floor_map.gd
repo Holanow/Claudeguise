@@ -102,7 +102,7 @@ func test_entering_a_trap_room_marks_it_visited_without_a_fight() -> void:
 ## simulation), so this is a no-op rather than a false pass while empty.
 func test_a_fight_room_resolves_one_way_or_another() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		return
 	var view := _make_view()

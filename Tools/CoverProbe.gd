@@ -25,7 +25,7 @@ func _init() -> void:
 		var wins := 0
 		for seed in SEEDS:
 			var party := _party(arm != "without the cover row", ARMS[arm])
-			var state := CombatSim.build(party, Registry.get_encounter(&"floor1_cover"), seed, SimDeps.new())
+			var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_cover"), seed, SimDeps.new())
 			var me := _geysermancer(state)
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				CombatSim.step(state)

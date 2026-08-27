@@ -34,7 +34,7 @@ func _sweep(party: Array, gate: bool) -> Dictionary:
 				for plan in p.plans:
 					plan.condition = SelfOnSafeGroundBlock.new()
 			pawns.append(p)
-		var state := CombatSim.build(pawns, Registry.get_encounter(&"floor1_hazard"), seed_value)
+		var state := CombatSim.build(pawns, RoomLibrary.get_room(&"floor1_hazard"), seed_value)
 		CombatSim.run(state)
 		ticks += state.tick
 		if state.outcome == CombatState.Outcome.PLAYER_WIN:

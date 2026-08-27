@@ -5,7 +5,7 @@ extends SceneTree
 ## the rule this repo keeps paying for breaking, and never calls `decide`.
 
 func _init() -> void:
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var party: Array[PawnData] = [
 		PawnFactory.make_preset_pawn(&"siege_master", &"sm", "SM"),
 		PawnFactory.make_preset_pawn(&"warrior", &"wa", "WA"),

@@ -27,8 +27,8 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
 
 	var checked := 0
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for spawn in encounter.enemy_spawns:
 			var enemy_id: StringName = spawn.get("enemy_id", &"")
 			assert_true(
@@ -468,8 +468,8 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 		)
 
 	var checked := 0
-	for encounter_id in Registry.all_encounter_ids():
-		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
+	for encounter_id in RoomLibrary.all_ids():
+		for spawn in RoomLibrary.get_room(encounter_id).enemy_spawns:
 			var enemy_id: StringName = spawn.get("enemy_id", &"")
 			assert_true(
 				readme.contains("`%s`" % enemy_id),

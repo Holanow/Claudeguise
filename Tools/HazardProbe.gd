@@ -17,7 +17,7 @@ func _init() -> void:
 	var still_busy := 0
 	var still_units := {}
 	for room_id in ROOMS:
-		var enc := Registry.get_encounter(room_id)
+		var enc := RoomLibrary.get_room(room_id)
 		if enc == null:
 			continue
 		var pawn_burning := 0

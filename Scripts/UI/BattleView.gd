@@ -487,11 +487,11 @@ func _build_room_picker(banner: Control) -> Control:
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(caption)
 
-	## `Registry.pickable_encounter_ids()` is the same list party select offers,
+	## `RoomLibrary.pickable_ids()` is the same list party select offers,
 	## asked of the registry rather than of that screen. One place decides which
 	## rooms exist, which is what #587 has to be able to move.
-	for id in Registry.pickable_encounter_ids():
-		var room = Registry.get_encounter(id)
+	for id in RoomLibrary.pickable_ids():
+		var room = RoomLibrary.get_room(id)
 		var b := Button.new()
 		b.text = room_button_text(id, room)
 		b.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, Palette.TOUCH_TARGET_MIN)
@@ -881,7 +881,7 @@ static func compute_layout(size: Vector2) -> Dictionary:
 	}
 
 func begin(cfg: RunConfig) -> void:
-	begin_with_encounter(cfg, Registry.get_encounter(cfg.encounter_id))
+	begin_with_encounter(cfg, RoomLibrary.get_room(cfg.encounter_id))
 
 ## Issue 19: the level editor needs to test-fight a room that has never been
 ## registered -- it exists only as an in-memory `Encounter` the player is still

@@ -84,13 +84,13 @@ func _party() -> Array[PawnData]:
 func _build_view() -> void:
 	var cfg := RunConfig.new()
 	cfg.party = _party()
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = 7
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(Registry.all_encounter_ids()[0]))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(RoomLibrary.all_ids()[0]))
 	# The tool drives `_render` by hand: the view's own clock would step the
 	# simulation and every body would walk out of its crop.
 	_view.set_process(false)

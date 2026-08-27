@@ -4,7 +4,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 const MainScript := preload("res://Scripts/UI/Main.gd")
 
 ## Issue 591: "The fight end screen should let me pick another level." The
-## rooms come from `Registry.pickable_encounter_ids()`, the same list party
+## rooms come from `RoomLibrary.pickable_ids()`, the same list party
 ## select offers, so #587's conversion of rooms to scenes has one place to
 ## change rather than two.
 
@@ -69,11 +69,11 @@ func test_the_end_card_offers_every_pickable_room() -> void:
 	var view = _spawn()
 	_resolved(view)
 	var buttons := _room_buttons(view)
-	var wanted := Registry.pickable_encounter_ids()
+	var wanted := RoomLibrary.pickable_ids()
 	assert_true(wanted.size() > 0, "no room is pickable at all, so this proves nothing")
 	assert_eq(buttons.size(), wanted.size(), "one button per pickable room")
 	for id in wanted:
-		var room = Registry.get_encounter(id)
+		var room = RoomLibrary.get_room(id)
 		var text := BattleView.room_button_text(id, room)
 		var found := false
 		for b in buttons:
@@ -85,13 +85,13 @@ func test_the_end_card_offers_every_pickable_room() -> void:
 ## Pressing one asks for that room by id. The id, not an index: #587 is moving
 ## rooms into scenes and an index would not survive the move.
 func test_pressing_a_room_asks_for_that_room_by_id() -> void:
-	var wanted := Registry.pickable_encounter_ids()
+	var wanted := RoomLibrary.pickable_ids()
 	var target: StringName = wanted[wanted.size() - 1]
 	var view = _spawn()
 	_resolved(view)
 	var asked: Array[StringName] = []
 	view.room_requested.connect(func(id: StringName): asked.append(id))
-	var room = Registry.get_encounter(target)
+	var room = RoomLibrary.get_room(target)
 	for b in _room_buttons(view):
 		if b.text == BattleView.room_button_text(target, room):
 			b.pressed.emit()
@@ -101,10 +101,10 @@ func test_pressing_a_room_asks_for_that_room_by_id() -> void:
 ## The room the player is already in is shown and dead. A list that changes
 ## length between fights is a list you have to re-read.
 func test_the_room_you_are_in_is_shown_and_dead() -> void:
-	var here: StringName = Registry.pickable_encounter_ids()[0]
+	var here: StringName = RoomLibrary.pickable_ids()[0]
 	var view = _spawn(here)
 	_resolved(view)
-	var room = Registry.get_encounter(here)
+	var room = RoomLibrary.get_room(here)
 	var text := BattleView.room_button_text(here, room)
 	var disabled := 0
 	for b in _room_buttons(view):

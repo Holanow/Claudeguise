@@ -175,7 +175,7 @@ func _fill_roster() -> void:
 ## Issue 176: one item per offered room, so it stays in code.
 func _fill_rooms() -> void:
 	for id in offered_rooms():
-		var room = Registry.get_encounter(id)
+		var room = RoomLibrary.get_room(id)
 		_room_picker.add_item(room.display_name if room.display_name != "" else String(id))
 		_room_picker.set_item_metadata(_room_picker.item_count - 1, id)
 		if id == CG.DEFAULT_ENCOUNTER:
@@ -325,7 +325,7 @@ func _on_start_pressed() -> void:
 func _on_start_run_pressed() -> void:
 	run_requested.emit(current_config())
 
-## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
+## Issue 32: this picked RoomLibrary.all_ids()[0] — alphabetically
 ## first, not the encounter the game actually means. CG.DEFAULT_ENCOUNTER
 ## exists exactly to name that without picking by index; every devtool was
 ## fixed to use it and this screen, the one an actual player reaches, was
@@ -347,7 +347,7 @@ func selected_room() -> StringName:
 		var id = _room_picker.get_item_metadata(_room_picker.selected)
 		if id != null and id != &"":
 			return id
-	var encounters := Registry.all_encounter_ids()
+	var encounters := RoomLibrary.all_ids()
 	if encounters.has(CG.DEFAULT_ENCOUNTER):
 		return CG.DEFAULT_ENCOUNTER
 	return encounters[0] if not encounters.is_empty() else &""
@@ -355,7 +355,7 @@ func selected_room() -> StringName:
 ## Rooms the picker offers: every registered encounter whose content sets
 ## `pickable`, in registration order rather than sorted -- `Array[StringName]`
 static func offered_rooms() -> Array[StringName]:
-	return Registry.pickable_encounter_ids()
+	return RoomLibrary.pickable_ids()
 
 func _refresh_room_summary() -> void:
 	if _room_summary == null:
@@ -366,7 +366,7 @@ func _refresh_room_summary() -> void:
 ## is a second artifact that goes quietly false the day somebody moves a pillar;
 ## this cannot, because it is counting the real thing the fight will use.
 static func room_summary(id: StringName) -> String:
-	var room = Registry.get_encounter(id)
+	var room = RoomLibrary.get_room(id)
 	if room == null:
 		return ""
 	var parts: Array[String] = ["%d enemies" % room.enemy_spawns.size()]

@@ -134,8 +134,8 @@ func test_screen_builds_its_pickers_and_canvas() -> void:
 func test_bestiary_picker_offers_every_enemy_used_by_a_registered_encounter() -> void:
 	var v := _make_view()
 	var expected := {}
-	for encounter_id in Registry.all_encounter_ids():
-		for spawn in Registry.get_encounter(encounter_id).enemy_spawns:
+	for encounter_id in RoomLibrary.all_ids():
+		for spawn in RoomLibrary.get_room(encounter_id).enemy_spawns:
 			expected[spawn.enemy_id] = true
 	assert_true(expected.size() > 0, "expected at least one real registered enemy to test the picker against")
 	assert_eq(v.get_node("%EnemyPicker").item_count, expected.size())

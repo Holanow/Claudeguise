@@ -290,9 +290,9 @@ func _run() -> void:
 		await _shot("heron_591_end_card_sorted_by_healed")
 
 	## And the room picker, pressed for real.
-	_check(battle._room_buttons.size() == Registry.pickable_encounter_ids().size(),
+	_check(battle._room_buttons.size() == RoomLibrary.pickable_ids().size(),
 		"one room button per pickable room, %d of %d" % [
-			battle._room_buttons.size(), Registry.pickable_encounter_ids().size()])
+			battle._room_buttons.size(), RoomLibrary.pickable_ids().size()])
 	var here: StringName = battle.config.encounter_id
 	var want: Button = null
 	var want_id: StringName = &""

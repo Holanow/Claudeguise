@@ -7,8 +7,8 @@ const SEEDS := 40
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for party_ids in _parties(class_ids):
 			for s in SEEDS:
 				var party: Array[PawnData] = []

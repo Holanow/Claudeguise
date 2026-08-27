@@ -34,7 +34,7 @@ func _party(ids: Array) -> Array[PawnData]:
 	return out
 
 func _encounter():
-	return Registry.get_encounter(Registry.all_encounter_ids()[0])
+	return RoomLibrary.get_room(RoomLibrary.all_ids()[0])
 
 func _run() -> void:
 	# Hit stop off: this strip is about what a hit throws, and a freeze in the
@@ -61,7 +61,7 @@ func _whole_screen() -> void:
 func _build(party_ids: Array) -> void:
 	var cfg := RunConfig.new()
 	cfg.party = _party(party_ids)
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = SEED
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()

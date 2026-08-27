@@ -8,7 +8,7 @@ func _initialize() -> void:
 	var enc := RoomData.new()
 	enc.id = &"probe_bridge"
 	enc.display_name = "The Narrows, elite"
-	var src := Registry.get_encounter(&"floor1_chokepoint")
+	var src := RoomLibrary.get_room(&"floor1_chokepoint")
 	enc.cells = src.cells
 	enc.party_spawns = src.party_spawns
 	enc.enemy_spawns = [

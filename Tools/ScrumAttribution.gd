@@ -44,13 +44,13 @@ func _party(ids: Array) -> Array[PawnData]:
 func _build(party_ids: Array) -> void:
 	var cfg := RunConfig.new()
 	cfg.party = _party(party_ids)
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = SEED
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(Registry.all_encounter_ids()[0]))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(RoomLibrary.all_ids()[0]))
 
 ## The ring is not behind a toggle, so it is suppressed by emptying the arena of
 ## flashes each frame rather than by adding one. Nothing ships this path.

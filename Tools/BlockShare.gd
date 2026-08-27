@@ -19,7 +19,7 @@ func _init() -> void:
 				if strip:
 					p.armor = null
 				party.append(p)
-			var state := CombatSim.build(party, Registry.get_encounter(ROOM), s)
+			var state := CombatSim.build(party, RoomLibrary.get_room(ROOM), s)
 			CombatSim.run(state)
 			for e in state.events:
 				if e.kind == CG.EventKind.BLOCKED:

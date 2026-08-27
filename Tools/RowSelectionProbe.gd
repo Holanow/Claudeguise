@@ -16,7 +16,7 @@ func _say(line: String = "") -> void:
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	_say("classes: " + str(class_ids))
 	_say("encounters: " + str(encounter_ids))
 
@@ -26,13 +26,13 @@ func _init() -> void:
 
 	_say("")
 	_say("=== 1. CAN EACH PRESET ROW'S CONDITION HOLD AT THE FIRST IDLE INSTANT? ===")
-	_first_instant_table(class_ids, Registry.get_encounter(encounter_ids[0]))
+	_first_instant_table(class_ids, RoomLibrary.get_room(encounter_ids[0]))
 
 	_say("")
 	_say("=== 2. ROW WINS AND WHAT A BUSY PAWN COULD NOT READ ===")
 	var totals := {}
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for party_ids in _parties(class_ids):
 			_accumulate(totals, _run_party(party_ids, encounter))
 	_report(totals, "ALL ENCOUNTERS, ALL BUILDABLE PARTIES")
@@ -47,7 +47,7 @@ func _init() -> void:
 
 	_say("")
 	_say("=== 5. THE #567 ARM: siege_master + warrior, default encounter ===")
-	var arm := _run_party([&"siege_master", &"warrior"], Registry.get_encounter(CG.DEFAULT_ENCOUNTER))
+	var arm := _run_party([&"siege_master", &"warrior"], RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER))
 	_report(arm, "siege_master + warrior")
 
 	_say("")
@@ -81,7 +81,7 @@ func _spawn_distance_table(class_ids: Array, encounter_ids: Array) -> void:
 		var party: Array[PawnData] = []
 		for cid in _parties(class_ids)[0]:
 			party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))
-		var state := CombatSim.build(party, Registry.get_encounter(eid), 0)
+		var state := CombatSim.build(party, RoomLibrary.get_room(eid), 0)
 		var nearest := INF
 		var farthest := 0.0
 		for u in state.units:
@@ -269,7 +269,7 @@ func _gap_table(class_ids: Array, encounter_ids: Array) -> void:
 	for cid in class_ids:
 		var gaps: Array = []
 		for eid in encounter_ids:
-			var t := _run_party([cid, cid, cid, cid], Registry.get_encounter(eid))
+			var t := _run_party([cid, cid, cid, cid], RoomLibrary.get_room(eid))
 			gaps.append_array(t["gaps"])
 		if gaps.is_empty():
 			continue
@@ -284,7 +284,7 @@ func _perturbation_check(class_ids: Array, encounter_ids: Array) -> void:
 	var perturbed := 0
 	var checked := 0
 	for eid in encounter_ids:
-		var encounter := Registry.get_encounter(eid)
+		var encounter := RoomLibrary.get_room(eid)
 		for party_ids in _parties(class_ids):
 			for s in SEEDS:
 				var a := _fight(party_ids, encounter, s, true)
@@ -300,7 +300,7 @@ func _perturbation_check(class_ids: Array, encounter_ids: Array) -> void:
 ## instant. Any line whose two halves disagree is a sentence the screen is
 ## getting wrong.
 func _verdict_table(class_ids: Array) -> void:
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	for cid in class_ids:
 		var pawn := PawnFactory.make_preset_pawn(cid, StringName("%s_v" % cid), String(cid))
 		var one: Array[PawnData] = [pawn]
@@ -328,8 +328,8 @@ func _verdict_table(class_ids: Array) -> void:
 ## and seed rather than on a pawn fighting alone.
 func _walk_verdicts(class_ids: Array) -> void:
 	var tally := {}
-	for eid in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(eid)
+	for eid in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(eid)
 		for party_ids in _parties(class_ids):
 			for s in SEEDS:
 				var party: Array[PawnData] = []
@@ -386,7 +386,7 @@ func _row_that_would_win_only(state: CombatState, unit: CombatUnit, row: int) ->
 func _authorship_table(class_ids: Array, encounter_ids: Array) -> void:
 	var by_class := {}
 	for eid in encounter_ids:
-		var encounter := Registry.get_encounter(eid)
+		var encounter := RoomLibrary.get_room(eid)
 		for party_ids in _parties(class_ids):
 			for s in SEEDS:
 				var party: Array[PawnData] = []

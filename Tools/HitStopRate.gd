@@ -26,7 +26,7 @@ func _init() -> void:
 	quit(0)
 
 func _measure(room_id: StringName) -> void:
-	var encounter := Registry.get_encounter(room_id)
+	var encounter := RoomLibrary.get_room(room_id)
 	if encounter == null:
 		printerr("no encounter %s" % room_id)
 		return

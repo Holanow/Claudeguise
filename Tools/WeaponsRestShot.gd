@@ -30,7 +30,7 @@ func _run() -> void:
 	var view := (load("res://Scenes/Battle.tscn") as PackedScene).instantiate()
 	add_child(view)
 	await get_tree().process_frame
-	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), positions)
+	view.begin_setup(cfg, RoomLibrary.get_room(cfg.encounter_id), positions)
 	for _i in 6:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

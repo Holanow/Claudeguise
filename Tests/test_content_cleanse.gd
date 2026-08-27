@@ -34,7 +34,7 @@ func _cleanse_events(state: CombatState) -> Array:
 
 func _run(fight_seed: int) -> CombatState:
 	var deps := SimDeps.new()
-	var state := CombatSim.build(_party(), Registry.get_encounter(ENCOUNTER), fight_seed, deps)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(ENCOUNTER), fight_seed, deps)
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		CombatSim.step(state, deps)
 	return state
@@ -165,7 +165,7 @@ func test_scour_strips_poison_specifically() -> void:
 		PawnFactory.make_preset_pawn(&"priest", &"p0", "Priest"),
 	]
 	var deps := SimDeps.new()
-	var state := CombatSim.build(party, Registry.get_encounter(ENCOUNTER), 0, deps)
+	var state := CombatSim.build(party, RoomLibrary.get_room(ENCOUNTER), 0, deps)
 	var ally: CombatUnit = null
 	var caster: CombatUnit = null
 	for u in state.units:

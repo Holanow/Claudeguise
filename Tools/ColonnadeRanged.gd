@@ -7,7 +7,7 @@ extends SceneTree
 const SEEDS := 10
 
 func _init() -> void:
-	var enc := Registry.get_encounter(&"floor1_cover")
+	var enc := RoomLibrary.get_room(&"floor1_cover")
 	_score("pillars", enc)
 	_score("paint", _without_terrain(enc))
 	quit(0)

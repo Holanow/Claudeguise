@@ -17,7 +17,7 @@ func _ids() -> Array[StringName]:
 
 func _init() -> void:
 	var class_ids := _ids()
-	var enc := Registry.get_encounter(&"floor1_cover")
+	var enc := RoomLibrary.get_room(&"floor1_cover")
 	var marks := 0
 	var fired := 0
 	var dart_fired := 0

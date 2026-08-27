@@ -30,7 +30,7 @@ func _fingerprint() -> void:
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	_say("classes: " + str(class_ids))
 	_say("encounters: " + str(encounter_ids))
 	if class_ids.is_empty() or encounter_ids.is_empty():
@@ -44,7 +44,7 @@ func _init() -> void:
 		_say("========================================================")
 		_say("ENCOUNTER: " + str(encounter_id))
 		_say("========================================================")
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		# Real parties first, and they are the only ones any balance decision
 		# should be read from. See _parties for why that sentence had to be
 		# written down.

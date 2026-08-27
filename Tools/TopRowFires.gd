@@ -8,7 +8,7 @@ const SEEDS := 20
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.pickable_encounter_ids()
+	var encounter_ids := RoomLibrary.pickable_ids()
 	for cid in class_ids:
 		_sample(cid, encounter_ids)
 	quit(0)
@@ -27,7 +27,7 @@ func _sample(class_id: StringName, encounter_ids: Array) -> void:
 	var fights := 0
 	var min_hp := 1.0
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for party_ids in _parties(ClassLibrary.all_ids()):
 			if not party_ids.has(class_id):
 				continue

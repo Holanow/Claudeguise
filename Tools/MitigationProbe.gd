@@ -14,8 +14,8 @@ var _short_circuit := {}
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
 	var rows := []
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for skip in class_ids.size():
 			var party_ids := []
 			for i in class_ids.size():

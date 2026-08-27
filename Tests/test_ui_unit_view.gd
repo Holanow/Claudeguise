@@ -750,12 +750,11 @@ func test_a_unit_that_has_not_looked_anywhere_yet_keeps_its_starting_pose() -> v
 ## did, the change would be untestable churn and worth saying so.
 func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> void:
 	var CombatSim := load("res://Scripts/Combat/CombatSim.gd")
-	var Registry := load("res://Scripts/Content/Registry.gd")
 	var PawnFactory := load("res://Scripts/Content/PawnFactory.gd")
 	var party: Array[PawnDataScript] = []
 	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
 		party.append(PawnFactory.make_starter_pawn(id, id, ClassLibrary.get_class_def(id).display_name))
-	var state = CombatSim.build(party, Registry.get_encounter(&"floor1_rat_king"), 3)
+	var state = CombatSim.build(party, RoomLibrary.get_room(&"floor1_rat_king"), 3)
 	var disagreed := 0
 	var looked := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:

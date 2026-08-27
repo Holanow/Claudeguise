@@ -31,7 +31,7 @@ func _build() -> void:
 	_view = (load("res://Scenes/Battle.tscn") as PackedScene).instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(&"floor1_sellsword"))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(&"floor1_sellsword"))
 	_view.set_process(false)
 
 func _frame() -> void:

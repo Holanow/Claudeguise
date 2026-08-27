@@ -63,13 +63,13 @@ func test_two_different_selections_produce_different_configs() -> void:
 	assert_ne(config_a.party[0].display_name, config_b.party[0].display_name)
 	screen.free()
 
-## Issue 32: this picked Registry.all_encounter_ids()[0] — alphabetically
+## Issue 32: this picked RoomLibrary.all_ids()[0] — alphabetically
 ## first, not the encounter the game means — so every real playthrough
 ## fought whichever room happened to sort first once a second one existed.
 func test_current_config_picks_the_default_encounter_not_the_alphabetically_first_one() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
-	var encounters := Registry.all_encounter_ids()
+	var encounters := RoomLibrary.all_ids()
 	if not encounters.has(CG.DEFAULT_ENCOUNTER):
 		return
 	screen.toggle_pawn(_make_pawn("warrior", "Warrior"), true)

@@ -56,8 +56,8 @@ func _ready() -> void:
 ## `all_equipment_ids`) — proposed to dace on the board as the clean fix.
 func _bestiary_ids() -> Array[StringName]:
 	var seen := {}
-	for encounter_id in Registry.all_encounter_ids():
-		var enc := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var enc := RoomLibrary.get_room(encounter_id)
 		if enc == null:
 			continue
 		for spawn in enc.enemy_spawns:

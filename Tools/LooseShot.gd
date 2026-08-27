@@ -43,7 +43,7 @@ func _party(party_ids: Array) -> Array[PawnData]:
 	return party
 
 func _encounter():
-	return Registry.get_encounter(Registry.all_encounter_ids()[0])
+	return RoomLibrary.get_room(RoomLibrary.all_ids()[0])
 
 ## Simulation only. Every ACTION_FIRE whose action carries a projectile and
 ## whose shooter still has a focus to kick away from -- exactly the gates
@@ -88,7 +88,7 @@ func _loose() -> Dictionary:
 func _build_view(party_ids: Array) -> void:
 	var cfg := RunConfig.new()
 	cfg.party = _party(party_ids)
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = SEED
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()
@@ -192,7 +192,7 @@ func _still(loose: Dictionary) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	var cfg := RunConfig.new()
 	cfg.party = _party(loose["party"])
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = SEED
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()

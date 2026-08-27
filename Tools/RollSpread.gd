@@ -14,8 +14,8 @@ func _init() -> void:
 	var parties := _parties(class_ids)
 	var totals := {&"fixed": _Acc.new(), &"rolled": _Acc.new()}
 
-	for encounter_id in Registry.pickable_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.pickable_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		print("")
 		print("======== ", encounter_id, " ========")
 		for arm in [&"fixed", &"rolled"]:

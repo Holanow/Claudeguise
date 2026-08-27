@@ -37,7 +37,7 @@ func test_row_zero_is_the_defect_the_playtester_reported() -> void:
 ## which is why `Ghoul` over `Cultist` read as `ltist` every single time.
 func test_the_default_room_is_where_ltist_came_from() -> void:
 	var markers: Array = []
-	for spawn in Registry.get_encounter(CG.DEFAULT_ENCOUNTER).enemy_spawns:
+	for spawn in RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER).enemy_spawns:
 		markers.append(_marker(OverlayScript.enemy_label(spawn), spawn.position,
 			float(spawn.get("radius", 22.0))))
 	var row_zero: Array[Rect2] = []
@@ -90,8 +90,8 @@ func test_the_layout_is_the_same_every_time_it_is_asked() -> void:
 ## them, through the same layout the screen draws.
 func test_no_pickable_room_overprints_its_own_enemy_names() -> void:
 	var checked := 0
-	for id in Registry.pickable_encounter_ids():
-		var encounter = Registry.get_encounter(id)
+	for id in RoomLibrary.pickable_ids():
+		var encounter = RoomLibrary.get_room(id)
 		var markers: Array = []
 		for spawn in encounter.enemy_spawns:
 			markers.append(_marker(OverlayScript.enemy_label(spawn), spawn.position,

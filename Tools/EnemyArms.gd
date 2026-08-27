@@ -38,8 +38,8 @@ func _init() -> void:
 ## "all enemies" would nerf the player.
 func _hostile_ids() -> Array:
 	var ids := {}
-	for eid in Registry.pickable_encounter_ids():
-		for spawn in Registry.get_encounter(eid).enemy_spawns:
+	for eid in RoomLibrary.pickable_ids():
+		for spawn in RoomLibrary.get_room(eid).enemy_spawns:
 			ids[spawn.get("enemy_id", &"")] = true
 	for id in ids.keys().duplicate():
 		var d: EnemyDef = EnemyLibrary.get_enemy(id)
@@ -74,8 +74,8 @@ func _run_arm(arm: Dictionary) -> void:
 	var wins := 0
 	var fights := 0
 	var per_room := {}
-	for eid in Registry.pickable_encounter_ids():
-		var encounter := Registry.get_encounter(eid)
+	for eid in RoomLibrary.pickable_ids():
+		var encounter := RoomLibrary.get_room(eid)
 		var rw := 0
 		var rf := 0
 		for skip in class_ids.size():

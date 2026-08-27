@@ -19,7 +19,7 @@ func _init() -> void:
 	var all_blob := 0.0
 	var n := 0
 
-	for enc_id in Registry.all_encounter_ids():
+	for enc_id in RoomLibrary.all_ids():
 		var tw := 0.0
 		var th := 0.0
 		var ta := 0.0
@@ -88,7 +88,7 @@ func _fight_usage(ids: Array, enc_id: StringName, s: int) -> Dictionary:
 		party.append(PawnFactory.make_starter_pawn(
 			c, StringName("%s_%d" % [cid, party.size()]), ClassLibrary.get_class_def(c).display_name
 		))
-	var state := CombatSim.build(party, Registry.get_encounter(enc_id), s)
+	var state := CombatSim.build(party, RoomLibrary.get_room(enc_id), s)
 
 	var aw := CG.ARENA_HALF_WIDTH * 2.0
 	var ah := CG.ARENA_HALF_HEIGHT * 2.0

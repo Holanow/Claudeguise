@@ -45,8 +45,8 @@ func _demand() -> Dictionary:
 	var worst_where := ""
 	var samples: Array[int] = []
 	var most_in_a_tick := 0
-	for encounter_id in Registry.pickable_encounter_ids():
-		var encounter = Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.pickable_ids():
+		var encounter = RoomLibrary.get_room(encounter_id)
 		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			var state := CombatSim.build(_party(party_ids), encounter, SEED)
 			var per_tick: Array[int] = []
@@ -77,7 +77,7 @@ func _demand() -> Dictionary:
 		mean += float(s)
 	mean = 0.0 if samples.is_empty() else mean / float(samples.size())
 	print("ParticleCost demand: %d ticks sampled over %d rooms, window %d ticks (%.2fs)" % [
-		samples.size(), Registry.pickable_encounter_ids().size(), window, ImpactBurstScript.LIFETIME])
+		samples.size(), RoomLibrary.pickable_ids().size(), window, ImpactBurstScript.LIFETIME])
 	print("  bursts alive at once: worst %d (%s), 99th %d, mean %.2f" % [
 		worst, worst_where, p99, mean])
 	print("  most DAMAGE events in one tick: %d" % most_in_a_tick)
@@ -92,13 +92,13 @@ func _demand() -> Dictionary:
 func _build_view(party_ids: Array) -> void:
 	var cfg := RunConfig.new()
 	cfg.party = _party(party_ids)
-	cfg.encounter_id = Registry.all_encounter_ids()[0]
+	cfg.encounter_id = RoomLibrary.all_ids()[0]
 	cfg.seed = SEED
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
 	_view = packed.instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(Registry.all_encounter_ids()[0]))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(RoomLibrary.all_ids()[0]))
 	_view.set_process(false)
 
 ## Copies every script variable, so a field added to CombatUnit later is carried

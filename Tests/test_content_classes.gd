@@ -14,12 +14,12 @@ func test_all_five_classes_are_registered() -> void:
 
 
 func test_no_duplicate_ids_anywhere() -> void:
-	# Registry._register already refuses duplicates with push_error; this
+	# RoomLibrary._load already refuses duplicates with push_error; this
 	# checks the observable consequence: every id we expect resolves, and
 	# nothing about loading it errors out into a missing entry.
 	for id in EXPECTED_CLASS_IDS:
 		assert_not_null(ClassLibrary.get_class_def(id), "missing class %s" % id)
-	assert_not_null(Registry.get_encounter(&"floor1_room1"))
+	assert_not_null(RoomLibrary.get_room(&"floor1_room1"))
 
 
 func test_every_class_has_one_or_two_damage_types() -> void:
@@ -191,7 +191,7 @@ func _adversarial_self(condition: ConditionBlock) -> CombatUnit:
 
 
 func test_enemy_room_is_registered_and_populated() -> void:
-	var enc := Registry.get_encounter(&"floor1_room1")
+	var enc := RoomLibrary.get_room(&"floor1_room1")
 	assert_not_null(enc)
 	assert_false(enc.enemy_spawns.is_empty())
 	assert_eq(enc.party_spawns.size(), 4)
@@ -206,8 +206,8 @@ func test_enemy_room_is_registered_and_populated() -> void:
 ## covered automatically.
 func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
 	var checked := 0
-	for encounter_id in Registry.all_encounter_ids():
-		var enc := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var enc := RoomLibrary.get_room(encounter_id)
 		for spawn in enc.party_spawns:
 			checked += 1
 			assert_true((spawn as Vector2).x <= CG.party_deploy_max_x(), "%s has a party spawn at x=%.1f, past the deploy limit of %.1f" % [encounter_id, (spawn as Vector2).x, CG.party_deploy_max_x()])
@@ -217,8 +217,8 @@ func test_every_encounters_party_spawns_stay_in_the_deploy_zone() -> void:
 ## Issue 13b criterion 2: no room may spawn a unit inside a WALL or PIT.
 func test_no_encounter_spawns_a_unit_inside_a_wall_or_pit() -> void:
 	var checked := 0
-	for encounter_id in Registry.all_encounter_ids():
-		var enc := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var enc := RoomLibrary.get_room(encounter_id)
 		if enc.cells.is_empty():
 			continue
 		var grid := TerrainGrid.new()
@@ -256,7 +256,7 @@ func test_a_taunting_warrior_draws_a_real_enemy_off_a_squishier_ally() -> void:
 	var warrior := PawnFactory.make_preset_pawn(&"warrior", &"warrior", "Warrior")
 	var geysermancer := PawnFactory.make_preset_pawn(&"geysermancer", &"geysermancer", "Geysermancer")
 	var party: Array[PawnData] = [warrior, geysermancer]
-	var encounter := Registry.get_encounter(&"floor1_room1")
+	var encounter := RoomLibrary.get_room(&"floor1_room1")
 	var state := CombatSim.build(party, encounter, 1)
 	# Both start together; let the fight run long enough for the Warrior's
 	# taunt to land (cast + travel time) and an enemy to commit to a target,

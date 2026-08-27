@@ -45,7 +45,7 @@ func _hunt(seeds: int) -> void:
 	var fights := 0
 	var stalls := 0
 	for enc_id in ENCOUNTERS:
-		var enc := Registry.get_encounter(enc_id)
+		var enc := RoomLibrary.get_room(enc_id)
 		if enc == null:
 			print("  %s: not in the registry" % enc_id)
 			continue
@@ -67,7 +67,7 @@ func _hunt(seeds: int) -> void:
 func _seed_sensitivity() -> void:
 	print("\nPROBE 2: does the seed do anything for the party the chokepoint guard runs?")
 	for enc_id in [&"floor1_chokepoint", &"floor1_cover", &"floor1_room1"]:
-		var enc := Registry.get_encounter(enc_id)
+		var enc := RoomLibrary.get_room(enc_id)
 		for class_id in CLASSES:
 			var ticks := {}
 			for seed in 20:

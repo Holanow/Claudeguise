@@ -32,7 +32,7 @@ func _sweep(movement_op: StringName) -> Dictionary:
 	var ground := 0
 	var ticks := 0
 	for seed_value in _SEEDS:
-		var state := CombatSim.build(_party(movement_op), Registry.get_encounter(&"floor1_hazard"), seed_value)
+		var state := CombatSim.build(_party(movement_op), RoomLibrary.get_room(&"floor1_hazard"), seed_value)
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			for u in state.units:
 				if not u.alive or u.pawn == null:
