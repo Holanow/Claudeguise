@@ -84,8 +84,11 @@ func test_a_resolving_summon_action_adds_a_unit_on_the_casters_team() -> void:
 	var summon := state.units[2]
 	assert_eq(summon.id, 2, "a unit appended here must get id == its index")
 	assert_eq(summon.team, CG.Team.PLAYER, "a summon takes the caster's team, not the enemy team")
-	assert_true(summon.position.distance_to(caster.position) <= CombatSim._SEPARATION_MAX_STEP + 0.01,
-		"spawned at the caster, less whatever one tick of separation moved it")
+	## Issue 642: it spawns exactly on the caster and both bodies are then
+	## eased apart by one tick of separation, one step each.
+	assert_true(summon.position.distance_to(caster.position) <= 2.0 * CombatSim._SEPARATION_MAX_STEP + 0.01,
+		"spawned at the caster, less the one tick of separation that followed, got %.2f"
+			% summon.position.distance_to(caster.position))
 	assert_eq(summon.hp_max, 5)
 	assert_eq(summon.hp, 5)
 	assert_true(summon.alive)
