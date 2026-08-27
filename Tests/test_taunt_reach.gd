@@ -39,7 +39,7 @@ func _ticks_to_close(radius: float, speed: float, reach: float) -> int:
 ## simulation would give it.
 func _victims() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
 		var ids: Array[StringName] = []
 		if pawn.pawn_class != null:

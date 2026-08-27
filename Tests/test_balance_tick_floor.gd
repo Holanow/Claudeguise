@@ -83,7 +83,7 @@ func test_haste_cannot_take_an_action_to_zero_ticks() -> void:
 ## Without this the floor could be `return 1` and every test above would pass.
 func test_an_ordinary_pawn_is_not_touched_by_the_floor() -> void:
 	var moved := 0
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, &"p", String(cid))
 		var scale: float = clampf(
 			Balance.attribute(pawn, CG.Attribute.AGI) * Balance.AGI_TICK_SCALE_PER_POINT,

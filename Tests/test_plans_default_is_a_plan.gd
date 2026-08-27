@@ -71,7 +71,7 @@ func test_the_constants_have_not_drifted_apart() -> void:
 
 ## The point of the exercise: a player can read what their pawn is running.
 func test_every_default_row_has_a_sentence_for_every_class() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var party: Array[PawnData] = [PawnFactory.make_starter_pawn(cid, &"p", "p")]
 		var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 0)
 		var rows := DefaultPlan.rows_for(state.units[0])

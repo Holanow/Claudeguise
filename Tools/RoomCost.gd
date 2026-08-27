@@ -7,7 +7,7 @@ extends SceneTree
 const SEEDS := 40
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.pickable_encounter_ids()
 	print("classes: ", class_ids)
 	print("pickable encounters: ", encounter_ids)

@@ -70,7 +70,7 @@ func _run_arm(arm: Dictionary) -> void:
 		var base := SimDeps._default_attack_power(unit, action, rng)
 		return base * player_scale if unit.pawn != null else base
 
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var wins := 0
 	var fights := 0
 	var per_room := {}

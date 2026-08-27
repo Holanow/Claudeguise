@@ -147,7 +147,7 @@ func test_the_seed_field_meets_the_minimum_touch_target() -> void:
 func test_every_roster_pawn_starts_with_no_plans_and_a_library_to_add_from() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.is_empty():
 		return
 	for pawn in screen.available_pawns():

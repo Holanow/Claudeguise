@@ -8,7 +8,7 @@ const SEED := 0x2A
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.all_encounter_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("no content")

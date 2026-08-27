@@ -171,7 +171,7 @@ func _default_party_spawns() -> Array[Vector2]:
 ## and `Tools/PlaytestRun.gd`'s BALANCED_PARTY already use.
 func _test_party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	for i in mini(ids.size(), MAX_TEST_PARTY):
 		var cls_id: StringName = ids[i]
 		var cls := Registry.get_class_def(cls_id)

@@ -45,7 +45,7 @@ func _without_terrain(enc: Encounter) -> Encounter:
 
 func _parties() -> Array:
 	var names := PackedStringArray()
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		names.append(String(id))
 	names.sort()
 	var out := []

@@ -10,7 +10,7 @@ const MARK_DURATION_TICKS := 150
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == &"geysermancer":
 			continue
 		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))

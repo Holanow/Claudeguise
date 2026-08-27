@@ -16,7 +16,7 @@ const MIN_ALLY_CLEANSES := 4
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == &"abomination":
 			continue
 		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))

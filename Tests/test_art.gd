@@ -23,7 +23,7 @@ const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine", &"stalke
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# The check that was missing, and the reason it was missing is instructive:
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
 
 	var checked := 0
@@ -42,7 +42,7 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# or an enemy actually has -- Registry has all_class_ids/all_enemy_ids but no
 	# all_action_ids, checked rather than assumed.
 	var action_ids: Array[StringName] = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := Registry.get_class_def(class_id)
 		if cls != null:
 			for aid in cls.starting_action_ids():
@@ -461,7 +461,7 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 	var readme := FileAccess.get_file_as_string("res://Assets/Units/README.md")
 	assert_ne(readme, "", "Assets/Units/README.md is missing")
 
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		assert_true(
 			readme.contains("`%s`" % class_id),
 			"class '%s' is registered but Assets/Units/README.md does not list it" % class_id
@@ -641,7 +641,7 @@ func _every_status() -> Array:
 ## Every action any class or enemy in the real registry can actually order.
 func _every_reachable_action_id() -> Array:
 	var out: Array = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for a in Registry.get_class_def(class_id).starting_action_ids():
 			if not out.has(a):
 				out.append(a)

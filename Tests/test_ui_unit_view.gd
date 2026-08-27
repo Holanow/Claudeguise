@@ -661,7 +661,7 @@ const _LEGIBLE_BADGE_PX := 16.0
 func _every_drawable_shape() -> Array:
 	var out: Array = []
 	var pawn_radius: float = CombatUnit.new().radius
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		out.append([id, pawn_radius, CG.Team.PLAYER])
 	for id in Registry.all_enemy_ids():
 		var e = Registry.get_enemy(id)

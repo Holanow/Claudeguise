@@ -74,7 +74,7 @@ func _measure_fights(room_id: StringName) -> void:
 	if encounter == null:
 		printerr("no encounter %s; nothing to measure" % room_id)
 		return
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 
 	var total_events := 0
 	var total_played := 0

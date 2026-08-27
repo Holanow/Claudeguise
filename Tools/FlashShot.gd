@@ -68,7 +68,7 @@ func _run() -> void:
 func _whole_screen() -> void:
 	DisplayOptions.reset()
 	UnitView.reset_flash_tint()
-	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 	while _view.state.tick < 60 and _view.state.outcome == CombatState.Outcome.UNRESOLVED:
 		await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
@@ -112,7 +112,7 @@ func _strip(stem: String, flash: bool, ring: bool, debris: bool, tint: float,
 	# as changed pixels belonging to none of the three effects being compared.
 	DisplayOptions.set_enabled(&"impact_squash", false)
 	UnitView.flash_tint = tint
-	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 
 	var seen := 0
 	var target_id := -1
@@ -216,7 +216,7 @@ func _cost(units: int, on: bool, storm: bool) -> void:
 	DisplayOptions.set_enabled(&"impact_squash", false)
 	DisplayOptions.set_enabled(&"impact_particles", false)
 	DisplayOptions.set_enabled(&"hit_flash", on)
-	var party_ids: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0]
+	var party_ids: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0]
 	await _build(party_ids)
 	_view.set_process(false)
 	var state: CombatState = _view.state

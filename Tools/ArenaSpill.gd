@@ -39,7 +39,7 @@ func _ready() -> void:
 	Offscreen.hide_window(self)
 	DisplayOptions.set_enabled(&"name_plates", true)
 	DisplayOptions.set_enabled(&"damage_numbers", true)
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.is_empty():
 		printerr("ArenaSpill: no content registered")
 		get_tree().quit(1)

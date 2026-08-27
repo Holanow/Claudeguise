@@ -26,7 +26,7 @@ var _capturing := false
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounter_ids := Registry.all_encounter_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("ContactSheet: no content registered")

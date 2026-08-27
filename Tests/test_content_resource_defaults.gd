@@ -35,7 +35,7 @@ func test_a_full_pool_means_that_pawns_own_maximum() -> void:
 ## Every class in the game gets an answer, so no future resource kind falls
 ## through to a default nobody chose.
 func test_every_class_has_a_defined_opening_pool() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		var max_resource := Balance.max_resource(pawn)
 		var start := Balance.starting_resource(pawn.pawn_class.resource_kind, max_resource)
@@ -57,7 +57,7 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 		&"warrior": false,
 		&"abomination": false,
 	}
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.weapon, "%s starts unarmed" % cid)
 		var action = Registry.get_action(pawn.weapon.granted_actions[0])

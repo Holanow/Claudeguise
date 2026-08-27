@@ -47,7 +47,7 @@ func _encounter():
 func _longest_drag() -> Dictionary:
 	var best := {"tick": -1, "id": -1, "party": [], "encounter": &"", "moved": 0.0}
 	for encounter_id in Registry.all_encounter_ids():
-		for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			if not party_ids.has(&"abomination"):
 				continue
 			var state := CombatSim.build(_party(party_ids), Registry.get_encounter(encounter_id), SEED)

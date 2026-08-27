@@ -22,7 +22,7 @@ func _init() -> void:
 
 func _party(with_row: bool) -> Array[PawnData]:
 	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pid := StringName("%s_%d" % [cid, party.size()])
 		if not with_row or cid != &"priest":
 			party.append(PawnFactory.make_starter_pawn(cid, pid, String(cid)))

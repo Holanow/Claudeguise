@@ -101,7 +101,7 @@ func test_equipment_ids_are_unique_and_sorted() -> void:
 ## nobody can arm, which is the failure this field could silently cause if a
 ## restriction were set too narrow.
 func test_every_class_can_equip_at_least_one_weapon() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var c := Registry.get_class_def(class_id)
 		var can_equip_something := false
 		for item_id in Registry.all_equipment_ids():

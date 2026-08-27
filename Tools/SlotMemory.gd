@@ -17,7 +17,7 @@ var _view: Node2D = null
 func _ready() -> void:
 	Offscreen.hide_window(self)
 	var before := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)
-	var parties: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())
+	var parties: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	var deaths := 0
 	for party_ids in parties:
 		for encounter_id in Registry.pickable_encounter_ids():
