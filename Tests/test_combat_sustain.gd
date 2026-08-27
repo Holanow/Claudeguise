@@ -444,7 +444,7 @@ func test_a_fight_with_no_sustained_action_emits_no_sustain_events() -> void:
 func test_immolate_is_the_one_authored_sustained_action() -> void:
 	var sustained: Array[StringName] = []
 	for id in Registry.all_action_ids():
-		if Registry.get_action(id).sustain_cost_per_tick > 0:
+		if ActionLibrary.get_action(id).sustain_cost_per_tick > 0:
 			sustained.append(id)
 	assert_eq(sustained.size(), 1, "sustained actions authored: %s" % [sustained])
 	assert_true(
@@ -457,7 +457,7 @@ func test_a_sustained_action_is_authored_with_a_reach_and_without_a_cooldown() -
 	var ids := Registry.all_action_ids()
 	assert_true(ids.size() > 0, "there are actions to check at all")
 	for id in ids:
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a.sustain_cost_per_tick <= 0:
 			continue
 		assert_true(a.sustain_radius > 0.0, "'%s' costs per tick and reaches nothing" % id)

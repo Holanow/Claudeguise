@@ -96,7 +96,7 @@ func _build() -> bool:
 	var pawns: Array[PawnData] = []
 	for i in party.size():
 		var cid: StringName = party[i]
-		if Registry.get_class_def(cid) == null:
+		if ClassLibrary.get_class_def(cid) == null:
 			printerr("StagedFight: no such class '%s'" % cid)
 			return false
 		pawns.append(PawnFactory.make_starter_pawn(cid, StringName("p%d" % i), String(cid)))
@@ -130,7 +130,7 @@ func _encounter():
 		e.terrain = base.terrain.duplicate()
 	for spawn in enemies:
 		var enemy_id: StringName = spawn.get("enemy_id", &"")
-		if Registry.get_enemy(enemy_id) == null:
+		if EnemyLibrary.get_enemy(enemy_id) == null:
 			printerr("StagedFight: no such enemy '%s'" % enemy_id)
 			return null
 		e.enemy_spawns.append({"enemy_id": enemy_id, "position": spawn.get("position", Vector2.ZERO)})

@@ -73,7 +73,7 @@ func _has_line(state: CombatState, u: CombatUnit, reach: float) -> bool:
 func _sighted_reach(u: CombatUnit) -> float:
 	var best := 0.0
 	for id in u.actions:
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a != null and a.requires_line_of_sight:
 			best = maxf(best, a.range_units)
 	return best
@@ -85,7 +85,7 @@ func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in PARTY:
 		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_p" % cid),
-			Registry.get_class_def(cid).display_name))
+			ClassLibrary.get_class_def(cid).display_name))
 	return out
 
 ## The step ENGINEER.md says almost nobody does: run every fight again with the

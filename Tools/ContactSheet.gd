@@ -77,7 +77,7 @@ func _party(ids: Array) -> Array[PawnData]:
 	for cid in ids:
 		# `cls.display_name`, the same source PartySelect uses, not `String(cid)`.
 		out.append(PawnFactory.make_starter_pawn(
-			cid, StringName("%s_%d" % [cid, out.size()]), Registry.get_class_def(cid).display_name
+			cid, StringName("%s_%d" % [cid, out.size()]), ClassLibrary.get_class_def(cid).display_name
 		))
 	return out
 

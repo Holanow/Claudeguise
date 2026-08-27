@@ -17,7 +17,7 @@ func _unit(id: int, team: CG.Team, hp: int, pos: Vector2) -> CombatUnit:
 	return u
 
 func _block() -> ActionDef:
-	return Registry.get_action(&"warrior_block")
+	return ActionLibrary.get_action(&"warrior_block")
 
 func _shot() -> ActionDef:
 	var a := ActionDef.new()
@@ -143,7 +143,7 @@ func test_the_block_starts_with_the_health_its_action_declares() -> void:
 func test_a_shielding_action_in_the_content_always_carries_health() -> void:
 	var checked := 0
 	for id in Registry.all_action_ids():
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null or not a.applies_status_enabled or a.applies_status != CG.Status.SHIELDING:
 			continue
 		checked += 1

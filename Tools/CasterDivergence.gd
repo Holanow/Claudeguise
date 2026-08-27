@@ -26,7 +26,7 @@ func _kit(class_id: StringName) -> void:
 	var pawn := PawnFactory.make_starter_pawn(class_id, &"k", "k")
 	var defs: Array[ActionDef] = []
 	for id in CombatSim._collect_player_actions(pawn):
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a != null:
 			defs.append(a)
 	print("")

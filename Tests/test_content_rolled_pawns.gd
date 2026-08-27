@@ -17,7 +17,7 @@ func test_the_fixed_roster_is_the_default_and_never_moves() -> void:
 		for attr in _all_attributes():
 			assert_eq(a.attribute(attr), b.attribute(attr),
 				"%s starter pawn is not reproducible on %s" % [class_id, CG.attribute_name(attr)])
-			assert_eq(a.attribute(attr), Registry.get_class_def(class_id).attribute(attr),
+			assert_eq(a.attribute(attr), ClassLibrary.get_class_def(class_id).attribute(attr),
 				"%s starter pawn differs from its class spread" % class_id)
 
 
@@ -26,7 +26,7 @@ func test_wis_is_never_rolled_and_stays_at_its_class_baseline() -> void:
 	assert_false(PawnFactory.ROLLED_ATTRIBUTES.has(CG.Attribute.WIS),
 		"WIS is in the rolled set and the player ruled it out")
 	for class_id in Registry.all_class_ids():
-		var baseline := Registry.get_class_def(class_id).attribute(CG.Attribute.WIS)
+		var baseline := ClassLibrary.get_class_def(class_id).attribute(CG.Attribute.WIS)
 		for s in 40:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			assert_eq(pawn.attribute(CG.Attribute.WIS), baseline,
@@ -95,7 +95,7 @@ func test_the_pool_is_the_same_size_for_every_class() -> void:
 func test_the_pool_size_still_resembles_the_roster_it_came_from() -> void:
 	var total := 0
 	for class_id in Registry.all_class_ids():
-		total += PawnFactory.class_total(Registry.get_class_def(class_id))
+		total += PawnFactory.class_total(ClassLibrary.get_class_def(class_id))
 	var mean := float(total) / float(Registry.all_class_ids().size())
 	print("POOL_SIZE %d against a roster mean of %.1f" % [PawnFactory.POOL_SIZE, mean])
 	assert_true(absf(mean - float(PawnFactory.POOL_SIZE)) <= 2.0,
@@ -109,7 +109,7 @@ func test_floors_are_per_class_and_are_not_all_one() -> void:
 	var seen_zero := false
 	var seen_high := false
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var floors := []
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
 			var f := PawnFactory.attribute_floor(cls, a)
@@ -129,7 +129,7 @@ func test_floors_are_per_class_and_are_not_all_one() -> void:
 func test_high_floors_buy_less_free_budget() -> void:
 	var free := {}
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		free[class_id] = PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls)
 		assert_true(free[class_id] > 0, "%s's floors consume its whole pool" % class_id)
 	print("free points after floors: %s" % [free])
@@ -140,7 +140,7 @@ func test_high_floors_buy_less_free_budget() -> void:
 func test_no_pawn_ever_falls_below_its_class_floor() -> void:
 	var under := []
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		for s in 300:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			for a in PawnFactory.ROLLED_ATTRIBUTES:
@@ -198,7 +198,7 @@ func test_a_rolled_pawn_reads_as_its_class_on_average() -> void:
 func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
 	var zeroed := []
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var attack_attr := _attack_attribute(cls)
 		for s in 300:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
@@ -217,7 +217,7 @@ func test_the_floors_do_not_bias_the_free_points() -> void:
 	var worst := 0.0
 	var worst_name := ""
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var free := float(PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls))
 		var weight_total := float(PawnFactory.class_total(cls))
 		var sums := {}
@@ -246,7 +246,7 @@ func _nearest_class(pawn: PawnData) -> StringName:
 	var best := &""
 	var best_d := 1 << 30
 	for class_id in Registry.all_class_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var d := 0
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
 			d += absi(pawn.attribute(a) - cls.attribute(a))
@@ -256,8 +256,8 @@ func _nearest_class(pawn: PawnData) -> StringName:
 	return best
 
 func _class_distance(a_id: StringName, b_id: StringName) -> int:
-	var a := Registry.get_class_def(a_id)
-	var b := Registry.get_class_def(b_id)
+	var a := ClassLibrary.get_class_def(a_id)
+	var b := ClassLibrary.get_class_def(b_id)
 	var d := 0
 	for attr in PawnFactory.ROLLED_ATTRIBUTES:
 		d += absi(a.attribute(attr) - b.attribute(attr))
@@ -269,7 +269,7 @@ func _class_distance(a_id: StringName, b_id: StringName) -> int:
 ## say where a number came from, and it is `PawnData`'s own stated reason for
 ## having the field.
 func test_the_class_spread_is_still_readable_under_a_roll() -> void:
-	var cls := Registry.get_class_def(&"warrior")
+	var cls := ClassLibrary.get_class_def(&"warrior")
 	var before := cls.attribute(CG.Attribute.STR)
 	for s in 20:
 		PawnFactory.make_rolled_pawn(&"warrior", &"p", "p", s)
@@ -297,7 +297,7 @@ func _all_attributes() -> Array:
 
 ## Mean L1 distance from `class_id`'s rolled pawns to `against`'s baseline.
 func _mean_distance(class_id: StringName, against: StringName) -> float:
-	var target := Registry.get_class_def(against)
+	var target := ClassLibrary.get_class_def(against)
 	var total := 0
 	for s in 120:
 		var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)

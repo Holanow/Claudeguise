@@ -4,7 +4,7 @@ extends "res://Tests/TestCase.gd"
 ## a fixture needs a real object even for an action nothing registers.
 ## Issue 658: `range_units` etc. now read from `targeting`, which a bare
 ## `ActionDef` leaves null (range 0). Before, an unregistered id fell through
-## every per-tick gate because `Registry.get_action` returned null for it;
+## every per-tick gate because `ActionLibrary.get_action` returned null for it;
 ## a large range keeps that same free pass now the block carries the
 ## resource itself.
 func _fixture_action(id: StringName) -> ActionDef:
@@ -361,12 +361,12 @@ func test_action_chips_carry_their_description_as_a_reachable_tooltip() -> void:
 	panel.open([pawn])
 
 	# Issue 129: the chips are built from `_available_actions`, which is
-	# `Registry.actions_for_pawn` -- class actions plus equipment grants. Walking
+	# `ActionLibrary.actions_for_pawn` -- class actions plus equipment grants. Walking
 	# `starting_actions` instead checked a different list than the one on screen,
 	# and it stopped agreeing the moment the Priest's Bolt moved onto the Staff.
 	var checked := 0
-	for action_id in Registry.actions_for_pawn(pawn):
-		var action = Registry.get_action(action_id)
+	for action_id in ActionLibrary.actions_for_pawn(pawn):
+		var action = ActionLibrary.get_action(action_id)
 		assert_not_null(action, "fixture depends on real registered actions")
 		var chip: Label = panel._action_chip(action_id)
 		assert_eq(chip.text, action.display_name)
@@ -395,7 +395,7 @@ func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 
 	var action_block := PlanFixtures.block(&"use_action", {"action_id": pawn.pawn_class.starting_action_ids()[0]})
 	var picker: OptionButton = panel._action_picker(pawn, action_block)
-	var action = Registry.get_action(pawn.pawn_class.starting_action_ids()[0])
+	var action = ActionLibrary.get_action(pawn.pawn_class.starting_action_ids()[0])
 	assert_not_null(action)
 	assert_true(picker.tooltip_text.contains(action.description),
 		"the skill block's hover must carry the description, got '%s'" % picker.tooltip_text)
@@ -968,20 +968,20 @@ func test_the_default_row_names_the_action_default_behavior_really_picks() -> vo
 		for distance in [30.0, 400.0]:
 			var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 			unit.pawn = pawn
-			# Issue 129: `Registry.actions_for_pawn`, which is what
+			# Issue 129: `ActionLibrary.actions_for_pawn`, which is what
 			# `CombatSim._collect_player_actions` builds a real unit from. This
 			# read `pawn.pawn_class.starting_actions`, which was the same list
 			# while a class owned its own basic attack and became a pawn holding
 			# *nothing* once the attack moved onto the main-hand weapon. The row
 			# under test was already right; the fixture was comparing it against
 			# a unit the game never builds.
-			unit.actions = Registry.actions_for_pawn(pawn)
+			unit.actions = ActionLibrary.actions_for_pawn(pawn)
 			var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(distance, 0))
 			var state := _state_with(unit, enemy)
 			var intent = DefaultBehavior.decide(state, unit)
 			if intent == null or intent.action_id == &"":
 				continue
-			var action = Registry.get_action(intent.action_id)
+			var action = ActionLibrary.get_action(intent.action_id)
 			assert_not_null(action, "%s: default behaviour ordered an unregistered action" % class_id)
 			assert_true(row_text.contains(action.display_name),
 				"%s at %d units really uses '%s', and the default row does not say so:\n%s" % [
@@ -1032,7 +1032,7 @@ func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
 	for row in panel._default_rows(pawn):
 		text += _all_label_text(row)
 
-	var shot = Registry.get_action(&"siege_master_shot")
+	var shot = ActionLibrary.get_action(&"siege_master_shot")
 	assert_not_null(shot)
 	assert_true(shot.range_units > DefaultBehavior.MELEE_RANGE_THRESHOLD, "this fixture is only meaningful for a ranged action")
 	var commit := int(shot.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)

@@ -43,4 +43,4 @@ static func _pick_item(difficulty: int, rng: RandomNumberGenerator) -> Equipment
 	if ids.is_empty():
 		return null
 	var index := rng.randi_range(0, ids.size() - 1)
-	return Registry.get_equipment(ids[index])
+	return ItemLibrary.get_equipment(ids[index])
