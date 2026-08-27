@@ -8,6 +8,9 @@
 [ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseActionBlock.gd" id="6_swuse"]
 [ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="8_swblk"]
 [ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="7_swcaa"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_crescent.tres" id="act_sellsword_crescent"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_seeker_bolts.tres" id="act_sellsword_seeker_bolts"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_strike.tres" id="act_sellsword_strike"]
 
 [sub_resource type="Resource" id="Resource_swinr1"]
 script = ExtResource("3_swinr")
@@ -18,7 +21,7 @@ script = ExtResource("5_swtne")
 
 [sub_resource type="Resource" id="Resource_swuse1"]
 script = ExtResource("6_swuse")
-action_id = &"sellsword_crescent"
+action = ExtResource("act_sellsword_crescent")
 
 [sub_resource type="Resource" id="Resource_swpln1"]
 script = ExtResource("2_swpln")
@@ -36,7 +39,7 @@ script = ExtResource("5_swtne")
 
 [sub_resource type="Resource" id="Resource_swuse2"]
 script = ExtResource("6_swuse")
-action_id = &"sellsword_strike"
+action = ExtResource("act_sellsword_strike")
 
 [sub_resource type="Resource" id="Resource_swpln2"]
 script = ExtResource("2_swpln")
@@ -53,7 +56,7 @@ script = ExtResource("5_swtne")
 
 [sub_resource type="Resource" id="Resource_swuse3"]
 script = ExtResource("6_swuse")
-action_id = &"sellsword_seeker_bolts"
+action = ExtResource("act_sellsword_seeker_bolts")
 
 [sub_resource type="Resource" id="Resource_swpln3"]
 script = ExtResource("2_swpln")
@@ -70,7 +73,7 @@ script = ExtResource("5_swtne")
 
 [sub_resource type="Resource" id="Resource_swuse4"]
 script = ExtResource("6_swuse")
-action_id = &"sellsword_seeker_bolts"
+action = ExtResource("act_sellsword_seeker_bolts")
 
 [sub_resource type="Resource" id="Resource_swcaa1"]
 script = ExtResource("7_swcaa")
