@@ -109,6 +109,8 @@ var arc_degrees: float:
 
 var projectile_speed: float:
 	get: return delivery.speed if delivery != null else 0.0
+var projectile_trail: bool:
+	get: return delivery.trail if delivery != null else false
 
 var sustain_cost_per_tick: int:
 	get: return sustain.cost_per_tick if sustain != null else 0

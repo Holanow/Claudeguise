@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_layer"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="2_glow"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="3_ember"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="4_vfx"]
+
+[sub_resource type="Resource" id="Resource_glow"]
+script = ExtResource("2_glow")
+colour = Color(0.949, 0.937, 0.902, 1)
+size = 40.0
+seconds = 0.09
+
+[sub_resource type="Resource" id="Resource_ember"]
+script = ExtResource("3_ember")
+amount = 10
+colour_hot = Color(0.91, 0.46, 0.42, 1)
+colour_cool = Color(0.48, 0.11, 0.09, 1)
+speed = 120.0
+lifetime = 0.35
+gravity = Vector2(0, 150)
+
+[resource]
+script = ExtResource("4_vfx")
+display_name = "Bite"
+layers = Array[ExtResource("1_layer")]([SubResource("Resource_glow"), SubResource("Resource_ember")])

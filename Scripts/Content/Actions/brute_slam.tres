@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_y4aei"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_kj7y4"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3lqqc"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/brute_slam.tres" id="vfx_brute_slam"]
 
 [sub_resource type="Resource" id="Resource_0ju3e"]
 script = ExtResource("2_0evk1")
@@ -28,3 +29,4 @@ wind_up_ticks = 16
 recover_ticks = 18
 targeting = SubResource("Resource_gxqpm")
 effects = Array[ExtResource("1_1aw2g")]([SubResource("Resource_0ju3e"), SubResource("Resource_ces7c")])
+vfx = ExtResource("vfx_brute_slam")

@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="4_tgp76"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_rcafh"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_kpt38"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/priest_bolt.tres" id="vfx_priest_bolt"]
 
 [sub_resource type="Resource" id="Resource_0x1oy"]
 script = ExtResource("1_7bxg0")
@@ -35,3 +36,4 @@ recover_ticks = 10
 targeting = SubResource("Resource_3o6ks")
 delivery = SubResource("Resource_0x1oy")
 effects = Array[ExtResource("2_8ba1l")]([SubResource("Resource_6ft07"), SubResource("Resource_d1xcg")])
+vfx = ExtResource("vfx_priest_bolt")

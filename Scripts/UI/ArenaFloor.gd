@@ -37,6 +37,13 @@ var unit_positions: Dictionary = {}
 
 const _PROJECTILE_RADIUS := 5.0
 
+## Issue 696: id -> recent draw positions, oldest first, for a shot whose
+## action asks for a trail. Pruned in `_draw()` against the live projectile
+## list, which self-heals across a new fight without BattleView resetting it.
+var _trails: Dictionary = {}
+const _TRAIL_LENGTH := 8
+const _TRAIL_WIDTH := 2.5
+
 func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH
 	var hh := CG.ARENA_HALF_HEIGHT
@@ -71,15 +78,26 @@ func _draw() -> void:
 	UIArt.draw_border(self, Rect2(Vector2(-hw, -hh), Vector2(hw * 2.0, hh * 2.0)),
 		Palette.ARENA_EDGE, BOUNDARY_WIDTH, &"arena")
 
+	var live_ids := {}
 	for p in projectiles:
+		live_ids[p.id] = true
 		_draw_projectile(p, shot_positions.get(p.id, p.position))
+	for id in _trails.keys():
+		if not live_ids.has(id):
+			_trails.erase(id)
 
 ## One in-flight shot, shaped and coloured by damage type
 ## (Scripts/Art/AttackFX.gd, PR #69 sable) instead of the plain dot-with-
-## trail this replaces. `Projectile` carries `action_id`, not `damage_type`
+## trail this replaces. `Projectile` carries `action_id`, not `damage_type`.
+## A shot whose action asks for one (issue 696) gets that trail back, drawn
+## from live position history rather than baked -- an aim-line exception.
 func _draw_projectile(p, at: Vector2) -> void:
 	if p.resolved:
+		_trails.erase(p.id)
 		return
+	if _projectile_has_trail(p):
+		AttackFX.draw_trail(self, PackedVector2Array(_update_trail(p.id, at)),
+			Palette.damage_color(_projectile_damage_type(p)), _TRAIL_WIDTH)
 	AttackFX.draw_projectile(self, at, at - p.origin, _projectile_damage_type(p), _PROJECTILE_RADIUS * 3.0)
 
 ## Split from _draw_projectile, same reasoning AttackFX's own geometry
@@ -91,6 +109,19 @@ func _draw_projectile(p, at: Vector2) -> void:
 func _projectile_damage_type(p) -> CG.DamageType:
 	var action := ActionLibrary.get_action(p.action_id)
 	return action.damage_type if action != null else CG.DamageType.PHYSICAL
+
+func _projectile_has_trail(p) -> bool:
+	var action := ActionLibrary.get_action(p.action_id)
+	return action != null and action.projectile_trail
+
+## Appends `at` to `id`'s history, capped to `_TRAIL_LENGTH`, and returns it.
+func _update_trail(id: int, at: Vector2) -> Array:
+	var pts: Array = _trails.get(id, [])
+	pts.append(at)
+	if pts.size() > _TRAIL_LENGTH:
+		pts = pts.slice(pts.size() - _TRAIL_LENGTH, pts.size())
+	_trails[id] = pts
+	return pts
 
 ## Four kinds, two axes (blocks movement / blocks sight), and no new Palette
 ## colours: everything below reuses tokens that already exist, distinguished
