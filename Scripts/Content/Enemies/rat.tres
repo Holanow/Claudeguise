@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_uu7fu"]
+
+[resource]
+script = ExtResource("1_uu7fu")
+id = &"rat"
+display_name = "Rat"
+hp_max = 40
+move_speed = 5.0
+radius = 8.0
+attack_power = {
+0: 3
+}
+actions = Array[StringName]([&"rat_bite"])
+display_tags = Array[String](["Melee", "Weak", "Bleed"])
+focus_bias = 0.8

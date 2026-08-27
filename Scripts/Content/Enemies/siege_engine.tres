@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_5ox8x"]
+
+[resource]
+script = ExtResource("1_5ox8x")
+id = &"siege_engine"
+display_name = "Siege Engine"
+hp_max = 140
+move_speed = 0.0
+radius = 20.0
+attack_power = {
+0: 16
+}
+actions = Array[StringName]([&"siege_engine_bolt"])
+display_tags = Array[String](["Ranged", "Construct"])
