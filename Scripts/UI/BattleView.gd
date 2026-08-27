@@ -683,8 +683,8 @@ static func _hits_plate(state: CombatState, u: CombatUnit, point: Vector2) -> bo
 	var chip: Rect2 = UnitView.plate_layout(state).get(u.id, Rect2())
 	return chip.size.x > 0.0 and chip.has_point(point)
 
-static func drawn_position(state: CombatState, u: CombatUnit) -> Vector2:
-	return u.position + UnitView.visual_offset(u, state.units)
+static func drawn_position(_state: CombatState, u: CombatUnit) -> Vector2:
+	return UnitView.drawn_position(u)
 
 static func _hits(state: CombatState, u: CombatUnit, point: Vector2, min_radius: float) -> bool:
 	var at := drawn_position(state, u)
@@ -699,7 +699,7 @@ static func _hits(state: CombatState, u: CombatUnit, point: Vector2, min_radius:
 		return false
 	# The plate is drawn from `u.position`, not from the nudged draw position:
 	# `ShieldWall.draw_all` sets the canvas transform to the unit's own place.
-	var plate := ShieldWall.wall_points(u.facing, ShieldWall.half_width(), u.radius * UnitView.DISPLAY_SCALE)
+	var plate := ShieldWall.wall_points(u.facing, ShieldWall.half_width(), u.radius)
 	return Geometry2D.is_point_in_polygon(point - u.position, plate)
 
 ## e.g. 197 ticks at 30 ticks/second reads as "6.6s" -- a player has never
@@ -1052,10 +1052,6 @@ func _apply_placements(positions: Array[Vector2]) -> void:
 	# Issue 501. The only place a unit moves outside `CombatSim.step`, so the
 	# only place that has to say so: without this the first tick after a drag
 	# slides every pawn in from wherever it was standing before.
-	# Issue 604: and the only other place the scrum-nudge cache has to be armed,
-	# for the same reason -- a body moved here without one reads the nudge the
-	# positions before the drag earned.
-	UnitView.note_tick(state)
 	_curr_drawn = _drawn_snapshot()
 	for id in _unit_views:
 		_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
@@ -1240,9 +1236,6 @@ func _process(delta: float) -> void:
 		_prev_drawn = _curr_drawn
 		_prev_shots = _curr_shots
 		CombatSim.step(state)
-		# Issue 604. The one place the scrum-nudge cache is armed, and it is here
-		# because everything downstream of a step reads `state.units`.
-		UnitView.note_tick(state)
 		_curr_drawn = _drawn_snapshot()
 		_curr_shots = _shot_snapshot()
 		stepped = true

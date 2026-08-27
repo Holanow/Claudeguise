@@ -83,7 +83,7 @@ func test_a_unit_summoned_mid_fight_gets_a_view() -> void:
 	var summon_view = view._unit_views[summon.id]
 	assert_eq(summon_view.unit_id, summon.id, "the new view must be bound to the summon")
 	assert_true(summon_view.visible, "a living summon's view must be visible")
-	assert_eq(summon_view.position, summon.position + UnitView.visual_offset(summon, state.units),
+	assert_eq(summon_view.position, UnitView.drawn_position(summon),
 		"the new view must track the summon's own position like any other unit's")
 	view.free()
 

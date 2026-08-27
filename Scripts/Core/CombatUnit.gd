@@ -19,9 +19,14 @@ var pawn: PawnData = null
 var enemy_id: StringName = &""
 
 var position: Vector2 = Vector2.ZERO
-## **Not drawing only, and changing it disturbs everyone's tuning.**
-##
-var radius: float = 22.0
+## The body, at the size it is drawn: collision, terrain clearance, projectile
+## hits and every range check are all measured off this one number (issue 642).
+var radius: float = 33.0
+
+## Edge to edge, so a range is a reach past the body rather than a distance
+## between two centres. Negative while two bodies overlap.
+static func gap(a: CombatUnit, b: CombatUnit) -> float:
+	return a.position.distance_to(b.position) - a.radius - b.radius
 
 var hp: int = 0
 var hp_max: int = 0

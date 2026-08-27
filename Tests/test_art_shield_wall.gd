@@ -107,9 +107,8 @@ func test_the_arena_draws_it_and_the_unit_does_not() -> void:
 
 
 func test_the_haft_reaches_the_body_that_is_holding_it() -> void:
-	# The plate's own back edge sits a standoff clear of the body, and bodies
-	# draw at DISPLAY_SCALE while the plate is world-true, so the two cannot
-	# meet by construction. The haft spans the gap instead.
+	# The plate's own back edge sits a standoff clear of the body, so the two
+	# cannot meet by construction. The haft spans the gap instead.
 	for raw in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2(3.0, -4.0).normalized()]:
 		var facing: Vector2 = raw
 		var e := _extent(ShieldWall.haft_points(facing, STANDOFF), facing)

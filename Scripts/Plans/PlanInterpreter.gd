@@ -229,7 +229,7 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action_id: St
 	var target := state.unit(action_target_id(unit, action_id))
 	if target == null:
 		return false
-	return unit.position.distance_to(target.position) <= action.range_units
+	return CombatUnit.gap(unit, target) <= action.range_units
 
 ## Issue 34: not a duplicate of the resolve-time line-of-sight check -- this one
 ## asks "should I even aim at this?" before committing, so a unit with a blocked

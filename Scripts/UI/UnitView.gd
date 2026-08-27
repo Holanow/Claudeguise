@@ -54,11 +54,12 @@ static func bar_width(radius: float, shape_id: StringName = &"", team: CG.Team =
 	var body := radius * 2.0 if shape_id == &"" else drawn_half_width(shape_id, team, radius) * 2.0
 	return clampf(body, MIN_BAR_WIDTH, BAR_WIDTH * DISPLAY_SCALE)
 
-## A view-only scale, deliberately not a change to `CombatUnit.radius`:
+## The screen scale: margins, shake, floaters and font sizes read it. Issue
+## 642 took the body out of it -- `CombatUnit.radius` is now the drawn size.
 const DISPLAY_SCALE := 1.5
 
 static func display_radius(u: CombatUnit) -> float:
-	return u.radius * DISPLAY_SCALE
+	return u.radius
 
 var unit_id: int = -1
 var _state: CombatState = null
@@ -135,12 +136,12 @@ static func into_arena(rect: Rect2) -> Vector2:
 		maxf(0.0, ARENA_BOUNDS.position.x - rect.position.x) - maxf(0.0, rect.end.x - ARENA_BOUNDS.end.x),
 		maxf(0.0, ARENA_BOUNDS.position.y - rect.position.y) - maxf(0.0, rect.end.y - ARENA_BOUNDS.end.y))
 
-## Where the body is drawn: the simulated position, the scrum nudge, and then
-## whatever it takes to keep the drawn body inside the arena. The playtester
-## measured a Siege Engine at y=550-645 against a border at y=633 -- the
-## simulation clamps a unit's centre, and a body has a radius.
-static func drawn_position(u: CombatUnit, units: Array) -> Vector2:
-	var at := u.position + visual_offset(u, units)
+## Where the body is drawn: the simulated position, and whatever it takes to
+## keep the drawn body inside the arena. The playtester measured a Siege Engine
+## at y=550-645 against a border at y=633 -- the simulation clamps a unit's
+## centre, and a body has a radius.
+static func drawn_position(u: CombatUnit, _units: Array = []) -> Vector2:
+	var at := u.position
 	var body := drawn_box(shape_id(u), u.team, display_radius(u))
 	return at + into_arena(Rect2(at + body.position, body.size))
 
@@ -152,59 +153,6 @@ static func label_visible(u: CombatUnit, state: CombatState) -> bool:
 		_hold_tick[u.id] = state.tick
 		return true
 	return state.tick - int(_hold_tick.get(u.id, -1000000000)) <= LABEL_HOLD_TICKS
-
-## The melee scrum: bodies standing close enough to occlude each other. A
-## view-only nudge, never fed back into CombatState -- this changes nothing
-## about range, targeting or movement, only where a body is drawn.
-const _SEPARATION_PADDING := 1.3
-const _SEPARATION_STRENGTH := 0.5
-
-## Issue 604: the scan reads simulated positions, which move once a tick, while
-## the view repaints sixty times a second and asks several times per repaint.
-## Armed by `note_tick` after each `CombatSim.step`, and served only to the
-## array that was armed, so a caller stepping the sim by itself can never read
-## a stale answer -- it simply misses.
-static var _offset := {}
-static var _offset_units: Array = []
-
-## Arming always drops what is held: the placement drag moves bodies without
-## the tick moving, so "same tick" cannot mean "same answers".
-static func note_tick(state: CombatState) -> void:
-	_offset.clear()
-	_offset_units = state.units
-
-static func visual_offset(u: CombatUnit, units: Array) -> Vector2:
-	if not is_same(units, _offset_units):
-		return _scrum_push(u, units)
-	var hit = _offset.get(u.id)
-	if hit != null:
-		return hit
-	var push := _scrum_push(u, units)
-	_offset[u.id] = push
-	return push
-
-## Uses display_radius, not u.radius: the whole point of this nudge is to
-## keep now-larger bodies from occluding each other, so it has to reason
-## about the size actually drawn, not the smaller collision footprint the
-## simulation moves around.
-static func _scrum_push(u: CombatUnit, units: Array) -> Vector2:
-	var push := Vector2.ZERO
-	var u_radius := display_radius(u)
-	for other in units:
-		if other.id == u.id or not other.alive:
-			continue
-		var delta: Vector2 = u.position - other.position
-		var dist: float = delta.length()
-		var min_dist: float = (u_radius + display_radius(other)) * _SEPARATION_PADDING
-		if dist >= min_dist:
-			continue
-		if dist > 0.001:
-			push += delta.normalized() * (min_dist - dist) * _SEPARATION_STRENGTH
-		else:
-			# Exactly coincident: distance has no direction to push along.
-			var angle := float(u.id) * 2.4
-			push += Vector2(cos(angle), sin(angle)) * min_dist * _SEPARATION_STRENGTH
-	return push.limit_length(u_radius * 1.5)
 
 ## Which way the body is drawn, from `CombatUnit.facing` -- the same quantity
 ## `_shot_is_blocked` reads to decide whether the Warrior's guard stops a shot,

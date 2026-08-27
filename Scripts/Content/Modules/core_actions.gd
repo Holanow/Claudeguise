@@ -26,7 +26,7 @@ static func enemies() -> Array[EnemyDef]:
 		##
 		## 1.4x hp is 140 against the Siege Master's 114. The minion is tankier
 		## than the pawn that builds it. Reported by issue 542, not changed by it.
-		_enemy(&"siege_engine", "Siege Engine", 1.4, 1.6, 0.0, 0.0, 1.0, 20.0, CG.DamageType.PHYSICAL, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
+		_enemy(&"siege_engine", "Siege Engine", 1.4, 1.6, 0.0, 0.0, 1.0, 30.0, CG.DamageType.PHYSICAL, [&"siege_engine_bolt"], ["Ranged", "Construct"], 0.0),
 	]
 
 static func encounters() -> Array[Encounter]:
