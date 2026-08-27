@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="5_w7jbl"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="6_n2e5x"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="7_lmpqx"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/geyser_spout.tres" id="vfx_geyser_spout"]
 
 [sub_resource type="Resource" id="Resource_8cf8s"]
 script = ExtResource("1_3myci")
@@ -40,3 +41,4 @@ recover_ticks = 10
 targeting = SubResource("Resource_1hbci")
 delivery = SubResource("Resource_8cf8s")
 effects = Array[ExtResource("2_eeupq")]([SubResource("Resource_mbbih"), SubResource("Resource_3i88f"), SubResource("Resource_mgwiv")])
+vfx = ExtResource("vfx_geyser_spout")

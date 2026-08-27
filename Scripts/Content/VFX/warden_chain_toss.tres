@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_vfxlayer"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_chargeorb"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/BeamLayer.gd" id="3_beam"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="4_glow"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ShockRingLayer.gd" id="5_ring"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="6_ember"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="7_shake"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/HitStopLayer.gd" id="8_hitstop"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="9_abilityvfx"]
+
+[sub_resource type="Resource" id="Resource_windup"]
+script = ExtResource("2_chargeorb")
+inner_colour = Color(0.95, 0.94, 0.9, 1)
+outer_colour = Color(0.6, 0.64, 0.71, 1)
+size = 80.0
+cue = 0
+
+[sub_resource type="Resource" id="Resource_chain"]
+script = ExtResource("3_beam")
+core_colour = Color(0.95, 0.94, 0.9, 1)
+edge_colour = Color(0.6, 0.64, 0.71, 1)
+width = 26.0
+hold_seconds = 0.1
+fade_seconds = 0.22
+cue = 1
+
+[sub_resource type="Resource" id="Resource_impactglow"]
+script = ExtResource("4_glow")
+colour = Color(0.95, 0.94, 0.9, 1)
+size = 76.0
+seconds = 0.16
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_impactring"]
+script = ExtResource("5_ring")
+ring_colour = Color(0.6, 0.64, 0.71, 1)
+size = 70.0
+seconds = 0.28
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_impactember"]
+script = ExtResource("6_ember")
+amount = 22
+colour_hot = Color(0.95, 0.94, 0.9, 1)
+colour_cool = Color(0.6, 0.64, 0.71, 1)
+speed = 260.0
+lifetime = 0.45
+gravity = Vector2(0, 300)
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_shake"]
+script = ExtResource("7_shake")
+pixels = 8.0
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_hitstop"]
+script = ExtResource("8_hitstop")
+delay = 0.07
+
+[resource]
+script = ExtResource("9_abilityvfx")
+display_name = "Chain Toss"
+layers = Array[ExtResource("1_vfxlayer")]([SubResource("Resource_windup"), SubResource("Resource_chain"), SubResource("Resource_impactglow"), SubResource("Resource_impactring"), SubResource("Resource_impactember"), SubResource("Resource_shake"), SubResource("Resource_hitstop")])

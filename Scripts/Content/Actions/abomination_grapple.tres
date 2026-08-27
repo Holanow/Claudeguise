@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_b2dio"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_edoq5"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3dukl"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/abomination_grapple.tres" id="vfx_abomination_grapple"]
 
 [sub_resource type="Resource" id="Resource_vsiif"]
 script = ExtResource("2_nmofb")
@@ -30,3 +31,4 @@ recover_ticks = 10
 resource_cost = 20
 targeting = SubResource("Resource_isfk6")
 effects = Array[ExtResource("1_opuij")]([SubResource("Resource_vsiif"), SubResource("Resource_sn0bq")])
+vfx = ExtResource("vfx_abomination_grapple")

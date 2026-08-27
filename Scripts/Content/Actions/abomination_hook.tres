@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/PullEffect.gd" id="4_3jmlc"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_kp2hr"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_0im5d"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/abomination_hook.tres" id="vfx_abomination_hook"]
 
 [sub_resource type="Resource" id="Resource_ji3jf"]
 script = ExtResource("1_4u4fc")
@@ -36,3 +37,4 @@ resource_cost = 15
 targeting = SubResource("Resource_jefuv")
 delivery = SubResource("Resource_ji3jf")
 effects = Array[ExtResource("2_gai4t")]([SubResource("Resource_juhmh"), SubResource("Resource_h2g80")])
+vfx = ExtResource("vfx_abomination_hook")
