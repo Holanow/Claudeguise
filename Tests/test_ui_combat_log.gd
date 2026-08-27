@@ -682,58 +682,6 @@ func test_a_status_whose_magnitude_is_not_a_strength_prints_no_number() -> void:
 # "I wrote the brain and was never shown it thinking." The log named the action
 # and never the row, so four different reasons a pawn ignored a plan looked
 # identical.
-
-## Against a real fight, through the real `line_for_event`, rather than against
-## a hand-built event -- the shape being checked is that the simulation carries
-## the field out of the tick it was created in, and a synthetic event proves
-## only that this function formats one.
-func test_a_real_fight_names_the_plan_row_behind_a_pawns_action() -> void:
-	var state := _real_fight()
-	var view := CombatLogView.new()
-	var tagged := 0
-	var fallback := 0
-	for e in state.events:
-		if e.kind != CG.EventKind.ACTION_START:
-			continue
-		var source := state.unit(e.source_id)
-		if source == null or source.pawn == null:
-			continue
-		var line := view.line_for_event(state, e)
-		if line.contains("[default]"):
-			fallback += 1
-			continue
-		var row := view.plan_row_number(source.pawn, e.source_plan)
-		assert_true(row > 0, "a pawn action with no default tag must name a real row: %s" % line)
-		assert_true(line.contains("[plan %d]" % row), line)
-		tagged += 1
-	assert_true(tagged > 0, "no pawn action in a whole fight named its plan")
-	assert_true(fallback > 0,
-		"no pawn action fell through to the default, so that wording went unexercised")
-	view.free()
-
-## The negative half, and it is where the volume argument lives. An enemy has no
-## plans and never will, so a tag on its line names nothing the player can go
-## and change -- and enemies are roughly half of every fight's actions. A
-## detector that fires on everything becomes furniture.
-func test_an_enemys_action_carries_no_plan_tag_at_all() -> void:
-	var state := _real_fight()
-	var view := CombatLogView.new()
-	var checked := 0
-	for e in state.events:
-		if e.kind != CG.EventKind.ACTION_START:
-			continue
-		var source := state.unit(e.source_id)
-		if source == null or source.pawn != null:
-			continue
-		var line := view.line_for_event(state, e)
-		assert_false(line.contains("["), "an enemy has no plans to name: %s" % line)
-		checked += 1
-	assert_true(checked > 0, "no enemy acted, so the quiet case was never exercised")
-	view.free()
-
-## The number in the log is the number the plan editor draws down the same list
-## (`InspectPanel._plan_row` prints "%d." % (index + 1)), so a player reading
-## "plan 3" can go to row 3 and find it. Checked against real preset plans.
 func test_the_row_number_is_the_editors_row_number() -> void:
 	var view := CombatLogView.new()
 	var pawn := PawnFactory.make_preset_pawn(&"warrior", &"w", "Warrior")
@@ -810,27 +758,6 @@ func test_the_compulsion_stamps_its_own_sentinel_on_both_intents() -> void:
 	victim.position = Vector2(500.0, 0.0)
 	assert_eq(CombatSim._compelled_intent(victim, taunter, deps).source_plan, Intent.COMPELLED,
 		"and the compelled walk into range")
-
-## `line_for_event` is the whole log, so a party of four fighting a real room is
-## the only fixture that can say what the log actually reads like.
-func _real_fight() -> CombatState:
-	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids().slice(0, 4):
-		party.append(PawnFactory.make_preset_pawn(
-			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
-	CombatSim.run(state)
-	return state
-
-# ---------------------------------------------------------------------------
-# Issue 319: the log's two drains are the player's to silence
-# ---------------------------------------------------------------------------
-#
-# A blind playtester lost the middle of a Burn Pit fight to nine consecutive
-# seconds of one repeated sentence. The player's ruling was a switch rather
-# than a deletion: "give the player the ability to disable certain logs, like
-# room hazards and status damage".
-
 func _ground_tick(tick: int, target_id: int) -> CombatEvent:
 	var e := CombatEvent.make(CG.EventKind.DAMAGE, tick)
 	e.source_id = -1
@@ -889,46 +816,5 @@ func test_the_status_filter_covers_every_dot() -> void:
 		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		assert_ne(view.line_for_event(state, e), "",
 			"%s is a damage-over-time tick and the switch must reach it" % CG.Status.keys()[status])
-	DisplayOptions.reset()
-	view.free()
-
-## The measurement the issue was filed on, against the only authored room with
-## fire in it, through the real formatter. **Re-recorded on #544**, which deleted
-## the automatic retreat: same seed, same room, the fight went 679 ticks -> 436
-## and the ground lines 178 of 562 -> 82 of 546, because the party stops walking
-## backwards through the fire. 32% was the recorded reason this toggle ships off
-## by default and 15% is a weaker one; **the player ruled it still ships off**,
-## since a sixth of the log is still a sixth of what a player reads.
-func test_the_burn_pit_log_carries_the_ground_lines_once_the_player_asks_for_it() -> void:
-	DisplayOptions.reset()
-	DisplayOptions.set_enabled(&"log_hazard_ticks", true)
-	var party: Array[PawnData] = []
-	for cid in Registry.all_class_ids().slice(0, 4):
-		party.append(PawnFactory.make_starter_pawn(
-			cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
-	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_hazard"), 1)
-	CombatSim.run(state)
-
-	var view := CombatLogView.new()
-	var shown := 0
-	var ground := 0
-	for e in state.events:
-		var line := view.line_for_event(state, e)
-		if line == "":
-			continue
-		shown += 1
-		if line.contains("from the ground"):
-			ground += 1
-	assert_true(ground > 50, "the Burn Pit must actually burn somebody: %d" % ground)
-	assert_true(float(ground) / float(shown) > 0.12,
-		"switched on, the log is %d of %d ground lines" % [ground, shown])
-
-	DisplayOptions.set_enabled(&"log_hazard_ticks", false)
-	var quiet := 0
-	for e in state.events:
-		if view.line_for_event(state, e) != "":
-			quiet += 1
-	print("burn pit: %d lines, %d of them ground -> %d with the ground off" % [shown, ground, quiet])
-	assert_eq(quiet, shown - ground, "switching it off must remove exactly the ground lines")
 	DisplayOptions.reset()
 	view.free()

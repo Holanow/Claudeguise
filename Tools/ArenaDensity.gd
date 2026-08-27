@@ -342,7 +342,7 @@ func _sample(state: CombatState, acc: Dictionary, by_count: Dictionary) -> Dicti
 	for u in live:
 		lo = Vector2(minf(lo.x, u.position.x), minf(lo.y, u.position.y))
 		hi = Vector2(maxf(hi.x, u.position.x), maxf(hi.y, u.position.y))
-		var r := u.radius * UnitView.DISPLAY_SCALE
+		var r := UnitView.display_radius(u)
 		ink += PI * r * r
 		margin = maxf(margin, r)
 		centroid += u.position
@@ -357,7 +357,7 @@ func _sample(state: CombatState, acc: Dictionary, by_count: Dictionary) -> Dicti
 			if absf(other.position.x - u.position.x) <= WIN_HALF_W and absf(other.position.y - u.position.y) <= WIN_HALF_H:
 				c += 1
 			if other != u:
-				nearest = minf(nearest, u.position.distance_to(other.position) - (u.radius + other.radius) * UnitView.DISPLAY_SCALE)
+				nearest = minf(nearest, u.position.distance_to(other.position) - (UnitView.display_radius(u) + UnitView.display_radius(other)))
 		best_win = maxi(best_win, c)
 		gaps += nearest
 

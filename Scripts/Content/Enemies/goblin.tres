@@ -8,7 +8,7 @@ id = &"goblin"
 display_name = "Goblin"
 hp_max = 35
 move_speed = 4.0
-radius = 11.0
+radius = 16.5
 attack_power = {
 0: 9
 }

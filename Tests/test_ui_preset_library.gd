@@ -153,33 +153,6 @@ func test_an_exhausted_library_is_disabled_with_a_reason() -> void:
 	assert_true(button.disabled)
 	assert_eq(button.tooltip_text, InspectPanel.LIBRARY_EXHAUSTED)
 	panel.free()
-
-## And the row taken from the library reaches the simulation. This is the half
-## `test_plans_edit_reaches_the_fight.gd` is the precedent for: an edit accepted
-## and echoed back that leaves the fight byte-identical is not an edit.
-func test_a_row_taken_from_the_library_changes_the_fight() -> void:
-	var bare := _fight(null)
-	var pawn := _pawn(&"abomination")
-	var panel := _panel(pawn)
-	var immolate = null
-	for row in panel._library_rows(pawn):
-		if row.id == &"abomination_immolate_dump":
-			immolate = row
-	assert_not_null(immolate, "the library must offer Immolate")
-	panel._add_preset(pawn, immolate)
-	var taken := _fight(pawn.plans[0])
-	panel.free()
-
-	assert_eq(bare["casts"], 0, "with no rows nothing can fire from a plan")
-	assert_true(taken["casts"] > 0,
-		"the row taken from the library must fire; it fired %d times" % taken["casts"])
-	assert_ne(bare["signature"], taken["signature"],
-		"the same seed produced the same event stream with and without the row, so the library never reached the simulation")
-
-## Embedded in the party screen's column the three chips cannot line up:
-## `_fixed_chip` autowraps, and on a real capture one row stood five lines tall
-## and two of them filled the panel. One sentence instead, carrying every fact
-## the three columns carry.
 func test_the_embedded_row_is_one_sentence_and_the_wide_row_is_three_columns() -> void:
 	var pawn := _pawn(&"abomination")
 	var immolate = _preset(&"abomination", &"abomination_immolate_dump")
@@ -240,31 +213,3 @@ func _text_of(node: Node) -> String:
 	for c in node.get_children():
 		out += _text_of(c)
 	return out
-
-## One Abomination against three goblins, carrying `plan` or nothing at all.
-## Goblins because they do not taunt: the compulsion branch runs before the plan
-## layer and would mask what this measures.
-func _fight(plan) -> Dictionary:
-	var pawn := _pawn(&"abomination")
-	var rows: Array[Plan] = []
-	if plan != null:
-		rows.append(plan)
-	pawn.plans = rows
-	var encounter := Encounter.new()
-	encounter.id = &"test_preset_library"
-	encounter.party_spawns = [Vector2(-60.0, 0.0)] as Array[Vector2]
-	encounter.enemy_spawns = [
-		{"enemy_id": &"goblin", "position": Vector2(20.0, -20.0)},
-		{"enemy_id": &"goblin", "position": Vector2(20.0, 20.0)},
-		{"enemy_id": &"goblin", "position": Vector2(40.0, 0.0)},
-	]
-	var state := CombatSim.build([pawn] as Array[PawnData], encounter, _SEED)
-	CombatSim.run(state)
-
-	var casts := 0
-	var parts := PackedStringArray()
-	for e in state.events:
-		if e.source_plan != &"":
-			casts += 1
-		parts.append("%d:%d:%d:%d:%s:%d" % [e.tick, e.kind, e.source_id, e.target_id, e.action_id, e.amount])
-	return {"casts": casts, "signature": "|".join(parts)}

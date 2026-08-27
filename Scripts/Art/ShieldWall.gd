@@ -19,7 +19,7 @@ const PANEL_BOW := 5.0
 
 ## The arm that ties the plate to the body holding it. It starts at the
 ## shielder's own centre, under the drawn body, so no gap can open between the
-## two however much larger than world scale that body is drawn.
+## two.
 const HAFT_HALF := 3.5
 
 ## The plate draws under every unit, so a pawn sheltering behind it is never
@@ -206,15 +206,14 @@ static func _draw_name(canvas: CanvasItem, facing: Vector2, half: float, standof
 ## Issue 511: `at_by_id` is where each body is drawn this frame, so the plate
 ## rides the interpolated body instead of the tick position it left behind. An
 ## id with no entry falls back to the simulated position.
-static func draw_all(canvas: CanvasItem, units: Array, standoff_scale: float,
-		at_by_id: Dictionary = {}) -> void:
+static func draw_all(canvas: CanvasItem, units: Array, at_by_id: Dictionary = {}) -> void:
 	for candidate in units:
 		var u: CombatUnit = candidate
 		if not is_up(u):
 			continue
 		var at: Vector2 = at_by_id.get(u.id, u.position)
 		canvas.draw_set_transform(at, 0.0, Vector2.ONE)
-		draw_for(canvas, u, u.radius * standoff_scale, room_for(at))
+		draw_for(canvas, u, u.radius, room_for(at))
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## The play area in the local space of a shielder standing at `position`.

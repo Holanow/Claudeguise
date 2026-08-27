@@ -25,6 +25,10 @@ enum Slot { WEAPON, ARMOR, ACCESSORY }
 ## Flat additions keyed by CG.Attribute.
 @export var attribute_flat: Dictionary = {}
 
+## Issue 632: shape changes this item makes to abilities it did not author.
+## Empty on every item that ships today, so nothing changes until one is set.
+@export var modifiers: Array[AbilityModifier] = []
+
 ## Armor only. Fraction of incoming damage removed before it is applied.
 @export var damage_reduction: float = 0.0
 

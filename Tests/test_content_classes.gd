@@ -95,8 +95,8 @@ func test_preset_plan_actions_resolve() -> void:
 		for plan in PresetPlans.for_class(id):
 			for block in plan.blocks:
 				if block is UseActionBlock:
-					var action_id: StringName = (block as UseActionBlock).action_id
-					assert_not_null(Registry.get_action(action_id), "%s plan %s uses unknown action %s" % [id, plan.id, action_id])
+					var action: ActionDef = (block as UseActionBlock).action
+					assert_not_null(action, "%s plan %s uses unknown action" % [id, plan.id])
 
 
 ## Every action a player can actually see (starting_actions of a real class)

@@ -6,7 +6,8 @@ extends "res://Tests/TestCase.gd"
 ## decision layer keeps choosing it.
 
 const _WIND_UP := 1
-const _RADIUS := 50.0
+## Wider than two bodies are across (issue 642), or nothing can stand inside it.
+const _RADIUS := 150.0
 const _COST := 3
 const _POWER := 4.0
 
@@ -87,9 +88,9 @@ func _arena(action: ActionDef) -> CombatState:
 	var state := CombatState.new(4242)
 	var caster := _unit(0, CG.Team.PLAYER, 100, Vector2.ZERO)
 	caster.focus_id = 1
-	var near := _unit(1, CG.Team.ENEMY, 100, Vector2(30.0, 0.0))
-	var far := _unit(2, CG.Team.ENEMY, 100, Vector2(200.0, 0.0))
-	var ally := _unit(3, CG.Team.PLAYER, 100, Vector2(10.0, 0.0))
+	var near := _unit(1, CG.Team.ENEMY, 100, Vector2(100.0, 0.0))
+	var far := _unit(2, CG.Team.ENEMY, 100, Vector2(400.0, 0.0))
+	var ally := _unit(3, CG.Team.PLAYER, 100, Vector2(80.0, 0.0))
 	state.units.append(caster)
 	state.units.append(near)
 	state.units.append(far)
@@ -126,9 +127,9 @@ func test_the_effect_reaches_only_enemies_inside_the_radius() -> void:
 	for i in 3:
 		CombatSim.step(state, deps)
 
-	assert_eq(state.unit(1).hp, 100 - 3 * int(_POWER), "30 units away, inside 50")
-	assert_eq(state.unit(2).hp, 100, "200 units away, untouched")
-	assert_eq(state.unit(3).hp, 100, "an ally at 10 units is never hit by a damage aura")
+	assert_eq(state.unit(1).hp, 100 - 3 * int(_POWER), "100 units away, inside 150")
+	assert_eq(state.unit(2).hp, 100, "400 units away, untouched")
+	assert_eq(state.unit(3).hp, 100, "an ally at 80 units is never hit by a damage aura")
 
 func test_a_held_action_puts_a_status_on_the_caster_for_its_whole_life() -> void:
 	# The two events mark the ends of the channel; this is what marks the middle.

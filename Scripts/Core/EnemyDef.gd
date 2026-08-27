@@ -18,7 +18,7 @@ class_name EnemyDef
 ## **NOT drawing only**, whatever `CombatUnit.radius` implies.
 ## `CombatSim._move_toward` uses it for movement collision and a projectile's
 ## hit check uses the target's radius. Changing it changes fights.
-@export var radius: float = 22.0
+@export var radius: float = 33.0
 
 ## Flat attack power per damage type, keyed by CG.DamageType. Enemies skip the
 ## attribute system; there is no pawn behind them to grow.
@@ -39,3 +39,9 @@ class_name EnemyDef
 ## How strongly this enemy prefers a target its allies already attack, 0.0 for
 ## nearest-and-ignore-everyone to 1.0 for always-join-the-pile.
 @export var focus_bias: float = 0.0
+
+## Issue 671. Rows in the same shape a pawn's are, evaluated the same way but
+## with no WIS budget -- enemies aren't WIS-limited, so every row here is
+## active. Empty falls through to `DefaultPlan`, which is every enemy before
+## this field.
+@export var plans: Array[Plan] = []

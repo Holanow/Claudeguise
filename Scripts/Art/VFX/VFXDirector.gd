@@ -14,6 +14,8 @@ var position_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.ZERO
 var hand_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.ZERO
 ## Every hand, tracked separately. A layer picks one by index.
 var hands_of_fn: Callable = func(_id: int) -> PackedVector2Array: return PackedVector2Array()
+## Which way a caster is facing. An arc has to point somewhere.
+var facing_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.RIGHT
 var shake_fn: Callable = func(_pixels: float) -> void: pass
 var hit_stop_fn: Callable = func() -> void: pass
 
@@ -154,6 +156,14 @@ func follow(rect: ColorRect, unit_id: int, offset: Vector2, hands: bool = false)
 	holder.set_meta(&"hands", hands)
 	holder.position = anchor_of(unit_id, hands) + offset
 	_followers.append(holder)
+
+## Centres a rect on a unit and turns it to face the way that unit does, so a
+## shader can work in a local space where +X is forward.
+func aim(rect: ColorRect, unit_id: int) -> void:
+	var holder := rect.get_parent() as Node2D
+	holder.position = position_of(unit_id)
+	var facing: Vector2 = facing_of_fn.call(unit_id)
+	holder.rotation = facing.angle() if facing.length() > 0.001 else 0.0
 
 func place(rect: ColorRect, at: Vector2) -> void:
 	(rect.get_parent() as Node2D).position = at

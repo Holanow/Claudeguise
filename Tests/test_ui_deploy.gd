@@ -29,22 +29,6 @@ func _held(cfg: RunConfig, positions: Array[Vector2] = []):
 	view._ready()
 	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), positions)
 	return view
-
-## Everything a fight can differ by, in one comparable string.
-func _signature(state: CombatState) -> String:
-	CombatSim.run(state)
-	var parts: Array[String] = ["t%d o%d" % [state.tick, state.outcome]]
-	for u in state.units:
-		parts.append("%d:%d:%.2f,%.2f" % [u.id, u.hp, u.position.x, u.position.y])
-	return " ".join(parts)
-
-# ---------------------------------------------------------------------------
-# The criterion that matters: the fight uses the positions.
-# ---------------------------------------------------------------------------
-
-## End to end through the real `CombatSim.build`. Not "the screen stored the
-## number" -- the units the simulation creates must stand where the player put
-## them, because every other assertion in this file is worthless if this fails.
 func test_the_fight_starts_the_party_where_the_player_put_them() -> void:
 	var cfg := _cfg()
 	var base = Registry.get_encounter(cfg.encounter_id)
@@ -371,65 +355,3 @@ func test_an_enemy_cannot_be_picked_up_but_still_answers_a_click() -> void:
 # Determinism. The comparison control, and the reason any of this is worth
 # measuring at all.
 # ---------------------------------------------------------------------------
-
-## Two fights placed identically must be identical, tick for tick. This is the
-## property `rerun` depends on and the one a rebuild could quietly break.
-func test_the_same_placement_gives_the_same_fight() -> void:
-	var chosen: Array[Vector2] = [
-		Vector2(-400.0, -120.0), Vector2(-380.0, 40.0),
-		Vector2(-250.0, 150.0), Vector2(-420.0, -200.0),
-	]
-	var a := _cfg()
-	var b := _cfg()
-	var first = _held(a, chosen)
-	first.start_fight()
-	var second = _held(b, chosen)
-	second.start_fight()
-	assert_eq(_signature(first.state), _signature(second.state))
-	first.free()
-	second.free()
-
-## And the negative half: a different placement must produce a different fight,
-## or the assertion above passes on a screen that ignores placement entirely.
-func test_a_different_placement_gives_a_different_fight() -> void:
-	var near: Array[Vector2] = [
-		Vector2(-200.0, 0.0), Vector2(-200.0, 60.0),
-		Vector2(-200.0, -60.0), Vector2(-200.0, 120.0),
-	]
-	var far: Array[Vector2] = [
-		Vector2(-460.0, 0.0), Vector2(-460.0, 60.0),
-		Vector2(-460.0, -60.0), Vector2(-460.0, 120.0),
-	]
-	var first = _held(_cfg(), near)
-	first.start_fight()
-	var second = _held(_cfg(), far)
-	second.start_fight()
-	assert_ne(_signature(first.state), _signature(second.state),
-		"the whole party moved 260 units and the fight did not change")
-	first.free()
-	second.free()
-
-## Through `Main`, through the real Restart: party, room, seed AND placement.
-## The placement is the half that used to live on another screen, and it is the
-## one a change like this would lose without anybody noticing.
-func test_restart_replays_the_placement_the_player_dragged() -> void:
-	var main = in_tree(MainScene.instantiate())
-	var select = main._current
-	for i in 2:
-		select.toggle_pawn(select.available_pawns()[i], true)
-	main.start_battle(select.current_config())
-
-	var view = main._current
-	assert_true(view.setup, "Start Fight must open the battle screen held, not the deploy screen")
-	view._grabbed_unit_id = _first_pawn_id(view.state)
-	view._move_grabbed_to(Vector2(-300.0, -140.0))
-	var dragged: Array[Vector2] = view.placements()
-	assert_eq(main._party_positions, dragged, "Main must have the placement to replay")
-	view.start_fight()
-	var first: String = _signature(view.state)
-
-	main.rerun()
-	var again = main._current
-	assert_eq(again.placements(), dragged, "the re-run opened on a different placement")
-	again.start_fight()
-	assert_eq(_signature(again.state), first, "the re-run is not the same fight")

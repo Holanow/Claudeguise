@@ -1,0 +1,103 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_swenm"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_swpln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/EnemyInRangeBlock.gd" id="3_swinr"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/AlwaysBlock.gd" id="4_swalw"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetNearestEnemyBlock.gd" id="5_swtne"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseActionBlock.gd" id="6_swuse"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="8_swblk"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="7_swcaa"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_crescent.tres" id="act_sellsword_crescent"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_seeker_bolts.tres" id="act_sellsword_seeker_bolts"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/sellsword_strike.tres" id="act_sellsword_strike"]
+
+[sub_resource type="Resource" id="Resource_swinr1"]
+script = ExtResource("3_swinr")
+range_units = 60.0
+
+[sub_resource type="Resource" id="Resource_swtne1"]
+script = ExtResource("5_swtne")
+
+[sub_resource type="Resource" id="Resource_swuse1"]
+script = ExtResource("6_swuse")
+action = ExtResource("act_sellsword_crescent")
+
+[sub_resource type="Resource" id="Resource_swpln1"]
+script = ExtResource("2_swpln")
+id = &"sellsword_crescent_row"
+display_name = "Crescent when it is off cooldown"
+condition = SubResource("Resource_swinr1")
+blocks = Array[ExtResource("8_swblk")]([SubResource("Resource_swtne1"), SubResource("Resource_swuse1")])
+
+[sub_resource type="Resource" id="Resource_swinr2"]
+script = ExtResource("3_swinr")
+range_units = 60.0
+
+[sub_resource type="Resource" id="Resource_swtne2"]
+script = ExtResource("5_swtne")
+
+[sub_resource type="Resource" id="Resource_swuse2"]
+script = ExtResource("6_swuse")
+action = ExtResource("act_sellsword_strike")
+
+[sub_resource type="Resource" id="Resource_swpln2"]
+script = ExtResource("2_swpln")
+id = &"sellsword_strike_row"
+display_name = "Strike otherwise, up close"
+condition = SubResource("Resource_swinr2")
+blocks = Array[ExtResource("8_swblk")]([SubResource("Resource_swtne2"), SubResource("Resource_swuse2")])
+
+[sub_resource type="Resource" id="Resource_swalw1"]
+script = ExtResource("4_swalw")
+
+[sub_resource type="Resource" id="Resource_swtne3"]
+script = ExtResource("5_swtne")
+
+[sub_resource type="Resource" id="Resource_swuse3"]
+script = ExtResource("6_swuse")
+action = ExtResource("act_sellsword_seeker_bolts")
+
+[sub_resource type="Resource" id="Resource_swpln3"]
+script = ExtResource("2_swpln")
+id = &"sellsword_seeker_row"
+display_name = "Seeker Bolts until an enemy is close"
+condition = SubResource("Resource_swalw1")
+blocks = Array[ExtResource("8_swblk")]([SubResource("Resource_swtne3"), SubResource("Resource_swuse3")])
+
+[sub_resource type="Resource" id="Resource_swalw2"]
+script = ExtResource("4_swalw")
+
+[sub_resource type="Resource" id="Resource_swtne4"]
+script = ExtResource("5_swtne")
+
+[sub_resource type="Resource" id="Resource_swuse4"]
+script = ExtResource("6_swuse")
+action = ExtResource("act_sellsword_seeker_bolts")
+
+[sub_resource type="Resource" id="Resource_swcaa1"]
+script = ExtResource("7_swcaa")
+
+[sub_resource type="Resource" id="Resource_swpln4"]
+script = ExtResource("2_swpln")
+id = &"sellsword_close_row"
+display_name = "Close the distance"
+condition = SubResource("Resource_swalw2")
+blocks = Array[ExtResource("8_swblk")]([SubResource("Resource_swtne4"), SubResource("Resource_swuse4"), SubResource("Resource_swcaa1")])
+
+[resource]
+script = ExtResource("1_swenm")
+id = &"sellsword"
+display_name = "Mercenary Sellsword"
+hp_max = 480
+move_speed = 2.4
+radius = 22.5
+attack_power = {
+0: 20,
+7: 20
+}
+damage_reduction = 0.08
+actions = Array[StringName]([&"sellsword_seeker_bolts", &"sellsword_strike", &"sellsword_crescent"])
+display_tags = Array[String](["Melee", "Ranged", "Elite"])
+focus_bias = 0.3
+plans = Array[ExtResource("2_swpln")]([SubResource("Resource_swpln1"), SubResource("Resource_swpln2"), SubResource("Resource_swpln3"), SubResource("Resource_swpln4")])

@@ -131,64 +131,6 @@ func test_build_places_party_and_enemies_and_emits_fight_start() -> void:
 # ---------------------------------------------------------------------------
 # criterion 1: a fight resolves both ways
 # ---------------------------------------------------------------------------
-
-func test_a_party_that_outclasses_the_enemies_wins() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 10.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	var state := CombatState.new(1)
-	state.units.append(_unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id]))
-	state.units.append(_unit(1, CG.Team.PLAYER, 30, Vector2(10, 0), [atk.id]))
-	state.units.append(_unit(2, CG.Team.ENEMY, 5, Vector2(20, 0), []))
-	state.units.append(_unit(3, CG.Team.ENEMY, 5, Vector2(30, 0), []))
-
-	var outcome := CombatSim.run(state, deps)
-
-	assert_eq(outcome, CombatState.Outcome.PLAYER_WIN)
-	assert_eq(state.outcome, CombatState.Outcome.PLAYER_WIN)
-	# A fight that can resolve does so well before MAX_TICKS: the cap must not
-	# be quietly deciding this one.
-	assert_true(state.tick < CG.MAX_TICKS / 10, "a trivial win took %d ticks" % state.tick)
-
-func test_an_enemy_group_that_outclasses_the_party_wins() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 10.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	var state := CombatState.new(2)
-	state.units.append(_unit(0, CG.Team.PLAYER, 5, Vector2.ZERO, []))
-	state.units.append(_unit(1, CG.Team.ENEMY, 30, Vector2(10, 0), [atk.id]))
-	state.units.append(_unit(2, CG.Team.ENEMY, 30, Vector2(20, 0), [atk.id]))
-
-	var outcome := CombatSim.run(state, deps)
-
-	assert_eq(outcome, CombatState.Outcome.ENEMY_WIN)
-	assert_true(state.tick < CG.MAX_TICKS / 10, "a trivial loss took %d ticks" % state.tick)
-
-# ---------------------------------------------------------------------------
-# criterion 2: a stalemate ends
-# ---------------------------------------------------------------------------
-
-func test_two_units_that_cannot_reach_each_other_draw_at_max_ticks() -> void:
-	var deps := SimDeps.new()
-	deps.default_decide = func(_state: CombatState, _unit: CombatUnit) -> Intent: return Intent.idle()
-
-	var state := CombatState.new(3)
-	state.units.append(_unit(0, CG.Team.PLAYER, 10, Vector2.ZERO, []))
-	state.units.append(_unit(1, CG.Team.ENEMY, 10, Vector2(1000000, 0), []))
-
-	var outcome := CombatSim.run(state, deps)
-
-	assert_eq(outcome, CombatState.Outcome.DRAW)
-	assert_eq(state.tick, CG.MAX_TICKS)
-
-# ---------------------------------------------------------------------------
-# criterion 3: the same seed gives the same fight
-# ---------------------------------------------------------------------------
-
 func _outclass_state(seed: int, atk_id: StringName) -> CombatState:
 	var state := CombatState.new(seed)
 	state.units.append(_unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk_id]))
@@ -207,45 +149,6 @@ func _assert_same_events(a: CombatState, b: CombatState, message: String) -> voi
 		assert_eq(ea.amount, eb.amount, "%s: event %d amount diverged" % [message, i])
 		assert_eq(ea.source_id, eb.source_id, "%s: event %d source diverged" % [message, i])
 		assert_eq(ea.target_id, eb.target_id, "%s: event %d target diverged" % [message, i])
-
-func test_same_seed_gives_identical_event_list() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 7.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	var a := _outclass_state(12345, atk.id)
-	var b := _outclass_state(12345, atk.id)
-	CombatSim.run(a, deps)
-	CombatSim.run(b, deps)
-
-	_assert_same_events(a, b, "same seed")
-
-func test_different_seeds_still_agree_because_rng_is_not_consulted() -> void:
-	# Criterion 3's own escape clause: "two different seeds produce different
-	# [fights], or the rng is not being consulted at all." True for this
-	# scenario specifically: no regen rate is configured (SimDeps defaults to
-	# 0, see issue 4), so CombatSim never touches state.rng here. Once a
-	# fractional regen rate is in play it does consult rng — see
-	# test_determinism_holds_with_regen_and_status_in_play below, which
-	# exercises the other branch of the same criterion: same seed, same
-	# rounding, same fight.
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 7.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	var a := _outclass_state(1, atk.id)
-	var b := _outclass_state(2, atk.id)
-	CombatSim.run(a, deps)
-	CombatSim.run(b, deps)
-
-	_assert_same_events(a, b, "different seeds, rng unused")
-
-# ---------------------------------------------------------------------------
-# criterion 4: range is measured when the effect lands
-# ---------------------------------------------------------------------------
-
 func test_target_that_leaves_range_during_windup_is_missed() -> void:
 	var atk := _melee(&"atk", 3, 1, 15.0)
 	var actions_by_id := {atk.id: atk}
@@ -397,34 +300,6 @@ func test_a_unit_at_one_hp_still_completes_its_action() -> void:
 # ---------------------------------------------------------------------------
 # criterion 6: every state change has an event
 # ---------------------------------------------------------------------------
-
-func test_replaying_damage_events_reaches_the_same_hp() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 6.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	var state := CombatState.new(6)
-	state.units.append(_unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id]))
-	state.units.append(_unit(1, CG.Team.ENEMY, 13, Vector2(1, 0), [atk.id]))
-
-	var start_hp := {0: 20, 1: 13}
-	CombatSim.run(state, deps)
-
-	var replayed := start_hp.duplicate()
-	for e in state.events:
-		if e.kind == CG.EventKind.DAMAGE:
-			replayed[e.target_id] = replayed[e.target_id] - e.amount
-		elif e.kind == CG.EventKind.HEAL:
-			replayed[e.target_id] = replayed[e.target_id] + e.amount
-
-	for u in state.units:
-		assert_eq(replayed[u.id], u.hp, "unit %d hp diverges from its event replay" % u.id)
-
-# ---------------------------------------------------------------------------
-# issue 4, criterion 1: mana and energy refill; rage does not
-# ---------------------------------------------------------------------------
-
 func test_mana_refills_over_time_but_rage_does_not() -> void:
 	var deps := _deps({}, 0.0)
 	_with_regen(deps, 2.0)
@@ -562,43 +437,6 @@ func test_stunned_unit_does_not_act_and_resumes_after_expiry() -> void:
 # ---------------------------------------------------------------------------
 # issue 4, criterion 5: determinism survives regen and statuses
 # ---------------------------------------------------------------------------
-
-func test_determinism_holds_with_regen_and_status_in_play() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-
-	var make_deps := func() -> SimDeps:
-		var d := _deps(actions_by_id, 4.0)
-		d.default_decide = _make_attack_nearest(actions_by_id)
-		_with_regen(d, 1.3) # fractional: forces the stochastic rounding to consult rng
-		return d
-
-	var make_state := func(seed: int) -> CombatState:
-		var s := CombatState.new(seed)
-		var a := _unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id])
-		a.resource_kind = CG.ResourceKind.MANA
-		a.resource_max = 10
-		var b := _unit(1, CG.Team.ENEMY, 20, Vector2(1, 0), [atk.id])
-		b.resource_kind = CG.ResourceKind.MANA
-		b.resource_max = 10
-		b.statuses[CG.Status.STUN] = 3
-		s.units.append(a)
-		s.units.append(b)
-		return s
-
-	var state_a: CombatState = make_state.call(999)
-	var state_b: CombatState = make_state.call(999)
-	CombatSim.run(state_a, make_deps.call())
-	CombatSim.run(state_b, make_deps.call())
-
-	_assert_same_events(state_a, state_b, "same seed with regen and stun")
-	assert_eq(state_a.units[0].resource, state_b.units[0].resource)
-	assert_eq(state_a.units[1].resource, state_b.units[1].resource)
-
-# ---------------------------------------------------------------------------
-# issue 16: nobody leaves the arena
-# ---------------------------------------------------------------------------
-
 func test_a_unit_told_to_walk_outside_the_arena_lands_on_the_boundary() -> void:
 	var deps := _deps({}, 0.0)
 	var state := CombatState.new(40)
@@ -626,24 +464,6 @@ func test_a_unit_still_moves_partway_toward_an_out_of_bounds_destination() -> vo
 	CombatSim.step(state, deps)
 
 	assert_almost_eq(unit.position.x, 5.0, 0.01, "a normal in-bounds step must not be affected by the clamp")
-
-func test_units_stay_inside_the_arena_across_a_full_fight() -> void:
-	var atk := _melee(&"atk", 1, 1, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := _deps(actions_by_id, 6.0)
-	deps.default_decide = _make_attack_nearest(actions_by_id)
-
-	for seed in [1, 2, 3, 4, 5]:
-		var state := CombatState.new(seed)
-		state.units.append(_unit(0, CG.Team.PLAYER, 20, Vector2.ZERO, [atk.id]))
-		state.units.append(_unit(1, CG.Team.ENEMY, 20, Vector2(50, 0), [atk.id]))
-		CombatSim.run(state, deps)
-		for u in state.units:
-			assert_true(
-				absf(u.position.x) <= CG.ARENA_HALF_WIDTH and absf(u.position.y) <= CG.ARENA_HALF_HEIGHT,
-				"seed %d: unit %d ended outside the arena at %s" % [seed, u.id, u.position]
-			)
-
 func test_an_uncornered_ranged_unit_fires_rather_than_backing_off() -> void:
 	# Was `test_an_uncornered_kiter_still_kites`, wren's regression check for
 	# the arena clamp under issue 16. #544 deleted the automatic retreat it

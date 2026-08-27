@@ -45,7 +45,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if heal_action != null:
 		var neediest := _lowest_hp_fraction(_heal_candidates(state, unit, heal_action))
 		if neediest != null and neediest.hp_fraction() <= HEAL_THRESHOLD_FRACTION:
-			var dist_to_ally := unit.position.distance_to(neediest.position)
+			var dist_to_ally := unit.gap(neediest)
 			if dist_to_ally <= heal_action.range_units:
 				return Intent.use_action(heal_action.id, neediest.id)
 			return Intent.move_to(neediest.position)
@@ -63,7 +63,7 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	if attack_action == null:
 		return Intent.idle()
 
-	var dist := unit.position.distance_to(target.position)
+	var dist := unit.gap(target)
 
 	if unit.move_speed <= 0.0:
 		if dist > attack_action.range_units:
@@ -130,7 +130,7 @@ static func _all_actions(unit: CombatUnit) -> Array[ActionDef]:
 static func _actions_that_can_fire_now(state: CombatState, unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for a in _all_actions(unit):
-		if PlanInterpreter.can_afford(state, unit, a.id):
+		if PlanInterpreter.can_afford(state, unit, a):
 			out.append(a)
 	return out
 
@@ -164,7 +164,7 @@ static func _self_targeted_to_cast(state: CombatState, unit: CombatUnit, enemies
 			continue
 		if a.heals or a.sustain_cost_per_tick > 0 or a.summons_unit_id != &"":
 			continue
-		if not PlanInterpreter.can_afford(state, unit, a.id):
+		if not PlanInterpreter.can_afford(state, unit, a):
 			continue
 		if _nearest_distance(unit, enemies) > _self_targeted_reach(unit, a):
 			continue
@@ -225,7 +225,7 @@ static func _choose_attack_action(actions: Array[ActionDef], unit: CombatUnit, t
 		return ranged
 	if ranged == null:
 		return melee
-	var dist := unit.position.distance_to(target.position)
+	var dist := unit.gap(target)
 	if dist <= melee.range_units * MELEE_COMMIT_FRACTION:
 		return melee
 	return ranged

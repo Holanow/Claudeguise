@@ -19,9 +19,15 @@ var pawn: PawnData = null
 var enemy_id: StringName = &""
 
 var position: Vector2 = Vector2.ZERO
-## **Not drawing only, and changing it disturbs everyone's tuning.**
-##
-var radius: float = 22.0
+## The body, at the size it is drawn: collision, terrain clearance, projectile
+## hits and every range check are all measured off this one number (issue 642).
+var radius: float = 33.0
+
+## Edge to edge, so a range is a reach past the body rather than a distance
+## between two centres. Negative while two bodies overlap, and the one place
+## the metric is written down: every reach test in the game asks this.
+func gap(other: CombatUnit) -> float:
+	return position.distance_to(other.position) - radius - other.radius
 
 var hp: int = 0
 var hp_max: int = 0
@@ -97,6 +103,11 @@ var status_source: Dictionary = {}
 ## Action ids available to this unit, from class, equipment and enemy
 ## definition combined at build time.
 var actions: Array[StringName] = []
+
+## Issue 671. An enemy's own authored rows, copied from `EnemyDef.plans` at
+## build time. Empty for every unit before this field, and for a player pawn
+## always -- a pawn's plans live on `pawn.plans` instead.
+var enemy_plans: Array[Plan] = []
 
 func is_busy() -> bool:
 	return action_ticks_left > 0 or recover_ticks_left > 0

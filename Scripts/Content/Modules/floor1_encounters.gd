@@ -57,7 +57,7 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 ## this list for exactly that reason: it is the order `ROOM_ORDER` showed before
 ## #180 deleted it, and the set and order a player sees are unchanged.
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_rat_king_room(), _the_warden_room()]
+	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_sellsword_room(), _the_rat_king_room(), _the_warden_room()]
 
 static func _the_warden_room() -> Encounter:
 	var e := Encounter.new()
@@ -97,6 +97,23 @@ static func _the_room() -> Encounter:
 	e.display_name = "Floor 1, Room 1"
 	e.pickable = true
 	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
+	e.party_spawns = _PARTY_SPAWNS
+	return e
+
+
+## Issue 671: the floor's elite. He is the fight, and the goblins are there so
+## that his opening bolts have somebody other than the party to walk past --
+## an elite alone reads as a duel rather than as a room.
+static func _the_sellsword_room() -> Encounter:
+	var e := Encounter.new()
+	e.id = &"floor1_sellsword"
+	e.display_name = "Floor 1, The Hired Blade"
+	e.pickable = true
+	e.enemy_spawns = [
+		{"enemy_id": &"sellsword", "position": Vector2(240.0, 0.0)},
+		{"enemy_id": &"goblin", "position": Vector2(120.0, -150.0)},
+		{"enemy_id": &"goblin", "position": Vector2(120.0, 150.0)},
+	]
 	e.party_spawns = _PARTY_SPAWNS
 	return e
 
