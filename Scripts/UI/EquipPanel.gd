@@ -197,7 +197,7 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 	if pawn.pawn_class == null:
 		return out
 	for id in Registry.all_equipment_ids():
-		var item := Registry.get_equipment(id)
+		var item := ItemLibrary.get_equipment(id)
 		if item == null or item.slot != slot:
 			continue
 		if item.allows_class(pawn.pawn_class) != allowed:
@@ -433,7 +433,7 @@ func _stat_text(name: String, before: float, after: float, _digits: int) -> Stri
 # ---------------------------------------------------------------------------
 # Granted skills
 #
-# The point of the whole feature. `Registry.actions_for_pawn` is what the plan
+# The point of the whole feature. `ActionLibrary.actions_for_pawn` is what the plan
 # editor now asks as well, so what this section promises and what that screen
 # offers cannot disagree -- they were two separate computations until issue 100,
 # and the fight knew about a granted action while the plan editor did not.
@@ -451,7 +451,7 @@ func granted_action_ids(pawn: PawnData) -> Array[StringName]:
 ## pixels away, and two lists that disagree teach a player to trust neither.
 func _action_controls(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	var available: Array = Registry.actions_for_pawn(pawn)
+	var available: Array = ActionLibrary.actions_for_pawn(pawn)
 	if available.is_empty():
 		out.append(_line("None. This pawn has nothing to call.",
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
@@ -485,7 +485,7 @@ func _action_chip(action_id: StringName) -> Control:
 	chip.set_script(GlossaryLabelScript)
 	chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	var action: ActionDef = Registry.get_action(action_id)
+	var action: ActionDef = ActionLibrary.get_action(action_id)
 	if action == null:
 		chip.text = "%s (not registered)" % String(action_id).capitalize()
 		chip.add_theme_color_override("font_color", Palette.HP_LOW)
@@ -497,7 +497,7 @@ func _action_chip(action_id: StringName) -> Control:
 	return chip
 
 static func _action_display_name(action_id: StringName) -> String:
-	var action: ActionDef = Registry.get_action(action_id)
+	var action: ActionDef = ActionLibrary.get_action(action_id)
 	return action.display_name if action != null else String(action_id).capitalize()
 
 func _section_header(text: String) -> Control:

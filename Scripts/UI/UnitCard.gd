@@ -208,7 +208,7 @@ static func doing_line(state: CombatState, u: CombatUnit) -> String:
 	return "Moving, or waiting for its next action to come up."
 
 static func action_name(id: StringName) -> String:
-	var action = Registry.get_action(id)
+	var action = ActionLibrary.get_action(id)
 	return action.display_name if action != null and action.display_name != "" else String(id)
 
 ## The circled number over the Rat King and the Warden, in words.

@@ -68,7 +68,7 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 	var out: Array[PawnData] = []
 	for i in mini(CELL_CANDIDATE_COUNT, pool.size()):
 		var class_id: StringName = pool[i]
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		var pawn_id := StringName("%s_cell_%d" % [class_id, room.id])
 		out.append(PawnFactory.make_starter_pawn(class_id, pawn_id, cls.display_name))
 	return out

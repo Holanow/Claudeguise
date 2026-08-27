@@ -22,3 +22,18 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Items/gown.tres",
 	"res://Scripts/Content/Items/censer.tres",
 ]
+
+static var _by_id: Dictionary = {}
+static var _loaded: bool = false
+
+static func _load() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	for path in PATHS:
+		var i: EquipmentDef = load(path)
+		_by_id[i.id] = i
+
+static func get_equipment(id: StringName) -> EquipmentDef:
+	_load()
+	return _by_id.get(id)
