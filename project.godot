@@ -6,13 +6,6 @@
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters
 
-; MANAGER-OWNED. Two sessions editing this file conflict on every merge, and it
-; carries the run settings everyone depends on. Propose changes in TEAM_LOG.md.
-;
-; There is deliberately no [autoload] section. An autoload is a global that any
-; session can reach into from anywhere, which is exactly what file ownership is
-; for. State passes through RunConfig instead.
-
 config_version=5
 
 [application]
@@ -33,4 +26,4 @@ window/stretch/aspect="expand"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.078431, 0.074510, 0.101961, 1)
+environment/defaults/default_clear_color=Color(0.078431, 0.07451, 0.101961, 1)

@@ -216,3 +216,39 @@ func _feed(view, kind: int, target_id: int = 1) -> void:
 func _frames(view, count: int) -> void:
 	for i in count:
 		view._process(FRAME)
+
+
+## The hand slid along a straight horizontal line: every frame of the old melee
+## motion had the same y, which is why the player said the hands do not move.
+## The arc is the thing they read, so it is the thing pinned here.
+func test_the_melee_hand_travels_an_arc_rather_than_a_line() -> void:
+	var ys: Array[float] = []
+	var xs: Array[float] = []
+	for i in 13:
+		var o := PartAnimation.action_offset(PartAnimation.Kind.MELEE, float(i) / 12.0, 50.0)
+		ys.append(o.y)
+		xs.append(o.x)
+	var y_range: float = ys.max() - ys.min()
+	assert_true(y_range > 8.0,
+		"the hand must rise and fall through the swing, not slide along one line (y spread %.1f)" % y_range)
+	assert_true(xs.max() - xs.min() > y_range,
+		"it is still a thrust: the reach must dominate the arc, or the swing reads as a flail")
+
+
+## The swing must be legible across the animation rather than dumped into its
+## last frames. Measured as: the hand has covered a real part of its travel by
+## the halfway point.
+func test_the_swing_is_not_all_in_the_last_two_frames() -> void:
+	var total := 0.0
+	var by_half := 0.0
+	var prev := PartAnimation.action_offset(PartAnimation.Kind.MELEE, 0.0, 50.0)
+	for i in range(1, 13):
+		var p := float(i) / 12.0
+		var here := PartAnimation.action_offset(PartAnimation.Kind.MELEE, p, 50.0)
+		var step := here.distance_to(prev)
+		total += step
+		if p <= 0.5:
+			by_half += step
+		prev = here
+	assert_true(by_half / total > 0.2,
+		"only %.0f%% of the hand's path happens in the first half; the player sees a static hand" % (100.0 * by_half / total))

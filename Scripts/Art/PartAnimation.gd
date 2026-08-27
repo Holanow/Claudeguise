@@ -66,7 +66,7 @@ const MELEE_WIND_BACK := 0.20
 
 ## Where in the wind-up the thrust starts. Before this the hands are drawing
 ## back; after it they travel, arriving exactly as the blow lands.
-const MELEE_RELEASE := 0.62
+const MELEE_RELEASE := 0.45
 
 ## How far a ranged draw pulls the hands back and up.
 const RANGED_DRAW := 0.45
@@ -83,6 +83,12 @@ const CAST_TURNS := 1.5
 
 ## The slash: wind back, then swing through. In degrees because that is how
 ## the player specified it; converted once at load rather than at every call.
+## How far the ARM turns about the shoulder, as opposed to how far the weapon
+## turns in the hand. Bigger than the weapon's own turn, because the arc is the
+## part the player reads from across the arena.
+const MELEE_ARM_WIND_DEGREES := -34.0
+const MELEE_ARM_SWING_DEGREES := 62.0
+
 const MELEE_WIND_DEGREES := -40.0
 const MELEE_SWING_DEGREES := 75.0
 
@@ -111,16 +117,36 @@ static func action_offset(kind: Kind, progress: float, radius: float) -> Vector2
 			return _cast(p) * radius
 	return Vector2.ZERO
 
-## Draw back, then throw. Quadratic on the way out so the hands accelerate into
-## the blow instead of sliding to it, without hiding the whole throw in the last
-## two frames the way a cubic did.
+## Where the shoulder sits relative to the hand at rest, in radius units. The
+## arm swings about this, so the hand travels an arc instead of sliding along a
+## line: every frame of the old motion had y = 8.08, which is why the player
+## saw a hand that did not move.
+const SHOULDER := Vector2(-0.30, -0.10)
+
+## Draw back, then throw, as a rotation of the arm about `SHOULDER`. Quadratic
+## on the way out so the hand accelerates into the blow rather than sliding to
+## it.
 static func _melee(p: float) -> Vector2:
+	var arm := -SHOULDER
+	var a := 0.0
 	if p < MELEE_RELEASE:
 		var w := p / MELEE_RELEASE
-		return Vector2(-MELEE_WIND_BACK * w * w, 0.0)
+		a = deg_to_rad(MELEE_ARM_WIND_DEGREES) * w * w
+	else:
+		var t := (p - MELEE_RELEASE) / (1.0 - MELEE_RELEASE)
+		var eased := t * t
+		a = deg_to_rad(MELEE_ARM_WIND_DEGREES
+			+ (MELEE_ARM_SWING_DEGREES - MELEE_ARM_WIND_DEGREES) * eased)
+	return SHOULDER + arm.rotated(a) + Vector2(_reach(p), 0.0)
+
+## The straight-line part of the thrust, kept because a swing that only rotates
+## never closes the distance the action's range assumes.
+static func _reach(p: float) -> float:
+	if p < MELEE_RELEASE:
+		var w := p / MELEE_RELEASE
+		return -MELEE_WIND_BACK * w * w
 	var t := (p - MELEE_RELEASE) / (1.0 - MELEE_RELEASE)
-	var eased := t * t
-	return Vector2(-MELEE_WIND_BACK + (MELEE_REACH + MELEE_WIND_BACK) * eased, 0.0)
+	return -MELEE_WIND_BACK + (MELEE_REACH + MELEE_WIND_BACK) * t * t
 
 ## The angle at `progress` through a wind-up, in radians, driven off the SAME
 ## `progress` `action_offset` uses -- a separately-timed rotation drifts from

@@ -210,7 +210,7 @@ static func recipe_ids() -> Array[StringName]:
 ## `HandOff` and `HandMain` with `Weapon` between them, so a held weapon
 ## reads as gripped rather than glued on top of both hands at once.
 const SLOTS: Array[StringName] = [
-	&"Body", &"Head", &"Headwear", &"Face", &"HandOff", &"Weapon", &"HandMain", &"Extra",
+	&"Body", &"Head", &"Headwear", &"Face", &"HandOff", &"HandMain", &"Weapon", &"Extra",
 ]
 
 ## Which slot a part goes in. A part named nowhere here lands in `Extra`, so a
