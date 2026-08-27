@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_r8ilt"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_fa862"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ArcSweepLayer.gd" id="3_sdr0j"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="4_mmywu"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="5_44ovh"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="6_hkm6c"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/HitStopLayer.gd" id="7_y6nus"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="8_tdx1u"]
+
+[sub_resource type="Resource" id="Resource_e6u41"]
+script = ExtResource("2_fa862")
+inner_colour = Color(0.86, 0.9, 0.98, 1)
+outer_colour = Color(0.4, 0.58, 0.92, 1)
+size = 74.0
+cue = 0
+
+[sub_resource type="Resource" id="Resource_wjy1i"]
+script = ExtResource("3_sdr0j")
+edge_colour = Color(0.52, 0.72, 1, 1)
+cue = 1
+
+[sub_resource type="Resource" id="Resource_6mbhh"]
+script = ExtResource("4_mmywu")
+colour = Color(0.86, 0.9, 0.98, 1)
+size = 40.0
+seconds = 0.12
+delay = 0.09
+
+[sub_resource type="Resource" id="Resource_saik2"]
+script = ExtResource("5_44ovh")
+amount = 26
+colour_hot = Color(0.86, 0.9, 0.98, 1)
+colour_cool = Color(0.4, 0.58, 0.92, 1)
+speed = 240.0
+lifetime = 0.55
+gravity = Vector2(0, 200)
+delay = 0.09
+
+[sub_resource type="Resource" id="Resource_yhh5i"]
+script = ExtResource("6_hkm6c")
+pixels = 9.0
+delay = 0.09
+
+[sub_resource type="Resource" id="Resource_jwuwo"]
+script = ExtResource("7_y6nus")
+delay = 0.09
+
+[resource]
+script = ExtResource("8_tdx1u")
+display_name = "Crescent"
+layers = Array[ExtResource("1_r8ilt")]([SubResource("Resource_e6u41"), SubResource("Resource_wjy1i"), SubResource("Resource_6mbhh"), SubResource("Resource_saik2"), SubResource("Resource_yhh5i"), SubResource("Resource_jwuwo")])

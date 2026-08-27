@@ -96,6 +96,7 @@ reads as a proportion of a body and the canvas size is one constant.
 | `rat` | low body, snouted head, tail |
 | `rat_king` | **the rat, plus a gold hat** |
 | `brute` | muscular body, horns |
+| `sellsword` | muscular body, helm, plume |
 | `cultist` | capsule body, hood |
 | `ghoul` | capsule body, tusks |
 | `grub` | rotund body, mandibles |
