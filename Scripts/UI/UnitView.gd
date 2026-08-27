@@ -385,42 +385,78 @@ func advance_anim(delta: float, alpha: float) -> void:
 	_anim_alpha = alpha
 	queue_redraw()
 
-## Where one animated part sits this frame, in the body's own draw space.
-## The idle bob runs underneath the action pose rather than being replaced by it,
-## so a body mid-wind-up is still breathing.
+## `progress` through the current wind-up, and which of the three shared
+## motions it is -- or IDLE with `progress` 0 while nothing is winding up.
+## Both hands and the weapon derive their pose from this one pair, which is
+## what keeps them moving as one thing rather than three separately-timed ones.
+func _action_progress(u: CombatUnit) -> Array:
+	if u.action_ticks_total <= 0 or u.action_ticks_left <= 0:
+		return [PartAnimation.Kind.IDLE, 0.0]
+	var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
+	var kind := PartAnimation.kind_for(Registry.get_action(u.current_action))
+	return [kind, done / float(u.action_ticks_total)]
+
+## Where the main hand and the weapon it holds sit this frame, in the body's
+## own draw space. The idle bob runs underneath the action pose rather than
+## being replaced by it, so a body mid-wind-up is still breathing.
 ##
 ## Not turned round for facing the way it used to be: the mirror is a scale on
 ## `UnitVisual`'s own node now, so a child offset is mirrored with the body.
 func _part_offset(u: CombatUnit, radius: float) -> Vector2:
 	var off := PartAnimation.idle_offset(_anim_seconds, PartAnimation.phase_for(u.id), radius)
-	# The wind-up, and only the wind-up. At the fire #516's recoil and #531's loose
-	# kick take over the follow-through.
-	if u.action_ticks_total > 0 and u.action_ticks_left > 0:
-		var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
-		var kind := PartAnimation.kind_for(Registry.get_action(u.current_action))
-		off += PartAnimation.action_offset(kind, done / float(u.action_ticks_total), radius)
+	var kp := _action_progress(u)
+	if kp[0] != PartAnimation.Kind.IDLE:
+		off += PartAnimation.action_offset(kp[0], kp[1], radius)
 	return off
 
+## The off hand's own quieter echo: same idle, a fraction of the main hand's
+## action pose. One arm swings, the other counterbalances.
+func _off_hand_offset(u: CombatUnit, radius: float) -> Vector2:
+	var off := PartAnimation.idle_offset(_anim_seconds, PartAnimation.phase_for(u.id), radius)
+	var kp := _action_progress(u)
+	if kp[0] != PartAnimation.Kind.IDLE:
+		off += PartAnimation.off_hand_offset(kp[0], kp[1], radius)
+	return off
+
+## How far the main hand and its weapon are turned this frame. Only a melee
+## wind-up turns at all; a draw and a cast hold the weapon steady.
+func _part_angle(u: CombatUnit) -> float:
+	var kp := _action_progress(u)
+	return PartAnimation.action_angle(kp[0], kp[1])
+
+func _off_hand_angle(u: CombatUnit) -> float:
+	var kp := _action_progress(u)
+	return PartAnimation.off_hand_angle(kp[0], kp[1])
+
+## The part this unit's weapon draws in the `Weapon` slot. Empty for anything
+## unarmed or without a `PawnData` at all -- an enemy has no `pawn`.
+func _weapon_part(u: CombatUnit) -> StringName:
+	if u.pawn == null or u.pawn.weapon == null:
+		return &""
+	return u.pawn.weapon.part
+
 ## Whether this body has anything to animate at all. False means the toggle is
-## off or this recipe puts nothing in its `Hands` slot, and either way the body is
-## posed exactly as it was baked.
-## Where this body's hands are drawn, in arena space. A cast leaves the hands,
-## and the hands move through the whole wind-up, so a beam anchored to the body
-## centre visibly detaches from the pose that is throwing it.
-## Every hand this body has, in arena space, tracked separately. Empty when the
-## recipe puts nothing in its Hands slot.
+## off or this recipe puts nothing in its `HandMain`/`HandOff` slots, and
+## either way the body is posed exactly as it was baked.
+## Where this body's main hand is drawn, in arena space. A cast leaves the
+## hand, and the hand moves through the whole wind-up, so a beam anchored to
+## the body centre visibly detaches from the pose that is throwing it.
+## Every hand this body has, in arena space, tracked separately, main hand
+## first. Empty when the recipe puts nothing in its hand slots.
 func hand_anchors() -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if _visual == null:
 		return out
-	for p in _visual.slot_points(&"Hands"):
+	for p in _visual.slot_points(&"HandMain"):
+		out.append(position + p)
+	for p in _visual.slot_points(&"HandOff"):
 		out.append(position + p)
 	return out
 
 func hand_anchor() -> Vector2:
 	if _visual == null:
 		return position
-	return position + _visual.slot_offset(&"Hands")
+	return position + _visual.slot_offset(&"HandMain")
 
 func can_animate(u: CombatUnit) -> bool:
 	return animating() and UnitRecipes.has_animated_part(_shape_id(u))
@@ -434,12 +470,19 @@ func _sync_visual(u: CombatUnit, radius: float) -> void:
 	if _visual == null:
 		_visual = UnitVisual.new()
 		add_child(_visual)
-	_visual.build(_shape_id(u), u.team, radius)
+	_visual.build(_shape_id(u), u.team, radius, _weapon_part(u))
 	_visual.pose(facing_left(u), squash_scale(_squash_age),
 		recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels),
 		drawn_bottom(_shape_id(u), u.team, radius))
-	_visual.offset_slot(&"Hands",
-		_part_offset(u, radius) if can_animate(u) else Vector2.ZERO)
+	var animate := can_animate(u)
+	var main_offset := _part_offset(u, radius) if animate else Vector2.ZERO
+	var main_angle := _part_angle(u) if animate else 0.0
+	_visual.offset_slot(&"HandMain", main_offset)
+	_visual.offset_slot(&"Weapon", main_offset)
+	_visual.rotate_slot(&"HandMain", main_angle)
+	_visual.rotate_slot(&"Weapon", main_angle)
+	_visual.offset_slot(&"HandOff", _off_hand_offset(u, radius) if animate else Vector2.ZERO)
+	_visual.rotate_slot(&"HandOff", _off_hand_angle(u) if animate else 0.0)
 	_visual.flash(flash_color(_flash_type), flash_strength(_flash_age))
 	_visual.set_focus_line(_focus_line_to(u))
 

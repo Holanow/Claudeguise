@@ -271,16 +271,57 @@ func _parts() -> Dictionary:
 	# The player: "ditch arms and let the hands float around." So there is no
 	# limb, and the T-pose the arms produced cannot come back by being angled
 	# differently -- there is nothing left to angle.
-	var hands := _blank()
-	_ellipse(hands, 7.5, 21.0, 3.0, 3.0)
-	_ellipse(hands, 24.5, 21.0, 3.0, 3.0)
-	out["hands"] = hands
+	#
+	# Issue 584: one recipe slot held both hands as a single sprite, so they
+	# could only move together -- a sword slash would swing the off-hand
+	# identically. Split into two parts, one per named slot (`HandMain`,
+	# `HandOff`), mirror images of the old pair's two ellipses.
+	var hand := _blank()
+	_ellipse(hand, 24.5, 21.0, 3.0, 3.0)
+	out["hand"] = hand
 
-	var hands_wide := _blank()
-	_ellipse(hands_wide, 4.0, 19.0, 3.8, 3.8)
-	_ellipse(hands_wide, 28.0, 19.0, 3.8, 3.8)
-	out["hands_wide"] = hands_wide
+	var hand_off := _blank()
+	_ellipse(hand_off, 7.5, 21.0, 3.0, 3.0)
+	out["hand_off"] = hand_off
 
+	var hand_wide := _blank()
+	_ellipse(hand_wide, 28.0, 19.0, 3.8, 3.8)
+	out["hand_wide"] = hand_wide
+
+	var hand_wide_off := _blank()
+	_ellipse(hand_wide_off, 4.0, 19.0, 3.8, 3.8)
+	out["hand_wide_off"] = hand_wide_off
+
+	# --- weapons, drawn where the wielder's own HandMain sits --------------
+	# One shape per starting weapon (#584). Grip sits at the same point as the
+	# hand that holds it, so `rotate_slot`'s pivot -- the canvas centre, which
+	# `offset_slot` already treats as the body's own origin -- swings the
+	# weapon and the hand through the same arc.
+	var sword := _blank()
+	_limb(sword, Vector2(28.0, 19.0), Vector2(28.0, 23.0), 0.9)
+	_rect(sword, 25, 18, 31, 19)
+	_limb(sword, Vector2(28.0, 18.0), Vector2(30.0, 3.0), 1.1)
+	out["sword"] = sword
+
+	var staff := _blank()
+	_limb(staff, Vector2(24.5, 21.0), Vector2(27.0, 3.0), 1.0)
+	_ellipse(staff, 27.0, 3.0, 1.6, 1.6)
+	out["staff"] = staff
+
+	var orb := _blank()
+	_ellipse(orb, 27.0, 17.0, 3.0, 3.0)
+	out["orb"] = orb
+
+	var bow := _blank()
+	_tri(bow, Vector2(28.0, 19.0), Vector2(33.0, 10.0), Vector2(30.0, 9.0))
+	_tri(bow, Vector2(28.0, 19.0), Vector2(33.0, 28.0), Vector2(30.0, 29.0))
+	_limb(bow, Vector2(30.0, 9.0), Vector2(30.0, 29.0), 0.4)
+	out["bow"] = bow
+
+	var sickle := _blank()
+	_limb(sickle, Vector2(28.0, 19.0), Vector2(31.0, 12.0), 1.0)
+	_tri(sickle, Vector2(31.0, 12.0), Vector2(34.0, 9.0), Vector2(30.0, 9.0))
+	out["sickle"] = sickle
 
 	return out
 

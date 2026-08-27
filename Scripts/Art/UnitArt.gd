@@ -26,14 +26,27 @@ static func part_texture(part: StringName) -> Texture2D:
 ## the texture it draws and the colour it draws in. The one place a recipe turns
 ## into something drawable, so the arena's sprite tree and the immediate-mode
 ## draw below cannot disagree about what a unit looks like.
+##
+## `weapon_part` is not a recipe layer: it comes from the wielder's own
+## equipment (`EquipmentDef.part`) and lands in the `Weapon` slot `slots_for`
+## already reserves, coloured by `UnitRecipes.weapon_color` rather than by any
+## recipe -- a weapon has no recipe entry to carry a colour of its own.
 static var _sprites: Dictionary = {}
 
-static func sprites_for(shape_id: StringName, team: CG.Team) -> Array:
-	var key := "%s|%d" % [shape_id, int(team)]
+static func sprites_for(shape_id: StringName, team: CG.Team, weapon_part: StringName = &"") -> Array:
+	var key := "%s|%d|%s" % [shape_id, int(team), weapon_part]
 	if _sprites.has(key):
 		return _sprites[key]
 	var out: Array = []
 	for entry in UnitRecipes.slots_for(shape_id):
+		if entry["slot"] == &"Weapon":
+			if weapon_part != &"":
+				out.append({
+					"slot": &"Weapon", "part": weapon_part,
+					"tex": part_texture(weapon_part),
+					"color": UnitRecipes.weapon_color(weapon_part),
+				})
+			continue
 		for layer in entry["layers"]:
 			out.append({
 				"slot": entry["slot"],

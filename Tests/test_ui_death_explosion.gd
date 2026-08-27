@@ -53,7 +53,7 @@ func test_every_headwear_part_flies_with_the_head_wearing_it() -> void:
 func test_an_unknown_part_lands_in_extra_and_is_its_own_chunk() -> void:
 	assert_eq(UnitRecipes.slot_of(&"head_round"), &"Head")
 	assert_eq(UnitRecipes.slot_of(&"body_skinny"), &"Body")
-	assert_eq(UnitRecipes.slot_of(&"hands_wide"), &"Hands")
+	assert_eq(UnitRecipes.slot_of(&"hand_wide"), &"HandMain")
 	assert_eq(UnitRecipes.slot_of(&"a_part_that_does_not_exist"), &"Extra")
 	assert_eq(UnitRecipes.chunk_of(&"a_part_that_does_not_exist"),
 		&"a_part_that_does_not_exist",
@@ -77,7 +77,7 @@ func test_the_three_bodies_630_names_come_apart_the_way_the_issue_asks() -> void
 	assert_eq(_chunks(&"goblin"), [
 		[&"body", [&"body_skinny"]],
 		[&"head", [&"head_round", &"ears_pointed", &"nose_triangle", &"eyes"]],
-		[&"hands", [&"hands"]],
+		[&"hands", [&"hand_off", &"hand"]],
 	], "a goblin's head flies bald")
 	assert_eq(_chunks(&"rat_king"), [
 		[&"body", [&"body_low"]],
@@ -99,8 +99,11 @@ func test_nothing_that_flew_separately_has_been_merged_into_something_else() -> 
 			var slots := {}
 			for part in chunk[1]:
 				slots[UnitRecipes.slot_of(part)] = true
-			for pair in [[&"Body", &"Head"], [&"Body", &"Hands"], [&"Head", &"Hands"],
-					[&"Body", &"Extra"], [&"Head", &"Extra"], [&"Hands", &"Extra"]]:
+			for pair in [
+					[&"Body", &"Head"], [&"Body", &"HandMain"], [&"Body", &"HandOff"],
+					[&"Head", &"HandMain"], [&"Head", &"HandOff"],
+					[&"Body", &"Extra"], [&"Head", &"Extra"],
+					[&"HandMain", &"Extra"], [&"HandOff", &"Extra"]]:
 				assert_false(slots.has(pair[0]) and slots.has(pair[1]),
 					"%s: chunk '%s' holds both a %s part and a %s part" % [
 						id, chunk[0], pair[0], pair[1]])

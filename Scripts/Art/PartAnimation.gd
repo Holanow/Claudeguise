@@ -15,10 +15,16 @@ enum Kind { IDLE, MELEE, RANGED, CAST }
 
 ## The parts that move, and how far each throws its motion as a share of the
 ## drawn radius. A part absent from here is drawn where it was baked.
-## `hands_wide` reaches further because it starts further out.
+## `hand_wide`/`hand_wide_off` reach further because they start further out.
+##
+## Issue 584: a weapon shares its wielding hand's factor rather than getting
+## one of its own, so `HandMain` and `Weapon` travel through exactly the same
+## arc and never drift apart -- the flapping the brief exists to avoid.
 const PARTS := {
-	&"hands": 1.0,
-	&"hands_wide": 1.15,
+	&"hand": 1.0, &"hand_off": 1.0,
+	&"hand_wide": 1.15, &"hand_wide_off": 1.15,
+	&"sword": 1.15, &"bow": 1.15, &"sickle": 1.15,
+	&"staff": 1.0, &"orb": 1.0,
 }
 
 static func animates(part: StringName) -> bool:
@@ -75,6 +81,15 @@ const CAST_ORBIT := 0.12
 ## one rather than moving more slowly through the same arc.
 const CAST_TURNS := 1.5
 
+## The slash: wind back, then swing through. In degrees because that is how
+## the player specified it; converted once at load rather than at every call.
+const MELEE_WIND_DEGREES := -40.0
+const MELEE_SWING_DEGREES := 75.0
+
+## The off-hand's motion is the main hand's own, scaled down -- one arm swings,
+## the other counterbalances, rather than both doing the same thing.
+const OFF_HAND_SHARE := 0.35
+
 ## The resting bob, in local draw pixels. `phase` keeps a row of goblins out of
 ## step; `seconds` is view time and stops dead while `ViewClock.frozen`, because
 ## its only source is the delta `BattleView._render` spends.
@@ -106,6 +121,35 @@ static func _melee(p: float) -> Vector2:
 	var t := (p - MELEE_RELEASE) / (1.0 - MELEE_RELEASE)
 	var eased := t * t
 	return Vector2(-MELEE_WIND_BACK + (MELEE_REACH + MELEE_WIND_BACK) * eased, 0.0)
+
+## The angle at `progress` through a wind-up, in radians, driven off the SAME
+## `progress` `action_offset` uses -- a separately-timed rotation drifts from
+## the thrust and reads as a weapon flapping near a hand. Only `MELEE` turns;
+## a draw and a cast hold the weapon steady.
+static func action_angle(kind: Kind, progress: float) -> float:
+	if kind != Kind.MELEE:
+		return 0.0
+	return _melee_angle(clampf(progress, 0.0, 1.0))
+
+## Same shape as `_melee`'s translation: wind back quadratically, release, then
+## swing through quadratically, so the angle and the thrust arrive together.
+static func _melee_angle(p: float) -> float:
+	var wind := deg_to_rad(MELEE_WIND_DEGREES)
+	var swing := deg_to_rad(MELEE_SWING_DEGREES)
+	if p < MELEE_RELEASE:
+		var w := p / MELEE_RELEASE
+		return wind * w * w
+	var t := (p - MELEE_RELEASE) / (1.0 - MELEE_RELEASE)
+	var eased := t * t
+	return wind + (swing - wind) * eased
+
+## The off-hand's own quieter echo of the main hand's motion: a fraction of the
+## same offset, and a small opposing turn rather than the same one.
+static func off_hand_offset(kind: Kind, progress: float, radius: float) -> Vector2:
+	return action_offset(kind, progress, radius) * OFF_HAND_SHARE
+
+static func off_hand_angle(kind: Kind, progress: float) -> float:
+	return -action_angle(kind, progress) * OFF_HAND_SHARE
 
 ## A draw held to the loose: back and up, easing out, so a long draw sits at
 ## full tension rather than crawling through it.

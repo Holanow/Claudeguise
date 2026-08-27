@@ -11,6 +11,10 @@ enum Slot { WEAPON, ARMOR, ACCESSORY }
 @export var display_name: String = ""
 @export var slot: Slot = Slot.WEAPON
 
+## Which part in `Assets/Units/parts/` this item draws in the `Weapon` slot.
+## Empty means it draws nothing, which is every item that is not a weapon.
+@export var part: StringName = &""
+
 ## What the player reads on the item. Write what it does to the pawn, not to the
 ## numbers: "Heavy, and slows you down" rather than "AGI -0.15".
 @export var description: String = ""

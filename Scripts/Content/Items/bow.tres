@@ -9,3 +9,4 @@ display_name = "Bow"
 description = "A recurve bow. Its wielder attacks with a Shot at range."
 granted_actions = Array[StringName]([&"siege_master_shot"])
 required_tags = Array[int]([0])
+part = &"bow"

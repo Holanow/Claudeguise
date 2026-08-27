@@ -11,10 +11,14 @@ const FRAME := 1.0 / 60.0
 func setup() -> void:
 	DisplayOptions.reset()
 
-## The `Hands` slot is the animated part, and moving it must not change what the
-## rest of the body looks like. There is nothing left to recompose: a slot is a
-## node, and a node that moves takes exactly its own sprites with it.
-func test_the_animated_part_is_the_hands_slot() -> void:
+## The `HandMain`/`HandOff` slots are the animated parts, and moving them must
+## not change what the rest of the body looks like. There is nothing left to
+## recompose: a slot is a node, and a node that moves takes exactly its own
+## sprites with it.
+##
+## Issue 584 split one `Hands` slot into two, so a body with hands now carries
+## TWO animated parts rather than one -- that is the change the issue makes.
+func test_the_animated_parts_are_the_hand_slots() -> void:
 	var checked := 0
 	for id in UnitRecipes.recipe_ids():
 		if not UnitRecipes.has_animated_part(id):
@@ -24,20 +28,25 @@ func test_the_animated_part_is_the_hands_slot() -> void:
 			for layer in entry["layers"]:
 				if PartAnimation.animates(layer["part"]):
 					moved.append(entry["slot"])
-		assert_eq(moved.size(), 1, "%s has %d animated parts, not one" % [id, moved.size()])
-		assert_eq(moved[0], &"Hands", "%s animates a part outside the Hands slot" % id)
+		assert_eq(moved.size(), 2, "%s has %d animated parts, not two" % [id, moved.size()])
+		for slot in moved:
+			assert_true(slot == &"HandMain" or slot == &"HandOff",
+				"%s animates a part outside the hand slots" % id)
 		checked += 1
 	assert_true(checked >= 10, "only %d bodies carried an animated part" % checked)
 
-## Absence is the default. A creature with no animated part has an empty `Hands`
-## slot and needs no case anywhere else.
-func test_a_recipe_with_no_animated_part_has_an_empty_hands_slot() -> void:
+## Absence is the default. A creature with no animated part has empty hand
+## slots and needs no case anywhere else.
+func test_a_recipe_with_no_animated_part_has_empty_hand_slots() -> void:
 	assert_false(UnitRecipes.has_animated_part(&"grub"), "the grub has no hands")
 	assert_false(UnitRecipes.has_animated_part(&"siege_engine"), "the engine has no hands")
-	assert_true(_slot(&"grub", &"Hands").is_empty(),
+	assert_true(_slot(&"grub", &"HandMain").is_empty(),
+		"a handless recipe must offer nothing to animate")
+	assert_true(_slot(&"grub", &"HandOff").is_empty(),
 		"a handless recipe must offer nothing to animate")
 	assert_true(UnitRecipes.has_animated_part(&"goblin"), "the goblin has hands")
-	assert_eq(_slot(&"goblin", &"Hands").size(), 1, "one pair of hands")
+	assert_eq(_slot(&"goblin", &"HandMain").size(), 1, "one main hand")
+	assert_eq(_slot(&"goblin", &"HandOff").size(), 1, "one off hand")
 
 func _slot(id: StringName, slot: StringName) -> Array:
 	for entry in UnitRecipes.slots_for(id):
@@ -49,11 +58,14 @@ func _slot(id: StringName, slot: StringName) -> Array:
 func test_one_part_entry_covers_many_creatures() -> void:
 	var bodies := {}
 	for id in UnitRecipes.recipe_ids():
-		for layer in _slot(id, &"Hands"):
+		for layer in _slot(id, &"HandMain"):
 			bodies[id] = layer["part"]
 	assert_true(bodies.size() >= 15,
 		"two part entries should cover most of the roster, got %d" % bodies.size())
-	assert_eq(PartAnimation.PARTS.size(), 2, "two animated parts are authored")
+	# 584's four hand parts (`hand`, `hand_off`, `hand_wide`, `hand_wide_off`)
+	# plus one entry per starting weapon that shares its wielding hand's own
+	# throw factor -- see the comment on `PARTS` itself.
+	assert_eq(PartAnimation.PARTS.size(), 9, "four hand parts and five weapons are authored")
 
 ## Every action derives one of the three shared motions from fields `ActionDef`
 ## already carries, so an action written tomorrow animates without authoring.
