@@ -22,6 +22,36 @@ static func part_texture(part: StringName) -> Texture2D:
 	_parts[part] = tex
 	return tex
 
+## Issue 690. Every part's opaque-pixel centroid, in its own texture's pixel
+## space, baked by `Tools/BakeParts.gd` beside the PNGs it writes.
+const CENTROIDS_PATH := "%s/centroids.json" % PARTS_DIR
+
+static var _centroids: Dictionary = {}
+static var _centroids_loaded := false
+
+static func _load_centroids() -> void:
+	if _centroids_loaded:
+		return
+	_centroids_loaded = true
+	var f := FileAccess.open(CENTROIDS_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var data = JSON.parse_string(f.get_as_text())
+	if data is Dictionary:
+		for k in data.keys():
+			var v = data[k]
+			if v is Array and v.size() == 2:
+				_centroids[StringName(k)] = Vector2(v[0], v[1])
+
+## Where `part` pivots: its own opaque centroid, or `tex`'s own centre for a
+## part the bake never covered (the runtime black-square fallback has no entry
+## and keeps the old canvas-centre pivot on purpose).
+static func part_centroid(part: StringName, tex: Texture2D) -> Vector2:
+	_load_centroids()
+	if _centroids.has(part):
+		return _centroids[part]
+	return Vector2(tex.get_width(), tex.get_height()) * 0.5
+
 ## What one body is made of: the recipe's layers in slot draw order, each with
 ## the texture it draws and the colour it draws in. The one place a recipe turns
 ## into something drawable, so the arena's sprite tree and the immediate-mode
@@ -65,6 +95,8 @@ static func clear_cache() -> void:
 	_used_cache.clear()
 	_top_cache.clear()
 	_body_cache.clear()
+	_centroids.clear()
+	_centroids_loaded = false
 
 static func has_art(shape_id: StringName, team: CG.Team) -> bool:
 	return not sprites_for(shape_id, team).is_empty()
