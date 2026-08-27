@@ -125,3 +125,59 @@ func test_only_a_unit_without_a_pawn_carries_the_self_buff_row() -> void:
 			ids.append(row.id)
 		assert_eq(ids.has(DefaultPlan.BUFF_ROW), unit.pawn == null,
 			"unit %d: the buff row belongs to units with no pawn" % unit.id)
+
+# ---------------------------------------------------------------------------
+# The one branch the fight comparison above cannot reach: `SampleFights` is
+# headless, so `state.player_focus_id` is -1 in all 124,000 of its decisions.
+
+func _agree(state: CombatState, unit: CombatUnit) -> Intent:
+	var before := state.rng.state
+	var old_intent: Intent = DefaultBehavior.decide(state, unit)
+	var after_old := state.rng.state
+	state.rng.state = before
+	var new_intent: Intent = DefaultPlan.decide(state, unit)
+	assert_eq(state.rng.state, after_old, "the two drew differently from the rng")
+	state.rng.state = after_old
+	assert_true(_same(old_intent, new_intent), "%s != %s" % [_render(old_intent), _render(new_intent)])
+	return old_intent
+
+## Who an intent is pointed at, whether it walks there or fires at them.
+func _aimed_at(state: CombatState, intent: Intent) -> int:
+	if intent.kind == CG.IntentKind.USE_ACTION:
+		return intent.target_id
+	for u in state.units:
+		if u.position == intent.destination:
+			return u.id
+	return -1
+
+func _pawn_fight() -> CombatState:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
+	return CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 3)
+
+## The player's click, which only a pawn honours and only through the fallback.
+func test_the_rows_follow_the_players_focus_the_way_the_fallback_did() -> void:
+	var state := _pawn_fight()
+	var pawn := state.units[0]
+	var far: CombatUnit = null
+	for u in state.units:
+		if u.team != pawn.team and (far == null
+			or pawn.position.distance_to(u.position) > pawn.position.distance_to(far.position)):
+			far = u
+	assert_ne(far, null, "the encounter has no enemies")
+	state.player_focus_id = far.id
+	assert_eq(_aimed_at(state, _agree(state, pawn)), far.id,
+		"the fixture must actually take the focus branch")
+
+## And a taunt outranks the click, in both versions.
+func test_a_taunt_outranks_the_players_focus_in_both_versions() -> void:
+	var state := _pawn_fight()
+	var pawn := state.units[0]
+	var enemies: Array[CombatUnit] = []
+	for u in state.units:
+		if u.team != pawn.team:
+			enemies.append(u)
+	assert_true(enemies.size() >= 2, "this fixture needs two enemies")
+	state.player_focus_id = enemies[0].id
+	enemies[1].statuses[CG.Status.TAUNTING] = 999
+	enemies[1].taunt_radius = 10000.0
+	_agree(state, pawn)
