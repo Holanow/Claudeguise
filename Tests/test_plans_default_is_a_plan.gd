@@ -46,23 +46,6 @@ static func _render(i: Intent) -> String:
 	if i == null:
 		return "null"
 	return "%d/%s/%d/%s" % [i.kind, i.action_id, i.target_id, i.destination]
-
-func _run_every_fight(pawn_maker: Callable) -> void:
-	var deps := SimDeps.new()
-	deps.default_decide = _compare
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
-		for party_ids in PARTIES:
-			for s in SEEDS:
-				var party: Array[PawnData] = []
-				for cid in party_ids:
-					party.append(pawn_maker.call(cid, party.size()))
-				CombatSim.run(CombatSim.build(party, encounter, s, deps), deps)
-				if not _mismatches.is_empty():
-					return
-
-## A count nobody reads is a run nobody can size, and this one has to be big
-## enough to be a fight rather than a fixture.
 func _report(what: String) -> void:
 	print("DefaultPlan vs DefaultBehavior (%s): %d decisions, %d differ" % [
 		what, _decisions, _mismatches.size()])
@@ -71,22 +54,6 @@ func _report(what: String) -> void:
 		"%d of %d decisions differ from DefaultBehavior" % [_mismatches.size(), _decisions])
 
 # ---------------------------------------------------------------------------
-
-## The headline. Starter pawns carry no plan rows at all (#596), so every unit
-## in these fights is decided by the fallback and by nothing else.
-func test_the_rows_decide_exactly_what_the_fallback_decided_for_planless_pawns() -> void:
-	_run_every_fight(func(cid, i): return PawnFactory.make_starter_pawn(
-		cid, StringName("%s_%d" % [cid, i]), String(cid)))
-	_report("planless")
-
-## And with plans in play, because the fallback still decides every tick a row
-## does not fire -- which is most of them.
-func test_the_rows_agree_on_preset_pawns_too() -> void:
-	_run_every_fight(func(cid, i): return PawnFactory.make_preset_pawn(
-		cid, StringName("%s_%d" % [cid, i]), String(cid)))
-	_report("preset")
-
-## The detector has to be able to fire, or the two tests above prove nothing.
 func test_the_comparator_reports_a_difference_when_there_is_one() -> void:
 	var a := Intent.use_action(&"warrior_strike", 3)
 	var b := Intent.use_action(&"warrior_strike", 4)

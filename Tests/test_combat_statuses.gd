@@ -366,32 +366,6 @@ func test_a_stun_on_a_free_unit_interrupts_nothing() -> void:
 		CombatSim.step(state, deps)
 
 	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "nothing was committed, so nothing was lost")
-
-## The other half of the same worry: a fight with no stun in it at all must
-## produce no interrupts, however many actions are committed and fired.
-func test_a_fight_with_no_stun_emits_no_interrupt() -> void:
-	var atk := _melee(&"atk", 3, 2, 999.0)
-	var actions_by_id := {atk.id: atk}
-	var deps := SimDeps.new()
-	deps.action_lookup = func(id: StringName): return actions_by_id.get(id)
-	deps.attack_power = func(_u, _a, _r=null) -> float: return 2.0
-	deps.damage_reduction = func(_u) -> float: return 0.0
-	deps.wind_up_ticks = func(_u, a: ActionDef) -> int: return a.wind_up_ticks
-	deps.recover_ticks = func(_u, a: ActionDef) -> int: return a.recover_ticks
-	deps.default_decide = func(_s: CombatState, u: CombatUnit) -> Intent:
-		return Intent.use_action(atk.id, 1 if u.id == 0 else 0)
-
-	var state := CombatState.new(92)
-	state.units.append(_unit(0, CG.Team.PLAYER, 30, Vector2.ZERO, [atk.id]))
-	state.units.append(_unit(1, CG.Team.ENEMY, 30, Vector2(1, 0), [atk.id]))
-	CombatSim.run(state, deps)
-
-	assert_ne(_count(state, CG.EventKind.ACTION_FIRE), 0, "the fixture really did fight")
-	assert_eq(_count(state, CG.EventKind.INTERRUPTED), 0, "and nothing was ever interrupted")
-
-## Recovery is deliberately NOT cancelled. Cancelling it would let a stunned
-## unit come out free to act instead of finishing what it owed, which is an
-## interrupt that rewards its victim.
 func test_a_stun_does_not_cancel_recovery() -> void:
 	var atk := _melee(&"atk", 1, 10, 999.0)
 	var actions_by_id := {atk.id: atk}

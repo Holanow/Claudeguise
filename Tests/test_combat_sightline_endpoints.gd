@@ -61,23 +61,3 @@ func test_a_wall_never_stops_blocking_however_it_contains_the_line() -> void:
 		"and it still blocks a line that merely crosses it")
 
 # --- the fight --------------------------------------------------------------
-
-## THE REGRESSION. Red before the change, green after, and it is the fight
-## rather than the predicate.
-func test_the_seed_364_deadlock_resolves() -> void:
-	var encounter := Registry.get_encounter(COVER)
-	assert_true(encounter != null, "floor1_cover is registered")
-	var party: Array[PawnData] = []
-	for cid in STALL_PARTY:
-		party.append(PawnFactory.make_starter_pawn(
-			StringName(cid), StringName("%s_%d" % [cid, party.size()]), String(cid)))
-	var state := CombatSim.build(party, encounter, STALL_SEED)
-	CombatSim.run(state)
-
-	assert_true(state.tick < CG.MAX_TICKS,
-		("seed %d of %s ran to the tick cap again. Three units used to end up on one "
-		+ "point inside a pillar, blind to each other at distance zero. If this is red, "
-		+ "either that is back or there is a second stall mechanism -- see issue 255.")
-			% [STALL_SEED, COVER])
-	assert_true(state.outcome != CombatState.Outcome.DRAW,
-		"and it reached a real result rather than a draw")

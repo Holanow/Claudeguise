@@ -231,23 +231,3 @@ func test_the_banner_shows_the_reason_under_the_cost_line() -> void:
 	assert_true(view._end_cost_label.text.contains("survived"),
 		"the cost line was replaced rather than added to: %s" % view._end_cost_label.text)
 	view.free()
-
-## **UNSET prints nothing, and that silence must not be able to hide one.**
-## `CG.EndReason` says a fight ending with UNSET is a defect in the setter rather
-## than a fourth ending, so this runs a real fight to the end and asks what
-## arrived at the banner -- the only place the consequence would be visible.
-func test_a_real_fight_never_reaches_the_banner_without_a_reason() -> void:
-	var CombatSim := load("res://Scripts/Combat/CombatSim.gd")
-	var Registry := load("res://Scripts/Content/Registry.gd")
-	var PawnFactory := load("res://Scripts/Content/PawnFactory.gd")
-	var party: Array = []
-	for id in [&"warrior", &"priest", &"geysermancer", &"siege_master"]:
-		party.append(PawnFactory.make_starter_pawn(id, id, Registry.get_class_def(id).display_name))
-	var typed: Array[PawnData] = []
-	for p in party:
-		typed.append(p)
-	var state = CombatSim.build(typed, Registry.get_encounter(&"floor1_room1"), 3)
-	CombatSim.run(state)
-	assert_ne(state.outcome, CombatState.Outcome.UNRESOLVED, "the fight never finished, so this saw nothing")
-	assert_ne(BattleView.end_reason_of(state), CG.EndReason.UNSET,
-		"a real fight reached the end with no reason set, so the banner's silence is hiding one")

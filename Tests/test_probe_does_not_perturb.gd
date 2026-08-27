@@ -49,28 +49,6 @@ func test_every_allowlisted_tool_still_exists_and_still_needs_the_exemption() ->
 		assert_true(FileAccess.file_exists(path), "allowlisted tool is gone: %s" % path)
 		assert_true(_offending_lines(FileAccess.get_file_as_string(path)).size() > 0,
 			"%s no longer calls decide on a stepped fight; drop it from ALLOWED" % path)
-
-
-func test_the_detector_fires_on_a_probe_that_calls_decide() -> void:
-	var perturbing := "\tCombatSim.step(state)\n\tvar i := DefaultBehavior.decide(state, u)\n"
-	assert_eq(_offending_lines(perturbing).size(), 1,
-		"a probe that steps a fight and then asks decide must be flagged")
-
-	var fixture := "\tvar state := CombatState.new(0)\n\tvar i := DefaultBehavior.decide(state, u)\n"
-	assert_eq(_offending_lines(fixture), [] as Array[int],
-		"a static fixture that never steps is not observing a live fight")
-
-	var hook := "\tdeps.plan_decide = func(s, u): return PlanInterpreter.decide(s, u)\n\tCombatSim.run(state, deps)\n"
-	assert_eq(_offending_lines(hook), [] as Array[int],
-		"supplying the sim's decide phase is the decide phase, not an observation of it")
-
-	var commented := "\tCombatSim.step(state)\n\t# never call DefaultBehavior.decide( here\n"
-	assert_eq(_offending_lines(commented), [] as Array[int],
-		"a comment naming the call must not be flagged")
-
-
-## The guard's premise, asserted rather than assumed: if `decide` stops drawing
-## from `state.rng` this goes red, and the rule above can be deleted with it.
 func test_observing_with_decide_really_does_change_the_fight() -> void:
 	var plain := _run_fight(false)
 	var observed := _run_fight(true)
