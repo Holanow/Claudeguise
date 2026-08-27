@@ -130,7 +130,7 @@ func test_build_copies_enemy_def_plans_onto_the_unit() -> void:
 	plan.condition = BlockCatalog.condition(&"always")
 	var target_block: TargetingBlock = BlockCatalog.targeting(&"target_nearest_enemy")
 	var use_block := UseActionBlock.new()
-	use_block.action_id = &"special"
+	use_block.action = special
 	plan.blocks = [target_block, use_block] as Array[PlanBlock]
 
 	var enemy_def := EnemyDef.new()

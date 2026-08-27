@@ -113,5 +113,6 @@ func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 func _action_of(plan) -> StringName:
 	for b in plan.blocks:
 		if b is UseActionBlock:
-			return (b as UseActionBlock).action_id
+			var a: ActionDef = (b as UseActionBlock).action
+			return a.id if a != null else &""
 	return &""

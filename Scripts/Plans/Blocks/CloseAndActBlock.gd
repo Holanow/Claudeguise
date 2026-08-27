@@ -7,15 +7,14 @@ class_name CloseAndActBlock
 @export_range(0.0, 1.0, 0.05) var melee_fraction: float = 0.5
 @export_range(0.0, 1.0, 0.05) var ranged_fraction: float = 0.85
 
-func run(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
-	return _walk(state, unit, unit.focus_id, action_id, plan)
+func run(state: CombatState, unit: CombatUnit, plan: Plan, action: ActionDef) -> Intent:
+	return _walk(state, unit, unit.focus_id, action, plan)
 
-func aim(state: CombatState, unit: CombatUnit, target_id: int, action_id: StringName) -> Intent:
-	return _walk(state, unit, target_id, action_id, null)
+func aim(state: CombatState, unit: CombatUnit, target_id: int, action: ActionDef) -> Intent:
+	return _walk(state, unit, target_id, action, null)
 
-func _walk(state: CombatState, unit: CombatUnit, target_id: int, action_id: StringName, plan) -> Intent:
+func _walk(state: CombatState, unit: CombatUnit, target_id: int, action: ActionDef, plan) -> Intent:
 	var target := state.unit(target_id)
-	var action: ActionDef = Registry.get_action(action_id)
 	if target == null or not target.alive or action == null:
 		return null
 	var dist := unit.position.distance_to(target.position)
@@ -26,14 +25,14 @@ func _walk(state: CombatState, unit: CombatUnit, target_id: int, action_id: Stri
 	if unit.move_speed <= 0.0:
 		if dist > action.range_units or blocked:
 			return Intent.idle(&"" if plan == null else plan.id)
-		return act_here(state, unit, target_id, action_id, plan)
+		return act_here(state, unit, target_id, action, plan)
 
 	var fraction := ranged_fraction if action.range_units > DefaultPlan.MELEE_RANGE_THRESHOLD else melee_fraction
 	if blocked and action.range_units > DefaultPlan.MELEE_RANGE_THRESHOLD:
 		return Intent.move_to(target.position, &"" if plan == null else plan.id)
 	if dist > action.range_units * fraction:
 		return Intent.move_to(target.position, &"" if plan == null else plan.id)
-	return act_here(state, unit, target_id, action_id, plan)
+	return act_here(state, unit, target_id, action, plan)
 
 func describe() -> String:
 	return "close to within %d%% of a melee action's range, or %d%% of a ranged one's, then act" % [

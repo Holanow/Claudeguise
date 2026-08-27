@@ -62,5 +62,6 @@ func _unedited_casts(class_id: StringName) -> Dictionary:
 func _action_of(plan: Plan) -> StringName:
 	for b in plan.blocks:
 		if b is UseActionBlock:
-			return (b as UseActionBlock).action_id
+			var a: ActionDef = (b as UseActionBlock).action
+			return a.id if a != null else &""
 	return &""

@@ -251,7 +251,9 @@ func _actions_used_in_plans(pawn: PawnData) -> Array:
 	for plan in pawn.plans:
 		for block in plan.blocks:
 			if block is UseActionBlock:
-				out.append((block as UseActionBlock).action_id)
+				var used: ActionDef = (block as UseActionBlock).action
+				if used != null:
+					out.append(used.id)
 	return out
 
 ## Not `_line()`: its word-autowrap makes a Label report a near-zero minimum
@@ -579,7 +581,7 @@ func _add_plan(pawn: PawnData) -> void:
 	plan.display_name = "New plan"
 	var targeting := BlockCatalog.targeting(_available_targetings(pawn)[0])
 	var action := UseActionBlock.new()
-	action.action_id = actions[0]
+	action.action = _resolve_pawn_action(pawn, actions[0])
 	plan.blocks = [targeting, action]
 	pawn.plans.append(plan)
 	call_deferred("_build_detail", pawn)
@@ -770,7 +772,8 @@ func _library_row_texts(plan) -> Array[String]:
 	var target := "No target"
 	for block in plan.blocks:
 		if block is UseActionBlock:
-			skill = _action_display_name((block as UseActionBlock).action_id)
+			var row_action: ActionDef = (block as UseActionBlock).action
+			skill = row_action.display_name if row_action != null else "nothing"
 		elif block is TargetingBlock:
 			target = _cap_first(block.describe())
 		elif block is MovementBlock:
@@ -806,6 +809,18 @@ func _available_targetings(_pawn: PawnData) -> Array:
 ## Issue 100: `Registry.actions_for_pawn`, not `pawn.pawn_class.starting_actions`.
 func _available_actions(pawn: PawnData) -> Array:
 	return Registry.actions_for_pawn(pawn)
+
+## The `ActionDef` behind an id this pawn actually offers. Checked against the
+## pawn's own class first -- carried as `ActionDef` since #628 -- so a fixture
+## class never registered anywhere still resolves; equipment grants are the
+## only case still Registry-backed, because `EquipmentDef.granted_actions` is
+## still `Array[StringName]`.
+func _resolve_pawn_action(pawn: PawnData, action_id: StringName) -> ActionDef:
+	if pawn.pawn_class != null:
+		for a in pawn.pawn_class.starting_actions:
+			if a.id == action_id:
+				return a
+	return Registry.get_action(action_id)
 
 ## Swaps two plans' priority by index and redraws. `pawn.plans` is the same
 ## array PartySelect/BattleView hand into CombatState, so this is the whole
@@ -859,7 +874,7 @@ func _action_picker(pawn: PawnData, block: UseActionBlock) -> Control:
 		picker.add_item("(no actions)")
 		picker.disabled = true
 		return picker
-	var current_id: StringName = block.action_id
+	var current_id: StringName = block.action.id if block.action != null else &""
 	var current := 0
 	for i in choices.size():
 		var action_id: StringName = choices[i]
@@ -881,7 +896,7 @@ func _action_picker(pawn: PawnData, block: UseActionBlock) -> Control:
 
 ## Deferred for the same reason as `_move_plan`.
 func _set_action(block: UseActionBlock, action_id: StringName) -> void:
-	block.action_id = action_id
+	block.action = _resolve_pawn_action(_pawns[_selected_index], action_id)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 ## Issue 386. `keep_distance` and `move_into_cover` were built, tested and

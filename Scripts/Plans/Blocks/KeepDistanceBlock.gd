@@ -4,7 +4,7 @@ class_name KeepDistanceBlock
 ## Hold this many world units from the focus, on ground that does not harm.
 @export_range(0.0, 1000.0, 5.0) var range_units: float = 120.0
 
-func run(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName) -> Intent:
+func run(state: CombatState, unit: CombatUnit, plan: Plan, action: ActionDef) -> Intent:
 	var target := state.unit(unit.focus_id)
 	if target == null or not target.alive:
 		return null
@@ -24,7 +24,7 @@ func run(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName
 			return null
 		return Intent.move_to(anchor, plan.id)
 
-	return act_or_idle(state, unit, plan, action_id)
+	return act_or_idle(state, unit, plan, action)
 
 func describe() -> String:
 	var wanted := int(range_units)

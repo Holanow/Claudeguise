@@ -85,5 +85,6 @@ func test_a_dps_library_leads_with_a_damaging_row() -> void:
 func _action_of(plan: Plan) -> StringName:
 	for b in plan.blocks:
 		if b is UseActionBlock:
-			return (b as UseActionBlock).action_id
+			var a: ActionDef = (b as UseActionBlock).action
+			return a.id if a != null else &""
 	return &""

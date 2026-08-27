@@ -45,7 +45,8 @@ func test_every_starting_action_is_reachable_by_a_player() -> void:
 func _preset_offering(class_id: StringName, action_id: StringName) -> StringName:
 	for plan in PresetPlans.for_class(class_id):
 		for block in plan.blocks:
-			if block is UseActionBlock and (block as UseActionBlock).action_id == action_id:
+			var offered: ActionDef = (block as UseActionBlock).action if block is UseActionBlock else null
+			if offered != null and offered.id == action_id:
 				return plan.id
 	return &""
 

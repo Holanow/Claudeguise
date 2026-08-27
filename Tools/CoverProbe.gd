@@ -70,7 +70,7 @@ func _cover_plan(action_id: StringName) -> Plan:
 	p.blocks = [targeting, movement]
 	if action_id != &"":
 		var action := UseActionBlock.new()
-		action.action_id = action_id
+		action.action = Registry.get_action(action_id)
 		p.blocks.append(action)
 	return p
 

@@ -2,9 +2,17 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
 ## a fixture needs a real object even for an action nothing registers.
+## Issue 658: `range_units` etc. now read from `targeting`, which a bare
+## `ActionDef` leaves null (range 0). Before, an unregistered id fell through
+## every per-tick gate because `Registry.get_action` returned null for it;
+## a large range keeps that same free pass now the block carries the
+## resource itself.
 func _fixture_action(id: StringName) -> ActionDef:
 	var a := ActionDef.new()
 	a.id = id
+	var t := ActionTargeting.new()
+	t.range_units = 9999.0
+	a.targeting = t
 	return a
 
 const IntentScript := preload("res://Scripts/Core/Intent.gd")
@@ -76,7 +84,7 @@ func test_a_plan_is_one_row_of_blocks_with_no_prefix_labels() -> void:
 	var pawn := _make_pawn()
 	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.35})
 	var targeting := PlanFixtures.block(&"target_self")
-	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
+	var action := PlanFixtures.block(&"use_action", {"action": _fixture_action(&"test_swing")})
 	var plan := _make_plan("Guard when hurt")
 	plan.condition = condition as ConditionBlock
 	plan.blocks = [targeting, action]
@@ -222,7 +230,7 @@ func test_plan_blocks_read_in_a_players_language_via_describe_op() -> void:
 	var condition := PlanFixtures.block(&"self_hp_below_fraction", {"fraction": 0.35})
 	plan.condition = condition as ConditionBlock
 	var targeting := PlanFixtures.block(&"target_self")
-	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
+	var action := PlanFixtures.block(&"use_action", {"action": _fixture_action(&"test_swing")})
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
 
@@ -258,7 +266,7 @@ func test_an_action_used_by_no_plan_is_called_out_as_unused() -> void:
 	var pawn := _make_pawn()
 	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_unused")]
 	var plan := _make_plan("Swing plan")
-	var action_block := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
+	var action_block := PlanFixtures.block(&"use_action", {"action": _fixture_action(&"test_swing")})
 	plan.blocks = [action_block]
 	pawn.plans = [plan]
 	var panel := InspectPanel.create()
@@ -473,7 +481,7 @@ func test_reorder_buttons_disable_at_the_ends() -> void:
 func test_targeting_swap_changes_the_block_and_who_the_plan_targets_in_a_fight() -> void:
 	var pawn := _make_pawn()
 	var targeting := PlanFixtures.block(&"target_self")
-	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
+	var action := PlanFixtures.block(&"use_action", {"action": _fixture_action(&"test_swing")})
 	var plan := _make_plan("Always act")
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
@@ -520,7 +528,7 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	var pawn := _make_pawn()
 	pawn.pawn_class.starting_actions = [_fixture_action(&"test_swing"), _fixture_action(&"test_alt")]
 	var targeting := PlanFixtures.block(&"target_nearest_enemy")
-	var action := PlanFixtures.block(&"use_action", {"action_id": &"test_swing"})
+	var action := PlanFixtures.block(&"use_action", {"action": _fixture_action(&"test_swing")})
 	var plan := _make_plan("Always act")
 	plan.blocks = [targeting, action]
 	pawn.plans = [plan]
