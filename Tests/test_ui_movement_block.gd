@@ -2,9 +2,17 @@ extends "res://Tests/TestCase.gd"
 
 ## Issue 628: `starting_actions` holds ActionDef references rather than ids, so
 ## a fixture needs a real object even for an action nothing registers.
+## Issue 658: `range_units` etc. now read from `targeting`, which a bare
+## `ActionDef` leaves null (range 0). Before, an unregistered id fell through
+## every per-tick gate because `Registry.get_action` returned null for it;
+## a large range keeps that same free pass now the block carries the
+## resource itself.
 func _fixture_action(id: StringName) -> ActionDef:
 	var a := ActionDef.new()
 	a.id = id
+	var t := ActionTargeting.new()
+	t.range_units = 9999.0
+	a.targeting = t
 	return a
 
 ## Issue 386. `keep_distance` (#97) and `move_into_cover` (#347) are built,

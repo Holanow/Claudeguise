@@ -73,7 +73,7 @@ static func applied_statuses(plan: Plan) -> Array[int]:
 	for b in plan.blocks:
 		if not (b is UseActionBlock):
 			continue
-		var action: ActionDef = Registry.get_action((b as UseActionBlock).action_id)
+		var action: ActionDef = (b as UseActionBlock).action
 		if action != null and action.applies_status_enabled:
 			out.append(int(action.applies_status))
 	return out
@@ -191,9 +191,11 @@ static func _plan(id: StringName, display_name: String, condition: ConditionBloc
 # constructed at the call site, because `TargetSelfBlock.new()` already says
 # everything a helper would.
 
+## Issue 658: PresetPlans still writes an action out by its readable id, and
+## resolves it once at build time rather than storing the id in the block.
 static func _use(action_id: StringName) -> UseActionBlock:
 	var b := UseActionBlock.new()
-	b.action_id = action_id
+	b.action = Registry.get_action(action_id)
 	return b
 
 static func _enemy_in_range(units: float) -> EnemyInRangeBlock:

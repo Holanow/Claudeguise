@@ -14,6 +14,13 @@ static func block(op: StringName, args: Dictionary = {}) -> PlanBlock:
 	if made == null:
 		push_error("PlanFixtures: no block op named '%s'" % op)
 		return null
+	## Issue 658: `UseActionBlock` now carries the `ActionDef` itself.
+	## `action_id` survives as a fixture-only spelling, resolved here once,
+	## so ~250 call sites written for the old field did not have to move.
+	if op == &"use_action" and args.has("action_id"):
+		args = args.duplicate()
+		args["action"] = Registry.get_action(args["action_id"])
+		args.erase("action_id")
 	for key in args:
 		if not _declares(made, key):
 			push_error("PlanFixtures: '%s' has no operand '%s'" % [op, key])
