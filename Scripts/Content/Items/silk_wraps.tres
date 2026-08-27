@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_ixtps"]
+
+[resource]
+script = ExtResource("1_ixtps")
+id = &"silk_wraps"
+display_name = "Silk Wraps"
+slot = 1
+description = "Light and quiet. Adds 2 Wisdom."
+attribute_flat = {
+6: 2
+}
+required_tags = Array[int]([5])

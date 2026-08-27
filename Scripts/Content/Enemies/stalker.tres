@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_4yv63"]
+
+[resource]
+script = ExtResource("1_4yv63")
+id = &"stalker"
+display_name = "Stalker"
+hp_max = 30
+move_speed = 3.8
+radius = 10.0
+attack_power = {
+0: 5
+}
+actions = Array[StringName]([&"stalker_mark", &"stalker_dart"])
+display_tags = Array[String](["Ranged", "Weak", "Support"])
+focus_bias = 0.5

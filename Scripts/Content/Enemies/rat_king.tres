@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_vmw3w"]
+
+[resource]
+script = ExtResource("1_vmw3w")
+id = &"rat_king"
+display_name = "The Rat King"
+hp_max = 420
+move_speed = 1.2
+radius = 24.0
+attack_power = {
+0: 21
+}
+actions = Array[StringName]([&"rat_king_lash"])
+display_tags = Array[String](["Ranged", "Miniboss", "Summoner"])
