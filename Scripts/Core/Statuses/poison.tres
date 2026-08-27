@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="StatusDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/StatusDef.gd" id="1_statusdef"]
+
+[resource]
+script = ExtResource("1_statusdef")
+status = 8
+harmful = true
+deals_damage_over_time = true
+dot_damage_type = 6
+damage_percent_of_max_hp_per_tick = 0.3
+icon_name = &"status/poison"

@@ -30,8 +30,6 @@ const ATTACK_VARIANCE_SPREAD := 0.55
 
 const DAMAGE_REDUCTION_PER_CON := 0.01
 const NATURAL_DAMAGE_REDUCTION_CAP := 0.9
-const STATUS_SHIELD_REDUCTION := 0.25
-const STATUS_BLOCK_REDUCTION := 0.25
 const MAX_DAMAGE_REDUCTION := 0.9
 
 ## Fraction shaved off an action's ticks per point of AGI. Issue 592 raised the
@@ -52,24 +50,11 @@ const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
 ## this on a hit that actually lands, never on commit and never on a miss.
 const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 
-## Issue 23: percent of the victim's own max hp lost per BURN/POISON tick.
-const POISON_DAMAGE_PERCENT_PER_TICK := 0.30
-
-const BURN_FRACTION_OF_HIT_PER_TICK := 0.0056
-
-## **BLEED is issue 130's, not this issue's, and this value is swift's live
-## placeholder copied across unchanged (`SimDeps._BLEED_DAMAGE_PER_STACK_PER_TICK`
-## = 1.0).** It is here only so that repointing `SimDeps` at `Balance` cannot move
-const BLEED_DAMAGE_PER_STACK_PER_TICK := 1.0
-
-## Issue 23: multiplier on wind-up/recovery ticks while HASTE is active.
-## Below 1.0 speeds a unit up; wren's simulation floors the result at one
-## tick, so this cannot make an action instant by accident.
-const HASTE_TICK_SCALE := 0.7
-
-## Issue 52: multiplier on move_speed while SLOWED is active. `SimDeps` ran
-## on a local placeholder of the same value (0.5) until this landed --
-const SLOWED_SPEED_SCALE := 0.5
+## Issue 627: the five per-status numbers that used to sit here -- poison's
+## percent, burn's fraction of the hit, bleed's per-stack damage, haste's tick
+## scale and slowed's speed scale -- are fields on the `StatusDef` for each
+## status. The functions below still read them; they read one file per status
+## instead of five constants that nothing tied to the statuses they described.
 
 ## Issue 39: an attribute including equipment's `attribute_flat` and
 ## `attribute_percent` (weapons and accessories: percent per README.md; armor:
@@ -113,11 +98,6 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 		return base
 	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
 
-## Issue 12: how much extra damage a MARKED unit takes. Subtracted from
-## reduction rather than added as a separate multiplier, so a heavily
-## armoured target reads as "the mark burned through some of that armour"
-const MARKED_VULNERABILITY_BONUS := 0.25
-
 ## Fraction of incoming damage removed, from armor, natural toughness and
 ## statuses. The simulation applies this; it does not decide it.
 static func damage_reduction(unit: CombatUnit) -> float:
@@ -130,12 +110,15 @@ static func damage_reduction(unit: CombatUnit) -> float:
 		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
 		if enemy_def != null:
 			reduction = enemy_def.damage_reduction
+	## Three statuses, named one at a time rather than looped over whatever the
+	## unit is carrying: float addition is not associative, and `unit.statuses`
+	## is in the order the statuses happened to land in.
 	if unit.has_status(CG.Status.SHIELD):
-		reduction += STATUS_SHIELD_REDUCTION
+		reduction += StatusLibrary.of(CG.Status.SHIELD).damage_reduction
 	if unit.has_status(CG.Status.BLOCK):
-		reduction += STATUS_BLOCK_REDUCTION
+		reduction += StatusLibrary.of(CG.Status.BLOCK).damage_reduction
 	if unit.has_status(CG.Status.MARKED):
-		reduction -= MARKED_VULNERABILITY_BONUS
+		reduction -= StatusLibrary.of(CG.Status.MARKED).vulnerability
 	return clampf(reduction, 0.0, MAX_DAMAGE_REDUCTION)
 
 ## How many blocks a pawn's plans may total, from WIS per README.md.
@@ -199,27 +182,18 @@ static func rage_gain_per_attack(unit: CombatUnit) -> float:
 		return 0.0
 	return float(unit.resource_max) * (RAGE_GAIN_PERCENT_PER_HIT / 100.0)
 
-## Damage dealt by one BURN or POISON tick. 0.0 for any other status -- wren's
-## simulation only calls this for those two, but a wrong status reaching here
-## should read as "does nothing" rather than an error over something display-
-## only would never notice.
+## Damage dealt by one damage-over-time tick, from the victim's own max hp. A
+## status whose def carries no percent returns 0.0, which is every status but
+## POISON today.
 static func status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
-	match status:
-		CG.Status.POISON:
-			return float(unit.hp_max) * (POISON_DAMAGE_PERCENT_PER_TICK / 100.0)
-	return 0.0
+	return float(unit.hp_max) * (StatusLibrary.of(status).damage_percent_of_max_hp_per_tick / 100.0)
 
 ## Damage per tick contributed by each unit of a status's stored magnitude, on
-## top of `status_damage_per_tick`. swift's seam; see `SimDeps` for the whole
-## expression and for why the two terms exist.
+## top of `status_damage_per_tick`. Burn scales off the hit that lit it, bleed
+## off its stack count; both numbers are on the def now.
 static func status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> float:
 	var _unused := unit
-	match status:
-		CG.Status.BURN:
-			return BURN_FRACTION_OF_HIT_PER_TICK
-		CG.Status.BLEED:
-			return BLEED_DAMAGE_PER_STACK_PER_TICK
-	return 0.0
+	return StatusLibrary.of(status).damage_per_magnitude_per_tick
 
 ## Multiplier on wind-up/recovery ticks for a unit carrying HASTE. `unit` is
 ## accepted for the call shape SimDeps expects; the multiplier itself is flat
@@ -227,14 +201,14 @@ static func status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> 
 ## needed a per-class knob.
 static func haste_tick_scale(unit: CombatUnit) -> float:
 	var _unused := unit
-	return HASTE_TICK_SCALE
+	return StatusLibrary.of(CG.Status.HASTE).tick_scale
 
 ## Multiplier on move_speed for a unit carrying SLOWED. `unit` is accepted
 ## for the call shape SimDeps expects (same reasoning as haste_tick_scale
 ## above); the multiplier is flat across every unit for this slice.
 static func slowed_speed_scale(unit: CombatUnit) -> float:
 	var _unused := unit
-	return SLOWED_SPEED_SCALE
+	return StatusLibrary.of(CG.Status.SLOWED).speed_scale
 
 const BASE_RECOVERY_FRACTION := 0.04
 const HEALER_RECOVERY_BONUS := 0.08
