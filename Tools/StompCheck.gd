@@ -53,7 +53,9 @@ func _parties(class_ids: Array) -> Array:
 					party.append(class_ids[i])
 			out.append(party)
 	elif class_ids.size() >= 1:
-		out.append(class_ids.slice(0, mini(4, class_ids.size())))
+		## Four or fewer classes: the whole roster is one legal party and
+		## there is no prefix to pick, so nothing here selects by position.
+		out.append(class_ids)
 	return out
 
 ## Runs one fight and prints its verdict. Returns true when it was a contest.
