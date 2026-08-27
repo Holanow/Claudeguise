@@ -19,8 +19,8 @@ func _walk(state: CombatState, unit: CombatUnit, target_id: int, action_id: Stri
 	if target == null or not target.alive or action == null:
 		return null
 	var dist := unit.position.distance_to(target.position)
-	var blocked := action.requires_line_of_sight \
-		and Terrain.line_is_blocked(state.terrain, unit.position, target.position)
+	var blocked: bool = action.requires_line_of_sight \
+		and state.grid.sight_blocked(unit.position, target.position)
 
 	## A unit that cannot walk has no approach to make: it fires or it waits.
 	if unit.move_speed <= 0.0:
