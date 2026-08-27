@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/PullEffect.gd" id="3_pullfx"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_sbadef"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_sbtgt"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/sellsword_crescent.tres" id="vfx_sellsword_crescent"]
 
 [sub_resource type="Resource" id="Resource_crhit"]
 script = ExtResource("2_hitfx")
@@ -31,3 +32,4 @@ recover_ticks = 16
 cooldown_ticks = 90
 targeting = SubResource("Resource_crtg1")
 effects = Array[ExtResource("1_ab8fx")]([SubResource("Resource_crhit"), SubResource("Resource_crpul")])
+vfx = ExtResource("vfx_sellsword_crescent")

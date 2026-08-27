@@ -1196,6 +1196,7 @@ func _ensure_layers() -> void:
 		_vfx.position_of_fn = _vfx_position_of
 		_vfx.hand_of_fn = _vfx_hand_of
 		_vfx.hands_of_fn = _vfx_hands_of
+		_vfx.facing_of_fn = _vfx_facing_of
 		_vfx.shake_fn = _vfx_shake
 		_vfx.hit_stop_fn = _hit_stop
 		_arena.add_child(_vfx)
@@ -1452,6 +1453,12 @@ func _vfx_hands_of(id: int) -> PackedVector2Array:
 	if view == null:
 		return PackedVector2Array()
 	return view.hand_anchors()
+
+## Which way a caster faces, straight off the simulation -- the same quantity
+## that decides whether the Warrior's guard stops a shot.
+func _vfx_facing_of(id: int) -> Vector2:
+	var u := state.unit(id) if state != null else null
+	return Vector2.RIGHT if u == null else u.facing
 
 ## A layer asks for a shake in pixels; the toggle still decides.
 func _vfx_shake(pixels: float) -> void:

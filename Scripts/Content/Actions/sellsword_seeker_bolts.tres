@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_hitfx"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_sbadef"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_sbtgt"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/sellsword_seeker_bolts.tres" id="vfx_sellsword_seeker_bolts"]
 
 [sub_resource type="Resource" id="Resource_sbdlv"]
 script = ExtResource("1_swkdl")
@@ -33,3 +34,4 @@ cooldown_ticks = 30
 targeting = SubResource("Resource_sbtg1")
 delivery = SubResource("Resource_sbdlv")
 effects = Array[ExtResource("2_ab8fx")]([SubResource("Resource_sbhit")])
+vfx = ExtResource("vfx_sellsword_seeker_bolts")
