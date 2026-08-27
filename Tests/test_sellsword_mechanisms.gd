@@ -14,6 +14,11 @@ func _unit(id: int, team: CG.Team, hp: int, pos: Vector2, actions: Array[StringN
 	u.hp = hp
 	u.position = pos
 	u.move_speed = 8.0
+	# Issue 642 made reach edge-to-edge and bodies the size they are drawn, so a
+	# default-radius probe overlaps every other probe and the distances written
+	# in these fixtures stop meaning what they say. A point-sized body puts the
+	# arithmetic back: gap == the distance in the comment.
+	u.radius = 0.0
 	u.actions = actions
 	return u
 
