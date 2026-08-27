@@ -83,16 +83,22 @@ func _crescent() -> void:
 	charge.outer_colour = ARCANE
 	charge.size = 74.0
 
+	# Slow enough to register. The player: "way larger", and larger only reads
+	# as larger if the eye has time to travel the whole sweep.
 	var arc := ArcSweepLayer.new()
 	arc.cue = VFXLayer.Cue.RELEASE
+	arc.sweep_seconds = 0.42
+	arc.fade_seconds = 0.30
 	arc.edge_colour = Color(0.52, 0.72, 1.0)
 	arc.core_colour = Color(1.0, 1.0, 1.0)
-	arc.radius = 65.0
+	arc.radius = 150.0
 	arc.half_arc_degrees = 65.0
 
 	# The sweep takes this long to cross the arc, so what happens to the
 	# targets waits for the blade to reach them.
-	var arrival := 0.09
+	# The blade now takes 0.42s to cross the arc; the hits land near the end of
+	# the swing rather than at the start of it.
+	var arrival := 0.30
 
 	# Small, and it lands ON the struck body rather than over the whole arc.
 	# At 72 it washed the sweep out completely -- the skill's own warning that

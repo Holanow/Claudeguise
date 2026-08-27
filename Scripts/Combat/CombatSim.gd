@@ -1176,11 +1176,30 @@ static func _enemy_team(team: CG.Team) -> CG.Team:
 static func _spawn_projectiles(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
 	var count := maxi(1, action.delivery.count)
 	var spread := deg_to_rad(action.delivery.spread_degrees)
+	var separate: Array[CombatUnit] = []
+	if action.delivery.separate_targets and count > 1:
+		separate = _nearest_enemies(state, caster, count)
 	for i in count:
 		var offset := 0.0
-		if count > 1:
+		if count > 1 and not action.delivery.separate_targets:
 			offset = -spread * 0.5 + spread * float(i) / float(count - 1)
-		_spawn_projectile(state, caster, target, action, deps, offset)
+		var at := target
+		if i < separate.size():
+			at = separate[i]
+		_spawn_projectile(state, caster, target if at == null else at, action, deps, offset)
+
+## The `n` living enemies closest to `caster`, nearest first. Ordered by
+## distance and then by id, so a tie cannot depend on array order.
+static func _nearest_enemies(state: CombatState, caster: CombatUnit, n: int) -> Array[CombatUnit]:
+	var found: Array[CombatUnit] = []
+	for u in state.units:
+		if u.alive and u.team != caster.team:
+			found.append(u)
+	found.sort_custom(func(a: CombatUnit, b: CombatUnit) -> bool:
+		var da := caster.position.distance_squared_to(a.position)
+		var db := caster.position.distance_squared_to(b.position)
+		return a.id < b.id if is_equal_approx(da, db) else da < db)
+	return found.slice(0, n)
 
 static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps, aim_offset: float = 0.0) -> void:
 	var p := Projectile.new()
