@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/SellswordShot.gd" id="1_vfxshot"]
+
+[node name="SellswordShot" type="Node"]
+script = ExtResource("1_vfxshot")

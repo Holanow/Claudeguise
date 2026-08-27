@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_rdy18"]
+
+[resource]
+script = ExtResource("1_rdy18")
+id = &"plate_mail"
+display_name = "Plate Mail"
+slot = 1
+description = "Heavy plate. Teaches its wearer to raise a Directional Block."
+granted_actions = Array[StringName]([&"warrior_block"])
+required_tags = Array[int]([0, 8])

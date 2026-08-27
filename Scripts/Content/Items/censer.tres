@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_g7rnw"]
+
+[resource]
+script = ExtResource("1_g7rnw")
+id = &"censer"
+display_name = "Censer"
+slot = 2
+description = "Smoke and slow thought. Adds 1 Wisdom."
+attribute_flat = {
+6: 1
+}

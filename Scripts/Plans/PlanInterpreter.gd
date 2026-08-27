@@ -46,12 +46,13 @@ static func active_plan_count(pawn: PawnData) -> int:
 		count += 1
 	return count
 
+## Issue 671: a pawn spends its WIS budget on its rows; an enemy has none and
+## every row in `unit.enemy_plans` is active. Two sources, one walk.
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
-	if unit.pawn == null:
-		return null
-	var active := active_plan_count(unit.pawn)
+	var plans: Array[Plan] = unit.pawn.plans if unit.pawn != null else unit.enemy_plans
+	var active := active_plan_count(unit.pawn) if unit.pawn != null else plans.size()
 	for i in active:
-		var plan: Plan = unit.pawn.plans[i]
+		var plan: Plan = plans[i]
 		if not condition_holds(state, unit, plan):
 			continue
 		var intent := _run_blocks(state, unit, plan)

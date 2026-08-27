@@ -80,7 +80,9 @@ is coming rather than only that something is.
 `action/rat_bite.png`,
 `action/rat_king_lash.png`,
 `action/stalker_dart.png`, `action/stalker_mark.png`,
-`action/warden_axe.png`, `action/warden_chain_toss.png`
+`action/warden_axe.png`, `action/warden_chain_toss.png`,
+`action/sellsword_seeker_bolts.png`, `action/sellsword_strike.png`,
+`action/sellsword_crescent.png`
 
 The filename is the action's id. **This list is checked by a test.**
 `Tests/test_art.gd` walks the real content registry and fails if an action ships

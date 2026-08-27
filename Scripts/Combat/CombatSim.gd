@@ -130,6 +130,7 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
 	u.actions = enemy_def.actions.duplicate()
+	u.enemy_plans = enemy_def.plans.duplicate()
 	return u
 
 # ---------------------------------------------------------------------------
@@ -154,7 +155,9 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 			_reaffirm_sustain(state, unit, unit.intent)
 			continue
 		var intent: Intent = null
-		if unit.pawn != null:
+		## Issue 671: an enemy with no authored rows never reaches `plan_decide`,
+		## so it falls straight to `default_decide` exactly as it always has.
+		if unit.pawn != null or not unit.enemy_plans.is_empty():
 			intent = deps.plan_decide.call(state, unit)
 		if intent == null:
 			intent = deps.default_decide.call(state, unit)
@@ -544,7 +547,7 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) 
 ## alone. False for everything else, which is every status that does not stack
 ## and the last stack of one that does.
 static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.Status, deps: SimDeps) -> bool:
-	if not _STACKING_STATUSES.has(status):
+	if not StatusLibrary.of(status).stacks:
 		return false
 	var remaining := float(unit.status_magnitude.get(status, 0.0)) - 1.0
 	if remaining < 1.0:
@@ -563,15 +566,14 @@ static func _decay_one_stack(state: CombatState, unit: CombatUnit, status: CG.St
 ## that. Fires before _tick_statuses checks expiry, so the tick a status
 ## expires on still deals its damage; the tick after, it does not, matching
 ## the hazard "stops the tick after it leaves" behaviour.
-const _DOT_STATUSES := {
-	CG.Status.BURN: CG.DamageType.FIRE,
-	CG.Status.POISON: CG.DamageType.PROFANE,
-	CG.Status.BLEED: CG.DamageType.PHYSICAL,
-}
+## THE ORDER IS LOAD-BEARING, which is why this is a list here rather than a
+## walk of the defs: two afflictions on one unit draw the fight's RNG in this
+## sequence. What each deals is `StatusDef.dot_damage_type`.
+const _DOT_ORDER: Array = [CG.Status.BURN, CG.Status.POISON, CG.Status.BLEED]
 
 ## THREE STATUSES, THREE SCALING RULES, one expression:
 static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
-	for status in _DOT_STATUSES:
+	for status in _DOT_ORDER:
 		if not unit.has_status(status):
 			continue
 		var interval: int = maxi(1, int(deps.status_tick_interval.call(status)))
@@ -592,7 +594,7 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		var applied := before - unit.hp
 		var e := _event(CG.EventKind.DAMAGE, state.tick, source, unit.id, &"")
 		e.amount = applied
-		e.damage_type = _DOT_STATUSES[status]
+		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		e.status = status
 		state.emit(e)
 		if _kill_if_dead(state, unit, source, &""):
@@ -656,7 +658,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		if targets.is_empty():
 			state.emit(_event(CG.EventKind.MISS, state.tick, unit.id, unit.focus_id, action.id))
 		elif action.delivery != null:
-			_spawn_projectile(state, unit, targets[0], action, deps)
+			_spawn_projectiles(state, unit, targets[0], action, deps)
 		else:
 			for target in targets:
 				_apply_action_effect(state, unit, target, action, deps)
@@ -767,21 +769,46 @@ static func _resolve_targets(state: CombatState, unit: CombatUnit, action: Actio
 		return out
 	if action.requires_line_of_sight and state.grid.sight_blocked(unit.position, primary.position):
 		return out
-	return _splash_targets(state, primary, action)
+	return _splash_targets(state, unit, primary, action)
 
 ## Issue 18: pulled out of `_resolve_targets` so a projectile's impact can
 ## gather splash around the target's *live* position at the tick it lands,
 ## not around whatever the primary's position was at fire time. An explosion
 ## should land where the shot lands.
-static func _splash_targets(state: CombatState, primary: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
+##
+## Issue 671: `arc_degrees > 0.0` is a different shape of area -- a sweep in
+## front of the CASTER rather than a blast centred on the primary -- so it is
+## its own branch rather than a filter bolted onto the existing one. Every
+## action with `arc_degrees == 0.0` (everything before issue 671) takes the
+## untouched original path.
+static func _splash_targets(state: CombatState, caster: CombatUnit, primary: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
 	var out: Array[CombatUnit] = []
 	if action.splash_radius <= 0.0:
 		out.append(primary)
+		return out
+	if action.arc_degrees > 0.0:
+		for other in state.living(primary.team):
+			if other.position.distance_to(caster.position) > action.splash_radius:
+				continue
+			if _in_arc(caster, action, other):
+				out.append(other)
 		return out
 	for other in state.living(primary.team):
 		if other.position.distance_to(primary.position) <= action.splash_radius:
 			out.append(other)
 	return out
+
+## Whether `target` sits within `action.arc_degrees` of `caster.facing`,
+## measured as the angle between `facing` and the direction to the target --
+## not a total cone width. A caster with no facing yet (issue "no facing yet"
+## on `CombatUnit.facing`) has swung at nothing in particular, so it hits no one.
+static func _in_arc(caster: CombatUnit, action: ActionDef, target: CombatUnit) -> bool:
+	if caster.facing == Vector2.ZERO:
+		return false
+	var to_target := target.position - caster.position
+	if to_target.length() <= 0.0001:
+		return true
+	return absf(caster.facing.angle_to(to_target)) <= deg_to_rad(action.arc_degrees)
 
 ## Issue 621: runs `action.effects` in the order the author listed them. The
 ## death check is not an effect -- it is bookkeeping the sim owes between the
@@ -814,6 +841,14 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 			_apply_pull(state, unit, target, action, fx)
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
+
+	## Issue 632: statuses an ITEM adds to a landed hit. After the action's own
+	## effects, so an item can never pre-empt what the ability itself does, and
+	## only on a hit that actually landed -- an item that poisons on fire damage
+	## should not poison a miss.
+	if dealt > 0 and target.alive:
+		for extra in AbilityModifiers.added_statuses(unit, action):
+			_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
 
 	if not settled:
 		_kill_if_dead(state, target, unit.id, action.id)
@@ -910,25 +945,26 @@ static func _kill_summons_of(state: CombatState, summoner: CombatUnit) -> void:
 # per-application payload, which is why nothing in this game stacks and why every
 # damage-over-time status scaled off the same thing.
 
-## Statuses that accumulate instead of refreshing: applying one again adds a
-## stack rather than replacing what was there.
-const _STACKING_STATUSES := {
-	CG.Status.BLEED: true,
-}
-
-## Statuses whose magnitude is the damage of the hit that applied them.
-const _HIT_SCALED_STATUSES := {
-	CG.Status.BURN: true,
-}
-
 ## Writes the status, its expiry and its magnitude in one place, so the three
 ## cannot be set inconsistently by two call sites.
+## Issue 632: an item's status, routed through the same `_apply_status` the
+## action's own statuses use, so the two cannot drift apart.
+static func _grant_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, status: CG.Status, ticks: int) -> void:
+	var fx := StatusEffect.new()
+	fx.status = status
+	fx.duration_ticks = ticks
+	_apply_status(state, caster, target, action, fx, 0)
+
 static func _apply_status(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: StatusEffect, dealt: int) -> void:
 	var status: CG.Status = fx.status
 	var carried := float(target.status_magnitude.get(status, 0.0))
-	if _STACKING_STATUSES.has(status):
+	## Issue 627: which of the two rules a status follows is `StatusDef.stacks`
+	## and `StatusDef.hit_scaled`, beside everything else about it, rather than
+	## two one-entry dictionaries here.
+	var def := StatusLibrary.of(status)
+	if def.stacks:
 		target.status_magnitude[status] = carried + 1.0
-	elif _HIT_SCALED_STATUSES.has(status):
+	elif def.hit_scaled:
 		target.status_magnitude[status] = maxf(carried, float(dealt))
 	elif fx.magnitude > 0.0:
 		## Issue 593: authored on the action. A refresh refills to full rather
@@ -1150,24 +1186,32 @@ static func _enemy_team(team: CG.Team) -> CG.Team:
 # ---------------------------------------------------------------------------
 
 ## Issue 18: launched instead of resolving instantly when `action.delivery
-## > 0.0`. `aim_point` is the target's position at this exact moment and is
-## never recomputed -- no homing, which is what lets a target walk out of the
-## way (it isn't there when the shot arrives) as well as walk into one early
-## (`_advance_projectile`'s own hit check, below). `recover_ticks` and any
-## RAGE-on-commit bookkeeping already happened in `_fire_action` before this
-## is called and do not wait for impact; only the projectile's own effect
-## (`_apply_action_effect`) and its RAGE-on-landed-hit gain (`_on_hit_landed`)
-## are deferred to `_advance_projectile`.
-static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+## > 0.0`, and issue 671: `count` shots fanned across `spread_degrees`.
+## `count <= 1` spawns exactly the one shot this loop always spawned, so a
+## delivery nobody has touched behaves as it did before.
+static func _spawn_projectiles(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	# Issue 632: an item may add shots. The action is untouched; the number is
+	# computed here for this caster only.
+	var count := maxi(1, action.delivery.count + AbilityModifiers.extra_targets(caster, action))
+	var spread := deg_to_rad(action.delivery.spread_degrees)
+	for i in count:
+		var offset := 0.0
+		if count > 1:
+			offset = -spread * 0.5 + spread * float(i) / float(count - 1)
+		_spawn_projectile(state, caster, target, action, deps, offset)
+
+static func _spawn_projectile(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, deps: SimDeps, aim_offset: float = 0.0) -> void:
 	var p := Projectile.new()
 	p.id = state.projectiles.size()
 	p.source_id = caster.id
 	p.target_id = target.id
 	p.action_id = action.id
 	p.origin = caster.position
-	p.aim_point = target.position
+	p.aim_point = target.position if aim_offset == 0.0 \
+		else caster.position + (target.position - caster.position).rotated(aim_offset)
 	p.position = caster.position
 	p.speed = action.delivery.speed
+	p.homing_strength = action.delivery.homing_strength
 	p.spawn_tick = state.tick
 	state.projectiles.append(p)
 
@@ -1190,11 +1234,13 @@ static func _tick_projectiles(state: CombatState, deps: SimDeps) -> void:
 ## Moves `p` up to `p.speed` toward its frozen `aim_point`, then resolves it
 ## if either condition is met this tick:
 static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps) -> void:
+	var target := state.unit(p.target_id)
+	if target != null and target.alive:
+		_apply_homing(p, target.position)
 	var travelled_from := p.position
 	_step_projectile(p)
 
 	var action: ActionDef = deps.action_lookup.call(p.action_id)
-	var target := state.unit(p.target_id)
 	var source := state.unit(p.source_id)
 	if action != null and target != null and source != null:
 		var shielder := _find_shielder(state, target.team, source.team, travelled_from, p.position)
@@ -1211,6 +1257,27 @@ static func _advance_projectile(state: CombatState, p: Projectile, deps: SimDeps
 	if p.position == p.aim_point:
 		p.resolved = true
 		state.emit(_event(CG.EventKind.MISS, state.tick, p.source_id, p.target_id, p.action_id))
+
+## Issue 671: turns `p`'s aim toward `target_pos` by up to `p.homing_strength`
+## degrees, holding the distance to `target_pos` fixed so the turn does not
+## also change how long the shot has left to fly. A no-op at `homing_strength
+## <= 0.0`, which is every delivery before this issue -- `aim_point` stays
+## exactly the frozen point `_spawn_projectile` set. Once the target dies,
+## `_advance_projectile` stops calling this and the shot keeps its last
+## heading, landing on the same frozen-aim-point MISS every non-homing shot
+## already lands on.
+static func _apply_homing(p: Projectile, target_pos: Vector2) -> void:
+	if p.homing_strength <= 0.0:
+		return
+	var current := p.aim_point - p.position
+	if current.length() <= 0.0001:
+		return
+	var desired := target_pos - p.position
+	if desired.length() <= 0.0001:
+		return
+	var max_turn := deg_to_rad(p.homing_strength)
+	var turn := clampf(current.normalized().angle_to(desired.normalized()), -max_turn, max_turn)
+	p.aim_point = p.position + current.rotated(turn).normalized() * desired.length()
 
 ## One tick of travel toward the frozen `aim_point`, landing exactly on it
 ## rather than overshooting -- which is what makes "reached the aim point" an
@@ -1239,7 +1306,7 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 ## pay the source for a landed hit. `hit` is the shielder or the intended
 ## target; nothing else about the two branches differs.
 static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps, onto_shield: bool = false) -> void:
-	for t in _splash_targets(state, hit, action):
+	for t in _splash_targets(state, source, hit, action):
 		_apply_action_effect(state, source, t, action, deps, onto_shield and t.id == hit.id)
 	_on_hit_landed(state, source, action, deps, hit.position)
 

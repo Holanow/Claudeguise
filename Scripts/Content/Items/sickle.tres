@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_v5oi1"]
+
+[resource]
+script = ExtResource("1_v5oi1")
+id = &"sickle"
+display_name = "Sickle"
+description = "A curved, filthy blade. Its wielder attacks with a poisoning Claw."
+granted_actions = Array[StringName]([&"abomination_claw"])
+required_tags = Array[int]([1, 2])

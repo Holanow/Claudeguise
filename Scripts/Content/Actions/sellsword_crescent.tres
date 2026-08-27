@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_ab8fx"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_hitfx"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/PullEffect.gd" id="3_pullfx"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_sbadef"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_sbtgt"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/sellsword_crescent.tres" id="vfx_sellsword_crescent"]
+
+[sub_resource type="Resource" id="Resource_crhit"]
+script = ExtResource("2_hitfx")
+damage_type = 7
+power_scale = 1.3
+
+[sub_resource type="Resource" id="Resource_crpul"]
+script = ExtResource("3_pullfx")
+distance = -35.0
+
+[sub_resource type="Resource" id="Resource_crtg1"]
+script = ExtResource("5_sbtgt")
+range_units = 55.0
+splash_radius = 65.0
+arc_degrees = 65.0
+
+[resource]
+script = ExtResource("4_sbadef")
+id = &"sellsword_crescent"
+display_name = "Crescent"
+description = "A wide magical arc in front of the Sellsword, up to 65 units and 65 degrees either side of where he is facing, that knocks its targets back. Moderate cooldown."
+wind_up_ticks = 14
+recover_ticks = 16
+cooldown_ticks = 90
+targeting = SubResource("Resource_crtg1")
+effects = Array[ExtResource("1_ab8fx")]([SubResource("Resource_crhit"), SubResource("Resource_crpul")])
+vfx = ExtResource("vfx_sellsword_crescent")
