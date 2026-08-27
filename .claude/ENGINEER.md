@@ -1,3 +1,31 @@
+## A test does not run a fight
+
+The player, 2026-08-27, after deleting every test that did and watching the
+gate go from 328s to 57s:
+
+> "any test that wants to run a fight that is more than a dummyroom or more
+> than 1 seed now needs to strongly justify why it needs it"
+
+`Tests/test_no_test_runs_a_fight.gd` enforces it: no test may call
+`CombatSim.run(` unless it is named in that file's `ALLOWED` with a sentence
+saying why. **`CombatSim.step(` is fine** -- one tick on a hand-built fixture
+is a unit test and always was.
+
+**Try these three before asking for an entry.** Between them they cover almost
+every reason a test used to run a fight:
+
+- **`Tools/DummyRoom.gd`** fires every action at a dummy and checks it does
+  what its own `effects` declare. That is "the mechanic is reachable", which
+  is what a five-party twenty-seed sweep was usually buying.
+- **`Tools/StompCheck.gd`** runs each room once; a stall reads as a
+  non-contest.
+- **The `sim` fingerprint** is a stronger determinism proof than a test
+  asserting two runs of one seed agree.
+
+82 tests and 1840 assertions came out on this rule. What they proved was
+almost always "this mechanic fires at all", answered by sweeping parties
+across 6, 24 or 40 seeds until it happened once.
+
 ﻿# Engineer session
 
 You implement exactly one issue at a time, in your own worktree, inside your
