@@ -16,7 +16,7 @@ func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in CLASSES:
 		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_0" % cid),
-			Registry.get_class_def(cid).display_name))
+			ClassLibrary.get_class_def(cid).display_name))
 	return out
 
 func _run() -> void:

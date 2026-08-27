@@ -50,7 +50,7 @@ func _to_the_swing() -> CombatUnit:
 				continue
 			if u.action_ticks_total <= 0 or u.action_ticks_left <= 0:
 				continue
-			var action := Registry.get_action(u.current_action)
+			var action := ActionLibrary.get_action(u.current_action)
 			if PartAnimation.kind_for(action) != PartAnimation.Kind.MELEE:
 				continue
 			var progress := float(u.action_ticks_total - u.action_ticks_left) / float(u.action_ticks_total)

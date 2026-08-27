@@ -341,7 +341,7 @@ func _action_progress(u: CombatUnit) -> Array:
 	if u.action_ticks_total <= 0 or u.action_ticks_left <= 0:
 		return [PartAnimation.Kind.IDLE, 0.0]
 	var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
-	var kind := PartAnimation.kind_for(Registry.get_action(u.current_action))
+	var kind := PartAnimation.kind_for(ActionLibrary.get_action(u.current_action))
 	return [kind, done / float(u.action_ticks_total)]
 
 ## Where the main hand and the weapon it holds sit this frame, in the body's
@@ -381,7 +381,7 @@ func _off_hand_angle(u: CombatUnit) -> float:
 func _weapon_part(u: CombatUnit) -> StringName:
 	if u.pawn != null:
 		return &"" if u.pawn.weapon == null else u.pawn.weapon.part
-	var enemy_def := Registry.get_enemy(u.enemy_id)
+	var enemy_def := EnemyLibrary.get_enemy(u.enemy_id)
 	return &"" if enemy_def == null else enemy_def.weapon_part
 
 ## Whether this body has anything to animate at all. False means the toggle is
@@ -822,7 +822,7 @@ static func wind_up_fraction(u: CombatUnit) -> float:
 ## whose class accent is Divine also casts Physical actions, and the telegraph
 ## disagreeing with its own projectile is worse than one Registry lookup.
 func _wind_up_damage_type(u: CombatUnit) -> int:
-	var action = Registry.get_action(u.current_action)
+	var action = ActionLibrary.get_action(u.current_action)
 	return action.damage_type if action != null else _accent(u)
 
 ## Everything drawn under the body, as one height. Each part is measured by
