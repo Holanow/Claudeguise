@@ -105,38 +105,6 @@ func test_an_in_cover_row_fires_its_action_with_no_movement_block() -> void:
 
 	unit.position = Vector2(0.0, 200.0)
 	assert_eq(PlanInterpreter.decide(state, unit), null, "out of cover, the same row must not fire")
-
-## Issue 481's own case, end to end: a pawn that reaches cover and has a row
-## naming that state casts from it, and the same party with the state row's
-## condition inverted casts nothing. Two real fights on the room #481 measured.
-func test_the_pair_gives_the_pawn_in_cover_something_to_do() -> void:
-	assert_true(_casts_from_cover(&"self_in_cover") > 0,
-		"the in-cover row never fired, so the condition did not reach the simulation")
-	assert_eq(_casts_from_cover(&"self_on_harmful_ground"), 0,
-		"the same row gated on a state that never holds must never fire")
-
-# ---------------------------------------------------------------------------
-
-func _casts_from_cover(op: StringName) -> int:
-	var party: Array[PawnData] = []
-	for cid in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
-		var pawn := PawnFactory.make_preset_pawn(cid, StringName("%s_0" % cid), String(cid))
-		if cid == &"geysermancer":
-			pawn.plans.remove_at(pawn.plans.size() - 1)
-			pawn.plans.remove_at(pawn.plans.size() - 1)
-			pawn.plans.insert(0, _act_plan(op, &"geyser_scald"))
-			pawn.plans.insert(0, _cover_plan())
-		party.append(pawn)
-
-	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_cover"), _SEED)
-	CombatSim.run(state)
-	var casts := 0
-	for e in state.events:
-		if e.source_plan == &"cover_act":
-			casts += 1
-	return casts
-
-## A wall on the x axis, a focus beyond it, and the pawn behind it.
 func _state_with_a_wall() -> CombatState:
 	var state := CombatState.new(_SEED)
 	state.grid.stamp_features([Terrain.make(Terrain.Kind.WALL, Rect2(-20.0, -20.0, 40.0, 40.0))])

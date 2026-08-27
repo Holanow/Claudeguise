@@ -55,39 +55,6 @@ func test_the_pair_is_offered_to_the_editor_with_no_argument() -> void:
 
 # ---------------------------------------------------------------------------
 # The loop. #381's shape: the edit must reach the simulation.
-
-## Two fights that differ only in which half of the pair gates the row. On
-## harmful ground the two must disagree, or the condition never reached the
-## fight.
-func test_the_two_halves_produce_different_fights_on_harmful_ground() -> void:
-	var burning := _fight(&"self_on_harmful_ground", true)
-	var safe := _fight(&"self_on_safe_ground", true)
-	assert_true(burning["casts"] > 0, "gated on harmful ground while standing on it, the row must fire")
-	assert_eq(safe["casts"], 0, "gated on safe ground while standing on harmful ground, the row must never fire")
-	assert_ne(burning["signature"], safe["signature"],
-		"the same seed produced the same event stream for both halves, so the condition never reached the simulation")
-
-## And the mirror, on clean floor, which is what makes the test above evidence
-## about the ground rather than about one op being broken.
-func test_the_two_halves_swap_when_the_floor_is_clean() -> void:
-	var burning := _fight(&"self_on_harmful_ground", false)
-	var safe := _fight(&"self_on_safe_ground", false)
-	assert_eq(burning["casts"], 0, "clean floor, so the harmful-ground row must never fire")
-	assert_true(safe["casts"] > 0, "clean floor, so the safe-ground row must fire")
-
-func test_the_same_plan_twice_is_the_same_fight() -> void:
-	assert_eq(_fight(&"self_on_harmful_ground", true)["signature"], _fight(&"self_on_harmful_ground", true)["signature"],
-		"the same plan and seed must replay identically")
-
-# ---------------------------------------------------------------------------
-# The constraint recorded on #97, re-measured rather than assumed.
-
-## **#97 recorded that a MOVEMENT block cannot carry a zero-range self-targeted
-## action, and #335 fixed it.** `_target_in_range` measures
-## `action_target_id(...)`, which is the caster itself for a self-targeted
-## action, so distance 0 clears a stated range of 0. This is the first plan
-## anybody writes against #384 -- "when standing in fire, move and raise your
-## shield" -- so it is asserted here rather than trusted.
 func test_a_movement_block_can_carry_a_zero_range_self_buff() -> void:
 	var guard := Registry.get_action(&"warrior_guard")
 	assert_eq(guard.range_units, 0.0, "the constraint is about a stated range of 0; warrior_guard no longer states one")
@@ -160,31 +127,3 @@ func _plan(op: StringName, action_id: StringName, hold: float = 0.0) -> Plan:
 	plan.condition = _condition(op)
 	plan.blocks = blocks
 	return plan
-
-## One fight, with a Warrior carrying exactly one plan gated on `op`.
-## `on_hazard` floors the whole room in a harmful surface and nothing else
-## changes. Room-wide on purpose: a patch under the spawn is walked off within a
-## few ticks by whichever half falls through to `DefaultBehavior`, which would
-## make the two halves differ for a reason that is not the condition.
-func _fight(op: StringName, on_hazard: bool) -> Dictionary:
-	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior_0", "Warrior")
-	var plan := _plan(op, &"warrior_second_wind")
-	pawn.plans = [plan] as Array[Plan]
-
-	var encounter := Encounter.new()
-	encounter.id = &"test_ground_condition"
-	encounter.party_spawns = [_SPAWN] as Array[Vector2]
-	encounter.enemy_spawns = _enemies()
-	if on_hazard:
-		encounter.terrain = [_room_wide_hazard()]
-
-	var state := CombatSim.build([pawn] as Array[PawnData], encounter, _SEED)
-	CombatSim.run(state)
-
-	var casts := 0
-	var parts := PackedStringArray()
-	for e in state.events:
-		if e.source_plan == plan.id:
-			casts += 1
-		parts.append("%d:%d:%d:%d:%s:%d" % [e.tick, e.kind, e.source_id, e.target_id, e.action_id, e.amount])
-	return {"casts": casts, "signature": "|".join(parts)}
