@@ -404,6 +404,24 @@ func _part_offset(u: CombatUnit, radius: float) -> Vector2:
 ## Whether this body has anything to animate at all. False means the toggle is
 ## off or this recipe puts nothing in its `Hands` slot, and either way the body is
 ## posed exactly as it was baked.
+## Where this body's hands are drawn, in arena space. A cast leaves the hands,
+## and the hands move through the whole wind-up, so a beam anchored to the body
+## centre visibly detaches from the pose that is throwing it.
+## Every hand this body has, in arena space, tracked separately. Empty when the
+## recipe puts nothing in its Hands slot.
+func hand_anchors() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if _visual == null:
+		return out
+	for p in _visual.slot_points(&"Hands"):
+		out.append(position + p)
+	return out
+
+func hand_anchor() -> Vector2:
+	if _visual == null:
+		return position
+	return position + _visual.slot_offset(&"Hands")
+
 func can_animate(u: CombatUnit) -> bool:
 	return animating() and UnitRecipes.has_animated_part(_shape_id(u))
 

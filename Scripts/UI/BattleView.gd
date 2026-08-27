@@ -86,6 +86,7 @@ var _arena_base: Vector2 = Vector2.ZERO
 var _arena: Node2D = null
 var _combat_log = null
 var _unit_views: Dictionary = {}
+var _vfx: VFXDirector = null
 
 var _party_label: Label = null
 var _encounter_label: Label = null
@@ -1188,6 +1189,17 @@ func _ensure_layers() -> void:
 	if _text_layer == null or not is_instance_valid(_text_layer):
 		_text_layer = ArenaTextLayerScript.new()
 		_arena.add_child(_text_layer)
+	# Over the bodies and under the text: a beam should cross a goblin and pass
+	# beneath the damage number that explains it.
+	if _vfx == null or not is_instance_valid(_vfx):
+		_vfx = VFXDirector.new()
+		_vfx.position_of_fn = _vfx_position_of
+		_vfx.hand_of_fn = _vfx_hand_of
+		_vfx.hands_of_fn = _vfx_hands_of
+		_vfx.shake_fn = _vfx_shake
+		_vfx.hit_stop_fn = _hit_stop
+		_arena.add_child(_vfx)
+		_arena.move_child(_vfx, _text_layer.get_index())
 
 ## Issue 321: every body and every bar goes in one layer under the names, so a
 ## summon added mid-fight cannot be drawn over a plate that was already up.
@@ -1371,6 +1383,7 @@ func consume_events() -> void:
 		# death whose sound it exists to give weight to.
 		if _sound != null:
 			_sound.play_for(e)
+		_play_action_vfx(e)
 		if e.kind == CG.EventKind.DAMAGE or e.kind == CG.EventKind.HEAL:
 			_spawn_floater(e)
 			_spawn_impact_burst(e)
@@ -1404,6 +1417,51 @@ static func shake_offset(age: float, amplitude: float) -> Vector2:
 ## Spent from `_render` for the same reason #516's decay is: `_process` returns
 ## above that line while a hit stop holds the picture, and a screen that keeps
 ## moving through a freeze frame is the bug #515 and #516 nearly shipped twice.
+## Issue 650. An action says what it looks like; this hands that to the
+## director. Null `vfx` leaves every existing effect exactly as it was.
+func _play_action_vfx(e: CombatEvent) -> void:
+	if _vfx == null or e.action_id == &"":
+		return
+	var action := Registry.get_action(e.action_id)
+	if action == null or action.vfx == null:
+		return
+	if e.kind == CG.EventKind.ACTION_START:
+		_vfx.play(action.vfx, VFXLayer.Cue.WIND_UP, e.source_id, e.target_id,
+			float(action.wind_up_ticks) * CG.TICK_SECONDS)
+	elif e.kind == CG.EventKind.ACTION_FIRE:
+		_vfx.play(action.vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0)
+		_vfx.play(action.vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0)
+
+## Where the director draws a unit, in arena space.
+func _vfx_position_of(id: int) -> Vector2:
+	var view: Node2D = _unit_views.get(id)
+	if view == null:
+		return Vector2.ZERO
+	return view.position
+
+## Where the caster's hands are drawn, so a beam leaves the pose throwing it.
+func _vfx_hand_of(id: int) -> Vector2:
+	var view = _unit_views.get(id)
+	if view == null:
+		return Vector2.ZERO
+	return view.hand_anchor()
+
+## Every hand of the caster, tracked separately.
+func _vfx_hands_of(id: int) -> PackedVector2Array:
+	var view = _unit_views.get(id)
+	if view == null:
+		return PackedVector2Array()
+	return view.hand_anchors()
+
+## A layer asks for a shake in pixels; the toggle still decides.
+func _vfx_shake(pixels: float) -> void:
+	if not DisplayOptions.enabled(SHAKE_OPTION):
+		return
+	if _shake_age < SHAKE_SECONDS and pixels <= _shake_amplitude:
+		return
+	_shake_age = 0.0
+	_shake_amplitude = pixels
+
 func _advance_shake(delta: float) -> void:
 	if _shake_age >= SHAKE_SECONDS:
 		return
