@@ -9,3 +9,4 @@ display_name = "Orb"
 description = "A sphere of trapped water. Its wielder attacks with a Spout."
 granted_actions = Array[StringName]([&"geyser_spout"])
 required_tags = Array[int]([1])
+part = &"orb"

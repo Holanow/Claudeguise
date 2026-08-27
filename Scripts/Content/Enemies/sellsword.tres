@@ -98,6 +98,7 @@ attack_power = {
 }
 damage_reduction = 0.08
 actions = Array[StringName]([&"sellsword_seeker_bolts", &"sellsword_strike", &"sellsword_crescent"])
+weapon_part = &"sword"
 display_tags = Array[String](["Melee", "Ranged", "Elite"])
 focus_bias = 0.3
 plans = Array[ExtResource("2_swpln")]([SubResource("Resource_swpln1"), SubResource("Resource_swpln2"), SubResource("Resource_swpln3"), SubResource("Resource_swpln4")])

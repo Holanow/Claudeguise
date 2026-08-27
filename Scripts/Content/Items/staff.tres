@@ -9,3 +9,4 @@ display_name = "Staff"
 description = "A long carved stave. Its wielder attacks with a Bolt at range."
 granted_actions = Array[StringName]([&"priest_bolt"])
 required_tags = Array[int]([1])
+part = &"staff"

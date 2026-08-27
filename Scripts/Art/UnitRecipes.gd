@@ -10,6 +10,11 @@ class_name UnitRecipes
 
 ## `team` on a layer takes `Palette.team_color` instead of `color`, which is the
 ## one place a side changes what a unit looks like.
+##
+## Issue 584: a body used to name one `hands`/`hands_wide` part and get both
+## hands as a single sprite that could only move as one. Every recipe below
+## names its hand part twice, once per named slot (`HandMain`, `HandOff`), so
+## a slash can swing one hand and counterweight the other.
 const RECIPES := {
 	# --- the goblin family -------------------------------------------------
 	# The player: "goblin archer should be the goblin base with a hat on
@@ -18,7 +23,8 @@ const RECIPES := {
 	# rather than a drawing.
 	&"goblin": [
 		{"part": &"body_skinny", "color": "5d7a3a"},
-		{"part": &"hands", "color": "7fa050"},
+		{"part": &"hand", "color": "7fa050"},
+		{"part": &"hand_off", "color": "7fa050"},
 		{"part": &"head_round", "color": "7fa050"},
 		{"part": &"ears_pointed", "color": "6f8f4a"},
 		{"part": &"nose_triangle", "color": "8fb45c"},
@@ -33,7 +39,8 @@ const RECIPES := {
 	# soldier. They are now one base and one hat each.
 	&"dungeon_grunt": [
 		{"part": &"body_muscular", "team": true},
-		{"part": &"hands_wide", "color": "d8b48c"},
+		{"part": &"hand_wide", "color": "d8b48c"},
+		{"part": &"hand_wide_off", "color": "d8b48c"},
 		{"part": &"head_round", "color": "d8b48c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
@@ -70,7 +77,8 @@ const RECIPES := {
 	],
 	&"siege_master": [
 		{"part": &"body_muscular", "team": true},
-		{"part": &"hands_wide", "color": "d8b48c"},
+		{"part": &"hand_wide", "color": "d8b48c"},
+		{"part": &"hand_wide_off", "color": "d8b48c"},
 		{"part": &"head_round", "color": "d8b48c"},
 		{"part": &"helm", "color": "8a8f96"},
 		{"part": &"eyes", "color": "1c1a12"},
@@ -79,28 +87,32 @@ const RECIPES := {
 	# --- the party ---------------------------------------------------------
 	&"warrior": [
 		{"part": &"body_muscular", "team": true},
-		{"part": &"hands_wide", "color": "d8b48c"},
+		{"part": &"hand_wide", "color": "d8b48c"},
+		{"part": &"hand_wide_off", "color": "d8b48c"},
 		{"part": &"head_round", "color": "d8b48c"},
 		{"part": &"plume", "color": "b8503c"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
 	&"priest": [
 		{"part": &"body_skinny", "team": true},
-		{"part": &"hands", "color": "e0c0a0"},
+		{"part": &"hand", "color": "e0c0a0"},
+		{"part": &"hand_off", "color": "e0c0a0"},
 		{"part": &"head_round", "color": "e0c0a0"},
 		{"part": &"hood", "color": "e8dcb0"},
 		{"part": &"eyes", "color": "1c1a12"},
 	],
 	&"geysermancer": [
 		{"part": &"body_skinny", "team": true},
-		{"part": &"hands", "color": "cfe6ee"},
+		{"part": &"hand", "color": "cfe6ee"},
+		{"part": &"hand_off", "color": "cfe6ee"},
 		{"part": &"head_round", "color": "cfe6ee"},
 		{"part": &"hat", "color": "3f7fa8"},
 		{"part": &"eyes", "color": "1c2a32"},
 	],
 	&"abomination": [
 		{"part": &"body_rotund", "color": "6b4a7a"},
-		{"part": &"hands_wide", "color": "7c5a8c"},
+		{"part": &"hand_wide", "color": "7c5a8c"},
+		{"part": &"hand_wide_off", "color": "7c5a8c"},
 		{"part": &"head_small", "color": "7c5a8c"},
 		{"part": &"horns", "color": "d8cbe0"},
 		{"part": &"tusks", "color": "d8cbe0"},
@@ -110,7 +122,8 @@ const RECIPES := {
 	# --- the rest of floor one --------------------------------------------
 	&"brute": [
 		{"part": &"body_muscular", "color": "8a6a3a"},
-		{"part": &"hands_wide", "color": "a08050"},
+		{"part": &"hand_wide", "color": "a08050"},
+		{"part": &"hand_wide_off", "color": "a08050"},
 		{"part": &"head_small", "color": "a08050"},
 		{"part": &"horns", "color": "e0d4b8"},
 		{"part": &"eyes", "color": "2a1c10"},
@@ -120,7 +133,8 @@ const RECIPES := {
 	## plume rather than horns or a crown, which belong to the bosses.
 	&"sellsword": [
 		{"part": &"body_muscular", "color": "4a4f5e"},
-		{"part": &"hands_wide", "color": "c8a888"},
+		{"part": &"hand_wide", "color": "c8a888"},
+		{"part": &"hand_wide_off", "color": "c8a888"},
 		{"part": &"head_small", "color": "c8a888"},
 		{"part": &"helm", "color": "9aa3b4"},
 		{"part": &"plume", "color": "8c3b4a"},
@@ -128,14 +142,16 @@ const RECIPES := {
 	],
 	&"cultist": [
 		{"part": &"body_skinny", "color": "4a2f5a"},
-		{"part": &"hands", "color": "c8a0b8"},
+		{"part": &"hand", "color": "c8a0b8"},
+		{"part": &"hand_off", "color": "c8a0b8"},
 		{"part": &"head_round", "color": "c8a0b8"},
 		{"part": &"hood", "color": "6b3f7a"},
 		{"part": &"eyes", "color": "e8d24a"},
 	],
 	&"ghoul": [
 		{"part": &"body_skinny", "color": "6a7a68"},
-		{"part": &"hands", "color": "8a9a88"},
+		{"part": &"hand", "color": "8a9a88"},
+		{"part": &"hand_off", "color": "8a9a88"},
 		{"part": &"head_small", "color": "8a9a88"},
 		{"part": &"tusks", "color": "d8dcd0"},
 		{"part": &"eyes", "color": "c04a4a"},
@@ -149,13 +165,15 @@ const RECIPES := {
 	&"stalker": [
 		{"part": &"body_skinny", "color": "3a3a4a"},
 		{"part": &"tail", "color": "4a4a5a"},
-		{"part": &"hands", "color": "4a4a5a"},
+		{"part": &"hand", "color": "4a4a5a"},
+		{"part": &"hand_off", "color": "4a4a5a"},
 		{"part": &"head_small", "color": "4a4a5a"},
 		{"part": &"eyes", "color": "e8d24a"},
 	],
 	&"the_warden": [
 		{"part": &"body_muscular", "color": "8a4a3a"},
-		{"part": &"hands_wide", "color": "a05a48"},
+		{"part": &"hand_wide", "color": "a05a48"},
+		{"part": &"hand_wide_off", "color": "a05a48"},
 		{"part": &"head_round", "color": "a05a48"},
 		{"part": &"helm", "color": "8a8f96"},
 		{"part": &"eyes", "color": "e8d24a"},
@@ -187,12 +205,13 @@ static func recipe_ids() -> Array[StringName]:
 ## The fixed slots a body is built from, in draw order. Tree order in
 ## `UnitVisual` is this order, so nothing sorts at runtime.
 ##
-## Headwear sits UNDER Face rather than over it, which is a deliberate departure
-## from the order the issue named: a hood covers the pixels the eyes are drawn on
-## and the stack this replaces always drew the eyes last, so Face-over-Headwear
-## takes the eyes off the Priest, the Cultist, both hooded dungeon soldiers, the
-## Siege Master and The Warden.
-const SLOTS: Array[StringName] = [&"Body", &"Head", &"Headwear", &"Face", &"Hands", &"Extra"]
+## Headwear sits UNDER Face rather than over it: Face-over-Headwear is what
+## keeps the eyes on a hooded or helmed body. Issue 584 split `Hands` into
+## `HandOff` and `HandMain` with `Weapon` between them, so a held weapon
+## reads as gripped rather than glued on top of both hands at once.
+const SLOTS: Array[StringName] = [
+	&"Body", &"Head", &"Headwear", &"Face", &"HandOff", &"Weapon", &"HandMain", &"Extra",
+]
 
 ## Which slot a part goes in. A part named nowhere here lands in `Extra`, so a
 ## part added later draws last rather than silently joining a group it was never
@@ -208,7 +227,10 @@ const SLOT_OF := {
 	&"eyes": &"Face", &"eyes_snout": &"Face",
 	&"ears_pointed": &"Face", &"ears_round": &"Face",
 	&"nose_triangle": &"Face", &"mandibles": &"Face", &"tusks": &"Face",
-	&"hands": &"Hands", &"hands_wide": &"Hands",
+	&"hand": &"HandMain", &"hand_wide": &"HandMain",
+	&"hand_off": &"HandOff", &"hand_wide_off": &"HandOff",
+	&"sword": &"Weapon", &"staff": &"Weapon", &"orb": &"Weapon",
+	&"bow": &"Weapon", &"sickle": &"Weapon",
 }
 
 static func slot_of(part: StringName) -> StringName:
@@ -235,15 +257,22 @@ static func slots_for(shape_id: StringName) -> Array:
 ## apart. Slots are a drawing taxonomy and chunks are a physical one: eyes and a
 ## hat travel with the head they are worn on, a barrel does not travel with a
 ## wheel. A slot named nowhere here -- `Extra` -- gives every part its own chunk.
+##
+## `HandMain` and `HandOff` both map to `hands`: they are no longer adjacent in
+## `SLOTS` (the `Weapon` slot sits between them), so without this they would
+## fly apart as two separate hand chunks on death rather than the one this
+## always was.
 const CHUNK_OF_SLOT := {
 	&"Body": &"body",
 	&"Head": &"head", &"Headwear": &"head", &"Face": &"head",
-	&"Hands": &"hands",
+	&"HandMain": &"hands", &"HandOff": &"hands",
 }
 
 ## A part in no slot lands in `Extra` and is therefore its own chunk, so a part
 ## added later flies on its own rather than silently joining the body it was
-## drawn over.
+## drawn over. The `Weapon` slot is not in `CHUNK_OF_SLOT`, so a drawn weapon is
+## its own chunk too -- there is no recipe layer for it to travel with, since
+## it is added at draw time from the wielder's equipment, not authored here.
 static func chunk_of(part: StringName) -> StringName:
 	return CHUNK_OF_SLOT.get(slot_of(part), part)
 
@@ -263,8 +292,8 @@ static func chunks_for(shape_id: StringName) -> Array:
 			out.append({"chunk": chunk, "layers": [layer]})
 	return out
 
-## Whether this recipe has anything to animate at all: whether its `Hands` slot
-## holds a part `PartAnimation` moves.
+## Whether this recipe has anything to animate at all: whether its `HandMain`
+## or `HandOff` slot holds a part `PartAnimation` moves.
 static func has_animated_part(shape_id: StringName) -> bool:
 	for layer in layers_for(shape_id):
 		if PartAnimation.animates(layer["part"]):
@@ -277,3 +306,15 @@ static func layer_color(layer: Dictionary, team: CG.Team) -> Color:
 	if layer.get("team", false):
 		return Palette.team_color(team)
 	return Color(layer.get("color", "ffffff"))
+
+## The tint a weapon part draws in. Parts are white masks with no colour of
+## their own; every other part gets its colour from a recipe layer, and a
+## weapon has none -- it is added at draw time from the wielder's equipment,
+## not authored into any recipe. A part named nowhere here draws steel grey.
+const WEAPON_COLOR := {
+	&"sword": "c8ccd4", &"staff": "8a6a42", &"orb": "7fd0e0",
+	&"bow": "9a7a48", &"sickle": "9aa0a8",
+}
+
+static func weapon_color(part: StringName) -> Color:
+	return Color(WEAPON_COLOR.get(part, "9aa0a8"))
