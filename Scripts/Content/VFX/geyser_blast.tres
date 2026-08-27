@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_33sis"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_vxoxl"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/BeamLayer.gd" id="3_v47so"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="4_gf0ui"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ShockRingLayer.gd" id="5_ebv7q"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="6_8r01s"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="7_6ujfh"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/HitStopLayer.gd" id="8_yang3"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="9_rd4a6"]
+
+[sub_resource type="Resource" id="Resource_deu6d"]
+script = ExtResource("2_vxoxl")
+inner_colour = Color(0.88, 0.98, 1, 1)
+outer_colour = Color(0.13, 0.44, 0.85, 1)
+cue = 0
+
+[sub_resource type="Resource" id="Resource_mcgyc"]
+script = ExtResource("3_v47so")
+core_colour = Color(0.88, 0.98, 1, 1)
+edge_colour = Color(0.13, 0.44, 0.85, 1)
+width = 52.0
+hand_index = 0
+cue = 1
+
+[sub_resource type="Resource" id="Resource_en1jv"]
+script = ExtResource("3_v47so")
+core_colour = Color(0.88, 0.98, 1, 1)
+edge_colour = Color(0.13, 0.44, 0.85, 1)
+width = 52.0
+hand_index = 1
+cue = 1
+
+[sub_resource type="Resource" id="Resource_ymt6r"]
+script = ExtResource("4_gf0ui")
+colour = Color(0.88, 0.98, 1, 1)
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_h4eop"]
+script = ExtResource("5_ebv7q")
+ring_colour = Color(0.62, 0.9, 1, 1)
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_24ogj"]
+script = ExtResource("6_8r01s")
+colour_hot = Color(0.88, 0.98, 1, 1)
+colour_cool = Color(0.13, 0.44, 0.85, 1)
+speed = 300.0
+lifetime = 0.7
+gravity = Vector2(0, 420)
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_ckpfq"]
+script = ExtResource("7_6ujfh")
+delay = 0.07
+
+[sub_resource type="Resource" id="Resource_kuwcb"]
+script = ExtResource("8_yang3")
+delay = 0.07
+
+[resource]
+script = ExtResource("9_rd4a6")
+display_name = "Geyser Blast"
+layers = Array[ExtResource("1_33sis")]([SubResource("Resource_deu6d"), SubResource("Resource_mcgyc"), SubResource("Resource_en1jv"), SubResource("Resource_ymt6r"), SubResource("Resource_h4eop"), SubResource("Resource_24ogj"), SubResource("Resource_ckpfq"), SubResource("Resource_kuwcb")])

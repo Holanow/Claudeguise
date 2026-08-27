@@ -36,6 +36,10 @@ class_name ActionDef
 ## `abomination_immolate`.
 @export var sustain: ActionSustain
 
+## What this looks like when it fires. Null means the view's own defaults, which
+## is every action that has not been given one yet.
+@export var vfx: AbilityVFX
+
 ## The first effect of each kind. Actions carry at most one of any of these, so
 ## a linear walk over a list of three is the whole lookup.
 func hit() -> HitEffect:

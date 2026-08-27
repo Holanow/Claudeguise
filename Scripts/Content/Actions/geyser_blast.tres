@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/PoolEffect.gd" id="4_ka0r0"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_huajo"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_hhwd7"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/geyser_blast.tres" id="vfx_geyser_blast"]
 
 [sub_resource type="Resource" id="Resource_bks1l"]
 script = ExtResource("1_wtyj1")
@@ -40,3 +41,4 @@ resource_cost = 20
 targeting = SubResource("Resource_bqxf8")
 delivery = SubResource("Resource_bks1l")
 effects = Array[ExtResource("2_smo6x")]([SubResource("Resource_ukmyh"), SubResource("Resource_cov6l")])
+vfx = ExtResource("vfx_geyser_blast")
