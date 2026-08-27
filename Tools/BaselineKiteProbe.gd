@@ -9,7 +9,7 @@ func _init() -> void:
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
 		pawn.armor = null
 		var party: Array[PawnData] = [pawn]
-		var e := Encounter.new()
+		var e := RoomData.new()
 		e.id = &"probe"
 		e.enemy_spawns = [
 			{"enemy_id": &"goblin", "position": Vector2(150.0, -50.0)},

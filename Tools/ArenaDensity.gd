@@ -64,7 +64,7 @@ func _verify() -> void:
 					perturbed += 1
 	print("VERIFY: %d fights re-run unprobed, %d perturbed." % [checked, perturbed])
 
-func _fingerprint(ids: Array, enc: Encounter, s: int, probe: bool) -> String:
+func _fingerprint(ids: Array, enc: RoomData, s: int, probe: bool) -> String:
 	var acc := _fresh()
 	var party: Array[PawnData] = []
 	for cid in ids:
@@ -164,7 +164,7 @@ func _densest_moments() -> void:
 			% [enc_id, best["win"], best["tick"], best["seed"], best["party"]])
 	print("")
 
-func _peak(ids: Array, enc: Encounter, s: int) -> Dictionary:
+func _peak(ids: Array, enc: RoomData, s: int) -> Dictionary:
 	var acc := _fresh()
 	var party: Array[PawnData] = []
 	for cid in ids:
@@ -268,13 +268,13 @@ func _scale_arithmetic() -> void:
 
 # --- machinery -------------------------------------------------------------
 
-func _truncated(base: Encounter, keep: int) -> Encounter:
-	var e := Encounter.new()
+func _truncated(base: RoomData, keep: int) -> RoomData:
+	var e := RoomData.new()
 	e.id = base.id
 	e.display_name = base.display_name
 	e.enemy_spawns = base.enemy_spawns.slice(0, keep)
 	e.party_spawns = base.party_spawns
-	e.terrain = base.terrain
+	e.cells = base.cells
 	return e
 
 ## A unit whose longest attack outranges DefaultBehavior's melee threshold.
@@ -305,7 +305,7 @@ func _sort_all(d: Dictionary) -> void:
 	for k in KEYS + WORST:
 		(d[k] as Array[float]).sort()
 
-func _run(ids: Array, enc: Encounter, s: int, acc: Dictionary, by_count: Dictionary) -> void:
+func _run(ids: Array, enc: RoomData, s: int, acc: Dictionary, by_count: Dictionary) -> void:
 	var party: Array[PawnData] = []
 	for cid in ids:
 		var c := StringName(cid)

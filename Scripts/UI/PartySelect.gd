@@ -371,8 +371,8 @@ static func room_summary(id: StringName) -> String:
 		return ""
 	var parts: Array[String] = ["%d enemies" % room.enemy_spawns.size()]
 	var counts := {}
-	for feature in room.terrain:
-		counts[feature.kind] = int(counts.get(feature.kind, 0)) + 1
+	for cell in room.cells.values():
+		counts[cell.kind] = int(counts.get(cell.kind, 0)) + 1
 	for kind in [Terrain.Kind.WALL, Terrain.Kind.PILLAR, Terrain.Kind.HAZARD, Terrain.Kind.PIT]:
 		if counts.has(kind):
 			parts.append("%d %s" % [counts[kind], TERRAIN_WORDS[kind][0 if counts[kind] == 1 else 1]])

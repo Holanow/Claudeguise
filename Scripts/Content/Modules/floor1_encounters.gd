@@ -56,8 +56,10 @@ const _ROOM1_ENEMY_SPAWNS: Array[Dictionary] = [
 ## in the order they are listed here. The Rat King moved ahead of the Warden in
 ## this list for exactly that reason: it is the order `ROOM_ORDER` showed before
 ## #180 deleted it, and the set and order a player sees are unchanged.
+## `floor1_room1` is issue 680's proven-first room; it now lives at
+## `Scripts/Content/Rooms/floor1_room1.tscn` via `RoomLibrary`, not here.
 static func encounters() -> Array[Encounter]:
-	return [_the_room(), _the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_sellsword_room(), _the_rat_king_room(), _the_warden_room()]
+	return [_the_horde(), _the_ghoul_den(), _the_cover_room(), _the_hazard_room(), _the_chokepoint(), _the_sellsword_room(), _the_rat_king_room(), _the_warden_room()]
 
 static func _the_warden_room() -> Encounter:
 	var e := Encounter.new()
@@ -87,19 +89,6 @@ static func _the_rat_king_room() -> Encounter:
 
 static func items() -> Array[EquipmentDef]:
 	return []
-
-## The standard room: two goblins up front, a goblin archer and a cultist
-## held back. Same shape the original three-mirrored-pawn roster had, now
-## built from actual monsters.
-static func _the_room() -> Encounter:
-	var e := Encounter.new()
-	e.id = &"floor1_room1"
-	e.display_name = "Floor 1, Room 1"
-	e.pickable = true
-	e.enemy_spawns = _ROOM1_ENEMY_SPAWNS
-	e.party_spawns = _PARTY_SPAWNS
-	return e
-
 
 ## Issue 671: the floor's elite. He is the fight, and the goblins are there so
 ## that his opening bolts have somebody other than the party to walk past --

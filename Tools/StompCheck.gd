@@ -59,7 +59,7 @@ func _parties(class_ids: Array) -> Array:
 	return out
 
 ## Runs one fight and prints its verdict. Returns true when it was a contest.
-func _check(encounter_id: StringName, encounter: Encounter, party_ids: Array) -> bool:
+func _check(encounter_id: StringName, encounter: RoomData, party_ids: Array) -> bool:
 	var party: Array[PawnData] = []
 	for cid in party_ids:
 		party.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid)))

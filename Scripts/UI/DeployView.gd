@@ -33,11 +33,11 @@ static func authored_positions(encounter, count: int) -> Array[Vector2]:
 ## straight into one would silently change every later fight in the same room --
 ## including the re-run that exists to be a comparison control.
 static func encounter_with_placement(base, positions: Array[Vector2]):
-	var out := Encounter.new()
+	var out := RoomData.new()
 	out.id = base.id
 	out.display_name = base.display_name
 	out.enemy_spawns = base.enemy_spawns
-	out.terrain = base.terrain
+	out.cells = base.cells
 	var spawns: Array[Vector2] = []
 	for p in positions:
 		spawns.append(p)

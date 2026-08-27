@@ -1,0 +1,80 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Rooms/Room.gd" id="1_s73uf"]
+[ext_resource type="TileSet" path="res://Scripts/Content/arena_tileset.tres" id="2_10kcd"]
+[ext_resource type="Script" path="res://Scripts/Rooms/EnemySpawn.gd" id="3_ttm0x"]
+
+[node name="Room" type="Node2D" unique_id=1537803726]
+script = ExtResource("1_s73uf")
+id = &"floor1_room1"
+display_name = "Floor 1, Room 1"
+pickable = true
+
+[node name="Terrain" type="TileMapLayer" parent="." unique_id=468626714]
+tile_set = ExtResource("2_10kcd")
+
+[node name="PartySpawns" type="Node2D" parent="." unique_id=1745005794]
+
+[node name="@Marker2D@2" type="Marker2D" parent="PartySpawns" unique_id=869802171]
+position = Vector2(-350, -195)
+
+[node name="@Marker2D@3" type="Marker2D" parent="PartySpawns" unique_id=167857690]
+position = Vector2(-350, -65)
+
+[node name="@Marker2D@4" type="Marker2D" parent="PartySpawns" unique_id=575753991]
+position = Vector2(-350, 65)
+
+[node name="@Marker2D@5" type="Marker2D" parent="PartySpawns" unique_id=892559263]
+position = Vector2(-350, 195)
+
+[node name="EnemySpawns" type="Node2D" parent="." unique_id=1046716247]
+
+[node name="@Marker2D@6" type="Marker2D" parent="EnemySpawns" unique_id=1583378703]
+position = Vector2(150, -150)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@7" type="Marker2D" parent="EnemySpawns" unique_id=169248681]
+position = Vector2(150, -50)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@8" type="Marker2D" parent="EnemySpawns" unique_id=2123523004]
+position = Vector2(150, 50)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@9" type="Marker2D" parent="EnemySpawns" unique_id=2029932531]
+position = Vector2(150, 150)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin"
+
+[node name="@Marker2D@10" type="Marker2D" parent="EnemySpawns" unique_id=886669676]
+position = Vector2(230, -60)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@11" type="Marker2D" parent="EnemySpawns" unique_id=507440037]
+position = Vector2(230, 60)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@12" type="Marker2D" parent="EnemySpawns" unique_id=1526071985]
+position = Vector2(230, 200)
+script = ExtResource("3_ttm0x")
+enemy_id = &"goblin_archer"
+
+[node name="@Marker2D@13" type="Marker2D" parent="EnemySpawns" unique_id=67635044]
+position = Vector2(210, -200)
+script = ExtResource("3_ttm0x")
+enemy_id = &"cultist"
+
+[node name="@Marker2D@14" type="Marker2D" parent="EnemySpawns" unique_id=2033377551]
+position = Vector2(190, 0)
+script = ExtResource("3_ttm0x")
+enemy_id = &"ghoul"
+
+[node name="@Marker2D@15" type="Marker2D" parent="EnemySpawns" unique_id=2073729930]
+position = Vector2(190, -220)
+script = ExtResource("3_ttm0x")
+enemy_id = &"ghoul"

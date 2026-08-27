@@ -20,7 +20,7 @@ func _init() -> void:
 
 ## Every tick in which a unit had a focus it could legally shoot, as
 ## [ax, ay, bx, by, team].
-func _collect(party: Array, enc: Encounter, out: Array[PackedFloat32Array]) -> void:
+func _collect(party: Array, enc: RoomData, out: Array[PackedFloat32Array]) -> void:
 	for seed in SEEDS:
 		var state := CombatSim.build(_pawns(party, seed), enc, seed, SimDeps.new())
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -91,8 +91,8 @@ func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 			return true
 	return false
 
-func _without_terrain(enc: Encounter) -> Encounter:
-	var e := Encounter.new()
+func _without_terrain(enc: RoomData) -> RoomData:
+	var e := RoomData.new()
 	e.id = enc.id
 	e.display_name = enc.display_name
 	e.enemy_spawns = enc.enemy_spawns

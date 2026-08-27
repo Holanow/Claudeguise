@@ -82,7 +82,7 @@ func test_placing_a_party_does_not_edit_the_registrys_room() -> void:
 	# The rest of the room has to come with it, or the fight is in a different
 	# place from the one the player was looking at.
 	assert_eq(placed.enemy_spawns, base.enemy_spawns, "same enemies")
-	assert_eq(placed.terrain, base.terrain, "same terrain")
+	assert_eq(placed.cells, base.cells, "same terrain")
 
 # ---------------------------------------------------------------------------
 # The constraint, drawn and enforced
@@ -146,11 +146,13 @@ func test_dragging_past_the_line_pulls_the_pawn_back() -> void:
 func test_a_pawn_cannot_be_dropped_inside_a_wall() -> void:
 	var cfg := _cfg(1)
 	var wall_rect := Rect2(Vector2(-420.0, -60.0), Vector2(120.0, 120.0))
-	var room := Encounter.new()
+	var room := RoomData.new()
 	room.id = &"wren_wall_fixture"
 	room.party_spawns = [Vector2(-250.0, 200.0)]
 	room.enemy_spawns = [{"enemy_id": &"goblin", "position": Vector2(200.0, 0.0)}]
-	room.terrain = [Terrain.make(Terrain.Kind.WALL, wall_rect)]
+	var grid := TerrainGrid.new()
+	grid.stamp_features([Terrain.make(Terrain.Kind.WALL, wall_rect)])
+	room.cells = grid.cells(TerrainGrid.Layer.FLOOR)
 
 	var view = in_tree(BattleScene.instantiate())
 	view._ready()

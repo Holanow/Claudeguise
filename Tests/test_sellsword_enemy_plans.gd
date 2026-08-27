@@ -139,7 +139,7 @@ func test_build_copies_enemy_def_plans_onto_the_unit() -> void:
 	enemy_def.actions = [&"special"]
 	enemy_def.plans = [plan]
 
-	var encounter := Encounter.new()
+	var encounter := RoomData.new()
 	encounter.party_spawns = [Vector2(-100, 0)]
 	encounter.enemy_spawns = [{"enemy_id": &"test_sellsword_fixture", "position": Vector2(50, 0)}]
 

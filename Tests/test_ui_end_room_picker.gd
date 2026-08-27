@@ -117,13 +117,13 @@ func test_the_room_you_are_in_is_shown_and_dead() -> void:
 ## The floor is not a choice on this card, so the name drops it. A room whose
 ## name carries no comma keeps the whole name rather than losing its front.
 func test_the_button_names_the_room_without_the_floor() -> void:
-	var room := Encounter.new()
+	var room := RoomData.new()
 	room.display_name = "Floor 1, The Narrows"
 	assert_eq(BattleView.room_button_text(&"x", room), "The Narrows")
-	var plain := Encounter.new()
+	var plain := RoomData.new()
 	plain.display_name = "The Narrows"
 	assert_eq(BattleView.room_button_text(&"x", plain), "The Narrows")
-	var unnamed := Encounter.new()
+	var unnamed := RoomData.new()
 	assert_eq(BattleView.room_button_text(&"floor1_room1", unnamed), "floor1_room1",
 		"a room with no display name must still be pressable")
 

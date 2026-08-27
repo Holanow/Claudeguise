@@ -100,7 +100,7 @@ func test_build_places_party_and_enemies_and_emits_fight_start() -> void:
 	enemy_def.hp_max = 8
 	enemy_def.move_speed = 2.0
 
-	var encounter := Encounter.new()
+	var encounter := RoomData.new()
 	encounter.party_spawns = [Vector2(-50, 0)]
 	encounter.enemy_spawns = [{"enemy_id": &"grub", "position": Vector2(50, 0)}]
 

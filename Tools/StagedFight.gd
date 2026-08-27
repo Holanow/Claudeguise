@@ -119,7 +119,7 @@ func _build() -> bool:
 ## Built here rather than looked up: a staged shot places its own bodies, and
 ## `Registry` has no encounter with them in it.
 func _encounter():
-	var e := Encounter.new()
+	var e := RoomData.new()
 	e.id = &"staged"
 	e.display_name = "Staged"
 	if room != &"":
@@ -127,7 +127,7 @@ func _encounter():
 		if base == null:
 			printerr("StagedFight: no such room '%s'" % room)
 			return null
-		e.terrain = base.terrain.duplicate()
+		e.cells = base.cells.duplicate()
 	for spawn in enemies:
 		var enemy_id: StringName = spawn.get("enemy_id", &"")
 		if Registry.get_enemy(enemy_id) == null:

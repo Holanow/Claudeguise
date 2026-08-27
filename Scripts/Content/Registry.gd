@@ -14,9 +14,24 @@ const MODULES: Array = [
 static var _classes: Dictionary = {}
 static var _actions: Dictionary = {}
 static var _enemies: Dictionary = {}
-static var _encounters: Dictionary = {}
+static var _rooms: Dictionary = {}
 static var _items: Dictionary = {}
 static var _loaded: bool = false
+
+## Issue 680: an `Encounter` still coming from a content module, given the
+## same treatment `RoomLoader` gives a scene -- replay `stamp_features` and
+## read the cells back, rather than trust the authored rects twice.
+static func _room_data_from_encounter(e: Encounter) -> RoomData:
+	var grid := TerrainGrid.new()
+	grid.stamp_features(e.terrain)
+	var d := RoomData.new()
+	d.id = e.id
+	d.display_name = e.display_name
+	d.pickable = e.pickable
+	d.enemy_spawns = e.enemy_spawns
+	d.party_spawns = e.party_spawns
+	d.cells = grid.cells(TerrainGrid.Layer.FLOOR)
+	return d
 
 static func _load() -> void:
 	if _loaded:
@@ -34,6 +49,9 @@ static func _load() -> void:
 	for path in ItemLibrary.PATHS:
 		var i: EquipmentDef = load(path)
 		_register(_items, i.id, i, "item")
+	for scene in RoomLibrary.ROOMS:
+		var room := RoomLoader.load_room(scene)
+		_register(_rooms, room.id, room, "room")
 	for m in MODULES:
 		for c in m.classes():
 			_register(_classes, c.id, c, "class")
@@ -42,7 +60,7 @@ static func _load() -> void:
 		for e in m.enemies():
 			_register(_enemies, e.id, e, "enemy")
 		for e in m.encounters():
-			_register(_encounters, e.id, e, "encounter")
+			_register(_rooms, e.id, _room_data_from_encounter(e), "room")
 		for i in m.items():
 			_register(_items, i.id, i, "item")
 
@@ -67,9 +85,9 @@ static func get_enemy(id: StringName) -> EnemyDef:
 	_load()
 	return _enemies.get(id)
 
-static func get_encounter(id: StringName) -> Encounter:
+static func get_encounter(id: StringName) -> RoomData:
 	_load()
-	return _encounters.get(id)
+	return _rooms.get(id)
 
 static func get_equipment(id: StringName) -> EquipmentDef:
 	_load()
@@ -92,7 +110,7 @@ static func all_class_ids() -> Array[StringName]:
 static func all_encounter_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []
-	for k in _encounters.keys():
+	for k in _rooms.keys():
 		ids.append(k)
 	_sort_ids(ids)
 	return ids
@@ -101,8 +119,8 @@ static func all_encounter_ids() -> Array[StringName]:
 static func pickable_encounter_ids() -> Array[StringName]:
 	_load()
 	var ids: Array[StringName] = []
-	for k in _encounters.keys():
-		if _encounters[k].pickable:
+	for k in _rooms.keys():
+		if _rooms[k].pickable:
 			ids.append(k)
 	return ids
 

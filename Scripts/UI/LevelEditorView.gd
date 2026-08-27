@@ -17,7 +17,7 @@ const _TERRAIN_KINDS: Array = [
 
 var _test_battle = null
 var _test_cfg: RunConfig = null
-var _test_encounter: Encounter = null
+var _test_encounter: RoomData = null
 
 ## `new()` gives a bare Control with none of the tree. The whole editor chrome --
 ## header, name field, canvas slot and the side panel's pickers and buttons -- is
@@ -180,13 +180,18 @@ func _test_party() -> Array[PawnData]:
 		out.append(PawnFactory.make_starter_pawn(cls_id, cls_id, cls.display_name))
 	return out
 
-func _build_encounter(id: StringName, display_name: String) -> Encounter:
-	var e := Encounter.new()
+## Terrain goes through `TerrainGrid.stamp_features`, same as `RoomLoader`
+## reads a room scene's cells -- the test fight sees the same ground the real
+## fight would build from these rects, not the rects themselves.
+func _build_encounter(id: StringName, display_name: String) -> RoomData:
+	var e := RoomData.new()
 	e.id = id
 	e.display_name = display_name
 	e.enemy_spawns = %Canvas.enemy_spawns
 	e.party_spawns = %Canvas.party_spawns
-	e.terrain = %Canvas.terrain
+	var grid := TerrainGrid.new()
+	grid.stamp_features(%Canvas.terrain)
+	e.cells = grid.cells(TerrainGrid.Layer.FLOOR)
 	return e
 
 # ---------------------------------------------------------------------------

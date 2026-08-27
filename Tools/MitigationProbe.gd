@@ -62,7 +62,7 @@ func _init() -> void:
 ## Wraps `damage_reduction` so each hit's reduction can be paired with its
 ## event: `_apply_damage` calls it exactly once per DAMAGE it emits, in the same
 ## order, and nothing else calls it.
-func _fight(party_ids: Array, encounter: Encounter, s: int) -> Array:
+func _fight(party_ids: Array, encounter: RoomData, s: int) -> Array:
 	var deps := SimDeps.new()
 	_reductions = []
 	deps.damage_reduction = func(u: CombatUnit) -> float:
