@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_t8smg"]
+
+[resource]
+script = ExtResource("1_t8smg")
+id = &"ghoul"
+display_name = "Ghoul"
+hp_max = 200
+move_speed = 1.6
+radius = 16.0
+attack_power = {
+0: 20
+}
+damage_reduction = 0.1
+actions = Array[StringName]([&"ghoul_maul"])
+display_tags = Array[String](["Melee", "Undead", "Tough"])
+focus_bias = 0.1
