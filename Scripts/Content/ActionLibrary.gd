@@ -23,7 +23,6 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Actions/ghoul_maul.tres",
 	"res://Scripts/Content/Actions/goblin_arrow.tres",
 	"res://Scripts/Content/Actions/goblin_stab.tres",
-	"res://Scripts/Content/Actions/grunt_smash.tres",
 	"res://Scripts/Content/Actions/priest_bolt.tres",
 	"res://Scripts/Content/Actions/priest_haste.tres",
 	"res://Scripts/Content/Actions/priest_heal.tres",
