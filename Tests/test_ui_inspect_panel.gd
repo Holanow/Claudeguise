@@ -1052,7 +1052,7 @@ func _button_named(node: Node, text: String) -> Button:
 ## THE DEFECT THIS FILE DID NOT HAVE A TEST FOR, and it was on the trunk.
 func test_every_real_pawns_every_condition_has_a_control_on_the_screen() -> void:
 	var checked := 0
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_preset_pawn(class_id, class_id, String(class_id))
 		var panel := InspectPanel.create()
 		panel._ready()

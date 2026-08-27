@@ -16,7 +16,7 @@ func _union(parties: Array) -> Array:
 
 
 func test_sweep_covers_every_registered_class() -> void:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	var covered := _union(ScreenSweepScript.sweep_parties(ids))
 	for id in ids:
 		assert_true(covered.has(id), "class '%s' is never photographed by ScreenSweep" % id)
@@ -25,7 +25,7 @@ func test_sweep_covers_every_registered_class() -> void:
 func test_the_warrior_is_photographed() -> void:
 	# Issue 327: five classes sorted alphabetically, party size four, and the
 	# Warrior is fifth. No whole-game screenshot ever contained one.
-	var covered := _union(ScreenSweepScript.sweep_parties(Registry.all_class_ids()))
+	var covered := _union(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()))
 	assert_true(covered.has(&"warrior"), "the sweep still cannot reach a Warrior")
 
 

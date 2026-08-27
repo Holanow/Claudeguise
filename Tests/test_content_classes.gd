@@ -7,7 +7,7 @@ const EXPECTED_CLASS_IDS := [
 
 
 func test_all_five_classes_are_registered() -> void:
-	var got := Registry.all_class_ids()
+	var got := ClassLibrary.all_ids()
 	assert_eq(got.size(), EXPECTED_CLASS_IDS.size())
 	for id in EXPECTED_CLASS_IDS:
 		assert_true(got.has(id), "missing class id %s" % id)

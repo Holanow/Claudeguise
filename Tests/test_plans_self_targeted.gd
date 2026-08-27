@@ -95,7 +95,7 @@ func test_the_branch_declines_heals_channels_and_summons() -> void:
 ## broken.
 func test_no_action_states_zero_range_without_saying_it_targets_itself() -> void:
 	var checked := 0
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var action := ActionLibrary.get_action(id)
 		if action.range_units > 0.0:
 			continue

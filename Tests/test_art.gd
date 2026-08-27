@@ -23,7 +23,7 @@ const AHEAD_OF_CONTENT_SHAPES := [&"rat_king", &"rat", &"siege_engine", &"stalke
 
 func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# The check that was missing, and the reason it was missing is instructive:
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		assert_true(Silhouettes.has_shape(id), "class '%s' is registered but has no silhouette" % id)
 
 	var checked := 0
@@ -42,13 +42,13 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# or an enemy actually has -- Registry has all_class_ids/all_enemy_ids but no
 	# all_action_ids, checked rather than assumed.
 	var action_ids: Array[StringName] = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		if cls != null:
 			for aid in cls.starting_action_ids():
 				if not action_ids.has(aid):
 					action_ids.append(aid)
-	for enemy_id in Registry.all_enemy_ids():
+	for enemy_id in EnemyLibrary.all_ids():
 		var enemy := EnemyLibrary.get_enemy(enemy_id)
 		if enemy != null:
 			for aid in enemy.actions:
@@ -461,7 +461,7 @@ func test_the_replacement_instructions_match_the_real_content() -> void:
 	var readme := FileAccess.get_file_as_string("res://Assets/Units/README.md")
 	assert_ne(readme, "", "Assets/Units/README.md is missing")
 
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		assert_true(
 			readme.contains("`%s`" % class_id),
 			"class '%s' is registered but Assets/Units/README.md does not list it" % class_id
@@ -641,11 +641,11 @@ func _every_status() -> Array:
 ## Every action any class or enemy in the real registry can actually order.
 func _every_reachable_action_id() -> Array:
 	var out: Array = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for a in ClassLibrary.get_class_def(class_id).starting_action_ids():
 			if not out.has(a):
 				out.append(a)
-	for enemy_id in Registry.all_enemy_ids():
+	for enemy_id in EnemyLibrary.all_ids():
 		for a in EnemyLibrary.get_enemy(enemy_id).actions:
 			if not out.has(a):
 				out.append(a)
@@ -1126,7 +1126,7 @@ func test_every_registered_item_has_an_icon() -> void:
 	# The reason `EquipmentDef` sat unreachable for weeks is that nothing failed
 	# when it was not drawn. An item added in Scripts/Content now goes red here
 	# rather than shipping as a blank square on the equip screen.
-	var ids := Registry.all_equipment_ids()
+	var ids := ItemLibrary.all_ids()
 	assert_true(ids.size() > 0, "no items registered; this test would pass on an empty game")
 	for id in ids:
 		assert_true(
@@ -1154,7 +1154,7 @@ func test_no_two_items_share_a_glyph() -> void:
 	# them are the same picture. Anything that does come out equal is an accident.
 	# Pixels, not arrays: what ships is a file.
 	var grid := 32
-	var ids := Registry.all_equipment_ids()
+	var ids := ItemLibrary.all_ids()
 	var pixels := {}
 	for id in ids:
 		pixels[id] = _icon_pixels(EquipmentIcons.art_name(id), grid)
@@ -1234,7 +1234,7 @@ func test_no_item_plate_is_another_icon_system_s_plate() -> void:
 func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> void:
 	# Rule 3, and the thing #100 made true that no art had yet said: `plate_mail`
 	var granting := 0
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
 		for action_id in item.granted_actions:
 			assert_true(
@@ -1266,7 +1266,7 @@ func test_the_equipment_replacement_instructions_match_the_real_content() -> voi
 	# appears, and the artist finds out by dropping one in.
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	assert_ne(readme, "", "Assets/UI/README.md is missing")
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		assert_true(
 			readme.contains("item/%s.png" % id),
 			"item '%s' is registered but Assets/UI/README.md does not list item/%s.png" % [id, id]
@@ -1297,7 +1297,7 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 	var readme := FileAccess.get_file_as_string("res://Assets/UI/README.md")
 	assert_ne(readme, "", "Assets/UI/README.md is missing")
 	var checked := 0
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		var name := "%s.png" % ActionIcons.art_name(id)
 		assert_true(
 			readme.contains(name),

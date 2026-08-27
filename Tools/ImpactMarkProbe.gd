@@ -22,10 +22,10 @@ func _print_drawn_sizes() -> void:
 	print("battle scale %.4f, DISPLAY_SCALE %.2f" % [scale, UnitViewScript.DISPLAY_SCALE])
 
 	var rows := []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, StringName("probe"), String(cid))
 		rows.append([String(cid), _pawn_radius(pawn)])
-	for eid in Registry.all_enemy_ids():
+	for eid in EnemyLibrary.all_ids():
 		var e := EnemyLibrary.get_enemy(eid)
 		rows.append([String(eid), e.radius])
 	rows.sort_custom(func(a, b): return a[1] < b[1])
@@ -53,7 +53,7 @@ func _measure_bearings() -> void:
 	print("== BEARING STALENESS over the mark's life (%d ticks at %d ticks/s) ==" % [
 		life_ticks, CG.TICKS_PER_SECOND,
 	])
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var totals := []
 	var target_moves := []
 	var melee_only := []

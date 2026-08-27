@@ -74,7 +74,7 @@ func test_every_action_derives_a_motion() -> void:
 	for id in expected:
 		assert_eq(PartAnimation.kind_for(ActionLibrary.get_action(id)), expected[id],
 			"%s derives the wrong motion" % id)
-	for id in Registry.all_action_ids():
+	for id in ActionLibrary.all_ids():
 		assert_ne(PartAnimation.kind_for(ActionLibrary.get_action(id)), PartAnimation.Kind.IDLE,
 			"%s derives no motion at all" % id)
 

@@ -95,7 +95,7 @@ func _draw_statuses(top: float) -> float:
 func _draw_actions(top: float) -> float:
 	_label(Vector2(_MARGIN, top), "Abilities -- one icon per action in the registry. 40px, then 16px (the size at the end of a wind-up bar). Colour is the action's own damage type.",
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
-	var ids := Registry.all_action_ids()
+	var ids := ActionLibrary.all_ids()
 	# 6 columns at 200 fits the 1280-wide logical viewport measured in _ready.
 	var cols := 6
 	var col_w := 200.0

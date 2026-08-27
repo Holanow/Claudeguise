@@ -49,7 +49,7 @@ func _run() -> void:
 ## screen that already has bodies, bars and a log on it.
 func _whole_screen() -> void:
 	DisplayOptions.reset()
-	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 	while _view.state.tick < 60 and _view.state.outcome == CombatState.Outcome.UNRESOLVED:
 		await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
@@ -80,7 +80,7 @@ func _strip(stem: String, particles: bool, ring: bool) -> void:
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"hit_stop", false)
 	DisplayOptions.set_enabled(&"impact_particles", particles)
-	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 
 	var seen := 0
 	var target_id := -1

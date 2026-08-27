@@ -35,7 +35,7 @@ func test_a_full_pool_means_that_pawns_own_maximum() -> void:
 ## Every class in the game gets an answer, so no future resource kind falls
 ## through to a default nobody chose.
 func test_every_class_has_a_defined_opening_pool() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		var max_resource := Balance.max_resource(pawn)
 		var start := Balance.starting_resource(pawn.pawn_class.resource_kind, max_resource)
@@ -57,7 +57,7 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 		&"warrior": false,
 		&"abomination": false,
 	}
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.weapon, "%s starts unarmed" % cid)
 		var action = ActionLibrary.get_action(pawn.weapon.granted_actions[0])
@@ -74,7 +74,7 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 ## No action pays for itself. A basic attack that returned more than it cost
 ## would be an infinite-resource loop, and the two carrying this today are free.
 func test_no_action_returns_more_resource_than_it_costs() -> void:
-	for action_id in Registry.all_action_ids():
+	for action_id in ActionLibrary.all_ids():
 		var a = ActionLibrary.get_action(action_id)
 		if a.restores_resource <= 0:
 			continue
@@ -108,7 +108,7 @@ func test_a_rage_pawn_opens_empty_and_a_mana_pawn_opens_full() -> void:
 ## would be an unasked balance change while balance is frozen.
 func test_no_enemy_has_a_resource_pool_so_the_enemy_branch_stays_unobservable() -> void:
 	var with_pools: Array[StringName] = []
-	for enemy_id in Registry.all_enemy_ids():
+	for enemy_id in EnemyLibrary.all_ids():
 		var e = EnemyLibrary.get_enemy(enemy_id)
 		if e != null and e.resource_max > 0:
 			with_pools.append(enemy_id)

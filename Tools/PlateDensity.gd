@@ -41,7 +41,7 @@ func _ready() -> void:
 	DisplayOptions.set_enabled(&"name_plates", true)
 	DisplayOptions.set_enabled(&"damage_numbers", true)
 	Engine.time_scale = TIME_SCALE
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounters := Registry.pickable_encounter_ids()
 	if class_ids.is_empty() or encounters.is_empty():
 		printerr("PlateDensity: no content registered")

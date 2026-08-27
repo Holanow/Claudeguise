@@ -27,7 +27,7 @@ func _ready() -> void:
 ## reported and does not fail the run.
 func _run_all() -> bool:
 	var any := false
-	var parties: Array = ScreenSweepScript.sweep_parties(Registry.all_class_ids())
+	var parties: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	for i in parties.size():
 		if _main != null:
 			_main.queue_free()

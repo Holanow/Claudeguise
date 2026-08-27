@@ -70,7 +70,7 @@ func _run() -> void:
 	var busiest := 0
 	var frames_with_sound := 0
 	var voice_count := 0
-	for party_ids in ScreenSweepScript.sweep_parties(Registry.all_class_ids()):
+	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 		await _build_view(party_ids)
 		var voices := _voices()
 		voice_count = voices.size()

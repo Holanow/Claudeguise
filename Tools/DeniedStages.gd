@@ -67,7 +67,7 @@ func _has_a_shot_in_reach(u: CombatUnit, t: CombatUnit) -> bool:
 	return false
 
 func _buildable_parties() -> Array:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	ids.sort()
 	var out := []
 	for skip in ids.size():

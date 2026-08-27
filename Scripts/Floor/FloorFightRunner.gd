@@ -55,7 +55,7 @@ static func cell_candidates(run: FloorRun, room: FloorRoom, party: Array[PawnDat
 			alive_classes[p.pawn_class.id] = true
 
 	var pool: Array[StringName] = []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		if not alive_classes.has(class_id):
 			pool.append(class_id)
 

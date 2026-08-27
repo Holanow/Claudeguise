@@ -10,7 +10,7 @@ extends "res://Tests/TestCase.gd"
 ## too narrow and the equip screen simply shows an empty list. This is the same
 ## check #40 asked for on weapons, now that armour is gated too.
 func test_every_class_can_equip_something_in_every_slot() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var c := ClassLibrary.get_class_def(class_id)
 		for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
 			var offered := _offered(c, slot)
@@ -75,7 +75,7 @@ func test_a_refusal_names_the_tag_the_class_lacks() -> void:
 ## Every pawn starts wearing what `PawnFactory` gives it, so a tag that refuses
 ## a starting piece is a pawn the equip screen would not let the player rebuild.
 func test_every_starting_piece_passes_its_own_gate() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"p", "p")
 		for piece in [pawn.weapon, pawn.armor, pawn.accessory]:
 			if piece == null:
@@ -95,7 +95,7 @@ func test_the_abomination_has_exactly_one_armour_it_may_wear() -> void:
 
 func _offered(c: ClassDef, slot: int) -> Array[StringName]:
 	var out: Array[StringName] = []
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
 		if item.slot == slot and item.allows_class(c):
 			out.append(id)

@@ -101,7 +101,7 @@ func _nearest_foe(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	return best
 
 func _parties() -> Array:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	var out := []
 	for skip in ids.size():
 		var party := []

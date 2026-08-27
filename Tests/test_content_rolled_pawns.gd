@@ -10,7 +10,7 @@ extends "res://Tests/TestCase.gd"
 ## The whole reason a fixed roster has to exist. Every measurement in this
 ## repo compares arms built from `make_starter_pawn`, so it must never roll.
 func test_the_fixed_roster_is_the_default_and_never_moves() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var a := PawnFactory.make_starter_pawn(class_id, &"p", "p")
 		var b := PawnFactory.make_starter_pawn(class_id, &"p", "p")
 		assert_true(a.attribute_bonus.is_empty(), "%s starter pawn carries a roll" % class_id)
@@ -25,7 +25,7 @@ func test_the_fixed_roster_is_the_default_and_never_moves() -> void:
 func test_wis_is_never_rolled_and_stays_at_its_class_baseline() -> void:
 	assert_false(PawnFactory.ROLLED_ATTRIBUTES.has(CG.Attribute.WIS),
 		"WIS is in the rolled set and the player ruled it out")
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var baseline := ClassLibrary.get_class_def(class_id).attribute(CG.Attribute.WIS)
 		for s in 40:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
@@ -36,7 +36,7 @@ func test_wis_is_never_rolled_and_stays_at_its_class_baseline() -> void:
 ## The reason the baseline is per class and not one shared number: a generated
 ## pawn must always be able to run its own class library.
 func test_every_rolled_pawn_can_still_run_its_whole_class_library() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for s in 40:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			pawn.plans = PresetPlans.for_class(class_id)
@@ -47,17 +47,17 @@ func test_every_rolled_pawn_can_still_run_its_whole_class_library() -> void:
 ## Rolled from the seed, never from a fresh generator, or nothing can be
 ## reproduced and every tool's arms stop comparing.
 func test_the_same_seed_rolls_the_same_pawn_and_a_different_seed_does_not() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var a := PawnFactory.make_rolled_pawn(class_id, &"p", "p", 12345)
 		var b := PawnFactory.make_rolled_pawn(class_id, &"p", "p", 12345)
 		assert_eq(a.attribute_bonus, b.attribute_bonus, "%s is not reproducible" % class_id)
 	var moved := 0
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var a := PawnFactory.make_rolled_pawn(class_id, &"p", "p", 1)
 		var b := PawnFactory.make_rolled_pawn(class_id, &"p", "p", 2)
 		if a.attribute_bonus != b.attribute_bonus:
 			moved += 1
-	assert_eq(moved, Registry.all_class_ids().size(), "a different seed rolled the same pawns")
+	assert_eq(moved, ClassLibrary.all_ids().size(), "a different seed rolled the same pawns")
 
 
 ## One generator per class. A shared stream would make each pawn's roll depend
@@ -76,7 +76,7 @@ func test_a_class_roll_does_not_depend_on_the_other_classes() -> void:
 ## Classes differ in where the points land, not in how many they get.
 func test_the_pool_is_the_same_size_for_every_class() -> void:
 	var over := []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var sizes := {}
 		for s in 200:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
@@ -94,9 +94,9 @@ func test_the_pool_is_the_same_size_for_every_class() -> void:
 ## class must not silently move every existing pawn. This fires if it does.
 func test_the_pool_size_still_resembles_the_roster_it_came_from() -> void:
 	var total := 0
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		total += PawnFactory.class_total(ClassLibrary.get_class_def(class_id))
-	var mean := float(total) / float(Registry.all_class_ids().size())
+	var mean := float(total) / float(ClassLibrary.all_ids().size())
 	print("POOL_SIZE %d against a roster mean of %.1f" % [PawnFactory.POOL_SIZE, mean])
 	assert_true(absf(mean - float(PawnFactory.POOL_SIZE)) <= 2.0,
 		"POOL_SIZE %d has drifted from the roster mean %.1f" % [PawnFactory.POOL_SIZE, mean])
@@ -108,7 +108,7 @@ func test_floors_are_per_class_and_are_not_all_one() -> void:
 	var declared := {}
 	var seen_zero := false
 	var seen_high := false
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		var floors := []
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
@@ -128,7 +128,7 @@ func test_floors_are_per_class_and_are_not_all_one() -> void:
 ## free budget. Stated as a test so it is visible rather than discovered.
 func test_high_floors_buy_less_free_budget() -> void:
 	var free := {}
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		free[class_id] = PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls)
 		assert_true(free[class_id] > 0, "%s's floors consume its whole pool" % class_id)
@@ -139,7 +139,7 @@ func test_high_floors_buy_less_free_budget() -> void:
 
 func test_no_pawn_ever_falls_below_its_class_floor() -> void:
 	var under := []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		for s in 300:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
@@ -155,7 +155,7 @@ func test_no_pawn_ever_falls_below_its_class_floor() -> void:
 ## discarded. This is what makes two pawns worth about the same.
 func test_no_point_is_lost_between_the_pool_and_the_pawn() -> void:
 	var bad := []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for s in 50:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			var total := 0
@@ -176,9 +176,9 @@ func test_no_point_is_lost_between_the_pool_and_the_pawn() -> void:
 func test_a_rolled_pawn_reads_as_its_class_on_average() -> void:
 	var confusions := {}
 	var failures := []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var own := _mean_distance(class_id, class_id)
-		for other in Registry.all_class_ids():
+		for other in ClassLibrary.all_ids():
 			if other == class_id:
 				continue
 			var to_other := _mean_distance(class_id, other)
@@ -197,7 +197,7 @@ func test_a_rolled_pawn_reads_as_its_class_on_average() -> void:
 ## `Balance.attack_power` picks it off method and style.
 func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
 	var zeroed := []
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		var attack_attr := _attack_attribute(cls)
 		for s in 300:
@@ -216,7 +216,7 @@ func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
 func test_the_floors_do_not_bias_the_free_points() -> void:
 	var worst := 0.0
 	var worst_name := ""
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		var free := float(PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls))
 		var weight_total := float(PawnFactory.class_total(cls))
@@ -245,7 +245,7 @@ func _attack_attribute(cls: ClassDef) -> CG.Attribute:
 func _nearest_class(pawn: PawnData) -> StringName:
 	var best := &""
 	var best_d := 1 << 30
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(class_id)
 		var d := 0
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
@@ -283,7 +283,7 @@ func test_the_class_spread_is_still_readable_under_a_roll() -> void:
 ## A rolled pawn is still equippable: the gear gate reads class tags, which a
 ## roll does not touch, and #131's own gear half must not have been undone.
 func test_a_rolled_pawn_still_starts_in_gear_it_is_allowed_to_wear() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		for s in 20:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			for piece in pawn.equipment():

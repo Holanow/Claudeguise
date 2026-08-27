@@ -6,7 +6,7 @@ extends SceneTree
 const SEEDS := 20
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var deps := SimDeps.new()
 	var totals := {}
 	for encounter_id in Registry.all_encounter_ids():

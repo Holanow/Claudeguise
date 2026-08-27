@@ -11,7 +11,7 @@ func _warrior() -> PawnData:
 
 func _party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == &"geysermancer":
 			continue
 		out.append(PawnFactory.make_starter_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
@@ -21,7 +21,7 @@ func _party() -> Array[PawnData]:
 ## every assertion about a plan-sourced event over `_party()` is vacuous.
 func _preset_party() -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == &"geysermancer":
 			continue
 		out.append(PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, out.size()]), String(cid)))
@@ -42,14 +42,14 @@ func test_plate_mail_grants_directional_block() -> void:
 ## The negative half, and the one that would have caught the original defect:
 func test_at_least_one_registered_item_grants_an_action() -> void:
 	var granting := 0
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		if not ItemLibrary.get_equipment(id).granted_actions.is_empty():
 			granting += 1
 	assert_true(granting > 0,
 		"no registered item grants any action, so granted_actions is unreachable again")
 
 func test_every_granted_action_resolves() -> void:
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		for action_id in ItemLibrary.get_equipment(id).granted_actions:
 			assert_not_null(ActionLibrary.get_action(action_id),
 				"item %s grants unknown action %s" % [id, action_id])
@@ -170,7 +170,7 @@ func _is_basic_attack(action) -> bool:
 
 func _weapon_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		if ItemLibrary.get_equipment(id).slot == EquipmentDef.Slot.WEAPON:
 			out.append(id)
 	return out
@@ -191,7 +191,7 @@ func test_every_weapon_provides_exactly_one_basic_attack() -> void:
 ## adding grants and leaving the class copies in place, and every pawn would
 ## keep attacking exactly as it did with the weapon slot doing nothing.
 func test_no_class_still_carries_a_basic_attack_of_its_own() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var def := ClassLibrary.get_class_def(cid)
 		for action_id in def.starting_action_ids():
 			assert_false(_is_basic_attack(ActionLibrary.get_action(action_id)),
@@ -201,7 +201,7 @@ func test_no_class_still_carries_a_basic_attack_of_its_own() -> void:
 ## hold. A starter equipped with a piece `EquipmentDef.allows` refuses is a pawn
 ## carrying gear its own equip screen would never have offered it.
 func test_every_class_starts_armed_with_a_weapon_it_may_use() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.weapon, "%s starts with an empty main hand" % cid)
 		if pawn.weapon == null:
@@ -215,7 +215,7 @@ func test_every_class_starts_armed_with_a_weapon_it_may_use() -> void:
 ## twin of the weapon test above, and the reason it is asserted rather than read
 ## off the table is that a sixth class would otherwise ship bare.
 func test_every_class_starts_dressed_in_armour_it_may_wear() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.armor, "%s starts wearing nothing" % cid)
 		if pawn.armor == null:
@@ -227,7 +227,7 @@ func test_every_class_starts_dressed_in_armour_it_may_wear() -> void:
 
 ## The load-bearing pair, part one: armed, every class can attack for free.
 func test_an_armed_pawn_has_a_free_attack() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		var free := 0
 		for action_id in ActionLibrary.actions_for_pawn(pawn):
@@ -240,7 +240,7 @@ func test_an_armed_pawn_has_a_free_attack() -> void:
 ## away and the free attack goes with it. If this passed too, the weapon slot
 ## would be decoration.
 func test_an_unarmed_pawn_has_none() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
 		pawn.weapon = null
 		for action_id in ActionLibrary.actions_for_pawn(pawn):

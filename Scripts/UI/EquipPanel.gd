@@ -196,7 +196,7 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
 		return out
-	for id in Registry.all_equipment_ids():
+	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
 		if item == null or item.slot != slot:
 			continue

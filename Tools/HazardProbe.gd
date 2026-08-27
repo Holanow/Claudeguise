@@ -74,7 +74,7 @@ func _init() -> void:
 	quit(0)
 
 func _parties() -> Array:
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	ids.sort()
 	var out := []
 	for skip in ids.size():

@@ -11,7 +11,7 @@ const SEEDS := 500
 
 func _init() -> void:
 	print("======== resource-gated library rows, over %d rolled seeds ========" % SEEDS)
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var cls := ClassLibrary.get_class_def(cid)
 		var rows := _gated_rows(cid)
 		var fixed := PawnFactory.make_starter_pawn(cid, &"p", "p")

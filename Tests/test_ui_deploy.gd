@@ -10,7 +10,7 @@ const MainScene := preload("res://Scenes/Main.tscn")
 
 func _party(n: int) -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	var ids := Registry.all_class_ids()
+	var ids := ClassLibrary.all_ids()
 	for i in n:
 		var cid: StringName = ids[i % ids.size()]
 		out.append(PawnFactory.make_starter_pawn(cid, StringName("p%d" % i), "Pawn %d" % i))

@@ -10,7 +10,7 @@ extends SceneTree
 const SEEDS := 60
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var parties := _parties(class_ids)
 	var totals := {&"fixed": _Acc.new(), &"rolled": _Acc.new()}
 
