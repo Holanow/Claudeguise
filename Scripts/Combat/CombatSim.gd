@@ -316,6 +316,11 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 ## off the arena.
 const _SEPARATION_STRENGTH := 0.5
 
+## No body is shoved faster than a body walks. Without a cap a pair spawned
+## exactly on top of each other teleports a full radius apart in one tick,
+## which is the summon case and reads as a glitch rather than as a crowd.
+const _SEPARATION_MAX_STEP := 4.0
+
 static func _separate_phase(state: CombatState) -> void:
 	var living: Array[CombatUnit] = []
 	for u in state.units:
@@ -341,7 +346,7 @@ static func _separate_phase(state: CombatState) -> void:
 				var angle := float(a.id) * 2.4
 				push += Vector2(cos(angle), sin(angle)) * contact * _SEPARATION_STRENGTH
 		if push != Vector2.ZERO:
-			pushes[a.id] = push.limit_length(a.radius)
+			pushes[a.id] = push.limit_length(_SEPARATION_MAX_STEP)
 	for u in living:
 		var push = pushes.get(u.id)
 		if push != null:
