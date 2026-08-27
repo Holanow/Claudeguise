@@ -8,7 +8,7 @@ const BattleScene := preload("res://Scenes/Battle.tscn")
 ## Built from the registry's own enemy, radius and all: the amplitude is scaled
 ## off the DRAWN body, so a hand-typed radius would measure a body nothing has.
 func _unit(id: int, team: CG.Team, at: Vector2, shape: StringName) -> CombatUnit:
-	var def := Registry.get_enemy(shape)
+	var def := EnemyLibrary.get_enemy(shape)
 	assert_true(def != null, "the fixture needs enemy %s to still exist" % shape)
 	var u := CombatUnit.new()
 	u.id = id

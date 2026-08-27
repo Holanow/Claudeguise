@@ -107,7 +107,7 @@ static func damage_reduction(unit: CombatUnit) -> float:
 		if unit.pawn.armor != null:
 			reduction += unit.pawn.armor.damage_reduction
 	else:
-		var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 		if enemy_def != null:
 			reduction = enemy_def.damage_reduction
 	## Three statuses, named one at a time rather than looped over whatever the

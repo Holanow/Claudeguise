@@ -72,10 +72,10 @@ func test_every_action_derives_a_motion() -> void:
 		&"abomination_immolate": PartAnimation.Kind.CAST,
 	}
 	for id in expected:
-		assert_eq(PartAnimation.kind_for(Registry.get_action(id)), expected[id],
+		assert_eq(PartAnimation.kind_for(ActionLibrary.get_action(id)), expected[id],
 			"%s derives the wrong motion" % id)
 	for id in ActionLibrary.all_ids():
-		assert_ne(PartAnimation.kind_for(Registry.get_action(id)), PartAnimation.Kind.IDLE,
+		assert_ne(PartAnimation.kind_for(ActionLibrary.get_action(id)), PartAnimation.Kind.IDLE,
 			"%s derives no motion at all" % id)
 
 ## Rook's requirement: the duration is the action's, not the animation's. The

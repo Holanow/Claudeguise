@@ -43,20 +43,20 @@ func test_every_registered_class_and_enemy_has_a_shape() -> void:
 	# all_action_ids, checked rather than assumed.
 	var action_ids: Array[StringName] = []
 	for class_id in ClassLibrary.all_ids():
-		var cls := Registry.get_class_def(class_id)
+		var cls := ClassLibrary.get_class_def(class_id)
 		if cls != null:
 			for aid in cls.starting_action_ids():
 				if not action_ids.has(aid):
 					action_ids.append(aid)
 	for enemy_id in EnemyLibrary.all_ids():
-		var enemy := Registry.get_enemy(enemy_id)
+		var enemy := EnemyLibrary.get_enemy(enemy_id)
 		if enemy != null:
 			for aid in enemy.actions:
 				if not action_ids.has(aid):
 					action_ids.append(aid)
 
 	for action_id in action_ids:
-		var action := Registry.get_action(action_id)
+		var action := ActionLibrary.get_action(action_id)
 		if action == null or action.summons_unit_id == &"":
 			continue
 		assert_true(
@@ -642,21 +642,21 @@ func _every_status() -> Array:
 func _every_reachable_action_id() -> Array:
 	var out: Array = []
 	for class_id in ClassLibrary.all_ids():
-		for a in Registry.get_class_def(class_id).starting_action_ids():
+		for a in ClassLibrary.get_class_def(class_id).starting_action_ids():
 			if not out.has(a):
 				out.append(a)
 	for enemy_id in EnemyLibrary.all_ids():
-		for a in Registry.get_enemy(enemy_id).actions:
+		for a in EnemyLibrary.get_enemy(enemy_id).actions:
 			if not out.has(a):
 				out.append(a)
 	# A summoned unit's actions are ordered in a real fight but its id is not in
 	# all_enemy_ids() by any path a class walks -- this is exactly the gap that
 	# let a siege engine ship invisible.
 	for action_id in out.duplicate():
-		var action = Registry.get_action(action_id)
+		var action = ActionLibrary.get_action(action_id)
 		if action == null or action.summons_unit_id == &"":
 			continue
-		var summoned = Registry.get_enemy(action.summons_unit_id)
+		var summoned = EnemyLibrary.get_enemy(action.summons_unit_id)
 		if summoned == null:
 			continue
 		for a in summoned.actions:
@@ -843,7 +843,7 @@ func test_action_icon_table_has_no_entries_for_actions_that_do_not_exist() -> vo
 	for id in baked:
 		if _ICONS_AHEAD_OF_CONTENT.has(id):
 			continue
-		assert_not_null(Registry.get_action(id), "Assets/UI/action/%s.png exists, but the registry does not define that action" % id)
+		assert_not_null(ActionLibrary.get_action(id), "Assets/UI/action/%s.png exists, but the registry does not define that action" % id)
 
 
 func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
@@ -854,7 +854,7 @@ func test_the_icons_drawn_ahead_of_content_are_still_ahead_of_content() -> void:
 	for id in _ICONS_AHEAD_OF_CONTENT:
 		if not ActionIcons.has_glyph(id):
 			described_nothing.append(String(id))
-		if Registry.get_action(id) != null:
+		if ActionLibrary.get_action(id) != null:
 			stale.append("%s (%s)" % [id, _ICONS_AHEAD_OF_CONTENT[id]])
 	assert_eq(described_nothing, [] as Array[String],
 		"_ICONS_AHEAD_OF_CONTENT names ids with no icon at all, so those entries describe nothing")
@@ -1144,7 +1144,7 @@ func test_the_icon_table_has_no_entries_for_items_that_do_not_exist() -> void:
 		if String(id).begins_with("empty_"):
 			continue
 		assert_not_null(
-			Registry.get_equipment(id),
+			ItemLibrary.get_equipment(id),
 			"Assets/UI/item/%s.png exists, but that is not a registered item" % id
 		)
 
@@ -1235,7 +1235,7 @@ func test_an_item_that_grants_an_action_can_draw_that_action_s_own_glyph() -> vo
 	# Rule 3, and the thing #100 made true that no art had yet said: `plate_mail`
 	var granting := 0
 	for id in ItemLibrary.all_ids():
-		var item := Registry.get_equipment(id)
+		var item := ItemLibrary.get_equipment(id)
 		for action_id in item.granted_actions:
 			assert_true(
 				ActionIcons.has_glyph(action_id),

@@ -179,7 +179,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "%s gains %s%s%s" % [target_name, _status_name(e.status), strength, by]
 		CG.EventKind.STATUS_EXPIRED:
 			if e.source_id != -1:
-				var action := Registry.get_action(e.action_id)
+				var action := ActionLibrary.get_action(e.action_id)
 				if action != null and action.consumes_status_enabled and action.consumes_status == e.status:
 					return "[color=%s]%s's %s consumes %s's %s[/color]" % [
 						Palette.damage_color(CG.DamageType.FIRE).to_html(),
@@ -295,7 +295,7 @@ func _seconds(ticks: int) -> String:
 ## fixture using a synthetic action id -- not a real registered one -- still
 ## reads as words rather than crashing or showing nothing.
 func _action_name(action_id: StringName) -> String:
-	var action := Registry.get_action(action_id)
+	var action := ActionLibrary.get_action(action_id)
 	if action != null and action.display_name != "":
 		return action.display_name
 	return String(action_id).capitalize()

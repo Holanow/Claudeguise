@@ -69,11 +69,11 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 	var pawn := PawnData.new()
 	pawn.id = pawn_id
 	pawn.display_name = display_name
-	pawn.pawn_class = Registry.get_class_def(class_id)
+	pawn.pawn_class = ClassLibrary.get_class_def(class_id)
 	if STARTING_WEAPON.has(class_id):
-		pawn.weapon = Registry.get_equipment(STARTING_WEAPON[class_id])
+		pawn.weapon = ItemLibrary.get_equipment(STARTING_WEAPON[class_id])
 	if STARTING_ARMOR.has(class_id):
-		pawn.armor = Registry.get_equipment(STARTING_ARMOR[class_id])
+		pawn.armor = ItemLibrary.get_equipment(STARTING_ARMOR[class_id])
 	return pawn
 
 ## The same pawn with its attributes distributed from `run_seed`. Issue 485:

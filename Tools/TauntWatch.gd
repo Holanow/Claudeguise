@@ -105,11 +105,11 @@ func _taunted_ticks(state: CombatState) -> Array:
 
 func _has_taunter(encounter) -> bool:
 	for spawn in encounter.enemy_spawns:
-		var e := Registry.get_enemy(spawn.get("enemy_id", &""))
+		var e := EnemyLibrary.get_enemy(spawn.get("enemy_id", &""))
 		if e == null:
 			continue
 		for a in e.actions:
-			var action := Registry.get_action(a)
+			var action := ActionLibrary.get_action(a)
 			if action != null and action.applies_status_enabled and action.applies_status == CG.Status.TAUNTING:
 				return true
 	return false

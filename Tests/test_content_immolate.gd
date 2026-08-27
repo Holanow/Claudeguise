@@ -20,8 +20,8 @@ const SEEDS := 8
 
 ## `IMMOLATE_TICK_POWER_SCALE` is Grapple's own power over Grapple's own cycle.
 func test_a_tick_of_the_channel_is_worth_a_tick_of_grapple() -> void:
-	var grapple := Registry.get_action(GRAPPLE)
-	var immolate := Registry.get_action(IMMOLATE)
+	var grapple := ActionLibrary.get_action(GRAPPLE)
+	var immolate := ActionLibrary.get_action(IMMOLATE)
 	assert_not_null(grapple, "grapple should exist")
 	assert_not_null(immolate, "immolate should exist")
 	var cycle := grapple.wind_up_ticks + grapple.recover_ticks
@@ -35,8 +35,8 @@ func test_a_tick_of_the_channel_is_worth_a_tick_of_grapple() -> void:
 ## aura ever reached no further than Grapple it would have no window of its own
 ## and would only ever fire on ticks Grapple declined for some other reason.
 func test_the_aura_reaches_further_than_the_grip() -> void:
-	var grapple := Registry.get_action(GRAPPLE)
-	var immolate := Registry.get_action(IMMOLATE)
+	var grapple := ActionLibrary.get_action(GRAPPLE)
+	var immolate := ActionLibrary.get_action(IMMOLATE)
 	assert_true(
 		immolate.sustain_radius > grapple.range_units,
 		"aura radius %.1f should exceed grapple's %.1f" % [immolate.sustain_radius, grapple.range_units]

@@ -103,7 +103,7 @@ func _draw_actions(top: float) -> float:
 	var y := top + 26.0
 	for i in ids.size():
 		var id: StringName = ids[i]
-		var action = Registry.get_action(id)
+		var action = ActionLibrary.get_action(id)
 		var dt: CG.DamageType = action.damage_type if action != null else CG.DamageType.RAW
 		var x := _MARGIN + float(i % cols) * col_w
 		var cy := y + floorf(float(i) / float(cols)) * row_h
@@ -125,7 +125,7 @@ func _draw_bars_and_borders(top: float) -> void:
 	for i in samples.size():
 		var id: StringName = samples[i][0]
 		var progress: float = samples[i][1]
-		var action = Registry.get_action(id)
+		var action = ActionLibrary.get_action(id)
 		var dt: CG.DamageType = action.damage_type if action != null else CG.DamageType.RAW
 		var x := _MARGIN + float(i) * 240.0
 		draw_rect(Rect2(x - 8.0, y - 8.0, 220.0, 48.0), Palette.ARENA_FLOOR)

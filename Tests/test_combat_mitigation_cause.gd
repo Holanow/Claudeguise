@@ -163,7 +163,7 @@ func test_every_named_cause_really_lowers_the_reduction() -> void:
 func test_an_armoured_enemy_names_hide() -> void:
 	var found := CG.MitigationCause.NONE
 	for id in EnemyLibrary.all_ids():
-		var d: EnemyDef = Registry.get_enemy(id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		if d == null or d.damage_reduction <= 0.0:
 			continue
 		var u := CombatUnit.new()
@@ -180,7 +180,7 @@ func test_an_armoured_enemy_names_hide() -> void:
 ## real target rather than a hand-made one whose numbers I chose.
 func _hided_enemy() -> CombatUnit:
 	for id in EnemyLibrary.all_ids():
-		var d: EnemyDef = Registry.get_enemy(id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		if d != null and d.damage_reduction > 0.0:
 			var u := CombatUnit.new()
 			u.enemy_id = id

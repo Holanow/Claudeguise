@@ -11,8 +11,8 @@ const SEEDS := 12
 
 func _init() -> void:
 	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
-	var bolt := Registry.get_action(&"siege_engine_bolt")
-	var mark := Registry.get_action(&"spotter_mark")
+	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
+	var mark := ActionLibrary.get_action(&"spotter_mark")
 	print("bolt: wind_up=%d recover=%d range=%.0f marked_only=%s" % [
 		bolt.wind_up_ticks, bolt.recover_ticks, bolt.range_units, str(bolt.requires_marked_target)])
 	print("mark: cost=%d duration=%d range=%.0f" % [

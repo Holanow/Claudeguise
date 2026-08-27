@@ -50,7 +50,7 @@ func _init() -> void:
 						elif e.kind == CG.EventKind.INTERRUPTED:
 							interrupted += 1
 							channel_ticks += e.amount
-		var restored := fires * Registry.get_action(CHANNEL).restores_resource
+		var restored := fires * ActionLibrary.get_action(CHANNEL).restores_resource
 		print("fights          %d" % fights)
 		print("player wins     %d (%.1f%%)" % [wins, 100.0 * float(wins) / float(fights)])
 		print("player losses   %d (%.1f%%)" % [losses, 100.0 * float(losses) / float(fights)])
@@ -75,7 +75,7 @@ func _run(ids: Array, enc_id: StringName, s: int, with_channel: bool) -> Array:
 		## Channel row this probe removes was never there and both arms were the
 		## same party (#472).
 		var pawn := PawnFactory.make_preset_pawn(
-			c, StringName("%s_%d" % [cid, party.size()]), Registry.get_class_def(c).display_name)
+			c, StringName("%s_%d" % [cid, party.size()]), ClassLibrary.get_class_def(c).display_name)
 		if not with_channel:
 			_strip_channel(pawn, c)
 		party.append(pawn)

@@ -41,7 +41,7 @@ func test_a_dropped_item_is_a_real_registered_item() -> void:
 	rng.seed = 4
 	var item := LootTables.roll_drop(FloorRoom.Type.TREASURE, 1, rng)
 	assert_not_null(item)
-	assert_eq(Registry.get_equipment(item.id), item)
+	assert_eq(ItemLibrary.get_equipment(item.id), item)
 
 
 func test_same_seed_replays_bit_identical() -> void:

@@ -57,7 +57,7 @@ func _init() -> void:
 	print("")
 	print("======== mean against BASELINE over 500 seeds (this is the levelling) ========")
 	for cid in class_ids:
-		var cls := Registry.get_class_def(cid)
+		var cls := ClassLibrary.get_class_def(cid)
 		var sums := _means(cid)
 		var parts := PackedStringArray()
 		for a in PawnFactory.ROLLED_ATTRIBUTES:
@@ -68,7 +68,7 @@ func _init() -> void:
 	print("")
 	print("======== mean against the DISTRIBUTION'S OWN EXPECTATION (this is the floor check) ========")
 	for cid in class_ids:
-		var cls := Registry.get_class_def(cid)
+		var cls := ClassLibrary.get_class_def(cid)
 		var sums := _means(cid)
 		var free := float(PawnFactory.POOL_SIZE - PawnFactory.floor_cost(cls))
 		var weight_total := float(PawnFactory.class_total(cls))
@@ -83,7 +83,7 @@ func _init() -> void:
 	print("")
 	print("======== how often an attribute sits exactly on its floor, of 500 ========")
 	for cid in class_ids:
-		var cls := Registry.get_class_def(cid)
+		var cls := ClassLibrary.get_class_def(cid)
 		var at_floor := {}
 		for s in 500:
 			var pawn := PawnFactory.make_rolled_pawn(cid, &"p", "p", s)

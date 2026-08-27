@@ -58,7 +58,7 @@ func _ready() -> void:
 func _build_roster() -> void:
 	_available.clear()
 	for class_id in ClassLibrary.all_ids():
-		var cls: ClassDef = Registry.get_class_def(class_id)
+		var cls: ClassDef = ClassLibrary.get_class_def(class_id)
 		if cls == null:
 			continue
 		_available.append(PawnFactory.make_rolled_pawn(class_id, class_id, cls.display_name, _roster_seed))

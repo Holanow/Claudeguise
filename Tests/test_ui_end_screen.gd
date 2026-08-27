@@ -334,14 +334,14 @@ func test_a_portrait_explains_the_class_and_the_gear_on_hover() -> void:
 	var naked := PawnData.new()
 	naked.id = &"p0"
 	naked.display_name = "P0"
-	naked.pawn_class = Registry.get_class_def(&"warrior")
+	naked.pawn_class = ClassLibrary.get_class_def(&"warrior")
 	var bare := EndScreenScript.portrait_hover_text(naked)
 	assert_true(bare.length() > 0, "a portrait with nothing to say is the defect this fixes")
 	assert_true(bare.contains("Wore nothing."), "a naked pawn must say so: %s" % bare)
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"p0", "P0")
 	var item: EquipmentDef = null
 	for id in ItemLibrary.all_ids():
-		var candidate := Registry.get_equipment(id)
+		var candidate := ItemLibrary.get_equipment(id)
 		if candidate.slot == EquipmentDef.Slot.WEAPON and candidate.allows_class(pawn.pawn_class):
 			item = candidate
 			break

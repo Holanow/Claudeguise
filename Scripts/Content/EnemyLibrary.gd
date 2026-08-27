@@ -22,13 +22,26 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Enemies/sellsword.tres",
 ]
 
-## Same rule as `Registry._sort_ids`: sorted by id, because dictionary/array
-## iteration order is not something a fight may depend on. Issue #658 lever 3A.
+## Sorted by id, because dictionary iteration order is not something a fight
+## may depend on. Issue #658 lever 3A.
 static func all_ids() -> Array[StringName]:
+	_load()
 	var ids: Array[StringName] = []
-	for path in PATHS:
-		var e: EnemyDef = load(path)
-		ids.append(e.id)
+	ids.assign(_by_id.keys())
 	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
 		return String(a) < String(b))
 	return ids
+static var _by_id: Dictionary = {}
+static var _loaded: bool = false
+
+static func _load() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	for path in PATHS:
+		var e: EnemyDef = load(path)
+		_by_id[e.id] = e
+
+static func get_enemy(id: StringName) -> EnemyDef:
+	_load()
+	return _by_id.get(id)

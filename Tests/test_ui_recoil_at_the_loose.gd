@@ -41,8 +41,8 @@ func _fire(source: int, target: int, action: StringName) -> CombatEvent:
 # --- the fixture says what it claims ----------------------------------------
 
 func test_the_two_action_ids_are_still_what_this_file_assumes() -> void:
-	var shot := Registry.get_action(SHOT)
-	var swing := Registry.get_action(SWING)
+	var shot := ActionLibrary.get_action(SHOT)
+	var swing := ActionLibrary.get_action(SWING)
 	assert_true(shot != null and shot.projectile_speed > 0.0,
 		"%s must still be a projectile action" % SHOT)
 	assert_true(swing != null and swing.projectile_speed <= 0.0,

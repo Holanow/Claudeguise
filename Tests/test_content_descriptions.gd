@@ -26,7 +26,7 @@ const _POISON_RATE_ACTIONS := [&"abomination_claw", &"cultist_bolt"]
 func test_every_duration_in_an_ability_description_matches_its_own_ticks() -> void:
 	var checked := 0
 	for id in ActionLibrary.all_ids():
-		var action := Registry.get_action(id)
+		var action := ActionLibrary.get_action(id)
 		var text: String = action.description
 		var claimed := 0
 		for pattern in _PATTERNS:
@@ -69,7 +69,7 @@ func test_the_poison_rate_a_description_promises_is_the_rate_it_deals() -> void:
 	var re := RegEx.new()
 	re.compile("([0-9]+(?:\\.[0-9]+)?)% of its max health per second")
 	for id in _POISON_RATE_ACTIONS:
-		var action := Registry.get_action(id)
+		var action := ActionLibrary.get_action(id)
 		assert_not_null(action, "%s should exist" % id)
 		var m := re.search(action.description)
 		assert_not_null(m, "%s should state a poison rate per second: %s" % [id, action.description])

@@ -312,7 +312,7 @@ func _loose(room_id: StringName, s: int) -> Dictionary:
 		for e in state.events_since(cursor):
 			if e.kind != CG.EventKind.ACTION_FIRE or state.tick * FRAMES_PER_TICK <= LOOSE_LEAD:
 				continue
-			var action := Registry.get_action(e.action_id)
+			var action := ActionLibrary.get_action(e.action_id)
 			if action == null or action.projectile_speed <= 0.0:
 				continue
 			var source := state.unit(e.source_id)
@@ -624,7 +624,7 @@ func _clip_hands_ab(fight: Dictionary) -> void:
 	for a in actions:
 		if a["start"] * FRAMES_PER_TICK <= HAND_LEAD:
 			continue
-		var kind := PartAnimation.kind_for(Registry.get_action(a["action"]))
+		var kind := PartAnimation.kind_for(ActionLibrary.get_action(a["action"]))
 		if not by_kind.has(kind):
 			by_kind[kind] = {"fast": a, "slow": a}
 		if a["total"] < by_kind[kind]["fast"]["total"]:
@@ -655,7 +655,7 @@ func _clip_hands_ab(fight: Dictionary) -> void:
 		for i in HAND_LEAD + int(a["total"]) * FRAMES_PER_TICK + HAND_TAIL:
 			await _capture()
 			_frame()
-		var kind := PartAnimation.kind_for(Registry.get_action(a["action"]))
+		var kind := PartAnimation.kind_for(ActionLibrary.get_action(a["action"]))
 		_say("hands_ab.%s" % arm["name"], from, SHOWY,
 			"%s seed %d, %s winds up %s (%s motion) over %d ticks (%d frames) from tick %d, fires on tick %d" % [
 				fight["room"], fight["seed"], a["name"], a["action"],

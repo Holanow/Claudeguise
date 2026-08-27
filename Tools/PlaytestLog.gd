@@ -27,7 +27,7 @@ func _log_one_fight(party_ids: Array) -> void:
 		## `make_preset_pawn`, not `make_starter_pawn`: since #399 a starter pawn
 		## has no plan rows, so every player pawn in this log did nothing but
 		## walk and swing and the read was of unauthored behaviour (#417).
-		party.append(PawnFactory.make_preset_pawn(cid, StringName("%s" % cid), Registry.get_class_def(cid).display_name))
+		party.append(PawnFactory.make_preset_pawn(cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
 
 	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)

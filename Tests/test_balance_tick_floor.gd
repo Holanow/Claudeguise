@@ -23,7 +23,7 @@ func test_no_action_can_be_scaled_below_one_tick_by_agi() -> void:
 	var pawn := _pawn(&"warrior", ABSURD_AGI)
 	var checked := 0
 	for id in ActionLibrary.all_ids():
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null:
 			continue
 		for label in ["wind-up", "recover"]:
@@ -46,7 +46,7 @@ func test_the_floor_actually_fires_at_the_shipped_cap() -> void:
 	var scale: float = Balance.MAX_AGI_TICK_SCALE
 	var floored := []
 	for id in ActionLibrary.all_ids():
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null:
 			continue
 		for base in [a.wind_up_ticks, a.recover_ticks]:

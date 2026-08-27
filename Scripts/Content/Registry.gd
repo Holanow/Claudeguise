@@ -55,25 +55,17 @@ static func _register(into: Dictionary, id: StringName, value: Variant, what: St
 		return
 	into[id] = value
 
-static func get_class_def(id: StringName) -> ClassDef:
-	_load()
-	return _classes.get(id)
-
-static func get_action(id: StringName) -> ActionDef:
-	_load()
-	return _actions.get(id)
-
-static func get_enemy(id: StringName) -> EnemyDef:
-	_load()
-	return _enemies.get(id)
-
 static func get_encounter(id: StringName) -> Encounter:
 	_load()
 	return _encounters.get(id)
 
+## #658: kept only for the two call sites in sable's files (`EquipmentIcons.gd`,
+## `UnitView.gd`) that this issue hands back rather than edits out of turn.
+static func get_action(id: StringName) -> ActionDef:
+	return ActionLibrary.get_action(id)
+
 static func get_equipment(id: StringName) -> EquipmentDef:
-	_load()
-	return _items.get(id)
+	return ItemLibrary.get_equipment(id)
 
 ## Ordered by id so that anything iterating content is deterministic. Dictionary
 ## order is not something the fight may depend on.
@@ -120,21 +112,6 @@ static func all_enemy_ids() -> Array[StringName]:
 		ids.append(k)
 	_sort_ids(ids)
 	return ids
-
-## Issue 100: everything a pawn can actually do -- its class's `starting_actions`
-static func actions_for_pawn(pawn: PawnData) -> Array[StringName]:
-	var out: Array[StringName] = []
-	if pawn == null:
-		return out
-	if pawn.pawn_class != null:
-		for a in pawn.pawn_class.starting_action_ids():
-			if not out.has(a):
-				out.append(a)
-	for e in pawn.equipment():
-		for a in e.granted_actions:
-			if not out.has(a):
-				out.append(a)
-	return out
 
 ## Issue 93: the fifth sibling. Added because two of that issues assertions are
 ## about what every action in the game does NOT do -- no other action carries a

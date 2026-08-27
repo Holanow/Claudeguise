@@ -1416,7 +1416,7 @@ static func shake_offset(age: float, amplitude: float) -> Vector2:
 func _play_action_vfx(e: CombatEvent) -> void:
 	if _vfx == null or e.action_id == &"":
 		return
-	var action := Registry.get_action(e.action_id)
+	var action := ActionLibrary.get_action(e.action_id)
 	if action == null or action.vfx == null:
 		return
 	if e.kind == CG.EventKind.ACTION_START:
@@ -1530,7 +1530,7 @@ func _apply_impact(e: CombatEvent) -> void:
 ## a second later at the far end of the arena. `ACTION_FIRE` means committed, so
 ## a loose with no target left still kicks -- the bow was drawn either way.
 func _apply_loose(e: CombatEvent) -> void:
-	var action := Registry.get_action(e.action_id)
+	var action := ActionLibrary.get_action(e.action_id)
 	if action == null or action.projectile_speed <= 0.0:
 		return
 	var source := state.unit(e.source_id)

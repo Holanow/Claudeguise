@@ -27,7 +27,7 @@ func test_arena_span_still_exceeds_the_real_arena_diagonal() -> void:
 		"ARENA_SPAN %f no longer covers the arena diagonal %f" % [CoreActions.ARENA_SPAN, diagonal])
 
 func test_engine_bolt_reaches_anywhere_and_only_at_a_marked_target() -> void:
-	var bolt := Registry.get_action(&"siege_engine_bolt")
+	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
 	assert_not_null(bolt, "siege_engine_bolt is missing from the registry")
 	assert_almost_eq(bolt.range_units, CoreActions.ARENA_SPAN, 0.0001,
 		"the engine's reach should be the arena span")
@@ -40,7 +40,7 @@ func test_engine_bolt_reaches_anywhere_and_only_at_a_marked_target() -> void:
 ## halved the cycle to 30 and the engine is no longer the SLOWEST ranged action:
 ## `warden_chain_toss` is, at 34, against a ranged mean of 19.
 func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
-	var bolt := Registry.get_action(&"siege_engine_bolt")
+	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
 	var engine_cycle := bolt.wind_up_ticks + bolt.recover_ticks
 	var slowest_other := 0
 	var total := 0
@@ -48,7 +48,7 @@ func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
 	for id in ActionLibrary.all_ids():
 		if id == &"siege_engine_bolt":
 			continue
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if a == null or a.projectile_speed <= 0.0:
 			continue
 		var cycle := a.wind_up_ticks + a.recover_ticks
@@ -64,12 +64,12 @@ func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
 ## was not to break it. That is exactly the kind of fact that gets broken by
 ## someone tuning an unrelated number, so it is asserted rather than trusted.
 func test_the_engine_cannot_move() -> void:
-	var engine := Registry.get_enemy(&"siege_engine")
+	var engine := EnemyLibrary.get_enemy(&"siege_engine")
 	assert_not_null(engine, "siege_engine is missing from the registry")
 	assert_almost_eq(engine.move_speed, 0.0, 0.0001, "the siege engine must be stationary")
 
 func test_build_action_is_capped_at_two() -> void:
-	var build := Registry.get_action(&"build_siege_engine")
+	var build := ActionLibrary.get_action(&"build_siege_engine")
 	assert_eq(build.max_active_summons, 2, "the player asked for a cap of 2")
 
 ## The negative half, and the reason it is here: both new fields are opt-in and
@@ -77,7 +77,7 @@ func test_build_action_is_capped_at_two() -> void:
 ## default flipped the wrong way would sail through every assertion above.
 func test_no_other_action_is_capped_or_marked_only() -> void:
 	for id in ActionLibrary.all_ids():
-		var a := Registry.get_action(id)
+		var a := ActionLibrary.get_action(id)
 		if id != &"siege_engine_bolt":
 			assert_false(a.requires_marked_target, "%s should not require a marked target" % id)
 		if id != &"build_siege_engine":

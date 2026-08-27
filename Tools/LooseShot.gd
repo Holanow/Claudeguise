@@ -63,7 +63,7 @@ func _loose() -> Dictionary:
 			for e in state.events_since(cursor):
 				if e.kind != CG.EventKind.ACTION_FIRE or state.tick <= FRAMES:
 					continue
-				var action := Registry.get_action(e.action_id)
+				var action := ActionLibrary.get_action(e.action_id)
 				if action == null or action.projectile_speed <= 0.0:
 					continue
 				var source := state.unit(e.source_id)

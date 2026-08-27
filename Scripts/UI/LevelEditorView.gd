@@ -77,14 +77,14 @@ func _populate_enemy_picker() -> void:
 		%EnemyPicker.disabled = true
 		return
 	for id in ids:
-		var enemy := Registry.get_enemy(id)
+		var enemy := EnemyLibrary.get_enemy(id)
 		%EnemyPicker.add_item(enemy.display_name if enemy != null else String(id))
 	%EnemyPicker.item_selected.connect(func(idx): _set_current_enemy(ids[idx]))
 	_set_current_enemy(ids[0])
 
 func _set_current_enemy(id: StringName) -> void:
 	%Canvas.current_enemy_id = id
-	var enemy := Registry.get_enemy(id)
+	var enemy := EnemyLibrary.get_enemy(id)
 	%Canvas.current_enemy_radius = enemy.radius if enemy != null else 22.0
 	%Canvas.mode = LevelEditorCanvasScript.Mode.PLACE_ENEMY
 	_set_status("Click the arena to place a %s." % (enemy.display_name if enemy != null else String(id)), false)
@@ -114,7 +114,7 @@ func _rebuild_enemy_list() -> void:
 	for i in %Canvas.enemy_spawns.size():
 		var spawn = %Canvas.enemy_spawns[i]
 		var pos: Vector2 = spawn.position
-		var enemy := Registry.get_enemy(spawn.enemy_id)
+		var enemy := EnemyLibrary.get_enemy(spawn.enemy_id)
 		var name := enemy.display_name if enemy != null else String(spawn.enemy_id)
 		%EnemyListBox.add_child(_removable_row(
 			"%s at (%d, %d)" % [name, int(pos.x), int(pos.y)], _on_remove_enemy.bind(i)))
@@ -174,7 +174,7 @@ func _test_party() -> Array[PawnData]:
 	var ids := ClassLibrary.all_ids()
 	for i in mini(ids.size(), MAX_TEST_PARTY):
 		var cls_id: StringName = ids[i]
-		var cls := Registry.get_class_def(cls_id)
+		var cls := ClassLibrary.get_class_def(cls_id)
 		if cls == null:
 			continue
 		out.append(PawnFactory.make_starter_pawn(cls_id, cls_id, cls.display_name))

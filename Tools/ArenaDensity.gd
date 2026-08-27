@@ -70,7 +70,7 @@ func _fingerprint(ids: Array, enc: Encounter, s: int, probe: bool) -> String:
 	for cid in ids:
 		var c := StringName(cid)
 		var pid := StringName("%s_%d" % [cid, party.size()])
-		var dn := Registry.get_class_def(c).display_name
+		var dn := ClassLibrary.get_class_def(c).display_name
 		party.append(PawnFactory.make_preset_pawn(c, pid, dn) if USE_PRESET_PLANS else PawnFactory.make_starter_pawn(c, pid, dn))
 	var state := CombatSim.build(party, enc, s)
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -93,7 +93,7 @@ func _roster_table() -> void:
 		var lo := Vector2(1e9, 1e9)
 		var hi := Vector2(-1e9, -1e9)
 		for spawn in enc.enemy_spawns:
-			if _longest_attack(Registry.get_enemy(spawn["enemy_id"]).actions) <= DefaultBehavior.MELEE_RANGE_THRESHOLD:
+			if _longest_attack(EnemyLibrary.get_enemy(spawn["enemy_id"]).actions) <= DefaultBehavior.MELEE_RANGE_THRESHOLD:
 				melee += 1
 			var p: Vector2 = spawn["position"]
 			lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
@@ -170,7 +170,7 @@ func _peak(ids: Array, enc: Encounter, s: int) -> Dictionary:
 	for cid in ids:
 		var c := StringName(cid)
 		var pid := StringName("%s_%d" % [cid, party.size()])
-		party.append(PawnFactory.make_starter_pawn(c, pid, Registry.get_class_def(c).display_name))
+		party.append(PawnFactory.make_starter_pawn(c, pid, ClassLibrary.get_class_def(c).display_name))
 	var state := CombatSim.build(party, enc, s)
 	var out := {"win": -1, "tick": 0}
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -284,7 +284,7 @@ func _is_ranged(u: CombatUnit) -> bool:
 func _longest_attack(ids: Array) -> float:
 	var best := 0.0
 	for id in ids:
-		best = maxf(best, Registry.get_action(id).range_units)
+		best = maxf(best, ActionLibrary.get_action(id).range_units)
 	return best
 
 func _party_without(left_out: String) -> Array:
@@ -310,7 +310,7 @@ func _run(ids: Array, enc: Encounter, s: int, acc: Dictionary, by_count: Diction
 	for cid in ids:
 		var c := StringName(cid)
 		var pid := StringName("%s_%d" % [cid, party.size()])
-		var dn := Registry.get_class_def(c).display_name
+		var dn := ClassLibrary.get_class_def(c).display_name
 		party.append(PawnFactory.make_preset_pawn(c, pid, dn) if USE_PRESET_PLANS else PawnFactory.make_starter_pawn(c, pid, dn))
 	var state := CombatSim.build(party, enc, s)
 	var worst_win := 0.0
