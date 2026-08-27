@@ -13,6 +13,11 @@ extends SceneTree
 ## wind-up 90 + recover 20) plus a pull's own 7 drag ticks, with margin.
 const RUN_TICKS := 250
 
+## How far apart the pair may be placed. `range_units` runs to ARENA_SPAN for
+## the siege bolt, which is wider than the arena; `gap` subtracts both radii, so
+## a nearer target satisfies reach just as well and stays in bounds.
+const _MAX_PLACE := 800.0
+
 class ForceOnce:
 	var caster_id: int
 	var action_id: StringName
@@ -62,7 +67,11 @@ func _check_action(action: ActionDef) -> Array[String]:
 	caster.hp_max = 999999
 	caster.hp = caster.hp_max
 	caster.actions = [action.id]
-	caster.position = Vector2(500.0, 500.0)
+	## Inside the arena, on the left. (500, 500) was OUTSIDE it: the sim clamps
+	## positions into bounds, both units collapsed toward the same corner, and
+	## the target ended up BEHIND the caster. Only an arc action noticed, because
+	## it is the only kind that asks which way the caster is pointing.
+	caster.position = Vector2(-CG.ARENA_HALF_WIDTH + 40.0, 0.0)
 	if restore != null:
 		## Not at the ceiling and not below the cost, so a gain is visible and
 		## paying for the action does not refuse it.
@@ -82,12 +91,17 @@ func _check_action(action: ActionDef) -> Array[String]:
 		## `_tick_sustain` reads `_sustain_targets`, which never consults
 		## `targets_self` or `focus_id` -- only radius and team.
 		target.team = caster.team if (hit != null and hit.heals) else _enemy_team(caster.team)
-		var d: float = maxf(0.0, action.sustain.radius - 1.0)
+		var d: float = clampf(action.sustain.radius - 1.0, 0.0, _MAX_PLACE)
 		target.position = caster.position + Vector2(d, 0.0)
 	else:
 		target.team = _enemy_team(caster.team)
-		var d: float = maxf(0.0, action.range_units - 1.0)
+		var d: float = clampf(action.range_units - 1.0, 0.0, _MAX_PLACE)
 		target.position = caster.position + Vector2(d, 0.0)
+
+	## A real caster faces what it swings at, and `_in_arc` hits nobody when
+	## facing is ZERO. Without this an arc action reports declaring damage and
+	## landing none, which is a fixture that never turned round, not a defect.
+	caster.facing = (target.position - caster.position).normalized()
 
 	var hit_target_id := caster.id if self_targeted else target.id
 	var status_target_id := caster.id if (self_targeted or action.covers_target) else target.id
