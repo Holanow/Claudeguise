@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_ifo7p"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_eng1r"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_28cpg"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/stalker_mark.tres" id="7_vfx1"]
 
 [sub_resource type="Resource" id="Resource_2mpom"]
 script = ExtResource("1_k3m7i")
@@ -27,6 +28,7 @@ requires_line_of_sight = true
 [resource]
 script = ExtResource("5_eng1r")
 id = &"stalker_mark"
+vfx = ExtResource("7_vfx1")
 display_name = "Mark"
 description = "Marks a target within 220 units for 6 seconds, stripping its natural armour."
 wind_up_ticks = 4

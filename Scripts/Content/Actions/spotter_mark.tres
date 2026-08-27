@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_k4yld"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_6fk3e"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_nx0w8"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/spotter_mark.tres" id="7_vfx1"]
 
 [sub_resource type="Resource" id="Resource_5qjtu"]
 script = ExtResource("1_6vfdq")
@@ -27,6 +28,7 @@ requires_line_of_sight = true
 [resource]
 script = ExtResource("5_6fk3e")
 id = &"spotter_mark"
+vfx = ExtResource("7_vfx1")
 display_name = "Spotter's Mark"
 description = "Marks a target within 350 units, reducing its damage reduction by 25 percentage points for 10 seconds."
 wind_up_ticks = 10

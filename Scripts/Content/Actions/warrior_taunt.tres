@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_5aimu"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_f7jkf"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_owyyf"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/warrior_taunt.tres" id="6_vfx1"]
 
 [sub_resource type="Resource" id="Resource_vm6ms"]
 script = ExtResource("2_3d1n8")
@@ -23,6 +24,7 @@ targets_self = true
 [resource]
 script = ExtResource("4_f7jkf")
 id = &"warrior_taunt"
+vfx = ExtResource("6_vfx1")
 display_name = "Taunt"
 description = "Forces every enemy within 350 units to attack the caster for 16 seconds."
 wind_up_ticks = 6

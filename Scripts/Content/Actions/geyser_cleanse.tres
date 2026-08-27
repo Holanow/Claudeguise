@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/CleanseEffect.gd" id="3_v83fn"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_sc5fl"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3tl1j"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/geyser_cleanse.tres" id="6_vfx1"]
 
 [sub_resource type="Resource" id="Resource_o6yv4"]
 script = ExtResource("2_m6a0n")
@@ -22,6 +23,7 @@ range_units = 350.0
 [resource]
 script = ExtResource("4_sc5fl")
 id = &"geyser_cleanse"
+vfx = ExtResource("6_vfx1")
 display_name = "Scour"
 description = "Boils every harmful effect off an ally within 350 units. Costs 10 Mana."
 wind_up_ticks = 8
