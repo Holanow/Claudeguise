@@ -11,7 +11,9 @@ class_name VFXDirector
 ## id -> Vector2 in this node's own space. Supplied by the view.
 var position_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.ZERO
 ## Where the unit's hands are. Falls back to the body when a recipe has none.
-var hand_of_fn: Callable = func(id: int) -> Vector2: return Vector2.ZERO
+var hand_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.ZERO
+## Every hand, tracked separately. A layer picks one by index.
+var hands_of_fn: Callable = func(_id: int) -> PackedVector2Array: return PackedVector2Array()
 var shake_fn: Callable = func(_pixels: float) -> void: pass
 var hit_stop_fn: Callable = func() -> void: pass
 
@@ -28,9 +30,19 @@ func position_of(id: int) -> Vector2:
 func hand_of(id: int) -> Vector2:
 	return hand_of_fn.call(id)
 
+## One hand by index. Out of range, or -1, falls back to the midpoint of them
+## all, which is what a two-handed cast wants.
+func hand_at(id: int, index: int) -> Vector2:
+	var points: PackedVector2Array = hands_of_fn.call(id)
+	if index >= 0 and index < points.size():
+		return points[index]
+	return hand_of(id)
+
 ## Layers ask for an anchor by name rather than choosing a Callable themselves.
-func anchor_of(id: int, hands: bool) -> Vector2:
-	return hand_of(id) if hands else position_of(id)
+func anchor_of(id: int, hands: bool, hand_index: int = -1) -> Vector2:
+	if not hands:
+		return position_of(id)
+	return hand_at(id, hand_index)
 
 func shake(pixels: float) -> void:
 	shake_fn.call(pixels)
@@ -71,7 +83,8 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(rect):
 			_beams.remove_at(i)
 			continue
-		var from := anchor_of(int(beam.get_meta(&"unit_id")), bool(beam.get_meta(&"hands")))
+		var from := anchor_of(int(beam.get_meta(&"unit_id")), bool(beam.get_meta(&"hands")),
+			int(beam.get_meta(&"hand")))
 		var to: Vector2 = beam.get_meta(&"to")
 		beam.position = from
 		beam.rotation = (to - from).angle()
@@ -123,11 +136,12 @@ func make_beam(shader_path: String, from: Vector2, to: Vector2, width: float) ->
 ## where the hands were at the instant it fired, and the hands then keep moving
 ## through the recover and the idle bob, so the beam visibly detaches from the
 ## pose throwing it. The far end stays where the blast landed.
-func follow_beam(rect: ColorRect, source_id: int, hands: bool, to: Vector2) -> void:
+func follow_beam(rect: ColorRect, source_id: int, hands: bool, to: Vector2, hand_index: int = -1) -> void:
 	var holder := rect.get_parent() as Node2D
 	holder.set_meta(&"unit_id", source_id)
 	holder.set_meta(&"hands", hands)
 	holder.set_meta(&"to", to)
+	holder.set_meta(&"hand", hand_index)
 	holder.set_meta(&"rect", rect)
 	_beams.append(holder)
 

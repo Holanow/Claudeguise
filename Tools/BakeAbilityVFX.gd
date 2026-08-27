@@ -34,11 +34,21 @@ func _geyser_blast() -> void:
 	orb.outer_colour = deep
 	orb.size = 118.0
 
-	var beam := BeamLayer.new()
-	beam.cue = VFXLayer.Cue.RELEASE
-	beam.core_colour = core
-	beam.edge_colour = deep
-	beam.width = 78.0
+	# One beam per hand, each tracking its own. They converge on the target, so
+	# the cast reads as two hands throwing it rather than one point on a chest.
+	var left := BeamLayer.new()
+	left.cue = VFXLayer.Cue.RELEASE
+	left.core_colour = core
+	left.edge_colour = deep
+	left.width = 52.0
+	left.hand_index = 0
+
+	var right := BeamLayer.new()
+	right.cue = VFXLayer.Cue.RELEASE
+	right.core_colour = core
+	right.edge_colour = deep
+	right.width = 52.0
+	right.hand_index = 1
 
 	# The beam takes this long to arrive, so everything that happens ON the
 	# target waits. Without it the goblin flinches before it is hit.
@@ -75,7 +85,7 @@ func _geyser_blast() -> void:
 
 	var vfx := AbilityVFX.new()
 	vfx.display_name = "Geyser Blast"
-	vfx.layers = [orb, beam, glow, ring, spray, shake, stop] as Array[VFXLayer]
+	vfx.layers = [orb, left, right, glow, ring, spray, shake, stop] as Array[VFXLayer]
 	_save(vfx, "%s/geyser_blast.tres" % OUT_DIR)
 
 ## The cheap one, and the point of it: a second look reuses the same layers at

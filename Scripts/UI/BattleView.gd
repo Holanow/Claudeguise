@@ -1195,6 +1195,7 @@ func _ensure_layers() -> void:
 		_vfx = VFXDirector.new()
 		_vfx.position_of_fn = _vfx_position_of
 		_vfx.hand_of_fn = _vfx_hand_of
+		_vfx.hands_of_fn = _vfx_hands_of
 		_vfx.shake_fn = _vfx_shake
 		_vfx.hit_stop_fn = _hit_stop
 		_arena.add_child(_vfx)
@@ -1444,6 +1445,13 @@ func _vfx_hand_of(id: int) -> Vector2:
 	if view == null:
 		return Vector2.ZERO
 	return view.hand_anchor()
+
+## Every hand of the caster, tracked separately.
+func _vfx_hands_of(id: int) -> PackedVector2Array:
+	var view = _unit_views.get(id)
+	if view == null:
+		return PackedVector2Array()
+	return view.hand_anchors()
 
 ## A layer asks for a shake in pixels; the toggle still decides.
 func _vfx_shake(pixels: float) -> void:

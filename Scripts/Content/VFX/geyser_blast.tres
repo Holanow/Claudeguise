@@ -20,20 +20,29 @@ cue = 0
 script = ExtResource("3_v47so")
 core_colour = Color(0.88, 0.98, 1, 1)
 edge_colour = Color(0.13, 0.44, 0.85, 1)
-width = 78.0
+width = 52.0
+hand_index = 0
 cue = 1
 
 [sub_resource type="Resource" id="Resource_en1jv"]
+script = ExtResource("3_v47so")
+core_colour = Color(0.88, 0.98, 1, 1)
+edge_colour = Color(0.13, 0.44, 0.85, 1)
+width = 52.0
+hand_index = 1
+cue = 1
+
+[sub_resource type="Resource" id="Resource_ymt6r"]
 script = ExtResource("4_gf0ui")
 colour = Color(0.88, 0.98, 1, 1)
 delay = 0.07
 
-[sub_resource type="Resource" id="Resource_ymt6r"]
+[sub_resource type="Resource" id="Resource_h4eop"]
 script = ExtResource("5_ebv7q")
 ring_colour = Color(0.62, 0.9, 1, 1)
 delay = 0.07
 
-[sub_resource type="Resource" id="Resource_h4eop"]
+[sub_resource type="Resource" id="Resource_24ogj"]
 script = ExtResource("6_8r01s")
 colour_hot = Color(0.88, 0.98, 1, 1)
 colour_cool = Color(0.13, 0.44, 0.85, 1)
@@ -42,15 +51,15 @@ lifetime = 0.7
 gravity = Vector2(0, 420)
 delay = 0.07
 
-[sub_resource type="Resource" id="Resource_24ogj"]
+[sub_resource type="Resource" id="Resource_ckpfq"]
 script = ExtResource("7_6ujfh")
 delay = 0.07
 
-[sub_resource type="Resource" id="Resource_ckpfq"]
+[sub_resource type="Resource" id="Resource_kuwcb"]
 script = ExtResource("8_yang3")
 delay = 0.07
 
 [resource]
 script = ExtResource("9_rd4a6")
 display_name = "Geyser Blast"
-layers = Array[ExtResource("1_33sis")]([SubResource("Resource_deu6d"), SubResource("Resource_mcgyc"), SubResource("Resource_en1jv"), SubResource("Resource_ymt6r"), SubResource("Resource_h4eop"), SubResource("Resource_24ogj"), SubResource("Resource_ckpfq")])
+layers = Array[ExtResource("1_33sis")]([SubResource("Resource_deu6d"), SubResource("Resource_mcgyc"), SubResource("Resource_en1jv"), SubResource("Resource_ymt6r"), SubResource("Resource_h4eop"), SubResource("Resource_24ogj"), SubResource("Resource_ckpfq"), SubResource("Resource_kuwcb")])
