@@ -130,16 +130,18 @@ themselves in a status row.
 ### Merge the trunk into your branch every fifteen minutes
 
 ```bash
-git merge main
+git fetch origin && git merge origin/main
 ```
 
-Local `main`, not `origin/main`. Every worktree on this machine shares one
-`.git`, so local `main` is the manager's trunk and it is the current one;
-`origin/main` only moves when somebody fetches, which makes it a ref guaranteed
-to lag. Two sessions once reached opposite conclusions about whether the
-skeleton existed, both measuring correctly, because of that gap. If any session
-runs on another machine, use `git fetch origin && git merge origin/main`
-instead.
+**`origin/main`, not local `main`, and branch from `origin/main` too.** This is
+the reverse of what this file used to say, and the reversal is real: merges now
+land through `gh pr merge`, which moves `origin/main` and never touches the
+local branch. Local `main` in the main checkout was **47 commits behind** when
+three sessions in one afternoon tripped over it.
+
+The old advice was right when there was no remote and the manager merged by
+hand. It rotted the day the remote arrived, and it rotted silently, because a
+stale trunk does not error -- it just hands you a branch cut from last week.
 
 Not when you finish. Every fifteen minutes. Nearly every painful conflict in
 the source run was a branch cut three hours earlier. Small frequent merges are

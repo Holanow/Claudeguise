@@ -72,7 +72,7 @@ static func condition_holds(state: CombatState, unit: CombatUnit, plan: Plan) ->
 ## Blocks run in list order, and that order is load-bearing: every TARGETING
 ## block writes `unit.focus_id` as it goes, so a later one overrules an earlier.
 static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
-	var action_id: StringName = &""
+	var action_block: UseActionBlock = null
 	var movement: MovementBlock = null
 	for block in plan.blocks:
 		if block is TargetingBlock:
@@ -80,9 +80,12 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 			if target_id != -1:
 				unit.focus_id = target_id
 		elif block is UseActionBlock:
-			action_id = (block as UseActionBlock).action_id
+			action_block = block
 		elif block is MovementBlock:
 			movement = block
+	## Asked after the walk, not during it: a derived action reads the target,
+	## and a targeting block later in the list can still move it.
+	var action_id: StringName = &"" if action_block == null else action_block.resolve(state, unit, unit.focus_id)
 	if movement != null:
 		return movement.run(state, unit, plan, action_id)
 	if action_id == &"" or unit.focus_id == -1:
