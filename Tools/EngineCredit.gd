@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Issue 642: the Siege Engine's end-screen credit, in the exact fight
-## `test_a_real_siege_engine_is_credited_to_its_master_and_named_on_the_card`
+## `test_a_real_siege_engines_damage_never_reaches_the_card_see_576`
 ## runs.
 
 func _init() -> void:

@@ -9,7 +9,7 @@ func run(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName
 	if target == null or not target.alive:
 		return null
 
-	var dist := unit.position.distance_to(target.position)
+	var dist := unit.gap(target)
 	var away := unit.position - target.position
 	if away.length() < 0.0001:
 		away = Vector2(1.0, 0.0)
@@ -19,7 +19,11 @@ func run(state: CombatState, unit: CombatUnit, plan: Plan, action_id: StringName
 	var arrived := absf(dist - range_units) <= PlanInterpreter.KEEP_DISTANCE_BAND \
 		and not CombatSim.standing_harms(state, unit.position)
 	if not arrived:
-		var anchor = PlanInterpreter.kite_anchor(state, unit, target.position, away.normalized(), range_units)
+		## `kite_anchor` measures from the target's centre, so the two bodies go
+		## back in: an anchor the row would then judge out of band is a spot the
+		## unit walks to and immediately leaves again.
+		var wanted := range_units + unit.radius + target.radius
+		var anchor = PlanInterpreter.kite_anchor(state, unit, target.position, away.normalized(), wanted)
 		if anchor == null:
 			return null
 		return Intent.move_to(anchor, plan.id)

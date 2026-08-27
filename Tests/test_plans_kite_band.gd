@@ -113,7 +113,7 @@ func test_a_movement_block_can_carry_a_self_targeted_action() -> void:
 			u.alive = false
 	me.position = Vector2.ZERO
 	me.resource = me.resource_max
-	foe.position = Vector2(5.0, 0.0)
+	foe.position = Vector2(5.0, 0.0) + Vector2(me.radius + foe.radius, 0.0)
 
 	var intent := PlanInterpreter.decide(state, me)
 	assert_not_null(intent, "the block idled here before issue 97 decided this")
@@ -148,7 +148,7 @@ func test_a_movement_block_still_refuses_an_out_of_reach_enemy_action() -> void:
 			u.alive = false
 	me.position = Vector2.ZERO
 	me.resource = me.resource_max
-	foe.position = Vector2(300.0, 0.0)
+	foe.position = Vector2(300.0, 0.0) + Vector2(me.radius + foe.radius, 0.0)
 
 	var intent := PlanInterpreter.decide(state, me)
 	assert_eq(intent.kind, CG.IntentKind.IDLE,

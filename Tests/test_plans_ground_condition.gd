@@ -98,7 +98,8 @@ func test_a_movement_block_can_carry_a_zero_range_self_buff() -> void:
 	unit.actions = [&"warrior_guard"] as Array[StringName]
 	unit.resource = 100
 	state.units.append(unit)
-	var enemy := _pawn_unit(Vector2(120.0, 0.0))
+	## 120 edge to edge, which is what `keep_distance` measures since issue 642.
+	var enemy := _pawn_unit(Vector2(120.0 + unit.radius + unit.radius, 0.0))
 	enemy.id = 1
 	enemy.team = CG.Team.ENEMY
 	state.units.append(enemy)
