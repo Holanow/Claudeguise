@@ -28,7 +28,7 @@ func _party(party_ids: Array) -> Array[PawnData]:
 	return party
 
 func _encounter():
-	return Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	return RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 
 func _build_view(party_ids: Array) -> void:
 	var cfg := RunConfig.new()

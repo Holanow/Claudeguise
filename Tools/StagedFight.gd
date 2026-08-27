@@ -123,7 +123,7 @@ func _encounter():
 	e.id = &"staged"
 	e.display_name = "Staged"
 	if room != &"":
-		var base = Registry.get_encounter(room)
+		var base = RoomLibrary.get_room(room)
 		if base == null:
 			printerr("StagedFight: no such room '%s'" % room)
 			return null

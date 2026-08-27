@@ -41,7 +41,7 @@ func test_carried_condition_overrides_a_freshly_built_units_stats() -> void:
 	run.record_result(party[0].id, 5, 1, true)
 	run.record_result(party[1].id, 0, 0, false)
 
-	var encounter := Registry.get_encounter(&"floor1_room1")
+	var encounter := RoomLibrary.get_room(&"floor1_room1")
 	var state := CombatSim.build(party, encounter, 999)
 	FloorFightRunner._carry_party_condition_into(state, run, party)
 

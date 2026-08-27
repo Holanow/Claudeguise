@@ -118,7 +118,7 @@ func test_the_brute_really_roars_and_it_really_lands_on_a_pawn() -> void:
 		var party: Array[PawnData] = []
 		for cid in [&"abomination", &"geysermancer", &"priest", &"warrior"]:
 			party.append(PawnFactory.make_starter_pawn(cid, StringName("%s_0" % cid), String(cid)))
-		var state := CombatSim.build(party, Registry.get_encounter(&"floor1_hazard"), s)
+		var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_hazard"), s)
 		var run := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			CombatSim.step(state)
@@ -154,7 +154,7 @@ func test_no_pawn_is_ever_locked_for_longer_than_the_roar_lasts() -> void:
 		var party: Array[PawnData] = []
 		for cid in [&"abomination", &"geysermancer", &"priest", &"warrior"]:
 			party.append(PawnFactory.make_starter_pawn(cid, StringName("%s_0" % cid), String(cid)))
-		var state := CombatSim.build(party, Registry.get_encounter(&"floor1_hazard"), s)
+		var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_hazard"), s)
 		var run := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			CombatSim.step(state)

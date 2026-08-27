@@ -13,8 +13,8 @@ func _init() -> void:
 
 func _sweep(preset: bool) -> void:
 	print("=== %s pawns ===" % ["preset" if preset else "starter"])
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		var authored := encounter.cells.size()
 		var peak := 0
 		var casts := 0

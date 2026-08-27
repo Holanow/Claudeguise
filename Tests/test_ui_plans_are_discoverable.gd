@@ -67,7 +67,7 @@ func test_the_plan_editor_does_not_call_it_a_fallback_either() -> void:
 
 func test_the_end_card_points_at_the_plan_editor_when_nobody_has_a_plan() -> void:
 	var state := CombatSim.build(
-		_starter_party(), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
+		_starter_party(), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 155)
 	var prompt := BattleView.plans_prompt(state)
 	assert_true(prompt.contains("Plans"), "the prompt must name the button that opens the editor: %s" % prompt)
 	assert_true(prompt.to_lower().contains("plan"), prompt)
@@ -79,7 +79,7 @@ func test_the_end_card_says_nothing_when_every_pawn_has_a_plan() -> void:
 	for cid in ClassLibrary.all_ids().slice(0, 4):
 		party.append(PawnFactory.make_preset_pawn(
 			cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 155)
 	assert_eq(BattleView.plans_prompt(state), "")
 
 ## A partial editor is heron's measured worst case, so it must not read as the
@@ -87,7 +87,7 @@ func test_the_end_card_says_nothing_when_every_pawn_has_a_plan() -> void:
 func test_a_partly_planned_party_is_counted_not_rounded() -> void:
 	var party := _starter_party()
 	party[0].plans = PresetPlans.for_class(party[0].pawn_class.id).slice(0, 1)
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 155)
 	var prompt := BattleView.plans_prompt(state)
 	assert_true(prompt.contains("3"), "3 of the 4 pawns have no plan: %s" % prompt)
 
@@ -98,7 +98,7 @@ func test_a_summon_is_not_a_pawn_missing_a_plan() -> void:
 	for cid in ClassLibrary.all_ids().slice(0, 2):
 		party.append(PawnFactory.make_preset_pawn(
 			cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 155)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 155)
 	var summon := CombatUnit.new()
 	summon.id = 900
 	summon.team = CG.Team.PLAYER

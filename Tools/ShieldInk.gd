@@ -193,7 +193,7 @@ func _run() -> void:
 	add_child(_view)
 	await get_tree().process_frame
 	_view.set_process(false)
-	_view.state = CombatSim.build(_party(), Registry.get_encounter(Registry.all_encounter_ids()[0]), SEED)
+	_view.state = CombatSim.build(_party(), RoomLibrary.get_room(RoomLibrary.all_ids()[0]), SEED)
 	_view.event_cursor = 0
 	_view._ensure_unit_views()
 

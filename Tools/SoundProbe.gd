@@ -70,7 +70,7 @@ func _peak(data: PackedByteArray) -> float:
 ## The buzz question, answered with the real simulation and real content rather
 ## than by reasoning about it.
 func _measure_fights(room_id: StringName) -> void:
-	var encounter := Registry.get_encounter(room_id)
+	var encounter := RoomLibrary.get_room(room_id)
 	if encounter == null:
 		printerr("no encounter %s; nothing to measure" % room_id)
 		return

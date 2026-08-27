@@ -10,7 +10,7 @@ extends SceneTree
 const LONG_CAP := 6000
 
 func _init() -> void:
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var party: Array[PawnData] = []
 	for spec in [[&"siege_master", &"sm"], [&"warrior", &"wa"]]:
 		var p := PawnFactory.make_preset_pawn(spec[0], spec[1], String(spec[0]))

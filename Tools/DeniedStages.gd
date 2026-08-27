@@ -4,7 +4,7 @@ extends SceneTree
 ## parties and seeds `test_the_colonnade_denies_shots_to_both_sides` uses.
 
 func _init() -> void:
-	var enc := Registry.get_encounter(&"floor1_cover")
+	var enc := RoomLibrary.get_room(&"floor1_cover")
 	var focus_ok := 0
 	var blocked := 0
 	var denied := 0

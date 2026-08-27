@@ -23,7 +23,7 @@ func _run() -> void:
 	var ids: Array[StringName] = [&"warrior", &"abomination", &"geysermancer", &"priest"]
 	for i in ids.size():
 		cfg.party.append(PawnFactory.make_starter_pawn(ids[i], StringName("%s_%d" % [ids[i], i]), String(ids[i])))
-	battle.begin_with_encounter(cfg, Registry.get_encounter(cfg.encounter_id))
+	battle.begin_with_encounter(cfg, RoomLibrary.get_room(cfg.encounter_id))
 	battle.set_paused(true)
 	for i in TICKS:
 		CombatSim.step(battle.state)

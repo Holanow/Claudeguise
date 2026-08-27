@@ -27,7 +27,7 @@ func test_terrain_defaults_to_empty() -> void:
 ## rectangle itself. Needs real Registry content (a real encounter to build
 ## against), so this is a no-op rather than a false pass while empty.
 func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	var class_ids := ClassLibrary.all_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
@@ -45,7 +45,7 @@ func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
 ## PartySelect fight the wrong room invisibly. begin() must show the real
 ## room the fight is actually running, not a stand-in.
 func test_begin_shows_the_real_encounters_display_name() -> void:
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	var class_ids := ClassLibrary.all_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():
 		return
@@ -56,7 +56,7 @@ func test_begin_shows_the_real_encounters_display_name() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_ids[0], class_ids[0], String(class_ids[0]))]
 	config.party = party
 	battle.begin(config)
-	var encounter := Registry.get_encounter(encounter_ids[0])
+	var encounter := RoomLibrary.get_room(encounter_ids[0])
 	assert_eq(battle._encounter_label.text, encounter.display_name)
 	assert_false(battle._encounter_label.text.is_empty())
 

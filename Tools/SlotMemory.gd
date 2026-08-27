@@ -20,12 +20,12 @@ func _ready() -> void:
 	var parties: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	var deaths := 0
 	for party_ids in parties:
-		for encounter_id in Registry.pickable_encounter_ids():
+		for encounter_id in RoomLibrary.pickable_ids():
 			deaths += await _watch(party_ids, encounter_id)
 	await RenderingServer.frame_post_draw
 	var after := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)
 	print("SlotMemory: %d fights watched, %d deaths drawn" % [
-		parties.size() * Registry.pickable_encounter_ids().size(), deaths])
+		parties.size() * RoomLibrary.pickable_ids().size(), deaths])
 	print("SlotMemory: texture memory before %d, after %d, unit art %d bytes" % [
 		before, after, after - before])
 	get_tree().quit(0)
@@ -47,7 +47,7 @@ func _watch(party_ids: Array, encounter_id: StringName) -> int:
 	_view = (load("res://Scenes/Battle.tscn") as PackedScene).instantiate()
 	add_child(_view)
 	await get_tree().process_frame
-	_view.begin_with_encounter(cfg, Registry.get_encounter(encounter_id))
+	_view.begin_with_encounter(cfg, RoomLibrary.get_room(encounter_id))
 	_view.set_process(false)
 	var deaths := 0
 	while _view.state.outcome == CombatState.Outcome.UNRESOLVED \

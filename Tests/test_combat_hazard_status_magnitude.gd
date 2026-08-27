@@ -126,8 +126,8 @@ func test_a_magnitude_less_status_is_unaffected() -> void:
 func test_authored_terrain_that_applies_a_scaled_dot_declares_its_magnitude() -> void:
 	var magnitude_only := _magnitude_only_statuses()
 	var checked := 0
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		if encounter == null:
 			continue
 		for cell in encounter.cells.values():

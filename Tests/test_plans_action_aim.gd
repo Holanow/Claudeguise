@@ -22,7 +22,7 @@ func _situation(class_id: StringName, blocks: Array[PlanBlock], foe_at: Vector2)
 	plan.display_name = "Aim"
 	plan.blocks = blocks
 	pawn.plans = [plan]
-	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var state := CombatSim.build([pawn], RoomLibrary.get_room(&"floor1_ghoul_den"), 1, SimDeps.new())
 	var me: CombatUnit = null
 	var foe: CombatUnit = null
 	for u in state.units:

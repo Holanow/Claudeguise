@@ -350,7 +350,7 @@ func test_a_pawn_with_only_an_expensive_attack_still_uses_it() -> void:
 func test_a_real_built_warrior_falls_back_to_the_attack_its_sword_grants() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w0", "Warrior")]
 	party[0].plans = []
-	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 0)
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 0)
 	var warrior: CombatUnit = null
 	for u in state.units:
 		if u.pawn != null:

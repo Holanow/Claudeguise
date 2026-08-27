@@ -64,7 +64,7 @@ func start_battle_at(config: RunConfig, positions: Array[Vector2]) -> void:
 		screen.back_requested.connect(show_party_select)
 		screen.room_requested.connect(fight_room)
 		screen.placement_changed.connect(func(p: Array[Vector2]): _party_positions = p)
-		screen.begin_setup(config, Registry.get_encounter(config.encounter_id), positions)
+		screen.begin_setup(config, RoomLibrary.get_room(config.encounter_id), positions)
 	)
 
 ## Same party, same encounter, same seed **and same placement**. The comparison

@@ -16,7 +16,7 @@ const ROOMS: Array[StringName] = [&"floor1_cover", &"floor1_room1"]
 func _init() -> void:
 	print("party: ", PARTY, "   seeds: ", SEEDS)
 	for room_id in ROOMS:
-		var encounter := Registry.get_encounter(room_id)
+		var encounter := RoomLibrary.get_room(room_id)
 		print("")
 		print("======== ", room_id, " ========")
 		for arm in [&"unedited", &"first_row", &"library"]:

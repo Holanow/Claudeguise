@@ -14,7 +14,7 @@ const ARM_LIBRARY := &"library"
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.pickable_encounter_ids()
+	var encounter_ids := RoomLibrary.pickable_ids()
 	print("classes: ", class_ids)
 	print("pickable encounters: ", encounter_ids)
 
@@ -35,7 +35,7 @@ func _init() -> void:
 			by_party[[arm, _short(p)]] = _Acc.new()
 
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		print("")
 		print("======== ", encounter_id, " ========")
 		print("  %-22s %-14s %-22s %s" % ["arm", "player wins", "party hp at end", "ticks"])

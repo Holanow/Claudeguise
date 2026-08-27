@@ -19,7 +19,7 @@ const MECHANIC := {
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.pickable_encounter_ids()
+	var encounter_ids := RoomLibrary.pickable_ids()
 
 	_roster_census(encounter_ids)
 
@@ -31,7 +31,7 @@ func _init() -> void:
 	var hp_points := []
 	var sec_points := []
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		print("ENCOUNTER: %s  (%s)" % [encounter_id, encounter.display_name])
 		print("  %-24s %8s %8s %8s" % ["party (left out)", "end HP%", "secs", "loss%"])
 		var per_party := []
@@ -102,7 +102,7 @@ func _roster_census(encounter_ids: Array) -> void:
 	var totals := {}
 	var signatures := {}
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		var counts := {}
 		for spawn in encounter.enemy_spawns:
 			var eid: StringName = spawn["enemy_id"]

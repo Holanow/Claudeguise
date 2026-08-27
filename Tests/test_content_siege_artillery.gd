@@ -91,7 +91,7 @@ func test_no_other_action_is_capped_or_marked_only() -> void:
 ## committed, shots committed at an unmarked target, shots committed at a target
 ## inside the kite band).
 func _run(seed_value: int, encounter_id: StringName) -> Dictionary:
-	var state := CombatSim.build(_party(), Registry.get_encounter(encounter_id), seed_value)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(encounter_id), seed_value)
 	var known := state.units.size()
 	var engine_ids := {}
 	var peak := 0

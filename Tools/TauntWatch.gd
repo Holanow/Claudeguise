@@ -6,8 +6,8 @@ const SEEDS := 20
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		if not _has_taunter(encounter):
 			continue
 		var applied := 0

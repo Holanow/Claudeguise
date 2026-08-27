@@ -196,7 +196,7 @@ const _ENCOUNTER_FOR_TYPE := {
 
 static func _encounter_for(room: FloorRoom) -> RoomData:
 	var encounter_id: StringName = _ENCOUNTER_FOR_TYPE.get(room.type, &"floor1_room1")
-	var base := Registry.get_encounter(encounter_id)
+	var base := RoomLibrary.get_room(encounter_id)
 	var scaled := RoomData.new()
 	scaled.id = base.id
 	scaled.display_name = base.display_name

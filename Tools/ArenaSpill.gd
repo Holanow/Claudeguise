@@ -55,7 +55,7 @@ func _ready() -> void:
 func _start_run() -> void:
 	var run: Dictionary = _runs[_run_index]
 	var party: Array[PawnData] = _party(run["party"])
-	var encounter = Registry.get_encounter(run["encounter"])
+	var encounter = RoomLibrary.get_room(run["encounter"])
 
 	var probe := CombatSim.build(_party(run["party"]), encounter, SEED)
 	CombatSim.run(probe)

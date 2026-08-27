@@ -24,7 +24,7 @@ func _plan_with(action_id: StringName = &"") -> Plan:
 func _situation(plan: Plan, pawn_at: Vector2, foe_at: Vector2, features: Array, class_id: StringName = &"geysermancer") -> Array:
 	var pawn := PawnFactory.make_starter_pawn(class_id, &"p0", "P")
 	pawn.plans = [plan]
-	var state := CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), 1, SimDeps.new())
+	var state := CombatSim.build([pawn], RoomLibrary.get_room(&"floor1_ghoul_den"), 1, SimDeps.new())
 	var me: CombatUnit = null
 	var foe: CombatUnit = null
 	for u in state.units:

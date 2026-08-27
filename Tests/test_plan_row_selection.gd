@@ -49,7 +49,7 @@ func test_a_starter_pawn_carries_no_plans_at_all() -> void:
 ## reaches 45 units; nothing spawns within 400 of a pawn in any encounter.
 func test_a_row_whose_condition_holds_still_loses_when_the_action_cannot_fire() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_preset_pawn(&"abomination", &"a", "a")]
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 0)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 	var unit := state.units[0]
 	state.tick += 1
 	var top: Plan = unit.pawn.plans[0]
@@ -61,8 +61,8 @@ func test_a_row_whose_condition_holds_still_loses_when_the_action_cannot_fire() 
 ## Nothing spawns inside the shortest proximity condition any preset row uses,
 ## so a proximity-gated row can never win the first instant of a fight.
 func test_no_encounter_spawns_a_pawn_within_400_units_of_an_enemy() -> void:
-	for eid in Registry.all_encounter_ids():
-		var state := CombatSim.build(_preset_party(), Registry.get_encounter(eid), 0)
+	for eid in RoomLibrary.all_ids():
+		var state := CombatSim.build(_preset_party(), RoomLibrary.get_room(eid), 0)
 		for unit in state.units:
 			if unit.pawn == null:
 				continue
@@ -74,7 +74,7 @@ func test_no_encounter_spawns_a_pawn_within_400_units_of_an_enemy() -> void:
 ## Order is priority among the rows that can act, and `decide` picks exactly the
 ## first of them. The two implementations must not drift.
 func test_decide_returns_the_first_row_that_produces_an_intent() -> void:
-	var state := CombatSim.build(_preset_party(), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 0)
+	var state := CombatSim.build(_preset_party(), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 	var checked := 0
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 400:
 		for unit in state.units:
@@ -102,7 +102,7 @@ func test_a_busy_pawn_does_not_read_a_row_that_became_ready() -> void:
 	var blocked := 0
 	var longest := 0
 	for s in SEEDS:
-		var state := CombatSim.build(_preset_party(), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), s)
+		var state := CombatSim.build(_preset_party(), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), s)
 		var committed := {}
 		var running := {}
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
@@ -135,7 +135,7 @@ func test_asking_which_row_would_win_does_not_perturb_the_fight() -> void:
 		assert_eq(_fight(s, true), _fight(s, false), "seed %d perturbed by probing" % s)
 
 func _fight(seed_value: int, probed: bool) -> String:
-	var state := CombatSim.build(_preset_party(), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), seed_value)
+	var state := CombatSim.build(_preset_party(), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), seed_value)
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		if probed:
 			for unit in state.units:

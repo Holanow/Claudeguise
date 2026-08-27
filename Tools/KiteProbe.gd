@@ -12,7 +12,7 @@ func _init() -> void:
 	var lash := 0
 	var lash_fights := 0
 	for room_id in ROOMS:
-		var enc := Registry.get_encounter(room_id)
+		var enc := RoomLibrary.get_room(room_id)
 		if enc == null:
 			continue
 		for party in _parties():

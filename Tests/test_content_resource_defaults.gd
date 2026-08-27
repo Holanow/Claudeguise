@@ -6,7 +6,7 @@ extends "res://Tests/TestCase.gd"
 
 func _fresh_state(class_id: StringName) -> CombatState:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(class_id, &"p0", String(class_id))]
-	return CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 0)
+	return CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 0)
 
 func _pawn_unit(state: CombatState):
 	for u in state.units:
@@ -175,7 +175,7 @@ func _bolt_deps() -> SimDeps:
 ## move the Priest's Mana is its own Bolt.
 func _bolt_state() -> CombatState:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p0", "Priest")]
-	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 4)
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 4)
 	for u in state.units:
 		if u.pawn == null:
 			u.alive = u.id == 1

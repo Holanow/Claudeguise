@@ -73,7 +73,7 @@ func test_the_constants_have_not_drifted_apart() -> void:
 func test_every_default_row_has_a_sentence_for_every_class() -> void:
 	for cid in ClassLibrary.all_ids():
 		var party: Array[PawnData] = [PawnFactory.make_starter_pawn(cid, &"p", "p")]
-		var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 0)
+		var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 		var rows := DefaultPlan.rows_for(state.units[0])
 		assert_true(rows.size() > 0, "%s has no default rows at all" % cid)
 		for row in rows:
@@ -85,7 +85,7 @@ func test_every_default_row_has_a_sentence_for_every_class() -> void:
 ## to write its buffs itself.
 func test_only_a_unit_without_a_pawn_carries_the_self_buff_row() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"p", "p")]
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 0)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 	for unit in state.units:
 		var ids: Array[StringName] = []
 		for row in DefaultPlan.rows_for(unit):
@@ -119,7 +119,7 @@ func _aimed_at(state: CombatState, intent: Intent) -> int:
 
 func _pawn_fight() -> CombatState:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
-	return CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 3)
+	return CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 3)
 
 ## The player's click, which only a pawn honours and only through the fallback.
 func test_the_rows_follow_the_players_focus_the_way_the_fallback_did() -> void:

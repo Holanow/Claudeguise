@@ -14,7 +14,7 @@ var perturbed := 0
 
 func _init() -> void:
 	var deps := SimDeps.new()
-	var enc := Registry.get_encounter(ROOM)
+	var enc := RoomLibrary.get_room(ROOM)
 	var class_ids := ClassLibrary.all_ids()
 
 	var windows: Array = []

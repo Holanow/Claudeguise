@@ -8,7 +8,7 @@ func _init() -> void:
 	var party: Array[PawnData] = []
 	for cid in [&"siege_master", &"warrior"]:
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), 5)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 5)
 	CombatSim.run(state)
 	var engines := {}
 	var built_tick := -1

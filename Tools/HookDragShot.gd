@@ -39,18 +39,18 @@ func _party(party_ids: Array) -> Array[PawnData]:
 	return party
 
 func _encounter():
-	return Registry.get_encounter(_encounter_id)
+	return RoomLibrary.get_room(_encounter_id)
 
 ## The hook whose target is dragged furthest, over every room and every party
 ## that can throw one. The first hook is not the one to draw: a pull into a wall
 ## stops where `_sweep` stops it, which is correct and shows nothing.
 func _longest_drag() -> Dictionary:
 	var best := {"tick": -1, "id": -1, "party": [], "encounter": &"", "moved": 0.0}
-	for encounter_id in Registry.all_encounter_ids():
+	for encounter_id in RoomLibrary.all_ids():
 		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			if not party_ids.has(&"abomination"):
 				continue
-			var state := CombatSim.build(_party(party_ids), Registry.get_encounter(encounter_id), SEED)
+			var state := CombatSim.build(_party(party_ids), RoomLibrary.get_room(encounter_id), SEED)
 			var dragging := {}
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				CombatSim.step(state)

@@ -41,7 +41,7 @@ func _pawn_radius(pawn) -> float:
 	# Player pawns take CombatUnit's default radius; ask the built unit rather
 	# than guessing, by building a one-pawn fight.
 	var party: Array[PawnData] = [pawn]
-	var enc = Registry.get_encounter(Registry.all_encounter_ids()[0])
+	var enc = RoomLibrary.get_room(RoomLibrary.all_ids()[0])
 	var state := CombatSim.build(party, enc, 0)
 	for u in state.units:
 		if u.team == CG.Team.PLAYER:
@@ -62,8 +62,8 @@ func _measure_bearings() -> void:
 	var follow_melee := []
 	var target_died := []
 	var attacker_died := []
-	for encounter_id in Registry.all_encounter_ids():
-		var enc = Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var enc = RoomLibrary.get_room(encounter_id)
 		var drifts := []
 		var follow_drifts := []
 		for s in SEEDS:

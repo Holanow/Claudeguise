@@ -83,7 +83,7 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 	for p in party:
 		if p.pawn_class.id == &"warrior":
 			p.armor = ItemLibrary.get_equipment(&"plate_mail")
-	var state := CombatSim.build(party, Registry.get_encounter(&"floor1_room1"), 0)
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 0)
 	var found := false
 	for u in state.units:
 		if u.pawn != null and u.pawn.pawn_class.id == &"warrior":

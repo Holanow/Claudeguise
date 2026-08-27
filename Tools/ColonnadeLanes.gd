@@ -8,7 +8,7 @@ const SEEDS := 10
 const CELL := 60.0
 
 func _init() -> void:
-	var enc := Registry.get_encounter(&"floor1_cover")
+	var enc := RoomLibrary.get_room(&"floor1_cover")
 	var bare := _without_terrain(enc)
 	var lanes: Array[PackedFloat32Array] = []
 	for party in _parties():

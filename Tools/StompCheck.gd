@@ -22,7 +22,7 @@ func _say(line: String = "") -> void:
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("no content registered; nothing to check")
 		quit(1)
@@ -31,7 +31,7 @@ func _init() -> void:
 	var contests := 0
 	var total := 0
 	for encounter_id in encounter_ids:
-		var encounter := Registry.get_encounter(encounter_id)
+		var encounter := RoomLibrary.get_room(encounter_id)
 		for party_ids in _parties(class_ids):
 			total += 1
 			if _check(encounter_id, encounter, party_ids):

@@ -24,7 +24,7 @@ func _party() -> Array[PawnData]:
 func _view_driven_by_assignment():
 	var view = in_tree(BattleScene.instantiate())
 	view.state = CombatSim.build(_party(),
-		Registry.get_encounter(Registry.all_encounter_ids()[0]), 7)
+		RoomLibrary.get_room(RoomLibrary.all_ids()[0]), 7)
 	view.event_cursor = 0
 	return view
 

@@ -52,7 +52,7 @@ func _arm(with_row: bool) -> Dictionary:
 	var healed_by_row := 0
 	var healed_by_fallback := 0
 	for s in SEEDS:
-		var state := CombatSim.build(_party(with_row), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), s)
+		var state := CombatSim.build(_party(with_row), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), s)
 		CombatSim.run(state)
 		ticks.append(state.tick)
 		health.append(_hp_percent(state))

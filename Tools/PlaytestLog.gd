@@ -9,7 +9,7 @@ const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("no content")
 		quit(1)
@@ -29,7 +29,7 @@ func _log_one_fight(party_ids: Array) -> void:
 		## walk and swing and the read was of unauthored behaviour (#417).
 		party.append(PawnFactory.make_preset_pawn(cid, StringName("%s" % cid), ClassLibrary.get_class_def(cid).display_name))
 
-	var state := CombatSim.build(party, Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
+	var state := CombatSim.build(party, RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(state)
 
 	print("=== fight, party %s, seed %08X, %d ticks (%.1fs) ===" % [

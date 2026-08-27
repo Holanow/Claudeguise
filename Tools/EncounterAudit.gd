@@ -34,7 +34,7 @@ func _differs(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _run_mono(class_id: StringName, seed: int) -> Dictionary:
-	var enc := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var enc := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var state := CombatSim.build(_party_of(class_id, 4), enc, seed)
 	var outcome := CombatSim.run(state)
 	return {"outcome": outcome, "ticks": state.tick}
@@ -45,7 +45,7 @@ func _probe_unresolved() -> void:
 	print("  `test_the_chokepoint_room_resolves_instead_of_drawing` counts exactly that.")
 
 	# The healthy input the assertion is actually run on today.
-	var chokepoint := Registry.get_encounter(&"floor1_chokepoint")
+	var chokepoint := RoomLibrary.get_room(&"floor1_chokepoint")
 	var seen := {}
 	for seed in 40:
 		var s := CombatSim.build(_party_of(&"siege_master", 4), chokepoint, seed)
@@ -56,7 +56,7 @@ func _probe_unresolved() -> void:
 
 	# The input it exists to catch. finch reported a real stall on #252:
 	# floor1_cover, this party, and a stall means the tick cap.
-	var cover := Registry.get_encounter(&"floor1_cover")
+	var cover := RoomLibrary.get_room(&"floor1_cover")
 	var stalls := 0
 	var stall_outcomes := {}
 	for seed in 6000:

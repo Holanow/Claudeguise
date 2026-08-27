@@ -41,7 +41,7 @@ func _init() -> void:
 		for seed in SEEDS:
 			var party := _party(arm)
 			blocks = _blocks(party[0])
-			var state := CombatSim.build(party, Registry.get_encounter(&"floor1_cover"), seed, SimDeps.new())
+			var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_cover"), seed, SimDeps.new())
 			var me := _geysermancer(state)
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				## Sampled BEFORE the step: this is the focus the condition on the

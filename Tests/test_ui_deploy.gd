@@ -27,11 +27,11 @@ func _cfg(n: int = 4) -> RunConfig:
 func _held(cfg: RunConfig, positions: Array[Vector2] = []):
 	var view = in_tree(BattleScene.instantiate())
 	view._ready()
-	view.begin_setup(cfg, Registry.get_encounter(cfg.encounter_id), positions)
+	view.begin_setup(cfg, RoomLibrary.get_room(cfg.encounter_id), positions)
 	return view
 func test_the_fight_starts_the_party_where_the_player_put_them() -> void:
 	var cfg := _cfg()
-	var base = Registry.get_encounter(cfg.encounter_id)
+	var base = RoomLibrary.get_room(cfg.encounter_id)
 	var chosen: Array[Vector2] = [
 		Vector2(-400.0, -120.0), Vector2(-380.0, 40.0),
 		Vector2(-250.0, 150.0), Vector2(-420.0, -200.0),
@@ -51,7 +51,7 @@ func test_the_fight_starts_the_party_where_the_player_put_them() -> void:
 ## from the same room with no placement, the party must NOT be standing there.
 func test_without_placement_the_party_stands_somewhere_else() -> void:
 	var cfg := _cfg()
-	var base = Registry.get_encounter(cfg.encounter_id)
+	var base = RoomLibrary.get_room(cfg.encounter_id)
 	var chosen: Array[Vector2] = [
 		Vector2(-400.0, -120.0), Vector2(-380.0, 40.0),
 		Vector2(-250.0, 150.0), Vector2(-420.0, -200.0),
@@ -71,7 +71,7 @@ func test_without_placement_the_party_stands_somewhere_else() -> void:
 ## including the re-run that exists to be a comparison control -- and would do
 ## it invisibly.
 func test_placing_a_party_does_not_edit_the_registrys_room() -> void:
-	var base = Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var base = RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var before: Array[Vector2] = []
 	for p in base.party_spawns:
 		before.append(p)
@@ -185,7 +185,7 @@ func _first_pawn_id(state: CombatState) -> int:
 func test_the_screen_opens_where_the_fight_would_have_started_the_party() -> void:
 	var cfg := _cfg()
 	var view = _held(cfg)
-	var encounter = Registry.get_encounter(cfg.encounter_id)
+	var encounter = RoomLibrary.get_room(cfg.encounter_id)
 	var got: Array[Vector2] = view.placements()
 	assert_eq(got.size(), cfg.party.size(), "one placement per party member")
 	for i in cfg.party.size():
@@ -196,7 +196,7 @@ func test_the_screen_opens_where_the_fight_would_have_started_the_party() -> voi
 ## A party larger than the room's authored spawn list is the overflow case, and
 ## it is the one a reimplementation would have got wrong.
 func test_every_opening_position_is_inside_the_band() -> void:
-	for encounter_id in Registry.all_encounter_ids():
+	for encounter_id in RoomLibrary.all_ids():
 		var cfg := _cfg()
 		cfg.encounter_id = encounter_id
 		var view = _held(cfg)

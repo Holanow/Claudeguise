@@ -27,7 +27,7 @@ var _capturing := false
 func _ready() -> void:
 	Offscreen.hide_window(self)
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	if class_ids.is_empty() or encounter_ids.is_empty():
 		printerr("ContactSheet: no content registered")
 		get_tree().quit(1)
@@ -45,7 +45,7 @@ func _start_fight() -> void:
 	# the frames can be spread across its actual arc. The screen then plays the
 	# same seed and reaches the same ticks, because that is the whole point of
 	# the determinism rule.
-	var probe := CombatSim.build(_party(party_ids), Registry.get_encounter(CG.DEFAULT_ENCOUNTER), SEED)
+	var probe := CombatSim.build(_party(party_ids), RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), SEED)
 	CombatSim.run(probe)
 	var total: int = maxi(probe.tick, FRAMES)
 	print("ContactSheet: party %s lasts %d ticks (%.1fs), outcome %d" % [

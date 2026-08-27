@@ -7,7 +7,7 @@ extends "res://Tests/TestCase.gd"
 
 func _party_state(seed_value: int = 1) -> CombatState:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"p0", "P")
-	return CombatSim.build([pawn], Registry.get_encounter(&"floor1_ghoul_den"), seed_value, SimDeps.new())
+	return CombatSim.build([pawn], RoomLibrary.get_room(&"floor1_ghoul_den"), seed_value, SimDeps.new())
 
 func _enemies(state: CombatState) -> Array[CombatUnit]:
 	return state.living(CG.Team.ENEMY)

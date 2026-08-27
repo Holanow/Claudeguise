@@ -45,7 +45,7 @@ func _measure(room: StringName) -> Array:
 	var all := 0
 	var none := 0
 	for s in SEEDS:
-		var state := CombatSim.build(_party(), Registry.get_encounter(room), s, SimDeps.new())
+		var state := CombatSim.build(_party(), RoomLibrary.get_room(room), s, SimDeps.new())
 		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 			for u in state.units:
 				if not u.alive:
@@ -94,9 +94,9 @@ func _verify() -> void:
 	var perturbed := 0
 	for room in ROOMS:
 		for s in SEEDS:
-			var a := CombatSim.build(_party(), Registry.get_encounter(room), s, SimDeps.new())
+			var a := CombatSim.build(_party(), RoomLibrary.get_room(room), s, SimDeps.new())
 			CombatSim.run(a)
-			var b := CombatSim.build(_party(), Registry.get_encounter(room), s, SimDeps.new())
+			var b := CombatSim.build(_party(), RoomLibrary.get_room(room), s, SimDeps.new())
 			while b.outcome == CombatState.Outcome.UNRESOLVED and b.tick < CG.MAX_TICKS:
 				for u in b.units:
 					if u.alive and _sighted_reach(u) >= RANGED_MIN:

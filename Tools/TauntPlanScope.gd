@@ -9,8 +9,8 @@ func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
 	var deps := SimDeps.new()
 	var totals := {}
-	for encounter_id in Registry.all_encounter_ids():
-		var encounter := Registry.get_encounter(encounter_id)
+	for encounter_id in RoomLibrary.all_ids():
+		var encounter := RoomLibrary.get_room(encounter_id)
 		var row := _measure(class_ids, encounter, deps)
 		_print_row(String(encounter_id), row)
 		for k in row:

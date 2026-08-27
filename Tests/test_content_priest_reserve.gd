@@ -76,7 +76,7 @@ func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 	var starts := 0
 	var fights := 0
 	for encounter_id in [&"floor1_room1", &"floor1_horde", &"floor1_ghoul_den"]:
-		if Registry.get_encounter(encounter_id) == null:
+		if RoomLibrary.get_room(encounter_id) == null:
 			continue
 		for fight_seed in 4:
 			fights += 1
@@ -84,7 +84,7 @@ func test_no_priest_ever_spends_below_the_reserve_in_a_real_fight() -> void:
 			for cid in [&"priest", &"warrior", &"abomination", &"geysermancer"]:
 				party.append(PawnFactory.make_preset_pawn(cid, StringName("p%d" % party.size()), String(cid)))
 			var deps := SimDeps.new()
-			var state := CombatSim.build(party, Registry.get_encounter(encounter_id), fight_seed, deps)
+			var state := CombatSim.build(party, RoomLibrary.get_room(encounter_id), fight_seed, deps)
 			var mana_before := {}
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				for u in state.units:

@@ -334,11 +334,11 @@ func _phase_battle_controls() -> void:
 # ---------------------------------------------------------------------------
 
 func _phase_party_comparison() -> void:
-	var encounter_ids := Registry.all_encounter_ids()
+	var encounter_ids := RoomLibrary.all_ids()
 	if encounter_ids.is_empty():
 		_log("no encounter registered; cannot compare parties")
 		return
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var seed := RunConfig.parse_seed(FIXED_SEED)
 
 	var parties := {

@@ -10,7 +10,7 @@ extends SceneTree
 const SEEDS := 12
 
 func _init() -> void:
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
 	var mark := ActionLibrary.get_action(&"spotter_mark")
 	print("bolt: wind_up=%d recover=%d range=%.0f marked_only=%s" % [

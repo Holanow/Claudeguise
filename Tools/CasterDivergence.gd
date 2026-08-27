@@ -6,7 +6,7 @@ extends SceneTree
 const SEEDS := 40
 
 func _init() -> void:
-	var encounter := Registry.get_encounter(CG.DEFAULT_ENCOUNTER)
+	var encounter := RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER)
 	for cid in [&"priest", &"geysermancer"]:
 		_kit(cid)
 	for cid in [&"priest", &"geysermancer"]:

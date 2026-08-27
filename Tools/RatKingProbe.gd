@@ -6,7 +6,7 @@ extends SceneTree
 const SEEDS := 5
 
 func _init() -> void:
-	var encounter := Registry.get_encounter(&"floor1_rat_king")
+	var encounter := RoomLibrary.get_room(&"floor1_rat_king")
 	var class_ids := ClassLibrary.all_ids()
 	for skip in class_ids.size():
 		for s in SEEDS:

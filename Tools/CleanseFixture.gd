@@ -9,7 +9,7 @@ const MAX_SEEDS := 24
 func _init() -> void:
 	print("")
 	print("%-22s %6s %8s %8s %8s %9s %9s" % ["encounter", "seeds", "casts", "strips", "harmful", "on_ally", "poisonings"])
-	for encounter_id in Registry.all_encounter_ids():
+	for encounter_id in RoomLibrary.all_ids():
 		for seeds in [6, 12, 24, 48]:
 			var casts := 0
 			var strips := 0
@@ -48,7 +48,7 @@ func _party() -> Array[PawnData]:
 
 func _run(encounter_id: StringName, fight_seed: int) -> CombatState:
 	var deps := SimDeps.new()
-	var state := CombatSim.build(_party(), Registry.get_encounter(encounter_id), fight_seed, deps)
+	var state := CombatSim.build(_party(), RoomLibrary.get_room(encounter_id), fight_seed, deps)
 	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 		CombatSim.step(state, deps)
 	return state
