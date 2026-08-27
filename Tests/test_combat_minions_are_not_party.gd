@@ -20,7 +20,7 @@ const SEEDS := 40
 
 func _party(skip: StringName) -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		if cid == skip:
 			continue
 		out.append(PawnFactory.make_preset_pawn(

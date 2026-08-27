@@ -86,7 +86,7 @@ func _fight_usage(ids: Array, enc_id: StringName, s: int) -> Dictionary:
 	for cid in ids:
 		var c := StringName(cid)
 		party.append(PawnFactory.make_starter_pawn(
-			c, StringName("%s_%d" % [cid, party.size()]), Registry.get_class_def(c).display_name
+			c, StringName("%s_%d" % [cid, party.size()]), ClassLibrary.get_class_def(c).display_name
 		))
 	var state := CombatSim.build(party, Registry.get_encounter(enc_id), s)
 

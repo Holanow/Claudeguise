@@ -162,8 +162,8 @@ func test_every_named_cause_really_lowers_the_reduction() -> void:
 ## a player could have taken off it.
 func test_an_armoured_enemy_names_hide() -> void:
 	var found := CG.MitigationCause.NONE
-	for id in Registry.all_enemy_ids():
-		var d: EnemyDef = Registry.get_enemy(id)
+	for id in EnemyLibrary.all_ids():
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		if d == null or d.damage_reduction <= 0.0:
 			continue
 		var u := CombatUnit.new()
@@ -179,8 +179,8 @@ func test_an_armoured_enemy_names_hide() -> void:
 ## The first enemy in content that has any hide to strip, so these cases test a
 ## real target rather than a hand-made one whose numbers I chose.
 func _hided_enemy() -> CombatUnit:
-	for id in Registry.all_enemy_ids():
-		var d: EnemyDef = Registry.get_enemy(id)
+	for id in EnemyLibrary.all_ids():
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		if d != null and d.damage_reduction > 0.0:
 			var u := CombatUnit.new()
 			u.enemy_id = id
@@ -218,7 +218,7 @@ func test_a_marked_enemy_is_given_no_cause() -> void:
 ## the next action that buffs an enemy must not rediscover it.
 func test_a_shielded_enemy_is_actually_shielded() -> void:
 	var u := CombatUnit.new()
-	u.enemy_id = Registry.all_enemy_ids()[0]
+	u.enemy_id = EnemyLibrary.all_ids()[0]
 	var bare: float = SimDeps._default_damage_reduction(u)
 	u.statuses[CG.Status.SHIELD] = 999
 	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + StatusLibrary.of(CG.Status.SHIELD).damage_reduction)
@@ -226,7 +226,7 @@ func test_a_shielded_enemy_is_actually_shielded() -> void:
 
 func test_a_blocking_enemy_is_actually_blocking() -> void:
 	var u := CombatUnit.new()
-	u.enemy_id = Registry.all_enemy_ids()[0]
+	u.enemy_id = EnemyLibrary.all_ids()[0]
 	var bare: float = SimDeps._default_damage_reduction(u)
 	u.statuses[CG.Status.BLOCK] = 999
 	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + StatusLibrary.of(CG.Status.BLOCK).damage_reduction)
@@ -235,7 +235,7 @@ func test_a_blocking_enemy_is_actually_blocking() -> void:
 ## old enemy short-circuit broke.
 func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 	var checked := 0
-	for id in Registry.all_enemy_ids():
+	for id in EnemyLibrary.all_ids():
 		for marked in [false, true]:
 			var u := CombatUnit.new()
 			u.enemy_id = id
@@ -244,7 +244,7 @@ func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 			assert_almost_eq(SimDeps._default_damage_reduction(u), Balance.damage_reduction(u),
 				0.0001, "seam disagrees with Balance for %s (marked %s)" % [id, marked])
 			checked += 1
-	assert_eq(checked, Registry.all_enemy_ids().size() * 2,
+	assert_eq(checked, EnemyLibrary.all_ids().size() * 2,
 		"'every enemy in content' is the claim, so the count must be the roster, not a floor under it")
 
 # ---------------------------------------------------------------------------

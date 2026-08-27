@@ -41,7 +41,7 @@ func _ready() -> void:
 	DisplayOptions.set_enabled(&"name_plates", true)
 	DisplayOptions.set_enabled(&"damage_numbers", true)
 	Engine.time_scale = TIME_SCALE
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var encounters := Registry.pickable_encounter_ids()
 	if class_ids.is_empty() or encounters.is_empty():
 		printerr("PlateDensity: no content registered")
@@ -89,7 +89,7 @@ func _party(ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
 	for cid in ids:
 		out.append(PawnFactory.make_starter_pawn(
-			cid, StringName("%s_%d" % [cid, out.size()]), Registry.get_class_def(cid).display_name))
+			cid, StringName("%s_%d" % [cid, out.size()]), ClassLibrary.get_class_def(cid).display_name))
 	return out
 
 func _process(_delta: float) -> void:

@@ -195,7 +195,7 @@ static func _plan(id: StringName, display_name: String, condition: ConditionBloc
 ## resolves it once at build time rather than storing the id in the block.
 static func _use(action_id: StringName) -> UseActionBlock:
 	var b := UseActionBlock.new()
-	b.action = Registry.get_action(action_id)
+	b.action = ActionLibrary.get_action(action_id)
 	return b
 
 static func _enemy_in_range(units: float) -> EnemyInRangeBlock:

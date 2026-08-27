@@ -19,7 +19,7 @@ func _immobile_dummy(id: int, team: CG.Team, pos: Vector2) -> CombatUnit:
 	return u
 
 func _stalker(at: Vector2 = Vector2.ZERO) -> CombatUnit:
-	var def := Registry.get_enemy(&"stalker")
+	var def := EnemyLibrary.get_enemy(&"stalker")
 	var u := CombatUnit.new()
 	u.id = 0
 	u.team = CG.Team.PLAYER

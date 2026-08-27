@@ -15,7 +15,7 @@ const COVER_DEPTH := 300.0
 const COVER_HALF_WIDTH := 110.0
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var totals := {}
 	for encounter_id in Registry.all_encounter_ids():
 		var encounter := Registry.get_encounter(encounter_id)

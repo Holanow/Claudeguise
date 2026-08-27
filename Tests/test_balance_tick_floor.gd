@@ -22,8 +22,8 @@ func _pawn(class_id: StringName, agi: int) -> PawnData:
 func test_no_action_can_be_scaled_below_one_tick_by_agi() -> void:
 	var pawn := _pawn(&"warrior", ABSURD_AGI)
 	var checked := 0
-	for id in Registry.all_action_ids():
-		var a := Registry.get_action(id)
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
 		if a == null:
 			continue
 		for label in ["wind-up", "recover"]:
@@ -45,8 +45,8 @@ func test_the_floor_actually_fires_at_the_shipped_cap() -> void:
 	var pawn := _pawn(&"warrior", ABSURD_AGI)
 	var scale: float = Balance.MAX_AGI_TICK_SCALE
 	var floored := []
-	for id in Registry.all_action_ids():
-		var a := Registry.get_action(id)
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
 		if a == null:
 			continue
 		for base in [a.wind_up_ticks, a.recover_ticks]:
@@ -83,7 +83,7 @@ func test_haste_cannot_take_an_action_to_zero_ticks() -> void:
 ## Without this the floor could be `return 1` and every test above would pass.
 func test_an_ordinary_pawn_is_not_touched_by_the_floor() -> void:
 	var moved := 0
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, &"p", String(cid))
 		var scale: float = clampf(
 			Balance.attribute(pawn, CG.Attribute.AGI) * Balance.AGI_TICK_SCALE_PER_POINT,

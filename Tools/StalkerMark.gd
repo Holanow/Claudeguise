@@ -7,7 +7,7 @@ extends SceneTree
 
 func _ids() -> Array[StringName]:
 	var names := PackedStringArray()
-	for id in Registry.all_class_ids():
+	for id in ClassLibrary.all_ids():
 		names.append(String(id))
 	names.sort()
 	var out: Array[StringName] = []

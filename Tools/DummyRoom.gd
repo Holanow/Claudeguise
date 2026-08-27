@@ -112,7 +112,7 @@ func _check_action(action: ActionDef) -> Array[String]:
 	var deps := SimDeps.new()
 	deps.default_decide = Callable(rig, "decide")
 	## `SimDeps._default_attack_power` derives its number from `unit.pawn` or
-	## `Registry.get_enemy(unit.enemy_id)`, both null on a bare dummy, which
+	## `EnemyLibrary.get_enemy(unit.enemy_id)`, both null on a bare dummy, which
 	## would silently floor every hit at 0 regardless of what the action
 	## declares. Fixed and independent of `Balance.gd`, on purpose: this rig
 	## is testing whether an effect fires, not what it is tuned to.

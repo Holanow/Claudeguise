@@ -80,7 +80,7 @@ func _strip(stem: String, particles: bool, ring: bool) -> void:
 	DisplayOptions.reset()
 	DisplayOptions.set_enabled(&"hit_stop", false)
 	DisplayOptions.set_enabled(&"impact_particles", particles)
-	await _build(ScreenSweepScript.sweep_parties(Registry.all_class_ids())[0])
+	await _build(ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())[0])
 
 	# A hit on a body that actually has company. Without this the strip is the
 	# same single-body framing #517 already took.

@@ -6,7 +6,7 @@ extends SceneTree
 const SEEDS := 20
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	if class_ids.size() < 5:
 		printerr("need five classes")
 		quit(1)
@@ -36,7 +36,7 @@ func _run_party(ids: Array, left_out: String) -> void:
 		for cid in ids:
 			var c := StringName(cid)
 			party.append(PawnFactory.make_starter_pawn(
-				c, StringName("%s" % cid), Registry.get_class_def(c).display_name
+				c, StringName("%s" % cid), ClassLibrary.get_class_def(c).display_name
 			))
 
 		var depth := 0

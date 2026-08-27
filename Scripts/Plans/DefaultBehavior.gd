@@ -120,7 +120,7 @@ static func _only_marked(enemies: Array[CombatUnit]) -> Array[CombatUnit]:
 static func _all_actions(unit: CombatUnit) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []
 	for id in unit.actions:
-		var a: ActionDef = Registry.get_action(id)
+		var a: ActionDef = ActionLibrary.get_action(id)
 		if a != null:
 			out.append(a)
 	return out
@@ -245,7 +245,7 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 		## Searched inside `enemies` so it cannot outrank the mark filter above.
 		var picked := player_focus(state, enemies)
 		return picked if picked != null else nearest
-	var enemy_def: EnemyDef = Registry.get_enemy(unit.enemy_id)
+	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	if enemy_def == null or enemy_def.focus_bias <= 0.0:
 		return nearest
 	var focused := _most_focused(state, unit, enemies)

@@ -110,7 +110,7 @@ static func _live_summons(state: CombatState) -> Array:
 ## Whether this unit owns any action that is gated by a cooldown at all.
 static func has_cooldown_actions(u: CombatUnit) -> bool:
 	for action_id in u.actions:
-		var a = Registry.get_action(action_id)
+		var a = ActionLibrary.get_action(action_id)
 		if a != null and a.cooldown_ticks > 0:
 			return true
 	return false
@@ -122,7 +122,7 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		return running
 	for action_id in u.actions:
-		var a = Registry.get_action(action_id)
+		var a = ActionLibrary.get_action(action_id)
 		if a == null or a.cooldown_ticks <= 0:
 			continue
 		if not u.cooldowns.has(action_id):

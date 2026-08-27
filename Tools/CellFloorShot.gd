@@ -35,7 +35,7 @@ func _party() -> Array[PawnData]:
 	for cid in PARTY:
 		out.append(PawnFactory.make_starter_pawn(StringName(cid),
 			StringName("%s_%d" % [cid, out.size()]),
-			Registry.get_class_def(StringName(cid)).display_name))
+			ClassLibrary.get_class_def(StringName(cid)).display_name))
 	return out
 
 func _process(_delta: float) -> void:

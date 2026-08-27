@@ -18,7 +18,7 @@ func test_blast_the_burning_declares_burn_and_names_scald_as_its_supplier() -> v
 ## The negative half. A row whose condition holds against an untouched enemy is
 ## not a dependency, or every Claw and every in-range row would declare one.
 func test_a_row_that_works_alone_declares_nothing() -> void:
-	for class_id in Registry.all_class_ids():
+	for class_id in ClassLibrary.all_ids():
 		var deps := PresetPlans.row_dependencies(class_id)
 		for plan in PresetPlans.for_class(class_id):
 			if plan.id == &"geyser_blast_the_burning":

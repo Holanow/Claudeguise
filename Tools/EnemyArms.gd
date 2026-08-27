@@ -42,11 +42,11 @@ func _hostile_ids() -> Array:
 		for spawn in Registry.get_encounter(eid).enemy_spawns:
 			ids[spawn.get("enemy_id", &"")] = true
 	for id in ids.keys().duplicate():
-		var d: EnemyDef = Registry.get_enemy(id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		if d == null:
 			continue
 		for aid in d.actions:
-			var a: ActionDef = Registry.get_action(aid)
+			var a: ActionDef = ActionLibrary.get_action(aid)
 			if a != null and a.summons_unit_id != &"":
 				ids[a.summons_unit_id] = true
 	return ids.keys()
@@ -55,7 +55,7 @@ func _run_arm(arm: Dictionary) -> void:
 	var hostile := _hostile_ids()
 	var saved := {}
 	for id in hostile:
-		var d: EnemyDef = Registry.get_enemy(id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		saved[id] = {"hp": d.hp_max, "atk": d.attack_power.duplicate()}
 		d.hp_max = maxi(1, int(round(float(d.hp_max) * float(arm["ehp"]))))
 		var scaled := {}
@@ -70,7 +70,7 @@ func _run_arm(arm: Dictionary) -> void:
 		var base := SimDeps._default_attack_power(unit, action, rng)
 		return base * player_scale if unit.pawn != null else base
 
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var wins := 0
 	var fights := 0
 	var per_room := {}
@@ -101,7 +101,7 @@ func _run_arm(arm: Dictionary) -> void:
 		fights += rf
 
 	for id in hostile:
-		var d: EnemyDef = Registry.get_enemy(id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(id)
 		d.hp_max = saved[id]["hp"]
 		d.attack_power = saved[id]["atk"]
 

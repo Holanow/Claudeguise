@@ -38,7 +38,7 @@ func _preset_party() -> Array[PawnData]:
 ## `SampleFights` and almost every tool build starter pawns, so what they
 ## measure is `DefaultBehavior` and not the plan layer.
 func test_a_starter_pawn_carries_no_plans_at_all() -> void:
-	for cid in Registry.all_class_ids():
+	for cid in ClassLibrary.all_ids():
 		var starter := PawnFactory.make_starter_pawn(cid, &"s", "s")
 		assert_eq(starter.plans.size(), 0, "%s starter pawn should carry no plans" % cid)
 		var preset := PawnFactory.make_preset_pawn(cid, &"p", "p")

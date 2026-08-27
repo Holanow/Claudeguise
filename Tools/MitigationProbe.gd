@@ -12,7 +12,7 @@ var _armor_share := {}
 var _short_circuit := {}
 
 func _init() -> void:
-	var class_ids := Registry.all_class_ids()
+	var class_ids := ClassLibrary.all_ids()
 	var rows := []
 	for encounter_id in Registry.all_encounter_ids():
 		var encounter := Registry.get_encounter(encounter_id)
@@ -98,7 +98,7 @@ func _inspect(u: CombatUnit, used: float) -> void:
 	if u.pawn == null:
 		# What the shipped code did before this branch: hide only, statuses
 		# never reached.
-		var d: EnemyDef = Registry.get_enemy(u.enemy_id)
+		var d: EnemyDef = EnemyLibrary.get_enemy(u.enemy_id)
 		var old_value := 0.0 if d == null else d.damage_reduction
 		if not is_equal_approx(old_value, used):
 			_bump(_short_circuit, "old %.2f -> now %.2f" % [old_value, used])

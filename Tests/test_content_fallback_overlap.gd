@@ -19,7 +19,7 @@ func test_both_heal_rows_fire_above_the_fallbacks_own_threshold() -> void:
 func test_the_taunt_row_asks_for_the_taunts_own_radius() -> void:
 	var top := PresetPlans.for_class(&"warrior")[0]
 	assert_true(top.condition is EnemyInRangeBlock, "the Warrior no longer leads with a ranged condition")
-	assert_eq((top.condition as EnemyInRangeBlock).range_units, Registry.get_action(&"warrior_taunt").taunt_radius,
+	assert_eq((top.condition as EnemyInRangeBlock).range_units, ActionLibrary.get_action(&"warrior_taunt").taunt_radius,
 		"the Taunt row's range has drifted from warrior_taunt's taunt_radius")
 func _action_of(plan: Plan) -> StringName:
 	for b in plan.blocks:
