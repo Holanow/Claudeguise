@@ -8,8 +8,6 @@ class_name DeployView
 ## screen: "I should basically be moving them around in a paused battle screen
 ## and then unpausing it."
 
-## Same rect and same colour the level editor's overlay draws, so the band means
-## one thing everywhere it appears.
 const ZONE_ALPHA := 0.14
 
 func _draw() -> void:
@@ -43,3 +41,18 @@ static func encounter_with_placement(base, positions: Array[Vector2]):
 		spawns.append(p)
 	out.party_spawns = spawns
 	return out
+
+## The rightmost x a party member may hold, accounting for its own radius so a
+## marker cannot straddle the line it is constrained by. Static and derived from
+## `CG` rather than typed, so it cannot drift from the zone this screen draws or
+## from the rule encounter authors follow.
+static func clamp_to_deploy_zone(world: Vector2, radius: float) -> Vector2:
+	var min_x := -CG.ARENA_HALF_WIDTH + radius
+	var max_x := CG.party_deploy_max_x() - radius
+	# A radius wider than the zone would invert the range; pin to the zone's
+	# right edge rather than returning something outside it.
+	if max_x < min_x:
+		return Vector2(CG.party_deploy_max_x(), clampf(world.y, -CG.ARENA_HALF_HEIGHT + radius, CG.ARENA_HALF_HEIGHT - radius))
+	return Vector2(
+		clampf(world.x, min_x, max_x),
+		clampf(world.y, -CG.ARENA_HALF_HEIGHT + radius, CG.ARENA_HALF_HEIGHT - radius))

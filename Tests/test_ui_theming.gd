@@ -10,7 +10,6 @@ const _SCRATCH := "res://Assets/UI/background/%s.png"
 var _ELEMENTS := {
 	"party_select": PartySelect,
 	"floor_map": FloorMapView,
-	"level_editor": LevelEditorView,
 }
 
 ## A file that cannot be mistaken for anything already in the repository, in a

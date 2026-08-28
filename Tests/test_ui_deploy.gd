@@ -1,6 +1,5 @@
 extends "res://Tests/TestCase.gd"
 
-const CanvasScript := preload("res://Scripts/UI/LevelEditorCanvas.gd")
 const BattleScene := preload("res://Scenes/Battle.tscn")
 const MainScene := preload("res://Scenes/Main.tscn")
 
@@ -93,7 +92,7 @@ func test_placing_a_party_does_not_edit_the_registrys_room() -> void:
 ## straddle the line it is constrained by.
 func test_a_pawn_cannot_be_placed_past_the_deploy_line() -> void:
 	var radius := 22.0
-	var far_right := CanvasScript.clamp_to_deploy_zone(Vector2(9999.0, 0.0), radius)
+	var far_right := DeployView.clamp_to_deploy_zone(Vector2(9999.0, 0.0), radius)
 	assert_true(far_right.x <= CG.party_deploy_max_x(),
 		"placed at %.1f, the line is %.1f" % [far_right.x, CG.party_deploy_max_x()])
 	assert_almost_eq(far_right.x, CG.party_deploy_max_x() - radius, 0.001,
@@ -102,18 +101,18 @@ func test_a_pawn_cannot_be_placed_past_the_deploy_line() -> void:
 	# Both directions: a position already legal must come back untouched, or a
 	# clamp that pinned everything to one spot would pass the check above.
 	var inside := Vector2(-300.0, 60.0)
-	assert_eq(CanvasScript.clamp_to_deploy_zone(inside, radius), inside,
+	assert_eq(DeployView.clamp_to_deploy_zone(inside, radius), inside,
 		"a legal position must not be moved")
 
 func test_a_pawn_cannot_be_placed_outside_the_arena() -> void:
 	var radius := 22.0
-	var below := CanvasScript.clamp_to_deploy_zone(Vector2(-500.0, 99999.0), radius)
+	var below := DeployView.clamp_to_deploy_zone(Vector2(-500.0, 99999.0), radius)
 	assert_almost_eq(below.y, CG.ARENA_HALF_HEIGHT - radius, 0.001)
-	var left := CanvasScript.clamp_to_deploy_zone(Vector2(-99999.0, 0.0), radius)
+	var left := DeployView.clamp_to_deploy_zone(Vector2(-99999.0, 0.0), radius)
 	assert_almost_eq(left.x, -CG.ARENA_HALF_WIDTH + radius, 0.001)
 
-## The same band the level editor draws, on the arena the fight is drawn on, and
-## only while the fight is held.
+## The band, on the arena the fight is drawn on, and only while the fight is
+## held.
 func test_the_band_is_drawn_while_placing_and_gone_once_the_fight_starts() -> void:
 	var view = _held(_cfg())
 	assert_true(view._deploy_band != null, "no band on the arena at all")
