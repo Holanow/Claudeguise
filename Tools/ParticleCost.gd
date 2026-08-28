@@ -145,7 +145,7 @@ func _cost(units: int, particles: bool, per_tick: int) -> void:
 		if particles and i % FRAMES_PER_TICK == 0:
 			for n in per_tick:
 				var u: CombatUnit = state.units[(bursts + n) % state.units.size()]
-				_view._bursts.burst(u.position, CG.DamageType.PHYSICAL)
+				_view._bursts.burst(u.position, CG.DamageType.PHYSICAL, bursts)
 				bursts += 1
 			peak = maxi(peak, _view._bursts.live_bursts())
 		await RenderingServer.frame_post_draw

@@ -5,22 +5,34 @@ extends Node
 ## pixels, not the `when` field parsing. One process per shot -- a scheduled
 ## `after()` layer lives on the tree, not on the view, so a second build in the
 ## same process calls into a director the first one already freed.
+## Issue 707: an added `strip` argument captures a multi-frame contact strip
+## instead, since direction is a motion property one still cannot carry.
 ##
 ##   godot --path . res://Tools/GeyserConsumeShot.tscn -- consume
-##   godot --path . res://Tools/GeyserConsumeShot.tscn -- no_consume
+##   godot --path . res://Tools/GeyserConsumeShot.tscn -- no_consume strip
 
 const OUT_CONSUME := "res://Screenshots/curlew_657_geyser_consume.png"
 const OUT_NO_CONSUME := "res://Screenshots/curlew_657_geyser_no_consume.png"
+const STRIP_CONSUME := "res://Screenshots/kestrel_707_geyser_consume_strip.png"
+const STRIP_NO_CONSUME := "res://Screenshots/kestrel_707_geyser_no_consume_strip.png"
 const CROP := Vector2i(200, 160)
 const ZOOM := 3
 const SEED := 7
+
+## Offsets in rendered frames after the delayed impact layers start, spanning
+## the ember burst's own 0.55-0.7s lifetime at 4 frames/tick (60fps).
+const STRIP_OFFSETS := [4, 10, 16, 22, 28, 34]
 
 var _view: Node2D = null
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
-	var burning := OS.get_cmdline_user_args().has("consume")
-	await _run(burning, OUT_CONSUME if burning else OUT_NO_CONSUME)
+	var args := OS.get_cmdline_user_args()
+	var burning := args.has("consume")
+	if args.has("strip"):
+		await _run_strip(burning, STRIP_CONSUME if burning else STRIP_NO_CONSUME)
+	else:
+		await _run(burning, OUT_CONSUME if burning else OUT_NO_CONSUME)
 	get_tree().quit(0)
 
 func _party() -> Array[PawnData]:
@@ -92,3 +104,33 @@ func _run(burning: bool, out_path: String) -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
 	shot.save_png(out_path)
 	print("GeyserConsumeShot: %s" % out_path)
+
+## Same crop, taken at every offset in `STRIP_OFFSETS` and laid out left to
+## right in one image, so the burst's trajectory reads in one glance rather
+## than across separate files nobody opens side by side.
+func _run_strip(burning: bool, out_path: String) -> void:
+	await _build()
+	var at := await _to_the_hit(burning)
+	if at == Vector2.INF:
+		return
+	var origin := (Vector2i(at) - CROP / 2).clamp(Vector2i.ZERO, Vector2i(4000, 4000))
+	var shots: Array[Image] = []
+	var done := 0
+	for offset in STRIP_OFFSETS:
+		while done < offset:
+			_frame()
+			await get_tree().process_frame
+			done += 1
+		await RenderingServer.frame_post_draw
+		var full := get_viewport().get_texture().get_image()
+		var clamped := origin.clamp(Vector2i.ZERO, full.get_size() - CROP)
+		var shot := full.get_region(Rect2i(clamped, CROP))
+		shot.resize(CROP.x * ZOOM, CROP.y * ZOOM, Image.INTERPOLATE_NEAREST)
+		shots.append(shot)
+	var strip := Image.create(shots[0].get_width() * shots.size(), shots[0].get_height(), false, Image.FORMAT_RGBA8)
+	for i in shots.size():
+		strip.blit_rect(shots[i], Rect2i(Vector2i.ZERO, shots[i].get_size()),
+			Vector2i(shots[0].get_width() * i, 0))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	strip.save_png(out_path)
+	print("GeyserConsumeShot: %s (%d frames at offsets %s)" % [out_path, shots.size(), STRIP_OFFSETS])

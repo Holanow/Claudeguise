@@ -54,10 +54,15 @@ func _ready() -> void:
 			"radius": 0.0, "facing": false, "pieces": []})
 
 ## Throws `fragments` -- `UnitArt.fragments_for`'s output, one entry per chunk --
-## apart from `at`.
+## apart from `at`. `main_offset`/`off_offset` are the live hand poses
+## `UnitView._part_offset`/`_off_hand_offset` had for this body the instant it
+## died (issue 639): a chunk otherwise draws every part where it was baked, so
+## a body caught mid-bob or mid-swing snapped its hands to rest on frame 0,
+## the exact frame the hit stop holds still.
 ## Refused while the option is off, the same gate `UnitView.struck` applies, so
 ## nothing can start an effect that will never be drawn.
-func explode(at: Vector2, radius: float, facing_left: bool, fragments: Array, unit_id: int) -> void:
+func explode(at: Vector2, radius: float, facing_left: bool, fragments: Array, unit_id: int,
+		main_offset: Vector2 = Vector2.ZERO, off_offset: Vector2 = Vector2.ZERO) -> void:
 	if not DisplayOptions.enabled(OPTION) or fragments.is_empty():
 		return
 	var slot: Dictionary = _slots[_next]
@@ -70,14 +75,30 @@ func explode(at: Vector2, radius: float, facing_left: bool, fragments: Array, un
 	slot["origin"] = at
 	slot["radius"] = radius
 	slot["facing"] = facing_left
-	slot["pieces"] = _pieces(radius, facing_left, fragments, unit_id)
+	slot["pieces"] = _pieces(radius, facing_left, fragments, unit_id, main_offset, off_offset)
 	queue_redraw()
 
-func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int) -> Array:
+## The live pose offset for one part, in local draw pixels, mirrored the same
+## way `_ink_center`'s pivot already is. Zero for anything `PartAnimation`
+## does not move -- a body, a head, a weapon all leave exactly where baked.
+static func _part_pose_offset(part: StringName, facing_left: bool,
+		main_offset: Vector2, off_offset: Vector2) -> Vector2:
+	if not PartAnimation.animates(part):
+		return Vector2.ZERO
+	var base := off_offset if UnitRecipes.slot_of(part) == &"HandOff" else main_offset
+	var off := base * float(PartAnimation.PARTS.get(part, 1.0))
+	if facing_left:
+		off.x = -off.x
+	return off
+
+func _pieces(radius: float, facing_left: bool, fragments: Array, unit_id: int,
+		main_offset: Vector2, off_offset: Vector2) -> Array:
 	var out: Array = []
 	var jitter := PartAnimation.phase_for(unit_id)
 	for i in fragments.size():
 		var parts: Array = fragments[i]["pieces"]
+		for part in parts:
+			part["offset"] = _part_pose_offset(part["part"], facing_left, main_offset, off_offset)
 		var pivot := _ink_center(radius, parts)
 		if facing_left:
 			pivot.x = -pivot.x
@@ -201,6 +222,7 @@ func _draw() -> void:
 			for part in piece["parts"]:
 				var tex: Texture2D = part["tex"]
 				var rect := UnitArt.signed_rect(tex, slot["radius"], slot["facing"])
-				draw_texture_rect(tex, Rect2(rect.position - pivot, rect.size), false,
+				var offset: Vector2 = part.get("offset", Vector2.ZERO)
+				draw_texture_rect(tex, Rect2(rect.position - pivot + offset, rect.size), false,
 					(part["color"] as Color) * tint)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
