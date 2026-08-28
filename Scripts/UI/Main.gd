@@ -13,7 +13,42 @@ var run_config: RunConfig = null
 var _current: Node = null
 
 func _ready() -> void:
+	var straight_to := _room_from_cmdline()
+	if straight_to != &"":
+		_start_direct(straight_to)
+		return
 	show_party_select()
+
+## `godot --path . -- --room=floor1_sellsword [--seed=7]` opens that fight
+## directly. For looking at one room's combat without clicking through party
+## select every time; the normal path is untouched when the flag is absent.
+func _room_from_cmdline() -> StringName:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--room="):
+			return StringName(arg.substr(7))
+	return &""
+
+func _seed_from_cmdline() -> int:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--seed="):
+			return int(arg.substr(7))
+	return 7
+
+## The whole roster, so whatever the room throws has an answer. A missing room
+## id falls through to party select rather than opening an empty battle.
+func _start_direct(room_id: StringName) -> void:
+	if RoomLibrary.get_room(room_id) == null:
+		push_error("Main: no room named '%s'; opening party select instead" % room_id)
+		show_party_select()
+		return
+	var cfg := RunConfig.new()
+	cfg.encounter_id = room_id
+	cfg.seed = _seed_from_cmdline()
+	var party: Array[PawnData] = []
+	for cid in ClassLibrary.all_ids():
+		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
+	cfg.party = party
+	start_battle(cfg)
 
 ## The roster of pawns the player has been editing, held here rather than on
 ## the screen: issue 380, and the seed below is the pattern it copies.
