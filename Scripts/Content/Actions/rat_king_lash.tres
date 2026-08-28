@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/SummonEffect.gd" id="3_vrqw3"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_fl5vb"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_16v1w"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/rat_king_lash.tres" id="vfx_rat_king_lash"]
 
 [sub_resource type="Resource" id="Resource_ns1sr"]
 script = ExtResource("2_ytlps")
@@ -27,3 +28,4 @@ wind_up_ticks = 20
 recover_ticks = 22
 targeting = SubResource("Resource_41r1p")
 effects = Array[ExtResource("1_qlhx5")]([SubResource("Resource_ns1sr"), SubResource("Resource_eg3rw")])
+vfx = ExtResource("vfx_rat_king_lash")

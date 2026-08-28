@@ -14,6 +14,9 @@ class_name BeamLayer
 @export var from_hands: bool = true
 ## Which hand. -1 is the midpoint of all of them, which is a two-handed cast.
 @export var hand_index: int = -1
+## #562: keeps the far end on the target's live position for the whole hold,
+## rather than the point it hit. For a beam that must show a drag in progress.
+@export var track_target: bool = false
 
 func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
@@ -24,7 +27,8 @@ func play(ctx: Dictionary) -> void:
 	var beam: ColorRect = director.make_beam("res://Shaders/VFX/beam.gdshader", from, to, width)
 	if beam == null:
 		return
-	director.follow_beam(beam, ctx["source_id"], from_hands, to, hand_index)
+	var track_id: int = ctx["target_id"] if track_target else -1
+	director.follow_beam(beam, ctx["source_id"], from_hands, to, hand_index, track_id)
 	beam.material.set_shader_parameter("core_colour", core_colour)
 	beam.material.set_shader_parameter("edge_colour", edge_colour)
 	director.tween_shader(beam, "extend", 0.0, 1.0, extend_seconds, Tween.EASE_OUT, Tween.TRANS_EXPO)

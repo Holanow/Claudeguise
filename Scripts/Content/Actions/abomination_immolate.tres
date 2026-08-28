@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_qsdwc"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionSustain.gd" id="4_8u1bk"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_5cvnl"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/abomination_immolate.tres" id="vfx_abomination_immolate"]
 
 [sub_resource type="Resource" id="Resource_2hqdb"]
 script = ExtResource("2_gvwfm")
@@ -30,3 +31,4 @@ resource_cost = 1
 targeting = SubResource("Resource_bp0a5")
 effects = Array[ExtResource("1_vdi36")]([SubResource("Resource_2hqdb")])
 sustain = SubResource("Resource_ls5t8")
+vfx = ExtResource("vfx_abomination_immolate")

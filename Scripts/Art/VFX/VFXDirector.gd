@@ -88,6 +88,17 @@ func _process(_delta: float) -> void:
 		var from := anchor_of(int(beam.get_meta(&"unit_id")), bool(beam.get_meta(&"hands")),
 			int(beam.get_meta(&"hand")))
 		var to: Vector2 = beam.get_meta(&"to")
+		## #562: a beam that must outlive its impact (the Abomination's pull)
+		## tracks the target's drawn position instead of the point it hit.
+		## `position_of` returns ZERO once the target leaves `_unit_views`; that
+		## reads as a teleport to the corner, so a dead target keeps the beam's
+		## last real position instead (#497 is the same trap on a different layer).
+		var track_id := int(beam.get_meta(&"track_id", -1))
+		if track_id >= 0:
+			var live := position_of(track_id)
+			if live != Vector2.ZERO:
+				to = live
+				beam.set_meta(&"to", to)
 		beam.position = from
 		beam.rotation = (to - from).angle()
 		rect.size.x = from.distance_to(to)
@@ -138,13 +149,17 @@ func make_beam(shader_path: String, from: Vector2, to: Vector2, width: float) ->
 ## where the hands were at the instant it fired, and the hands then keep moving
 ## through the recover and the idle bob, so the beam visibly detaches from the
 ## pose throwing it. The far end stays where the blast landed.
-func follow_beam(rect: ColorRect, source_id: int, hands: bool, to: Vector2, hand_index: int = -1) -> void:
+## `track_id`, if not -1, keeps the far end on that unit's live position for as
+## long as the beam lives, rather than the point it hit -- see #562.
+func follow_beam(rect: ColorRect, source_id: int, hands: bool, to: Vector2, hand_index: int = -1,
+		track_id: int = -1) -> void:
 	var holder := rect.get_parent() as Node2D
 	holder.set_meta(&"unit_id", source_id)
 	holder.set_meta(&"hands", hands)
 	holder.set_meta(&"to", to)
 	holder.set_meta(&"hand", hand_index)
 	holder.set_meta(&"rect", rect)
+	holder.set_meta(&"track_id", track_id)
 	_beams.append(holder)
 
 ## Tracks a unit for as long as it lives, which a wind-up tell needs because the

@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/SummonEffect.gd" id="3_2kpj5"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_imt8m"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_ayyj5"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/build_siege_engine.tres" id="vfx_build_siege_engine"]
 
 [sub_resource type="Resource" id="Resource_u2l2l"]
 script = ExtResource("2_fma5r")
@@ -29,3 +30,4 @@ recover_ticks = 20
 resource_cost = 20
 targeting = SubResource("Resource_3fovn")
 effects = Array[ExtResource("1_t1rbk")]([SubResource("Resource_u2l2l"), SubResource("Resource_a78de")])
+vfx = ExtResource("vfx_build_siege_engine")
