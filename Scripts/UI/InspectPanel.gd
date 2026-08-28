@@ -73,6 +73,12 @@ var _selected_index: int = 0
 
 var _list_box: VBoxContainer = null
 var _detail_box: VBoxContainer = null
+var _detail_scale: Control = null
+var _detail_scroll: ScrollContainer = null
+
+## Issue 742: below this scale the text stops being comfortably readable, so
+## the panel stops shrinking and relies on vertical scroll instead.
+const MIN_DETAIL_SCALE := 0.6
 
 ## Issue 155. The fight this panel was opened over, or null when there is none.
 var _live_state = null
@@ -101,6 +107,9 @@ func _ready() -> void:
 	%HowToPlay.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_list_box = %ListBox
 	_detail_box = %DetailBox
+	_detail_scale = %DetailScale
+	_detail_scroll = _detail_scale.get_parent() as ScrollContainer
+	_detail_scroll.resized.connect(_apply_detail_scale)
 
 ## Issue 155's second half, and the answer to that issue's volume question.
 ## `focus` is the pawn to land on. Without it the panel always opened on the
@@ -245,6 +254,35 @@ func _build_detail(pawn: PawnData) -> void:
 		_detail_box.add_child(_line(
 			"Also available, not called by any plan: %s (falls to default behaviour)." % ", ".join(names),
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	_apply_detail_scale.call_deferred()
+
+## Issue 742: `DetailBox`'s own minimum width used to propagate up through
+## `DetailScroll` and force the whole panel wider than its assigned rect --
+## Godot never shrinks a Control below its computed minimum size. `DetailScale`
+## is a plain (non-Container) Control, so it does not forward `DetailBox`'s
+## minimum size upward; instead this scales `DetailBox` visually to whatever
+## width `DetailScroll` was actually given, floored at `MIN_DETAIL_SCALE`, and
+## reports the scaled height so vertical scrolling still covers all of it.
+func _apply_detail_scale() -> void:
+	if _detail_box == null or not is_instance_valid(_detail_box):
+		return
+	_detail_box.pivot_offset = Vector2.ZERO
+	var natural := _detail_box.get_combined_minimum_size()
+	if natural.x <= 0.0:
+		return
+	var avail := _detail_scroll.size.x
+	if avail <= 0.0:
+		return
+	if avail >= natural.x:
+		_detail_box.scale = Vector2.ONE
+		_detail_box.size = Vector2(avail, natural.y)
+		_detail_scale.custom_minimum_size = Vector2(0.0, natural.y)
+	else:
+		_detail_box.size = natural
+		var s: float = clampf(avail / natural.x, MIN_DETAIL_SCALE, 1.0)
+		_detail_box.scale = Vector2(s, s)
+		_detail_scale.custom_minimum_size = Vector2(0.0, natural.y * s)
+
 
 func _actions_used_in_plans(pawn: PawnData) -> Array:
 	var out := []
