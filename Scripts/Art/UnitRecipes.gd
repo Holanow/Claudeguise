@@ -61,12 +61,12 @@ const RECIPES := {
 		{"part": &"head_snouted", "color": "8a7a68"},
 		{"part": &"eyes_snout", "color": "c04a4a"},
 	],
-	# The player, 2026-08-25: "the Rat King's crown should be a hat instead of
-	# whatever it is now". So it is the archer's hat in gold, and the crown is a
-	# recolour rather than a part of its own -- the fifth reuse of this
-	# vocabulary and the cheapest possible variant.
+	# The player, 2026-08-25, rejected the previous crown: full-size triangles
+	# drawn above the sprite, outside the slot system -- not the idea of a
+	# crown itself. Issue 757 gives him the real `crown` part now that one
+	# exists, gold to match. Still the rat base plus one part.
 	&"rat_king": {"base": &"rat", "add": [
-		{"part": &"hat_low", "color": "e8c84a"},
+		{"part": &"crown", "color": "e8c84a"},
 	]},
 
 	# --- the siege pair ----------------------------------------------------

@@ -694,9 +694,13 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if not has_beats:
 		state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
-	var summon := action.summon_effect()
-	if summon != null:
-		_spawn_summon(state, unit, action, summon, deps)
+	## Issue 757: composition is by listing, same as every other effect kind,
+	## but `summon_effect()` only ever returns the first match -- so a second
+	## or third `SummonEffect` in the array needs its own loop here rather
+	## than the singular getter the cap check (`max_active_summons`) still uses.
+	for fx in action.effects:
+		if fx is SummonEffect:
+			_spawn_summon(state, unit, action, fx, deps)
 
 	if action.sustain != null:
 		_begin_sustain(state, unit, action)
