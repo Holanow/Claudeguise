@@ -40,6 +40,11 @@ class_name ActionDef
 ## is every action that has not been given one yet.
 @export var vfx: AbilityVFX
 
+## Timed parts that replace the single instant `targeting`/`effects` resolution
+## with several, in order. Empty means today's behaviour -- every action but
+## `sellsword_crescent`. Issue 703.
+@export var beats: Array[ActionBeat] = []
+
 ## The first effect of each kind. Actions carry at most one of any of these, so
 ## a linear walk over a list of three is the whole lookup.
 func hit() -> HitEffect:
@@ -106,6 +111,10 @@ var requires_marked_target: bool:
 	get: return targeting.requires_marked_target if targeting != null else false
 var arc_degrees: float:
 	get: return targeting.arc_degrees if targeting != null else 0.0
+var pierce_count: int:
+	get: return targeting.pierce_count if targeting != null else 0
+var pierce_half_width: float:
+	get: return targeting.pierce_half_width if targeting != null else 0.0
 
 var projectile_speed: float:
 	get: return delivery.speed if delivery != null else 0.0

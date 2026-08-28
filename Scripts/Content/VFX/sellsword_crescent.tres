@@ -19,7 +19,7 @@ cue = 0
 [sub_resource type="Resource" id="Resource_wjy1i"]
 script = ExtResource("3_sdr0j")
 edge_colour = Color(0.72, 0.76, 0.85, 1)
-radius = 150.0
+radius = 105.0
 sweep_seconds = 0.42
 fade_seconds = 0.3
 cue = 1

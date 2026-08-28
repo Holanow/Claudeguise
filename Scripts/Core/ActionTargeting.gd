@@ -32,3 +32,10 @@ class_name ActionTargeting
 ## not a total cone width -- **and** inside `splash_radius`, which for an arc
 ## action is measured from the caster rather than from the primary target.
 @export var arc_degrees: float = 0.0
+
+## Issue 563. How many enemies a shot passes through. 0 is stop at the first,
+## which is every action that existed before this one.
+@export var pierce_count: int = 0
+
+## Half the width of the corridor a piercing shot sweeps.
+@export var pierce_half_width: float = 0.0

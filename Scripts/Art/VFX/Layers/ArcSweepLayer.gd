@@ -13,6 +13,10 @@ class_name ArcSweepLayer
 @export var fade_seconds: float = 0.18
 @export var inner_fraction: float = 0.35
 
+## Issue 703. The shader's `progress` always sweeps its leading edge 0 -> 1
+## across the arc; tweening it 1 -> 0 sweeps the other way, no shader change.
+@export var reverse: bool = false
+
 func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
 	var arc: ColorRect = director.make_shader_rect("res://Shaders/VFX/arc_sweep.gdshader", radius * 2.0)
@@ -23,7 +27,9 @@ func play(ctx: Dictionary) -> void:
 	arc.material.set_shader_parameter("half_arc_radians", deg_to_rad(half_arc_degrees))
 	arc.material.set_shader_parameter("inner", inner_fraction)
 	director.aim(arc, ctx["source_id"])
-	director.tween_shader(arc, "progress", 0.0, 1.0, sweep_seconds, Tween.EASE_OUT, Tween.TRANS_QUAD)
+	var start := 1.0 if reverse else 0.0
+	var end := 0.0 if reverse else 1.0
+	director.tween_shader(arc, "progress", start, end, sweep_seconds, Tween.EASE_OUT, Tween.TRANS_QUAD)
 	director.tween_shader(arc, "fade", 1.0, 0.0, fade_seconds, Tween.EASE_IN, Tween.TRANS_QUAD, sweep_seconds)
 	director.free_after(arc, sweep_seconds + fade_seconds)
 

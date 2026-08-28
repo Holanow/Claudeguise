@@ -67,6 +67,11 @@ func _check_action(action: ActionDef) -> Array[String]:
 	caster.hp_max = 999999
 	caster.hp = caster.hp_max
 	caster.actions = [action.id]
+	## Issue 642: point-sized, so `gap()` (edge to edge) matches the raw
+	## distance this rig places at, and the two bodies never drift toward
+	## each other's contact radius through `_separate_phase` -- a beat's
+	## `StepEffect` moves a real distance, not one a body's own size ate.
+	caster.radius = 0.0
 	## Inside the arena, on the left. (500, 500) was OUTSIDE it: the sim clamps
 	## positions into bounds, both units collapsed toward the same corner, and
 	## the target ended up BEHIND the caster. Only an arc action noticed, because
@@ -83,6 +88,7 @@ func _check_action(action: ActionDef) -> Array[String]:
 
 	var target := CombatUnit.new()
 	target.id = 1
+	target.radius = 0.0
 	target.hp_max = 999999
 	target.hp = target.hp_max
 	target.resource_max = 999999
@@ -95,7 +101,7 @@ func _check_action(action: ActionDef) -> Array[String]:
 		target.position = caster.position + Vector2(d, 0.0)
 	else:
 		target.team = _enemy_team(caster.team)
-		var d: float = clampf(action.range_units - 1.0, 0.0, _MAX_PLACE)
+		var d: float = clampf(_placement_distance(action) - 1.0, 0.0, _MAX_PLACE)
 		target.position = caster.position + Vector2(d, 0.0)
 
 	## A real caster faces what it swings at, and `_in_arc` hits nobody when
@@ -114,8 +120,23 @@ func _check_action(action: ActionDef) -> Array[String]:
 
 	var pull_start := target.position
 
+	## Issue 563: a pierce needs a body to pierce past the primary target, or
+	## the check only ever proves the ordinary hit.
+	var pierce_target: CombatUnit = null
+	if not is_sustain and not self_targeted and action.pierce_count > 0:
+		pierce_target = CombatUnit.new()
+		pierce_target.id = 2
+		pierce_target.hp_max = 999999
+		pierce_target.hp = pierce_target.hp_max
+		pierce_target.resource_max = 999999
+		pierce_target.resource = 999999
+		pierce_target.team = target.team
+		pierce_target.position = caster.position + (target.position - caster.position) * 0.5
+
 	var state := CombatState.new(1)
 	var units: Array[CombatUnit] = [caster, target]
+	if pierce_target != null:
+		units.append(pierce_target)
 	state.units = units
 
 	var rig := ForceOnce.new()
@@ -135,27 +156,92 @@ func _check_action(action: ActionDef) -> Array[String]:
 	for _t in RUN_TICKS:
 		CombatSim.step(state, deps)
 
-	for fx in action.effects:
+	if action.beats.is_empty():
+		for fx in action.effects:
+			if fx is HitEffect:
+				problems.append_array(_check_hit(fx, state, caster, hit_target_id, action.covers_target))
+				if pierce_target != null:
+					problems.append_array(_check_pierce(fx, state, caster, pierce_target.id, action.covers_target))
+			elif fx is StatusEffect:
+				problems.append_array(_check_status(fx, state, status_target_id))
+			elif fx is RestoreEffect:
+				if caster.resource <= 0:
+					problems.append("RestoreEffect declared amount %d but the caster's resource never rose" % fx.amount)
+			elif fx is SummonEffect:
+				if not _has_event(state, CG.EventKind.SUMMONED, caster.id, -1):
+					problems.append("SummonEffect declared '%s' but no SUMMONED event fired" % fx.unit_id)
+			elif fx is PoolEffect:
+				if state.grid.is_empty():
+					problems.append("PoolEffect declared radius %.1f but no terrain was added" % fx.radius)
+			elif fx is PullEffect:
+				if target.position.distance_to(pull_start) < 0.01:
+					problems.append("PullEffect declared distance %.1f but the target never moved" % fx.distance)
+			elif fx is CleanseEffect:
+				if target.statuses.has(CG.Status.BURN):
+					problems.append("CleanseEffect declared but the harmful status stayed on the target")
+	else:
+		## Issue 703: each beat is checked against its own effects and its own
+		## fire tick, so a fix that made only one beat land would still show
+		## as a failure -- an earlier version matched by source/target alone
+		## and a later beat's hit silently covered for an earlier miss.
+		for i in action.beats.size():
+			var beat: ActionBeat = action.beats[i]
+			var fire_tick := _beat_fire_tick(state, action.id, i)
+			for p in _check_beat_effects(beat.effects, state, caster, target, hit_target_id, status_target_id, pull_start, fire_tick):
+				problems.append("beat %d: %s" % [i, p])
+	return problems
+
+## How far apart to place the pair so every beat's own `range_units` gate
+## still passes after any `StepEffect` inside an earlier beat has moved the
+## caster. Identical to `action.range_units` when there are no beats.
+func _placement_distance(action: ActionDef) -> float:
+	if action.beats.is_empty():
+		return action.range_units
+	var total_step := 0.0
+	var min_range := action.range_units
+	for beat in action.beats:
+		for fx in beat.effects:
+			if fx is StepEffect:
+				total_step += fx.distance
+		var r: float = beat.targeting.range_units if beat.targeting != null else action.range_units
+		min_range = minf(min_range, r)
+	return min_range + minf(total_step, 0.0)
+
+## The tick a beat's own ACTION_FIRE landed on, or -1 if it never fired.
+func _beat_fire_tick(state: CombatState, action_id: StringName, beat_index: int) -> int:
+	for e in state.events:
+		if e.action_id == action_id and e.kind == CG.EventKind.ACTION_FIRE and e.beat_index == beat_index:
+			return e.tick
+	return -1
+
+func _check_beat_effects(effects: Array[AbilityEffect], state: CombatState, caster: CombatUnit, target: CombatUnit, hit_target_id: int, status_target_id: int, pull_start: Vector2, fire_tick: int) -> Array[String]:
+	var problems: Array[String] = []
+	for fx in effects:
 		if fx is HitEffect:
-			problems.append_array(_check_hit(fx, state, caster, hit_target_id, action.covers_target))
+			## Per BEAT tick (#703): matching on source and target alone let a
+			## later beat's hit cover for an earlier beat's miss.
+			problems.append_array(_check_hit_at_tick(fx, state, caster, hit_target_id, fire_tick))
 		elif fx is StatusEffect:
 			problems.append_array(_check_status(fx, state, status_target_id))
-		elif fx is RestoreEffect:
-			if caster.resource <= 0:
-				problems.append("RestoreEffect declared amount %d but the caster's resource never rose" % fx.amount)
-		elif fx is SummonEffect:
-			if not _has_event(state, CG.EventKind.SUMMONED, caster.id, -1):
-				problems.append("SummonEffect declared '%s' but no SUMMONED event fired" % fx.unit_id)
-		elif fx is PoolEffect:
-			if state.grid.is_empty():
-				problems.append("PoolEffect declared radius %.1f but no terrain was added" % fx.radius)
 		elif fx is PullEffect:
 			if target.position.distance_to(pull_start) < 0.01:
 				problems.append("PullEffect declared distance %.1f but the target never moved" % fx.distance)
-		elif fx is CleanseEffect:
-			if target.statuses.has(CG.Status.BURN):
-				problems.append("CleanseEffect declared but the harmful status stayed on the target")
 	return problems
+
+## Same shape as `_check_hit`, but a DAMAGE/HEAL from a LATER beat on the same
+## caster and target must not stand in for an earlier beat's own miss, so this
+## matches the beat's own fire tick as well as source and target.
+func _check_hit_at_tick(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, fire_tick: int) -> Array[String]:
+	if fx.power_scale <= 0.0:
+		return []
+	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
+	for e in state.events:
+		if e.kind == kind and e.tick == fire_tick and e.source_id == caster.id and e.target_id == target_id and e.amount > 0:
+			return []
+	var verb := "heal" if fx.heals else "damage"
+	return ["HitEffect declared %s (power_scale %.2f) but no %s > 0 landed on the target on this beat's own tick" % [
+		verb, fx.power_scale, kind_name(kind),
+	]]
 
 func _check_hit(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, covers_target: bool) -> Array[String]:
 	## Issue 621's own routing rule: `heals and power_scale > 0.0` is what
@@ -171,6 +257,16 @@ func _check_hit(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id
 	return ["HitEffect declared %s (power_scale %.2f) but no %s > 0 landed on the target" % [
 		verb, fx.power_scale, kind_name(kind),
 	]]
+
+## Issue 563: same check, aimed at the body standing between the caster and its
+## primary target, so a declared `pierce_count` is proven rather than assumed.
+func _check_pierce(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, covers_target: bool) -> Array[String]:
+	if covers_target or fx.power_scale <= 0.0:
+		return []
+	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
+	if _has_event(state, kind, caster.id, target_id):
+		return []
+	return ["pierce_count declared but nothing landed on the body between caster and target"]
 
 func _check_status(fx: StatusEffect, state: CombatState, target_id: int) -> Array[String]:
 	for e in state.events:
