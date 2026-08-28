@@ -148,6 +148,10 @@ func _build_sound() -> void:
 	add_child(holder)
 	_sound = SoundBank.attach(holder)
 
+## Read-only, for tools that measure the bank rather than drive it.
+func sound_bank():
+	return _sound
+
 ## PLAYTEST-NOTES-2 item 5: "pause needs to be obvious -- grey the screen
 ## or similar. Nothing currently indicates it."
 func _build_pause_dim() -> void:
