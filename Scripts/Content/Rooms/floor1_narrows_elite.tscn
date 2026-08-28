@@ -30,22 +30,27 @@ position = Vector2(-350, 195)
 
 [node name="EnemySpawns" type="Node2D" parent="." unique_id=1310031427]
 
-[node name="Sellsword1" type="Marker2D" parent="EnemySpawns"]
-position = Vector2(70, -40)
+[node name="Spawn1" type="Marker2D" parent="EnemySpawns"]
+position = Vector2(65, 0)
 script = ExtResource("3_hhpwo")
 enemy_id = &"sellsword"
 
-[node name="Sellsword2" type="Marker2D" parent="EnemySpawns"]
-position = Vector2(70, 40)
+[node name="Spawn2" type="Marker2D" parent="EnemySpawns"]
+position = Vector2(270, -165)
 script = ExtResource("3_hhpwo")
-enemy_id = &"sellsword"
+enemy_id = &"goblin_archer"
 
-[node name="Sellsword3" type="Marker2D" parent="EnemySpawns"]
-position = Vector2(280, -120)
+[node name="Spawn3" type="Marker2D" parent="EnemySpawns"]
+position = Vector2(270, -55)
 script = ExtResource("3_hhpwo")
-enemy_id = &"sellsword"
+enemy_id = &"goblin_archer"
 
-[node name="Sellsword4" type="Marker2D" parent="EnemySpawns"]
-position = Vector2(280, 120)
+[node name="Spawn4" type="Marker2D" parent="EnemySpawns"]
+position = Vector2(270, 55)
 script = ExtResource("3_hhpwo")
-enemy_id = &"sellsword"
+enemy_id = &"goblin_archer"
+
+[node name="Spawn5" type="Marker2D" parent="EnemySpawns"]
+position = Vector2(270, 165)
+script = ExtResource("3_hhpwo")
+enemy_id = &"goblin_archer"
