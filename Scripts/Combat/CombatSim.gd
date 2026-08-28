@@ -56,6 +56,7 @@ static func step(state: CombatState, deps: SimDeps = null) -> void:
 	_separate_phase(state)
 	_tick_phase(state, deps)
 	_tick_projectiles(state, deps)
+	_tick_beats(state, deps)
 	_check_outcome(state, deps)
 
 ## Runs to completion. Used by tests and by the headless balance checks; the
@@ -689,7 +690,9 @@ static func _tick_hazards(state: CombatState, unit: CombatUnit) -> void:
 # ---------------------------------------------------------------------------
 
 static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
-	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
+	var has_beats := not action.beats.is_empty()
+	if not has_beats:
+		state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
 	var summon := action.summon_effect()
 	if summon != null:
@@ -697,6 +700,8 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 
 	if action.sustain != null:
 		_begin_sustain(state, unit, action)
+	elif has_beats:
+		_fire_beats(state, unit, action, deps)
 	else:
 		var targets := _resolve_targets(state, unit, action)
 		if targets.is_empty():
@@ -711,11 +716,78 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	unit.current_action = action.id
 	unit.action_ticks_left = 0
 	unit.action_ticks_total = 0
-	unit.recover_ticks_left = _apply_haste(unit, deps, int(deps.recover_ticks.call(unit, action)))
+	var recover := _apply_haste(unit, deps, int(deps.recover_ticks.call(unit, action)))
+	if has_beats:
+		## Nothing may slip in between the parts: the unit stays committed
+		## through the last beat, then recovers as it would from a single hit.
+		recover += action.beats[-1].delay_ticks
+	unit.recover_ticks_left = recover
 	if action.cooldown_ticks > 0:
 		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
+
+## Issue 703. Beat 0 resolves now if its own delay is 0 (the whole game's
+## authored beats do this); every later beat is queued for its own tick, each
+## measured from THIS tick, not from the beat before it, per `ActionBeat`'s
+## own field comment.
+static func _fire_beats(state: CombatState, caster: CombatUnit, action: ActionDef, deps: SimDeps) -> void:
+	for i in action.beats.size():
+		var beat: ActionBeat = action.beats[i]
+		if beat.delay_ticks <= 0:
+			_resolve_beat(state, caster, action, beat, i, deps)
+			continue
+		var pending := PendingBeat.new()
+		pending.caster_id = caster.id
+		pending.action = action
+		pending.beat = beat
+		pending.beat_index = i
+		pending.resolve_tick = state.tick + beat.delay_ticks
+		state.pending_beats.append(pending)
+
+## Drains beats whose tick has arrived. A caster who died since the beat was
+## queued has it dropped, not resolved from a corpse.
+static func _tick_beats(state: CombatState, deps: SimDeps) -> void:
+	if state.pending_beats.is_empty():
+		return
+	var remaining: Array[PendingBeat] = []
+	for pending in state.pending_beats:
+		if state.tick < pending.resolve_tick:
+			remaining.append(pending)
+			continue
+		var caster := state.unit(pending.caster_id)
+		if caster == null or not caster.alive:
+			continue
+		_resolve_beat(state, caster, pending.action, pending.beat, pending.beat_index, deps)
+	state.pending_beats = remaining
+
+## One beat: steps the caster first (a beat's own reach is measured from where
+## it leaves him), then re-resolves targets from scratch, exactly like the
+## single-effect path -- a beat can reach nothing the beat before it reached,
+## and that is a MISS rather than a resolved hit.
+static func _resolve_beat(state: CombatState, caster: CombatUnit, action: ActionDef, beat: ActionBeat, beat_index: int, deps: SimDeps) -> void:
+	for fx in beat.effects:
+		if fx is StepEffect and fx.distance != 0.0:
+			caster.position = _clamp_to_arena(caster.position + caster.facing * fx.distance)
+
+	var view := ActionDef.new()
+	view.id = action.id
+	view.targeting = beat.targeting if beat.targeting != null else action.targeting
+	view.effects = beat.effects
+
+	var fire := _event(CG.EventKind.ACTION_FIRE, state.tick, caster.id, caster.focus_id, action.id)
+	fire.beat_index = beat_index
+	state.emit(fire)
+
+	var targets := _resolve_targets(state, caster, view)
+	if targets.is_empty():
+		var miss := _event(CG.EventKind.MISS, state.tick, caster.id, caster.focus_id, action.id)
+		miss.beat_index = beat_index
+		state.emit(miss)
+		return
+	for target in targets:
+		_apply_action_effect(state, caster, target, view, deps)
+	_on_hit_landed(state, caster, view, deps, targets[0].position)
 
 ## Everything a source gains from a hit that actually connected: Rage, and issue
 ## 165's `ActionDef.restores_resource`.

@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_r8ilt"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ArcSweepLayer.gd" id="2_sdr0j"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="3_44ovh"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="4_hkm6c"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="5_tdx1u"]
+
+[sub_resource type="Resource" id="Resource_fin1"]
+script = ExtResource("2_sdr0j")
+edge_colour = Color(0.72, 0.76, 0.85, 1)
+radius = 200.0
+half_arc_degrees = 80.0
+sweep_seconds = 0.5
+fade_seconds = 0.32
+reverse = true
+cue = 1
+
+[sub_resource type="Resource" id="Resource_fin2"]
+script = ExtResource("3_44ovh")
+amount = 34
+colour_hot = Color(1, 1, 1, 1)
+colour_cool = Color(0.72, 0.76, 0.85, 1)
+speed = 260.0
+lifetime = 0.6
+gravity = Vector2(0, 200)
+cue = 1
+
+[sub_resource type="Resource" id="Resource_fin3"]
+script = ExtResource("4_hkm6c")
+pixels = 11.0
+cue = 1
+
+[resource]
+script = ExtResource("5_tdx1u")
+display_name = "Crescent (finisher)"
+layers = Array[ExtResource("1_r8ilt")]([SubResource("Resource_fin1"), SubResource("Resource_fin2"), SubResource("Resource_fin3")])

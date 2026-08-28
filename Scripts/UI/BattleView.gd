@@ -1417,14 +1417,22 @@ func _play_action_vfx(e: CombatEvent) -> void:
 	if _vfx == null or e.action_id == &"":
 		return
 	var action := ActionLibrary.get_action(e.action_id)
-	if action == null or action.vfx == null:
+	if action == null:
 		return
 	if e.kind == CG.EventKind.ACTION_START:
-		_vfx.play(action.vfx, VFXLayer.Cue.WIND_UP, e.source_id, e.target_id,
-			float(action.wind_up_ticks) * CG.TICK_SECONDS)
+		if action.vfx != null:
+			_vfx.play(action.vfx, VFXLayer.Cue.WIND_UP, e.source_id, e.target_id,
+				float(action.wind_up_ticks) * CG.TICK_SECONDS)
 	elif e.kind == CG.EventKind.ACTION_FIRE:
-		_vfx.play(action.vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0)
-		_vfx.play(action.vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0)
+		## Issue 703: a beat states its own vfx; null falls back to the
+		## action's, so beat 2 -- unchanged, no vfx of its own -- looks
+		## exactly like it did before beats existed.
+		var vfx := action.vfx
+		if e.beat_index >= 0 and e.beat_index < action.beats.size() and action.beats[e.beat_index].vfx != null:
+			vfx = action.beats[e.beat_index].vfx
+		if vfx != null:
+			_vfx.play(vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0)
+			_vfx.play(vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0)
 	elif e.kind == CG.EventKind.STATUS_EXPIRED:
 		## Issue 657: only the status THIS action eats to pay for itself arms the
 		## look -- a shield break or a cleanse also emits STATUS_EXPIRED under the

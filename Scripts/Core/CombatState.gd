@@ -33,6 +33,10 @@ var projectiles: Array[Projectile] = []
 ## does not walk thousands of already-resolved entries in a long fight.
 var next_unresolved_projectile: int = 0
 
+## Beats waiting for their own tick. Small and short-lived -- nothing else
+## references one by id, so entries are dropped rather than marked resolved.
+var pending_beats: Array[PendingBeat] = []
+
 ## Every event since the fight began, in tick order. The view reads from
 ## `events_since` rather than clearing this, so the log survives a scrub.
 var events: Array[CombatEvent] = []
