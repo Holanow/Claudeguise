@@ -100,6 +100,11 @@ var status_magnitude: Dictionary = {}
 ## name its author, which `-1` on the event could not.
 var status_source: Dictionary = {}
 
+## Issue 766. Which action applied each status, keyed by CG.Status. Alongside
+## `status_source` so a mitigation caused by the status can be attributed back
+## to the cast that raised it, not only to the unit that cast it.
+var status_source_action: Dictionary = {}
+
 ## Action ids available to this unit, from class, equipment and enemy
 ## definition combined at build time.
 var actions: Array[StringName] = []
