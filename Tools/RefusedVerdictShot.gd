@@ -148,6 +148,15 @@ func _run() -> bool:
 			n.scroll_vertical = 100000
 	await _settle()
 	await _shot("sable_721_refused_names_the_gate")
+	## Issue 723: the row this whole tool exists to prove -- the refused one,
+	## its note, and the budget readout -- sits above the fold once the panel
+	## also scrolls to show the default row's live verdict. A second capture
+	## at the top is the only one that shows it.
+	for n in _walk(panel):
+		if n is ScrollContainer:
+			n.scroll_vertical = 0
+	await _settle()
+	await _shot("sable_723_refused_row_top")
 	var rows: int = ScreenSweepScript.plan_row_count(panel)
 	print("RefusedVerdictShot: the panel shows %d plan row(s), %d of them refused" % [rows, refused_rows])
 	if rows == 0:
