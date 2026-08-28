@@ -27,14 +27,15 @@ radius = 50.0
 [sub_resource type="Resource" id="Resource_bqxf8"]
 script = ExtResource("6_hhwd7")
 range_units = 350.0
-splash_radius = 50.0
 requires_line_of_sight = true
+pierce_count = 3
+pierce_half_width = 30.0
 
 [resource]
 script = ExtResource("5_huajo")
 id = &"geyser_blast"
 display_name = "Geyser Blast"
-description = "A splash of scalding water that damages every enemy within 50 units of the impact point, up to 350 units away. Against a burning target it snuffs the flames and hits far harder. Leaves a large pool of water where it lands, which puts out any burning ground it touches. Costs 20 Mana."
+description = "A column of scalding water rooted at the caster, piercing up to 3 enemies along its line, up to 350 units away. Every burning enemy it passes has its flames snuffed and takes far harder damage. Leaves a pool of water down the whole line, which puts out any burning ground it touches. Costs 20 Mana."
 wind_up_ticks = 12
 recover_ticks = 12
 resource_cost = 20
