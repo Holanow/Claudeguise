@@ -394,7 +394,9 @@ func test_the_skill_block_hover_says_what_the_skill_does() -> void:
 	panel.open([pawn])
 
 	var action_block := PlanFixtures.block(&"use_action", {"action_id": pawn.pawn_class.starting_action_ids()[0]})
-	var picker: OptionButton = panel._action_picker(pawn, action_block)
+	var plan := _make_plan("skill hover")
+	plan.blocks = [action_block] as Array[PlanBlock]
+	var picker: OptionButton = panel._action_picker(pawn, plan, action_block)
 	var action = ActionLibrary.get_action(pawn.pawn_class.starting_action_ids()[0])
 	assert_not_null(action)
 	assert_true(picker.tooltip_text.contains(action.description),
@@ -537,15 +539,12 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	panel._ready()
 	panel.open([pawn])
 
-	var pickers := _find_option_buttons(panel._detail_box)
-	var action_picker: OptionButton = null
-	for p in pickers:
-		if p.item_count == 2:
-			action_picker = p
-	assert_not_null(action_picker, "action picker should offer exactly the class's two starting actions")
+	var choices := panel._available_actions(pawn)
+	assert_eq(choices.size(), 2, "the picker's own choices should be exactly the class's two starting actions")
 
-	panel._set_action(action, &"test_alt")
-	assert_eq(action.action_id, &"test_alt")
+	panel._set_action(plan, pawn, action, choices, BlockCatalog.ACTION_OPS, choices.find(&"test_alt"))
+	var swapped: UseActionBlock = plan.blocks[1]
+	assert_eq(swapped.action.id, &"test_alt")
 
 	var attacker := CombatUnit.new()
 	attacker.id = 0
@@ -571,6 +570,62 @@ func test_action_swap_is_limited_to_the_pawns_own_actions_and_reaches_a_fight() 
 	var intent = PlanInterpreter.decide(state, attacker)
 	assert_not_null(intent)
 	assert_eq(intent.action_id, &"test_alt", "action swap should reach the interpreter, not just the screen")
+	panel.free()
+
+## Issue 652: the three derived-action blocks #641 added are offered by the
+## same picker, so a player can pick one and have it reach a real fight.
+func test_action_picker_offers_the_derived_blocks_and_they_reach_a_fight() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
+	var targeting := PlanFixtures.block(&"target_lowest_hp_fraction_ally")
+	var action := PlanFixtures.block(&"use_action", {"action_id": pawn.pawn_class.starting_action_ids()[0]})
+	var plan := _make_plan("Heal")
+	plan.blocks = [targeting, action]
+	pawn.plans = [plan]
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn])
+
+	var choices := panel._available_actions(pawn)
+	var texts: Array[String] = []
+	for op in BlockCatalog.ACTION_OPS:
+		texts.append(BlockCatalog.action(op).describe())
+	var picker: OptionButton = panel._action_picker(pawn, plan, action)
+	var items: Array[String] = []
+	for i in picker.item_count:
+		items.append(picker.get_item_text(i))
+	for t in texts:
+		assert_true(items.has(panel._cap_first(t)), "the picker must offer '%s': items are %s" % [t, items])
+	picker.free()
+
+	panel._set_action(plan, pawn, action, choices, BlockCatalog.ACTION_OPS, choices.size())
+	assert_true(plan.blocks[1] is UseHealBlock, "picking the first derived op must install that block")
+
+	var priest := CombatUnit.new()
+	priest.id = 0
+	priest.team = CG.Team.PLAYER
+	priest.position = Vector2.ZERO
+	priest.hp_max = 100
+	priest.hp = 100
+	priest.resource_max = 999
+	priest.resource = 999
+	priest.focus_id = -1
+	priest.pawn = pawn
+	priest.actions = pawn.pawn_class.starting_action_ids()
+	var hurt_ally := CombatUnit.new()
+	hurt_ally.id = 1
+	hurt_ally.team = CG.Team.PLAYER
+	hurt_ally.position = Vector2(10, 0)
+	hurt_ally.hp_max = 100
+	hurt_ally.hp = 20
+	hurt_ally.focus_id = -1
+	var state := CombatState.new(0)
+	state.units.append(priest)
+	state.units.append(hurt_ally)
+
+	var intent = PlanInterpreter.decide(state, priest)
+	assert_not_null(intent, "the derived heal block should fire through the real interpreter")
+	assert_eq(intent.target_id, hurt_ally.id)
 	panel.free()
 
 ## Issue 6 follow-up: conditions are now editable too. Swapping the op from
@@ -947,11 +1002,13 @@ func test_the_default_row_costs_no_block_budget() -> void:
 	panel.free()
 
 ## **The assertion that matters, and the one issue 96 asked for by name: the
-## row has to match what actually happens.** For every real class, the action
-## named in the default row is the action `DefaultBehavior` really returns for
-## that pawn at that distance -- run through the real fallback, not compared
-## against a second list typed in this file.
-func test_the_default_row_names_the_action_default_behavior_really_picks() -> void:
+## row has to match what actually happens.** Issue 651: the row is
+## `DefaultPlan.rows_for(unit)` itself, so this asserts every column the screen
+## draws is a column the real fallback's own rows carry -- for every real
+## class, not a second list typed in this file. Issue 654's defect (the row
+## never mentioning the player's own click) is exactly what this would miss if
+## the screen fell back to hand-written prose again.
+func test_the_default_row_is_derived_from_default_plan_rows_for() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
 	for class_id in [&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior"]:
@@ -961,31 +1018,31 @@ func test_the_default_row_names_the_action_default_behavior_really_picks() -> vo
 		# testing PlanInterpreter instead.
 		pawn.plans = []
 		panel.open([pawn])
-		var row_text := ""
-		for row in panel._default_rows(pawn):
-			row_text += _all_label_text(row) + "\n"
+		var rows := panel._default_rows(pawn)
 
-		for distance in [30.0, 400.0]:
-			var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
-			unit.pawn = pawn
-			# Issue 129: `ActionLibrary.actions_for_pawn`, which is what
-			# `CombatSim._collect_player_actions` builds a real unit from. This
-			# read `pawn.pawn_class.starting_actions`, which was the same list
-			# while a class owned its own basic attack and became a pawn holding
-			# *nothing* once the attack moved onto the main-hand weapon. The row
-			# under test was already right; the fixture was comparing it against
-			# a unit the game never builds.
-			unit.actions = ActionLibrary.actions_for_pawn(pawn)
-			var enemy := _melee_unit(1, CG.Team.ENEMY, Vector2(distance, 0))
-			var state := _state_with(unit, enemy)
-			var intent = DefaultBehavior.decide(state, unit)
-			if intent == null or intent.action_id == &"":
-				continue
-			var action = ActionLibrary.get_action(intent.action_id)
-			assert_not_null(action, "%s: default behaviour ordered an unregistered action" % class_id)
-			assert_true(row_text.contains(action.display_name),
-				"%s at %d units really uses '%s', and the default row does not say so:\n%s" % [
-					class_id, int(distance), action.display_name, row_text])
+		var unit := CombatUnit.new()
+		unit.pawn = pawn
+		unit.actions = ActionLibrary.actions_for_pawn(pawn)
+		var plan_rows := DefaultPlan.rows_for(unit)
+		assert_eq(rows.size(), plan_rows.size(), "%s: the screen must show exactly the fallback's own rows" % class_id)
+		for i in rows.size():
+			var actual := _all_label_text(rows[i])
+			for col in panel._describe_default_row(plan_rows[i]):
+				assert_true(actual.contains(col), "%s row %d: expected '%s' in:\n%s" % [class_id, i, col, actual])
+	panel.free()
+
+## Issue 654's own defect, named directly: a player-controlled pawn's attack
+## row must say the player's click beats its own targeting.
+func test_the_default_row_names_the_players_click() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
+	pawn.plans = []
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn])
+	var text := ""
+	for row in panel._default_rows(pawn):
+		text += _all_label_text(row)
+	assert_true(text.contains("the enemy the player focused"), text)
 	panel.free()
 
 ## The Priest is the one class whose fallback checks its allies before it
@@ -1012,17 +1069,17 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 	state.units.append(hurt_ally)
 	state.units.append(enemy)
 
-	var intent = DefaultBehavior.decide(state, priest)
+	var intent = DefaultPlan.decide(state, priest)
 	assert_not_null(intent)
 	assert_eq(intent.target_id, hurt_ally.id, "the Priest fallback really does treat an ally first")
 	var row_text := _all_label_text(rows[0])
 	assert_true(row_text.contains("ally"), row_text)
 	panel.free()
 
-## The row's numbers are read out of DefaultBehavior's own constants rather
-## than typed here, so the screen cannot drift from the simulation. Asserted
-## the only way that means anything: against the constants themselves.
-func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
+## The row's numbers are read out of `DefaultPlan`'s own blocks rather than
+## typed here, so the screen cannot drift from the simulation. Asserted the
+## only way that means anything: against the constants themselves.
+func test_the_default_row_reads_its_thresholds_from_default_plan() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"siege_master", "Siege Master")
 	pawn.plans = []
 	var panel := InspectPanel.create()
@@ -1034,9 +1091,9 @@ func test_the_default_row_reads_its_thresholds_from_default_behavior() -> void:
 
 	var shot = ActionLibrary.get_action(&"siege_master_shot")
 	assert_not_null(shot)
-	assert_true(shot.range_units > DefaultBehavior.MELEE_RANGE_THRESHOLD, "this fixture is only meaningful for a ranged action")
-	var commit := int(shot.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION)
-	assert_true(text.contains(str(commit)), "expected the commit distance %d in:\n%s" % [commit, text])
+	assert_true(shot.range_units > DefaultPlan.MELEE_RANGE_THRESHOLD, "this fixture is only meaningful for a ranged action")
+	var pct := int(round(DefaultPlan.RANGED_COMMIT_FRACTION * 100.0))
+	assert_true(text.contains("%d%%" % pct), "expected the ranged commit percent %d%% in:\n%s" % [pct, text])
 	panel.free()
 
 func _button_named(node: Node, text: String) -> Button:

@@ -56,6 +56,11 @@ static func _run(state: CombatState, unit: CombatUnit, plan: Plan) -> Intent:
 		return movement.aim(state, unit, target_id, action)
 	if action == null or target_id == -1:
 		return null
+	## Issue 650: gated the same way an authored row's action is. Null, not
+	## idle -- `decide` tries the next candidate row rather than spending
+	## the tick on an action it already knows CombatSim would refuse.
+	if not PlanInterpreter.action_can_fire(state, unit, action, target_id):
+		return null
 	return Intent.use_action(action.id, target_id)
 
 # ---------------------------------------------------------------------------

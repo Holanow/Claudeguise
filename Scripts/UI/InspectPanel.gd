@@ -511,7 +511,7 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 	# reordering the array to suit the screen would change what a plan does.
 	for block in plan.blocks:
 		if block is UseActionBlock:
-			var skill := _action_picker(pawn, block)
+			var skill := _action_picker(pawn, plan, block)
 			skill.size_flags_stretch_ratio = SKILL_SHARE
 			chips.add_child(skill)
 	for block in plan.blocks:
@@ -863,40 +863,66 @@ func _set_targeting(plan, block: TargetingBlock, op: StringName) -> void:
 		plan.blocks[index] = BlockCatalog.targeting(op)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
-## An ACTION block's choices are the pawn's own `starting_actions` — what it
-## can actually do, not every action in the Registry. Empty is a real state
-## (a class with no actions is not this slice's problem to invent one for)
-## and is shown disabled rather than left looking broken.
-func _action_picker(pawn: PawnData, block: UseActionBlock) -> Control:
+## An ACTION block's choices are the pawn's own `starting_actions` -- what it
+## can actually do, not every action in the Registry -- followed by the three
+## derived ops (#652): `UseHealBlock`, `UseBestAttackBlock`, `UseSelfBuffBlock`,
+## which resolve their action per tick instead of carrying a fixed one. Empty
+## is a real state (a class with no actions is not this slice's problem to
+## invent one for) and is shown disabled rather than left looking broken.
+func _action_picker(pawn: PawnData, plan, block: UseActionBlock) -> Control:
 	var picker := _block_chip()
 	var choices := _available_actions(pawn)
-	if choices.is_empty():
+	var derived_ops: Array = BlockCatalog.ACTION_OPS
+	if choices.is_empty() and derived_ops.is_empty():
 		picker.add_item("(no actions)")
 		picker.disabled = true
 		return picker
-	var current_id: StringName = block.action.id if block.action != null else &""
+	var current_op := BlockCatalog.op_of(block)
+	var current_id: StringName = block.action.id if (current_op == &"" and block.action != null) else &""
 	var current := 0
 	for i in choices.size():
 		var action_id: StringName = choices[i]
 		picker.add_item(_action_display_name(action_id))
 		if action_id == current_id:
 			current = i
+	for i in derived_ops.size():
+		var op: StringName = derived_ops[i]
+		var preview: UseActionBlock = block if op == current_op else BlockCatalog.action(op)
+		picker.add_item(_cap_first(preview.describe()))
+		if op == current_op:
+			current = choices.size() + i
 	picker.selected = current
 	# Not `_caption_tooltip`: for a skill the useful hover is what the skill
 	# does, not a longer copy of the word already printed on the chip. Issue
 	# 68's whole premise is that reading is hover's job now, and this is the
-	# one chip on the row that has something to read.
-	var chosen = ActionLibrary.get_action(choices[current])
-	if chosen != null:
-		picker.tooltip_text = "%s\n%s" % [chosen.display_name, _action_description(chosen)]
+	# one chip on the row that has something to read. A derived op has no
+	# single skill behind it, so it falls back to the caption like every
+	# other chip.
+	if current_op == &"" and current < choices.size():
+		var chosen = ActionLibrary.get_action(choices[current])
+		if chosen != null:
+			picker.tooltip_text = "%s\n%s" % [chosen.display_name, _action_description(chosen)]
+		else:
+			_caption_tooltip(picker)
 	else:
 		_caption_tooltip(picker)
-	picker.item_selected.connect(func(idx): _set_action(block, choices[idx]))
+	picker.item_selected.connect(func(idx): _set_action(plan, pawn, block, choices, derived_ops, idx))
 	return picker
 
-## Deferred for the same reason as `_move_plan`.
-func _set_action(block: UseActionBlock, action_id: StringName) -> void:
-	block.action = _resolve_pawn_action(_pawns[_selected_index], action_id)
+## Deferred for the same reason as `_move_plan`: called from the picker's own
+## `item_selected` signal, and a rebuild frees that same picker. Swaps the
+## block in place, the same way `_set_targeting` does, because a derived op and
+## a plain one are different block classes rather than different states of one.
+func _set_action(plan, pawn: PawnData, block: UseActionBlock, choices: Array, derived_ops: Array, idx: int) -> void:
+	var index: int = plan.blocks.find(block)
+	if index == -1:
+		return
+	if idx < choices.size():
+		var fresh := UseActionBlock.new()
+		fresh.action = _resolve_pawn_action(pawn, choices[idx])
+		plan.blocks[index] = fresh
+	else:
+		plan.blocks[index] = BlockCatalog.action(derived_ops[idx - choices.size()])
 	call_deferred("_build_detail", _pawns[_selected_index])
 
 ## Issue 386. `keep_distance` and `move_into_cover` were built, tested and
@@ -1150,66 +1176,38 @@ func _fixed_chip(text: String) -> Control:
 
 # ---------------------------------------------------------------------------
 # The default row: what a pawn does when no plan of its own fires.
+## Issue 651/654: the rows are `DefaultPlan.rows_for(unit)` itself, read the
+## same way an authored row is -- condition, then its blocks, in execution
+## order -- rather than a second, hand-written description of the fallback
+## that could drift from what it does (issue 654 was exactly that drift).
 func _default_rows(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	var actions: Array[ActionDef] = []
-	for id in _available_actions(pawn):
-		var a: ActionDef = ActionLibrary.get_action(id)
-		if a != null:
-			actions.append(a)
-
-	# Skill, target, condition — the same order as an editable row above, so
-	# the column reads straight down.
-	var heal := _default_heal_action(actions)
-	if heal != null:
-		out.append(_fixed_row([
-			"Move into range, then %s" % heal.display_name,
-			"That ally",
-			"When an ally is at or below %d%% hp" % int(round(DefaultBehavior.HEAL_THRESHOLD_FRACTION * 100.0)),
-		]))
-
-	var melee := _default_attack_action(actions, false)
-	var ranged := _default_attack_action(actions, true)
-	var base := "Otherwise" if heal != null else "Always"
-	var target_text := "The nearest enemy, or whoever is taunting"
-	if melee == null and ranged == null:
-		out.append(_fixed_row(["Nothing. This pawn has no attack", target_text, base]))
-	elif melee != null and ranged != null:
-		# The only case with two rows to choose between, and the cut is the
-		# melee action's own commit distance, not MELEE_RANGE_THRESHOLD --
-		# that constant only sorts actions into the two piles, it never
-		# decides between them. No player class carries both today; The
-		# Warden does, which is why this branch exists at all.
-		var cut := int(melee.range_units * DefaultBehavior.MELEE_COMMIT_FRACTION)
-		out.append(_fixed_row([melee.display_name, target_text, "%s, within %d units" % [base, cut]]))
-		out.append(_fixed_row([_ranged_text(ranged), target_text, "Otherwise"]))
-	elif melee != null:
-		out.append(_fixed_row([_melee_text(melee), target_text, base]))
-	else:
-		out.append(_fixed_row([_ranged_text(ranged), target_text, base]))
+	var unit := CombatUnit.new()
+	unit.pawn = pawn
+	unit.actions = _available_actions(pawn)
+	for row in DefaultPlan.rows_for(unit):
+		out.append(_fixed_row(_describe_default_row(row)))
 	return out
 
-func _melee_text(action: ActionDef) -> String:
-	return "Close to within %d units, then %s" % [
-		int(action.range_units * DefaultBehavior.MELEE_COMMIT_FRACTION), action.display_name]
-
-## Issue 544: the automatic back-off is gone, so the row no longer describes one.
-func _ranged_text(action: ActionDef) -> String:
-	return "Close to within %d units, then %s" % [
-		int(action.range_units * DefaultBehavior.RANGED_COMMIT_FRACTION), action.display_name]
-
-## Mirrors `DefaultBehavior._first_heal`, including the `power_scale > 0.0`
-## part: `geyser_cleanse` sets `heals` and restores nothing, and the fallback
-## deliberately never reaches for it.
-func _default_heal_action(actions: Array[ActionDef]) -> ActionDef:
-	for a in actions:
-		if a.heals and a.power_scale > 0.0:
-			return a
-	return null
-
-## Issue 129: `DefaultBehavior` itself, not a mirror of it.
-func _default_attack_action(actions: Array[ActionDef], want_ranged: bool) -> ActionDef:
-	return DefaultBehavior.default_attack_action(actions, want_ranged)
+## Skill, target, condition -- the same three columns `_fixed_row` draws for an
+## editable row. A row's targeting blocks run last-wins (`DefaultPlan._run`),
+## so they are read out highest-priority first.
+func _describe_default_row(row: Plan) -> Array:
+	var skill_text := "nothing"
+	var movement_text := ""
+	var target_texts: Array[String] = []
+	for block in row.blocks:
+		if block is UseActionBlock:
+			skill_text = block.describe()
+		elif block is TargetingBlock:
+			target_texts.append(block.describe())
+		elif block is MovementBlock:
+			movement_text = block.describe()
+	if movement_text != "":
+		skill_text = "%s · %s" % [movement_text, skill_text]
+	target_texts.reverse()
+	var condition_text := "always" if row.condition == null else row.condition.describe()
+	return [_cap_first(skill_text), _cap_first(" · ".join(target_texts)), _cap_first(condition_text)]
 
 ## Named so a probe and a test can find the rows the panel builds for itself.
 const FALLBACK_ROW_NAME := "FallbackRow"
