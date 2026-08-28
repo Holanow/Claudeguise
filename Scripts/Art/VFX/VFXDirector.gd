@@ -102,7 +102,13 @@ func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float
 		layer.play(ctx)
 	else:
 		var l := layer
-		after(layer.delay, func(): l.play(ctx))
+		## The battle this director belongs to can be torn down before a delayed
+		## layer's timer fires. #705's trailer tool rebuilds a fight dozens of
+		## times in one process and hit it: "Lambda capture was freed", then a
+		## segfault.
+		after(layer.delay, func():
+			if is_instance_valid(l):
+				l.play(ctx))
 
 func _process(_delta: float) -> void:
 	for i in range(_followers.size() - 1, -1, -1):
