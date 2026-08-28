@@ -1,138 +1,67 @@
 extends SceneTree
 
-## How far does a party get down a floor, rather than how one fight goes.
+## Issue 730: the floor's only balance question. Arm A -- default pawns, no
+## plan rows, the fallback decides everything -- should basically always
+## lose. Arm B -- the same classes carrying their preset plans -- should win
+## sometimes. Same seeds, both arms, side by side, and where each run ends.
 
-
-const SEEDS := 20
+const SEEDS := 40
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	if class_ids.size() < 5:
-		printerr("need five classes")
+	if class_ids.is_empty():
+		printerr("no classes registered")
 		quit(1)
 		return
-
-	print("Floor runs: how many rooms deep a party gets before it is wiped.")
-	print("%d seeds per party. Nothing heals between rooms.\n" % SEEDS)
-
-	for skip in class_ids.size():
-		var ids := []
-		for i in class_ids.size():
-			if i != skip:
-				ids.append(class_ids[i])
-		_run_party(ids, String(class_ids[skip]))
+	print("Floor runs, issue 730: arm A (default) vs arm B (planned), %d seeds, no healing between rooms.\n" % SEEDS)
+	_report("Arm A -- default pawns, no plans", _run_arm(class_ids, false))
+	_report("Arm B -- planned pawns", _run_arm(class_ids, true))
 	quit(0)
 
-func _run_party(ids: Array, left_out: String) -> void:
-	var depths: Array[int] = []
-	var cleared_floor := 0
-	var entry_hp_by_depth := {}
-	var entry_res_by_depth := {}
-
+func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
+	var cleared := 0
+	var died_at := {}
 	for s in range(SEEDS):
-		var plan := FloorGenerator.generate(s)
-		var run := FloorRun.new(plan)
-		var party: Array[PawnData] = []
-		for cid in ids:
-			var c := StringName(cid)
-			party.append(PawnFactory.make_starter_pawn(
-				c, StringName("%s" % cid), ClassLibrary.get_class_def(c).display_name
-			))
-
-		var depth := 0
+		var room_ids := FloorSequence.build(s)
+		var party := _make_party(class_ids, planned)
+		var run := FloorRun.new()
 		var wiped := false
-		for room_id in plan.reachable_from_entrance():
-			var room := plan.room(room_id)
-			run.enter(room_id)
-			if not FloorFightRunner.is_fight_room(room.type):
-				# Only TREASURE has a resolution path; the runner push_errors on
-				# anything else, and TRAP/LIBRARY/CELL have none yet.
-				if room.type == FloorRoom.Type.TREASURE:
-					FloorFightRunner.play_treasure_room(run, room)
-				else:
-					run.enter(room_id)
-				continue
-			# Party health entering this room, before the fight resolves.
-			var pct := _entry_percent(run, party)
-			if not entry_hp_by_depth.has(depth):
-				entry_hp_by_depth[depth] = []
-			entry_hp_by_depth[depth].append(pct)
-			# Resource, because reporting only hp hid a real cause for hours.
-			if not entry_res_by_depth.has(depth):
-				entry_res_by_depth[depth] = []
-			entry_res_by_depth[depth].append(_entry_resource_percent(run, party))
-
-			var result := FloorFightRunner.play_room(run, room, party)
-			var outcome: FloorFightRunner.Outcome = result.outcome
-			if outcome == FloorFightRunner.Outcome.DEFEAT:
+		for i in room_ids.size():
+			var room_id: StringName = room_ids[i]
+			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
+			FloorRun.carry_into(run, state, party)
+			CombatSim.run(state)
+			for j in party.size():
+				var unit := state.unit(j)
+				run.record_result(party[j].id, unit.hp, unit.resource, unit.alive)
+			if state.outcome != CombatState.Outcome.PLAYER_WIN:
 				wiped = true
+				died_at[room_id] = int(died_at.get(room_id, 0)) + 1
 				break
-			depth += 1
-		depths.append(depth)
 		if not wiped:
-			cleared_floor += 1
+			cleared += 1
+	return {"cleared": cleared, "died_at": died_at}
 
-	print("party without the %s" % left_out)
-	print("  rooms cleared  %s" % _histogram(depths))
-	print("  cleared the whole floor: %d of %d" % [cleared_floor, SEEDS])
-	var res_line := "  party resource entering room:"
-	for d in range(6):
-		if entry_res_by_depth.has(d) and not entry_res_by_depth[d].is_empty():
-			res_line += "  %d:%d%%" % [d + 1, _median(entry_res_by_depth[d])]
+func _make_party(class_ids: Array, planned: bool) -> Array[PawnData]:
+	var party: Array[PawnData] = []
+	for cid in class_ids:
+		var c := StringName(cid)
+		var display := ClassLibrary.get_class_def(c).display_name
+		party.append(PawnFactory.make_preset_pawn(c, c, display) if planned \
+			else PawnFactory.make_starter_pawn(c, c, display))
+	return party
 
-	var line := "  party health entering room:"
-	for d in range(6):
-		if entry_hp_by_depth.has(d) and not entry_hp_by_depth[d].is_empty():
-			line += "  %d:%d%%" % [d + 1, _median(entry_hp_by_depth[d])]
-	print(line)
-	print(res_line)
+func _report(label: String, r: Dictionary) -> void:
+	print(label)
+	print("  cleared the floor: %d of %d (%d%%)" % [r.cleared, SEEDS, int(round(100.0 * r.cleared / SEEDS))])
+	var died_at: Dictionary = r.died_at
+	if died_at.is_empty():
+		print("  no losses")
+	else:
+		print("  died at:")
+		var ids: Array = died_at.keys()
+		ids.sort_custom(func(a, b): return String(a) < String(b))
+		for room_id in ids:
+			var n: int = died_at[room_id]
+			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
 	print("")
-
-## Resource, not hp. `Balance.between_room_heal` restores health and **never
-## touches resource**, so a party can walk into a boss at 85% hp with its casters
-## on 2 of 102 mana -- which is exactly what was happening to one real party for
-## hours while this tool reported it as healthy.
-func _entry_resource_percent(run: FloorRun, party: Array[PawnData]) -> int:
-	var res := 0
-	var res_max := 0
-	for p in party:
-		var full := Balance.max_resource(p)
-		if full <= 0:
-			continue
-		res += maxi(0, run.resource_for(p.id, full) if run.is_alive(p.id) else 0)
-		res_max += full
-	if res_max <= 0:
-		return 100
-	return int(round(100.0 * float(res) / float(res_max)))
-
-func _entry_percent(run: FloorRun, party: Array[PawnData]) -> int:
-	var hp := 0
-	var hp_max := 0
-	for p in party:
-		# hp_for returns full health for a pawn with no recorded result yet,
-		# which is what an unfought pawn should read as.
-		# PawnData has no hp_max; it is derived from attributes by Balance.
-		var full := Balance.max_hp(p)
-		hp += maxi(0, run.hp_for(p.id, full) if run.is_alive(p.id) else 0)
-		hp_max += full
-	if hp_max <= 0:
-		return 0
-	return int(round(100.0 * float(hp) / float(hp_max)))
-
-func _histogram(values: Array[int]) -> String:
-	var counts := {}
-	for v in values:
-		counts[v] = int(counts.get(v, 0)) + 1
-	var keys := counts.keys()
-	keys.sort()
-	var out := ""
-	for k in keys:
-		out += "%d:%-3d " % [k, counts[k]]
-	return out
-
-func _median(values: Array) -> int:
-	if values.is_empty():
-		return 0
-	var sorted := values.duplicate()
-	sorted.sort()
-	return sorted[sorted.size() / 2]

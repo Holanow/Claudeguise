@@ -12,11 +12,23 @@ var run_config: RunConfig = null
 var _current: Node = null
 
 func _ready() -> void:
+	if _floor_from_cmdline():
+		_start_direct_floor()
+		return
 	var straight_to := _room_from_cmdline()
 	if straight_to != &"":
 		_start_direct(straight_to)
 		return
 	show_party_select()
+
+## `godot --path . -- --floor [--seed=7]` opens a whole floor directly, the
+## same shortcut `--room=` gives one fight -- for watching a floor end to end
+## without clicking through party select and Start Run first.
+func _floor_from_cmdline() -> bool:
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--floor":
+			return true
+	return false
 
 ## `godot --path . -- --room=floor1_sellsword [--seed=7]` opens that fight
 ## directly. For looking at one room's combat without clicking through party
@@ -48,6 +60,15 @@ func _start_direct(room_id: StringName) -> void:
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
 	cfg.party = party
 	start_battle(cfg)
+
+func _start_direct_floor() -> void:
+	var cfg := RunConfig.new()
+	cfg.seed = _seed_from_cmdline()
+	var party: Array[PawnData] = []
+	for cid in ClassLibrary.all_ids():
+		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
+	cfg.party = party
+	start_run(cfg)
 
 ## The roster of pawns the player has been editing, held here rather than on
 ## the screen: issue 380, and the seed below is the pattern it copies.
@@ -115,17 +136,18 @@ func fight_room(encounter_id: StringName) -> void:
 	next.encounter_id = encounter_id
 	start_battle(next)
 
-## Issue 43: a run instead of a single fight. FloorGenerator.generate is
-## seeded from the same RunConfig.seed the single-fight path already uses,
-## so the seed field means the same thing on both buttons.
+## Issue 729: one floor, ten rooms run back to back in the same BattleView --
+## no map, no picker, no rewards screen between rooms. `FloorSequence.build`
+## is the whole floor's order, deterministic from `config.seed`.
 func start_run(config: RunConfig) -> void:
 	run_config = config
-	var plan := FloorGenerator.generate(config.seed)
-	var run := FloorRun.new(plan)
-	_swap_to(SCENE_FLOOR_MAP, func(screen):
+	var room_ids := FloorSequence.build(config.seed)
+	_swap_to(SCENE_BATTLE, func(screen):
 		screen.back_requested.connect(show_party_select)
-		screen.run_ended.connect(func(_victory: bool): show_party_select())
-		screen.open(run, config.party)
+		screen.restart_requested.connect(func(): screen.begin_floor(config, room_ids))
+		screen.room_requested.connect(fight_room)
+		screen.floor_ended.connect(func(_victory: bool): show_party_select())
+		screen.begin_floor(config, room_ids)
 	)
 
 func _swap_to(scene_path: String, wire: Callable) -> void:
