@@ -159,7 +159,7 @@ func _capture_status(cfg: StatusCfg, e: CombatEvent, wind_up: int, duration_tick
 	shots.append(await _shot(target, "%s  CAST" % cfg.action_id))
 	var offsets_s: Array[float] = [0.3, 1.0, 2.5, 5.0, 8.0, 12.0]
 	var last_ticks := wind_up + 2
-	var samples := 0
+	var on_samples := 0
 	for off in offsets_s:
 		var cap_ticks: int = duration_ticks - 1 if duration_ticks > 0 else 999999
 		var target_ticks: int = mini(int(off * CG.TICKS_PER_SECOND), cap_ticks)
@@ -171,10 +171,15 @@ func _capture_status(cfg: StatusCfg, e: CombatEvent, wind_up: int, duration_tick
 		var u := _unit(target)
 		var still: bool = u != null and u.has_status(cfg.status)
 		shots.append(await _shot(target, "%s  +%.1fs  %s" % [cfg.action_id, off, "ON" if still else "OFF"]))
-		samples += 1
+		if still:
+			on_samples += 1
+		## The target dying clears its statuses -- a real fight outcome, not a
+		## VFX defect, but it proves nothing about whether the status reads
+		## while it is actually up. Keep sweeping seeds instead of accepting
+		## a strip that is all OFF because the target did not live to show it.
 		if shots.size() >= 8 or u == null or _view.state.outcome != CombatState.Outcome.UNRESOLVED:
 			break
-	if samples < MIN_LIFETIME_SAMPLES:
+	if on_samples < MIN_LIFETIME_SAMPLES:
 		return false
 	_save(cfg.action_id, shots)
 	return true
