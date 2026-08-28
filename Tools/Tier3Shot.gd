@@ -13,7 +13,7 @@ const FRAMES := 10
 const MAX_TICKS := 2400
 
 const RUNS := [
-	{"encounter": &"floor1_hazard", "seeds": [1, 2, 3, 4, 5, 6],
+	{"encounter": &"floor1_hazard", "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
 		"want": [&"warrior_guard", &"warrior_taunt", &"warrior_block", &"warrior_second_wind",
 			&"priest_haste", &"priest_ward", &"priest_heal", &"geyser_cleanse",
 			&"channel_mana", &"spotter_mark", &"brute_roar"]},
@@ -55,9 +55,13 @@ func _frame() -> void:
 func _capture(action_id: StringName, e: CombatEvent, wind_up: int, recover: int) -> void:
 	var span_ticks := wind_up + recover + 8
 	var step := maxi(1, int(ceil(float(span_ticks) / float(FRAMES))))
+	## The effect a target-directed action leaves lives on the target, not the
+	## caster -- cropping on `source_id` alone put a mark's whole visual off
+	## frame. Follow the target once it differs from the source.
+	var follow_id: int = e.target_id if e.target_id != e.source_id else e.source_id
 	var shots: Array[Image] = []
 	for _i in FRAMES:
-		var v: Node2D = _view._unit_views.get(e.source_id)
+		var v: Node2D = _view._unit_views.get(follow_id)
 		var at := Vector2.ZERO if v == null else v.get_global_transform_with_canvas().origin
 		await RenderingServer.frame_post_draw
 		var full := get_viewport().get_texture().get_image()

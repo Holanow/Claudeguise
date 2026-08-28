@@ -8,7 +8,7 @@
 
 [sub_resource type="Resource" id="Resource_sm1"]
 script = ExtResource("2_a1")
-colour = Color(0.604, 0.639, 0.706, 1)
+colour = Color(0.949, 0.937, 0.902, 1)
 size = 60.0
 seconds = 0.22
 delay = 0.15
@@ -25,8 +25,8 @@ delay = 0.16
 
 [sub_resource type="Resource" id="Resource_sm3"]
 script = ExtResource("4_a1")
-colour = Color(0.604, 0.639, 0.706, 1)
-size = 44.0
+colour = Color(0.949, 0.937, 0.902, 1)
+size = 60.0
 seconds = 10.0
 delay = 0.15
 
