@@ -22,7 +22,7 @@ duration_ticks = 150
 
 [sub_resource type="Resource" id="Resource_npsht"]
 script = ExtResource("6_nx0w8")
-range_units = 350.0
+range_units = 1200.0
 requires_line_of_sight = true
 
 [resource]
@@ -30,7 +30,7 @@ script = ExtResource("5_6fk3e")
 id = &"spotter_mark"
 vfx = ExtResource("7_vfx1")
 display_name = "Spotter's Mark"
-description = "Marks a target within 350 units, reducing its damage reduction by 25 percentage points for 10 seconds."
+description = "Marks a target within 1200 units, reducing its damage reduction by 25 percentage points for 10 seconds."
 wind_up_ticks = 10
 recover_ticks = 10
 resource_cost = 15
