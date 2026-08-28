@@ -441,15 +441,17 @@ func _icons(node: Node) -> Array[Node]:
 			out.append(n)
 	return out
 
-## The three slots and the granted-skills section must all be on the screen, or
-## the feature is unreachable however well it works underneath.
+## The five slots and the granted-skills section must all be on the screen, or
+## the feature is unreachable however well it works underneath. Issue 744,
+## rook's ruling: weapon/armor read as "Main Hand"/"Body" now, with "Off Hand"
+## and "Head" beside them as the two the data model does not carry yet.
 func test_the_screen_names_all_three_slots_and_the_granted_skill() -> void:
 	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
 	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
 	var text := _text_of(panel)
-	for word in ["Weapon", "Armor", "Accessory", "Plate Mail"]:
+	for word in ["Main Hand", "Off Hand", "Head", "Body", "Accessory", "Plate Mail"]:
 		assert_true(text.contains(word), "'%s' must be on the equip screen" % word)
 	var granted: StringName = pawn.armor.granted_actions[0]
 	assert_true(text.contains(ActionLibrary.get_action(granted).display_name),
