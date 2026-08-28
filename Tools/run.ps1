@@ -48,6 +48,23 @@ if (-not (Test-Path $script)) {
     exit 3
 }
 
+# Issue 618: a parse error in $name.gd pops a modal dialog in a windowed run,
+# which the console never shows, so the process hangs for the full budget
+# instead of failing. `--check-only` parses without running and returns in
+# well under a second once ensure_import.ps1 has built the class cache above.
+$checkLog = Join-Path $env:TEMP ("claudeguise-check-" + [guid]::NewGuid().ToString('N') + ".txt")
+cmd /c "`"$godot`" --headless --check-only --script `"res://Tools/$name.gd`" --path `"$repo`" > `"$checkLog`" 2>&1"
+$checkCode = $LASTEXITCODE
+if ($checkCode -ne 0) {
+    Get-Content $checkLog | ForEach-Object { Write-Host $_ }
+    Remove-Item $checkLog -ErrorAction SilentlyContinue
+    Write-Host ""
+    Write-Host "Tools\$name.gd fails to parse (see above). Not launching -- this would"
+    Write-Host "otherwise hang for the full timeout budget with no output (issue 618)."
+    exit 4
+}
+Remove-Item $checkLog -ErrorAction SilentlyContinue
+
 # A one-node scene is how a Node tool gets a tree to run in. Every runnable one
 # in this directory ships one, and Tests\test_tools_are_launchable.gd fails the
 # gate if a new one does not.

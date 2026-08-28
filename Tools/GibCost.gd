@@ -163,7 +163,7 @@ func _cost(units: int, explode: bool, demand: Dictionary) -> void:
 			var shape := UnitView.shape_id(u)
 			_view._gibs.explode(u.position, UnitView.display_radius(u),
 				UnitView.facing_left(u), UnitArt.fragments_for(shape, u.team), u.id)
-			_view._bursts.death_burst(u.position, Palette.team_color(u.team))
+			_view._bursts.death_burst(u.position, Palette.team_color(u.team), i)
 			thrown += 1
 			peak = maxi(peak, _view._gibs.live_explosions())
 		await RenderingServer.frame_post_draw
