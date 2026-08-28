@@ -361,10 +361,15 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## Issue 590: the rules are the counter's mouseover on both widths now, not
 	## only in the party screen's narrow column. Full width they were a second
 	## paragraph of `HOW_TO_PLAY`, four sentences above them on the same screen.
-	var standing_line := "%d of %d plan blocks used, %s." % [used, budget, standing]
+	## Issue 723: a readout, not a sentence in the corner -- same numbers, no
+	## trailing prose. Still one Label (several tests find it by exact type and
+	## by the literal "plan blocks used" substring), so the readout treatment is
+	## a tile and a bigger face rather than separate label/value columns.
+	var standing_line := "%d of %d plan blocks used  ·  %s" % [used, budget, standing]
 	var rules := "A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % NEW_PLAN_BLOCK_COST
-	var summary := _line(standing_line, Palette.FONT_SIZE_SMALL,
+	var summary := _line(standing_line, Palette.FONT_SIZE_BODY,
 		Palette.TEXT if over <= 0 else Palette.HP_LOW)
+	summary.add_theme_stylebox_override("normal", _tile_style())
 	summary.set_script(GlossaryLabelScript)
 	summary.mouse_filter = Control.MOUSE_FILTER_STOP
 	summary.tooltip_text = rules
@@ -396,6 +401,13 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		out.append(control)
 
 	var fallback_header := HBoxContainer.new()
+	## Issue 723: the mark leads, same as every numbered row's gutter -- the
+	## default row is the most important one on the screen and had its verdict
+	## sitting at the opposite end from everybody else's.
+	var fallback_verdict := _live_fallback_verdict(pawn)
+	if fallback_verdict != "":
+		fallback_header.add_child(_verdict_mark(fallback_verdict))
+		fallback_header.add_child(_verdict_label(fallback_verdict))
 	var fallback_title := _line(
 		DEFAULT_ROW_TITLE,
 		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
@@ -403,9 +415,6 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	## moment a verdict sits beside it (issue 308's screenshot).
 	fallback_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fallback_header.add_child(fallback_title)
-	var fallback_verdict := _live_fallback_verdict(pawn)
-	if fallback_verdict != "":
-		fallback_header.add_child(_verdict_label(fallback_verdict))
 	out.append(fallback_header)
 	for row in _default_rows(pawn):
 		out.append(row)
@@ -505,8 +514,12 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 
 	## Issue 155. Same number the combat log prints ("plan 3"), same order, from
 	## the same array -- so a player who reads a tag in the log can find the row.
-	var verdict := _live_verdict(pawn, plan)
+	## Issue 723: an inert row's own live verdict is a claim about a row
+	## `PlanInterpreter` never reads (it stops at `active_plan_count`), so it
+	## gets its own word instead of a stale "waiting" nobody asked about.
+	var verdict := VERDICT_INERT if inert else _live_verdict(pawn, plan)
 	if verdict != "":
+		handle.add_child(_verdict_mark(verdict))
 		handle.add_child(_verdict_label(verdict))
 
 	var up := Button.new()
@@ -523,7 +536,13 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 	down.pressed.connect(_move_plan.bind(pawn, index, 1))
 	handle.add_child(down)
 
-	var chips := HBoxContainer.new()
+	# Issue 723: a flow container rather than a fixed HBox. `_size_to_caption`
+	# means a chip can no longer be squeezed below its own text, so a row that
+	# no longer fits its share wraps onto another line instead of clipping --
+	# the same trade `_fixed_chip`'s autowrap already makes, one level up.
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", int(Palette.SPACE_S))
+	chips.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
 	# Skill, then target, then condition. Two passes over `plan.blocks` rather
 	# than one, because the row's order is a reading decision and the array's
 	# order is the interpreter's execution order (targeting before action, so
@@ -559,15 +578,15 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 ## chips got 50 to 90px each and two of six columns rendered as a bare chevron.
 ## The chips get their own line there, which is the only way they see a width
 ## comparable to the full-width Plans screen the playtester called readable.
-func _assemble_row(handle: HBoxContainer, chips: HBoxContainer, remove: Button) -> Control:
+## Issue 723: full width, `chips` stays a flow container and one slot in
+## `handle` rather than flattened into it, so a caption too wide for its share
+## wraps onto a second line instead of pushing the remove button off-screen.
+func _assemble_row(handle: HBoxContainer, chips: Container, remove: Button) -> Control:
 	if not _embedded:
-		var row := handle
-		for chip in chips.get_children():
-			chips.remove_child(chip)
-			row.add_child(chip)
-		chips.free()
-		row.add_child(remove)
-		return row
+		chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		handle.add_child(chips)
+		handle.add_child(remove)
+		return handle
 
 	var stack := VBoxContainer.new()
 	var top := handle
@@ -870,6 +889,7 @@ func _targeting_picker(pawn: PawnData, plan, block: TargetingBlock) -> Control:
 		if op == current_op:
 			current = i
 	picker.selected = current
+	_size_to_caption(picker)
 	_caption_tooltip(picker)
 	picker.item_selected.connect(func(idx): _set_targeting(plan, block, ops[idx]))
 	return picker
@@ -896,6 +916,7 @@ func _action_picker(pawn: PawnData, plan, block: UseActionBlock) -> Control:
 	if choices.is_empty() and derived_ops.is_empty():
 		picker.add_item("(no actions)")
 		picker.disabled = true
+		_size_to_caption(picker)
 		return picker
 	var current_op := BlockCatalog.op_of(block)
 	var current_id: StringName = block.action.id if (current_op == &"" and block.action != null) else &""
@@ -912,6 +933,7 @@ func _action_picker(pawn: PawnData, plan, block: UseActionBlock) -> Control:
 		if op == current_op:
 			current = choices.size() + i
 	picker.selected = current
+	_size_to_caption(picker)
 	# Not `_caption_tooltip`: for a skill the useful hover is what the skill
 	# does, not a longer copy of the word already printed on the chip. Issue
 	# 68's whole premise is that reading is hover's job now, and this is the
@@ -980,6 +1002,7 @@ func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 		if op == current_op:
 			current = i + 1
 	picker.selected = current
+	_size_to_caption(picker)
 	_caption_tooltip(picker)
 	if block == null and Balance.plan_block_budget(pawn) - _blocks_used(pawn) < 1:
 		picker.disabled = true
@@ -1049,6 +1072,7 @@ func _condition_editor(plan) -> Control:
 		if op == current_op:
 			current = i
 	picker.selected = current
+	_size_to_caption(picker)
 	_caption_tooltip(picker)
 	picker.item_selected.connect(func(idx): _set_condition_op(plan, ops[idx]))
 	row.add_child(picker)
@@ -1123,17 +1147,13 @@ const RANGE_PRECISION := 0.001
 func _status_operand_editor(block: PlanBlock, key: StringName) -> Control:
 	## Issue 396: 140 fixed took a fifth of the party screen's row for a word as
 	## short as "Burn", and the chip beside it paid for it in blank chevrons.
-	var picker := OptionButton.new()
-	picker.custom_minimum_size = Vector2(CHIP_MIN_WIDTH, _TOUCH)
-	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	picker.fit_to_longest_item = false
-	picker.clip_text = true
-	AppTheme.keep_popup_on_screen(picker)
+	var picker := _block_chip()
 	var current := int(block.get(key))
 	for i in CG.Status.keys().size():
 		picker.add_item(String(CG.Status.keys()[i]).capitalize(), i)
 		if i == current:
 			picker.selected = picker.item_count - 1
+	_size_to_caption(picker)
 	picker.item_selected.connect(func(idx): _set_operand(block, key, picker.get_item_id(idx)))
 	return picker
 
@@ -1148,26 +1168,59 @@ func _set_operand(block: PlanBlock, key: StringName, value) -> void:
 ## screen. A share of the row is not a floor, so the floor is stated.
 const CHIP_MIN_WIDTH := 72.0
 
-## One editable block in a plan row. `SIZE_EXPAND_FILL` on all three chips
-## rather than a fixed width: they share the row's width in proportion to the
-## text they carry, which is what keeps a long condition from pushing the skill
-## chip off the end.
+## Issue 723: room a picker's own arrow and padding need beyond its caption's
+## drawn width, so `_size_to_caption` asks for enough space to show the whole
+## word rather than the word plus a guess.
+const _CHIP_CHROME := 40.0
+
+## The one tile stylebox every block on this screen draws with -- an editable
+## picker (`_block_chip`) and the immutable default row's chip (`_fixed_chip`)
+## alike. Issue 723: they used to be two visual languages, a themed dropdown
+## button beside a bordered panel; sharing this makes them one tile either way.
+func _tile_style() -> StyleBox:
+	var style := UIArt.panel_style(&"inspect", Palette.HP_BACK, Palette.ARENA_EDGE, 1)
+	if style is StyleBoxFlat:
+		style.set_corner_radius_all(3)
+	style.content_margin_left = Palette.SPACE_S
+	style.content_margin_right = Palette.SPACE_S
+	style.content_margin_top = Palette.SPACE_XS
+	style.content_margin_bottom = Palette.SPACE_XS
+	return style
+
+## One editable block in a plan row. `SIZE_EXPAND_FILL` rather than a fixed
+## width: a chip still shares the row's width in proportion to the text it
+## carries, but `_size_to_caption` now raises its own floor to whatever its
+## caption needs, so sharing can no longer cut the caption off.
 func _block_chip() -> OptionButton:
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(CHIP_MIN_WIDTH, _TOUCH)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Both of these, and neither is optional. `OptionButton.fit_to_longest_item`
 	picker.fit_to_longest_item = false
-	picker.clip_text = true
+	# Issue 723: clipping is what cut "The nearest enem" and "default mov" off
+	# mid-word. `_size_to_caption` is what stops that from also overflowing --
+	# the two only work as a pair.
+	picker.clip_text = false
 	picker.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		picker.add_theme_stylebox_override(state, _tile_style())
 	AppTheme.keep_popup_on_screen(picker)
 	return picker
 
-## Clipping is what stops one long block from pushing the others off the row,
-## but a clipped chip has still lost a word. The full caption goes on the
-## tooltip so nothing is unreadable, only abbreviated — the same hover the rest
-## of this screen already uses. Called after `selected` is set, since that is
-## what decides which caption is showing.
+## Issue 723's no-truncation rule, the mechanism: a picker's minimum width
+## grows to fit its own selected caption, so a share of the row can compress it
+## no further than the word itself. Call after `picker.selected` is set --
+## that is what decides which caption is showing.
+func _size_to_caption(picker: OptionButton) -> void:
+	if picker.selected < 0:
+		return
+	var text := picker.get_item_text(picker.selected)
+	var width := ThemeDB.fallback_font.get_string_size(
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, Palette.FONT_SIZE_SMALL).x
+	picker.custom_minimum_size.x = maxf(CHIP_MIN_WIDTH, width + _CHIP_CHROME)
+
+## The full caption also goes on the tooltip: `_size_to_caption` means the row
+## itself never clips it, but the hover still matches everything else on this
+## screen, and is where the value lands when the caption itself is icon-short.
 func _caption_tooltip(picker: OptionButton) -> void:
 	if picker.selected >= 0:
 		picker.tooltip_text = picker.get_item_text(picker.selected)
@@ -1178,14 +1231,7 @@ func _caption_tooltip(picker: OptionButton) -> void:
 ## this row is describing behaviour that really happens, not a disabled one.
 func _fixed_chip(text: String) -> Control:
 	var panel := PanelContainer.new()
-	var style := UIArt.panel_style(&"inspect", Palette.HP_BACK, Palette.ARENA_EDGE, 1)
-	if style is StyleBoxFlat:
-		style.set_corner_radius_all(3)
-	style.content_margin_left = Palette.SPACE_S
-	style.content_margin_right = Palette.SPACE_S
-	style.content_margin_top = Palette.SPACE_XS
-	style.content_margin_bottom = Palette.SPACE_XS
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", _tile_style())
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var label := Label.new()
 	label.text = text
@@ -1290,6 +1336,10 @@ const VERDICT_WAITING := "waiting"
 const VERDICT_TAUNTED := "taunted"
 const VERDICT_HELD := "held"
 const VERDICT_REFUSED := "refused"
+## Issue 723: a row past the block budget used to carry whatever live verdict
+## it happened to compute, which could read "waiting" or "ready" for a row
+## `PlanInterpreter` never consults at all. Its own word instead.
+const VERDICT_INERT := "inert"
 
 ## One word for one plan row, or "" when there is no live fight to read, and
 ## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
@@ -1407,12 +1457,39 @@ const VERDICT_HELP := {
 	VERDICT_WAITING: "This row's condition does not hold, so the pawn is not reading it.",
 	VERDICT_TAUNTED: "The pawn is compelled and none of its rows are read at all.",
 	VERDICT_REFUSED: "This row's condition holds and the pawn is free, but its skill cannot fire. The line beneath it names the reason.",
+	VERDICT_INERT: "This row costs more than the pawn has left in its budget, so PlanInterpreter never reads it. The line beneath it names both numbers.",
 }
+
+## Issue 723: the glyph half of the gutter mark, always beside `_verdict_label`
+## and never inside it -- several tests key a verdict Label by its exact word
+## and its 64px floor, so the shape that carries the rest of the state has to
+## be a sibling. Position (always first, always the gutter) and shape do the
+## carrying; colour stays reserved for `acting`, the one state issue 723 asks
+## it to.
+const VERDICT_MARK := {
+	VERDICT_ACTING: "●",
+	VERDICT_READY: "○",
+	VERDICT_HELD: "◐",
+	VERDICT_WAITING: "·",
+	VERDICT_TAUNTED: "!",
+	VERDICT_REFUSED: "✕",
+	VERDICT_INERT: "⊘",
+}
+
+func _verdict_mark(text: String) -> Label:
+	var mark := Label.new()
+	mark.text = String(VERDICT_MARK.get(text, ""))
+	mark.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
+	mark.add_theme_color_override("font_color",
+		Palette.TEAM_PLAYER if text == VERDICT_ACTING else Palette.TEXT_DIM)
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.custom_minimum_size = Vector2(20.0, 0.0)
+	return mark
 
 func _verdict_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	label.add_theme_color_override("font_color",
 		Palette.TEAM_PLAYER if text == VERDICT_ACTING else (
 			Palette.TEXT if text == VERDICT_READY else Palette.TEXT_DIM))
