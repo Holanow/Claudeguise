@@ -56,11 +56,15 @@ func is_alive(pawn_id: StringName) -> bool:
 		return bool(carry[pawn_id]["alive"])
 	return true
 
+## Issue 732: a fraction of max HP, healed on arrival in the next room, living
+## pawns only, no revive. The one named constant the issue asks for.
+const BETWEEN_ROOM_HEAL_FRACTION := 0.15
+
 ## Overwrites `state`'s party units (index i is party[i], the order
 ## `CombatSim.build` always places them in) with what this run carried from
-## the last room. No recovery applied -- issue 729 forbids healing between
-## rooms. Shared by BattleView's live floor and Tools/FloorRuns.gd's headless
-## sweep so the carry rule has exactly one implementation.
+## the last room, then applies the arrival heal above. Shared by BattleView's
+## live floor and Tools/FloorRuns.gd's headless sweep so the carry rule and
+## the heal have exactly one implementation.
 static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]) -> void:
 	for i in party.size():
 		var unit := state.unit(i)
@@ -71,3 +75,19 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 			continue
 		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
+		_apply_arrival_heal(state, unit)
+
+## Living pawn only, no revive: `carry_into` already set dead units aside
+## above and this never runs on one. A pawn already at max hp emits nothing,
+## same "no event for no change" rule `CombatSim._apply_heal` uses.
+static func _apply_arrival_heal(state: CombatState, unit: CombatUnit) -> void:
+	var amount := int(round(float(unit.hp_max) * BETWEEN_ROOM_HEAL_FRACTION))
+	var before := unit.hp
+	unit.hp = mini(unit.hp_max, unit.hp + amount)
+	var applied := unit.hp - before
+	if applied <= 0:
+		return
+	var e := CombatEvent.make(CG.EventKind.HEAL, state.tick)
+	e.target_id = unit.id
+	e.amount = applied
+	state.emit(e)
