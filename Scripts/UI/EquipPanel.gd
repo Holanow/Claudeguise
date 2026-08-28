@@ -102,7 +102,7 @@ func _rebuild_list() -> void:
 ## The list carries the count of filled slots, so a player scanning the party
 ## can see who is still naked without opening each pawn in turn.
 func _list_entry_text(pawn: PawnData) -> String:
-	return "%s  %d/3" % [pawn.display_name, pawn.equipment().size()]
+	return "%s  %d/%d" % [pawn.display_name, pawn.equipment().size(), EquipmentDef.Slot.size()]
 
 func _select(index: int) -> void:
 	if index < 0 or index >= _pawns.size():
@@ -143,7 +143,7 @@ func _build_detail(pawn: PawnData) -> void:
 	if not _embedded:
 		%DetailBox.add_child(tags)
 
-	## Issue 744: the doll centred above its own stats readout. A
+	## Issue 744: the doll centred above its own slots and stats. A
 	## CenterContainer rather than a fixed offset, so the doll stays centred
 	## whether the column is 1600px wide or a 240px popout tab.
 	var center := CenterContainer.new()
@@ -153,24 +153,13 @@ func _build_detail(pawn: PawnData) -> void:
 	center.add_child(doll)
 	%DetailBox.add_child(center)
 
+	%DetailBox.add_child(_section_header("Slots"))
+	for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND, EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
+		for control in _slot_controls(pawn, slot):
+			%DetailBox.add_child(control)
+
 	%DetailBox.add_child(_section_header("What your gear is worth"))
 	for control in _effect_controls(pawn):
-		%DetailBox.add_child(control)
-
-	%DetailBox.add_child(_section_header("Slots"))
-	## Display order matches rook's ruling: main hand, off hand, head, body,
-	## accessory. Off hand and head have no `PawnData` field yet -- #744 lays
-	## the screen out for five so it does not get re-laid-out when that data
-	## change lands.
-	for control in _slot_controls(pawn, EquipmentDef.Slot.WEAPON):
-		%DetailBox.add_child(control)
-	for control in _future_slot_controls("Off Hand"):
-		%DetailBox.add_child(control)
-	for control in _future_slot_controls("Head"):
-		%DetailBox.add_child(control)
-	for control in _slot_controls(pawn, EquipmentDef.Slot.ARMOR):
-		%DetailBox.add_child(control)
-	for control in _slot_controls(pawn, EquipmentDef.Slot.ACCESSORY):
 		%DetailBox.add_child(control)
 
 	%DetailBox.add_child(_section_header("Actions"))
@@ -181,34 +170,42 @@ func _build_detail(pawn: PawnData) -> void:
 # Slots
 # ---------------------------------------------------------------------------
 
-## Issue 744, rook's ruling: weapon splits into main hand/off hand and armor
-## into head/body. `EquipmentDef.Slot` keeps its three values -- that data
-## change is separate -- so `WEAPON` reads as "Main Hand" and `ARMOR` as
-## "Body" here, and the missing halves are `_future_slot_controls` rows.
 static func slot_name(slot: int) -> String:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
+		EquipmentDef.Slot.MAIN_HAND:
 			return "Main Hand"
-		EquipmentDef.Slot.ARMOR:
+		EquipmentDef.Slot.OFF_HAND:
+			return "Off Hand"
+		EquipmentDef.Slot.HEAD:
+			return "Head"
+		EquipmentDef.Slot.BODY:
 			return "Body"
 		_:
 			return "Accessory"
 
 func equipped(pawn: PawnData, slot: int) -> EquipmentDef:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			return pawn.weapon
-		EquipmentDef.Slot.ARMOR:
-			return pawn.armor
+		EquipmentDef.Slot.MAIN_HAND:
+			return pawn.main_hand
+		EquipmentDef.Slot.OFF_HAND:
+			return pawn.off_hand
+		EquipmentDef.Slot.HEAD:
+			return pawn.head
+		EquipmentDef.Slot.BODY:
+			return pawn.body
 		_:
 			return pawn.accessory
 
 func _set_equipped(pawn: PawnData, slot: int, item: EquipmentDef) -> void:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			pawn.weapon = item
-		EquipmentDef.Slot.ARMOR:
-			pawn.armor = item
+		EquipmentDef.Slot.MAIN_HAND:
+			pawn.main_hand = item
+		EquipmentDef.Slot.OFF_HAND:
+			pawn.off_hand = item
+		EquipmentDef.Slot.HEAD:
+			pawn.head = item
+		EquipmentDef.Slot.BODY:
+			pawn.body = item
 		_:
 			pawn.accessory = item
 
@@ -319,24 +316,6 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 		Palette.TEXT if worn != null else Palette.TEXT_DIM))
 	return out
 
-## Issue 744: a slot the data model does not carry yet (off hand, head). No
-## picker, since there is nothing to choose -- a row rather than a gap, so it
-## reads as "nothing exists for this yet" and not as a missing feature.
-func _future_slot_controls(name: String) -> Array[Control]:
-	var out: Array[Control] = []
-	var row := HBoxContainer.new()
-	var mark := FutureSlotMark.new()
-	mark.custom_minimum_size = Vector2(MARKER_SIZE, MARKER_SIZE)
-	row.add_child(mark)
-	var label := Label.new()
-	label.text = name
-	label.custom_minimum_size = Vector2(120.0, 0.0)
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	row.add_child(label)
-	out.append(row)
-	out.append(_line("No items exist for this slot yet.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
-	return out
-
 ## Deferred, not immediate. The picker emitting `item_selected` is a child of
 ## `%DetailBox`, and `_build_detail` frees every child of it -- freeing a node
 ## partway through emitting its own signal is a use-after-free the engine warns
@@ -444,7 +423,7 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 	# takes a CombatUnit that does not exist before a fight is built. Armor is
 	# the only source of it on a pawn, which is the same branch that function
 	# takes, and a content test holds that.
-	var absorbed := 0.0 if pawn.armor == null else pawn.armor.damage_reduction
+	var absorbed := 0.0 if pawn.body == null else pawn.body.damage_reduction
 	out.append(_line("Damage absorbed: %d%% of every hit." % int(round(absorbed * 100.0)),
 		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.TEXT_DIM))
 	return out
@@ -570,10 +549,10 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 #
 # The pawn itself, not a picture of it. `UnitArt.sprites_for` is called
 # directly rather than through `Silhouettes.draw_unit`, because the weapon in
-# hand needs `pawn.weapon.part` threaded through as `weapon_part` -- the same
-# parameter `UnitView._sync_visual` already passes for the live arena. Slot
-# markers are drawn, not separate nodes, so equipping an item redraws them for
-# free the moment `queue_redraw` fires.
+# hand needs `pawn.main_hand.part` threaded through as `weapon_part` -- the
+# same parameter `UnitView._sync_visual` already passes for the live arena.
+# Slot markers are drawn, not separate nodes, so equipping an item redraws
+# them for free the moment `queue_redraw` fires.
 class DollView extends Control:
 	var pawn: PawnData = null:
 		set(value):
@@ -591,7 +570,7 @@ class DollView extends Control:
 		if pawn.pawn_class == null:
 			draw_rect(Rect2(center - Vector2(DOLL_RADIUS, DOLL_RADIUS), Vector2(DOLL_RADIUS, DOLL_RADIUS) * 2.0), Color.BLACK)
 			return
-		var weapon_part: StringName = &"" if pawn.weapon == null else pawn.weapon.part
+		var weapon_part: StringName = &"" if pawn.main_hand == null else pawn.main_hand.part
 		var sprites := UnitArt.sprites_for(pawn.pawn_class.id, CG.Team.PLAYER, weapon_part)
 		if sprites.is_empty():
 			draw_rect(Rect2(center - Vector2(DOLL_RADIUS, DOLL_RADIUS), Vector2(DOLL_RADIUS, DOLL_RADIUS) * 2.0), Color.BLACK)
@@ -605,19 +584,15 @@ class DollView extends Control:
 				continue
 			draw_texture_rect(tex, UnitArt.signed_rect(tex, DOLL_RADIUS, false, center), false, s["color"])
 
-	## Five positions around the body: weapon at the hand, armor at the body,
-	## accessory off to the side, and the two the data model does not carry
-	## yet in their own ARPG-standard places -- head above, off hand mirroring
-	## the main hand -- so the layout does not move when they are wired up.
 	## Five points on a ring outside the body, evenly spaced so none can
 	## overlap another regardless of `MARKER_SIZE`: head at the top, then
-	## clockwise main hand, accessory, body, off hand.
+	## clockwise main hand, accessory, body, off hand -- rook's slot order.
 	func _draw_markers(center: Vector2) -> void:
-		FutureSlotMark.paint(self, _mark_rect(center, 0))
-		_slot_marker(_mark_rect(center, 1), EquipmentDef.Slot.WEAPON, pawn.weapon)
+		_slot_marker(_mark_rect(center, 0), EquipmentDef.Slot.HEAD, pawn.head)
+		_slot_marker(_mark_rect(center, 1), EquipmentDef.Slot.MAIN_HAND, pawn.main_hand)
 		_slot_marker(_mark_rect(center, 2), EquipmentDef.Slot.ACCESSORY, pawn.accessory)
-		_slot_marker(_mark_rect(center, 3), EquipmentDef.Slot.ARMOR, pawn.armor)
-		FutureSlotMark.paint(self, _mark_rect(center, 4))
+		_slot_marker(_mark_rect(center, 3), EquipmentDef.Slot.BODY, pawn.body)
+		_slot_marker(_mark_rect(center, 4), EquipmentDef.Slot.OFF_HAND, pawn.off_hand)
 
 	func _mark_rect(center: Vector2, ring_index: int) -> Rect2:
 		var angle := -PI * 0.5 + float(ring_index) * TAU / 5.0
@@ -631,26 +606,3 @@ class DollView extends Control:
 			EquipmentIcons.draw_empty_slot(self, slot, rect)
 		else:
 			EquipmentIcons.draw_item(self, item, rect)
-
-## The chrome for a slot `PawnData` does not carry yet: a dim dashed frame with
-## no glyph in it, so it reads as "nothing lives here yet" rather than as a
-## rendering defect. Static so both the doll and the row below it paint the
-## same mark without either owning the other.
-class FutureSlotMark extends Control:
-	static func paint(canvas: CanvasItem, rect: Rect2) -> void:
-		canvas.draw_rect(rect, Palette.HP_BACK)
-		var dash := 4.0
-		var corners := [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
-		for i in corners.size():
-			var a: Vector2 = corners[i]
-			var b: Vector2 = corners[(i + 1) % corners.size()]
-			var seg := b - a
-			var len := seg.length()
-			var dir := seg / len
-			var t := 0.0
-			while t < len:
-				canvas.draw_line(a + dir * t, a + dir * minf(t + dash, len), Palette.ARENA_EDGE, 1.0)
-				t += dash * 2.0
-
-	func _draw() -> void:
-		paint(self, Rect2(Vector2.ZERO, size))

@@ -158,7 +158,7 @@ func _run() -> void:
 ## pinned to a fixed-width column inside a taller window.
 func _run_narrow() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
-	pawn.weapon = ItemLibrary.get_equipment(&"sword")
+	pawn.main_hand = ItemLibrary.get_equipment(&"sword")
 	for w in [320, 240]:
 		var panel := EquipPanel.create()
 		add_child(panel)

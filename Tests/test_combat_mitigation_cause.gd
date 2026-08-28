@@ -260,13 +260,13 @@ func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 ## larger source, and CON is the source that still exists.
 func test_the_warriors_mitigation_is_all_toughness_now() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
-	assert_not_null(pawn.armor, "the warrior must still start in armour")
-	assert_eq(pawn.armor.damage_reduction, 0.0,
+	assert_not_null(pawn.body, "the warrior must still start in armour")
+	assert_eq(pawn.body.damage_reduction, 0.0,
 		"issue 489: plate grants Directional Block and absorbs nothing")
 	var u := CombatUnit.new()
 	u.pawn = pawn
 	var with_plate: float = SimDeps._default_damage_reduction(u)
-	pawn.armor = null
+	pawn.body = null
 	var without: float = SimDeps._default_damage_reduction(u)
 	assert_almost_eq(with_plate, without, 0.0001,
 		"plate is still moving the number, so something numeric survived the ruling")
@@ -281,7 +281,7 @@ func test_armour_heavier_than_toughness_is_named() -> void:
 	pawn.attribute_bonus[CG.Attribute.CON] = 2
 	var heavy := EquipmentDef.new()
 	heavy.damage_reduction = 0.4
-	pawn.armor = heavy
+	pawn.body = heavy
 	var u := CombatUnit.new()
 	u.pawn = pawn
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.ARMOR)

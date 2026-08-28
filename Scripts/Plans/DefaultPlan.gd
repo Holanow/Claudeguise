@@ -80,8 +80,8 @@ static func rows_for(unit: CombatUnit) -> Array[Plan]:
 static func weapon_attack(unit: CombatUnit) -> ActionDef:
 	var ids: Array[StringName] = []
 	if unit.pawn != null:
-		if unit.pawn.weapon != null:
-			ids = unit.pawn.weapon.granted_actions
+		if unit.pawn.main_hand != null:
+			ids = unit.pawn.main_hand.granted_actions
 	else:
 		ids = unit.actions
 	var actions: Array[ActionDef] = []

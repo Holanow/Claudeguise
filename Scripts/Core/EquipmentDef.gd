@@ -2,14 +2,15 @@ extends Resource
 class_name EquipmentDef
 
 
-## Weapon, armor or accessory. All three share one shape and the slot decides
-## which fields are read.
+## A weapon, a piece of armor or an accessory. All share one shape and the
+## slot decides which fields are read. Issue 745: five slots, main hand and
+## off hand split from weapon, head and body split from armor.
 
-enum Slot { WEAPON, ARMOR, ACCESSORY }
+enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 
 @export var id: StringName = &""
 @export var display_name: String = ""
-@export var slot: Slot = Slot.WEAPON
+@export var slot: Slot = Slot.MAIN_HAND
 
 ## Which part in `Assets/Units/parts/` this item draws in the `Weapon` slot.
 ## Empty means it draws nothing, which is every item that is not a weapon.
@@ -29,7 +30,7 @@ enum Slot { WEAPON, ARMOR, ACCESSORY }
 ## Empty on every item that ships today, so nothing changes until one is set.
 @export var modifiers: Array[AbilityModifier] = []
 
-## Armor only. Fraction of incoming damage removed before it is applied.
+## Body armor only. Fraction of incoming damage removed before it is applied.
 @export var damage_reduction: float = 0.0
 
 ## ActionDef ids this piece grants its wielder.

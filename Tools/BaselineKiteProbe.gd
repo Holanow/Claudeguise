@@ -7,7 +7,7 @@ extends SceneTree
 func _init() -> void:
 	for class_id in [&"priest", &"geysermancer", &"siege_master", &"warrior"]:
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, String(class_id))
-		pawn.armor = null
+		pawn.body = null
 		var party: Array[PawnData] = [pawn]
 		var e := RoomData.new()
 		e.id = &"probe"

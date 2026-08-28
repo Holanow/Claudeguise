@@ -1118,7 +1118,7 @@ func test_action_art_name_is_the_action_id() -> void:
 
 
 const _EVERY_SLOT := [
-	EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY,
+	EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY,
 ]
 
 

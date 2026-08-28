@@ -54,7 +54,7 @@ func _armed(mod: AbilityModifier) -> CombatUnit:
 	u.hp_max = 40
 	u.pawn = PawnData.new()
 	if mod != null:
-		u.pawn.weapon = _item_with(mod)
+		u.pawn.main_hand = _item_with(mod)
 	return u
 
 
@@ -117,7 +117,7 @@ func test_two_items_stack() -> void:
 	b.power_multiplier = 1.5
 
 	var unit := _armed(a)
-	unit.pawn.armor = _item_with(b)
+	unit.pawn.body = _item_with(b)
 	var action := _projectile_action(CG.DamageType.FIRE)
 	assert_eq(AbilityModifiers.extra_targets(unit, action), 3, "bonuses add")
 	assert_eq(AbilityModifiers.power_multiplier(unit, action), 3.0, "multipliers multiply")

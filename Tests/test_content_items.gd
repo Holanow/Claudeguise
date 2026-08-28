@@ -13,8 +13,8 @@ func test_at_least_one_item_per_slot_is_registered() -> void:
 		var item := ItemLibrary.get_equipment(id)
 		assert_not_null(item, "registered id %s did not resolve" % id)
 		slots_seen[item.slot] = true
-	assert_true(slots_seen.has(EquipmentDef.Slot.WEAPON), "no weapon registered")
-	assert_true(slots_seen.has(EquipmentDef.Slot.ARMOR), "no armor registered")
+	assert_true(slots_seen.has(EquipmentDef.Slot.MAIN_HAND), "no weapon registered")
+	assert_true(slots_seen.has(EquipmentDef.Slot.BODY), "no armor registered")
 	assert_true(slots_seen.has(EquipmentDef.Slot.ACCESSORY), "no accessory registered")
 
 
@@ -106,7 +106,7 @@ func test_every_class_can_equip_at_least_one_weapon() -> void:
 		var can_equip_something := false
 		for item_id in ItemLibrary.all_ids():
 			var item := ItemLibrary.get_equipment(item_id)
-			if item.slot == EquipmentDef.Slot.WEAPON and item.allows_class(c):
+			if item.slot == EquipmentDef.Slot.MAIN_HAND and item.allows_class(c):
 				can_equip_something = true
 				break
 		assert_true(can_equip_something, "%s (tags %s) has no weapon it is allowed to equip" % [class_id, c.tags()])

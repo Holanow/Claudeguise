@@ -379,6 +379,27 @@ try to rewrite history to hide it. Other sessions may already have built on it.
 
 ---
 
+## Stage a screenshot, never film a fight
+
+**Three sessions in one week produced evidence nobody could read**, all the same
+way: they captured a real fight. In a real fight other pawns cast, die, miss and
+glow in your frame, tooltips and death toasts land on the thing you are
+photographing, and there is no instant where the subject is doing only what you
+are trying to show.
+
+**`Tools/Tier3Stage.gd` exists for this.** Two units, nobody else, the action
+forced through `SimDeps.default_decide` with `Tools/DummyRoom.gd`'s `ForceOnce`
+rig, no `Battle.tscn` at all -- a bare `UnitView` pair and a bare `VFXDirector`.
+Use it, or copy its shape.
+
+**A still cannot judge motion.** #707's steam looked identical in two
+screenshots and read correctly in a strip; #749's recovery has the same shape.
+If the thing you are showing is a movement, shoot frames across the whole
+movement.
+
+The one exception is a feature that only exists in a real fight -- a live plan
+verdict, a floor transition. Then say so in the PR, and crop hard.
+
 ## Verify the thing, not a proxy for it
 
 Read this before the checklist below. The checklist is mechanical and it is not

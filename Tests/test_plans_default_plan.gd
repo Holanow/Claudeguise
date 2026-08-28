@@ -43,7 +43,7 @@ func test_weapon_attack_is_the_pawns_weapon_granted_action() -> void:
 	var pawn := _pawn(&"warrior")
 	var state := CombatSim.build([pawn], RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 	var unit := state.units[0]
-	assert_eq(DefaultPlan.weapon_attack(unit), ActionLibrary.get_action(pawn.weapon.granted_actions[0]),
+	assert_eq(DefaultPlan.weapon_attack(unit), ActionLibrary.get_action(pawn.main_hand.granted_actions[0]),
 		"the fallback's attack must be the weapon's own, not a class ability")
 
 ## The Abomination's class carries `abomination_grapple`, an attack-shaped
@@ -58,7 +58,7 @@ func test_weapon_attack_ignores_a_class_ability_even_when_it_would_qualify() -> 
 
 func test_weapon_attack_is_null_with_no_weapon_equipped() -> void:
 	var pawn := _pawn(&"warrior")
-	pawn.weapon = null
+	pawn.main_hand = null
 	var state := CombatSim.build([pawn], RoomLibrary.get_room(CG.DEFAULT_ENCOUNTER), 0)
 	assert_eq(DefaultPlan.weapon_attack(state.units[0]), null,
 		"no weapon, no basic attack -- the class carries none of its own")
