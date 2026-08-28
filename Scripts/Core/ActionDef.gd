@@ -111,6 +111,10 @@ var requires_marked_target: bool:
 	get: return targeting.requires_marked_target if targeting != null else false
 var arc_degrees: float:
 	get: return targeting.arc_degrees if targeting != null else 0.0
+var pierce_count: int:
+	get: return targeting.pierce_count if targeting != null else 0
+var pierce_half_width: float:
+	get: return targeting.pierce_half_width if targeting != null else 0.0
 
 var projectile_speed: float:
 	get: return delivery.speed if delivery != null else 0.0

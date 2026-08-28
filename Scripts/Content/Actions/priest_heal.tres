@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_2ud1g"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_omsjh"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_ndjca"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/priest_heal.tres" id="5_vfx1"]
 
 [sub_resource type="Resource" id="Resource_xk0gq"]
 script = ExtResource("2_2ud1g")
@@ -18,6 +19,7 @@ range_units = 220.0
 [resource]
 script = ExtResource("3_omsjh")
 id = &"priest_heal"
+vfx = ExtResource("5_vfx1")
 display_name = "Heal"
 description = "Restores health to an ally within 220 units."
 wind_up_ticks = 8

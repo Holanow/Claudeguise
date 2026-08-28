@@ -795,7 +795,10 @@ static func _on_hit_landed(state: CombatState, source: CombatUnit, action: Actio
 	if action != null:
 		for fx in action.effects:
 			if fx is PoolEffect:
-				_leave_pool(state, source, action, fx.radius, at)
+				if action.pierce_count > 0:
+					_leave_pool_along(state, source, action, fx.radius, at)
+				else:
+					_leave_pool(state, source, action, fx.radius, at)
 			elif fx is RestoreEffect:
 				source.resource = clampi(source.resource + fx.amount, 0, source.resource_max)
 	if source.resource_kind != CG.ResourceKind.RAGE:
@@ -822,11 +825,39 @@ static func _on_damage_taken(state: CombatState, target: CombatUnit, applied: in
 ## kind of ground, so nothing is cut. Issue 496's ruling survives it -- water
 ## is SPENT putting fire out, so a cell that was burning ends up bare, not wet.
 static func _leave_pool(state: CombatState, caster: CombatUnit, action: ActionDef, half: float, at: Vector2) -> void:
+	_paint_cells(state, caster, action,
+		TerrainGrid.cells_in_rect(Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)))
+
+## Issue 563: a piercing shot lays water down the whole beam it swept, caster to
+## terminus, rather than one circle where it stopped -- #554 already made pools
+## a fused region, so painting every sampled square along the line is one loop.
+static func _leave_pool_along(state: CombatState, caster: CombatUnit, action: ActionDef, half: float, hit_at: Vector2) -> void:
+	var to_hit := hit_at - caster.position
+	if to_hit.length() <= 0.0001:
+		_leave_pool(state, caster, action, half, hit_at)
+		return
+	var dir := to_hit.normalized()
+	var reach := action.range_units
+	var seen: Dictionary = {}
+	var cells: Array[Vector2i] = []
+	var travelled := 0.0
+	while travelled <= reach:
+		var p := caster.position + dir * travelled
+		for c in TerrainGrid.cells_in_rect(Rect2(p.x - half, p.y - half, half * 2.0, half * 2.0)):
+			if not seen.has(c):
+				seen[c] = true
+				cells.append(c)
+		travelled += TerrainGrid.CELL
+	_paint_cells(state, caster, action, cells)
+
+## The doused/wetted half of leaving a pool, shared by a single splash and a
+## whole beam: which cells change is the only thing that differs between them.
+static func _paint_cells(state: CombatState, caster: CombatUnit, action: ActionDef, cells: Array[Vector2i]) -> void:
 	var water := TerrainGrid.Cell.new()
 	water.kind = Terrain.Kind.WATER
 	var doused: Array[Vector2i] = []
 	var wetted: Array[Vector2i] = []
-	for c in TerrainGrid.cells_in_rect(Rect2(at.x - half, at.y - half, half * 2.0, half * 2.0)):
+	for c in cells:
 		var was = state.grid.at(c)
 		if was != null and was.kind == Terrain.Kind.WATER:
 			continue
@@ -912,6 +943,39 @@ static func _splash_targets(state: CombatState, caster: CombatUnit, primary: Com
 	for other in state.living(primary.team):
 		if other.position.distance_to(primary.position) <= action.splash_radius:
 			out.append(other)
+	return out
+
+## Issue 563: enemies along the beam from `caster` to `hit`, extended to the
+## action's full reach, nearest first, capped at `pierce_count` -- a maximum,
+## not a guarantee. `hit` is always included: it is where a live collision
+## already landed, and the caster or the target may have moved enough during
+## flight to put it just past `pierce_half_width` or `range_units` on this
+## same measurement, which must never make a connecting shot hit nobody.
+static func _pierce_targets(state: CombatState, caster: CombatUnit, hit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
+	var to_hit := hit.position - caster.position
+	if to_hit.length() <= 0.0001:
+		return [hit]
+	var dir := to_hit.normalized()
+	var reach := action.range_units
+	var half := action.pierce_half_width
+	var candidates: Array[Dictionary] = []
+	for other in state.living(hit.team):
+		if other.id == hit.id:
+			continue
+		var rel := other.position - caster.position
+		var t := rel.dot(dir)
+		if t < 0.0 or t > reach:
+			continue
+		if (rel - dir * t).length() > half:
+			continue
+		candidates.append({"u": other, "t": t})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["u"].id < b["u"].id if is_equal_approx(a["t"], b["t"]) else a["t"] < b["t"])
+	var out: Array[CombatUnit] = [hit]
+	for c in candidates:
+		if out.size() >= maxi(1, action.pierce_count):
+			break
+		out.append(c["u"])
 	return out
 
 ## Whether `target` sits within `action.arc_degrees` of `caster.facing`,
@@ -1441,7 +1505,9 @@ static func _projectile_hits(state: CombatState, p: Projectile, target: CombatUn
 ## pay the source for a landed hit. `hit` is the shielder or the intended
 ## target; nothing else about the two branches differs.
 static func _land_hit(state: CombatState, source: CombatUnit, hit: CombatUnit, action: ActionDef, deps: SimDeps, onto_shield: bool = false) -> void:
-	for t in _splash_targets(state, source, hit, action):
+	var targets := _pierce_targets(state, source, hit, action) if action.pierce_count > 0 \
+		else _splash_targets(state, source, hit, action)
+	for t in targets:
 		_apply_action_effect(state, source, t, action, deps, onto_shield and t.id == hit.id)
 	_on_hit_landed(state, source, action, deps, hit.position)
 

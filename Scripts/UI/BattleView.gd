@@ -1433,6 +1433,14 @@ func _play_action_vfx(e: CombatEvent) -> void:
 		if vfx != null:
 			_vfx.play(vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0)
 			_vfx.play(vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0)
+	elif e.kind == CG.EventKind.STATUS_EXPIRED:
+		## Issue 657: only the status THIS action eats to pay for itself arms the
+		## look -- a shield break or a cleanse also emits STATUS_EXPIRED under the
+		## breaking action's id, and neither is a consume this action made.
+		if action.consumes_status_enabled and e.status == action.consumes_status:
+			_vfx.arm_consumed(e.action_id, e.target_id)
+	elif e.kind == CG.EventKind.DAMAGE:
+		_vfx.play_consume_gated(action.vfx, VFXLayer.Cue.IMPACT, e.action_id, e.source_id, e.target_id)
 
 ## Where the director draws a unit, in arena space.
 func _vfx_position_of(id: int) -> Vector2:

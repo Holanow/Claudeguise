@@ -64,15 +64,29 @@ func _geyser_blast() -> void:
 	ring.delay = arrival
 	ring.ring_colour = Color(0.62, 0.9, 1.0)
 
-	# Water falls. Fire's embers rise, and reusing them here read as steam.
-	var spray := EmberBurstLayer.new()
-	spray.cue = VFXLayer.Cue.IMPACT
-	spray.delay = arrival
-	spray.colour_hot = core
-	spray.colour_cool = deep
-	spray.gravity = Vector2(0, 420)
-	spray.speed = 300.0
-	spray.lifetime = 0.7
+	# Issue 657. Water falls; a burn it just put out reads as steam rising
+	# instead -- the player's own ruling: still blue-white, never orange, because
+	# the fire is what got put out. `when` picks the look at the hit that landed,
+	# not at the cast, since a travelling shot does not know yet which it is.
+	var spray_water := EmberBurstLayer.new()
+	spray_water.cue = VFXLayer.Cue.IMPACT
+	spray_water.delay = arrival
+	spray_water.colour_hot = core
+	spray_water.colour_cool = deep
+	spray_water.gravity = Vector2(0, 420)
+	spray_water.speed = 300.0
+	spray_water.lifetime = 0.7
+	spray_water.when = VFXLayer.When.WITHOUT_CONSUME
+
+	var spray_steam := EmberBurstLayer.new()
+	spray_steam.cue = VFXLayer.Cue.IMPACT
+	spray_steam.delay = arrival
+	spray_steam.colour_hot = Color(0.97, 0.99, 1.0)
+	spray_steam.colour_cool = Color(0.78, 0.9, 0.97)
+	spray_steam.gravity = Vector2(0, -260)
+	spray_steam.speed = 420.0
+	spray_steam.lifetime = 0.55
+	spray_steam.when = VFXLayer.When.ON_CONSUME
 
 	var shake := ScreenShakeLayer.new()
 	shake.cue = VFXLayer.Cue.IMPACT
@@ -85,7 +99,7 @@ func _geyser_blast() -> void:
 
 	var vfx := AbilityVFX.new()
 	vfx.display_name = "Geyser Blast"
-	vfx.layers = [orb, left, right, glow, ring, spray, shake, stop] as Array[VFXLayer]
+	vfx.layers = [orb, left, right, glow, ring, spray_water, spray_steam, shake, stop] as Array[VFXLayer]
 	_save(vfx, "%s/geyser_blast.tres" % OUT_DIR)
 
 ## The cheap one, and the point of it: a second look reuses the same layers at

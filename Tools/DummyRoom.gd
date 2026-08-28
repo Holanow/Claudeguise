@@ -120,8 +120,23 @@ func _check_action(action: ActionDef) -> Array[String]:
 
 	var pull_start := target.position
 
+	## Issue 563: a pierce needs a body to pierce past the primary target, or
+	## the check only ever proves the ordinary hit.
+	var pierce_target: CombatUnit = null
+	if not is_sustain and not self_targeted and action.pierce_count > 0:
+		pierce_target = CombatUnit.new()
+		pierce_target.id = 2
+		pierce_target.hp_max = 999999
+		pierce_target.hp = pierce_target.hp_max
+		pierce_target.resource_max = 999999
+		pierce_target.resource = 999999
+		pierce_target.team = target.team
+		pierce_target.position = caster.position + (target.position - caster.position) * 0.5
+
 	var state := CombatState.new(1)
 	var units: Array[CombatUnit] = [caster, target]
+	if pierce_target != null:
+		units.append(pierce_target)
 	state.units = units
 
 	var rig := ForceOnce.new()
@@ -201,7 +216,12 @@ func _check_beat_effects(effects: Array[AbilityEffect], state: CombatState, cast
 	var problems: Array[String] = []
 	for fx in effects:
 		if fx is HitEffect:
+			## Per BEAT tick (#703): "any damage between these two" let beat 2's
+			## hit mask beat 1's miss. Pierce (#563) is a separate question and
+			## both must be asked.
 			problems.append_array(_check_hit_at_tick(fx, state, caster, hit_target_id, fire_tick))
+			if pierce_target != null:
+				problems.append_array(_check_pierce(fx, state, caster, pierce_target.id, action.covers_target))
 		elif fx is StatusEffect:
 			problems.append_array(_check_status(fx, state, status_target_id))
 		elif fx is PullEffect:
@@ -238,6 +258,16 @@ func _check_hit(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id
 	return ["HitEffect declared %s (power_scale %.2f) but no %s > 0 landed on the target" % [
 		verb, fx.power_scale, kind_name(kind),
 	]]
+
+## Issue 563: same check, aimed at the body standing between the caster and its
+## primary target, so a declared `pierce_count` is proven rather than assumed.
+func _check_pierce(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, covers_target: bool) -> Array[String]:
+	if covers_target or fx.power_scale <= 0.0:
+		return []
+	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
+	if _has_event(state, kind, caster.id, target_id):
+		return []
+	return ["pierce_count declared but nothing landed on the body between caster and target"]
 
 func _check_status(fx: StatusEffect, state: CombatState, target_id: int) -> Array[String]:
 	for e in state.events:

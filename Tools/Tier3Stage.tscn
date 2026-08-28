@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/Tier3Stage.gd" id="1_tier3stage"]
+
+[node name="Tier3Stage" type="Node"]
+script = ExtResource("1_tier3stage")
