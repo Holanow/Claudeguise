@@ -56,6 +56,8 @@ func _ready() -> void:
 		label, fight_seed, from_tick, to_tick, frames_per_tick])
 	print("StagedFight: party %s vs %s" % [_ids(party), _enemy_ids()])
 	if capture_frame >= 0:
+		if not Offscreen.require_renderer(self):
+			return
 		RenderingServer.frame_post_draw.connect(_maybe_capture)
 
 func _process(_delta: float) -> void:

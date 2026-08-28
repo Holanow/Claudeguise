@@ -5,14 +5,11 @@ extends Node
 ## pixels, not the `when` field parsing. One process per shot -- a scheduled
 ## `after()` layer lives on the tree, not on the view, so a second build in the
 ## same process calls into a director the first one already freed.
+## Issue 707: an added `strip` argument captures a multi-frame contact strip
+## instead, since direction is a motion property one still cannot carry.
 ##
 ##   godot --path . res://Tools/GeyserConsumeShot.tscn -- consume
-##   godot --path . res://Tools/GeyserConsumeShot.tscn -- no_consume
-##
-## Issue 707: `-- consume strip` (or `no_consume strip`) captures a multi-frame
-## contact strip across the burst's life instead of one still, because
-## direction -- steam rises, water falls -- is a motion property a single
-## frame cannot carry.
+##   godot --path . res://Tools/GeyserConsumeShot.tscn -- no_consume strip
 
 const OUT_CONSUME := "res://Screenshots/curlew_657_geyser_consume.png"
 const OUT_NO_CONSUME := "res://Screenshots/curlew_657_geyser_no_consume.png"
