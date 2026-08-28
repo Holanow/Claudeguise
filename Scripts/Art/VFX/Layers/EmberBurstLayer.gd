@@ -10,10 +10,13 @@ class_name EmberBurstLayer
 @export var lifetime: float = 0.85
 @export var gravity: Vector2 = Vector2(0, -120)
 @export var explosive: bool = true
+## False bursts at the caster instead of the target -- a summon's arrival.
+@export var on_target: bool = true
 
 func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
-	director.burst(director.position_of(ctx["target_id"]),
+	var who: int = ctx["target_id"] if on_target else ctx["source_id"]
+	director.burst(director.position_of(who),
 		amount, colour_hot, colour_cool, speed, lifetime, gravity, explosive)
 
 func describe() -> String:
