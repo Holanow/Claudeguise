@@ -1,10 +1,15 @@
 extends Node
 
-## Issue 749 proof. A still cannot judge motion (#707), so this shoots strips
-## rather than frames: one across a melee swing's whole wind-up and recover,
-## one across a seeker bolt's flight, in a real BattleView. Copies
+## Issue 749 proof, trail half. A still cannot judge motion (#707), so this
+## shoots a strip across a seeker bolt's flight in a real BattleView. Copies
 ## `Tools/VFXTier4Shot.gd`'s pattern -- wait for the action's own
 ## `ACTION_START`, then capture across wind-up + recover + a tail.
+##
+## The recovery half of #749 is staged separately, in `Tools/Linnet749Recover.gd`
+## -- rook rejected a live-fight strip for it (#752): other pawns casting,
+## dying and missing in the frame make the one swing this is meant to prove
+## unreadable. A trail is visible against a scrum in a way a returning pose is
+## not, so this tool stays live-fight for that half only.
 
 const OUT_DIR := "res://Screenshots/"
 const CROP := Vector2i(480, 320)
@@ -26,7 +31,6 @@ class Config:
 		room_id = r
 
 static var _CONFIGS: Array[Config] = [
-	Config.new("recover_warrior_strike", &"warrior_strike", [&"warrior"], &"floor1_room1"),
 	## `sellsword_seeker_bolts` is the Mercenary Sellsword's own action, not a
 	## player class's -- two Warriors as the party mirrors
 	## `VFXTier4Shot`'s own `sellsword_crescent` config for the same reason.
@@ -92,9 +96,6 @@ func _shoot(cfg: Config) -> void:
 	if found.is_empty():
 		return
 	var action: ActionDef = ActionLibrary.get_action(cfg.action_id)
-	## Capture starts at `ACTION_START` (the wind-up's own beginning), and has
-	## to reach past release through the whole recover phase this issue adds
-	## motion to, plus a short tail so the settle back to rest is on the strip.
 	var total_ticks: int = action.wind_up_ticks + action.recover_ticks + 12
 	var step_frames: int = maxi(1, roundi(float(total_ticks * 4) / float(FRAMES)))
 	var v: Node2D = _view._unit_views.get(found["source_id"])
