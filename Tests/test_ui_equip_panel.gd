@@ -79,16 +79,16 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 
 	var panel := _panel()
 	panel.open([pawn])
-	var armors := panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	var armors := panel.offered_items(pawn, EquipmentDef.Slot.BODY)
 	var index := -1
 	for i in armors.size():
 		if armors[i].id == &"plate_mail":
 			index = i
 	assert_true(index >= 0, "the equip screen must offer plate_mail to a martial class")
 	# +1 because entry 0 of the picker is "(nothing)".
-	panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, index + 1)
+	panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, index + 1)
 
-	assert_eq(pawn.armor, plate, "picking an item must write it onto the pawn")
+	assert_eq(pawn.body, plate, "picking an item must write it onto the pawn")
 	assert_true(editor._available_actions(pawn).has(granted),
 		"after equipping, the plan editor must offer the item's action as a block")
 	panel.free()
@@ -110,8 +110,8 @@ func test_an_unequipped_pawn_is_offered_exactly_its_class_actions() -> void:
 ## dropdown offering two is worse than either alone.
 func test_the_actions_row_shows_a_granted_action() -> void:
 	var pawn := _make_pawn()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
-	var granted: StringName = pawn.armor.granted_actions[0]
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	var granted: StringName = pawn.body.granted_actions[0]
 	var editor := InspectPanel.create()
 	editor._ready()
 	editor.open([pawn])
@@ -129,7 +129,7 @@ func test_opening_the_screen_puts_item_icons_on_it() -> void:
 	var panel := _panel()
 	panel.open([pawn])
 	var icons := _icons(panel)
-	assert_eq(icons.size(), 3, "one icon per slot must reach the opened screen, got %d" % icons.size())
+	assert_eq(icons.size(), 5, "one icon per slot must reach the opened screen, got %d" % icons.size())
 	panel.free()
 
 ## Each icon must know which slot it stands for, because an empty slot draws its
@@ -139,7 +139,7 @@ func test_opening_the_screen_puts_item_icons_on_it() -> void:
 func test_each_slot_row_carries_an_icon_for_that_slot() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+	for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 		var controls := panel._slot_controls(pawn, slot)
 		var icons := _icons(controls[0])
 		assert_eq(icons.size(), 1, "the %s row carries exactly one icon" % panel.slot_name(slot))
@@ -155,8 +155,8 @@ func test_each_slot_row_carries_an_icon_for_that_slot() -> void:
 func test_the_icon_follows_the_worn_item() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
-	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.BODY)
 	var icons := _icons(controls[0])
 	assert_eq(icons.size(), 1)
 	assert_true(icons[0].item != null, "a worn item must reach its icon")
@@ -174,7 +174,7 @@ func test_every_item_the_screen_offers_has_its_own_glyph() -> void:
 	var missing: Array[String] = []
 	for method in [CG.Method.MARTIAL, CG.Method.MAGICAL]:
 		var pawn := _make_pawn(method)
-		for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+		for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 			for item in panel.offered_items(pawn, slot):
 				if not EquipmentIcons.has_glyph(item.id):
 					missing.append(str(item.id))
@@ -188,7 +188,7 @@ func test_every_item_the_screen_offers_has_its_own_glyph() -> void:
 ## share a pixel.
 func test_an_item_icon_is_beside_the_picker_and_never_over_it() -> void:
 	var panel := _panel()
-	var controls := panel._slot_controls(_make_pawn(), EquipmentDef.Slot.WEAPON)
+	var controls := panel._slot_controls(_make_pawn(), EquipmentDef.Slot.MAIN_HAND)
 	var row := controls[0]
 	var icon := _icons(row)[0]
 	assert_eq(icon.mouse_filter, Control.MOUSE_FILTER_STOP,
@@ -210,10 +210,10 @@ func test_an_item_icon_is_beside_the_picker_and_never_over_it() -> void:
 func test_an_item_icon_carries_the_items_own_effect_as_its_mouseover() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	var items: Array = panel.offered_items(pawn, EquipmentDef.Slot.WEAPON)
+	var items: Array = panel.offered_items(pawn, EquipmentDef.Slot.MAIN_HAND)
 	assert_true(items.size() > 0, "no weapon is offered, so this proves nothing")
-	panel._set_equipped(pawn, EquipmentDef.Slot.WEAPON, items[0])
-	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.WEAPON)
+	panel._set_equipped(pawn, EquipmentDef.Slot.MAIN_HAND, items[0])
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.MAIN_HAND)
 	var icon := _icons(controls[0])[0]
 	assert_eq(icon.tooltip_text, EquipPanel.item_effect_text(items[0]),
 		"the icon describes the item some other way than the item's own fields")
@@ -243,8 +243,8 @@ func _text_of(node: Node) -> String:
 ## in the picker as disabled rows rather than dropping them.
 func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	var panel := _panel()
-	var martial_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.WEAPON))
-	var magical_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), EquipmentDef.Slot.WEAPON))
+	var martial_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.MAIN_HAND))
+	var magical_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), EquipmentDef.Slot.MAIN_HAND))
 	assert_true(martial_ids.has(&"sword"), "a martial class must be offered the Sword")
 	assert_false(martial_ids.has(&"orb"), "a martial class must not be offered the Orb")
 	assert_true(magical_ids.has(&"orb"), "a magical class must be offered the Orb")
@@ -259,7 +259,7 @@ func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 ## methods and that a tagged armour does not.
 func test_an_untagged_piece_reaches_both_methods_and_a_tagged_one_does_not() -> void:
 	var panel := _panel()
-	for slot in [EquipmentDef.Slot.ACCESSORY, EquipmentDef.Slot.ARMOR]:
+	for slot in [EquipmentDef.Slot.ACCESSORY, EquipmentDef.Slot.BODY]:
 		## TANK on both sides: Plate is MARTIAL *and* TANK, so a DPS fixture
 		## would fail for the wrong reason and prove nothing about the method.
 		var martial := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL, CG.Role.TANK), slot))
@@ -283,7 +283,7 @@ func _ids(items: Array[EquipmentDef]) -> Array[StringName]:
 func test_each_slot_offers_only_that_slot() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+	for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 		var items := panel.offered_items(pawn, slot)
 		assert_false(items.is_empty(), "%s must offer something" % panel.slot_name(slot))
 		for item in items:
@@ -295,11 +295,11 @@ func test_each_slot_offers_only_that_slot() -> void:
 func test_the_first_choice_clears_the_slot() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	var armors := panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
-	panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 1)
-	assert_not_null(pawn.armor, "picking entry 1 must equip the first offered item")
-	panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 0)
-	assert_eq(pawn.armor, null, "picking entry 0 must clear the slot")
+	var armors := panel.offered_items(pawn, EquipmentDef.Slot.BODY)
+	panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 1)
+	assert_not_null(pawn.body, "picking entry 1 must equip the first offered item")
+	panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 0)
+	assert_eq(pawn.body, null, "picking entry 0 must clear the slot")
 	panel.free()
 
 ## The picker must not claim a wider minimum width than the panel has. Both
@@ -310,7 +310,7 @@ func test_the_first_choice_clears_the_slot() -> void:
 func test_a_slot_picker_cannot_push_the_row_off_the_screen() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.ARMOR)
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.BODY)
 	# Found by type, not by child index. It was `get_child(1)`, and issue 127
 	# adding an icon to the front of the row turned that into a `Label`, which
 	# aborted this method mid-way and recorded no assertion at all. A test that
@@ -334,7 +334,7 @@ func test_a_slot_picker_cannot_push_the_row_off_the_screen() -> void:
 ## a fixture item with no description still reads correctly.
 func test_an_items_effect_is_stated_in_numbers() -> void:
 	var panel := _panel()
-	var item := _make_item("test_plate", EquipmentDef.Slot.ARMOR)
+	var item := _make_item("test_plate", EquipmentDef.Slot.BODY)
 	item.attribute_flat = {CG.Attribute.CON: 2}
 	item.attribute_percent = {CG.Attribute.CON: 0.10}
 	item.damage_reduction = 0.05
@@ -359,10 +359,10 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.SUPPORT)
-	pawn.armor = ItemLibrary.get_equipment(&"robes")
-	assert_not_null(pawn.armor, "robes must still be registered for this to mean anything")
+	pawn.body = ItemLibrary.get_equipment(&"robes")
+	assert_not_null(pawn.body, "robes must still be registered for this to mean anything")
 	var bare := panel._stripped(pawn)
-	assert_eq(bare.armor, null, "the stripped copy must wear nothing")
+	assert_eq(bare.body, null, "the stripped copy must wear nothing")
 	assert_eq(bare.pawn_class, pawn.pawn_class, "and must keep the class it is measuring")
 	assert_almost_eq(Balance.attribute(bare, CG.Attribute.WIS), 8.0)
 	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.WIS), 10.0, 0.0001,
@@ -374,9 +374,9 @@ func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> voi
 func test_measuring_does_not_disturb_the_pawn() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	panel.open([pawn])
-	assert_eq(pawn.armor, ItemLibrary.get_equipment(&"plate_mail"),
+	assert_eq(pawn.body, ItemLibrary.get_equipment(&"plate_mail"),
 		"drawing the screen must leave the pawn wearing what it wore")
 	panel.free()
 
@@ -405,7 +405,7 @@ func test_the_panel_starts_hidden_and_opens_on_a_party() -> void:
 ## unreachable feature on this project (PR #76).
 func test_every_glossary_chip_can_actually_receive_hover() -> void:
 	var pawn := _make_pawn()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
 	var checked := 0
@@ -445,13 +445,13 @@ func _icons(node: Node) -> Array[Node]:
 ## the feature is unreachable however well it works underneath.
 func test_the_screen_names_all_three_slots_and_the_granted_skill() -> void:
 	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	var panel := _panel()
 	panel.open([pawn])
 	var text := _text_of(panel)
-	for word in ["Weapon", "Armor", "Accessory", "Plate Mail"]:
+	for word in ["Main Hand", "Off Hand", "Head", "Body", "Accessory", "Plate Mail"]:
 		assert_true(text.contains(word), "'%s' must be on the equip screen" % word)
-	var granted: StringName = pawn.armor.granted_actions[0]
+	var granted: StringName = pawn.body.granted_actions[0]
 	assert_true(text.contains(ActionLibrary.get_action(granted).display_name),
 		"the skill the armor grants must be named on the screen")
 	assert_true(text.contains("Edit your pawns' plans"),
@@ -464,7 +464,7 @@ func test_a_naked_pawn_reads_as_empty_not_as_broken() -> void:
 	var panel := _panel()
 	panel.open([_make_pawn()])
 	var text := _text_of(panel)
-	assert_true(text.contains("0/3"), "the list must show how many slots are filled")
+	assert_true(text.contains("0/5"), "the list must show how many slots are filled")
 	## The Actions section used to list only the gear-granted subset, so a naked
 	## pawn's read "None." It now carries every action the pawn can call, and the
 	## thing that must not read as blank is the sentence saying none of them came
@@ -493,9 +493,9 @@ func test_party_select_can_reach_the_equip_screen_and_edits_reach_the_fight() ->
 
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
-	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
-	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 1)
+	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.BODY)
+	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 1)
 	screen.toggle_pawn(pawn, true)
-	assert_eq(screen.current_config().party[0].armor, armors[0],
+	assert_eq(screen.current_config().party[0].body, armors[0],
 		"the pawn handed to the fight must be the pawn that was equipped")
 	screen.free()

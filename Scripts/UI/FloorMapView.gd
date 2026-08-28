@@ -258,10 +258,14 @@ func _on_loot_item_pressed(item: EquipmentDef) -> void:
 
 func _on_pawn_picked(pawn: PawnData, item: EquipmentDef) -> void:
 	match item.slot:
-		EquipmentDef.Slot.WEAPON:
-			pawn.weapon = item
-		EquipmentDef.Slot.ARMOR:
-			pawn.armor = item
+		EquipmentDef.Slot.MAIN_HAND:
+			pawn.main_hand = item
+		EquipmentDef.Slot.OFF_HAND:
+			pawn.off_hand = item
+		EquipmentDef.Slot.HEAD:
+			pawn.head = item
+		EquipmentDef.Slot.BODY:
+			pawn.body = item
 		EquipmentDef.Slot.ACCESSORY:
 			pawn.accessory = item
 	run.loot.erase(item)
@@ -334,9 +338,13 @@ func _on_cell_skipped() -> void:
 
 func _slot_name(slot: EquipmentDef.Slot) -> String:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			return "weapon"
-		EquipmentDef.Slot.ARMOR:
-			return "armor"
+		EquipmentDef.Slot.MAIN_HAND:
+			return "main hand"
+		EquipmentDef.Slot.OFF_HAND:
+			return "off hand"
+		EquipmentDef.Slot.HEAD:
+			return "head"
+		EquipmentDef.Slot.BODY:
+			return "body"
 		_:
 			return "accessory"

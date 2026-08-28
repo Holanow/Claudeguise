@@ -6,6 +6,7 @@
 script = ExtResource("1_3ueni")
 id = &"bow"
 display_name = "Bow"
+slot = 0
 description = "A recurve bow. Its wielder attacks with a Shot at range."
 granted_actions = Array[StringName]([&"siege_master_shot"])
 required_tags = Array[int]([0])

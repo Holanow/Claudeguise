@@ -304,11 +304,11 @@ func test_equipping_wis_moves_the_plan_budget_in_the_column_beside_it() -> void:
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
 
-	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.BODY)
 	## Issue 226 dressed every class by default, so "equip the WIS item" was a
 	## no-op on a pawn already wearing the only one it may wear. Strip the slot
 	## first and the test proves what it always meant to.
-	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 0)
+	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 0)
 	var before := _budget_line(screen)
 	assert_ne(before, "", "the plans column must state the budget")
 
@@ -322,7 +322,7 @@ func test_equipping_wis_moves_the_plan_budget_in_the_column_beside_it() -> void:
 		assert_true(true, "no WIS armour is defined, so there is nothing to move")
 		screen.free()
 		return
-	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, wis_item + 1)
+	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, wis_item + 1)
 	assert_ne(_budget_line(screen), before,
 		"the budget sentence must move when the gear that sets it does: still '%s'" % before)
 	screen.free()

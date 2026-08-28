@@ -84,8 +84,8 @@ func test_both_casters_run_every_row_including_the_channel() -> void:
 func test_taking_the_robes_off_strands_the_channel_row() -> void:
 	for cid in [&"priest", &"geysermancer"]:
 		var pawn := PawnFactory.make_preset_pawn(cid, cid, String(cid))
-		assert_not_null(pawn.armor, "a starter %s no longer wears anything" % cid)
-		pawn.armor = null
+		assert_not_null(pawn.body, "a starter %s no longer wears anything" % cid)
+		pawn.body = null
 		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size() - 1,
 			"the %s's Channel row is paid for by something other than its armour" % cid)
 

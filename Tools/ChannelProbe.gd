@@ -96,4 +96,4 @@ func _strip_channel(pawn: PawnData, class_id: StringName) -> void:
 			kept.append(p)
 	pawn.plans = kept
 	if CASTERS.has(class_id):
-		pawn.armor = null
+		pawn.body = null

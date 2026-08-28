@@ -346,11 +346,11 @@ func test_a_portrait_explains_the_class_and_the_gear_on_hover() -> void:
 	var item: EquipmentDef = null
 	for id in ItemLibrary.all_ids():
 		var candidate := ItemLibrary.get_equipment(id)
-		if candidate.slot == EquipmentDef.Slot.WEAPON and candidate.allows_class(pawn.pawn_class):
+		if candidate.slot == EquipmentDef.Slot.MAIN_HAND and candidate.allows_class(pawn.pawn_class):
 			item = candidate
 			break
 	assert_true(item != null, "no weapon this class can wear, so this proves nothing")
-	pawn.weapon = item
+	pawn.main_hand = item
 	var worn := EndScreenScript.portrait_hover_text(pawn)
 	assert_true(worn.contains(item.display_name), "the gear is not named: %s" % worn)
 	assert_true(worn.contains(EquipPanel.item_effect_text(item)),

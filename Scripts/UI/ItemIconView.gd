@@ -14,7 +14,7 @@ var item: EquipmentDef = null:
 ## Which plate to draw when `item` is null. `EquipmentDef.Slot`, kept untyped
 ## for the same reason the rest of this screen keeps slots untyped: the enum
 ## lives on a preloaded const rather than a `class_name`.
-var slot: int = EquipmentDef.Slot.WEAPON:
+var slot: int = EquipmentDef.Slot.MAIN_HAND:
 	set(value):
 		slot = value
 		queue_redraw()
