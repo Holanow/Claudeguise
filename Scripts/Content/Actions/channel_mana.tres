@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/RestoreEffect.gd" id="3_t3ioc"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_0bsr4"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_cnqvd"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/channel_mana.tres" id="6_vfx1"]
 
 [sub_resource type="Resource" id="Resource_iekdn"]
 script = ExtResource("2_42djq")
@@ -23,6 +24,7 @@ targets_self = true
 [resource]
 script = ExtResource("4_0bsr4")
 id = &"channel_mana"
+vfx = ExtResource("6_vfx1")
 display_name = "Channel"
 description = "Spends 3 seconds drawing back 25 Mana. Costs nothing, and a stun breaks it."
 wind_up_ticks = 45

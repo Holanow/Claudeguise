@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_jy2rv"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_oo0yj"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_3cb40"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/warrior_block.tres" id="6_vfx1"]
 
 [sub_resource type="Resource" id="Resource_wa8qy"]
 script = ExtResource("2_ovft1")
@@ -25,6 +26,7 @@ covers_target = true
 [resource]
 script = ExtResource("4_oo0yj")
 id = &"warrior_block"
+vfx = ExtResource("6_vfx1")
 display_name = "Directional Block"
 description = "Turns to face the nearest enemy to a chosen ally and raises a shield. It stops travelling shots crossing its front and soaks 40 damage before it breaks. It can be raised for any ally in the room."
 wind_up_ticks = 6
