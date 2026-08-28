@@ -1,6 +1,31 @@
 [gd_resource type="Resource" script_class="EnemyDef" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_4yv63"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_stpln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/AlwaysBlock.gd" id="3_stalw"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetNearestAttackableEnemyBlock.gd" id="4_sttna"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseBestAttackBlock.gd" id="5_stuba"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="6_stcaa"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="7_stblk"]
+
+[sub_resource type="Resource" id="Resource_stalw1"]
+script = ExtResource("3_stalw")
+
+[sub_resource type="Resource" id="Resource_sttna1"]
+script = ExtResource("4_sttna")
+
+[sub_resource type="Resource" id="Resource_stuba1"]
+script = ExtResource("5_stuba")
+
+[sub_resource type="Resource" id="Resource_stcaa1"]
+script = ExtResource("6_stcaa")
+
+[sub_resource type="Resource" id="Resource_stpln1"]
+script = ExtResource("2_stpln")
+id = &"stalker_attack_row"
+display_name = "Mark, or dart while marking is down"
+condition = SubResource("Resource_stalw1")
+blocks = Array[ExtResource("7_stblk")]([SubResource("Resource_sttna1"), SubResource("Resource_stuba1"), SubResource("Resource_stcaa1")])
 
 [resource]
 script = ExtResource("1_4yv63")
@@ -15,3 +40,4 @@ attack_power = {
 actions = Array[StringName]([&"stalker_mark", &"stalker_dart"])
 display_tags = Array[String](["Ranged", "Weak", "Support"])
 focus_bias = 0.5
+plans = Array[ExtResource("2_stpln")]([SubResource("Resource_stpln1")])

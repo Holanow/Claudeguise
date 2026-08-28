@@ -1,6 +1,31 @@
 [gd_resource type="Resource" script_class="EnemyDef" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_tmy0m"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_wdpln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/AlwaysBlock.gd" id="3_wdalw"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetNearestAttackableEnemyBlock.gd" id="4_wdtna"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseBestAttackBlock.gd" id="5_wduba"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="6_wdcaa"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="7_wdblk"]
+
+[sub_resource type="Resource" id="Resource_wdalw1"]
+script = ExtResource("3_wdalw")
+
+[sub_resource type="Resource" id="Resource_wdtna1"]
+script = ExtResource("4_wdtna")
+
+[sub_resource type="Resource" id="Resource_wduba1"]
+script = ExtResource("5_wduba")
+
+[sub_resource type="Resource" id="Resource_wdcaa1"]
+script = ExtResource("6_wdcaa")
+
+[sub_resource type="Resource" id="Resource_wdpln1"]
+script = ExtResource("2_wdpln")
+id = &"warden_attack_row"
+display_name = "Axe up close, chain toss at range"
+condition = SubResource("Resource_wdalw1")
+blocks = Array[ExtResource("7_wdblk")]([SubResource("Resource_wdtna1"), SubResource("Resource_wduba1"), SubResource("Resource_wdcaa1")])
 
 [resource]
 script = ExtResource("1_tmy0m")
@@ -15,3 +40,4 @@ attack_power = {
 damage_reduction = 0.05
 actions = Array[StringName]([&"warden_axe", &"warden_chain_toss"])
 display_tags = Array[String](["Melee", "Ranged", "Boss"])
+plans = Array[ExtResource("2_wdpln")]([SubResource("Resource_wdpln1")])

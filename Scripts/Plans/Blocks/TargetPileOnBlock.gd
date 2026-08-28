@@ -25,7 +25,7 @@ static func _most_focused(state: CombatState, unit: CombatUnit) -> CombatUnit:
 			counts[ally.focus_id] = int(counts.get(ally.focus_id, 0)) + 1
 	var best: CombatUnit = null
 	var best_count := 0
-	for c in DefaultPlan.attackable(state, unit):
+	for c in PlanInterpreter.attackable(state, unit):
 		var n := int(counts.get(c.id, 0))
 		if n > best_count:
 			best_count = n
