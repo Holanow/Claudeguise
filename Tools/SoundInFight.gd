@@ -17,8 +17,8 @@ var _view: Node2D = null
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
-	await _run()
-	get_tree().quit(0)
+	var ok := await _run()
+	get_tree().quit(0 if ok else 1)
 
 func _party(party_ids: Array) -> Array[PawnData]:
 	var party: Array[PawnData] = []
@@ -65,25 +65,44 @@ func _name_of(stream: AudioStream) -> String:
 			return "%s (BLIP, no file)" % String(name)
 	return "unknown"
 
-func _run() -> void:
+## `SOUND_IN_FIGHT_FRAMES` overrides the frame budget per party. Only the
+## stall-guard tests use it, to make a stall happen on demand instead of
+## waiting for the one-run-in-three it was filed against (#571).
+func _frame_budget() -> int:
+	var raw := OS.get_environment("SOUND_IN_FIGHT_FRAMES")
+	if raw == "":
+		return FRAMES
+	return int(raw)
+
+## Runs every swept party and returns whether the result is trustworthy.
+## A stalled party's counts are kept OUT of the totals below -- #571 was
+## filed because a stalled run used to blend into them and print a normal-
+## looking table with no visible sign anything had gone wrong.
+func _run() -> bool:
 	var played: Dictionary = {}
 	var busiest := 0
 	var frames_with_sound := 0
 	var voice_count := 0
-	for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
+	var stalled_parties: Array[String] = []
+	var frame_budget := _frame_budget()
+	var parties := ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
+	for party_ids in parties:
 		await _build_view(party_ids)
 		var voices := _voices()
 		voice_count = voices.size()
 		print("SoundInFight: %s, %d voices" % [", ".join(PackedStringArray(party_ids)), voices.size()])
 		if voices.is_empty():
 			printerr("SoundInFight: NO VOICES. The game is silent; that is the defect in #514.")
-			return
+			return false
 		var was_playing: Array[bool] = []
 		for v in voices:
 			was_playing.append(false)
 
 		var frames_spent := 0
-		for f in FRAMES:
+		var party_played: Dictionary = {}
+		var party_busiest := 0
+		var party_frames_with_sound := 0
+		for f in frame_budget:
 			if _view.state.outcome != CombatState.Outcome.UNRESOLVED:
 				break
 			frames_spent += 1
@@ -99,22 +118,28 @@ func _run() -> void:
 					# or the round robin swapped a stream under it.
 					if not was_playing[i]:
 						var n := _name_of(v.stream)
-						played[n] = int(played.get(n, 0)) + 1
+						party_played[n] = int(party_played.get(n, 0)) + 1
 				was_playing[i] = playing
-			busiest = maxi(busiest, live)
+			party_busiest = maxi(party_busiest, live)
 			if live > 0:
-				frames_with_sound += 1
+				party_frames_with_sound += 1
 		print("  reached tick %d, outcome %d, %d frames spent" % [
 			_view.state.tick, _view.state.outcome, frames_spent])
 		# A run that spent every frame and barely moved is not a short fight, it
 		# is a view that stopped stepping, and its sound counts are not a
 		# measurement. Seen once at tick 17 of a possible 450 and never
-		# reproduced; without this it reports as an ordinary quiet fight.
+		# reproduced.
 		var stalled: bool = _view.state.outcome == CombatState.Outcome.UNRESOLVED \
-			and frames_spent >= FRAMES and _view.state.tick < FRAMES / FRAMES_PER_TICK / 2
+			and frames_spent >= frame_budget and _view.state.tick < frame_budget / FRAMES_PER_TICK / 2
 		if stalled:
-			printerr("SoundInFight: STALLED at tick %d after %d frames. NOT A MEASUREMENT." % [
+			printerr("SoundInFight: STALLED at tick %d after %d frames. NOT A MEASUREMENT -- excluded from the totals below." % [
 				_view.state.tick, frames_spent])
+			stalled_parties.append(", ".join(PackedStringArray(party_ids)))
+		else:
+			busiest = maxi(busiest, party_busiest)
+			frames_with_sound += party_frames_with_sound
+			for n in party_played:
+				played[n] = int(played.get(n, 0)) + int(party_played[n])
 		await _shot(party_ids[0])
 		_view.queue_free()
 		_view = null
@@ -131,6 +156,11 @@ func _run() -> void:
 		printerr("SoundInFight: NOT ONE SOUND STARTED. The wiring does not work.")
 	if played.has("unknown"):
 		printerr("SoundInFight: a voice played a stream no name resolves to.")
+	if not stalled_parties.is_empty():
+		printerr("SoundInFight: %d of %d part(ies) STALLED and are NOT in the table above: %s" % [
+			stalled_parties.size(), parties.size(), ", ".join(PackedStringArray(stalled_parties))])
+		printerr("SoundInFight: NOT A FULL MEASUREMENT. Re-run.")
+	return stalled_parties.is_empty()
 
 func _shot(tag: String) -> void:
 	await RenderingServer.frame_post_draw
