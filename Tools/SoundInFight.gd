@@ -65,6 +65,15 @@ func _name_of(stream: AudioStream) -> String:
 			return "%s (BLIP, no file)" % String(name)
 	return "unknown"
 
+## A run that spent its whole frame budget and barely moved is not a short
+## fight, it is a view that stopped stepping, and its sound counts are not a
+## measurement. Seen once at tick 17 of a possible 450 and never reproduced
+## (#571). Static and pure so the guard's fire path can be proven without
+## driving a real fight -- see `Tests/test_sound_in_fight_stall_guard.gd`.
+static func is_stalled(outcome: int, frames_spent: int, frame_budget: int, tick: int, frames_per_tick: int) -> bool:
+	return outcome == CombatState.Outcome.UNRESOLVED \
+		and frames_spent >= frame_budget and tick < frame_budget / frames_per_tick / 2
+
 ## `SOUND_IN_FIGHT_FRAMES` overrides the frame budget per party. Only the
 ## stall-guard tests use it, to make a stall happen on demand instead of
 ## waiting for the one-run-in-three it was filed against (#571).
@@ -125,12 +134,7 @@ func _run() -> bool:
 				party_frames_with_sound += 1
 		print("  reached tick %d, outcome %d, %d frames spent" % [
 			_view.state.tick, _view.state.outcome, frames_spent])
-		# A run that spent every frame and barely moved is not a short fight, it
-		# is a view that stopped stepping, and its sound counts are not a
-		# measurement. Seen once at tick 17 of a possible 450 and never
-		# reproduced.
-		var stalled: bool = _view.state.outcome == CombatState.Outcome.UNRESOLVED \
-			and frames_spent >= frame_budget and _view.state.tick < frame_budget / FRAMES_PER_TICK / 2
+		var stalled := is_stalled(_view.state.outcome, frames_spent, frame_budget, _view.state.tick, FRAMES_PER_TICK)
 		if stalled:
 			printerr("SoundInFight: STALLED at tick %d after %d frames. NOT A MEASUREMENT -- excluded from the totals below." % [
 				_view.state.tick, frames_spent])
