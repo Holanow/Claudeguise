@@ -93,6 +93,7 @@ func _run() -> bool:
 	var frames_with_sound := 0
 	var voice_count := 0
 	var stalled_parties: Array[String] = []
+	var total_steals := 0
 	var frame_budget := _frame_budget()
 	var parties := ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	for party_ids in parties:
@@ -144,6 +145,9 @@ func _run() -> bool:
 			frames_with_sound += party_frames_with_sound
 			for n in party_played:
 				played[n] = int(played.get(n, 0)) + int(party_played[n])
+			var bank = _view.sound_bank()
+			if bank != null:
+				total_steals += bank.steals()
 		await _shot(party_ids[0])
 		_view.queue_free()
 		_view = null
@@ -151,6 +155,7 @@ func _run() -> bool:
 
 	print("  frames with something audible   %d" % frames_with_sound)
 	print("  most voices sounding at once    %d of %d" % [busiest, voice_count])
+	print("  sounds cut off mid-play (#569)  %d" % total_steals)
 	var names: Array = played.keys()
 	names.sort()
 	print("  SOUNDS ACTUALLY HEARD:")

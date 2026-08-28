@@ -175,6 +175,13 @@ var _tick: int = -1
 ## a runaway cannot drown the fight; past that the oldest voice is taken.
 const VOICES := 8
 
+## How many times a still-playing voice has been stolen. Issue 569's own
+## measurement -- not a knob, a count to read back.
+var _steals: int = 0
+
+func steals() -> int:
+	return _steals
+
 ## Adds the players to `parent` and hands back the bank that owns them.
 static func attach(parent: Node) -> RefCounted:
 	var bank := new()
@@ -184,6 +191,20 @@ static func attach(parent: Node) -> RefCounted:
 		parent.add_child(player)
 		bank._voices.append(player)
 	return bank
+
+## Which voice index to use next, given each voice's current busy state and
+## the round-robin pointer. Prefers an idle voice over stealing a busy one --
+## issue 569 found the old code took `_next_voice` unconditionally, stealing
+## a busy voice while an idle one sat unused a tick away. Falls back to
+## `next` itself, the oldest assignment, only once every voice is busy.
+## Static and pure so it is testable with no `AudioStreamPlayer` at all --
+## `.playing` does not work under the dummy headless driver.
+static func pick_voice_index(playing: Array, next: int) -> int:
+	for i in playing.size():
+		var idx: int = (next + i) % playing.size()
+		if not playing[idx]:
+			return idx
+	return next
 
 ## Plays whatever `event` should sound like, or nothing at all. Safe to call for
 ## every event in the stream; deciding which ones are audible is this file's job
@@ -201,7 +222,13 @@ func play_for(event: CombatEvent) -> void:
 	if stream == null:
 		return
 	_played_this_tick[name] = true
-	var player := _voices[_next_voice]
-	_next_voice = (_next_voice + 1) % _voices.size()
+	var playing: Array = []
+	for v in _voices:
+		playing.append(v.playing)
+	var idx := pick_voice_index(playing, _next_voice)
+	if playing[idx]:
+		_steals += 1
+	_next_voice = (idx + 1) % _voices.size()
+	var player := _voices[idx]
 	player.stream = stream
 	player.play()
