@@ -14,7 +14,7 @@ func pick(state: CombatState, unit: CombatUnit) -> int:
 static func taunter(state: CombatState, unit: CombatUnit) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF
-	for e in DefaultPlan.attackable(state, unit):
+	for e in PlanInterpreter.attackable(state, unit):
 		if not e.has_status(CG.Status.TAUNTING):
 			continue
 		var d := unit.position.distance_to(e.position)

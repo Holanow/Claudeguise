@@ -1,6 +1,27 @@
 [gd_resource type="Resource" script_class="EnemyDef" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_46l8v"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_brpln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/EnemyWithinBuffReachBlock.gd" id="3_brewr"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetSelfBlock.gd" id="4_brtsb"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseSelfBuffBlock.gd" id="5_brusb"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="6_brblk"]
+
+[sub_resource type="Resource" id="Resource_brewr1"]
+script = ExtResource("3_brewr")
+
+[sub_resource type="Resource" id="Resource_brtsb1"]
+script = ExtResource("4_brtsb")
+
+[sub_resource type="Resource" id="Resource_brusb1"]
+script = ExtResource("5_brusb")
+
+[sub_resource type="Resource" id="Resource_brpln1"]
+script = ExtResource("2_brpln")
+id = &"brute_roar_row"
+display_name = "Roar when an enemy is close"
+condition = SubResource("Resource_brewr1")
+blocks = Array[ExtResource("6_brblk")]([SubResource("Resource_brtsb1"), SubResource("Resource_brusb1")])
 
 [resource]
 script = ExtResource("1_46l8v")
@@ -15,3 +36,4 @@ attack_power = {
 damage_reduction = 0.15
 actions = Array[StringName]([&"brute_slam", &"brute_roar"])
 display_tags = Array[String](["Melee", "Tough", "Stun", "Taunt"])
+plans = Array[ExtResource("2_brpln")]([SubResource("Resource_brpln1")])

@@ -6,7 +6,7 @@ class_name EnemyWithinBuffReachBlock
 ## to follow it up with.
 
 func holds(state: CombatState, unit: CombatUnit) -> bool:
-	return DefaultPlan.self_buff(state, unit) != null
+	return PlanInterpreter.self_buff(state, unit) != null
 
 func describe() -> String:
 	return "an enemy is close enough for my self-buff to matter"

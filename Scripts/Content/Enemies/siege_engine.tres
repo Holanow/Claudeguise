@@ -1,6 +1,33 @@
 [gd_resource type="Resource" script_class="EnemyDef" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_5ox8x"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_sepln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/AlwaysBlock.gd" id="3_sealw"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetNearestAttackableEnemyBlock.gd" id="4_setna"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseActionBlock.gd" id="5_seuse"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="6_secaa"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="7_seblk"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/siege_engine_bolt.tres" id="act_siege_engine_bolt"]
+
+[sub_resource type="Resource" id="Resource_sealw1"]
+script = ExtResource("3_sealw")
+
+[sub_resource type="Resource" id="Resource_setna1"]
+script = ExtResource("4_setna")
+
+[sub_resource type="Resource" id="Resource_seuse1"]
+script = ExtResource("5_seuse")
+action = ExtResource("act_siege_engine_bolt")
+
+[sub_resource type="Resource" id="Resource_secaa1"]
+script = ExtResource("6_secaa")
+
+[sub_resource type="Resource" id="Resource_sepln1"]
+script = ExtResource("2_sepln")
+id = &"siege_engine_bolt_row"
+display_name = "Bolt the nearest marked enemy"
+condition = SubResource("Resource_sealw1")
+blocks = Array[ExtResource("7_seblk")]([SubResource("Resource_setna1"), SubResource("Resource_seuse1"), SubResource("Resource_secaa1")])
 
 [resource]
 script = ExtResource("1_5ox8x")
@@ -14,3 +41,4 @@ attack_power = {
 }
 actions = Array[StringName]([&"siege_engine_bolt"])
 display_tags = Array[String](["Ranged", "Construct"])
+plans = Array[ExtResource("2_sepln")]([SubResource("Resource_sepln1")])

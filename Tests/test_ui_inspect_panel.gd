@@ -1031,9 +1031,10 @@ func test_the_default_row_is_derived_from_default_plan_rows_for() -> void:
 				assert_true(actual.contains(col), "%s row %d: expected '%s' in:\n%s" % [class_id, i, col, actual])
 	panel.free()
 
-## Issue 654's own defect, named directly: a player-controlled pawn's attack
-## row must say the player's click beats its own targeting.
-func test_the_default_row_names_the_players_click() -> void:
+## Issue 719: the fallback no longer honours the player's click at all --
+## that is `target_focused_enemy`, an authored-plan-only block now. The row
+## must name the fallback's own rule, nearest enemy, instead.
+func test_the_default_row_names_the_nearest_enemy_rule() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
 	pawn.plans = []
 	var panel := InspectPanel.create()
@@ -1042,25 +1043,25 @@ func test_the_default_row_names_the_players_click() -> void:
 	var text := ""
 	for row in panel._default_rows(pawn):
 		text += _all_label_text(row)
-	assert_true(text.contains("the enemy the player focused"), text)
+	assert_false(text.contains("the enemy the player focused"),
+		"issue 719 removed player-focus targeting from the fallback")
+	assert_true(text.contains("nearest"), text)
 	panel.free()
 
-## The Priest is the one class whose fallback checks its allies before it
-## attacks, and the row has to show that branch rather than the player's
-## shorter description of it. Asserted against the real thing: a Priest beside
-## a badly hurt ally really heals.
-func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> void:
+## Issue 719: the fallback is one row for every class now, including the
+## Priest -- its heal branch was policy the ruling removed, not a rule.
+func test_the_priest_default_row_is_one_attack_row_not_a_heal_branch() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"priest", &"priest", "Priest")
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var rows := panel._default_rows(pawn)
-	assert_eq(rows.size(), 2, "a class with a real heal has a heal branch and an attack branch")
+	assert_eq(rows.size(), 1, "the fallback is one row now, heal branch and all")
 
 	var priest := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	priest.pawn = pawn
-	priest.actions = pawn.pawn_class.starting_action_ids()
+	priest.actions = ActionLibrary.actions_for_pawn(pawn)
 	priest.resource = 999
 	var hurt_ally := _melee_unit(1, CG.Team.PLAYER, Vector2(10, 0), 0.2)
 	var enemy := _melee_unit(2, CG.Team.ENEMY, Vector2(300, 0))
@@ -1071,9 +1072,7 @@ func test_the_priest_default_row_shows_the_heal_branch_the_code_really_has() -> 
 
 	var intent = DefaultPlan.decide(state, priest)
 	assert_not_null(intent)
-	assert_eq(intent.target_id, hurt_ally.id, "the Priest fallback really does treat an ally first")
-	var row_text := _all_label_text(rows[0])
-	assert_true(row_text.contains("ally"), row_text)
+	assert_ne(intent.target_id, hurt_ally.id, "the fallback no longer treats an ally as a target at all")
 	panel.free()
 
 ## The row's numbers are read out of `DefaultPlan`'s own blocks rather than

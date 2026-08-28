@@ -252,10 +252,14 @@ func test_the_tally_credits_healing_to_whoever_cast_it() -> void:
 ## all into a full target, so a 40-point heal into a pawn missing 3 can only
 ## ever reach this screen as 3. Measured on a real fight rather than asserted
 ## from reading the simulation.
+## Issue 728: starter pawns carry no plan rows -- a fight built on them
+## measures the fallback, and the fallback no longer heals (#719). Preset
+## pawns carry `PresetPlans`' authored rows, `priest_heal_hurt_ally` among
+## them, so this is a fight where a heal is actually possible.
 func test_a_real_fight_never_emits_a_heal_the_bar_did_not_move() -> void:
 	var party: Array[PawnData] = [
-		PawnFactory.make_starter_pawn(&"priest", &"p0", "P0"),
-		PawnFactory.make_starter_pawn(&"warrior", &"p1", "P1"),
+		PawnFactory.make_preset_pawn(&"priest", &"p0", "P0"),
+		PawnFactory.make_preset_pawn(&"warrior", &"p1", "P1"),
 	]
 	var e := RoomData.new()
 	e.party_spawns = [Vector2(-80.0, -20.0), Vector2(-80.0, 20.0)]

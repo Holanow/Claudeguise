@@ -52,17 +52,13 @@ func _init() -> void:
 		_say("-- PARTIES A PLAYER CAN BUILD ---------------------------")
 		for party_ids in _parties(class_ids):
 			_sample(party_ids, encounter)
-		_say("")
-		_say("-- NOT BUILDABLE: one class four times, per-class diagnostic only")
-		_say("-- PartySelect allows one card per class. Do not balance on these.")
-		for party_ids in _impossible_parties(class_ids):
-			_sample(party_ids, encounter)
 
 	_fingerprint()
 	quit(0)
 
-## Every party a player can actually assemble, and then the ones they cannot,
-## labelled as such.
+## Every party a player can actually assemble. Issue 728 (the player's
+## ruling): a single-class party of four is not a thing PartySelect offers,
+## so it is not sampled or printed here any more.
 func _parties(class_ids: Array) -> Array:
 	var out := []
 	if class_ids.size() > 4:
@@ -76,13 +72,6 @@ func _parties(class_ids: Array) -> Array:
 			out.append(party)
 	elif class_ids.size() >= 1:
 		out.append(class_ids.slice(0, mini(4, class_ids.size())))
-	return out
-
-## Not buildable in `PartySelect`. Kept as a per-class diagnostic only.
-func _impossible_parties(class_ids: Array) -> Array:
-	var out := []
-	for id in class_ids:
-		out.append([id, id, id, id])
 	return out
 
 func _sample(party_ids: Array, encounter) -> void:
