@@ -49,9 +49,12 @@ func _ready() -> void:
 		_emitters.append(p)
 		_speeds.append(1.0)
 
-## Fires at `at`, in the damage type's own colour and speed.
-func burst(at: Vector2, damage_type: CG.DamageType) -> void:
-	_fire(at, Palette.damage_color(damage_type), _speed_for(damage_type))
+## Fires at `at`, in the damage type's own colour and speed. `seed` is the
+## caller's own event -- issue 675: a `GPUParticles2D` with no fixed seed picks
+## one from the wall clock at `restart()`, so the same hit threw different
+## debris between two takes of an otherwise bit-identical staged fight.
+func burst(at: Vector2, damage_type: CG.DamageType, seed: int) -> void:
+	_fire(at, Palette.damage_color(damage_type), _speed_for(damage_type), seed)
 
 ## Issue 589. The same pool, louder. A death throws further and faster than a
 ## hit, and it throws the dying unit's own colour rather than the colour of
@@ -59,11 +62,11 @@ func burst(at: Vector2, damage_type: CG.DamageType) -> void:
 const DEATH_SPEED := 2.4
 const DEATH_BURSTS := 2
 
-func death_burst(at: Vector2, color: Color) -> void:
+func death_burst(at: Vector2, color: Color, seed: int) -> void:
 	for i in DEATH_BURSTS:
-		_fire(at, color, DEATH_SPEED)
+		_fire(at, color, DEATH_SPEED, seed + i)
 
-func _fire(at: Vector2, color: Color, speed: float) -> void:
+func _fire(at: Vector2, color: Color, speed: float, seed: int) -> void:
 	var i := _next
 	_next = (_next + 1) % _emitters.size()
 	var p := _emitters[i]
@@ -71,6 +74,8 @@ func _fire(at: Vector2, color: Color, speed: float) -> void:
 	p.modulate = color
 	_speeds[i] = speed
 	p.speed_scale = 0.0 if _frozen else speed
+	p.use_fixed_seed = true
+	p.seed = seed
 	p.restart()
 	p.emitting = true
 
