@@ -7,15 +7,15 @@
 
 [sub_resource type="Resource" id="Resource_gc1"]
 script = ExtResource("2_a1")
-colour = Color(0.184, 0.498, 0.769, 1)
+colour = Color(0.18, 0.5, 0.77, 1)
 size = 92.0
 seconds = 0.30
 
 [sub_resource type="Resource" id="Resource_gc2"]
 script = ExtResource("3_a1")
 amount = 16
-colour_hot = Color(0.812, 0.914, 1.0, 1)
-colour_cool = Color(0.184, 0.498, 0.769, 1)
+colour_hot = Color(0.88, 0.98, 1, 1)
+colour_cool = Color(0.18, 0.5, 0.77, 1)
 speed = 180.0
 lifetime = 0.5
 gravity = Vector2(0, 300)
