@@ -9,6 +9,15 @@
 # check there is. It refuses to pass when it cannot run: "the gate crashed" and
 # "the gate passed you" must never look the same.
 
+param(
+    # Issue 648: recording an honest fingerprint needs the code committed
+    # first, and the pre-commit hook runs this script before that commit
+    # exists -- a real cycle, not a corner case. The hook passes this so it
+    # can block on parse/tests/scene/comments/blocks/clicks without also
+    # requiring a fingerprint nobody could have recorded yet.
+    [switch] $SkipSim
+)
+
 $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot
@@ -217,6 +226,9 @@ Write-Host "  clicks     pass   (the library's Add lands a row through real pick
 # source byte-for-byte alone, which is a STRONGER claim than an equal output
 # hash and takes about a second. SampleFights only runs when that source moved,
 # which is the only time its 90 seconds buys anything.
+if ($SkipSim) {
+    Write-Host "  sim        skip   (-SkipSim: see issue 648, this commit may be recording it)"
+} else {
 $simLog = Join-Path $env:TEMP ("claudeguise-sim-" + [guid]::NewGuid().ToString('N') + ".txt")
 & (Join-Path $PSScriptRoot 'sim_fingerprint.ps1') > $simLog 2>&1
 $simCode = $LASTEXITCODE
@@ -232,6 +244,7 @@ if ($simCode -ne 0) {
 $simLine = (Get-Content $simLog | Select-Object -Last 1).Trim()
 Remove-Item $simLog -ErrorAction SilentlyContinue
 Write-Host "  sim        pass   ($simLine)"
+}
 
 Write-Host "GATE PASSED"
 exit 0

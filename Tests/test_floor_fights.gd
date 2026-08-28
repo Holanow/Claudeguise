@@ -133,16 +133,16 @@ func test_same_seed_plays_the_same_floor_the_same_way() -> void:
 
 	assert_eq(trace_a, trace_b, "the same floor seed must play the same rooms in the same order with the same outcomes")
 
-func test_different_seeds_currently_agree_pending_issue_7_damage_variance() -> void:
-	# Honest reporting per issue 9's own instruction: "if it still holds
-	# trivially, say so rather than asserting a sameness that is really an
-	# absence." Different floor seeds produce different room GRAPHS (issue
-	# 5's own determinism test covers that) but whether the FIGHTS diverge
-	# depends on issue 7 landing damage variance from state.rng. Today
-	# nothing reads it for combat outcomes, so two different seeds still
-	# play the identical miniboss fight -- the miniboss room is guaranteed
-	# fight-typed and same-difficulty in every generated plan, so it's the
-	# one room id safe to compare across arbitrary seeds.
+func test_different_seeds_still_agree_on_the_coarse_outcome() -> void:
+	# Issue 620, verified against SimDeps.gd/Balance.gd directly: issue 7's
+	# variance is live for pawns (SimDeps._default_attack_power passes rng
+	# into Balance.attack_power) and absent for enemies (same function's
+	# enemy branch is a flat dictionary lookup, no rng). So the party's
+	# rolls differ between fight_seed(1) and fight_seed(2) here and the
+	# enemy's do not -- only half the fight varies by seed. The coarse
+	# WIN/CONTINUES/DEFEAT outcome still doesn't flip for this fixture at
+	# this spread, not because nothing is random. Miniboss room is the one
+	# id guaranteed fight-typed and same-difficulty across arbitrary seeds.
 	var plan_a := FloorGenerator.generate(1)
 	var plan_b := FloorGenerator.generate(2)
 	var run_a := FloorRun.new(plan_a)
@@ -153,7 +153,7 @@ func test_different_seeds_currently_agree_pending_issue_7_damage_variance() -> v
 
 	assert_eq(
 		outcome_a, outcome_b,
-		"expected today, not the ideal: without issue 7's damage variance, different seeds still agree"
+		"coarse outcome does not flip: party attacks vary by seed (issue 7), enemy attacks do not"
 	)
 
 # ---------------------------------------------------------------------------

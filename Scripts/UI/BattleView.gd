@@ -340,6 +340,12 @@ const _PANEL_TOP := Palette.SPACE_M
 const _END_TEXT_WIDTH := 440.0
 const _END_TEXT_MIN := 200.0
 
+## Issue 616: the button row's own height plus the margin above and below it,
+## reserved out of the column's rect so Restart, Change party and Plans sit at
+## a fixed distance from the bottom of the window rather than after whatever
+## height the card above them adds up to.
+const _END_BUTTON_ROW_RESERVED := Palette.TOUCH_TARGET_MIN + 2.0 * Palette.SPACE_M
+
 ## The card's prose is centred and the team panel is pinned to the right, so
 ## the prose may be at most twice the gap from the screen's centre to the
 ## panel's left edge (issue 442). Static and taking the size, like
@@ -369,6 +375,12 @@ func _build_end_banner() -> void:
 	## Issue 552: centred in what is LEFT of the window, not in the window. The
 	## card grew from a paragraph to a roster and a log, so a centred column runs
 	## its heading and its cost line through the toolbar's buttons.
+	##
+	## Issue 616: Restart, Change party and Plans used to live in this same
+	## column, so a card too tall to fit (a fourth line of prose) pushed them
+	## off the bottom of the window with it. They are now a separate control
+	## pinned to the bottom of the banner (`_build_end_buttons` below); the
+	## column stops short of it instead of running underneath.
 	var column := VBoxContainer.new()
 	column.anchor_left = 0.5
 	column.anchor_right = 0.5
@@ -376,8 +388,9 @@ func _build_end_banner() -> void:
 	column.anchor_bottom = 1.0
 	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	column.offset_top = _SUMMARY_ROW_TOP
-	column.offset_bottom = 0.0
+	column.offset_bottom = -_END_BUTTON_ROW_RESERVED
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.clip_contents = true
 	## Issue 552: a container defaults to MOUSE_FILTER_STOP, and this one grew
 	## from a paragraph to a roster. It covered Change party and Plans -- issue
 	## 343's defect exactly, in a node that was too small to show it before.
@@ -422,10 +435,16 @@ func _build_end_banner() -> void:
 	column.add_child(_end_screen)
 
 	var buttons := HBoxContainer.new()
+	buttons.anchor_left = 0.0
+	buttons.anchor_right = 1.0
+	buttons.anchor_top = 1.0
+	buttons.anchor_bottom = 1.0
+	buttons.offset_top = -_END_BUTTON_ROW_RESERVED
+	buttons.offset_bottom = -Palette.SPACE_M
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	column.add_child(buttons)
+	_end_banner.add_child(buttons)
 
 	var restart_button := Button.new()
 	restart_button.text = "Restart (same seed)"
@@ -1704,11 +1723,24 @@ func _spawn_death_explosion(e: CombatEvent) -> void:
 	if fragments.is_empty():
 		return
 	var at := _drawn_event_position(dead)
-	_gibs.explode(at, UnitViewScript.display_radius(dead),
-		UnitViewScript.facing_left(dead), fragments, dead.id)
+	var radius := UnitViewScript.display_radius(dead)
+	## Issue 639: the hands leave the body in the pose they were in, not at rest
+	## -- read straight from the same view that just drew this body, so the
+	## chunk's frame 0 matches the frame the hit stop is about to hold.
+	var view = _unit_views.get(dead.id)
+	var main_offset: Vector2 = view._part_offset(dead, radius) if view != null else Vector2.ZERO
+	var off_offset: Vector2 = view._off_hand_offset(dead, radius) if view != null else Vector2.ZERO
+	_gibs.explode(at, radius, UnitViewScript.facing_left(dead), fragments, dead.id,
+		main_offset, off_offset)
 	if _bursts != null and is_instance_valid(_bursts) \
 			and DisplayOptions.enabled(DeathExplosionScript.OPTION):
-		_bursts.death_burst(at, Palette.team_color(dead.team))
+		_bursts.death_burst(at, Palette.team_color(dead.team), _event_seed(e))
+
+## Issue 675: a debris burst's own seed, derived from the event rather than the
+## wall clock, so the same fight throws the same debris every time it is
+## rendered. `sim` never reads this -- it exists only to feed `ImpactBurst`.
+func _event_seed(e: CombatEvent) -> int:
+	return e.tick * 1000003 + e.target_id * 97 + e.source_id
 
 ## Issue 517: off the same event as the ring, and the guard is here rather than
 ## at the call site so nothing can throw debris without passing it. DAMAGE only,
@@ -1725,7 +1757,7 @@ func _spawn_impact_burst(e: CombatEvent) -> void:
 	var target := state.unit(e.target_id)
 	if target == null:
 		return
-	_bursts.burst(_drawn_event_position(target), e.damage_type)
+	_bursts.burst(_drawn_event_position(target), e.damage_type, _event_seed(e))
 
 ## Issue 151, and the player asked for it twice over: "the stun icon should
 ## appear and the unit should flash white or something". The badge is already

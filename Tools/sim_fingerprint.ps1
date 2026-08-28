@@ -23,7 +23,13 @@
 # CONSTANTS. It cannot catch a view writing into sim state at run time; the
 # `*_never_reaches_the_simulation` unit tests are that half.
 param(
-    [switch] $Record
+    [switch] $Record,
+    # Issue 648: a non-blocking pre-commit reminder cannot afford SampleFights'
+    # ~90s. Compares only Get-SourceHash against the recorded source: line and
+    # never runs the tool -- a false OK is possible (source moved, output
+    # didn't) but a false stale reading is not, which is the safe direction
+    # for a reminder rather than a gate.
+    [switch] $SourceOnly
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ensure_import.ps1')
@@ -39,9 +45,11 @@ $recordPath = Join-Path $PSScriptRoot 'sim_fingerprint.txt'
 ## Issue 633: `.tres` counts as source. Content left GDScript in #621 and #628,
 ## so hashing only `*.gd` would let an edited action or class move no hash while
 ## the gate printed `sim pass` on a changed simulation.
+$SOURCE_DIRS = @('Combat', 'Content', 'Core', 'Floor', 'Plans', 'Rooms')
+
 function Get-SourceHash {
     $files = @()
-    foreach ($dir in @('Combat', 'Content', 'Core', 'Floor', 'Plans', 'Rooms')) {
+    foreach ($dir in $SOURCE_DIRS) {
         $path = Join-Path $repo "Scripts\$dir"
         if (Test-Path $path) {
             $files += Get-ChildItem -Path $path -Recurse -File -Include *.gd, *.tres
@@ -101,9 +109,47 @@ function Get-OutputHash {
     $hashLine.Matches[0].Groups[1].Value
 }
 
+# Issue 648: -Record used to hash the working tree with no check that it was
+# the tree that ships. Excludes the record file itself -- writing it is always
+# in flight while recording, and #648 says as much.
+function Test-SourceDirty {
+    $paths = $SOURCE_DIRS | ForEach-Object { "Scripts/$_" }
+    $paths += 'Tools/SampleFights.gd'
+    $status = & git -C $repo status --porcelain -- $paths
+    return @($status | Where-Object { $_ -ne '' }).Count -gt 0
+}
+
 $source = Get-SourceHash
 
+if ($SourceOnly) {
+    if (-not (Test-Path $recordPath)) {
+        Write-Output "No $recordPath."
+        exit 2
+    }
+    $recordedSource = $null
+    foreach ($line in Get-Content $recordPath) {
+        if ($line -match '^source: ([0-9a-f]{64})$') { $recordedSource = $Matches[1] }
+    }
+    if (-not $recordedSource) {
+        Write-Output "$recordPath has no source: line."
+        exit 2
+    }
+    if ($source -eq $recordedSource) {
+        Write-Output "UNCHANGED"
+        exit 0
+    }
+    Write-Output "SOURCE MOVED (not run: -SourceOnly never calls SampleFights)"
+    exit 1
+}
+
 if ($Record) {
+    if (Test-SourceDirty) {
+        Write-Output "REFUSING TO RECORD: the hashed source has uncommitted changes."
+        Write-Output "A record taken now describes a tree nobody can check out (issue 648)."
+        Write-Output "Commit the source first, then record against the committed tree."
+        Write-Output "Nothing recorded."
+        exit 2
+    }
     $output = Get-OutputHash
     if (-not $output) {
         Write-Output "REFUSING TO HASH: $script:Refusal."
@@ -112,13 +158,16 @@ if ($Record) {
         Write-Output "Nothing recorded."
         exit 2
     }
+    $commit = (& git -C $repo rev-parse HEAD).Trim()
     @(
         "# What the simulation is, and what it produces. Issue 529.",
         "# Re-record with: powershell -File Tools\sim_fingerprint.ps1 -Record",
         "# Both lines move together. A source change with no output change is",
         "# still a change, and the gate makes you say so here.",
+        "# commit: the source tree this was taken against (issue 648), informational only.",
         "source: $source",
-        "output: $output"
+        "output: $output",
+        "commit: $commit"
     ) -join "`n" | ForEach-Object {
         # LF and no BOM: git normalises this file anyway, and a recording that
         # looks dirty the moment it is written is one people stop trusting.
@@ -126,6 +175,7 @@ if ($Record) {
     }
     Write-Output "recorded  source: $source"
     Write-Output "          output: $output"
+    Write-Output "          commit: $commit"
     exit 0
 }
 
@@ -133,9 +183,27 @@ if (-not (Test-Path $recordPath)) {
     Write-Output "No $recordPath. Run this with -Record once to create it."
     exit 2
 }
+# Issue 677: a union merge (never configure one on this file) would silently
+# pair one branch's source: with the other's output:. Refuse on ANY duplicate
+# key or conflict marker rather than taking the last of each, which is what
+# made that pairing silent in the first place.
 $recorded = @{}
+$duplicateKeys = @()
 foreach ($line in Get-Content $recordPath) {
-    if ($line -match '^(source|output): ([0-9a-f]{64})$') { $recorded[$Matches[1]] = $Matches[2] }
+    if ($line.StartsWith('<<<<<<<') -or $line.StartsWith('=======') -or $line.StartsWith('>>>>>>>')) {
+        Write-Output "$recordPath has an unresolved merge conflict marker. This is a failure, not a pass."
+        exit 2
+    }
+    if ($line -match '^(source|output): ([0-9a-f]{64})$') {
+        if ($recorded.ContainsKey($Matches[1])) { $duplicateKeys += $Matches[1] }
+        $recorded[$Matches[1]] = $Matches[2]
+    }
+}
+if ($duplicateKeys.Count -gt 0) {
+    Write-Output ("$recordPath has more than one '{0}:' line. Refusing rather than taking the" -f ($duplicateKeys -join ', '))
+    Write-Output "last -- that is exactly how a union merge would pair one tree's source with"
+    Write-Output "another's output (issue 677). Re-record against the merge result."
+    exit 2
 }
 if (-not $recorded.ContainsKey('source') -or -not $recorded.ContainsKey('output')) {
     Write-Output "$recordPath is missing a source: or output: line. This is a failure, not a pass."
