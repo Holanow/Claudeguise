@@ -25,11 +25,11 @@ func _outcome_name(o: int) -> String:
 	return CombatState.Outcome.keys()[o]
 
 
-## Every mono party, plus the five real four-of-five comps, against every room.
+## The five real four-of-five comps, against every room. Issue 728 (the
+## player's ruling): a single-class party of four is not a thing PartySelect
+## offers, so it is not hunted here any more.
 func _parties() -> Array:
 	var out := []
-	for c in CLASSES:
-		out.append({"name": String(c) + " x4", "ids": [c, c, c, c]})
 	for missing in CLASSES:
 		var ids := []
 		for c in CLASSES:
