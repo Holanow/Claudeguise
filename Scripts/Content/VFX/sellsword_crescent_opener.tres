@@ -8,6 +8,7 @@
 script = ExtResource("2_sdr0j")
 edge_colour = Color(0.72, 0.76, 0.85, 1)
 radius = 70.0
+inner_fraction = 0.1
 half_arc_degrees = 45.0
 sweep_seconds = 0.14
 fade_seconds = 0.16

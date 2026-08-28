@@ -12,6 +12,7 @@ const ROOMS: Array[PackedScene] = [
 	preload("res://Scripts/Content/Rooms/floor1_hazard.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_chokepoint.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_sellsword.tscn"),
+	preload("res://Scripts/Content/Rooms/floor1_narrows_elite.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_rat_king.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_warden.tscn"),
 ]
