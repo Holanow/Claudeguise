@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_brl55"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_b5cjc"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_lfetw"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/rat_bite.tres" id="vfx_rat_bite"]
 
 [sub_resource type="Resource" id="Resource_m8moj"]
 script = ExtResource("2_4wp8e")
@@ -27,3 +28,4 @@ wind_up_ticks = 3
 recover_ticks = 4
 targeting = SubResource("Resource_j8jj7")
 effects = Array[ExtResource("1_q307n")]([SubResource("Resource_m8moj"), SubResource("Resource_24vjn")])
+vfx = ExtResource("vfx_rat_bite")

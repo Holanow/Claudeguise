@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="4_bilvy"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="5_npw8m"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="6_pb5iy"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/cultist_bolt.tres" id="vfx_cultist_bolt"]
 
 [sub_resource type="Resource" id="Resource_12a8q"]
 script = ExtResource("1_28qy7")
@@ -36,3 +37,4 @@ recover_ticks = 10
 targeting = SubResource("Resource_32gdh")
 delivery = SubResource("Resource_12a8q")
 effects = Array[ExtResource("2_g0vmt")]([SubResource("Resource_s02wm"), SubResource("Resource_3m48e")])
+vfx = ExtResource("vfx_cultist_bolt")

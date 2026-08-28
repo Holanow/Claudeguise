@@ -22,3 +22,7 @@ class_name ActionDelivery
 ## Degrees per tick a projectile may turn toward its live target position. 0
 ## is straight flight, which is every delivery that existed before issue 671.
 @export var homing_strength: float = 0.0
+
+## Whether the view draws a short fading trail behind this shot. A magical
+## bolt earns one; a plain arrow does not need one to read. Issue 696.
+@export var trail: bool = false
