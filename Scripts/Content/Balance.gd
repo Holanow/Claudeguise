@@ -104,8 +104,8 @@ static func damage_reduction(unit: CombatUnit) -> float:
 	var reduction := 0.0
 	if unit.pawn != null:
 		reduction = clampf(attribute(unit.pawn, CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
-		if unit.pawn.armor != null:
-			reduction += unit.pawn.armor.damage_reduction
+		if unit.pawn.body != null:
+			reduction += unit.pawn.body.damage_reduction
 	else:
 		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 		if enemy_def != null:

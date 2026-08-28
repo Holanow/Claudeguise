@@ -40,7 +40,7 @@ func _pawn_with_two_plans() -> PawnData:
 
 func _robes() -> EquipmentDef:
 	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.slot = EquipmentDef.Slot.BODY
 	armor.attribute_flat = {CG.Attribute.WIS: 2}
 	return armor
 
@@ -82,7 +82,7 @@ func test_a_plan_past_the_block_budget_does_not_fire() -> void:
 ## refuses every plan, which is the other way to make the screen a liar.
 func test_the_same_plan_fires_once_equipment_pays_for_it() -> void:
 	var pawn := _pawn_with_two_plans()
-	pawn.armor = _robes()
+	pawn.body = _robes()
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
 	assert_not_null(intent, "2 WIS on armor buys the two blocks row two needs")
@@ -94,10 +94,10 @@ func test_the_same_plan_fires_once_equipment_pays_for_it() -> void:
 ## the screen has to be saying.
 func test_taking_the_wis_armour_off_strands_the_row_it_paid_for() -> void:
 	var pawn := _pawn_with_two_plans()
-	pawn.armor = _robes()
+	pawn.body = _robes()
 	assert_eq(PlanInterpreter.active_plan_count(pawn), 2)
 
-	pawn.armor = null
+	pawn.body = null
 	assert_eq(PlanInterpreter.active_plan_count(pawn), 1, "the budget fell to 2, so only row one is paid for")
 	assert_eq(pawn.plans.size(), 2, "and the row itself is still there for the player to fix")
 
@@ -121,7 +121,7 @@ func test_nothing_is_skipped_when_the_plans_fit() -> void:
 func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
 	var pawn := _pawn_with_two_plans()
 
-	pawn.armor = _robes()
+	pawn.body = _robes()
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
@@ -131,7 +131,7 @@ func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
 	assert_false(equipped.contains("Inert"), "nothing is inert at 4 of 4: " + equipped)
 	assert_not_null(fired_equipped, "and the pawn runs the row the screen shows as live")
 
-	pawn.armor = null
+	pawn.body = null
 	panel._build_detail(pawn)
 	var stripped := _all_label_text(panel._detail_box)
 	var fight_stripped := _fight(pawn)

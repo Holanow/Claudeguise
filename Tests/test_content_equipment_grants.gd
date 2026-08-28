@@ -62,16 +62,16 @@ func test_every_granted_action_resolves() -> void:
 ## read, so that what a player can plan and what a pawn can do cannot diverge.
 func test_equipping_plate_adds_block_to_what_the_pawn_can_do() -> void:
 	var pawn := _warrior()
-	pawn.armor = null
+	pawn.body = null
 	assert_false(ActionLibrary.actions_for_pawn(pawn).has(&"warrior_block"),
 		"a bare Warrior should not have Block -- issue 99 took it off the class")
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	assert_true(ActionLibrary.actions_for_pawn(pawn).has(&"warrior_block"),
 		"wearing plate should grant Block")
 
 func test_the_union_keeps_every_class_action_too() -> void:
 	var pawn := _warrior()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	var available := ActionLibrary.actions_for_pawn(pawn)
 	for action_id in pawn.pawn_class.starting_action_ids():
 		assert_true(available.has(action_id),
@@ -82,7 +82,7 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 	var party := _party()
 	for p in party:
 		if p.pawn_class.id == &"warrior":
-			p.armor = ItemLibrary.get_equipment(&"plate_mail")
+			p.body = ItemLibrary.get_equipment(&"plate_mail")
 	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 0)
 	var found := false
 	for u in state.units:
@@ -99,14 +99,14 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 ## Fires a Block plan at a Warrior that does not own Block. It must decline.
 func test_a_warrior_without_plate_cannot_block() -> void:
 	var bare := _warrior()
-	bare.armor = null
+	bare.body = null
 	var intent := _decide_with_block_plan(bare)
 	assert_true(intent == null,
 		"a Warrior owning no Block still fired one, so equipping plate means nothing")
 
 func test_a_warrior_wearing_plate_can_block() -> void:
 	var pawn := _warrior()
-	pawn.armor = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
 	var intent := _decide_with_block_plan(pawn)
 	assert_not_null(intent, "a Warrior wearing plate should be able to Block")
 	if intent != null:
@@ -171,7 +171,7 @@ func _is_basic_attack(action) -> bool:
 func _weapon_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for id in ItemLibrary.all_ids():
-		if ItemLibrary.get_equipment(id).slot == EquipmentDef.Slot.WEAPON:
+		if ItemLibrary.get_equipment(id).slot == EquipmentDef.Slot.MAIN_HAND:
 			out.append(id)
 	return out
 
@@ -203,13 +203,13 @@ func test_no_class_still_carries_a_basic_attack_of_its_own() -> void:
 func test_every_class_starts_armed_with_a_weapon_it_may_use() -> void:
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		assert_not_null(pawn.weapon, "%s starts with an empty main hand" % cid)
-		if pawn.weapon == null:
+		assert_not_null(pawn.main_hand, "%s starts with an empty main hand" % cid)
+		if pawn.main_hand == null:
 			continue
-		assert_eq(pawn.weapon.slot, EquipmentDef.Slot.WEAPON,
-			"%s starts holding %s, which is not a weapon" % [cid, pawn.weapon.id])
-		assert_true(pawn.weapon.allows(pawn.pawn_class.method),
-			"%s may not use %s, so the equip screen would never offer it" % [cid, pawn.weapon.id])
+		assert_eq(pawn.main_hand.slot, EquipmentDef.Slot.MAIN_HAND,
+			"%s starts holding %s, which is not a weapon" % [cid, pawn.main_hand.id])
+		assert_true(pawn.main_hand.allows(pawn.pawn_class.method),
+			"%s may not use %s, so the equip screen would never offer it" % [cid, pawn.main_hand.id])
 
 ## Issue 226, the player's ruling: "every class should have default dress". The
 ## twin of the weapon test above, and the reason it is asserted rather than read
@@ -217,13 +217,13 @@ func test_every_class_starts_armed_with_a_weapon_it_may_use() -> void:
 func test_every_class_starts_dressed_in_armour_it_may_wear() -> void:
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		assert_not_null(pawn.armor, "%s starts wearing nothing" % cid)
-		if pawn.armor == null:
+		assert_not_null(pawn.body, "%s starts wearing nothing" % cid)
+		if pawn.body == null:
 			continue
-		assert_eq(pawn.armor.slot, EquipmentDef.Slot.ARMOR,
-			"%s starts wearing %s, which is not armour" % [cid, pawn.armor.id])
-		assert_true(pawn.armor.allows_class(pawn.pawn_class),
-			"%s may not wear %s, so the equip screen would never offer it" % [cid, pawn.armor.id])
+		assert_eq(pawn.body.slot, EquipmentDef.Slot.BODY,
+			"%s starts wearing %s, which is not armour" % [cid, pawn.body.id])
+		assert_true(pawn.body.allows_class(pawn.pawn_class),
+			"%s may not wear %s, so the equip screen would never offer it" % [cid, pawn.body.id])
 
 ## The load-bearing pair, part one: armed, every class can attack for free.
 func test_an_armed_pawn_has_a_free_attack() -> void:
@@ -234,7 +234,7 @@ func test_an_armed_pawn_has_a_free_attack() -> void:
 			if _is_basic_attack(ActionLibrary.get_action(action_id)):
 				free += 1
 		assert_true(free > 0,
-			"%s holding %s still has no free attack" % [cid, pawn.weapon.id if pawn.weapon != null else &"nothing"])
+			"%s holding %s still has no free attack" % [cid, pawn.main_hand.id if pawn.main_hand != null else &"nothing"])
 
 ## Part two, and the half that makes part one mean something: take the weapon
 ## away and the free attack goes with it. If this passed too, the weapon slot
@@ -242,7 +242,7 @@ func test_an_armed_pawn_has_a_free_attack() -> void:
 func test_an_unarmed_pawn_has_none() -> void:
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		pawn.weapon = null
+		pawn.main_hand = null
 		for action_id in ActionLibrary.actions_for_pawn(pawn):
 			assert_false(_is_basic_attack(ActionLibrary.get_action(action_id)),
 				"%s with an empty hand still has %s to swing" % [cid, action_id])
@@ -254,7 +254,7 @@ func test_an_unarmed_pawn_has_none() -> void:
 ## assumed, and it fails loudly if somebody adds one.
 func test_an_unarmed_rage_pawn_cannot_act_at_all() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior_0", "Warrior")
-	pawn.weapon = null
+	pawn.main_hand = null
 	var affordable := 0
 	for action_id in ActionLibrary.actions_for_pawn(pawn):
 		var a = ActionLibrary.get_action(action_id)
@@ -307,7 +307,7 @@ func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
 	# simulation throws away. That hole predates this issue and only becomes
 	# reachable now that an empty main hand is possible; issue 22 closed the same
 	# hole in `PlanInterpreter` and never in this file.
-	pawn.weapon = null
+	pawn.main_hand = null
 	unit.actions = ActionLibrary.actions_for_pawn(pawn)
 	var unarmed := DefaultBehavior.decide(state, unit)
 	if unarmed.kind == CG.IntentKind.USE_ACTION:
@@ -337,6 +337,6 @@ const MIN_BLOCK_CASTS := 10
 const MIN_BLOCKS_PER_RAISE := 1.0
 func test_the_warrior_starts_wearing_the_plate_that_teaches_the_block() -> void:
 	var w := _warrior()
-	assert_not_null(w.armor, "a starter Warrior wears no armour, so nothing can grant it Block")
-	assert_eq(w.armor.id, &"plate_mail")
-	assert_true(w.armor.granted_actions.has(&"warrior_block"))
+	assert_not_null(w.body, "a starter Warrior wears no armour, so nothing can grant it Block")
+	assert_eq(w.body.id, &"plate_mail")
+	assert_true(w.body.granted_actions.has(&"warrior_block"))

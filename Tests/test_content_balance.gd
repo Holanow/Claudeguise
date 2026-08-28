@@ -124,11 +124,11 @@ func test_plan_block_budget_counts_equipment_wis() -> void:
 	var pawn := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.WIS: 6})
 	assert_eq(Balance.plan_block_budget(pawn), 6, "the bare pawn is its class's WIS")
 	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.slot = EquipmentDef.Slot.BODY
 	armor.attribute_flat = {CG.Attribute.WIS: 2}
-	pawn.armor = armor
+	pawn.body = armor
 	assert_eq(Balance.plan_block_budget(pawn), 8, "two points of WIS on armor must buy two blocks")
-	pawn.armor = null
+	pawn.body = null
 	assert_eq(Balance.plan_block_budget(pawn), 6, "and taking it off must give them back")
 
 
@@ -137,9 +137,9 @@ func test_plan_block_budget_counts_equipment_wis() -> void:
 func test_plan_block_budget_ignores_equipment_without_wis() -> void:
 	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.WIS: 4})
 	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.slot = EquipmentDef.Slot.BODY
 	armor.attribute_flat = {CG.Attribute.CON: 5, CG.Attribute.STR: 5}
-	pawn.armor = armor
+	pawn.body = armor
 	assert_eq(Balance.plan_block_budget(pawn), 4, "CON and STR buy no plan blocks")
 
 
@@ -299,19 +299,19 @@ func test_attribute_with_no_equipment_matches_the_bare_class_value() -> void:
 func test_weapon_attribute_percent_multiplies_the_base_stat() -> void:
 	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.STR: 10})
 	var weapon := EquipmentDef.new()
-	weapon.slot = EquipmentDef.Slot.WEAPON
+	weapon.slot = EquipmentDef.Slot.MAIN_HAND
 	weapon.attribute_percent = {CG.Attribute.STR: 0.20}
-	pawn.weapon = weapon
+	pawn.main_hand = weapon
 	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 12.0, 0.001, "10 STR +20%% should be 12")
 
 
 func test_armor_attribute_flat_adds_before_percent() -> void:
 	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.CON: 10})
 	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.ARMOR
+	armor.slot = EquipmentDef.Slot.BODY
 	armor.attribute_flat = {CG.Attribute.CON: 3}
 	armor.attribute_percent = {CG.Attribute.CON: 0.10}
-	pawn.armor = armor
+	pawn.body = armor
 	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.CON), 14.3, 0.001, "(10+3) * 1.10 = 14.3")
 
 
@@ -319,9 +319,9 @@ func test_equipped_weapon_raises_max_hp_through_str() -> void:
 	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.CON: 5, CG.Attribute.STR: 10})
 	var bare_hp := Balance.max_hp(pawn)
 	var weapon := EquipmentDef.new()
-	weapon.slot = EquipmentDef.Slot.WEAPON
+	weapon.slot = EquipmentDef.Slot.MAIN_HAND
 	weapon.attribute_percent = {CG.Attribute.STR: 0.50}
-	pawn.weapon = weapon
+	pawn.main_hand = weapon
 	assert_true(Balance.max_hp(pawn) > bare_hp, "a weapon buffing STR should raise max hp through HP_PER_STR_BONUS")
 
 
@@ -343,8 +343,8 @@ func test_three_equipped_pieces_all_contribute() -> void:
 	armor.attribute_flat = {CG.Attribute.STR: 1}
 	var accessory := EquipmentDef.new()
 	accessory.attribute_flat = {CG.Attribute.STR: 1}
-	pawn.weapon = weapon
-	pawn.armor = armor
+	pawn.main_hand = weapon
+	pawn.body = armor
 	pawn.accessory = accessory
 	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.STR), 13.0, 0.001, "all three slots should stack their flat bonus")
 

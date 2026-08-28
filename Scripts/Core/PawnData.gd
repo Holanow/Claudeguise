@@ -16,8 +16,10 @@ class_name PawnData
 ## when a fight reads wrong.
 @export var attribute_bonus: Dictionary = {}
 
-@export var weapon: EquipmentDef
-@export var armor: EquipmentDef
+@export var main_hand: EquipmentDef
+@export var off_hand: EquipmentDef
+@export var head: EquipmentDef
+@export var body: EquipmentDef
 @export var accessory: EquipmentDef
 
 ## Plans in priority order, highest first. Per README.md, when several plans
@@ -32,7 +34,7 @@ func attribute(a: CG.Attribute) -> int:
 
 func equipment() -> Array[EquipmentDef]:
 	var out: Array[EquipmentDef] = []
-	for e in [weapon, armor, accessory]:
+	for e in [main_hand, off_hand, head, body, accessory]:
 		if e != null:
 			out.append(e)
 	return out

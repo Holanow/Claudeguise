@@ -380,7 +380,7 @@ func _off_hand_angle(u: CombatUnit) -> float:
 ## `EnemyDef.weapon_part` for a unit with no `pawn` at all.
 func _weapon_part(u: CombatUnit) -> StringName:
 	if u.pawn != null:
-		return &"" if u.pawn.weapon == null else u.pawn.weapon.part
+		return &"" if u.pawn.main_hand == null else u.pawn.main_hand.part
 	var enemy_def := EnemyLibrary.get_enemy(u.enemy_id)
 	return &"" if enemy_def == null else enemy_def.weapon_part
 

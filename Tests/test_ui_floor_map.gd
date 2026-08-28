@@ -139,7 +139,7 @@ func _make_weapon(martial_only: bool) -> EquipmentDef:
 	var item := EquipmentDef.new()
 	item.id = &"test_sword"
 	item.display_name = "Test Sword"
-	item.slot = EquipmentDef.Slot.WEAPON
+	item.slot = EquipmentDef.Slot.MAIN_HAND
 	if martial_only:
 		item.required_tags = [CG.Tag.MARTIAL]
 	return item
@@ -155,7 +155,7 @@ func test_picking_a_pawn_assigns_the_item_to_its_slot_and_clears_the_loot() -> v
 
 	view._on_pawn_picked(pawn, item)
 
-	assert_eq(pawn.weapon, item)
+	assert_eq(pawn.main_hand, item)
 	assert_false(run.loot.has(item))
 	view.free()
 

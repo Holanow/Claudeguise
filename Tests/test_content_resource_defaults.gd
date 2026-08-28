@@ -59,8 +59,8 @@ func test_only_the_magic_basic_attacks_return_mana() -> void:
 	}
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		assert_not_null(pawn.weapon, "%s starts unarmed" % cid)
-		var action = ActionLibrary.get_action(pawn.weapon.granted_actions[0])
+		assert_not_null(pawn.main_hand, "%s starts unarmed" % cid)
+		var action = ActionLibrary.get_action(pawn.main_hand.granted_actions[0])
 		var restores: int = action.restores_resource
 		if bool(expected.get(cid, false)):
 			assert_true(restores > 0,

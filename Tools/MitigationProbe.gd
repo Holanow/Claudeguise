@@ -103,9 +103,9 @@ func _inspect(u: CombatUnit, used: float) -> void:
 		if not is_equal_approx(old_value, used):
 			_bump(_short_circuit, "old %.2f -> now %.2f" % [old_value, used])
 		return
-	if u.pawn.armor == null or u.pawn.armor.damage_reduction <= 0.0:
+	if u.pawn.body == null or u.pawn.body.damage_reduction <= 0.0:
 		return
-	var armor: float = u.pawn.armor.damage_reduction
+	var armor: float = u.pawn.body.damage_reduction
 	var toughness := clampf(
 		Balance.attribute(u.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
 		0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)

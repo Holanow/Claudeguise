@@ -17,7 +17,7 @@ func _init() -> void:
 			for cid in ClassLibrary.all_ids():
 				var p := PawnFactory.make_preset_pawn(cid, StringName("%s_%d" % [cid, party.size()]), String(cid))
 				if strip:
-					p.armor = null
+					p.body = null
 				party.append(p)
 			var state := CombatSim.build(party, RoomLibrary.get_room(ROOM), s)
 			CombatSim.run(state)

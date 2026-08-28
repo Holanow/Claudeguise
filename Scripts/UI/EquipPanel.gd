@@ -96,7 +96,7 @@ func _rebuild_list() -> void:
 ## The list carries the count of filled slots, so a player scanning the party
 ## can see who is still naked without opening each pawn in turn.
 func _list_entry_text(pawn: PawnData) -> String:
-	return "%s  %d/3" % [pawn.display_name, pawn.equipment().size()]
+	return "%s  %d/%d" % [pawn.display_name, pawn.equipment().size(), EquipmentDef.Slot.size()]
 
 func _select(index: int) -> void:
 	if index < 0 or index >= _pawns.size():
@@ -138,7 +138,7 @@ func _build_detail(pawn: PawnData) -> void:
 		%DetailBox.add_child(tags)
 
 	%DetailBox.add_child(_section_header("Slots"))
-	for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+	for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND, EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 		for control in _slot_controls(pawn, slot):
 			%DetailBox.add_child(control)
 
@@ -156,28 +156,40 @@ func _build_detail(pawn: PawnData) -> void:
 
 static func slot_name(slot: int) -> String:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			return "Weapon"
-		EquipmentDef.Slot.ARMOR:
-			return "Armor"
+		EquipmentDef.Slot.MAIN_HAND:
+			return "Main Hand"
+		EquipmentDef.Slot.OFF_HAND:
+			return "Off Hand"
+		EquipmentDef.Slot.HEAD:
+			return "Head"
+		EquipmentDef.Slot.BODY:
+			return "Body"
 		_:
 			return "Accessory"
 
 func equipped(pawn: PawnData, slot: int) -> EquipmentDef:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			return pawn.weapon
-		EquipmentDef.Slot.ARMOR:
-			return pawn.armor
+		EquipmentDef.Slot.MAIN_HAND:
+			return pawn.main_hand
+		EquipmentDef.Slot.OFF_HAND:
+			return pawn.off_hand
+		EquipmentDef.Slot.HEAD:
+			return pawn.head
+		EquipmentDef.Slot.BODY:
+			return pawn.body
 		_:
 			return pawn.accessory
 
 func _set_equipped(pawn: PawnData, slot: int, item: EquipmentDef) -> void:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
-			pawn.weapon = item
-		EquipmentDef.Slot.ARMOR:
-			pawn.armor = item
+		EquipmentDef.Slot.MAIN_HAND:
+			pawn.main_hand = item
+		EquipmentDef.Slot.OFF_HAND:
+			pawn.off_hand = item
+		EquipmentDef.Slot.HEAD:
+			pawn.head = item
+		EquipmentDef.Slot.BODY:
+			pawn.body = item
 		_:
 			pawn.accessory = item
 
@@ -391,7 +403,7 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 	# takes a CombatUnit that does not exist before a fight is built. Armor is
 	# the only source of it on a pawn, which is the same branch that function
 	# takes, and a content test holds that.
-	var absorbed := 0.0 if pawn.armor == null else pawn.armor.damage_reduction
+	var absorbed := 0.0 if pawn.body == null else pawn.body.damage_reduction
 	out.append(_line("Damage absorbed: %d%% of every hit." % int(round(absorbed * 100.0)),
 		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.TEXT_DIM))
 	return out

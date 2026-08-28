@@ -11,9 +11,9 @@ class_name EquipmentIcons
 ## `StatusIcons` has already spent on harmful-versus-beneficial.
 static func slot_color(slot: EquipmentDef.Slot) -> Color:
 	match slot:
-		EquipmentDef.Slot.WEAPON:
+		EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND:
 			return Palette.RESOURCE_RAGE
-		EquipmentDef.Slot.ARMOR:
+		EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY:
 			return Palette.TEAM_PLAYER
 		_:
 			return Palette.TEXT_DIM

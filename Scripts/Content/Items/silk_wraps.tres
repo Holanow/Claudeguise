@@ -6,7 +6,7 @@
 script = ExtResource("1_ixtps")
 id = &"silk_wraps"
 display_name = "Silk Wraps"
-slot = 1
+slot = 3
 description = "Light and quiet. Adds 2 Wisdom."
 attribute_flat = {
 6: 2

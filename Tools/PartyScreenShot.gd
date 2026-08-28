@@ -75,15 +75,15 @@ func _run() -> void:
 	## The argument for one column: put WIS gear on and watch the plan budget
 	## in the panel above move, without leaving the screen.
 	var pawn = select.focused_pawn()
-	var armors: Array = select._equip_panel.offered_items(pawn, EquipmentDef.Slot.ARMOR)
+	var armors: Array = select._equip_panel.offered_items(pawn, EquipmentDef.Slot.BODY)
 	## Issue 226 dressed every class, so the pawn already wears the only WIS
 	## armour it may wear and the picture proved nothing. Strip the slot first.
-	select._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, 0)
+	select._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 0)
 	await _settle()
 	print("PartyScreenShot: before, %s" % _budget_line(select))
 	for i in armors.size():
 		if armors[i].attribute_percent.get(CG.Attribute.WIS, 0.0) > 0.0 				or armors[i].attribute_flat.get(CG.Attribute.WIS, 0.0) > 0.0:
-			select._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.ARMOR, armors, i + 1)
+			select._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, i + 1)
 			print("PartyScreenShot: put on %s" % armors[i].display_name)
 			break
 	await _settle()

@@ -46,7 +46,7 @@ func _to_the_swing() -> CombatUnit:
 		_frame()
 		await get_tree().process_frame
 		for u in _view.state.units:
-			if u.team != CG.Team.PLAYER or u.pawn == null or u.pawn.weapon == null:
+			if u.team != CG.Team.PLAYER or u.pawn == null or u.pawn.main_hand == null:
 				continue
 			if u.action_ticks_total <= 0 or u.action_ticks_left <= 0:
 				continue

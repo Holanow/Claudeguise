@@ -6,7 +6,7 @@
 script = ExtResource("1_3hogr")
 id = &"robes"
 display_name = "Robes"
-slot = 1
+slot = 3
 description = "Heavy cloth, well worn. Adds 2 Wisdom."
 attribute_flat = {
 6: 2

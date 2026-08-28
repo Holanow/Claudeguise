@@ -12,7 +12,7 @@ extends "res://Tests/TestCase.gd"
 func test_every_class_can_equip_something_in_every_slot() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var c := ClassLibrary.get_class_def(class_id)
-		for slot in [EquipmentDef.Slot.WEAPON, EquipmentDef.Slot.ARMOR, EquipmentDef.Slot.ACCESSORY]:
+		for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 			var offered := _offered(c, slot)
 			assert_false(offered.is_empty(),
 				"%s has no %s it is allowed to equip" % [class_id, _slot_name(slot)])
@@ -77,7 +77,7 @@ func test_a_refusal_names_the_tag_the_class_lacks() -> void:
 func test_every_starting_piece_passes_its_own_gate() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"p", "p")
-		for piece in [pawn.weapon, pawn.armor, pawn.accessory]:
+		for piece in [pawn.main_hand, pawn.body, pawn.accessory]:
 			if piece == null:
 				continue
 			assert_true(piece.allows_class(pawn.pawn_class),
@@ -88,7 +88,7 @@ func test_every_starting_piece_passes_its_own_gate() -> void:
 ## the tags leave it one legal piece, so that entry is forced and moves the day
 ## an ANTI_SUPPORT or MAGICAL MELEE armour is added.
 func test_the_abomination_has_exactly_one_armour_it_may_wear() -> void:
-	var offered := _offered(ClassLibrary.get_class_def(&"abomination"), EquipmentDef.Slot.ARMOR)
+	var offered := _offered(ClassLibrary.get_class_def(&"abomination"), EquipmentDef.Slot.BODY)
 	assert_eq(offered, [&"gown"] as Array[StringName],
 		"the Abomination's armour is no longer forced, so PawnFactory's comment is now false")
 

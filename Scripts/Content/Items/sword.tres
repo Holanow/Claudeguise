@@ -6,6 +6,7 @@
 script = ExtResource("1_7mumf")
 id = &"sword"
 display_name = "Sword"
+slot = 0
 description = "A straight blade. Its wielder attacks with a Strike."
 granted_actions = Array[StringName]([&"warrior_strike"])
 required_tags = Array[int]([0])

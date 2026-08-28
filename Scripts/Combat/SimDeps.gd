@@ -108,8 +108,8 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 		if toughness > best_v:
 			best_v = toughness
 			best = CG.MitigationCause.TOUGHNESS
-		if unit.pawn.armor != null and unit.pawn.armor.damage_reduction > best_v:
-			best_v = unit.pawn.armor.damage_reduction
+		if unit.pawn.body != null and unit.pawn.body.damage_reduction > best_v:
+			best_v = unit.pawn.body.damage_reduction
 			best = CG.MitigationCause.ARMOR
 	else:
 		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
