@@ -96,6 +96,20 @@ static func draw_projectile(canvas: CanvasItem, position: Vector2, forward: Vect
 	canvas.draw_texture_rect(tex, box, false)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
+## A short fading line behind a magical shot: a function of the projectile's
+## own live position history, so it is drawn rather than baked, same as an aim
+## line. `points` runs oldest to newest; the newest point is not drawn here,
+## since `draw_projectile` already marks it. Issue 696.
+static func draw_trail(canvas: CanvasItem, points: PackedVector2Array, color: Color, width: float) -> void:
+	if points.size() < 2:
+		return
+	var colors := PackedColorArray()
+	for i in points.size():
+		var c := color
+		c.a *= float(i) / float(points.size() - 1)
+		colors.append(c)
+	canvas.draw_polyline_colors(points, colors, width, true)
+
 ## The file one mark is drawn from: `Assets/UI/projectile/fire.png`. Lower-cased
 ## enum name, the same convention `StatusIcons.art_name` uses.
 static func projectile_art_name(damage_type: CG.DamageType) -> StringName:

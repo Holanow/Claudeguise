@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_01wr4"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_xm1c8"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_jvav8"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/siege_engine_bolt.tres" id="vfx_siege_engine_bolt"]
 
 [sub_resource type="Resource" id="Resource_ntayl"]
 script = ExtResource("1_elyk4")
@@ -29,3 +30,4 @@ recover_ticks = 8
 targeting = SubResource("Resource_ajgr7")
 delivery = SubResource("Resource_ntayl")
 effects = Array[ExtResource("2_7xukm")]([SubResource("Resource_7tv4u")])
+vfx = ExtResource("vfx_siege_engine_bolt")

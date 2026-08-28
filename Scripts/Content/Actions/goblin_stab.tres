@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_pj8km"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_yiqmf"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_mbexm"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/goblin_stab.tres" id="vfx_goblin_stab"]
 
 [sub_resource type="Resource" id="Resource_h16ff"]
 script = ExtResource("2_pj8km")
@@ -21,3 +22,4 @@ wind_up_ticks = 6
 recover_ticks = 6
 targeting = SubResource("Resource_8psht")
 effects = Array[ExtResource("1_f0euu")]([SubResource("Resource_h16ff")])
+vfx = ExtResource("vfx_goblin_stab")

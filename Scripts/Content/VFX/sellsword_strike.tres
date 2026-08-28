@@ -3,19 +3,29 @@
 [ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_amygx"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="2_iceaa"]
 [ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="3_tk2xe"]
-[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="4_75pki"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="4_ember"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="5_75pki"]
 
 [sub_resource type="Resource" id="Resource_4ved5"]
 script = ExtResource("2_iceaa")
-colour = Color(0.86, 0.9, 0.98, 1)
-size = 60.0
-seconds = 0.1
+colour = Color(0.949, 0.937, 0.902, 1)
+size = 52.0
+seconds = 0.12
 
 [sub_resource type="Resource" id="Resource_n3wdj"]
 script = ExtResource("3_tk2xe")
 pixels = 3.0
 
+[sub_resource type="Resource" id="Resource_ember"]
+script = ExtResource("4_ember")
+amount = 9
+colour_hot = Color(0.949, 0.937, 0.902, 1)
+colour_cool = Color(0.604, 0.639, 0.706, 1)
+speed = 150.0
+lifetime = 0.3
+gravity = Vector2(0, -70)
+
 [resource]
-script = ExtResource("4_75pki")
+script = ExtResource("5_75pki")
 display_name = "Strike"
-layers = Array[ExtResource("1_amygx")]([SubResource("Resource_4ved5"), SubResource("Resource_n3wdj")])
+layers = Array[ExtResource("1_amygx")]([SubResource("Resource_4ved5"), SubResource("Resource_n3wdj"), SubResource("Resource_ember")])
