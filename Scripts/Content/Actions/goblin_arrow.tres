@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_3u7ms"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_abl67"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_unne3"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/goblin_arrow.tres" id="vfx_goblin_arrow"]
 
 [sub_resource type="Resource" id="Resource_qdhuf"]
 script = ExtResource("1_3syx5")
@@ -28,3 +29,4 @@ recover_ticks = 8
 targeting = SubResource("Resource_rm8hf")
 delivery = SubResource("Resource_qdhuf")
 effects = Array[ExtResource("2_y8ei2")]([SubResource("Resource_rji0r")])
+vfx = ExtResource("vfx_goblin_arrow")

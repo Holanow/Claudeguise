@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_nqgyd"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_vvdj7"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_dgrsg"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/abomination_claw.tres" id="vfx_abomination_claw"]
 
 [sub_resource type="Resource" id="Resource_ifr30"]
 script = ExtResource("2_gv2ba")
@@ -28,3 +29,4 @@ wind_up_ticks = 7
 recover_ticks = 9
 targeting = SubResource("Resource_p7rf2")
 effects = Array[ExtResource("1_dis55")]([SubResource("Resource_ifr30"), SubResource("Resource_0haoc")])
+vfx = ExtResource("vfx_abomination_claw")
