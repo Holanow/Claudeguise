@@ -11,7 +11,7 @@ script = ExtResource("2_glow")
 colour = Color(0.949, 0.937, 0.902, 1)
 size = 92.0
 seconds = 0.2
-delay = 0.35
+delay = 3.3
 
 [sub_resource type="Resource" id="Resource_ember"]
 script = ExtResource("3_ember")
@@ -21,12 +21,12 @@ colour_cool = Color(0.604, 0.639, 0.706, 1)
 speed = 260.0
 lifetime = 0.5
 gravity = Vector2(0, 180)
-delay = 0.35
+delay = 3.3
 
 [sub_resource type="Resource" id="Resource_shake"]
 script = ExtResource("4_shake")
 pixels = 3.0
-delay = 0.35
+delay = 3.3
 
 [resource]
 script = ExtResource("5_vfx")
