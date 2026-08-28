@@ -15,6 +15,12 @@ signal equipment_changed(pawn: PawnData)
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
 
+## Issue 744: the paper doll. Sized so a held weapon reads clearly; markers sit
+## outside this radius, so the box has to be wider than the doll itself.
+const DOLL_SIZE := 200.0
+const DOLL_RADIUS := 62.0
+const MARKER_SIZE := 34.0
+
 ## The heading and the four-sentence how-to-play now live in
 ## `Scenes/EquipPanel.tscn`. Four sentences is the same budget as the plan
 ## editor's own how-to-play, and the last one is the point of the feature and the
@@ -136,6 +142,16 @@ func _build_detail(pawn: PawnData) -> void:
 	tags.tooltip_text = Glossary.class_tags_text(cls.role_primary, cls.style, cls.method)
 	if not _embedded:
 		%DetailBox.add_child(tags)
+
+	## Issue 744: the doll centred above its own slots and stats. A
+	## CenterContainer rather than a fixed offset, so the doll stays centred
+	## whether the column is 1600px wide or a 240px popout tab.
+	var center := CenterContainer.new()
+	var doll := DollView.new()
+	doll.pawn = pawn
+	doll.custom_minimum_size = Vector2(DOLL_SIZE, DOLL_SIZE)
+	center.add_child(doll)
+	%DetailBox.add_child(center)
 
 	%DetailBox.add_child(_section_header("Slots"))
 	for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND, EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
@@ -370,8 +386,12 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 		out.append(_line("Nothing equipped, so these are this pawn's own numbers.",
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 
-	var attrs := HBoxContainer.new()
-	attrs.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	## Issue 744: `HFlowContainer`, not `HBoxContainer` -- seven chips in a row
+	## that cannot wrap forced this panel's own minimum width past 320px, the
+	## same failure mode #742 found in the plan editor's chip row.
+	var attrs := HFlowContainer.new()
+	attrs.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
+	attrs.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
 	for a in ATTRIBUTE_ORDER:
 		var before := Balance.attribute(bare, a)
 		var after := Balance.attribute(pawn, a)
@@ -468,8 +488,9 @@ func _action_controls(pawn: PawnData) -> Array[Control]:
 		out.append(_line("None. This pawn has nothing to call.",
 			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
 		return out
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
+	row.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
 	for action_id in available:
 		row.add_child(_action_chip(action_id))
 	out.append(row)
@@ -522,3 +543,66 @@ func _line(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	return label
+
+# ---------------------------------------------------------------------------
+# Issue 744: the paper doll
+#
+# The pawn itself, not a picture of it. `UnitArt.sprites_for` is called
+# directly rather than through `Silhouettes.draw_unit`, because the weapon in
+# hand needs `pawn.main_hand.part` threaded through as `weapon_part` -- the
+# same parameter `UnitView._sync_visual` already passes for the live arena.
+# Slot markers are drawn, not separate nodes, so equipping an item redraws
+# them for free the moment `queue_redraw` fires.
+class DollView extends Control:
+	var pawn: PawnData = null:
+		set(value):
+			pawn = value
+			queue_redraw()
+
+	func _draw() -> void:
+		if pawn == null:
+			return
+		var center := size * 0.5
+		_draw_body(center)
+		_draw_markers(center)
+
+	func _draw_body(center: Vector2) -> void:
+		if pawn.pawn_class == null:
+			draw_rect(Rect2(center - Vector2(DOLL_RADIUS, DOLL_RADIUS), Vector2(DOLL_RADIUS, DOLL_RADIUS) * 2.0), Color.BLACK)
+			return
+		var weapon_part: StringName = &"" if pawn.main_hand == null else pawn.main_hand.part
+		var sprites := UnitArt.sprites_for(pawn.pawn_class.id, CG.Team.PLAYER, weapon_part)
+		if sprites.is_empty():
+			draw_rect(Rect2(center - Vector2(DOLL_RADIUS, DOLL_RADIUS), Vector2(DOLL_RADIUS, DOLL_RADIUS) * 2.0), Color.BLACK)
+			return
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		for s in sprites:
+			var tex: Texture2D = s["tex"]
+			# A missing part is a black square, the same ruling `Silhouettes.draw_unit` follows.
+			if tex == null:
+				draw_rect(Rect2(center - Vector2(DOLL_RADIUS, DOLL_RADIUS), Vector2(DOLL_RADIUS, DOLL_RADIUS) * 2.0), Color.BLACK)
+				continue
+			draw_texture_rect(tex, UnitArt.signed_rect(tex, DOLL_RADIUS, false, center), false, s["color"])
+
+	## Five points on a ring outside the body, evenly spaced so none can
+	## overlap another regardless of `MARKER_SIZE`: head at the top, then
+	## clockwise main hand, accessory, body, off hand -- rook's slot order.
+	func _draw_markers(center: Vector2) -> void:
+		_slot_marker(_mark_rect(center, 0), EquipmentDef.Slot.HEAD, pawn.head)
+		_slot_marker(_mark_rect(center, 1), EquipmentDef.Slot.MAIN_HAND, pawn.main_hand)
+		_slot_marker(_mark_rect(center, 2), EquipmentDef.Slot.ACCESSORY, pawn.accessory)
+		_slot_marker(_mark_rect(center, 3), EquipmentDef.Slot.BODY, pawn.body)
+		_slot_marker(_mark_rect(center, 4), EquipmentDef.Slot.OFF_HAND, pawn.off_hand)
+
+	func _mark_rect(center: Vector2, ring_index: int) -> Rect2:
+		var angle := -PI * 0.5 + float(ring_index) * TAU / 5.0
+		var p := center + Vector2(cos(angle), sin(angle)) * DOLL_RADIUS * 1.28
+		return Rect2(p - Vector2(MARKER_SIZE, MARKER_SIZE) * 0.5, Vector2(MARKER_SIZE, MARKER_SIZE))
+
+	func _slot_marker(rect: Rect2, slot: int, item: EquipmentDef) -> void:
+		draw_rect(rect, Palette.HP_BACK)
+		UIArt.draw_border(self, rect, EquipmentIcons.slot_color(slot), 1.0)
+		if item == null:
+			EquipmentIcons.draw_empty_slot(self, slot, rect)
+		else:
+			EquipmentIcons.draw_item(self, item, rect)
