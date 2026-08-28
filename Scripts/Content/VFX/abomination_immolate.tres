@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_vfxlayer"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_chargeorb"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ShockRingLayer.gd" id="3_ring"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/EmberBurstLayer.gd" id="4_ember"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ScreenShakeLayer.gd" id="5_shake"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="6_abilityvfx"]
+
+[sub_resource type="Resource" id="Resource_windup"]
+script = ExtResource("2_chargeorb")
+inner_colour = Color(1, 0.82, 0.54, 1)
+outer_colour = Color(0.89, 0.34, 0.16, 1)
+size = 110.0
+on_hands = false
+cue = 0
+
+[sub_resource type="Resource" id="Resource_reach"]
+script = ExtResource("3_ring")
+ring_colour = Color(1, 0.66, 0.34, 1)
+size = 180.0
+seconds = 0.4
+thickness = 0.12
+cue = 1
+
+[sub_resource type="Resource" id="Resource_ignite"]
+script = ExtResource("4_ember")
+amount = 40
+colour_hot = Color(1, 0.82, 0.54, 1)
+colour_cool = Color(0.89, 0.34, 0.16, 1)
+speed = 210.0
+lifetime = 0.6
+gravity = Vector2(0, -150)
+cue = 1
+
+[sub_resource type="Resource" id="Resource_shake"]
+script = ExtResource("5_shake")
+pixels = 6.0
+cue = 1
+
+[resource]
+script = ExtResource("6_abilityvfx")
+display_name = "Immolate"
+layers = Array[ExtResource("1_vfxlayer")]([SubResource("Resource_windup"), SubResource("Resource_reach"), SubResource("Resource_ignite"), SubResource("Resource_shake")])

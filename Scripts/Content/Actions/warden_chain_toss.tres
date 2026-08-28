@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_y7cbg"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_gla4b"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_a856w"]
+[ext_resource type="Resource" path="res://Scripts/Content/VFX/warden_chain_toss.tres" id="vfx_warden_chain_toss"]
 
 [sub_resource type="Resource" id="Resource_grkcv"]
 script = ExtResource("1_0wv4e")
@@ -28,3 +29,4 @@ recover_ticks = 18
 targeting = SubResource("Resource_ds0an")
 delivery = SubResource("Resource_grkcv")
 effects = Array[ExtResource("2_ywr8y")]([SubResource("Resource_0rh7f")])
+vfx = ExtResource("vfx_warden_chain_toss")
