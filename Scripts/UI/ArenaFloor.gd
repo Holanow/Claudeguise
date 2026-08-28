@@ -41,8 +41,13 @@ const _PROJECTILE_RADIUS := 5.0
 ## action asks for a trail. Pruned in `_draw()` against the live projectile
 ## list, which self-heals across a new fight without BattleView resetting it.
 var _trails: Dictionary = {}
-const _TRAIL_LENGTH := 8
-const _TRAIL_WIDTH := 2.5
+
+## Issue 749: the mark it trails behind draws at ~24.8px (`AttackFX`'s own
+## measurement), and a trail under about a third of that loses to the mark
+## sitting on top of it. Widened and lengthened just past that line -- "a
+## little trail" on a floor-1 elite, not a comet.
+const _TRAIL_LENGTH := 14
+const _TRAIL_WIDTH := 9.0
 
 func _draw() -> void:
 	var hw := CG.ARENA_HALF_WIDTH

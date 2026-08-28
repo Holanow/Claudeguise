@@ -177,6 +177,24 @@ static func off_hand_offset(kind: Kind, progress: float, radius: float) -> Vecto
 static func off_hand_angle(kind: Kind, progress: float) -> float:
 	return -action_angle(kind, progress) * OFF_HAND_SHARE
 
+## Issue 749. The pose at the moment an action fires (`action_offset`/
+## `action_angle` at progress 1.0), eased back to rest across the recover
+## phase. `progress` is 0.0 the instant the action fires and 1.0 once recovery
+## ends, so the hand off `action_offset(kind, 1.0, ...)` picks up exactly where
+## the wind-up left it -- rest, extension, rest, with no seam at either join.
+static func recover_offset(kind: Kind, progress: float, radius: float) -> Vector2:
+	return action_offset(kind, 1.0, radius) * _recover_decay(progress)
+
+static func recover_angle(kind: Kind, progress: float) -> float:
+	return action_angle(kind, 1.0) * _recover_decay(progress)
+
+## Cubic ease-out, same shape as `UnitView.impact_decay`: fast off the extended
+## pose, slowing into rest, so the return reads as a spring settling rather
+## than a linear slide back.
+static func _recover_decay(progress: float) -> float:
+	var left := 1.0 - clampf(progress, 0.0, 1.0)
+	return left * left * left
+
 ## A draw held to the loose: back and up, easing out, so a long draw sits at
 ## full tension rather than crawling through it.
 static func _ranged(p: float) -> Vector2:
