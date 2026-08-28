@@ -199,7 +199,6 @@ func _run() -> void:
 		print("ScreenSweep: %s = %s" % [tag, ", ".join(PackedStringArray(parties[i]))])
 		await _party_select_full_and_start_fight(parties[i], tag)
 	await _plan_editor()
-	await _level_editor()
 	await _floor_map_and_end_of_fight()
 
 ## Party select, nothing picked yet -- the very first screen a player sees.
@@ -310,14 +309,6 @@ func _plan_editor_for(class_id: StringName, inspect_panel: Node, shot: String) -
 	if rows == 0:
 		_fail("%s's plan editor shows no rows, so '%s' is a picture of an empty editor" % [
 			class_id, shot])
-
-## The level editor, reached from party select.
-func _level_editor() -> void:
-	await _fresh_main()
-	if not _press_named("level editor"):
-		return
-	await _settle()
-	await _shot("sweep_level_editor")
 
 ## The floor map, reached via Start Run, plus whichever room resolves first.
 func _floor_map_and_end_of_fight() -> void:

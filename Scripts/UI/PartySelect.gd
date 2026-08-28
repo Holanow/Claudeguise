@@ -10,7 +10,6 @@ const SCENE := "res://Scenes/PartySelect.tscn"
 
 signal battle_requested(config: RunConfig)
 signal run_requested(config: RunConfig)
-signal level_editor_requested
 
 const MAX_PARTY_SIZE := 4
 
@@ -115,7 +114,6 @@ func _bind_ui() -> void:
 	_room_picker.item_selected.connect(func(_i: int): _refresh_room_summary())
 	_start_button.pressed.connect(_on_start_pressed)
 	_start_run_button.pressed.connect(_on_start_run_pressed)
-	%LevelEditorButton.pressed.connect(func(): level_editor_requested.emit())
 
 	## Issue 351. Both panels live in the middle column rather than over the top
 	## of the screen, so the plan budget and the WIS that sets it are one glance

@@ -11,8 +11,8 @@ const BOUNDARY_WIDTH := 2.0
 const GRID_ALPHA := 0.16
 const CENTER_LINE_ALPHA := 0.3
 
-## Set by the level editor, which authors rectangles. A fight sets `grid`
-## instead; whichever is set is what gets drawn.
+## A pre-#689 room authors rectangles here. A fight sets `grid` instead;
+## whichever is set is what gets drawn.
 var terrain: Array = []
 
 ## Set by BattleView from CombatState.grid, once, and mutated in place after.
