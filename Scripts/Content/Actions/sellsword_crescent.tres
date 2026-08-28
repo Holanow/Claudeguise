@@ -23,7 +23,7 @@ distance = -35.0
 [sub_resource type="Resource" id="Resource_crtg1"]
 script = ExtResource("5_sbtgt")
 range_units = 55.0
-splash_radius = 150.0
+splash_radius = 105.0
 arc_degrees = 65.0
 
 [sub_resource type="Resource" id="Resource_step1"]
@@ -60,8 +60,8 @@ power_scale = 4.0
 
 [sub_resource type="Resource" id="Resource_tgt3"]
 script = ExtResource("5_sbtgt")
-range_units = 200.0
-splash_radius = 200.0
+range_units = 140.0
+splash_radius = 140.0
 arc_degrees = 80.0
 
 [sub_resource type="Resource" id="Resource_beat3"]
