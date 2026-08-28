@@ -3,9 +3,11 @@ class_name AttackFX
 
 
 ## Attack visuals, keyed by damage type rather than by class. Interior detail
-## vanishes at the size a unit or a 5px projectile mark actually draws, and
-## every action already carries a damage type that the floating numbers
-## already colour by.
+## vanishes at the size a unit or a projectile mark actually draws, and every
+## action already carries a damage type that the floating numbers already
+## colour by. `ArenaFloor._PROJECTILE_RADIUS` (5) names the seed, not the
+## drawn size: it is passed in at 3x, and the mark measures 24.8 px on a
+## rendered 1280x720 frame (issue 614, measurement from 572).
 
 ## The shapes below are AUTHORING data for `Tools/BakeProjectiles.gd`, not what
 ## the game draws: a dart is the same picture every frame.

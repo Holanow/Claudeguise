@@ -112,7 +112,8 @@ static func fragments_for(shape_id: StringName, team: CG.Team) -> Array:
 			var tex := part_texture(layer["part"])
 			if tex == null:
 				return []
-			pieces.append({"tex": tex, "color": UnitRecipes.layer_color(layer, team)})
+			pieces.append({"tex": tex, "color": UnitRecipes.layer_color(layer, team),
+				"part": layer["part"]})
 		out.append({"group": entry["chunk"], "pieces": pieces})
 	# One chunk is the whole body, and a body that flies in one piece has not come
 	# apart.

@@ -31,6 +31,10 @@ const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 ## difference between two takes from a simulation-side one.
 @export var trace: bool = false
 
+## Issue 675 verification: the rendered frame (counted from capture start, same
+## as `trace`'s own numbering) to save a PNG of and quit at, or -1 for none.
+@export var capture_frame: int = -1
+
 var _view: Node2D = null
 var _frames := 0
 var _capture_started_at := -1
@@ -51,6 +55,10 @@ func _ready() -> void:
 	print("StagedFight: %s, seed %d, from tick %d to %d, %d frames per tick" % [
 		label, fight_seed, from_tick, to_tick, frames_per_tick])
 	print("StagedFight: party %s vs %s" % [_ids(party), _enemy_ids()])
+	if capture_frame >= 0:
+		if not Offscreen.require_renderer(self):
+			return
+		RenderingServer.frame_post_draw.connect(_maybe_capture)
 
 func _process(_delta: float) -> void:
 	if _done or _view == null:
@@ -70,6 +78,19 @@ func _process(_delta: float) -> void:
 ## would make the recording unrepeatable.
 func _step() -> void:
 	_view._process(CG.TICK_SECONDS / float(frames_per_tick))
+
+## Fires after every rendered frame, same as `trace`; only saves on the one
+## frame asked for. `_frames` has already been incremented for this frame by
+## the time `frame_post_draw` fires, matching `_trace`'s own numbering.
+func _maybe_capture() -> void:
+	if _frames != capture_frame:
+		return
+	var img := get_viewport().get_texture().get_image()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	var path := "res://Screenshots/kestrel_675_%s_f%d.png" % [label, capture_frame]
+	img.save_png(path)
+	print("StagedFight: %s" % path)
+	_finish()
 
 func _finish() -> void:
 	_done = true
@@ -168,6 +189,7 @@ func _read_args() -> void:
 			"fpt": frames_per_tick = maxi(1, int(value))
 			"label": label = value
 			"trace": trace = value == "1"
+			"capture": capture_frame = int(value)
 			_: printerr("StagedFight: ignoring unknown argument '%s'" % key)
 
 func _string_names(value: String) -> Array[StringName]:
