@@ -23,10 +23,13 @@ var loot: Array[EquipmentDef] = []
 func add_loot(item: EquipmentDef) -> void:
 	loot.append(item)
 
-func _init(floor_plan: FloorPlan) -> void:
+## `floor_plan` is optional: issue 729's linear floor sequence has no graph,
+## only order, and needs the `carry` bookkeeping below without one.
+func _init(floor_plan: FloorPlan = null) -> void:
 	plan = floor_plan
-	current_room_id = floor_plan.entrance_id
-	visited.append(current_room_id)
+	current_room_id = floor_plan.entrance_id if floor_plan != null else -1
+	if current_room_id != -1:
+		visited.append(current_room_id)
 
 func enter(room_id: int) -> void:
 	current_room_id = room_id
@@ -52,3 +55,19 @@ func is_alive(pawn_id: StringName) -> bool:
 	if carry.has(pawn_id):
 		return bool(carry[pawn_id]["alive"])
 	return true
+
+## Overwrites `state`'s party units (index i is party[i], the order
+## `CombatSim.build` always places them in) with what this run carried from
+## the last room. No recovery applied -- issue 729 forbids healing between
+## rooms. Shared by BattleView's live floor and Tools/FloorRuns.gd's headless
+## sweep so the carry rule has exactly one implementation.
+static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]) -> void:
+	for i in party.size():
+		var unit := state.unit(i)
+		var pawn_id: StringName = party[i].id
+		if not run.is_alive(pawn_id):
+			unit.alive = false
+			unit.hp = 0
+			continue
+		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
+		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)

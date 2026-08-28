@@ -21,11 +21,28 @@ signal back_requested
 signal room_requested(encounter_id: StringName)
 ## Every accepted placement, so `Main` can replay the fight the player watched.
 signal placement_changed(positions: Array[Vector2])
+## Issue 729. Fires once, when a floor sequence resolves -- the Warden dies or
+## the party wipes. Never fires between rooms; those swap in place, silently.
+signal floor_ended(victory: bool)
 
 var state: CombatState = null
 var event_cursor: int = 0
 var config: RunConfig = null
 var paused: bool = false
+
+## Issue 729: room ids for the floor in progress, empty when not in floor mode.
+var _floor_room_ids: Array[StringName] = []
+var _floor_index: int = -1
+var _floor_run: FloorRun = null
+var _floor_party: Array[PawnData] = []
+var _floor_seed: int = 0
+## >= 0.0 while holding the beat between a cleared room and the next one
+## arriving; -1.0 means "not transitioning".
+var _floor_transition_left: float = -1.0
+const _FLOOR_TRANSITION_BEAT := 1.0
+
+func _floor_active() -> bool:
+	return not _floor_room_ids.is_empty()
 
 ## Setup: the fight is built and held before its first tick, and the party is
 ## draggable. The player's ask -- place them on the screen you fight on.
@@ -996,6 +1013,76 @@ func begin_setup(cfg: RunConfig, encounter, positions: Array[Vector2] = []) -> v
 	setup = true
 	set_paused(true)
 
+# ---------------------------------------------------------------------------
+# Issue 729: a floor, ten rooms run back to back in this same view. No map,
+# no picker, no rewards screen -- a room resolves, a beat, the next arrives.
+
+## `room_ids` is a fixed, already-ordered sequence (FloorSequence.build output
+## or a test fixture) -- this function does not shuffle anything itself.
+func begin_floor(cfg: RunConfig, room_ids: Array[StringName]) -> void:
+	_floor_room_ids = room_ids
+	_floor_index = 0
+	_floor_party = cfg.party
+	_floor_seed = cfg.seed
+	_floor_run = FloorRun.new()
+	_floor_transition_left = -1.0
+	_start_floor_room()
+
+## Deterministic per room: the floor seed, the room id and the room's index,
+## so re-running one floor seed re-derives the same ten fight seeds.
+func _floor_room_seed(room_id: StringName) -> int:
+	return hash([_floor_seed, room_id, _floor_index])
+
+func _start_floor_room() -> void:
+	var room_id: StringName = _floor_room_ids[_floor_index]
+	var cfg := RunConfig.new()
+	cfg.party = _floor_party
+	cfg.encounter_id = room_id
+	cfg.seed = _floor_room_seed(room_id)
+	begin_with_encounter(cfg, RoomLibrary.get_room(room_id))
+	_carry_floor_condition()
+	setup = false
+	set_paused(false)
+
+## Overwrites the freshly built state's party units with what carried over
+## from the last room, via FloorRun.carry_into -- the same call
+## Tools/FloorRuns.gd's headless sweep makes.
+func _carry_floor_condition() -> void:
+	FloorRun.carry_into(_floor_run, state, _floor_party)
+	# The units just built and drawn above assumed full health; refresh so a
+	# pawn carried in dead reads as dead on the very first frame of the room.
+	_curr_drawn = _drawn_snapshot()
+	for id in _unit_views:
+		_unit_views[id].sync(state, _curr_drawn.get(id, UnitView.RECOMPUTE_AT))
+	if _text_layer != null:
+		_text_layer.sync(state)
+	if _team_status != null:
+		_team_status.sync(state)
+	_update_team_summary()
+
+func _record_floor_result() -> void:
+	for i in _floor_party.size():
+		var unit := state.unit(i)
+		_floor_run.record_result(_floor_party[i].id, unit.hp, unit.resource, unit.alive)
+
+## The single decision point for what a resolved room means: one more room to
+## come, or the floor itself is over. Called from both places `_process`
+## notices `state.outcome` resolved.
+func _handle_fight_end() -> void:
+	if _floor_active() and state.outcome == CombatState.Outcome.PLAYER_WIN \
+			and _floor_index < _floor_room_ids.size() - 1:
+		_record_floor_result()
+		_floor_transition_left = _FLOOR_TRANSITION_BEAT
+		return
+	if _floor_active():
+		floor_ended.emit(state.outcome == CombatState.Outcome.PLAYER_WIN)
+	_show_outcome()
+	set_process(false)
+
+func _advance_floor_room() -> void:
+	_floor_index += 1
+	_start_floor_room()
+
 ## Rebuilt through the same `begin_with_encounter` every other caller uses, so
 ## the fight that runs is built by one path rather than by whatever the setup
 ## phase left lying in `state`.
@@ -1159,6 +1246,11 @@ func _rebuild_units() -> void:
 	_bursts = null
 	_gibs = null
 	_text_layer = null
+	# Issue 729: a floor rebuilds this view many times in one process, which no
+	# single-fight caller ever did. `queue_free` above defers deletion to the
+	# end of the frame, so `_vfx` reads as still-valid here unless it is nulled
+	# explicitly -- same trap #705 hit with a delayed VFXLayer's own timer.
+	_vfx = null
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
@@ -1245,9 +1337,16 @@ func _process(delta: float) -> void:
 		ViewClock.frozen = false
 		# The frames this freeze covered are gone, not owed. See _freeze_left.
 		delta = 0.0
+	# Issue 729: the beat between a cleared room and the next arriving. The
+	# picture holds still -- no fade, no screen -- until it elapses.
+	if _floor_transition_left >= 0.0:
+		_floor_transition_left -= delta
+		if _floor_transition_left <= 0.0:
+			_floor_transition_left = -1.0
+			_advance_floor_room()
+		return
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
-		_show_outcome()
-		set_process(false)
+		_handle_fight_end()
 		return
 
 	_tick_accumulator += delta
@@ -1282,8 +1381,7 @@ func _process(delta: float) -> void:
 	# The banner waits out a freeze on the last death, which is the death the
 	# player is watching hardest and the one a banner would otherwise cover.
 	if state.outcome != CombatState.Outcome.UNRESOLVED and _freeze_left <= 0.0:
-		_show_outcome()
-		set_process(false)
+		_handle_fight_end()
 
 ## Issue 501. Every rendered frame, stepped or not: each body and each shot is
 ## placed between where it was before the last tick and where it is now.
