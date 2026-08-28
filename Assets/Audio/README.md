@@ -156,7 +156,8 @@ All seven are **CC0** (Creative Commons Zero, public domain), from packs by
 for nothing, and Kenney asks only to be credited, which this table does.
 
 Each was cut to the length below and its peak set to the level below, so that
-what is frequent is quiet and what is rare is loud. Nothing else was changed.
+what is frequent is quiet and what is rare is loud. Nothing else was changed,
+except `stun` (issue 574, below the table).
 
 | File | Source file | Pack | Length | Peak |
 | --- | --- | --- | --- | --- |
@@ -166,7 +167,19 @@ what is frequent is quiet and what is rare is loud. Nothing else was changed.
 | `event/death.ogg` | `impactSoft_heavy_000.ogg` | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | 0.50 s | -6 dB |
 | `event/miss.ogg` | `cloth3.ogg` | [RPG Audio](https://kenney.nl/assets/rpg-audio) | 0.16 s | -17 dB |
 | `event/blocked.ogg` | `impactMetal_light_000.ogg` | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | 0.18 s | -13 dB |
-| `event/status_applied/stun.ogg` | `impactBell_heavy_000.ogg` | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | 0.40 s | -8 dB |
+| `event/status_applied/stun.ogg` | `impactBell_heavy_000.ogg`, pitched up | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | 0.25 s | -8 dB |
+
+**`stun` was pitched up (issue 574), same source and licence.** Measured
+spectral centroid put it at 643 Hz against `damage`'s 658 Hz -- the two most
+tonal, least noisy sounds in the set landing almost register-identical, and
+the one pair the issue names (`ACTION_FIRE` + `DAMAGE` + `STATUS_APPLIED`
+landing together on a stunning hit) depended on duration alone to tell them
+apart once overlapping. `ffmpeg -af asetrate=44100*1.6,aresample=44100`
+raises it to 994 Hz -- clear of `damage` below and `action_fire`/`heal`
+above -- shortens it to 0.25 s, preserves its sub-millisecond attack
+(asetrate keeps the transient; time-stretching a bell with `rubberband`
+smeared it to 16-20 ms and was rejected for exactly that reason), and does
+not move its peak level.
 
 Every pack states its licence in its own `License.txt`:
 *"License: (Creative Commons Zero, CC0)
