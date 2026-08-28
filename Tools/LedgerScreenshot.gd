@@ -1,8 +1,7 @@
 extends Node
 
-## Issue 737 verification only, not part of the deliverable: runs a fight to
-## resolution and shoots the end banner with the new "What happened" ledger
-## section on it. Same pattern as `Tools/EndScreenProbe.gd`.
+## Issue 737. Runs a fight to resolution and shoots the end banner with the
+## ledger summary at the top of its log. Same pattern as `Tools/EndScreenProbe.gd`.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const OUT_DIR := "res://Screenshots"

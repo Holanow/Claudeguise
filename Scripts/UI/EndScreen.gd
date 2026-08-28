@@ -55,7 +55,6 @@ var _rows: Array[Dictionary] = []
 var _roster: HBoxContainer = null
 var _log_side: Control = null
 var _log_label: RichTextLabel = null
-var _ledger_label: RichTextLabel = null
 var _sort_buttons: Dictionary = {}
 
 # ---------------------------------------------------------------------------
@@ -182,7 +181,6 @@ func _build() -> void:
 	## `ROSTER_MIN_WIDTH` and clears both.
 	add_child(_build_roster_side())
 	add_child(_build_log_side())
-	add_child(_build_ledger_side())
 
 ## The sort controls sit ABOVE the roster and outside its scroll, deliberately:
 ## #520 is a control that took no input because it was 11 px under a
@@ -287,36 +285,10 @@ func _build_log_side() -> Control:
 ## Issue 737, the player's ruling: a balance number nobody but a designer can
 ## see is the pawn-behaviour rule aimed at numbers instead of decisions. Same
 ## `DamageLedger.build` the headless `Tools/DamageLedgerReport.gd` calls, so
-## the screen and the sweep can never disagree about what a fight did.
-## Three short lines, not a dump of every event -- the player's own framing
-## for this screen. No scroll and no expand flag: it sits with the fixed-size
-## outcome text above the roster rather than competing with the log (issue
-## 591) for the vertical space that card's own growth already fought over.
-func _build_ledger_side() -> Control:
-	var side := VBoxContainer.new()
-	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	side.add_theme_constant_override("separation", int(Palette.SPACE_XS))
-
-	var caption := Label.new()
-	caption.text = "What happened"
-	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	side.add_child(caption)
-
-	_ledger_label = RichTextLabel.new()
-	_ledger_label.bbcode_enabled = false
-	_ledger_label.fit_content = true
-	_ledger_label.scroll_active = false
-	_ledger_label.add_theme_color_override("default_color", Palette.TEXT)
-	_ledger_label.add_theme_font_size_override("normal_font_size", Palette.FONT_SIZE_SMALL)
-	_ledger_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_ledger_label.custom_minimum_size = Vector2(ROSTER_MIN_WIDTH, 0.0)
-	_ledger_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	side.add_child(_ledger_label)
-	return side
-
+## the screen and the sweep can never disagree about what a fight did. One
+## line, prepended into the existing log's own scroll (`open()` below) rather
+## than a new fixed section -- issue 591 already spent this card's vertical
+## budget once, and a second fixed slab pushed Restart under the log again.
 static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 	var rows := DamageLedger.top_sources(l, team, 2)
 	if rows.is_empty():
@@ -341,11 +313,14 @@ static func ledger_text(state: CombatState) -> String:
 
 # ---------------------------------------------------------------------------
 
-## Fills the roster, the log and the ledger from a finished fight.
+## Fills the roster and the log from a finished fight. The ledger line goes
+## in as the log's own first entries, bold so it reads as a summary rather
+## than another line of the fight.
 func open(state: CombatState, log_view: CombatLogView) -> void:
 	_rows = tally(state)
-	_log_label.text = "\n".join(log_lines(state, log_view))
-	_ledger_label.text = ledger_text(state)
+	var lines: Array[String] = ["[b]%s[/b]" % ledger_text(state), ""]
+	lines.append_array(log_lines(state, log_view))
+	_log_label.text = "\n".join(lines)
 	_refresh()
 
 func set_sort(sort_by: int) -> void:
