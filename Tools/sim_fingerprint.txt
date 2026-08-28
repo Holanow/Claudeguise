@@ -3,6 +3,6 @@
 # Both lines move together. A source change with no output change is
 # still a change, and the gate makes you say so here.
 # commit: the source tree this was taken against (issue 648), informational only.
-source: 7e8136dd486d86cec045007432feb646ad6eb1e310310f6f9713781a6b558568
-output: aab667d92e54c515ce3747d6363f41f03f153f961cf56343162f1c65dae21340
-commit: 8ad9430c098ef5d0ad95eec6944e34e06ff152e4
+source: 83f19790f362146cc5b5dc03d19f13b4229a19efe21e8c85a927a3f98cf4ab75
+output: 02e80c7164c5a788c95ec0563939138d587b4d31c64934d4dafed987b1de5894
+commit: a33ba55212d259832ff71327a7a29e5f88abe9b0
