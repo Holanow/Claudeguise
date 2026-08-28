@@ -91,9 +91,9 @@ static func _run_blocks(state: CombatState, unit: CombatUnit, plan: Plan) -> Int
 		return movement.run(state, unit, plan, action)
 	if action == null or unit.focus_id == -1:
 		return null
-	if not action_can_fire(state, unit, action):
+	if not action_can_fire(state, unit, action, unit.focus_id):
 		return null
-	return Intent.use_action(action.id, action_target_id(unit, action), plan.id)
+	return Intent.use_action(action.id, action_target_id(unit, action, unit.focus_id), plan.id)
 
 ## Issue 424: the point on the band the row sends the pawn to, and it is the
 ## nearest one that does not harm. Distance from the target is exactly `wanted`
@@ -118,8 +118,8 @@ static func kite_anchor(state: CombatState, unit: CombatUnit, centre: Vector2, b
 ## focused on -- a self-targeted action is cast on the caster whatever the
 ## targeting block picked, so a MOVEMENT block can measure its distance from an
 ## enemy while the buff inside it still lands on the pawn.
-static func action_target_id(unit: CombatUnit, action: ActionDef) -> int:
-	return unit.id if action != null and action.targets_self else unit.focus_id
+static func action_target_id(unit: CombatUnit, action: ActionDef, target_id: int) -> int:
+	return unit.id if action != null and action.targets_self else target_id
 
 ## The nearest standing spot within `SAFE_GROUND_REACH` that does not harm, or
 ## null when everything in reach does. Deterministic: radius outward, then a
@@ -202,14 +202,17 @@ static func cover_spot(state: CombatState, unit: CombatUnit, threat: CombatUnit)
 		best = spot2
 	return best
 
-## Every gate `_run_blocks` applies to an action, asked as one question.
-static func action_can_fire(state: CombatState, unit: CombatUnit, action: ActionDef) -> bool:
+## Every gate `_run_blocks` applies to an action, asked as one question. Issue
+## 650: `target_id` is explicit rather than read off `unit.focus_id`, because
+## `DefaultPlan`'s rows deliberately never write it and gating them against
+## the wrong target would be worse than not gating them at all.
+static func action_can_fire(state: CombatState, unit: CombatUnit, action: ActionDef, target_id: int) -> bool:
 	return _unit_has_action(unit, action) \
-		and _target_in_range(state, unit, action) \
-		and _target_in_los(state, unit, action) \
+		and _target_in_range(state, unit, action, target_id) \
+		and _target_in_los(state, unit, action, target_id) \
 		and can_afford(state, unit, action) \
 		and _summon_slot_free(state, unit, action) \
-		and _target_is_marked(state, unit, action)
+		and _target_is_marked(state, unit, action, target_id)
 
 ## Issue 100: a plan may only fire an action the unit actually has.
 static func _unit_has_action(unit: CombatUnit, action: ActionDef) -> bool:
@@ -222,10 +225,10 @@ static func _unit_has_action(unit: CombatUnit, action: ActionDef) -> bool:
 ## once, right before the intent is built -- the one place both numbers are
 ## available together. Out of range falls through rather than trying to move
 ## into range itself.
-static func _target_in_range(state: CombatState, unit: CombatUnit, action: ActionDef) -> bool:
+static func _target_in_range(state: CombatState, unit: CombatUnit, action: ActionDef, target_id: int) -> bool:
 	if action == null:
 		return true
-	var target := state.unit(action_target_id(unit, action))
+	var target := state.unit(action_target_id(unit, action, target_id))
 	if target == null:
 		return false
 	return unit.gap(target) <= action.range_units
@@ -234,10 +237,10 @@ static func _target_in_range(state: CombatState, unit: CombatUnit, action: Actio
 ## asks "should I even aim at this?" before committing, so a unit with a blocked
 ## but in-range target has a reason to walk instead of freezing on a shot it can
 ## already see is hopeless.
-static func _target_in_los(state: CombatState, unit: CombatUnit, action: ActionDef) -> bool:
+static func _target_in_los(state: CombatState, unit: CombatUnit, action: ActionDef, target_id: int) -> bool:
 	if action == null or not action.requires_line_of_sight:
 		return true
-	var target := state.unit(action_target_id(unit, action))
+	var target := state.unit(action_target_id(unit, action, target_id))
 	if target == null:
 		return false
 	return not state.grid.sight_blocked(unit.position, target.position)
@@ -268,10 +271,10 @@ static func _summon_slot_free(state: CombatState, unit: CombatUnit, action: Acti
 
 ## Issue 93: an action that may only be aimed at an enemy carrying MARKED. Same
 ## fall-through shape as the range and line-of-sight checks above.
-static func _target_is_marked(state: CombatState, unit: CombatUnit, action: ActionDef) -> bool:
+static func _target_is_marked(state: CombatState, unit: CombatUnit, action: ActionDef, target_id: int) -> bool:
 	if action == null or not action.requires_marked_target:
 		return true
-	var target := state.unit(unit.focus_id)
+	var target := state.unit(action_target_id(unit, action, target_id))
 	return target != null and target.has_status(CG.Status.MARKED)
 
 # ---------------------------------------------------------------------------

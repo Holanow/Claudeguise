@@ -148,3 +148,46 @@ func test_a_taunt_outranks_the_players_focus_in_both_versions() -> void:
 	enemies[1].statuses[CG.Status.TAUNTING] = 999
 	enemies[1].taunt_radius = 10000.0
 	_agree(state, pawn)
+
+# ---------------------------------------------------------------------------
+# Issue 650: the fallback is gated the same way an authored plan is.
+
+## `DefaultBehavior` never checked affordability (see
+## `test_content_equipment_grants.gd`): unarmed, it orders whatever is
+## cheapest on its side of the melee split even when the unit cannot pay, and
+## `CombatSim` burns the tick refusing it. `DefaultPlan` must not repeat that.
+func test_an_unaffordable_default_row_idles_rather_than_ordering_a_refusal() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a0", "Abomination")
+	pawn.plans = []
+	pawn.weapon = null
+	var unit := CombatUnit.new()
+	unit.id = 0
+	unit.team = CG.Team.PLAYER
+	unit.position = Vector2.ZERO
+	unit.hp_max = 100
+	unit.hp = 100
+	unit.move_speed = 3.0
+	unit.pawn = pawn
+	unit.resource_kind = CG.ResourceKind.RAGE
+	unit.resource_max = 100
+	unit.resource = 0
+	unit.actions = ActionLibrary.actions_for_pawn(pawn)
+	var state := CombatState.new(0)
+	state.units.append(unit)
+	var enemy := CombatUnit.new()
+	enemy.id = 1
+	enemy.team = CG.Team.ENEMY
+	enemy.hp_max = 100
+	enemy.hp = 100
+	enemy.position = Vector2(20.0, 0.0)
+	state.units.append(enemy)
+
+	var old_intent := DefaultBehavior.decide(state, unit)
+	assert_eq(old_intent.kind, CG.IntentKind.USE_ACTION,
+		"DefaultBehavior is the ungated fixture: it must still order what it cannot pay for")
+	assert_true(ActionLibrary.get_action(old_intent.action_id).resource_cost > unit.resource,
+		"the fixture is only meaningful if that order really is unaffordable")
+
+	var new_intent := DefaultPlan.decide(state, unit)
+	assert_eq(new_intent.kind, CG.IntentKind.IDLE,
+		"DefaultPlan must refuse the same order rather than spend the tick on it: got %s" % _render(new_intent))

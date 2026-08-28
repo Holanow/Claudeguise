@@ -52,10 +52,20 @@ const MOVEMENT := {
 	&"close_and_act": preload("res://Scripts/Plans/Blocks/CloseAndActBlock.gd"),
 }
 
+## Issue 652: derived actions -- `UseActionBlock` subclasses that resolve their
+## own action each tick rather than carrying a fixed one. The fallback has run
+## these since #641; a player could not pick one until now.
+const ACTIONS := {
+	&"use_heal": preload("res://Scripts/Plans/Blocks/UseHealBlock.gd"),
+	&"use_best_attack": preload("res://Scripts/Plans/Blocks/UseBestAttackBlock.gd"),
+	&"use_self_buff": preload("res://Scripts/Plans/Blocks/UseSelfBuffBlock.gd"),
+}
+
 ## The picker orders, derived so a name cannot be in the map and missing here.
 static var CONDITION_OPS: Array = CONDITIONS.keys()
 static var TARGETING_OPS: Array = TARGETING.keys()
 static var MOVEMENT_OPS: Array = MOVEMENT.keys()
+static var ACTION_OPS: Array = ACTIONS.keys()
 
 static func condition(op: StringName) -> ConditionBlock:
 	return CONDITIONS[op].new()
@@ -66,13 +76,16 @@ static func targeting(op: StringName) -> TargetingBlock:
 static func movement(op: StringName) -> MovementBlock:
 	return MOVEMENT[op].new()
 
+static func action(op: StringName) -> UseActionBlock:
+	return ACTIONS[op].new()
+
 ## The name a block goes by, for the tests and the instruments. Display never
 ## reads this -- `block.describe()` is the sentence a player sees.
 static func op_of(block: PlanBlock) -> StringName:
 	if block == null:
 		return &""
 	var script: Script = block.get_script()
-	for table in [CONDITIONS, TARGETING, MOVEMENT]:
+	for table in [CONDITIONS, TARGETING, MOVEMENT, ACTIONS]:
 		for op in table:
 			if table[op] == script:
 				return op

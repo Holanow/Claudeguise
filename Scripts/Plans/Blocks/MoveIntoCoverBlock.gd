@@ -14,7 +14,7 @@ func run(state: CombatState, unit: CombatUnit, plan: Plan, action: ActionDef) ->
 	if action != null and action.requires_line_of_sight:
 		return null
 	if PlanInterpreter.in_cover_from(state, unit, unit.position, threat):
-		return act_or_idle(state, unit, plan, action)
+		return act_or_idle(state, unit, plan, action, unit.focus_id)
 	var spot = PlanInterpreter.cover_spot(state, unit, threat)
 	if spot == null:
 		return null

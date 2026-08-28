@@ -28,7 +28,7 @@ func run(state: CombatState, unit: CombatUnit, plan: Plan, action: ActionDef) ->
 			return null
 		return Intent.move_to(anchor, plan.id)
 
-	return act_or_idle(state, unit, plan, action)
+	return act_or_idle(state, unit, plan, action, unit.focus_id)
 
 func describe() -> String:
 	var wanted := int(range_units)

@@ -6,7 +6,7 @@ class_name LeaveHarmfulGroundBlock
 
 func run(state: CombatState, unit: CombatUnit, plan: Plan, action: ActionDef) -> Intent:
 	if not CombatSim.standing_harms(state, unit.position):
-		return act_or_idle(state, unit, plan, action)
+		return act_or_idle(state, unit, plan, action, unit.focus_id)
 	var spot = PlanInterpreter.safe_spot(state, unit)
 	if spot == null:
 		return null
