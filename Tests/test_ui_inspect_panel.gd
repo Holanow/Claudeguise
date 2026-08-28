@@ -157,7 +157,7 @@ func test_list_and_detail_containers_expand_to_fill() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
 	var list_scroll: Control = panel._list_box.get_parent()
-	var detail_scroll: Control = panel._detail_box.get_parent()
+	var detail_scroll: Control = panel._detail_scroll
 	assert_eq(list_scroll.size_flags_vertical, Control.SIZE_EXPAND_FILL)
 	assert_eq(detail_scroll.size_flags_vertical, Control.SIZE_EXPAND_FILL)
 	panel.free()
