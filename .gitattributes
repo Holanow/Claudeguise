@@ -1,2 +1,8 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
+
+# Issue 677: never give this file a union merge. Parsing takes the last of
+# each key with no duplicate check, so a union merge can silently pair one
+# tree's source with another's output. Conflict and resolve by hand -- take
+# trunk's version, then re-record on the merge result (issue 648).
+Tools/sim_fingerprint.txt -merge

@@ -51,12 +51,16 @@ fi
 
 echo "pre-commit: main checkout, running the gate..."
 
-if ! powershell -NoProfile -ExecutionPolicy Bypass -File "$gate" > /dev/null 2>&1; then
+# Issue 648: -SkipSim, not the full gate. Recording an honest fingerprint
+# needs the code committed first, so this commit cannot have a green
+# fingerprint yet by construction -- demanding one here is the deadlock the
+# issue describes. Everything else the gate checks still blocks.
+if ! powershell -NoProfile -ExecutionPolicy Bypass -File "$gate" -SkipSim > /dev/null 2>&1; then
 	echo "" >&2
 	echo "pre-commit: THE GATE FAILED. Commit refused." >&2
 	echo "" >&2
 	echo "  Run it yourself to see why:" >&2
-	echo "    powershell -ExecutionPolicy Bypass -File Tools\\gate.ps1" >&2
+	echo "    powershell -ExecutionPolicy Bypass -File Tools\\gate.ps1 -SkipSim" >&2
 	echo "" >&2
 	echo "  This is the main checkout, so this commit would put the trunk red" >&2
 	echo "  for everybody who pulls it." >&2
@@ -67,4 +71,15 @@ if ! powershell -NoProfile -ExecutionPolicy Bypass -File "$gate" > /dev/null 2>&
 fi
 
 echo "pre-commit: gate green."
+
+# Non-blocking: names a debt, does not create the deadlock -SkipSim avoided.
+# -SourceOnly: a hash compare, not a 90s SampleFights run -- the same tax
+# on every commit is what trains --no-verify, per this hook's own reasoning.
+fp="$(git rev-parse --show-toplevel)/Tools/sim_fingerprint.ps1"
+if [ -f "$fp" ] && ! powershell -NoProfile -ExecutionPolicy Bypass -File "$fp" -SourceOnly > /dev/null 2>&1; then
+	echo "pre-commit: NOTE -- the sim fingerprint is stale after this commit." >&2
+	echo "  Record it against the committed tree, in its own commit:" >&2
+	echo "    powershell -ExecutionPolicy Bypass -File Tools\\sim_fingerprint.ps1 -Record" >&2
+fi
+
 exit 0
