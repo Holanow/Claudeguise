@@ -114,6 +114,31 @@ change. Post it on the board and ask.
 **The unblocker is #100, equipment**, and it is therefore the highest-value
 work on the board.
 
+## The numbers we balance on are the player's numbers too
+
+The player, 2026-08-28:
+
+> "Any information you're using to balance should be visible to the player in
+> the battle end screen, or some kind of log screen. In game"
+
+**Binding, and it is the pawn-behaviour principle extended from behaviour to
+numbers.** A pawn must never do anything the player cannot see in the plans of
+action; the game must never be balanced on a number the player cannot see
+either.
+
+The reason is the same in both cases. An autobattler's loop is author, watch,
+adjust, and a number only the designer can read breaks the third step exactly
+the way a hidden rule breaks the first. The player needs damage-by-ability
+*more* than we do, because they are the one authoring the plans that produce it.
+
+**The test: if a measurement would justify a buff or a nerf, it goes on a screen
+before it goes in a decision.** A `Tools/` script may exist for headless sweeps,
+but it is a second caller of the same summary, never the only way to see it.
+
+`amount_before_mitigation` against `amount_after_mitigation` is the clearest
+case. It is the only way anyone can tell whether armour does anything, and until
+#737 neither the player nor this project could see it.
+
 ## The principle that governs pawn behaviour
 
 > **Pawns should never do anything the player cannot see in the plans of
