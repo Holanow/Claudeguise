@@ -389,6 +389,8 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		out.append(_plan_row(plan, pawn, i, inert))
 		if inert:
 			out.append(_inert_note(spent, budget))
+		elif _live_verdict(pawn, plan) == VERDICT_REFUSED:
+			out.append(_refused_note(pawn, plan))
 
 	for control in _library_section(pawn):
 		out.append(control)
@@ -442,6 +444,24 @@ func _inert_note(needed: int, budget: int) -> Control:
 	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
 	indent.add_child(gutter)
 	var note := _line(INERT_ROW_NOTE % [needed, budget], Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	indent.add_child(note)
+	return indent
+
+## Issue 721: gate 2, named. Same position and weight as `_inert_note` --
+## indented, under the row it belongs to -- but the dim colour rather than the
+## warning one: colour is already spent on `acting`, so this state reads by
+## position and by the word "Refused" rather than by a second colour.
+const REFUSED_NOTE := "Refused: %s."
+
+func _refused_note(pawn: PawnData, plan) -> Control:
+	var unit = _live_unit(pawn)
+	var reason := _refusal_reason(_live_state, unit, plan) if unit != null else ""
+	var indent := HBoxContainer.new()
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
+	indent.add_child(gutter)
+	var note := _line(REFUSED_NOTE % reason, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	indent.add_child(note)
 	return indent
@@ -1269,6 +1289,7 @@ const VERDICT_READY := "ready"
 const VERDICT_WAITING := "waiting"
 const VERDICT_TAUNTED := "taunted"
 const VERDICT_HELD := "held"
+const VERDICT_REFUSED := "refused"
 
 ## One word for one plan row, or "" when there is no live fight to read, and
 ## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
@@ -1286,7 +1307,11 @@ func _live_verdict(pawn: PawnData, plan) -> String:
 		return VERDICT_WAITING
 	## Issue 575: a busy pawn reads no row at all until its action ends, so
 	## `ready` beside one is a claim about a row nothing is consulting.
-	return VERDICT_HELD if unit.is_busy() else VERDICT_READY
+	if unit.is_busy():
+		return VERDICT_HELD
+	## Issue 721's second gate: the condition held and the pawn is free, but
+	## `action_can_fire` would still refuse the skill.
+	return VERDICT_REFUSED if _refusal_reason(_live_state, unit, plan) != "" else VERDICT_READY
 
 ## The same, for the immutable fallback row. It has no condition to hold, so it
 ## is either what the pawn is doing or it is not -- and the compulsion gets its
@@ -1317,6 +1342,50 @@ func _last_source_plan(unit) -> StringName:
 			return e.source_plan
 	return &""
 
+## Issue 721's second gate. `PlanInterpreter._run_blocks` walks a plan's
+## targeting and action blocks, writing `unit.focus_id` as it goes, then asks
+## `action_can_fire`. This asks the same question the same way -- same block
+## calls, same gate -- and returns which named check refused it, or "" when
+## the row would fire (or a movement row, never refused this way, or a row
+## whose targeting draws from `state.rng` and cannot be re-asked for free).
+## `focus_id` is restored before returning, the same proven-safe shape
+## `Tools/RowSelectionProbe.gd` already uses.
+func _refusal_reason(state, unit, plan) -> String:
+	for block in plan.blocks:
+		if block is MovementBlock or block is TargetPileOnBlock:
+			return ""
+	var saved: int = unit.focus_id
+	var action_block: UseActionBlock = null
+	for block in plan.blocks:
+		if block is TargetingBlock:
+			var picked: int = (block as TargetingBlock).pick(state, unit)
+			if picked != -1:
+				unit.focus_id = picked
+		elif block is UseActionBlock:
+			action_block = block
+	var action: ActionDef = null if action_block == null else action_block.resolve(state, unit, unit.focus_id)
+	var target_id: int = unit.focus_id
+	unit.focus_id = saved
+	if action == null or target_id == -1:
+		return ""
+	if PlanInterpreter.action_can_fire(state, unit, action, target_id):
+		return ""
+	return _named_gate(state, unit, action, target_id)
+
+## Which of `action_can_fire`'s checks failed, in the same order it asks them.
+func _named_gate(state, unit, action: ActionDef, target_id: int) -> String:
+	if not PlanInterpreter._unit_has_action(unit, action):
+		return "this pawn no longer carries that skill"
+	if not PlanInterpreter._target_in_range(state, unit, action, target_id):
+		return "out of range"
+	if not PlanInterpreter._target_in_los(state, unit, action, target_id):
+		return "no line of sight"
+	if not PlanInterpreter.can_afford(state, unit, action):
+		return "cannot afford the cost, or still on cooldown"
+	if not PlanInterpreter._summon_slot_free(state, unit, action):
+		return "already has the maximum number summoned"
+	return "the target is not marked"
+
 ## The fighting unit built from this PawnData, or null. Matched on the PawnData
 ## instance, which `CombatSim.build` stores on the unit -- the same instance
 ## this panel edits, so a pawn cannot be confused with another of the same class.
@@ -1333,10 +1402,11 @@ func _live_unit(pawn: PawnData):
 ## it explains rather than on it.
 const VERDICT_HELP := {
 	VERDICT_ACTING: "This row chose what the pawn last did.",
-	VERDICT_READY: "This row's condition holds and the pawn is free to take it. If it is not the row acting, a row above it won or its skill could not fire.",
+	VERDICT_READY: "This row's condition holds and the pawn is free to take it. If it is not the row acting, a row above it is winning this instant.",
 	VERDICT_HELD: "This row's condition holds, but the pawn is finishing an action and reads no row at all until that ends.",
 	VERDICT_WAITING: "This row's condition does not hold, so the pawn is not reading it.",
 	VERDICT_TAUNTED: "The pawn is compelled and none of its rows are read at all.",
+	VERDICT_REFUSED: "This row's condition holds and the pawn is free, but its skill cannot fire. The line beneath it names the reason.",
 }
 
 func _verdict_label(text: String) -> Label:
