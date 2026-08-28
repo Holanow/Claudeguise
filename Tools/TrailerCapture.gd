@@ -16,6 +16,13 @@ const SIZE := Vector2i(1280, 720)
 ## process (board FINDING 4).
 const PARTY: Array = [&"warrior", &"priest", &"geysermancer", &"abomination"]
 const ROOMS: Array = [&"floor1_room1", &"floor1_cover", &"floor1_hazard", &"floor1_horde"]
+## Issue 705: none of the four rooms above ever gives `abomination_hook` a
+## reachable target at the pull's own range -- measured, not assumed, over
+## 60 seeds each. `floor1_rat_king`'s open arena does. Hook's own search
+## widens to this list rather than widening `ROOMS`, which anchors every
+## other clip's establishing fight.
+const HOOK_ROOMS: Array = [&"floor1_room1", &"floor1_cover", &"floor1_hazard", &"floor1_horde",
+	&"floor1_chokepoint", &"floor1_sellsword", &"floor1_rat_king"]
 ## The classes `ranged_loose` is about. The party's biggest body is the
 ## abomination and its hook is a projectile, so a scan won on size alone
 ## photographs a melee brute rather than the shot this clip exists for.
@@ -432,12 +439,17 @@ func _player_actions(room_id: StringName, s: int) -> Array:
 ## Its own scan rather than the chosen fight's, because the establishing fight is
 ## won on deaths and shots and need not contain one at all.
 func _hook_cast() -> Dictionary:
-	for room_id in ROOMS:
+	for room_id in HOOK_ROOMS:
 		var encounter = RoomLibrary.get_room(room_id)
 		if encounter == null:
 			continue
 		for s in range(1, SEEDS + 1):
-			var state := CombatSim.build(_party(), encounter, s)
+			# Issue 705: a starter Abomination never casts Hook -- `DefaultBehavior`
+			# picks the cheapest attack, and `abomination_hook` is preset-gated
+			# (see `PresetPlans.for_class`). Bare `_party()` found nothing in
+			# 4 rooms x 24 seeds; the preset party is what a player who added
+			# every row reaches, same as every other act-3/4 scan in this file.
+			var state := CombatSim.build(_party_preset_for(PARTY), encounter, s)
 			var cursor := 0
 			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 				CombatSim.step(state)
@@ -783,10 +795,10 @@ func _clip_hook_drag() -> void:
 	var hook := _hook_cast()
 	if hook.is_empty():
 		_failures.append("hook_drag: no abomination_hook in %d rooms x %d seeds"
-			% [ROOMS.size(), SEEDS])
+			% [HOOK_ROOMS.size(), SEEDS])
 		return
 	_set_toggles(SHOWY)
-	await _build_view(hook["room"], hook["seed"])
+	await _build_view(hook["room"], hook["seed"], _party_preset_for(PARTY))
 	await _skip_to(int(hook["tick"]) - HOOK_LEAD / FRAMES_PER_TICK)
 	var from := _begin()
 	for i in HOOK_LEAD + CombatSim.PULL_TICKS * FRAMES_PER_TICK + HOOK_TAIL:

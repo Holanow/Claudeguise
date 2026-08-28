@@ -17,9 +17,18 @@
 # render instead of a branch.
 param(
 	[string] $OutDir = 'D:\Projects\Claudeguise-team\scratch\teal-trailer',
-	[int] $TimeoutSeconds = 3600
+	[int] $TimeoutSeconds = 3600,
+	# Reassemble from an existing frames/movie.avi + manifest.txt without
+	# re-running Godot. Not the normal path -- the normal path is one command,
+	# full re-render -- but ffmpeg assembly is worth iterating on without
+	# paying for a render every time.
+	[switch] $SkipCapture
 )
-$ErrorActionPreference = 'Stop'
+# Not 'Stop': every native ffmpeg call below writes its normal banner and
+# progress to stderr, and PowerShell 5.1 turns that into a terminating
+# NativeCommandError under 'Stop' even on a clean exit. Success is checked
+# explicitly with Test-Path after each pass instead.
+$ErrorActionPreference = 'Continue'
 $repo = Split-Path -Parent $PSScriptRoot
 $framesDir = Join-Path $OutDir 'frames'
 $movie = Join-Path $OutDir 'movie.avi'
@@ -27,19 +36,24 @@ $segDir = Join-Path $OutDir 'segments'
 $final = Join-Path $OutDir 'trailer.mp4'
 $font = 'C\:/Windows/Fonts/arial.ttf'
 
-if (Test-Path $framesDir) { Remove-Item -Recurse -Force $framesDir }
 if (Test-Path $segDir) { Remove-Item -Recurse -Force $segDir }
-New-Item -ItemType Directory -Force -Path $framesDir, $segDir | Out-Null
+New-Item -ItemType Directory -Force -Path $segDir | Out-Null
 
-Write-Host "=== pass 1: TrailerCapture, the whole beat sheet, one movie ==="
-& (Join-Path $PSScriptRoot 'run.ps1') TrailerCapture -Resolution 1280x720 -FixedFps 60 `
-	-WriteMovie $movie -TimeoutSeconds $TimeoutSeconds -ToolArgs @($framesDir)
-# Not a hard gate on `$LASTEXITCODE`: Godot's own teardown regularly exits
-# non-zero on leaked-RID warnings that have nothing to do with whether the
-# clips themselves landed. The manifest and the .avi, checked next, are what
-# actually says whether there is anything to assemble.
-if ($LASTEXITCODE -ne 0) {
-	Write-Host "TrailerCapture exited $LASTEXITCODE -- checking whether it still produced a usable manifest."
+if ($SkipCapture) {
+	Write-Host "=== pass 1 skipped, reassembling from the existing $movie ==="
+} else {
+	if (Test-Path $framesDir) { Remove-Item -Recurse -Force $framesDir }
+	New-Item -ItemType Directory -Force -Path $framesDir | Out-Null
+	Write-Host "=== pass 1: TrailerCapture, the whole beat sheet, one movie ==="
+	& (Join-Path $PSScriptRoot 'run.ps1') TrailerCapture -Resolution 1280x720 -FixedFps 60 `
+		-WriteMovie $movie -TimeoutSeconds $TimeoutSeconds -ToolArgs @($framesDir)
+	# Not a hard gate on `$LASTEXITCODE`: Godot's own teardown regularly exits
+	# non-zero on leaked-RID warnings that have nothing to do with whether the
+	# clips themselves landed. The manifest and the .avi, checked next, are
+	# what actually says whether there is anything to assemble.
+	if ($LASTEXITCODE -ne 0) {
+		Write-Host "TrailerCapture exited $LASTEXITCODE -- checking whether it still produced a usable manifest."
+	}
 }
 
 $manifestPath = Join-Path $framesDir 'manifest.txt'
@@ -82,7 +96,7 @@ $trimLastSeconds = @{ 'plan_diff.default' = 20; 'plan_diff.authored' = 16 }
 function New-TitleCard([string] $text, [string] $path) {
 	$vf = "drawtext=fontfile='$font':text='$text':fontcolor=white:fontsize=64:x=(w-text_w)/2:y=(h-text_h)/2"
 	& ffmpeg -y -f lavfi -i "color=c=black:s=1280x720:r=60:d=2" -f lavfi -i "anullsrc=r=48000:cl=stereo" `
-		-vf $vf -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest $path 2>&1 | Out-Null
+		-vf $vf -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest $path
 }
 
 foreach ($act in $beats) {
@@ -109,7 +123,7 @@ foreach ($act in $beats) {
 			}
 			$segPath = Join-Path $segDir ("{0:D3}_{1}.mp4" -f $segments.Count, $row.Name)
 			& ffmpeg -y -i $movie -ss $start -to $end -r 60 -s 1280x720 `
-				-c:v libx264 -pix_fmt yuv420p -ar 48000 -ac 2 -c:a aac $segPath 2>&1 | Out-Null
+				-c:v libx264 -pix_fmt yuv420p -ar 48000 -ac 2 -c:a aac $segPath
 			$segments.Add($segPath)
 		}
 	}
@@ -124,7 +138,7 @@ foreach ($act in $beats) {
 Write-Host "=== pass 3: concatenating $($segments.Count) segments ==="
 $concatList = Join-Path $segDir 'concat.txt'
 $segments | ForEach-Object { "file '$($_ -replace "'", "'\''")'" } | Set-Content -Encoding ASCII $concatList
-& ffmpeg -y -f concat -safe 0 -i $concatList -c copy $final 2>&1 | Out-Null
+& ffmpeg -y -f concat -safe 0 -i $concatList -c copy $final
 
 if (-not (Test-Path $final)) {
 	Write-Host "Concat produced no file at $final."
