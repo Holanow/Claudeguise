@@ -240,13 +240,6 @@ func test_starting_a_fight_lives_apart_from_the_places_you_can_go() -> void:
 	var column := screen._start_button.get_parent()
 	assert_eq(screen._start_run_button.get_parent(), column,
 		"the two ways to start a fight belong together")
-	var level_editor: Button = null
-	for node in _all_nodes(screen):
-		if node is Button and node.text == "Level editor":
-			level_editor = node
-	assert_not_null(level_editor, "the level editor is still reachable")
-	assert_true(column.get_children().find(level_editor) > column.get_children().find(screen._start_run_button) + 1,
-		"the level editor must not sit against the Start buttons")
 
 	## And the destinations that became columns are gone as destinations, or
 	## this screen has both and the mismatch the issue was filed for.

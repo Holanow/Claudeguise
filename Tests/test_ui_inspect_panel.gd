@@ -1253,6 +1253,94 @@ func test_a_free_pawn_still_calls_a_row_whose_condition_holds_ready() -> void:
 		"a free pawn is reading its plan, so nothing is held: %s" % second_text)
 	panel.free()
 
+func _out_of_range_action() -> ActionDef:
+	var a := ActionDef.new()
+	a.id = &"short_jab"
+	a.display_name = "Short Jab"
+	var t := ActionTargeting.new()
+	t.range_units = 5.0
+	a.targeting = t
+	return a
+
+## Issue 721's whole point: a row whose condition holds and whose pawn is
+## free is not always going to fire. Before this, both cases printed `ready`
+## and the tooltip could only shrug ("or its skill could not fire").
+func test_a_free_pawn_whose_action_cannot_fire_is_marked_refused_with_the_gate_named() -> void:
+	var pawn := _make_pawn()
+	var action := _out_of_range_action()
+	var plan := _make_plan("Attack")
+	var use_action := UseActionBlock.new()
+	use_action.action = action
+	plan.blocks = [BlockCatalog.targeting(&"target_nearest_enemy"), use_action]
+	pawn.plans = [plan]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	unit.actions = [action.id]
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(400, 0)))
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var row_text := _all_label_text(_plan_rows(panel)[0])
+	assert_true(row_text.contains(InspectPanel.VERDICT_REFUSED),
+		"the condition holds and the pawn is free, so this must not read `ready`: %s" % row_text)
+	var screen := _all_label_text(panel._detail_box)
+	assert_true(screen.contains("out of range"),
+		"gate 2's own reason must be named, not just that it refused: %s" % screen)
+	panel.free()
+
+## The pair the test above needs to mean anything: the same row, in range,
+## reads `ready` rather than `refused`.
+func test_a_row_whose_action_can_actually_fire_is_not_wrongly_refused() -> void:
+	var pawn := _make_pawn()
+	var action := _out_of_range_action()
+	action.targeting.range_units = 9999.0
+	var plan := _make_plan("Attack")
+	var use_action := UseActionBlock.new()
+	use_action.action = action
+	plan.blocks = [BlockCatalog.targeting(&"target_nearest_enemy"), use_action]
+	pawn.plans = [plan]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	unit.actions = [action.id]
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(10, 0)))
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	var row_text := _all_label_text(_plan_rows(panel)[0])
+	assert_true(row_text.contains(InspectPanel.VERDICT_READY), row_text)
+	assert_false(row_text.contains(InspectPanel.VERDICT_REFUSED), row_text)
+	panel.free()
+
+## The probe this issue's diagnosis runs (`pick`, `resolve`, `action_can_fire`)
+## must leave the fight exactly as it found it -- `focus_id` restored, `state.rng`
+## never touched -- or "view-only" is a claim rather than a fact.
+func test_the_refusal_probe_does_not_perturb_focus_id_or_the_rng_stream() -> void:
+	var pawn := _make_pawn()
+	var action := _out_of_range_action()
+	var plan := _make_plan("Attack")
+	var use_action := UseActionBlock.new()
+	use_action.action = action
+	plan.blocks = [BlockCatalog.targeting(&"target_nearest_enemy"), use_action]
+	pawn.plans = [plan]
+
+	var unit := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
+	unit.pawn = pawn
+	unit.actions = [action.id]
+	unit.focus_id = 7
+	var state := _state_with(unit, _melee_unit(1, CG.Team.ENEMY, Vector2(400, 0)))
+	var rng_before := state.rng.state
+
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn], state)
+	assert_eq(unit.focus_id, 7, "the diagnosis must restore focus_id, not leave its own pick behind")
+	assert_eq(state.rng.state, rng_before, "the diagnosis must never draw from state.rng")
+	panel.free()
+
 ## A word on a screen with nothing explaining it becomes furniture, which is why
 ## the key exists at all. Issue 590 moved the key onto the words themselves, so
 ## the requirement is now that every word a row can carry has an entry -- which
@@ -1261,7 +1349,7 @@ func test_a_free_pawn_still_calls_a_row_whose_condition_holds_ready() -> void:
 func test_every_verdict_word_a_row_can_carry_explains_itself() -> void:
 	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
 			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED,
-			InspectPanel.VERDICT_HELD]:
+			InspectPanel.VERDICT_HELD, InspectPanel.VERDICT_REFUSED]:
 		assert_true(InspectPanel.VERDICT_HELP.has(word),
 			"nothing says what '%s' means" % word)
 		assert_true(String(InspectPanel.VERDICT_HELP[word]).length() > 20,
@@ -1379,7 +1467,7 @@ func test_between_fights_no_row_carries_a_verdict() -> void:
 	var text := _all_label_text(panel._detail_box)
 	for word in [InspectPanel.VERDICT_ACTING, InspectPanel.VERDICT_READY,
 			InspectPanel.VERDICT_WAITING, InspectPanel.VERDICT_TAUNTED,
-			InspectPanel.VERDICT_HELD]:
+			InspectPanel.VERDICT_HELD, InspectPanel.VERDICT_REFUSED]:
 		assert_false(text.contains(word), "'%s' on a panel with no fight behind it: %s" % [word, text])
 	panel.free()
 

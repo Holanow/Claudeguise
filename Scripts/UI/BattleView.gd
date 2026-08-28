@@ -906,10 +906,8 @@ static func compute_layout(size: Vector2) -> Dictionary:
 func begin(cfg: RunConfig) -> void:
 	begin_with_encounter(cfg, RoomLibrary.get_room(cfg.encounter_id))
 
-## Issue 19: the level editor needs to test-fight a room that has never been
-## registered -- it exists only as an in-memory `Encounter` the player is still
-## placing enemies and terrain into, with nothing to hand `Registry` and no
-## `encounter_id` naming it yet. Split out of `begin()` so that path skips the
+## Split out of `begin()` so a caller with an in-memory `Encounter` and no
+## registered `encounter_id` -- deploy placement, tools, probes -- can skip the
 ## `Registry` lookup entirely rather than requiring one: `cfg.encounter_id` is
 ## simply not read here. `begin()` is unchanged for every existing caller.
 func begin_with_encounter(cfg: RunConfig, encounter) -> void:
@@ -988,8 +986,8 @@ func _on_pause_pressed() -> void:
 
 ## The fight, built and held before its first tick with the party draggable.
 ## `begin_with_encounter` is deliberately untouched and still starts a running
-## fight: the level editor's test fight and fourteen probes call it, and none of
-## them has a player to press Start.
+## fight: a dozen-plus probes call it, and none of them has a player to press
+## Start.
 func begin_setup(cfg: RunConfig, encounter, positions: Array[Vector2] = []) -> void:
 	_base_encounter = encounter
 	_placements = positions.duplicate() if not positions.is_empty() \
@@ -1050,13 +1048,13 @@ func _grabbable_at(point: Vector2) -> int:
 	return id
 
 ## Clamped into the deploy band and refused outright inside blocking terrain,
-## using the same two functions the level editor and the simulation use.
+## using the same function the simulation's own movement uses.
 func _move_grabbed_to(point: Vector2) -> void:
 	var index := _placement_index(_grabbed_unit_id)
 	if index < 0:
 		return
 	var u := state.unit(_grabbed_unit_id)
-	var target := LevelEditorCanvas.clamp_to_deploy_zone(point, u.radius)
+	var target := DeployViewScript.clamp_to_deploy_zone(point, u.radius)
 	if state.grid.move_blocked(target, u.radius):
 		return
 	var next := placements()

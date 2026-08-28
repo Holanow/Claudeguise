@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/RefusedVerdictShot.gd" id="1_rf"]
+
+[node name="RefusedVerdictShot" type="Node"]
+script = ExtResource("1_rf")
