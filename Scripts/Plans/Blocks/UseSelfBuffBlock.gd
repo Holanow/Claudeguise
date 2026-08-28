@@ -5,7 +5,7 @@ class_name UseSelfBuffBlock
 ## heal, a sustain or a summon.
 
 func resolve(state: CombatState, unit: CombatUnit, _target_id: int) -> ActionDef:
-	return DefaultPlan.self_buff(state, unit)
+	return PlanInterpreter.self_buff(state, unit)
 
 func describe() -> String:
 	return "use my first self-buff"

@@ -5,7 +5,7 @@ class_name UseHealBlock
 ## and restores something.
 
 func resolve(state: CombatState, unit: CombatUnit, _target_id: int) -> ActionDef:
-	return DefaultPlan.heal_action(state, unit)
+	return PlanInterpreter.heal_action(state, unit)
 
 func describe() -> String:
 	return "use my healing action"

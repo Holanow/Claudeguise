@@ -7,7 +7,7 @@ class_name AllyNeedsHealBlock
 @export_range(0.0, 1.0, 0.05) var fraction: float = 0.5
 
 func holds(state: CombatState, unit: CombatUnit) -> bool:
-	var neediest := DefaultPlan.heal_target(state, unit)
+	var neediest := PlanInterpreter.heal_target(state, unit)
 	return neediest != null and neediest.hp_fraction() <= fraction
 
 func describe() -> String:

@@ -8,7 +8,7 @@ class_name TargetNearestAttackableEnemyBlock
 func pick(state: CombatState, unit: CombatUnit) -> int:
 	var best: CombatUnit = null
 	var best_dist := INF
-	for e in DefaultPlan.attackable(state, unit):
+	for e in PlanInterpreter.attackable(state, unit):
 		var d := unit.position.distance_to(e.position)
 		if d < best_dist:
 			best_dist = d
