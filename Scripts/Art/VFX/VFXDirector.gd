@@ -66,7 +66,14 @@ func play(vfx: AbilityVFX, cue: VFXLayer.Cue, source_id: int, target_id: int, se
 			layer.play(ctx)
 		else:
 			var l := layer
-			after(layer.delay, func(): l.play(ctx))
+			## The battle this director belongs to can be torn down before a
+			## delayed layer's own timer fires -- issue 705's trailer tool tears
+			## down and rebuilds a fight dozens of times in one process and hit
+			## this ("Lambda capture ... was freed", then a segfault). `l` is a
+			## plain reference, so the timer outlives it; nothing else changes.
+			after(layer.delay, func():
+				if is_instance_valid(l):
+					l.play(ctx))
 
 func _process(_delta: float) -> void:
 	for i in range(_followers.size() - 1, -1, -1):

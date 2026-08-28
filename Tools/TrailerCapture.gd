@@ -82,7 +82,31 @@ const PLAIN := {
 }
 
 const CLIPS := ["fight_full", "kill_slowmo", "hook_drag", "hands_ab", "focus_fire",
-	"roster", "interp_ab", "ranged_loose", "toggles", "art_ab"]
+	"roster", "interp_ab", "ranged_loose", "toggles", "art_ab",
+	"party_deploy", "action_states", "seeker_two", "sellsword_pattern",
+	"geyser_blast", "immolate", "summon", "plan_edit", "plan_diff", "warden"]
+
+## Issue 705. The trailer's beat sheet as data, not a comment: act order, the
+## title card between acts, and which clips of this tool make up each one.
+## `Tools/RenderTrailer.ps1` reads the same file to know where to cut title
+## cards in, so this is the one place the sequence is authored.
+const BEATS_PATH := "res://Tools/TrailerBeats.json"
+
+## Issue 30's siege engine (`build_siege_engine`) and its mark (`spotter_mark`)
+## are the Siege Master's, and `PARTY` above leaves that class out. A second
+## party, real and playable, only for the shots that need it.
+const SIEGE_PARTY: Array = [&"warrior", &"priest", &"siege_master", &"abomination"]
+
+## Issue 433/406: a Warrior, Priest, Geysermancer and Siege Master never taunt,
+## ward, blast or mark on their own -- `DefaultBehavior` never self-buffs a
+## pawn and never risks a spender it wasn't told to spend. `PawnFactory.
+## make_preset_pawn` is every preset row a class ships added, which is the
+## state a player reaches by pressing every Add button in the plan editor.
+
+## The seed `party_deploy` rerolls the roster to, so the shot is reproducible.
+const PARTY_DEPLOY_SEED := 0xC1A0D
+const PARTY_DEPLOY_FIGHT_FRAMES := 360
+const WARDEN_FRAMES := 360
 
 var _out := ""
 var _only := ""
@@ -172,26 +196,54 @@ func _run() -> void:
 		return
 	print("TrailerCapture: %s seed %d, %d ticks, %d deaths, %d shots" % [
 		fight["room"], fight["seed"], fight["ticks"], fight["deaths"], fight["shots"]])
-	if _wanted("fight_full"):
-		await _clip_fight_full(fight)
-	if _wanted("kill_slowmo"):
-		await _clip_kill_slowmo(fight)
-	if _wanted("hook_drag"):
-		await _clip_hook_drag()
-	if _wanted("hands_ab"):
-		await _clip_hands_ab(fight)
-	if _wanted("focus_fire"):
-		await _clip_focus_fire(fight)
-	if _wanted("roster"):
-		await _clip_roster(fight)
-	if _wanted("interp_ab"):
-		await _clip_interp_ab()
-	if _wanted("ranged_loose"):
-		await _clip_ranged_loose()
-	if _wanted("toggles"):
-		await _clip_toggles(fight)
-	if _wanted("art_ab"):
-		await _clip_art_ab(fight)
+	var beats := _load_beats()
+	if beats.is_empty():
+		_failures.append("TrailerBeats.json has no acts -- nothing to shoot")
+		return
+	for act in beats:
+		for clip in act.get("clips", []):
+			if _wanted(clip):
+				await _run_clip(clip, fight)
+
+
+## The beat sheet, as data: `Tools/TrailerBeats.json` names the acts, their
+## title cards and which clips belong to each one, and `RenderTrailer.ps1`
+## reads the same file to cut title cards into the same places.
+func _load_beats() -> Array:
+	var f := FileAccess.open(BEATS_PATH, FileAccess.READ)
+	if f == null:
+		_failures.append("cannot open %s" % BEATS_PATH)
+		return []
+	var data = JSON.parse_string(f.get_as_text())
+	if typeof(data) != TYPE_ARRAY:
+		_failures.append("%s is not a JSON array" % BEATS_PATH)
+		return []
+	return data
+
+
+func _run_clip(clip: String, fight: Dictionary) -> void:
+	match clip:
+		"fight_full": await _clip_fight_full(fight)
+		"kill_slowmo": await _clip_kill_slowmo(fight)
+		"hook_drag": await _clip_hook_drag()
+		"hands_ab": await _clip_hands_ab(fight)
+		"focus_fire": await _clip_focus_fire(fight)
+		"roster": await _clip_roster(fight)
+		"interp_ab": await _clip_interp_ab()
+		"ranged_loose": await _clip_ranged_loose()
+		"toggles": await _clip_toggles(fight)
+		"art_ab": await _clip_art_ab(fight)
+		"party_deploy": await _clip_party_deploy()
+		"action_states": await _clip_action_states()
+		"seeker_two": await _clip_seeker_two()
+		"sellsword_pattern": await _clip_sellsword_pattern()
+		"geyser_blast": await _clip_first_cast("geyser_blast", &"geyser_blast", PARTY, ROOMS, KILL_LEAD, KILL_TAIL)
+		"immolate": await _clip_first_cast("immolate", &"abomination_immolate", PARTY, ROOMS, KILL_LEAD, KILL_TAIL)
+		"summon": await _clip_summon()
+		"plan_edit": await _clip_plan_edit()
+		"plan_diff": await _clip_plan_diff()
+		"warden": await _clip_warden()
+		_: _failures.append("no clip function for '%s'" % clip)
 
 
 func _wanted(clip: String) -> bool:
@@ -201,10 +253,24 @@ func _wanted(clip: String) -> bool:
 # --- the simulation-only scans -----------------------------------------------
 
 func _party() -> Array[PawnData]:
+	return _party_for(PARTY)
+
+
+func _party_for(ids: Array) -> Array[PawnData]:
 	var out: Array[PawnData] = []
-	for i in PARTY.size():
+	for i in ids.size():
 		out.append(PawnFactory.make_starter_pawn(
-			PARTY[i], StringName("p%d" % i), String(PARTY[i])))
+			ids[i], StringName("p%d" % i), String(ids[i])))
+	return out
+
+
+## Every preset row the class ships, added -- the state a player reaches by
+## pressing every "Add" button `plan_edit` shows one of.
+func _party_preset_for(ids: Array) -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for i in ids.size():
+		out.append(PawnFactory.make_preset_pawn(
+			ids[i], StringName("p%d" % i), String(ids[i])))
 	return out
 
 
@@ -222,7 +288,7 @@ func _pick_fight() -> Dictionary:
 			_failures.append("no encounter '%s' -- the ROOMS list is stale" % room_id)
 			continue
 		for s in range(1, SEEDS + 1):
-			var run := _play(encounter, s)
+			var run := _play_party(_party(), encounter, s)
 			if run["outcome"] != CombatState.Outcome.PLAYER_WIN:
 				continue
 			if run["ticks"] < MIN_TICKS or run["ticks"] > MAX_FIGHT_TICKS:
@@ -237,8 +303,8 @@ func _pick_fight() -> Dictionary:
 	return best
 
 
-func _play(encounter, s: int) -> Dictionary:
-	var state := CombatSim.build(_party(), encounter, s)
+func _play_party(party: Array[PawnData], encounter, s: int) -> Dictionary:
+	var state := CombatSim.build(party, encounter, s)
 	var deaths := 0
 	var shots := 0
 	var cursor := 0
@@ -393,6 +459,123 @@ func _hook_cast() -> Dictionary:
 	return {}
 
 
+## The first `ACTION_FIRE` of `action_id`, over `rooms` x `SEEDS`, built from
+## `party_ids` through `_party_preset_for`. Generalises `_hook_cast` for every
+## shot that only needs "this fires at all" rather than the hook's
+## survive-the-drag check.
+func _first_cast(action_id: StringName, party_ids: Array, rooms: Array, lead: int) -> Dictionary:
+	for room_id in rooms:
+		var encounter = RoomLibrary.get_room(room_id)
+		if encounter == null:
+			continue
+		for s in range(1, SEEDS + 1):
+			var state := CombatSim.build(_party_preset_for(party_ids), encounter, s)
+			var cursor := 0
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				CombatSim.step(state)
+				for e in state.events_since(cursor):
+					if e.kind != CG.EventKind.ACTION_FIRE or e.action_id != action_id:
+						continue
+					if state.tick * FRAMES_PER_TICK <= lead:
+						continue
+					var source := state.unit(e.source_id)
+					var target := state.unit(e.target_id)
+					return {"room": room_id, "seed": s, "tick": state.tick,
+						"source_name": (source.display_name if source != null else "?"),
+						"target_name": (target.display_name if target != null else "?")}
+				cursor = state.events.size()
+	return {}
+
+
+## The first `EventKind.SUMMONED` a Siege Master's `build_siege_engine` reaches,
+## over `rooms` x `SEEDS`. The cast and the unit appearing are different ticks
+## (issue 30: the engine builds over time), so this scans the reveal, not the
+## cast.
+func _first_summon(rooms: Array, lead: int) -> Dictionary:
+	for room_id in rooms:
+		var encounter = RoomLibrary.get_room(room_id)
+		if encounter == null:
+			continue
+		for s in range(1, SEEDS + 1):
+			var state := CombatSim.build(_party_preset_for(SIEGE_PARTY), encounter, s)
+			var cursor := 0
+			while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+				CombatSim.step(state)
+				for e in state.events_since(cursor):
+					if e.kind == CG.EventKind.SUMMONED and state.tick * FRAMES_PER_TICK > lead:
+						return {"room": room_id, "seed": s, "tick": state.tick}
+				cursor = state.events.size()
+	return {}
+
+
+## Issue 705, act 2's mechanic shot: `sellsword_seeker_bolts` hitting two
+## different party members in the same fight, close enough together to hold
+## in one clip. Only `floor1_sellsword` has the enemy that casts it.
+func _seeker_two_scan() -> Dictionary:
+	var room_id: StringName = &"floor1_sellsword"
+	var encounter = RoomLibrary.get_room(room_id)
+	if encounter == null:
+		return {}
+	for s in range(1, SEEDS + 1):
+		var state := CombatSim.build(_party_preset_for(PARTY), encounter, s)
+		var cursor := 0
+		var first := {}
+		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
+			CombatSim.step(state)
+			for e in state.events_since(cursor):
+				if e.kind != CG.EventKind.ACTION_FIRE or e.action_id != &"sellsword_seeker_bolts":
+					continue
+				if first.is_empty():
+					first = {"tick": state.tick, "target": e.target_id}
+					continue
+				if e.target_id != first["target"] and state.tick - int(first["tick"]) < 200:
+					return {"room": room_id, "seed": s, "tick1": first["tick"], "tick2": state.tick}
+			cursor = state.events.size()
+	return {}
+
+
+## Issue 705, act 3: the Sellsword's own pattern, bolts then a close weapon --
+## every distinct action of its three that this fight reaches, spanning from
+## the first to the last.
+func _sellsword_pattern_scan() -> Dictionary:
+	var room_id: StringName = &"floor1_sellsword"
+	var encounter = RoomLibrary.get_room(room_id)
+	if encounter == null:
+		return {}
+	const WANTED: Array = [&"sellsword_seeker_bolts", &"sellsword_strike", &"sellsword_crescent"]
+	for s in range(1, SEEDS + 1):
+		var state := CombatSim.build(_party_preset_for(PARTY), encounter, s)
+		var cursor := 0
+		var seen := {}
+		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS \
+				and seen.size() < WANTED.size():
+			CombatSim.step(state)
+			for e in state.events_since(cursor):
+				if e.kind == CG.EventKind.ACTION_FIRE and WANTED.has(e.action_id) and not seen.has(e.action_id):
+					seen[e.action_id] = state.tick
+			cursor = state.events.size()
+		if seen.size() == WANTED.size():
+			var ticks: Array = seen.values()
+			return {"room": room_id, "seed": s, "start": ticks.min(), "end": ticks.max(), "seen": seen}
+	return {}
+
+
+## Same seed, two plans, checked for a differing outcome (issue 705 act 4). The
+## no-plan party is `DefaultBehavior` alone; the preset party is every row its
+## classes ship added -- exactly what the plan editor's own "Add" buttons do.
+func _pick_plan_diff() -> Dictionary:
+	for room_id in ROOMS:
+		var encounter = RoomLibrary.get_room(room_id)
+		if encounter == null:
+			continue
+		for s in range(1, SEEDS + 1):
+			var a := _play_party(_party_for(PARTY), encounter, s)
+			var b := _play_party(_party_preset_for(PARTY), encounter, s)
+			if a["outcome"] != b["outcome"]:
+				return {"room": room_id, "seed": s, "default": a, "authored": b}
+	return {}
+
+
 ## The enemy with the most health left at `tick`, which is the one worth
 ## pointing four pawns at and the one whose convergence is longest on screen.
 func _fattest_enemy(room_id: StringName, s: int, tick: int) -> Dictionary:
@@ -413,10 +596,10 @@ func _fattest_enemy(room_id: StringName, s: int, tick: int) -> Dictionary:
 
 ## Started the way the game starts one. Setting `state` by hand instead leaves
 ## `_text_layer` null and every stepped frame dies inside `_process` (#512).
-func _build_view(room_id: StringName, s: int) -> void:
+func _build_view(room_id: StringName, s: int, party: Array[PawnData] = []) -> void:
 	seed(s)
 	var cfg := RunConfig.new()
-	cfg.party = _party()
+	cfg.party = party if not party.is_empty() else _party()
 	cfg.encounter_id = room_id
 	cfg.seed = s
 	var packed: PackedScene = load("res://Scenes/Battle.tscn")
@@ -460,6 +643,14 @@ func _capture() -> void:
 	if _movie_first < 0:
 		_movie_first = _movie_frame
 	img.save_png("%s/frame%s_%05d.png" % [_out, _label, _n])
+
+
+## One rendered frame of a UI-only screen: no combat clock to advance, so this
+## is `_frame()` without the `_view._process` call. Party select and the plan
+## editor both hold here between real clicks.
+func _capture_ui_frame() -> void:
+	await _capture()
+	await get_tree().process_frame
 
 
 ## Silent frames: driven and rendered, never written. This is how a clip reaches
@@ -840,4 +1031,260 @@ func _clip_art_ab(fight: Dictionary) -> void:
 	_say("art_ab%s" % ("" if _label == "" else _label), from, SHOWY,
 		"%s seed %d, %d frames from tick %d, label '%s'" % [
 			fight["room"], fight["seed"], ART_FRAMES, at_tick, _label])
+	await _teardown()
+
+
+# --- issue 705: the trailer's own acts -----------------------------------
+
+## Act 1. Party select, deploy, the fight beginning -- one unbroken run, no
+## cut inside it, through the actual screens a player uses: cards toggled,
+## a room picked, Start pressed, then the fight the click just started.
+func _clip_party_deploy() -> void:
+	_set_toggles(SHOWY)
+	var ps := PartySelect.create()
+	add_child(ps)
+	await get_tree().process_frame
+	ps.reroll_from_seed("%08X" % PARTY_DEPLOY_SEED)
+	var from := _begin()
+	for i in 30:
+		await _capture_ui_frame()
+	for class_id in PARTY:
+		var pawn: PawnData = null
+		for p in ps.available_pawns():
+			if p.pawn_class != null and p.pawn_class.id == class_id:
+				pawn = p
+				break
+		if pawn == null:
+			continue
+		ps.toggle_pawn(pawn, true)
+		for i in 20:
+			await _capture_ui_frame()
+	ps.select_room(ROOMS[0])
+	for i in 20:
+		await _capture_ui_frame()
+	## A single-element box, not a plain local: a GDScript lambda captures an
+	## outer local by value, so `config = cfg` inside it would reassign only
+	## the closure's own copy and the caller would see `config` stay null.
+	var box := {"config": null}
+	ps.battle_requested.connect(func(cfg): box["config"] = cfg)
+	ps._start_button.pressed.emit()
+	for i in 10:
+		await _capture_ui_frame()
+	ps.queue_free()
+	await get_tree().process_frame
+	var config: RunConfig = box["config"]
+	if config == null:
+		_failures.append("party_deploy: Start never emitted battle_requested")
+		return
+	var packed: PackedScene = load("res://Scenes/Battle.tscn")
+	_view = packed.instantiate()
+	add_child(_view)
+	await get_tree().process_frame
+	_view.begin_with_encounter(config, RoomLibrary.get_room(config.encounter_id))
+	_view.set_process(false)
+	_cue_cursor = 0
+	_cue_tick = -1
+	_cue_played.clear()
+	for i in PARTY_DEPLOY_FIGHT_FRAMES:
+		if _view.state.outcome != CombatState.Outcome.UNRESOLVED:
+			break
+		await _capture()
+		_frame()
+	_say("party_deploy", from, SHOWY,
+		"party select seed %s -> %s -> %d frames of the fight beginning" % [
+			"%08X" % PARTY_DEPLOY_SEED, config.encounter_id, PARTY_DEPLOY_FIGHT_FRAMES])
+	await _teardown()
+
+
+## Act 2. Guard, Taunt and Ward -- three Warrior/Priest states the plan editor
+## authors -- then Mark, the Siege Master's, held one after another. Every
+## row fired here needs the full preset library (see `_first_cast`).
+func _clip_action_states() -> void:
+	var arms := [
+		{"action": &"warrior_taunt", "party": PARTY},
+		{"action": &"warrior_guard", "party": PARTY},
+		{"action": &"priest_ward", "party": PARTY},
+		{"action": &"spotter_mark", "party": SIEGE_PARTY},
+	]
+	for arm in arms:
+		var cast := _first_cast(arm["action"], arm["party"], ROOMS, KILL_LEAD)
+		if cast.is_empty():
+			_failures.append("action_states.%s: never fired in %d rooms x %d seeds" % [
+				arm["action"], ROOMS.size(), SEEDS])
+			continue
+		_set_toggles(SHOWY)
+		await _build_view(cast["room"], cast["seed"], _party_preset_for(arm["party"]))
+		await _skip_to(int(cast["tick"]) - KILL_LEAD / FRAMES_PER_TICK)
+		var from := _begin()
+		for i in KILL_LEAD + KILL_TAIL:
+			await _capture()
+			_frame()
+		_say("action_states.%s" % arm["action"], from, SHOWY,
+			"%s seed %d, %s fires %s on %s at tick %d" % [
+				cast["room"], cast["seed"], cast["source_name"], arm["action"],
+				cast["target_name"], cast["tick"]])
+		await _teardown()
+
+
+## Act 2's mechanic shot: seeker bolts, with trails, at two different party
+## members in one continuous hold.
+func _clip_seeker_two() -> void:
+	var hit := _seeker_two_scan()
+	if hit.is_empty():
+		_failures.append("seeker_two: no second target in %d seeds of floor1_sellsword" % SEEDS)
+		return
+	_set_toggles(SHOWY)
+	await _build_view(hit["room"], hit["seed"], _party_preset_for(PARTY))
+	await _skip_to(int(hit["tick1"]) - LOOSE_LEAD / FRAMES_PER_TICK)
+	var from := _begin()
+	for i in LOOSE_LEAD + (int(hit["tick2"]) - int(hit["tick1"])) * FRAMES_PER_TICK + LOOSE_FRAMES:
+		await _capture()
+		_frame()
+	_say("seeker_two", from, SHOWY,
+		"%s seed %d, sellsword_seeker_bolts on tick %d then a different target on tick %d" % [
+			hit["room"], hit["seed"], hit["tick1"], hit["tick2"]])
+	await _teardown()
+
+
+## Act 3. The Sellsword's full pattern in `floor1_sellsword`: whichever of
+## bolts, strike and crescent this fight reaches, from the first to the last.
+func _clip_sellsword_pattern() -> void:
+	var pat := _sellsword_pattern_scan()
+	if pat.is_empty():
+		_failures.append("sellsword_pattern: not all three actions fired in %d seeds" % SEEDS)
+		return
+	_set_toggles(SHOWY)
+	await _build_view(pat["room"], pat["seed"], _party_preset_for(PARTY))
+	await _skip_to(int(pat["start"]) - KILL_LEAD / FRAMES_PER_TICK)
+	var from := _begin()
+	for i in KILL_LEAD + (int(pat["end"]) - int(pat["start"])) * FRAMES_PER_TICK + KILL_TAIL:
+		await _capture()
+		_frame()
+	_say("sellsword_pattern", from, SHOWY,
+		"%s seed %d, tick %d to %d: %s" % [
+			pat["room"], pat["seed"], pat["start"], pat["end"], pat["seen"]])
+	await _teardown()
+
+
+## Act 3. `action_id` cast once, with `lead`/`tail` frames of room either side.
+## Shared by `geyser_blast` and `immolate` (dispatched from `_run_clip`).
+func _clip_first_cast(clip: String, action_id: StringName, party_ids: Array, rooms: Array,
+		lead: int, tail: int) -> void:
+	var cast := _first_cast(action_id, party_ids, rooms, lead)
+	if cast.is_empty():
+		_failures.append("%s: %s never fired in %d rooms x %d seeds" % [
+			clip, action_id, rooms.size(), SEEDS])
+		return
+	_set_toggles(SHOWY)
+	await _build_view(cast["room"], cast["seed"], _party_preset_for(party_ids))
+	await _skip_to(int(cast["tick"]) - lead / FRAMES_PER_TICK)
+	var from := _begin()
+	for i in lead + tail:
+		await _capture()
+		_frame()
+	_say(clip, from, SHOWY, "%s seed %d, %s fires %s on %s at tick %d" % [
+		cast["room"], cast["seed"], cast["source_name"], action_id,
+		cast["target_name"], cast["tick"]])
+	await _teardown()
+
+
+## Act 3. The Siege Master's engine appearing -- held around the reveal tick,
+## not the cast, because issue 30 makes the two different ticks.
+func _clip_summon() -> void:
+	var reveal := _first_summon(ROOMS, KILL_LEAD)
+	if reveal.is_empty():
+		_failures.append("summon: no SUMMONED event in %d rooms x %d seeds" % [ROOMS.size(), SEEDS])
+		return
+	_set_toggles(SHOWY)
+	await _build_view(reveal["room"], reveal["seed"], _party_preset_for(SIEGE_PARTY))
+	await _skip_to(int(reveal["tick"]) - KILL_LEAD / FRAMES_PER_TICK)
+	var from := _begin()
+	for i in KILL_LEAD + KILL_TAIL:
+		await _capture()
+		_frame()
+	_say("summon", from, SHOWY, "%s seed %d, siege engine summoned at tick %d" % [
+		reveal["room"], reveal["seed"], reveal["tick"]])
+	await _teardown()
+
+
+## Act 4's first shot: the plan editor, for real -- open on a fresh Warrior,
+## hold, then press the same "Add" button a player presses on the library's
+## first preset row.
+func _clip_plan_edit() -> void:
+	_set_toggles(SHOWY)
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"p0", "Warrior")
+	var panel := InspectPanel.create()
+	add_child(panel)
+	await get_tree().process_frame
+	panel.show_pawn(pawn)
+	var from := _begin()
+	for i in 40:
+		await _capture_ui_frame()
+	var library: Array[Plan] = PresetPlans.for_class(&"warrior")
+	if library.is_empty():
+		_failures.append("plan_edit: warrior's preset library is empty")
+		panel.queue_free()
+		await get_tree().process_frame
+		return
+	panel._add_preset(pawn, library[0])
+	for i in 60:
+		await _capture_ui_frame()
+	_say("plan_edit", from, SHOWY,
+		"warrior, added preset row '%s' via the plan editor's Add button" % library[0].display_name)
+	panel.queue_free()
+	await get_tree().process_frame
+
+
+## Act 4's second shot: the same seed, the same room, once with no plan rows
+## (`DefaultBehavior` alone) and once with every preset row added, back to
+## back. `_pick_plan_diff` only returns a room/seed where the outcome itself
+## differs -- if none exists this clip fails loudly rather than faking it.
+func _clip_plan_diff() -> void:
+	var diff := _pick_plan_diff()
+	if diff.is_empty():
+		_failures.append("plan_diff: no seed in %d rooms x %d seeds where the outcome differs" % [
+			ROOMS.size(), SEEDS])
+		return
+	var arms := [
+		{"name": "default", "party": _party_for(PARTY)},
+		{"name": "authored", "party": _party_preset_for(PARTY)},
+	]
+	for arm in arms:
+		_set_toggles(SHOWY)
+		await _build_view(diff["room"], diff["seed"], arm["party"])
+		var from := _begin()
+		# To its own real resolution, not `MAX_FIGHT_TICKS` -- that cap is
+		# `_pick_fight`'s "keeps it a watchable establishing shot" choice, and
+		# capping it here would show the losing arm mid-fight rather than losing.
+		while _view.state.outcome == CombatState.Outcome.UNRESOLVED \
+				and _view.state.tick < CG.MAX_TICKS:
+			await _capture()
+			_frame()
+		for i in BANNER_FRAMES:
+			await _capture()
+			_frame()
+		_say("plan_diff.%s" % arm["name"], from, SHOWY,
+			"%s seed %d, %s plans: %d ticks, outcome %s" % [
+				diff["room"], diff["seed"], arm["name"], _view.state.tick,
+				CombatState.Outcome.keys()[_view.state.outcome]])
+		await _teardown()
+
+
+## Act 5. The Warden's chamber, held from the start rather than to a win --
+## the room is the point here, not the outcome.
+func _clip_warden() -> void:
+	var room_id: StringName = &"floor1_warden"
+	if RoomLibrary.get_room(room_id) == null:
+		_failures.append("warden: no room %s" % room_id)
+		return
+	_set_toggles(SHOWY)
+	await _build_view(room_id, 1, _party_preset_for(PARTY))
+	var from := _begin()
+	for i in WARDEN_FRAMES:
+		if _view.state.outcome != CombatState.Outcome.UNRESOLVED:
+			break
+		await _capture()
+		_frame()
+	_say("warden", from, SHOWY, "%s seed 1, %d frames of the Warden's chamber" % [
+		room_id, WARDEN_FRAMES])
 	await _teardown()

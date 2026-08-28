@@ -1,0 +1,28 @@
+[
+  {
+    "act": 1,
+    "title": "YOU PLAY IT",
+    "clips": ["party_deploy"]
+  },
+  {
+    "act": 2,
+    "title": "YOU CAN FOLLOW IT",
+    "clips": ["hands_ab", "seeker_two", "action_states"]
+  },
+  {
+    "act": 3,
+    "title": "THE THEATRICS",
+    "clips": ["geyser_blast", "immolate", "hook_drag", "summon", "sellsword_pattern"]
+  },
+  {
+    "act": 4,
+    "title": "YOU AUTHOR IT",
+    "clips": ["plan_edit", "plan_diff"]
+  },
+  {
+    "act": 5,
+    "title": "THE ROSTER",
+    "clips": ["roster", "warden"],
+    "end_card": "CLAUDEGUISE"
+  }
+]
