@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_a1"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ChargeOrbLayer.gd" id="2_a1"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="3_a1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="4_a1"]
+
+[sub_resource type="Resource" id="Resource_cm1"]
+script = ExtResource("2_a1")
+inner_colour = Color(1.0, 1.0, 1.0, 1)
+outer_colour = Color(0.722, 0.765, 0.847, 1)
+size = 96.0
+on_hands = true
+cue = 0
+
+[sub_resource type="Resource" id="Resource_cm2"]
+script = ExtResource("3_a1")
+colour = Color(1.0, 1.0, 1.0, 1)
+size = 72.0
+seconds = 0.26
+
+[resource]
+script = ExtResource("4_a1")
+display_name = "Channel"
+layers = Array[ExtResource("1_a1")]([SubResource("Resource_cm1"), SubResource("Resource_cm2")])

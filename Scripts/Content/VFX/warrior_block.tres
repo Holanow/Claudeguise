@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_a1"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ShockRingLayer.gd" id="2_a1"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/GlowPulseLayer.gd" id="3_a1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="4_a1"]
+
+[sub_resource type="Resource" id="Resource_wb1"]
+script = ExtResource("2_a1")
+ring_colour = Color(0.541, 0.416, 0.235, 1)
+size = 150.0
+seconds = 0.30
+thickness = 0.22
+
+[sub_resource type="Resource" id="Resource_wb2"]
+script = ExtResource("3_a1")
+colour = Color(0.91, 0.851, 0.722, 1)
+size = 60.0
+seconds = 0.26
+delay = 0.03
+
+[resource]
+script = ExtResource("4_a1")
+display_name = "Directional Block"
+layers = Array[ExtResource("1_a1")]([SubResource("Resource_wb1"), SubResource("Resource_wb2")])
