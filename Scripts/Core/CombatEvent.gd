@@ -56,6 +56,10 @@ var terrain_kind: Terrain.Kind = Terrain.Kind.WALL
 var terrain_rect: Rect2 = Rect2()
 var terrain_change: CG.TerrainChange = CG.TerrainChange.CAST
 
+## Set on ACTION_FIRE and MISS for an action with `beats`: which entry in
+## `ActionDef.beats` produced this event. -1 for every other action.
+var beat_index: int = -1
+
 static func make(kind: CG.EventKind, tick: int) -> Self:
 	var e := Self.new()
 	e.kind = kind

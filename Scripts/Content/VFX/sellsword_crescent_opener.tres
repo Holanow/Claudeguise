@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityVFX" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/VFXLayer.gd" id="1_r8ilt"]
+[ext_resource type="Script" path="res://Scripts/Art/VFX/Layers/ArcSweepLayer.gd" id="2_sdr0j"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityVFX.gd" id="3_tdx1u"]
+
+[sub_resource type="Resource" id="Resource_open1"]
+script = ExtResource("2_sdr0j")
+edge_colour = Color(0.72, 0.76, 0.85, 1)
+radius = 70.0
+half_arc_degrees = 45.0
+sweep_seconds = 0.14
+fade_seconds = 0.16
+reverse = true
+cue = 1
+
+[resource]
+script = ExtResource("3_tdx1u")
+display_name = "Crescent (opener)"
+layers = Array[ExtResource("1_r8ilt")]([SubResource("Resource_open1")])

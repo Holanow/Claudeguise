@@ -2,5 +2,5 @@
 # Re-record with: powershell -File Tools\sim_fingerprint.ps1 -Record
 # Both lines move together. A source change with no output change is
 # still a change, and the gate makes you say so here.
-source: 799f214eac13b6fe6ba25945a94975fd41f7103d592d08cac4c156483cfbc0ba
-output: 0770cd7f2959890304b9c485d5dbcdf7e8d4a1a48abbee3a4d99e23af8e23dc5
+source: 63ae6000e4bc5d2ce16a6f329278c17ee7455d5d0c9a5d5da7569bad5d04ef71
+output: 450fa3792caac822a01373d4e5a675d38d163fd3ce6885f42abf803247b16a85
