@@ -23,6 +23,11 @@ var _rng := RandomNumberGenerator.new()
 var _followers: Array[Node2D] = []
 var _beams: Array[Node2D] = []
 
+## Issue 657. `"<action_id>|<target_id>"` -> armed by a STATUS_EXPIRED that
+## matches the firing action's own `consumes_status`, read and cleared by the
+## DAMAGE that follows it -- so the state never outlives the one hit it answers.
+var _consumed: Dictionary = {}
+
 func _ready() -> void:
 	_rng.seed = 12345
 
@@ -58,15 +63,46 @@ func play(vfx: AbilityVFX, cue: VFXLayer.Cue, source_id: int, target_id: int, se
 	if vfx == null:
 		return
 	for layer in vfx.for_cue(cue):
-		var ctx := {
-			"director": self, "source_id": source_id,
-			"target_id": target_id, "seconds": seconds,
-		}
-		if layer.delay <= 0.0:
-			layer.play(ctx)
-		else:
-			var l := layer
-			after(layer.delay, func(): l.play(ctx))
+		if layer.when != VFXLayer.When.ALWAYS:
+			continue
+		_play_layer(layer, source_id, target_id, seconds)
+
+## Issue 657. The consumed-or-not half of a look, played from the hit that
+## actually landed rather than from the cast: for a travelling shot the
+## question is not answered yet at `ACTION_FIRE`, and `_consumed` is armed by
+## the STATUS_EXPIRED that always precedes this same target's DAMAGE.
+func play_consume_gated(vfx: AbilityVFX, cue: VFXLayer.Cue, action_id: StringName, source_id: int, target_id: int) -> void:
+	if vfx == null:
+		return
+	var want := VFXLayer.When.ON_CONSUME if take_consumed(action_id, target_id) else VFXLayer.When.WITHOUT_CONSUME
+	for layer in vfx.for_cue(cue):
+		if layer.when != want:
+			continue
+		_play_layer(layer, source_id, target_id, 0.0)
+
+func arm_consumed(action_id: StringName, target_id: int) -> void:
+	_consumed[_consumed_key(action_id, target_id)] = true
+
+## Reads and clears in one step: the armed flag exists for exactly one DAMAGE.
+func take_consumed(action_id: StringName, target_id: int) -> bool:
+	var key := _consumed_key(action_id, target_id)
+	var was: bool = _consumed.get(key, false)
+	_consumed.erase(key)
+	return was
+
+func _consumed_key(action_id: StringName, target_id: int) -> String:
+	return "%s|%d" % [action_id, target_id]
+
+func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float) -> void:
+	var ctx := {
+		"director": self, "source_id": source_id,
+		"target_id": target_id, "seconds": seconds,
+	}
+	if layer.delay <= 0.0:
+		layer.play(ctx)
+	else:
+		var l := layer
+		after(layer.delay, func(): l.play(ctx))
 
 func _process(_delta: float) -> void:
 	for i in range(_followers.size() - 1, -1, -1):

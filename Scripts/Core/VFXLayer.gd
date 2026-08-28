@@ -14,6 +14,13 @@ enum Cue { WIND_UP, RELEASE, IMPACT }
 
 @export var cue: Cue = Cue.IMPACT
 
+## Issue 657. ALWAYS plays at its cue, unchanged. ON_CONSUME and
+## WITHOUT_CONSUME play only once the hit is known to have (or not have)
+## consumed the action's `consumes_status` -- see `VFXDirector.play_consume_gated`.
+enum When { ALWAYS, ON_CONSUME, WITHOUT_CONSUME }
+
+@export var when: When = When.ALWAYS
+
 ## Seconds to wait after the cue before starting. This is how an impact layer
 ## lands when a beam arrives rather than when it is fired.
 @export var delay: float = 0.0
