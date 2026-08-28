@@ -160,6 +160,8 @@ func _check_action(action: ActionDef) -> Array[String]:
 		for fx in action.effects:
 			if fx is HitEffect:
 				problems.append_array(_check_hit(fx, state, caster, hit_target_id, action.covers_target))
+				if pierce_target != null:
+					problems.append_array(_check_pierce(fx, state, caster, pierce_target.id, action.covers_target))
 			elif fx is StatusEffect:
 				problems.append_array(_check_status(fx, state, status_target_id))
 			elif fx is RestoreEffect:
@@ -216,12 +218,9 @@ func _check_beat_effects(effects: Array[AbilityEffect], state: CombatState, cast
 	var problems: Array[String] = []
 	for fx in effects:
 		if fx is HitEffect:
-			## Per BEAT tick (#703): "any damage between these two" let beat 2's
-			## hit mask beat 1's miss. Pierce (#563) is a separate question and
-			## both must be asked.
+			## Per BEAT tick (#703): matching on source and target alone let a
+			## later beat's hit cover for an earlier beat's miss.
 			problems.append_array(_check_hit_at_tick(fx, state, caster, hit_target_id, fire_tick))
-			if pierce_target != null:
-				problems.append_array(_check_pierce(fx, state, caster, pierce_target.id, action.covers_target))
 		elif fx is StatusEffect:
 			problems.append_array(_check_status(fx, state, status_target_id))
 		elif fx is PullEffect:
