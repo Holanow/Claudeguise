@@ -333,16 +333,34 @@ func advance_anim(delta: float, alpha: float) -> void:
 	_anim_alpha = alpha
 	queue_redraw()
 
-## `progress` through the current wind-up, and which of the three shared
-## motions it is -- or IDLE with `progress` 0 while nothing is winding up.
-## Both hands and the weapon derive their pose from this one pair, which is
-## what keeps them moving as one thing rather than three separately-timed ones.
+## `recover_ticks_left`'s own total, since `CombatUnit` stores only the
+## countdown. Captured the first tick it is seen (always its max, counting
+## down from there) and dropped back to 0 once recovery clears, so a fresh
+## action always starts from a clean total rather than one left over.
+var _recover_total: int = 0
+
+func _track_recover(u: CombatUnit) -> void:
+	if u.recover_ticks_left <= 0:
+		_recover_total = 0
+	elif u.recover_ticks_left > _recover_total:
+		_recover_total = u.recover_ticks_left
+
+## `progress` through the current wind-up or recover phase, which of the three
+## shared motions it is, and whether this is the recover half -- or IDLE with
+## `progress` 0 while nothing is winding up or recovering. Both hands and the
+## weapon derive their pose from this one triple, which is what keeps them
+## moving as one thing rather than three separately-timed ones.
 func _action_progress(u: CombatUnit) -> Array:
-	if u.action_ticks_total <= 0 or u.action_ticks_left <= 0:
-		return [PartAnimation.Kind.IDLE, 0.0]
-	var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
-	var kind := PartAnimation.kind_for(ActionLibrary.get_action(u.current_action))
-	return [kind, done / float(u.action_ticks_total)]
+	_track_recover(u)
+	if u.action_ticks_total > 0 and u.action_ticks_left > 0:
+		var done := float(u.action_ticks_total - u.action_ticks_left) + _anim_alpha
+		var kind := PartAnimation.kind_for(ActionLibrary.get_action(u.current_action))
+		return [kind, done / float(u.action_ticks_total), false]
+	if u.recover_ticks_left > 0 and u.current_action != &"" and _recover_total > 0:
+		var kind := PartAnimation.kind_for(ActionLibrary.get_action(u.current_action))
+		var done := float(_recover_total - u.recover_ticks_left) + _anim_alpha
+		return [kind, clampf(done / float(_recover_total), 0.0, 1.0), true]
+	return [PartAnimation.Kind.IDLE, 0.0, false]
 
 ## Where the main hand and the weapon it holds sit this frame, in the body's
 ## own draw space. The idle bob runs underneath the action pose rather than
@@ -354,7 +372,8 @@ func _part_offset(u: CombatUnit, radius: float) -> Vector2:
 	var off := PartAnimation.idle_offset(_anim_seconds, PartAnimation.phase_for(u.id), radius)
 	var kp := _action_progress(u)
 	if kp[0] != PartAnimation.Kind.IDLE:
-		off += PartAnimation.action_offset(kp[0], kp[1], radius)
+		off += PartAnimation.recover_offset(kp[0], kp[1], radius) if kp[2] \
+			else PartAnimation.action_offset(kp[0], kp[1], radius)
 	return off
 
 ## The off hand's own quieter echo: same idle, a fraction of the main hand's
@@ -363,17 +382,20 @@ func _off_hand_offset(u: CombatUnit, radius: float) -> Vector2:
 	var off := PartAnimation.idle_offset(_anim_seconds, PartAnimation.phase_for(u.id), radius)
 	var kp := _action_progress(u)
 	if kp[0] != PartAnimation.Kind.IDLE:
-		off += PartAnimation.off_hand_offset(kp[0], kp[1], radius)
+		off += PartAnimation.recover_offset(kp[0], kp[1], radius) * PartAnimation.OFF_HAND_SHARE if kp[2] \
+			else PartAnimation.off_hand_offset(kp[0], kp[1], radius)
 	return off
 
 ## How far the main hand and its weapon are turned this frame. Only a melee
 ## wind-up turns at all; a draw and a cast hold the weapon steady.
 func _part_angle(u: CombatUnit) -> float:
 	var kp := _action_progress(u)
-	return PartAnimation.action_angle(kp[0], kp[1])
+	return PartAnimation.recover_angle(kp[0], kp[1]) if kp[2] else PartAnimation.action_angle(kp[0], kp[1])
 
 func _off_hand_angle(u: CombatUnit) -> float:
 	var kp := _action_progress(u)
+	if kp[2]:
+		return -PartAnimation.recover_angle(kp[0], kp[1]) * PartAnimation.OFF_HAND_SHARE
 	return PartAnimation.off_hand_angle(kp[0], kp[1])
 
 ## The part this unit's weapon draws in the `Weapon` slot. Falls back to

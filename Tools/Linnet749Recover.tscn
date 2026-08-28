@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Tools/Linnet749Recover.gd" id="1_linnet749recover"]
+
+[node name="Linnet749Recover" type="Node"]
+script = ExtResource("1_linnet749recover")
