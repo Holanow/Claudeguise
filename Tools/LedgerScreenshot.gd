@@ -7,6 +7,7 @@ const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const OUT_DIR := "res://Screenshots"
 
 var _main: Node
+var _tag := ""
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):
@@ -14,6 +15,8 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	Offscreen.hide_window(self)
+	var s := DisplayServer.window_get_size()
+	_tag = "%dx%d" % [int(s.x), int(s.y)]
 	await _run()
 	get_tree().quit(0)
 
@@ -72,8 +75,8 @@ func _run() -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	img.save_png("%s/heron_737_ledger.png" % OUT_DIR)
-	print("LedgerScreenshot: heron_737_ledger.png")
+	img.save_png("%s/heron_737_ledger_%s.png" % [OUT_DIR, _tag])
+	print("LedgerScreenshot: heron_737_ledger_%s.png" % _tag)
 
 func _node_with(f: String) -> Node:
 	for n in _walk(_main):

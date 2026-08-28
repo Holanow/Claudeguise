@@ -128,16 +128,23 @@ static func zero_damage_fires(l: Ledger, team: int) -> Array[Dictionary]:
 		if l.by_ability.get(team, {}).has(id):
 			continue
 		var action := ActionLibrary.get_action(id)
-		if action == null:
+		if action == null or not _can_deal_damage(action):
 			continue
-		var deals_damage := false
-		for fx in action.effects:
-			if fx is HitEffect and not fx.heals:
-				deals_damage = true
-				break
-		if deals_damage:
-			out.append({"name": ability_name(id), "fires": l.fires[team][id].count})
+		out.append({"name": ability_name(id), "fires": l.fires[team][id].count})
 	return out
+
+## A non-healing `HitEffect` alone isn't attack: `warrior_block`'s carries
+## `power_scale=0.0` and `covers_target=true` purely to pass a bonus into its
+## own `StatusEffect` -- `CombatSim._apply_hit` (issue 593) returns 0 for a
+## covering action without ever emitting an event, by design. Excluded here
+## rather than flagged, so a genuine unreachable attack isn't lost beside it.
+static func _can_deal_damage(action: ActionDef) -> bool:
+	if action.covers_target:
+		return false
+	for fx in action.effects:
+		if fx is HitEffect and not fx.heals and fx.power_scale > 0.0:
+			return true
+	return false
 
 static func ability_name(id: StringName) -> String:
 	var a := ActionLibrary.get_action(id)

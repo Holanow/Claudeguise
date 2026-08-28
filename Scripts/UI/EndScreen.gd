@@ -298,27 +298,38 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 		parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)
 
-## The three questions the player asked for: what my pawns did, what hurt me,
-## and whether my armour is doing anything. `top_sources` mixes ability casts
-## and DoT ticks, highest total first, so the busiest cause wins regardless of
-## which of the two damage paths it travelled.
-static func ledger_text(state: CombatState) -> String:
+## The three questions the player asked for, one short line each rather than
+## one long line that truncates -- issue 737 review: a fixed-width label
+## holding variable-length prose is the same failure #723's plan editor has.
+## Mitigation goes FIRST: `amount_before_mitigation` against
+## `amount_after_mitigation` was read by nothing before this issue, and it is
+## the number a player has no other way to learn. `top_sources` mixes ability
+## casts and DoT ticks, highest total first, so the busiest cause wins
+## regardless of which of the two damage paths it travelled.
+static func ledger_lines(state: CombatState) -> Array[String]:
 	var l := DamageLedger.build(state)
 	var m := DamageLedger.mitigation_summary(l, CG.Team.PLAYER)
-	var armor := "no direct hits landed on you"
+	var armor := "Your armour: no direct hits landed on you."
 	if not m.is_empty() and m.before > 0:
-		armor = "stopped %d%%" % int(round(100.0 * (m.before - m.after) / m.before))
-	return "Dealt most: %s.  Hurt you most: %s.  Your armour %s." % \
-		[_top_two(l, CG.Team.PLAYER), _top_two(l, CG.Team.ENEMY), armor]
+		var pct := int(round(100.0 * (m.before - m.after) / m.before))
+		armor = "Your armour stopped %d%% of the damage aimed at you." % pct
+	return [
+		armor,
+		"Dealt most: %s." % _top_two(l, CG.Team.PLAYER),
+		"Hurt you most: %s." % _top_two(l, CG.Team.ENEMY),
+	]
 
 # ---------------------------------------------------------------------------
 
-## Fills the roster and the log from a finished fight. The ledger line goes
-## in as the log's own first entries, bold so it reads as a summary rather
-## than another line of the fight.
+## Fills the roster and the log from a finished fight. The ledger lines go in
+## as the log's own first entries, bold so they read as a summary rather than
+## more lines of the fight.
 func open(state: CombatState, log_view: CombatLogView) -> void:
 	_rows = tally(state)
-	var lines: Array[String] = ["[b]%s[/b]" % ledger_text(state), ""]
+	var lines: Array[String] = []
+	for line in ledger_lines(state):
+		lines.append("[b]%s[/b]" % line)
+	lines.append("")
 	lines.append_array(log_lines(state, log_view))
 	_log_label.text = "\n".join(lines)
 	_refresh()
