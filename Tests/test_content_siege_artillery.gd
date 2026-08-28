@@ -32,31 +32,13 @@ func test_engine_bolt_reaches_anywhere_and_only_at_a_marked_target() -> void:
 	assert_true(bolt.requires_marked_target,
 		"the engine must not be able to choose its own targets")
 
-## "Lower than average attack speed", checked against the average rather than
-## against a number typed here -- a hand-written threshold would agree with
-## itself forever while the rest of the bestiary moved underneath it. Issue 592
-## halved the cycle to 30 and the engine is no longer the SLOWEST ranged action:
-## `warden_chain_toss` is, at 34, against a ranged mean of 19.
-func test_engine_bolt_is_slower_than_the_average_ranged_action() -> void:
+## Issue 763 doubled the engine's fire rate (cycle 30 -> 15), authorised and
+## deliberate, which is below the ranged mean this test used to require it
+## stay above. Guards the two authorised numbers directly instead.
+func test_engine_bolt_cycle_matches_issue_763() -> void:
 	var bolt := ActionLibrary.get_action(&"siege_engine_bolt")
-	var engine_cycle := bolt.wind_up_ticks + bolt.recover_ticks
-	var slowest_other := 0
-	var total := 0
-	var n := 0
-	for id in ActionLibrary.all_ids():
-		if id == &"siege_engine_bolt":
-			continue
-		var a := ActionLibrary.get_action(id)
-		if a == null or a.projectile_speed <= 0.0:
-			continue
-		var cycle := a.wind_up_ticks + a.recover_ticks
-		slowest_other = maxi(slowest_other, cycle)
-		total += cycle
-		n += 1
-	assert_true(n > 0, "no other ranged actions found to compare against")
-	assert_true(engine_cycle > total / n,
-		"engine cycle %d is not slower than the ranged mean %d" % [engine_cycle, total / n])
-	assert_true(slowest_other > 0, "no ranged action had a cycle to compare against")
+	assert_eq(bolt.wind_up_ticks, 11, "engine bolt wind-up drifted from issue 763's authorised value")
+	assert_eq(bolt.recover_ticks, 4, "engine bolt recover drifted from issue 763's authorised value")
 
 ## Stationary was already true before issue 93 and the issue's only requirement
 ## was not to break it. That is exactly the kind of fact that gets broken by
