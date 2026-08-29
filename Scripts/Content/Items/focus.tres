@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_focs1"]
+
+[resource]
+script = ExtResource("1_focs1")
+id = &"focus"
+display_name = "Focus"
+slot = 1
+description = "A carved talisman. Teaches its wielder to Channel, and quickens their pool."
+granted_actions = Array[StringName]([&"channel_mana"])
+resource_regen_percent_bonus = 2.0
+required_tags = Array[int]([1])

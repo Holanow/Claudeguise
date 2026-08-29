@@ -98,14 +98,23 @@ static func attack_power(pawn: PawnData, d: CG.DamageType, rng: RandomNumberGene
 		return base
 	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
 
+## Issue 746: the best `damage_reduction` across every equipped item, not just
+## `body`. A shield in `off_hand` carries the same field body armor always has,
+## so a single-slot read stops seeing it. Best rather than summed: two items
+## both reducing damage is not twice the protection.
+static func gear_damage_reduction(pawn: PawnData) -> float:
+	var best := 0.0
+	for e in pawn.equipment():
+		best = maxf(best, e.damage_reduction)
+	return best
+
 ## Fraction of incoming damage removed, from armor, natural toughness and
 ## statuses. The simulation applies this; it does not decide it.
 static func damage_reduction(unit: CombatUnit) -> float:
 	var reduction := 0.0
 	if unit.pawn != null:
 		reduction = clampf(attribute(unit.pawn, CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
-		if unit.pawn.body != null:
-			reduction += unit.pawn.body.damage_reduction
+		reduction += gear_damage_reduction(unit.pawn)
 	else:
 		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 		if enemy_def != null:
@@ -173,6 +182,9 @@ static func resource_regen_per_tick(unit: CombatUnit) -> float:
 			percent_per_second = ENERGY_REGEN_PERCENT_PER_SECOND
 		CG.ResourceKind.RAGE:
 			return 0.0
+	if unit.pawn != null:
+		for e in unit.pawn.equipment():
+			percent_per_second += e.resource_regen_percent_bonus
 	return float(unit.resource_max) * (percent_per_second / 100.0) / float(CG.TICKS_PER_SECOND)
 
 ## Rage gained the moment an attack lands. 0.0 for any other resource kind:

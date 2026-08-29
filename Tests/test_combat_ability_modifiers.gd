@@ -107,6 +107,81 @@ func test_a_damage_type_filter_matches_the_damage_actually_dealt() -> void:
 		"the SAME action dealing physical must not: the filter reads the damage, not a label")
 
 
+## Issue 746: `adds_status_chance` defaults to 1.0, so every modifier authored
+## before the field existed still reads as unconditional.
+func test_adds_status_chance_defaults_to_certain() -> void:
+	var mod := AbilityModifier.new()
+	mod.adds_status_enabled = true
+	mod.adds_status = CG.Status.BLEED
+	mod.adds_status_ticks = 45
+	var unit := _armed(mod)
+	var out := AbilityModifiers.added_statuses(unit, _melee_action(CG.DamageType.PHYSICAL))
+	assert_eq(out.size(), 1)
+	assert_almost_eq(float(out[0]["chance"]), 1.0, 0.0001)
+
+
+## And a quiver-shaped modifier reports its own chance rather than the default.
+func test_added_statuses_reports_the_modifiers_own_chance() -> void:
+	var mod := AbilityModifier.new()
+	mod.adds_status_enabled = true
+	mod.adds_status = CG.Status.BLEED
+	mod.adds_status_ticks = 45
+	mod.adds_status_chance = 0.25
+	var unit := _armed(mod)
+	var out := AbilityModifiers.added_statuses(unit, _melee_action(CG.DamageType.PHYSICAL))
+	assert_almost_eq(float(out[0]["chance"]), 0.25, 0.0001)
+
+
+## Issue 746: the chance draw comes from `state.rng`, so a seed must reproduce
+## it. A modifier with a mid-range chance (0.5, not 1.0 or 0.0) makes the draw
+## actually decide something rather than always landing the same way.
+func test_two_runs_of_one_seed_draw_the_status_chance_identically() -> void:
+	var mod := AbilityModifier.new()
+	mod.adds_status_enabled = true
+	mod.adds_status = CG.Status.BLEED
+	mod.adds_status_ticks = 45
+	mod.adds_status_chance = 0.5
+
+	var action := _melee_action(CG.DamageType.PHYSICAL)
+	action.id = &"probe_swing"
+
+	var results: Array[int] = []
+	for _run in 2:
+		var caster := _armed(mod)
+		caster.actions = [action.id]
+		caster.hp_max = 999999
+		caster.hp = caster.hp_max
+		caster.resource_max = 999999
+		caster.resource = 999999
+		var target := CombatUnit.new()
+		target.id = 1
+		target.team = CG.Team.ENEMY
+		target.hp_max = 999999
+		target.hp = target.hp_max
+		target.position = Vector2(20.0, 0.0)
+		caster.facing = Vector2.RIGHT
+
+		var state := CombatState.new(9001)
+		state.units = [caster, target]
+
+		var deps := SimDeps.new()
+		deps.action_lookup = func(id: StringName) -> ActionDef: return action if id == action.id else null
+		deps.default_decide = func(_s: CombatState, u: CombatUnit) -> Intent:
+			return Intent.use_action(action.id, target.id) if u.id == caster.id else null
+		deps.attack_power = func(_u: CombatUnit, _a: ActionDef, _r: RandomNumberGenerator) -> float: return 20.0
+
+		for _t in 40:
+			CombatSim.step(state, deps)
+
+		var applications := 0
+		for e in state.events:
+			if e.kind == CG.EventKind.STATUS_APPLIED and e.status == CG.Status.BLEED:
+				applications += 1
+		results.append(applications)
+
+	assert_eq(results[0], results[1], "same seed must draw the same chance the same way every time")
+
+
 ## Two modifiers on two items compose rather than one winning.
 func test_two_items_stack() -> void:
 	var a := AbilityModifier.new()

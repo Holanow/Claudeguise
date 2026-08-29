@@ -6,8 +6,8 @@ class_name ItemLibrary
 ## give -- a `DirAccess` walk is ordered by the filesystem, and the registry may
 ## not be.
 ##
-## Weapons, then armor, then the accessory: the order `core_items.gd` built
-## them in, which is the order the equip screen offers them in.
+## Weapons, then the off-hand items, then armor, then the accessory: the order
+## the equip screen offers them in.
 
 const PATHS: Array[String] = [
 	"res://Scripts/Content/Items/sword.tres",
@@ -16,6 +16,9 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Items/orb.tres",
 	"res://Scripts/Content/Items/bow.tres",
 	"res://Scripts/Content/Items/staff.tres",
+	"res://Scripts/Content/Items/shield.tres",
+	"res://Scripts/Content/Items/focus.tres",
+	"res://Scripts/Content/Items/quiver.tres",
 	"res://Scripts/Content/Items/plate_mail.tres",
 	"res://Scripts/Content/Items/silk_wraps.tres",
 	"res://Scripts/Content/Items/robes.tres",
