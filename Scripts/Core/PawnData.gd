@@ -42,6 +42,29 @@ class_name PawnData
 ## verdicts they would see with the panel closed.
 @export var plans_edited: bool = false
 
+## Issue 755: standing preferences a plan row's own block overrides. Read by
+## `UnitGlobals`, and only by `DefaultBehavior`/`CombatSim` -- a row that
+## already carries its own targeting or movement block never consults these,
+## which is what "the global is a default, never an override" means.
+##
+## `_avoid_hazard` has run on every `MOVE_TO` unconditionally since #163; this
+## is what makes the opposite choice possible for the first time, and every
+## pawn defaults to the behaviour that already shipped.
+@export var avoid_hazards: bool = true
+
+## `""` (default) is nearest, matching `DefaultBehavior`'s own baseline before
+## this issue. `UnitGlobals.TARGET_FARTHEST` is the only other value today.
+@export var target_preference: StringName = &""
+
+## `UnitGlobals.POSTURE_SEEK_ENEMY` (default, today's behaviour) or
+## `UnitGlobals.POSTURE_STAND_NEAR_ALLY`.
+@export var posture: StringName = &"seek_enemy"
+
+## The named ally's `PawnData.id`, read only when `posture` is
+## `stand_near_ally`. A dead ally, a dangling id, or naming oneself all
+## degrade to `seek_enemy` -- see `UnitGlobals.stand_near_ally_unit`.
+@export var stand_near_ally_id: StringName = &""
+
 func attribute(a: CG.Attribute) -> int:
 	var base := 0
 	if pawn_class != null:

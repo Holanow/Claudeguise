@@ -296,7 +296,10 @@ static func _resolve_move(state: CombatState, unit: CombatUnit, intent: Intent, 
 
 	var direct := _sweep(state, unit, step)
 	if direct != unit.position:
-		unit.position = _avoid_hazard(state, unit, to_dest, speed, direct)
+		## Issue 755: `_avoid_hazard` ran unconditionally on every `MOVE_TO`
+		## since #163. `UnitGlobals.avoid_hazards` defaults `true`, so this
+		## changes nothing for a unit that never set the global.
+		unit.position = _avoid_hazard(state, unit, to_dest, speed, direct) if UnitGlobals.avoid_hazards(unit) else direct
 		_update_facing_from_movement(unit, before)
 		return
 

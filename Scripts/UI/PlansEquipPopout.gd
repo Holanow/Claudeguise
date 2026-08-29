@@ -164,6 +164,7 @@ func _on_pawn_pressed(pawn: PawnData) -> void:
 func _show_pawn(pawn: PawnData) -> void:
 	if pawn == null:
 		return
+	_inspect.set_party_roster(_party)
 	_inspect.show_pawn(pawn, _state)
 	_equip.show_pawn(pawn)
 
