@@ -109,7 +109,7 @@ func _run() -> void:
 		if fired and t == fire_tick + 5:
 			shots.append(await _shot(king.id, "rat_king_lash  +5t (rats + hit)"))
 		if fired and t == fire_tick + 20:
-			shots.append(await _shot(king.id, "rat_king_lash  +20t (3 rats alive)"))
+			shots.append(await _shot(king.id, "rat_king_lash  +20t (2 rats alive)"))
 			break
 
 	var stunned := dummy.has_status(CG.Status.STUN)
