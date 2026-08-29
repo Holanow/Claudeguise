@@ -157,6 +157,17 @@ func embed() -> void:
 ## One pawn, in place, with the title naming who is being edited. The button
 ## that used to open this said "Inspect classes" while the page said "Edit your
 ## pawns' plans"; embedded there is no button and no mismatch.
+## Issue 755: who the "stand near ally" picker offers. Separate from `_pawns`
+## -- that array is the one or few pawns this screen is currently showing,
+## never the whole party, and naming an ally means naming someone who might
+## not be on screen at all. Callers that know the party (`PartySelect`,
+## `PlansEquipPopout`) set it; a caller that never does offers no allies,
+## which degrades to "no ally to name" rather than to a wrong one.
+var _party_roster: Array[PawnData] = []
+
+func set_party_roster(party: Array[PawnData]) -> void:
+	_party_roster = party
+
 func show_pawn(pawn: PawnData, state = null) -> void:
 	_pawns = [pawn] as Array[PawnData]
 	_live_state = state
@@ -243,6 +254,9 @@ func _build_detail(pawn: PawnData) -> void:
 			for action_id in available:
 				actions_row.add_child(_action_chip(action_id))
 			_detail_box.add_child(actions_row)
+
+	for control in _globals_section(pawn):
+		_detail_box.add_child(control)
 
 	for control in _plans_section(pawn):
 		_detail_box.add_child(control)
@@ -357,6 +371,144 @@ func _action_display_name(action_id: StringName) -> String:
 ## The whole plans section, as a flat list of controls the caller adds in
 ## order. Built as a list rather than one container so the section's parts stay
 ## individually testable and the detail column keeps one separation setting.
+## Issue 755. Standing preferences a row's own block overrides -- shown above
+## Plans because they are read before any row is, as `DefaultBehavior`'s
+## baseline. Free against `Balance.plan_block_budget`: nothing here spends a
+## block. Locked mid-fight for the same reason Equipment is (issue 741):
+## `UnitGlobals` reads these fields live, every tick, with no staged form to
+## land an edit in yet, so an edit here would reach into the running fight.
+const GLOBALS_LOCKED_NOTE := "Locked while this fight is running. Change it between rooms."
+const GLOBALS_HEADING := "Standing preferences"
+const GLOBALS_SUB := "Free. A row's own target or movement block overrides these."
+
+func _globals_section(pawn: PawnData) -> Array[Control]:
+	var out: Array[Control] = []
+	out.append(_section_header(GLOBALS_HEADING))
+	out.append(_line(GLOBALS_SUB, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+
+	var locked := _running(pawn)
+	if locked:
+		out.append(_line(GLOBALS_LOCKED_NOTE, Palette.FONT_SIZE_SMALL, Palette.HP_LOW))
+
+	var hazard := CheckBox.new()
+	hazard.text = "Avoid hazards"
+	hazard.tooltip_text = "On (default): a move steps around fire rather than through it. Off: this pawn walks straight through, plan rows included."
+	hazard.button_pressed = pawn.avoid_hazards
+	hazard.custom_minimum_size = Vector2(0.0, _TOUCH)
+	hazard.disabled = locked
+	if not locked:
+		hazard.toggled.connect(func(v): _set_avoid_hazards(pawn, v))
+	out.append(hazard)
+
+	var target_row := HBoxContainer.new()
+	target_row.add_child(_tag_label("Target"))
+	var target_picker := OptionButton.new()
+	target_picker.custom_minimum_size = Vector2(0.0, _TOUCH)
+	target_picker.add_item("Nearest enemy (default)")
+	target_picker.add_item("Farthest enemy")
+	target_picker.selected = 1 if pawn.target_preference == UnitGlobals.TARGET_FARTHEST else 0
+	target_picker.disabled = locked
+	AppTheme.keep_popup_on_screen(target_picker)
+	if not locked:
+		target_picker.item_selected.connect(func(idx): _set_target_preference(
+			pawn, UnitGlobals.TARGET_FARTHEST if idx == 1 else UnitGlobals.TARGET_NEAREST))
+	target_row.add_child(target_picker)
+	out.append(target_row)
+
+	var posture_row := HBoxContainer.new()
+	posture_row.add_child(_tag_label("Posture"))
+	var posture_picker := OptionButton.new()
+	posture_picker.custom_minimum_size = Vector2(0.0, _TOUCH)
+	posture_picker.add_item("Seek enemy (default)")
+	posture_picker.add_item("Stand near ally")
+	posture_picker.selected = 1 if pawn.posture == UnitGlobals.POSTURE_STAND_NEAR_ALLY else 0
+	posture_picker.disabled = locked
+	AppTheme.keep_popup_on_screen(posture_picker)
+	if not locked:
+		posture_picker.item_selected.connect(func(idx): _set_posture(
+			pawn, UnitGlobals.POSTURE_STAND_NEAR_ALLY if idx == 1 else UnitGlobals.POSTURE_SEEK_ENEMY))
+	posture_row.add_child(posture_picker)
+	out.append(posture_row)
+
+	if pawn.posture == UnitGlobals.POSTURE_STAND_NEAR_ALLY:
+		out.append_array(_ally_picker_row(pawn))
+		out.append(_stand_near_ally_status(pawn))
+
+	return out
+
+## The party this pawn's screen knows about, minus itself -- `_party_roster`
+## when a caller set it, `_pawns` otherwise (the degrade `set_party_roster`'s
+## own comment names).
+func _other_pawns(pawn: PawnData) -> Array[PawnData]:
+	var source := _party_roster if not _party_roster.is_empty() else _pawns
+	var out: Array[PawnData] = []
+	for p in source:
+		if p != null and p.id != pawn.id:
+			out.append(p)
+	return out
+
+func _ally_picker_row(pawn: PawnData) -> Array[Control]:
+	var row := HBoxContainer.new()
+	row.add_child(_tag_label("Ally"))
+	var others := _other_pawns(pawn)
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(0.0, _TOUCH)
+	if others.is_empty():
+		picker.add_item("(no other party member to name)")
+		picker.disabled = true
+		row.add_child(picker)
+		return [row] as Array[Control]
+	var current := 0
+	for i in others.size():
+		picker.add_item(others[i].display_name)
+		if others[i].id == pawn.stand_near_ally_id:
+			current = i
+	picker.selected = current
+	picker.disabled = _running(pawn)
+	AppTheme.keep_popup_on_screen(picker)
+	if not _running(pawn):
+		picker.item_selected.connect(func(idx): _set_stand_near_ally(pawn, others[idx].id))
+	row.add_child(picker)
+	var out: Array[Control] = [row]
+	## The id is not yet in the offered list (nobody has been picked, or the
+	## party changed under a dangling id) -- named but not selectable is
+	## worse than silently picking the first name, so it is said instead, on
+	## its own wrapping line rather than squeezed beside the picker.
+	if pawn.stand_near_ally_id != &"" and current == 0 and others[0].id != pawn.stand_near_ally_id:
+		out.append(_indented_note("Named pawn is not in this party -- falls back to seek enemy."))
+	return out
+
+## Issue 755: "whatever is chosen must be visible on the plan screen -- the
+## row should read as what actually happens, including the fallback." A dead
+## or dangling ally degrades `UnitGlobals.stand_near_ally_unit` to null and
+## the pawn to `seek_enemy` silently at the sim layer; this is the one place
+## that says so, since nothing else on this screen reads live fight state to
+## check it.
+func _stand_near_ally_status(pawn: PawnData) -> Control:
+	var text: String
+	if _live_state == null:
+		text = "Applies once this pawn is in a fight."
+	else:
+		var unit = _live_unit(pawn)
+		var ally = UnitGlobals.stand_near_ally_unit(_live_state, unit) if unit != null else null
+		text = ("Standing near %s." % ally.display_name) if ally != null else (
+			"%s is not available -- falling back to seek enemy." % (pawn.stand_near_ally_id if pawn.stand_near_ally_id != &"" else "No ally named"))
+	return _indented_note(text)
+
+func _set_avoid_hazards(pawn: PawnData, value: bool) -> void:
+	pawn.avoid_hazards = value
+
+func _set_target_preference(pawn: PawnData, value: StringName) -> void:
+	pawn.target_preference = value
+
+func _set_posture(pawn: PawnData, value: StringName) -> void:
+	pawn.posture = value
+	call_deferred("_build_detail", pawn)
+
+func _set_stand_near_ally(pawn: PawnData, value: StringName) -> void:
+	pawn.stand_near_ally_id = value
+	call_deferred("_build_detail", pawn)
+
 func _plans_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 

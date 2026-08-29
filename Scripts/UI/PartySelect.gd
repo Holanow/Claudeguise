@@ -207,6 +207,9 @@ func focus_pawn(pawn: PawnData) -> void:
 	if pawn == null:
 		return
 	if _inspect_panel != null:
+		## Issue 755: "stand near ally" offers the party the fight will
+		## actually have, not the whole rolled roster.
+		_inspect_panel.set_party_roster(_selected)
 		_inspect_panel.show_pawn(pawn)
 	if _equip_panel != null:
 		_equip_panel.show_pawn(pawn)

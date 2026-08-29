@@ -49,3 +49,19 @@ class_name EnemyDef
 ## active. Empty falls through to `DefaultPlan`, which is every enemy before
 ## this field.
 @export var plans: Array[Plan] = []
+
+## Issue 756: the same standing preferences `PawnData` carries, since an enemy
+## has no plans to hang a row-level override off and these are its only
+## per-enemy behaviour dial. Every enemy ships at these defaults, matching
+## the behaviour before this field existed -- see `UnitGlobals`.
+@export var avoid_hazards: bool = true
+@export var target_preference: StringName = &""
+@export var posture: StringName = &"seek_enemy"
+
+## Names another enemy **by its `EnemyDef.id`**, resolved to the nearest
+## living instance of that type in this fight. A `PawnData.id` has no
+## enemy-side equivalent to be unique against -- a room can spawn three rats
+## under one `EnemyDef` -- so this names a type, not an instance; "the nearest
+## Sellsword" rather than "spawn marker 3's Sellsword". Good enough for a
+## bodyguard formation, not for telling two same-type instances apart.
+@export var stand_near_ally_id: StringName = &""

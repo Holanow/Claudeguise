@@ -76,18 +76,30 @@ static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 
 	if is_ranged:
 		if attack_action.requires_line_of_sight and state.grid.sight_blocked(unit.position, target.position):
-			return Intent.move_to(target.position)
+			return _posture_move(state, unit, target.position)
 		## Issue 544: no automatic retreat. A ranged unit that is in range fires;
 		## holding distance is `keep_distance`, which the player writes and can see.
 		var commit_max := attack_action.range_units * RANGED_COMMIT_FRACTION
 		if dist > commit_max:
-			return Intent.move_to(target.position)
+			return _posture_move(state, unit, target.position)
 		return Intent.use_action(attack_action.id, target.id)
 
 	var commit_max_melee := attack_action.range_units * MELEE_COMMIT_FRACTION
 	if dist > commit_max_melee:
-		return Intent.move_to(target.position)
+		return _posture_move(state, unit, target.position)
 	return Intent.use_action(attack_action.id, target.id)
+
+## Issue 755: `stand_near_ally` redirects a walk that would otherwise chase
+## the target -- an already-in-range attack is untouched, so the posture
+## governs positioning, not whether a reachable enemy gets hit. Falls back to
+## `chase_position` (today's behaviour) whenever the posture is `seek_enemy`
+## or the named ally does not resolve; see `UnitGlobals.stand_near_ally_unit`.
+static func _posture_move(state: CombatState, unit: CombatUnit, chase_position: Vector2) -> Intent:
+	if UnitGlobals.posture(unit) == UnitGlobals.POSTURE_STAND_NEAR_ALLY:
+		var ally := UnitGlobals.stand_near_ally_unit(state, unit)
+		if ally != null:
+			return Intent.move_to(ally.position)
+	return Intent.move_to(chase_position)
 
 # ---------------------------------------------------------------------------
 
@@ -239,7 +251,10 @@ static func _choose_target(state: CombatState, unit: CombatUnit, enemies: Array[
 	var taunter := _nearest_taunter(unit, enemies)
 	if taunter != null:
 		return taunter
-	var nearest := _nearest(unit, enemies)
+	## Issue 755: the preference-aware pick -- "nearest" by name, but honours
+	## `target_preference` for anyone who set one. Unset preference is exactly
+	## `_nearest`, so this changes nothing for a unit at defaults.
+	var nearest := UnitGlobals.preferred_target(state, unit, enemies)
 	if unit.pawn != null:
 		## Issue 588: the enemy the player clicked, and only for a party pawn.
 		## Searched inside `enemies` so it cannot outrank the mark filter above.
