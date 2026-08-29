@@ -252,19 +252,24 @@ func test_a_party_that_summons_nothing_never_grows_a_row() -> void:
 	assert_eq(panel.row_count(), 4,
 		"no pawn in this party summons anything, so four rows is the whole answer")
 
-## The panel is drawn in the strip the log already reserves, so the arena is not
-## made smaller to describe itself. Since notes item 8 the log is a fixed box in
-## the bottom corner of that same strip, so the two share a column and must not
-## meet in it -- asserted in real viewport pixels rather than from the constants,
-## because a constant is exactly what was wrong the last time this panel shipped
-## a wrong height into a screenshot.
+## Issue 825: the arena runs under both of these now, so neither reserves a
+## strip. They still share the right-hand edge and still must not meet in it --
+## asserted in real viewport pixels rather than from the constants, because a
+## constant is exactly what was wrong the last time this panel shipped a wrong
+## height into a screenshot.
 func test_the_panel_and_the_log_share_the_column_without_meeting() -> void:
 	var battle := _battle()
 	assert_almost_eq(
 		battle._team_status.offset_right - battle._team_status.offset_left,
 		TeamStatusView.PANEL_WIDTH, 0.5)
-	assert_almost_eq(TeamStatusView.PANEL_WIDTH, CombatLogView.LOG_WIDTH, 0.5,
-		"the panel is the width of the column it shares, or the two edges nearly agree and read as a mistake")
+	## Issue 825 asked for the panel to shrink, so it is deliberately NARROWER
+	## than the log now. What still has to hold is that they hang off the same
+	## edge: two overlays whose right edges nearly agree read as a mistake.
+	assert_true(TeamStatusView.PANEL_WIDTH < CombatLogView.LOG_WIDTH,
+		"the panel is %.0f and the log %.0f -- the panel was asked to shrink" % [
+			TeamStatusView.PANEL_WIDTH, CombatLogView.LOG_WIDTH])
+	assert_almost_eq(battle._team_status.offset_right, CombatLogView.LOG_MARGIN, 0.5,
+		"the panel and the log hang off the same right-hand edge")
 
 	# The log hangs off the bottom edge, the panel off the top, so what is left of
 	# the column is the gap between them. It holds only while the column is tall

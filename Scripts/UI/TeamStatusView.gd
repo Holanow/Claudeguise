@@ -12,7 +12,7 @@ const MAX_ROWS := MAX_PAWN_ROWS + MAX_SUMMON_ROWS
 ## From the measurement above. A third slot has never been earned.
 const MAX_COOLDOWN_CHIPS := 2
 
-const BAR_WIDTH := 244.0
+const BAR_WIDTH := 172.0
 const PANEL_WIDTH := BAR_WIDTH + Palette.SPACE_S * 2.0
 const HP_BAR_HEIGHT := 8.0
 const RESOURCE_BAR_HEIGHT := 6.0

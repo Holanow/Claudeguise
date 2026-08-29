@@ -177,20 +177,16 @@ look different from the rest, add it under a folder named after the kind:
 
 ```
 Assets/UI/background/party_select.png   just the party select screen
-Assets/UI/background/battle.png         just the page the fight is mounted on
 Assets/UI/background/arena.png          just the floor inside the arena
 Assets/UI/border/arena.png              just the frame around the arena
 Assets/UI/panel/inspect.png             just the inspect panel
 Assets/UI/panel/death.png               just the plate behind "Warrior dies"
 ```
 
-**`background/battle.png` and `background/arena.png` are the two halves of one
-picture and they are not interchangeable.** The battle screen is a page of the
-ledger with the fight mounted on it: `battle` is that page, drawn on its own
-layer below the arena, and `arena` is the plate itself. Issue 807's line is
-that information surfaces are the ledger's pages and the arena is not, because
-the fight is the record being replayed rather than a page. **`arena` also has a
-second job**: without a file of its own it would fall back to the general
+**`background/arena.png` is the floor of the fight, and issue 825 removed the
+page it used to be mounted in.** The battle screen is full-bleed arena now, so
+`background/battle.png` is gone and no screen asks for that name. **`arena` has
+a second job**: without a file of its own it would fall back to the general
 `background.png`, so shipping a parchment general file without a dark `arena`
 one paints the fight beige.
 
