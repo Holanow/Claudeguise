@@ -206,6 +206,44 @@ func test_rage_never_regenerates_on_a_timer() -> void:
 	assert_almost_eq(Balance.resource_regen_per_tick(rage_unit), 0.0)
 
 
+## Issue 746: a focus's `resource_regen_percent_bonus` widens the rate rather
+## than replacing it -- a bare unit and one carrying the bonus should differ by
+## exactly the bonus, converted the same way the base rate is.
+func test_equipment_resource_regen_bonus_widens_the_rate() -> void:
+	var bare := CombatUnit.new()
+	bare.resource_kind = CG.ResourceKind.MANA
+	bare.resource_max = 100
+	var bare_rate := Balance.resource_regen_per_tick(bare)
+
+	var focused := CombatUnit.new()
+	focused.resource_kind = CG.ResourceKind.MANA
+	focused.resource_max = 100
+	var pawn := PawnData.new()
+	var focus := EquipmentDef.new()
+	focus.resource_regen_percent_bonus = 2.0
+	pawn.off_hand = focus
+	focused.pawn = pawn
+	var focused_rate := Balance.resource_regen_per_tick(focused)
+
+	assert_true(focused_rate > bare_rate, "a focus must raise the regen rate")
+	var expected_delta := 100.0 * (2.0 / 100.0) / float(CG.TICKS_PER_SECOND)
+	assert_almost_eq(focused_rate - bare_rate, expected_delta, 0.0001)
+
+
+## And a RAGE unit stays at 0.0 even carrying the bonus -- Rage never rises on
+## a timer, per README.md, and equipment must not open a second door to that.
+func test_equipment_resource_regen_bonus_does_not_move_rage() -> void:
+	var rage_unit := CombatUnit.new()
+	rage_unit.resource_kind = CG.ResourceKind.RAGE
+	rage_unit.resource_max = 100
+	var pawn := PawnData.new()
+	var focus := EquipmentDef.new()
+	focus.resource_regen_percent_bonus = 2.0
+	pawn.off_hand = focus
+	rage_unit.pawn = pawn
+	assert_almost_eq(Balance.resource_regen_per_tick(rage_unit), 0.0, 0.0001)
+
+
 func test_rage_gain_per_attack_only_applies_to_rage() -> void:
 	var rage_unit := CombatUnit.new()
 	rage_unit.resource_kind = CG.ResourceKind.RAGE

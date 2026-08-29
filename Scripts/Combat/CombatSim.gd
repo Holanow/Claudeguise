@@ -1026,9 +1026,13 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 	## effects, so an item can never pre-empt what the ability itself does, and
 	## only on a hit that actually landed -- an item that poisons on fire damage
 	## should not poison a miss.
+	## Issue 746: one `state.rng` draw per candidate status, in the order
+	## `added_statuses` returns them, so a seed always draws the same sequence
+	## regardless of which items happen to be equipped.
 	if dealt > 0 and target.alive:
 		for extra in AbilityModifiers.added_statuses(unit, action):
-			_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
+			if state.rng.randf() < float(extra["chance"]):
+				_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
 
 	if not settled:
 		_kill_if_dead(state, target, unit.id, action.id)
