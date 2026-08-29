@@ -818,3 +818,21 @@ func test_the_status_filter_covers_every_dot() -> void:
 			"%s is a damage-over-time tick and the switch must reach it" % CG.Status.keys()[status])
 	DisplayOptions.reset()
 	view.free()
+## Issue 799: the between-room arrival heal has no caster, so `state.unit(-1)`
+## is null and the line read "? heals Warrior for 16" -- the first thing a
+## player sees on entering every room after the first.
+func test_a_heal_with_no_source_is_named_rather_than_anonymous() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.HEAL, 0)
+	e.target_id = 0
+	e.amount = 16
+	var line := view.line_for_event(state, e)
+	assert_false(line.contains("?"), "a heal nobody cast must not be attributed to '?': %s" % line)
+	assert_true(line.contains("Warrior"), "and it must still name who recovered: %s" % line)
+	assert_true(line.contains("16"), "and by how much: %s" % line)
+
+	## The sourced heal is untouched: this is a second branch, not a rewrite.
+	e.source_id = 1
+	assert_eq(view.line_for_event(state, e), "Rat heals Warrior for 16")
+	view.free()

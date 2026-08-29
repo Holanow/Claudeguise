@@ -74,13 +74,13 @@ func _report(label: String, r: Dictionary) -> void:
 		for room_id in ids:
 			var n: int = died_at[room_id]
 			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
-	_report_depth(r.depths)
+	_report_depth(r.depths, r.cleared)
 	print("")
 
-## Issue 734: how many rooms a run survives before it dies (10 == cleared).
-## Mean alone hides "usually 4, occasionally 9" behind "6.5" -- min/median/max
-## plus the per-depth histogram carry the spread mean cannot.
-func _report_depth(depths: Array[int]) -> void:
+## Issue 734: how many rooms a run entered before it ended. Mean alone hides
+## "usually 4, occasionally 9" behind "6.5" -- min/median/max plus the
+## per-depth histogram carry the spread mean cannot.
+func _report_depth(depths: Array[int], cleared: int) -> void:
 	var sorted := depths.duplicate()
 	sorted.sort()
 	var n := sorted.size()
@@ -90,7 +90,7 @@ func _report_depth(depths: Array[int]) -> void:
 	var mean := float(total) / n
 	var median: float = float(sorted[n / 2]) if n % 2 == 1 \
 		else (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
-	print("  depth reached (rooms survived before dying; 10 = cleared):")
+	print("  depth reached (last room the run entered; depth 10 is not by itself a clear):")
 	print("    min %d, median %.1f, mean %.1f, max %d" % [sorted[0], median, mean, sorted[n - 1]])
 	var histogram := {}
 	for d in sorted:
@@ -100,3 +100,8 @@ func _report_depth(depths: Array[int]) -> void:
 		var count: int = histogram.get(depth, 0)
 		line += "%d:%d  " % [depth, count]
 	print(line)
+	## Issue 799: a run that dies IN the tenth room reaches depth 10 as well, so
+	## the last bucket is not the clear count and was read as one.
+	var deepest: int = histogram.get(10, 0)
+	print("    of the %d at depth 10: %d cleared, %d died in the last room" % [
+		deepest, cleared, deepest - cleared])
