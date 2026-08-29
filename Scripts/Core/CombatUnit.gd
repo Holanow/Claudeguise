@@ -87,6 +87,12 @@ var sustain_drain_ticks: int = -1
 var current_action: StringName = &""
 var action_ticks_left: int = 0
 
+## Issue 747: which hand swung the weapon's basic attack last, for a pawn
+## dual-wielding two MARTIAL weapons. `-1` until the first such swing, and
+## never touched at all for a pawn who never dual-wields -- see
+## `DefaultPlan.dual_wields`.
+var last_attack_hand: int = -1
+
 ## What `action_ticks_left` started at for the action currently being performed.
 ## 0 when the unit is free.
 var action_ticks_total: int = 0

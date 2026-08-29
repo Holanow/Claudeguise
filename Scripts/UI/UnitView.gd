@@ -446,14 +446,23 @@ func _sync_visual(u: CombatUnit, radius: float) -> void:
 		recoil_offset(_recoil_age, _recoil_direction, _recoil_pixels),
 		drawn_bottom(_shape_id(u), u.team, radius))
 	var animate := can_animate(u)
-	var main_offset := _part_offset(u, radius) if animate else Vector2.ZERO
-	var main_angle := _part_angle(u) if animate else 0.0
+	var full_offset := _part_offset(u, radius) if animate else Vector2.ZERO
+	var full_angle := _part_angle(u) if animate else 0.0
+	var share_offset := _off_hand_offset(u, radius) if animate else Vector2.ZERO
+	var share_angle := _off_hand_angle(u) if animate else 0.0
+	## Issue 747: on a dual-wielder's off-hand swing, the full motion moves to
+	## HandOff and HandMain takes the quieter share instead -- everyone else
+	## takes the branch below unchanged, since `dual_wields` is false for them.
+	var off_hand_swings := animate and DefaultPlan.dual_wields(u.pawn) \
+		and u.last_attack_hand == EquipmentDef.Slot.OFF_HAND
+	var main_offset := share_offset if off_hand_swings else full_offset
+	var main_angle := share_angle if off_hand_swings else full_angle
 	_visual.offset_slot(&"HandMain", main_offset)
 	_visual.offset_slot(&"Weapon", main_offset)
 	_visual.rotate_slot(&"HandMain", main_angle)
 	_visual.rotate_slot(&"Weapon", main_angle)
-	_visual.offset_slot(&"HandOff", _off_hand_offset(u, radius) if animate else Vector2.ZERO)
-	_visual.rotate_slot(&"HandOff", _off_hand_angle(u) if animate else 0.0)
+	_visual.offset_slot(&"HandOff", full_offset if off_hand_swings else share_offset)
+	_visual.rotate_slot(&"HandOff", full_angle if off_hand_swings else share_angle)
 	_visual.flash(flash_color(_flash_type), flash_strength(_flash_age))
 	_visual.set_focus_line(_focus_line_to(u))
 

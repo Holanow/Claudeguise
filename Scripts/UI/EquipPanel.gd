@@ -226,12 +226,20 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 		return out
 	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
-		if item == null or item.slot != slot:
+		if item == null or not _fits_slot(item, slot):
 			continue
 		if item.allows_class(pawn.pawn_class) != allowed:
 			continue
 		out.append(item)
 	return out
+
+## Issue 747: `OFF_HAND` also offers every `MAIN_HAND` weapon -- a second
+## weapon is how dual-wielding gets equipped, and no new weapon is needed for
+## it. No other slot widens this way.
+func _fits_slot(item: EquipmentDef, slot: int) -> bool:
+	if item.slot == slot:
+		return true
+	return slot == EquipmentDef.Slot.OFF_HAND and item.slot == EquipmentDef.Slot.MAIN_HAND
 
 ## The refusal in the player's words. `EquipmentDef.missing_tags` returns the
 ## tags and deliberately not a sentence, so the sentence is here.
