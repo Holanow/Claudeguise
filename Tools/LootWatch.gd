@@ -57,8 +57,19 @@ func _capture(state, e) -> void:
 	var who: String = unit.display_name if unit != null else "?"
 	print("LootWatch: %s picked up %s" % [who, e.item_id])
 	_shots += 1
-	get_viewport().get_texture().get_image().save_png(
-		"%s/finch_811_loot_%d.png" % [OUT_DIR, _shots])
+	var img := get_viewport().get_texture().get_image()
+	img.save_png("%s/finch_811_loot_%d.png" % [OUT_DIR, _shots])
+	## Cropped hard to the log box, whose rect is `CombatLogView`'s own
+	## constants against the viewport rather than a node lookup into the scene.
+	var v := Vector2(img.get_size())
+	var box := Rect2i(Rect2(
+		v.x + CombatLogView.LOG_MARGIN - CombatLogView.LOG_WIDTH,
+		v.y + CombatLogView.LOG_MARGIN - CombatLogView.LOG_HEIGHT,
+		CombatLogView.LOG_WIDTH, CombatLogView.LOG_HEIGHT))
+	var region := box.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	var crop := img.get_region(region)
+	crop.resize(region.size.x * 2, region.size.y * 2, Image.INTERPOLATE_NEAREST)
+	crop.save_png("%s/finch_811_loot_%d_log.png" % [OUT_DIR, _shots])
 	_busy = false
 
 func _on_floor_ended(victory: bool) -> void:
