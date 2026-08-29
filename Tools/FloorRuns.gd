@@ -9,8 +9,18 @@ extends SceneTree
 ## at 0/40, so depth reached is reported too.
 ##
 ## Issue 808: the party is four. Every composition, unless --party names one.
+##
+## Issue 817: `--final-state` prints the per-pawn end state of every run that
+## cleared or came within one room of it. That was `Tools/ClearedFinalState.gd`,
+## a second copy of the walk below, which never learned to award loot -- so for
+## two days it described a game with #811's drop table switched off. It reads
+## off THIS loop now, so there is nothing left to drift.
 
 const SEEDS := 40
+
+## Runs that cleared, and runs that died in the last room before the end. The
+## rule is `ClearedFinalState`'s, kept so its reports stay comparable.
+var _detail: bool = false
 
 func _init() -> void:
 	var comps := PartySpec.compositions()
@@ -22,10 +32,13 @@ func _init() -> void:
 	if arm.is_empty():
 		quit(1)
 		return
+	_detail = OS.get_cmdline_user_args().has("--final-state")
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
 	print(arm)
 	print(ReviveArgs.apply())
-	print("%s\n" % LootArgs.apply())
+	print(LootArgs.apply())
+	print("final state per run: %s\n" % (
+		"ON, cleared runs and near misses" if _detail else "off (--final-state)"))
 	for ids in comps:
 		print("========================================================")
 		print("PARTY OF %d: %s" % [ids.size(), PartySpec.label(ids)])
@@ -44,6 +57,7 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	## clear that has to be read as "by the skin of their teeth" is reported by
 	## how many of the four are still standing, not only that it happened.
 	var clear_survivors: Array[int] = []
+	var detail: Array[String] = []
 	for s in range(SEEDS):
 		var plan := FloorGenerator.generate(s)
 		var walk := FloorWalk.default_room_order(plan)
@@ -80,12 +94,39 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 				if last_state.unit(j).alive:
 					standing += 1
 			clear_survivors.append(standing)
+		if _detail:
+			_final_state_lines(detail, s, party, last_state,
+				depths[depths.size() - 1], walk.size(), wiped)
 		drops += run.loot.size()
 		if not run.revive_used:
 			camp_unused += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths,
 		"camp_unused": camp_unused, "drops": drops, "party": ids.size(),
-		"clear_survivors": clear_survivors}
+		"clear_survivors": clear_survivors, "detail": detail}
+
+## Issue 817, and this is the whole of what `ClearedFinalState.gd` did. It reads
+## off the loop above rather than off a second copy of it, so it sees the loot
+## that loop awards, which is the one thing the deleted tool never did. The
+## selection rule is that tool's, unchanged: a run that cleared, or one that
+## died no earlier than the second-to-last room.
+##
+## Collected rather than printed, because `_run_arm` runs before `_report`
+## prints the arm's heading, so printing from in here put arm B's runs under
+## the words "Arm A".
+func _final_state_lines(out: Array[String], seed_value: int, party: Array[PawnData],
+		state: CombatState, depth: int, rooms: int, wiped: bool) -> void:
+	if state == null or (wiped and depth < rooms - 1):
+		return
+	out.append("    seed %d %s (depth %d/%d):" % [
+		seed_value, "died" if wiped else "CLEARED", depth, rooms])
+	for j in party.size():
+		var unit := state.unit(j)
+		var pct := 0
+		if unit.hp_max > 0:
+			pct = int(round(100.0 * unit.hp / unit.hp_max))
+		out.append("      %-14s %s  hp %d/%d (%d%%)" % [
+			String(party[j].id), "alive" if unit.alive else "DEAD",
+			unit.hp, unit.hp_max, pct])
 
 func _report(label: String, r: Dictionary) -> void:
 	print(label)
@@ -109,6 +150,14 @@ func _report(label: String, r: Dictionary) -> void:
 		r.drops, SEEDS, float(r.drops) / SEEDS])
 	_report_depth(r.depths, r.cleared)
 	_report_survivors(r.clear_survivors, int(r.party))
+	var detail: Array = r.detail
+	if _detail:
+		if detail.is_empty():
+			print("  final state: no run cleared or came within one room of it")
+		else:
+			print("  final state of the runs that cleared or nearly did:")
+			for line in detail:
+				print(line)
 	print("")
 
 ## Issue 814: #802 measured that a run cannot finish in the red while The

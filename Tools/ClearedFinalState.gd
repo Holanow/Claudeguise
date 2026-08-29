@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 
 ## Issue 792. FloorRuns.gd reports depth and clear count only; this reports
 ## what a cleared arm B run's party looks like at the end, and what the
