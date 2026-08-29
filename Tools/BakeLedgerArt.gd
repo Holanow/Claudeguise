@@ -127,8 +127,8 @@ func _board() -> Image:
 	return img
 
 ## A card laid on the leaf. Lighter than the page so it lifts; a hairline ink
-## rule; the doubled rule under the head that every ruled account book has; and
-## on the worked page, the red vertical money-column rule inset from the right.
+## rule; and the doubled rule under the head that every ruled account book has,
+## in red on the worked page and in ink on a plain card.
 func _card(worked: bool) -> Image:
 	var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
 	img.fill(Palette.PAPER_FIELD)
@@ -141,7 +141,6 @@ func _card(worked: bool) -> Image:
 	_hline(img, 4, Palette.RULE_RED if worked else Palette.INK_DIM)
 	if worked:
 		_hline(img, 6, Palette.RULE_RED)
-		_vline(img, N - 6, Palette.RULE_RED)
 		_hline(img, N - 5, Palette.RULE_FEINT)
 	# Register ticks: a short heavier stroke into each corner, the printer's
 	# mark that tells you the rules were meant rather than left over.

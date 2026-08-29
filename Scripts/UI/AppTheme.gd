@@ -68,6 +68,13 @@ static func paper() -> Theme:
 	t.set_stylebox("separator", "HSeparator", _double_rule())
 	t.set_constant("separation", "HSeparator", 5)
 
+	# A scrollbar on a page is a rule, not a slab. The grabber is the only part
+	# that says anything, so it is the only part with ink in it.
+	for bar in ["VScrollBar", "HScrollBar"]:
+		t.set_stylebox("scroll", bar, _hairline(Palette.INK_FAINT, 0.25))
+		for g in ["grabber", "grabber_highlight", "grabber_pressed"]:
+			t.set_stylebox(g, bar, _hairline(Palette.INK_DIM, 1.0))
+
 	_variation(t, HEADING, "Label", FontLibrary.printed(), Palette.FONT_SIZE_HEADING, Palette.INK)
 	_variation(t, COLUMN_HEAD, "Label", FontLibrary.printed(), Palette.FONT_SIZE_SMALL, Palette.RULE_RED)
 	_variation(t, FIGURE, "Label", FontLibrary.entry_bold(), Palette.FONT_SIZE_BODY, Palette.INK)
@@ -102,9 +109,9 @@ static func _tab(state: String) -> StyleBoxFlat:
 		s.bg_color = Palette.PAPER_FIELD.lightened(0.25)
 	s.border_color = Palette.RULE_RED if state == "focus" else Palette.INK_DIM
 	s.set_border_width_all(1)
-	s.set_content_margin_all(Palette.SPACE_S)
-	s.content_margin_left = Palette.SPACE_M
-	s.content_margin_right = Palette.SPACE_M
+	s.set_content_margin_all(Palette.SPACE_XS)
+	s.content_margin_left = Palette.SPACE_S
+	s.content_margin_right = Palette.SPACE_S
 	return s
 
 static func _blank(rule: Color) -> StyleBoxFlat:
@@ -115,6 +122,22 @@ static func _blank(rule: Color) -> StyleBoxFlat:
 	s.border_width_bottom = 2
 	s.set_content_margin_all(Palette.SPACE_XS)
 	s.content_margin_left = Palette.SPACE_S
+	return s
+
+## Gives one Label the pre-printed voice. A helper rather than a line at every
+## title, because a heading nobody remembered to mark is the failure mode.
+static func as_heading(label: Label, size: int = Palette.FONT_SIZE_HEADING) -> void:
+	label.theme_type_variation = HEADING
+	label.add_theme_font_override("font", FontLibrary.printed())
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", Palette.INK)
+
+static func _hairline(tone: Color, weight: float) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = tone
+	s.bg_color.a = weight
+	s.content_margin_left = 3.0
+	s.content_margin_right = 3.0
 	return s
 
 static func _double_rule() -> StyleBoxFlat:

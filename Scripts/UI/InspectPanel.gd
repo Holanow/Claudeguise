@@ -95,7 +95,7 @@ func _ready() -> void:
 	%TopRow.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	%Body.add_theme_constant_override("separation", int(Palette.SPACE_L))
 	%Title.text = HEADING
-	%Title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
+	AppTheme.as_heading(%Title)
 	%CloseButton.custom_minimum_size = Vector2(0.0, _TOUCH)
 	%CloseButton.pressed.connect(close)
 	%HowToPlay.text = HOW_TO_PLAY
@@ -1558,8 +1558,12 @@ func _cap_first(s: String) -> String:
 		return s
 	return s.substr(0, 1).to_upper() + s.substr(1)
 
+## Issue 807: a section header is the page's pre-printed column heading, so it
+## takes the printed voice rather than the clerk's.
 func _section_header(text: String) -> Control:
-	return _line(text, Palette.FONT_SIZE_BODY, Palette.INK)
+	var label := _line(text, Palette.FONT_SIZE_BODY, Palette.INK)
+	AppTheme.as_heading(label, Palette.FONT_SIZE_BODY)
+	return label
 
 func _line(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()

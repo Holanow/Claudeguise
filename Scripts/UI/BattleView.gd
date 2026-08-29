@@ -236,8 +236,8 @@ func _build_top_bar() -> void:
 	summary.offset_left = Palette.SPACE_M
 	summary.offset_top = _SUMMARY_ROW_TOP
 	hud.add_child(summary)
-	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER)
-	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY)
+	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER_INK)
+	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY_INK)
 
 	_party_label = Label.new()
 	_party_label.add_theme_color_override("font_color", Palette.INK)
@@ -255,6 +255,12 @@ func _build_top_bar() -> void:
 	_outcome_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	bar.add_child(_outcome_label)
+
+	## Issue 807: the toolbar and the header sit on the ledger's page, so they
+	## take the page's theme. `BattleView` itself does not -- the arena is under
+	## it and is not a page.
+	bar.theme = AppTheme.paper()
+	controls.theme = AppTheme.paper()
 
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"

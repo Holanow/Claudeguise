@@ -45,6 +45,11 @@ func _ready() -> void:
 	_build_roster()
 	_bind_ui()
 	_update_status()
+	## Issue 807: the two column titles are the page's pre-printed headings.
+	for path in ["Margin/Columns/LeftColumn/Title", "Margin/Columns/RightColumn/RoomLabel"]:
+		var title := get_node_or_null(path)
+		if title is Label:
+			AppTheme.as_heading(title)
 
 
 ## Issue 21b found this the moment the inspect screen tried to show a pawn's
@@ -182,11 +187,15 @@ func _fill_rooms() -> void:
 ## A bordered box, not a bare underline, so it reads as an editable field
 ## rather than a label — issue 17's "the seed control should look like
 ## something you can edit".
+## Issue 807: a field you write in is a ruled blank on the page, not a box.
+## README already keeps this one clear of the panel art for the same reason --
+## its edge is saying "type here" and that is information.
 func _seed_box_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Palette.PAPER_FIELD
+	style.bg_color.a = 0.4
 	style.border_color = Palette.INK_DIM
-	style.set_border_width_all(2)
+	style.border_width_bottom = 2
 	style.set_content_margin_all(Palette.SPACE_S)
 	return style
 
