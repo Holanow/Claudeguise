@@ -109,5 +109,8 @@ func _permits(class_id: StringName, item_id: StringName, why: String) -> void:
 	assert_true(ItemLibrary.get_equipment(item_id).allows_class(ClassLibrary.get_class_def(class_id)),
 		"%s should permit %s: %s" % [class_id, item_id, why])
 
+## One name per `EquipmentDef.Slot`. Three, against five slots, since #745 --
+## so every BODY and ACCESSORY message indexed out of bounds and printed a
+## SCRIPT ERROR on each gate run instead of the assertion's own text.
 func _slot_name(slot: int) -> String:
-	return ["weapon", "armor", "accessory"][slot]
+	return ["main hand", "off hand", "head", "body", "accessory"][slot]
