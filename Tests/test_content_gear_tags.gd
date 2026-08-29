@@ -84,18 +84,28 @@ func test_every_starting_piece_passes_its_own_gate() -> void:
 				"%s starts with %s and could not equip it" % [class_id, piece.id])
 
 
-## Issue 814 arm 3 fills `off_hand` and `accessory`, and the test above cannot
-## see either table while `FILL_EMPTY_SLOTS` is off -- a starter pawn's slots
-## come back null and the loop skips them. So the tables are read directly:
-## every class named, and every piece it names legal for that class.
-func test_the_slots_arm_3_would_fill_are_legal_for_every_class() -> void:
+## The table read directly rather than through a pawn, so a class missing from
+## it fails here instead of silently starting with an empty off hand.
+func test_the_off_hands_fill_empty_slots_would_give_are_legal_for_every_class() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var c := ClassLibrary.get_class_def(class_id)
-		for table in [PawnFactory.STARTING_OFF_HAND, PawnFactory.STARTING_ACCESSORY]:
-			assert_true(table.has(class_id), "%s is in no arm 3 table" % class_id)
-			var piece := ItemLibrary.get_equipment(table.get(class_id, &""))
-			assert_true(piece != null and piece.allows_class(c),
-				"%s would start with %s and could not equip it" % [class_id, table.get(class_id)])
+		var table := PawnFactory.STARTING_OFF_HAND
+		assert_true(table.has(class_id), "%s has no starting off hand" % class_id)
+		var piece := ItemLibrary.get_equipment(table.get(class_id, &""))
+		assert_true(piece != null and piece.allows_class(c),
+			"%s would start with %s and could not equip it" % [class_id, table.get(class_id)])
+
+## Issue 822: `accessory` must stay empty, because `FloorRun._wearable_ids`
+## filters every drop to a slot a living pawn can still fill and the censer is
+## the only accessory in the game. A pawn with nothing empty receives no loot.
+func test_filling_empty_slots_leaves_the_accessory_free_for_loot() -> void:
+	var was := PawnFactory.FILL_EMPTY_SLOTS
+	PawnFactory.FILL_EMPTY_SLOTS = true
+	for class_id in ClassLibrary.all_ids():
+		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, "x")
+		assert_true(pawn.off_hand != null, "%s got no off hand" % class_id)
+		assert_eq(pawn.accessory, null, "%s filled its accessory; loot has nowhere to land" % class_id)
+	PawnFactory.FILL_EMPTY_SLOTS = was
 
 
 ## Why issue 226 dressed the Abomination in a Gown and not in something chosen:

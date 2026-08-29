@@ -19,7 +19,7 @@ static func apply() -> String:
 		0:
 			RoomScale.MODE = RoomScale.Mode.OFF
 			PawnFactory.FILL_EMPTY_SLOTS = false
-			return "arm 0 -- BASELINE: the shipped floor, rooms as authored, two of five slots filled"
+			return "arm 0 -- BASELINE: rooms as authored, two of five slots filled"
 		1:
 			RoomScale.MODE = RoomScale.Mode.EVERY_ROOM
 			PawnFactory.FILL_EMPTY_SLOTS = false
@@ -33,10 +33,10 @@ static func apply() -> String:
 		3:
 			RoomScale.MODE = RoomScale.Mode.OFF
 			PawnFactory.FILL_EMPTY_SLOTS = true
-			return "arm 3 -- PAWNS START BETTER EQUIPPED: rooms as authored, off_hand and accessory filled"
+			return "arm 3 -- PAWNS START BETTER EQUIPPED: rooms as authored, off_hand filled, accessory left free for loot"
 		4:
 			RoomScale.MODE = RoomScale.Mode.EVERY_ROOM
 			PawnFactory.FILL_EMPTY_SLOTS = true
-			return "arm 1+3 -- NOT ONE OF THE THREE: both together, measured because a null needs a next step"
+			return "arm 1+3 -- BOTH TOGETHER: rooms scale to party AND off_hand filled (issue 822)"
 	printerr("--arm %d: there are arms 0, 1, 2, 3 and the 1+3 pair at 4" % arm)
 	return ""
