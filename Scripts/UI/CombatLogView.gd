@@ -166,6 +166,11 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				Palette.TEXT_DIM.to_html(), source_name, _action_name(e.action_id), target_name
 			]
 		CG.EventKind.HEAL:
+			## Issue 799: the between-room arrival heal has no caster, so it
+			## carries the same `source_id == -1` "nobody did this" mark the
+			## hazard branch above reads, and used to render "? heals X for 16".
+			if e.source_id == -1:
+				return "%s recovers %d on arrival" % [target_name, e.amount]
 			return "%s heals %s for %d" % [source_name, target_name, e.amount]
 		CG.EventKind.DEATH:
 			return _death_line(target, target_name)
