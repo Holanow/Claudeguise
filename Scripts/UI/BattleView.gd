@@ -1053,7 +1053,7 @@ func _start_floor_room() -> void:
 ## from the last room, via FloorRun.carry_into -- the same call
 ## Tools/FloorRuns.gd's headless sweep makes.
 func _carry_floor_condition() -> void:
-	FloorRun.carry_into(_floor_run, state, _floor_party)
+	FloorRun.carry_into(_floor_run, state, _floor_party, _floor_index)
 	# The units just built and drawn above assumed full health; refresh so a
 	# pawn carried in dead reads as dead on the very first frame of the room.
 	_curr_drawn = _drawn_snapshot()
