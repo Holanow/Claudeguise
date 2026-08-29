@@ -86,7 +86,7 @@ func _add_button(column: VBoxContainer, text: String, on_press: Callable) -> But
 
 func _rule() -> Control:
 	var rule := ColorRect.new()
-	rule.color = Palette.RULE_FEINT
+	rule.color = Palette.INK_FAINT
 	rule.custom_minimum_size = Vector2(0.0, 1.0)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rule

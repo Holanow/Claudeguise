@@ -31,6 +31,9 @@ func _ready() -> void:
 	_backdrop.color = Palette.PAPER_LEAF
 	_backdrop.color.a = SCRIM_ALPHA
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## Issue 825: full-bleed, an empty scrim is a blank parchment box sitting on
+	## the arena through the whole of placement, saying nothing.
+	_backdrop.visible = false
 	add_child(_backdrop)
 
 	_label = RichTextLabel.new()
@@ -73,10 +76,13 @@ func append_event(state: CombatState, event: CombatEvent) -> void:
 	var line := line_for_event(state, event)
 	if line != "" and _label != null:
 		_label.append_text(line + "\n")
+		_backdrop.visible = true
 
 func clear_log() -> void:
 	if _label != null:
 		_label.clear()
+	if _backdrop != null:
+		_backdrop.visible = false
 
 ## Issue 344. "(28 before mitigation)" told the player something huge had
 ## happened and refused to say what, and swift then measured (#362) that in
