@@ -19,7 +19,8 @@ func _init() -> void:
 	print("  parties      %d compositions of %d from %s" % [
 		PartySpec.compositions().size(), PartySpec.PARTY_SIZE, ClassLibrary.all_ids()])
 	print("  pawns        PawnFactory.make_preset_pawn (arm B, planned)")
-	print("  RoomScale    %s" % [RoomScale.Mode.keys()[RoomScale.MODE]])
+	print("  RoomScale    %s, NOT APPLIED -- this tool measures the authored room" % [
+		RoomScale.Mode.keys()[RoomScale.MODE]])
 	print("  fights       %d per room" % [PartySpec.compositions().size() * SEEDS])
 	print("  NOTE: the by-ability table is DIRECT HITS ONLY. DamageLedger routes")
 	print("        status damage to by_dot, printed separately under each room.")

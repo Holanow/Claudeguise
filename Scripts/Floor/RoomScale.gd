@@ -12,13 +12,15 @@ const AUTHORED_PARTY_SIZE := 5
 ## What a room holds when it is one of the outliers this floor over-authored.
 const OUTLIER_COUNT := 10
 
-## OFF is the shipped floor. EVERY_ROOM scales every room by the party's share
-## of `AUTHORED_PARTY_SIZE`; OUTLIER_ROOMS applies the same factor to the
-## ten-enemy rooms alone and leaves the rest authored. One factor across both,
-## so neither arm is a number chosen to move a win rate.
+## EVERY_ROOM scales every room by the party's share of `AUTHORED_PARTY_SIZE`;
+## OUTLIER_ROOMS applies the same factor to the ten-enemy rooms alone and
+## leaves the rest authored. One factor across both, so neither arm is a number
+## chosen to move a win rate.
 enum Mode { OFF, EVERY_ROOM, OUTLIER_ROOMS }
 
-static var MODE := Mode.OFF
+## Issue 822: EVERY_ROOM is the shipped floor. `Tools/ArmArgs.gd` still sets
+## this per arm, so a sweep measures the arm it names rather than the default.
+static var MODE := Mode.EVERY_ROOM
 
 ## A copy, never the argument: `RoomLibrary._rooms` is a cache and `get_room`
 ## hands out the entry itself, so a trim in place would follow every later

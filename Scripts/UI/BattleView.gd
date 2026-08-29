@@ -562,7 +562,8 @@ func _build_room_picker(banner: Control) -> Control:
 		b.custom_minimum_size = Vector2(ROOM_PICKER_WIDTH, Palette.TOUCH_TARGET_MIN)
 		b.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		b.clip_text = true
-		b.tooltip_text = PartySelect.room_summary(id)
+		b.tooltip_text = PartySelect.room_summary(
+			id, config.party.size() if config != null else 0)
 		b.set_script(GlossaryButton)
 		var room_id: StringName = id
 		b.pressed.connect(func(): room_requested.emit(room_id))
@@ -945,8 +946,13 @@ static func compute_layout(size: Vector2) -> Dictionary:
 		"scale": Vector2(scale_factor, scale_factor),
 	}
 
+## Issue 822: the room is scaled to the party actually present here, at the
+## registry lookup, and never inside `begin_with_encounter` -- `RoomScale.scaled`
+## is not idempotent, and every tool that hands this view its own encounter
+## would be trimmed a second time.
 func begin(cfg: RunConfig) -> void:
-	begin_with_encounter(cfg, RoomLibrary.get_room(cfg.encounter_id))
+	begin_with_encounter(cfg, RoomScale.scaled(
+		RoomLibrary.get_room(cfg.encounter_id), cfg.party.size()))
 
 ## Split out of `begin()` so a caller with an in-memory `Encounter` and no
 ## registered `encounter_id` -- deploy placement, tools, probes -- can skip the
@@ -1064,7 +1070,8 @@ func _start_floor_room() -> void:
 	cfg.party = _floor_party
 	cfg.encounter_id = room_id
 	cfg.seed = _floor_room_seed(room_id)
-	begin_with_encounter(cfg, RoomLibrary.get_room(room_id))
+	begin_with_encounter(cfg, RoomScale.scaled(
+		RoomLibrary.get_room(room_id), _floor_party.size()))
 	_carry_floor_condition()
 	setup = false
 	set_paused(false)

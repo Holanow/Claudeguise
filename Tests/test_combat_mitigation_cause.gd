@@ -258,8 +258,11 @@ func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
 ## entirely its own toughness and the named cause has to say so. Rewritten
 ## rather than deleted: what this always guarded is that the cause names the
 ## larger source, and CON is the source that still exists.
+## Issue 822 pins the off hand off: a starter Warrior now carries a shield, and
+## this is about what the body armour does.
 func test_the_warriors_mitigation_is_all_toughness_now() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
+	pawn.off_hand = null
 	assert_not_null(pawn.body, "the warrior must still start in armour")
 	assert_eq(pawn.body.damage_reduction, 0.0,
 		"issue 489: plate grants Directional Block and absorbs nothing")
@@ -272,7 +275,18 @@ func test_the_warriors_mitigation_is_all_toughness_now() -> void:
 		"plate is still moving the number, so something numeric survived the ruling")
 	assert_true(with_plate > 0.0, "a Warrior with 14 CON must still mitigate something")
 	u.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
+	u.pawn.off_hand = null
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.TOUGHNESS)
+
+## Issue 822: a starter Warrior carries a shield, whose 0.15 beats its own
+## toughness, so ARMOR is what the log now names for the pawn the player plays.
+## Asserted rather than left implicit, because the test above deliberately
+## takes the shield off to ask its own question.
+func test_a_starter_warriors_cause_is_its_shield_not_its_toughness() -> void:
+	var u := CombatUnit.new()
+	u.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
+	assert_not_null(u.pawn.off_hand, "a starter Warrior must carry its shield")
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.ARMOR)
 
 ## And the ARMOR branch is reachable, so the enum value is not dead: give a pawn
 ## armour heavier than its own toughness and the cause says so.

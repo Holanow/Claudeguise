@@ -48,6 +48,9 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var depths: Array[int] = []
 	var camp_unused := 0
 	var drops := 0
+	## Issue 822: the count alone cannot tell a working loot loop from four
+	## no-op censers, which is what filling `off_hand` leaves droppable.
+	var dropped := {}
 	## Issue 814: survivor count is the only narrowness axis a clear has, so a
 	## clear that has to be read as "by the skin of their teeth" is reported by
 	## how many of the four are still standing, not only that it happened.
@@ -93,10 +96,12 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			_final_state_lines(detail, s, party, last_state,
 				depths[depths.size() - 1], walk.size(), wiped)
 		drops += run.loot.size()
+		for item in run.loot:
+			dropped[item.id] = int(dropped.get(item.id, 0)) + 1
 		if not run.revive_used:
 			camp_unused += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths,
-		"camp_unused": camp_unused, "drops": drops, "party": ids.size(),
+		"camp_unused": camp_unused, "drops": drops, "dropped": dropped, "party": ids.size(),
 		"clear_survivors": clear_survivors, "detail": detail}
 
 ## Issue 817, and this is the whole of what `ClearedFinalState.gd` did. It reads
@@ -143,6 +148,7 @@ func _report(label: String, r: Dictionary) -> void:
 	## so items found and items worn are the same number by construction.
 	print("  loot: %d items found and worn across %d runs (%.2f a run)" % [
 		r.drops, SEEDS, float(r.drops) / SEEDS])
+	print("    what dropped: %s" % _dropped_line(r.dropped))
 	_report_depth(r.depths, r.cleared)
 	_report_survivors(r.clear_survivors, int(r.party))
 	var detail: Array = r.detail
@@ -154,6 +160,20 @@ func _report(label: String, r: Dictionary) -> void:
 			for line in detail:
 				print(line)
 	print("")
+
+## Issue 822: which items the drops actually were. A loot line near baseline
+## made of one no-op accessory is not a working loot loop, and the count alone
+## reads the same in both cases.
+func _dropped_line(dropped: Dictionary) -> String:
+	if dropped.is_empty():
+		return "nothing"
+	var ids: Array = dropped.keys()
+	ids.sort_custom(func(a, b): return dropped[a] > dropped[b] or \
+		(dropped[a] == dropped[b] and String(a) < String(b)))
+	var parts := PackedStringArray()
+	for id in ids:
+		parts.append("%s x%d" % [String(id), dropped[id]])
+	return ", ".join(parts)
 
 ## Issue 814: #802 measured that a run cannot finish in the red while The
 ## Warden leaves an intact party at 93% health, so this is the only axis a

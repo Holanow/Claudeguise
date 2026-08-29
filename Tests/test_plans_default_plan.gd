@@ -158,7 +158,9 @@ func test_dual_wields_false_for_a_focus() -> void:
 
 func test_dual_wields_false_with_an_empty_off_hand() -> void:
 	var pawn := _pawn(&"warrior")
-	assert_eq(pawn.off_hand, null)
+	## Issue 822: a starter Warrior now carries a shield, so the empty off hand
+	## this is named for has to be built rather than assumed.
+	pawn.off_hand = null
 	assert_false(DefaultPlan.dual_wields(pawn))
 
 func test_dual_wields_false_with_no_pawn() -> void:

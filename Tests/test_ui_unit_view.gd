@@ -748,23 +748,27 @@ func test_a_unit_that_has_not_looked_anywhere_yet_keeps_its_starting_pose() -> v
 ## A real fight, because the assertions above are about a function and this is
 ## about whether the fight ever disagrees with the old rule at all. If it never
 ## did, the change would be untestable churn and worth saying so.
+##
+## Issue 822: three seeds, not one. On one seed this disagreed twice in 2,380
+## unit-ticks, so any change to the simulation could flip it -- and one did.
 func test_a_real_fight_turns_units_the_old_rule_would_have_drawn_backwards() -> void:
 	var CombatSim := load("res://Scripts/Combat/CombatSim.gd")
 	var PawnFactory := load("res://Scripts/Content/PawnFactory.gd")
-	var party: Array[PawnDataScript] = []
-	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
-		party.append(PawnFactory.make_starter_pawn(id, id, ClassLibrary.get_class_def(id).display_name))
-	var state = CombatSim.build(party, RoomLibrary.get_room(&"floor1_rat_king"), 3)
 	var disagreed := 0
 	var looked := 0
-	while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:
-		CombatSim.step(state)
-		for u in state.units:
-			if not u.alive or u.facing == Vector2.ZERO:
-				continue
-			looked += 1
-			if UnitView.facing_left(u) != (u.team == CG.Team.ENEMY):
-				disagreed += 1
+	for seed_value in [3, 4, 5]:
+		var party: Array[PawnDataScript] = []
+		for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
+			party.append(PawnFactory.make_starter_pawn(id, id, ClassLibrary.get_class_def(id).display_name))
+		var state = CombatSim.build(party, RoomLibrary.get_room(&"floor1_rat_king"), seed_value)
+		while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < 600:
+			CombatSim.step(state)
+			for u in state.units:
+				if not u.alive or u.facing == Vector2.ZERO:
+					continue
+				looked += 1
+				if UnitView.facing_left(u) != (u.team == CG.Team.ENEMY):
+					disagreed += 1
 	assert_true(looked > 0, "no unit in the whole fight ever acquired a facing, so this saw nothing")
 	assert_true(disagreed > 0,
 		("in %d unit-ticks with a real facing, none disagreed with the team rule -- " +

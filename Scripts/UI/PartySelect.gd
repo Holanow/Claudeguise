@@ -244,6 +244,10 @@ func toggle_pawn(pawn: PawnData, selected: bool) -> void:
 	if _cards.has(pawn.id):
 		_cards[pawn.id].selected = _selected.has(pawn)
 	_update_status()
+	## Issue 822: the room's count is derived from the party, so it goes stale
+	## the moment the party changes. Picking the room first and the party second
+	## is the ordinary order and it left the authored ten on screen.
+	_refresh_room_summary()
 
 func selected_pawns() -> Array[PawnData]:
 	return _selected.duplicate()
@@ -370,16 +374,20 @@ static func offered_rooms() -> Array[StringName]:
 func _refresh_room_summary() -> void:
 	if _room_summary == null:
 		return
-	_room_summary.text = room_summary(selected_room())
+	_room_summary.text = room_summary(selected_room(), _selected.size())
 
 ## Derived from the `Encounter`, never authored beside it. A hand-written blurb
 ## is a second artifact that goes quietly false the day somebody moves a pillar;
 ## this cannot, because it is counting the real thing the fight will use.
-static func room_summary(id: StringName) -> String:
+## Issue 822: `party_size` 0 means "as authored" -- a caller with no party yet
+## has no scaled count to show. Anything else is the count that party will meet.
+static func room_summary(id: StringName, party_size: int = 0) -> String:
 	var room = RoomLibrary.get_room(id)
 	if room == null:
 		return ""
-	var parts: Array[String] = ["%d enemies" % room.enemy_spawns.size()]
+	var enemies: int = room.enemy_spawns.size() if party_size <= 0 \
+		else RoomScale.count_for(room, party_size)
+	var parts: Array[String] = ["%d enemies" % enemies]
 	var counts := {}
 	for cell in room.cells.values():
 		counts[cell.kind] = int(counts.get(cell.kind, 0)) + 1
