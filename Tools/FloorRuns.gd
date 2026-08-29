@@ -30,7 +30,7 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 	var depths: Array[int] = []
 	var camp_unused := 0
 	for s in range(SEEDS):
-		var room_ids := FloorSequence.build(s)
+		var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
 		var party := _make_party(class_ids, planned)
 		var run := FloorRun.new()
 		var wiped := false

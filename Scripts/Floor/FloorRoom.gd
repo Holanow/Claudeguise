@@ -1,10 +1,9 @@
 extends RefCounted
 class_name FloorRoom
 
-## One room in a generated floor's graph. Says what kind of room this is and
-## what it connects to; never what it contains. `Scripts/Content/**` fills a
-## room in from `type` and `difficulty` -- a FloorRoom says "this is an enemy
-## room with difficulty 3", never which enemies.
+## One room in a generated floor. Says where it sits on the grid and which
+## authored room scene fills it. It never lists what it connects to: adjacency
+## on the grid IS the connection, and `FloorPlan.neighbours_of` derives it.
 
 enum Type {
 	ENEMY,
@@ -22,10 +21,11 @@ var id: int = -1
 
 var type: Type = Type.ENEMY
 
-## Room ids this one connects to. Symmetric: if a connects to b, b connects
-## to a. A room graph, not a directed one -- nothing in this slice needs a
-## one-way door.
-var connections: Array[int] = []
+## Grid cell. +x is east, +y is south, matching screen coordinates.
+var cell: Vector2i = Vector2i.ZERO
+
+## The authored room scene this cell holds -- a `RoomLibrary` id.
+var content_id: StringName = &""
 
 ## Content-agnostic difficulty knob. What it means is entirely
 ## Scripts/Content/'s call; FloorRoom only carries the number.

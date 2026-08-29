@@ -6,7 +6,6 @@ extends Node
 
 const SCENE_PARTY_SELECT := "res://Scenes/PartySelect.tscn"
 const SCENE_BATTLE := "res://Scenes/Battle.tscn"
-const SCENE_FLOOR_MAP := "res://Scenes/FloorMap.tscn"
 
 var run_config: RunConfig = null
 var _current: Node = null
@@ -136,18 +135,18 @@ func fight_room(encounter_id: StringName) -> void:
 	next.encounter_id = encounter_id
 	start_battle(next)
 
-## Issue 729: one floor, ten rooms run back to back in the same BattleView --
-## no map, no picker, no rewards screen between rooms. `FloorSequence.build`
-## is the whole floor's order, deterministic from `config.seed`.
+## Issue 804: one floor, ten rooms scattered over a grid and run back to back
+## in the same BattleView -- no map, no picker, no rewards screen between rooms.
+## `FloorGenerator.generate` is the whole floor, deterministic from `config.seed`.
 func start_run(config: RunConfig) -> void:
 	run_config = config
-	var room_ids := FloorSequence.build(config.seed)
+	var plan := FloorGenerator.generate(config.seed)
 	_swap_to(SCENE_BATTLE, func(screen):
 		screen.back_requested.connect(show_party_select)
-		screen.restart_requested.connect(func(): screen.begin_floor(config, room_ids))
+		screen.restart_requested.connect(func(): screen.begin_floor(config, plan))
 		screen.room_requested.connect(fight_room)
 		screen.floor_ended.connect(func(_victory: bool): show_party_select())
-		screen.begin_floor(config, room_ids)
+		screen.begin_floor(config, plan)
 	)
 
 func _swap_to(scene_path: String, wire: Callable) -> void:
