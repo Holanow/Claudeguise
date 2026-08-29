@@ -1097,6 +1097,13 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	e.amount_absorbed = soaked
 	if mitigated + soaked < e.amount_before_mitigation:
 		e.mitigation_cause = deps.damage_reduction_cause.call(target)
+		## Issue 766: SHIELD and BLOCK are the two causes a cast raises. The
+		## status carries which action applied it; TOUGHNESS, ARMOR, HIDE and
+		## RAISED_SHIELD belong to no cast and are left unattributed.
+		if e.mitigation_cause == CG.MitigationCause.SHIELD:
+			e.mitigation_source_action = target.status_source_action.get(CG.Status.SHIELD, &"")
+		elif e.mitigation_cause == CG.MitigationCause.BLOCK:
+			e.mitigation_source_action = target.status_source_action.get(CG.Status.BLOCK, &"")
 	e.damage_type = action.damage_type
 	state.emit(e)
 	_on_damage_taken(state, target, applied, deps)
@@ -1162,6 +1169,7 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	target.statuses[status] = state.tick + fx.duration_ticks
 	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
 	target.status_source[status] = caster.id
+	target.status_source_action[status] = action.id
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = fx.taunt_radius
 		_broadcast_taunt(state, target, fx.duration_ticks)
@@ -1195,6 +1203,7 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 	unit.statuses.erase(status)
 	unit.status_magnitude.erase(status)
 	unit.status_source.erase(status)
+	unit.status_source_action.erase(status)
 	if status == CG.Status.TAUNTING:
 		unit.taunt_radius = 0.0
 	elif status == CG.Status.SUSTAINING:
