@@ -93,7 +93,7 @@ func _build() -> void:
 	column.add_child(buttons)
 
 	_plans_button = Button.new()
-	_plans_button.text = "Plans"
+	_plans_button.text = "Plans & Equipment"
 	_plans_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	_plans_button.pressed.connect(func(): plans_requested.emit())
 	buttons.add_child(_plans_button)

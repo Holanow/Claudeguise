@@ -71,7 +71,8 @@ func test_the_log_is_not_a_screen_sized_click_target() -> void:
 	view.free()
 
 ## The end card offered "Inspect party" for the screen the toolbar calls
-## "Plans", and the playtester never connected the two.
+## "Plans", and the playtester never connected the two. Issue 741: the button
+## now opens Plans and Equipment as one popout, and its name says both.
 func test_the_end_card_calls_the_plans_screen_what_the_toolbar_calls_it() -> void:
 	var view = _spawn()
 	_resolved(view)
@@ -79,7 +80,7 @@ func test_the_end_card_calls_the_plans_screen_what_the_toolbar_calls_it() -> voi
 	for n in _walk(view._end_banner):
 		if n is Button:
 			labels.append(n.text)
-	assert_true(labels.has("Plans"), "the end card's buttons are %s" % [labels])
+	assert_true(labels.has("Plans & Equipment"), "the end card's buttons are %s" % [labels])
 	assert_false(labels.has("Inspect party"),
 		"two names for one screen is what stopped the playtester finding it")
 	view.free()

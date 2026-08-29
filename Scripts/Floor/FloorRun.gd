@@ -69,6 +69,7 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 	for i in party.size():
 		var unit := state.unit(i)
 		var pawn_id: StringName = party[i].id
+		_commit_staged_plan(party[i])
 		if not run.is_alive(pawn_id):
 			unit.alive = false
 			unit.hp = 0
@@ -76,6 +77,19 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
 		_apply_arrival_heal(state, unit)
+
+## Issue 741: a plan edited while its owner's fight was running lands in
+## `staged_plans` rather than `plans`, so the fight it started in stays
+## reproducible. This is the commit point -- room arrival, the same moment hp
+## and resource already carry across. A dead pawn's edits commit too: `plans`
+## is what the next fight it joins will read, regardless of this one's result.
+static func _commit_staged_plan(pawn: PawnData) -> void:
+	if not pawn.plans_staged:
+		return
+	pawn.plans = pawn.staged_plans
+	pawn.staged_plans = []
+	pawn.plans_staged = false
+	pawn.plans_edited = false
 
 ## Living pawn only, no revive: `carry_into` already set dead units aside
 ## above and this never runs on one. A pawn already at max hp emits nothing,

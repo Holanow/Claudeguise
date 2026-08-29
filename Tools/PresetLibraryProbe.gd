@@ -228,8 +228,9 @@ func _fight(select, pawn, added) -> void:
 	await _wide(battle, pawn)
 	_finished = true
 
-## The other screen the library appears on: the full-width Plans panel a player
-## opens off a unit card mid-fight, where the row keeps its three columns.
+## The other screen the library appears on: issue 741's narrow tabbed popout a
+## player opens off a unit card mid-fight. Narrow rather than full-width now --
+## the popout replaces the old full-screen editor there on purpose.
 func _wide(battle, pawn) -> void:
 	for u in battle.state.units:
 		if u.pawn != pawn:
@@ -241,15 +242,15 @@ func _wide(battle, pawn) -> void:
 		return
 	if not await _click_control(plans[0], "Plans"):
 		return
-	var panel = battle._inspect_panel
-	_check(panel != null and panel.is_visible_in_tree(), "the full-width Plans panel opened")
-	if panel == null:
+	var popout = battle._inspect_panel
+	_check(popout != null and popout.is_visible_in_tree(), "the Plans & Equipment popout opened")
+	if popout == null:
 		return
-	var open_button := _buttons(panel, "Library (")
-	_check(open_button.size() == 1, "the library button is on the wide screen too")
+	var open_button := _buttons(popout, "Library (")
+	_check(open_button.size() == 1, "the library button is on the popout too")
 	if open_button.is_empty():
 		return
 	if not await _click_control(open_button[0], open_button[0].text):
 		return
-	_check(_buttons(panel, InspectPanel.LIBRARY_ADD).size() > 0, "and it opens there")
+	_check(_buttons(popout, InspectPanel.LIBRARY_ADD).size() > 0, "and it opens there")
 	await _shot("wren_412_library_wide")
