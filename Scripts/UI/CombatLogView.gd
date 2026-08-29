@@ -6,13 +6,17 @@ class_name CombatLogView
 ## showing.
 
 ## Screen-space, not world-space, so neither scales with the arena.
-const LOG_WIDTH := 260.0
-const LOG_HEIGHT := 200.0
+const LOG_WIDTH := 300.0
+const LOG_HEIGHT := 190.0
 const LOG_MARGIN := -20.0
+
+## Issue 825: a chatbox over the fight rather than a panel beside it. The scrim
+## stays because every line the log writes is dark ink, chosen in `line_for_event`
+## against parchment; dropped onto the arena those colours are unreadable.
+const SCRIM_ALPHA := 0.58
 
 var _label: RichTextLabel = null
 var _backdrop: ColorRect = null
-var _seam: ColorRect = null
 var _landscape := true
 
 func _ready() -> void:
@@ -25,21 +29,20 @@ func _ready() -> void:
 
 	_backdrop = ColorRect.new()
 	_backdrop.color = Palette.PAPER_LEAF
-	_backdrop.color.a = 0.72
+	_backdrop.color.a = SCRIM_ALPHA
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop)
-
-	# Left open when issue 15 merged: the arena's own boundary (ArenaFloor)
-	_seam = ColorRect.new()
-	_seam.color = Palette.INK_DIM
-	_seam.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_seam)
 
 	_label = RichTextLabel.new()
 	_label.bbcode_enabled = true
 	_label.scroll_following = true
 	_label.clip_contents = true
 	_label.add_theme_color_override("default_color", Palette.INK)
+	## Padding inside the scrim rather than a smaller rect, so the box the log
+	## occupies is still exactly LOG_WIDTH by LOG_HEIGHT.
+	var pad := StyleBoxEmpty.new()
+	pad.set_content_margin_all(Palette.SPACE_S)
+	_label.add_theme_stylebox_override("normal", pad)
 	add_child(_label)
 
 	_apply_orientation()
@@ -58,14 +61,13 @@ func set_landscape(landscape: bool) -> void:
 ## landscape branch carried is gone with the full-height column it belonged to:
 func _apply_orientation() -> void:
 	var preset := Control.PRESET_BOTTOM_RIGHT if _landscape else Control.PRESET_BOTTOM_WIDE
-	for node in [_backdrop, _seam, _label]:
+	for node in [_backdrop, _label]:
 		# set_anchors_preset resets the offsets, so they go on afterwards.
 		node.set_anchors_preset(preset)
 		node.offset_top = LOG_MARGIN - LOG_HEIGHT
 		node.offset_bottom = LOG_MARGIN
 		node.offset_left = LOG_MARGIN - LOG_WIDTH if _landscape else 0.0
 		node.offset_right = LOG_MARGIN if _landscape else 0.0
-	_seam.offset_bottom = _seam.offset_top + 2.0
 
 func append_event(state: CombatState, event: CombatEvent) -> void:
 	var line := line_for_event(state, event)
