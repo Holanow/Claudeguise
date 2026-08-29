@@ -49,6 +49,14 @@ var alive: bool = true
 var pull_ticks_left: int = 0
 var pull_step: Vector2 = Vector2.ZERO
 
+## Issue 830: a throw in flight, the same shape as the drag above. AIRBORNE is
+## what authorises it, and `throw_action` is the action whose landing goes off
+## when the flight ends.
+var throw_ticks_left: int = 0
+var throw_step: Vector2 = Vector2.ZERO
+var throw_action: StringName = &""
+var throw_source_id: int = -1
+
 ## Set by the decision layer, consumed by the simulation on the same tick.
 ##
 var intent: Intent = null

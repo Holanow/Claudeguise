@@ -109,6 +109,8 @@ static func status_text(s: CG.Status) -> String:
 		## Issue 61. No number, and for a different reason from the others above:
 		CG.Status.SUSTAINING:
 			return "This unit is holding an action open. It pays that action's cost every tick, and stops when its plan chooses something else or it can no longer pay."
+		CG.Status.AIRBORNE:
+			return "Thrown, and still in the air. It cannot move of its own volition and cannot act until it lands, and it takes hits normally the whole way."
 		_:
 			return ""
 

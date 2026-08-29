@@ -41,6 +41,8 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Actions/stalker_mark.tres",
 	"res://Scripts/Content/Actions/warden_axe.tres",
 	"res://Scripts/Content/Actions/warden_chain_toss.tres",
+	"res://Scripts/Content/Actions/warden_throw.tres",
+	"res://Scripts/Content/Actions/warden_throw_impact.tres",
 	"res://Scripts/Content/Actions/warrior_block.tres",
 	"res://Scripts/Content/Actions/warrior_execute.tres",
 	"res://Scripts/Content/Actions/warrior_guard.tres",
