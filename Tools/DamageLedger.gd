@@ -19,6 +19,11 @@ class Ledger:
 	var fires: Dictionary = {}        # team -> {action_id -> {count}}
 	## Keyed by the TARGET's team: whether armour on that side did anything.
 	var mitigation: Dictionary = {}   # team -> {before, after, absorbed, dealt, cause: {}}
+	## Issue 766. Prevented damage attributed to the cast that raised the
+	## status doing the preventing (Guard, Ward), keyed by the CASTER's team,
+	## which is always the mitigated unit's own team -- both actions land on
+	## self or an ally.
+	var prevented: Dictionary = {}    # team -> {action_id -> {total}}
 
 	func _row(dict: Dictionary, team: int, key, fields: Dictionary) -> Dictionary:
 		if not dict.has(team):
@@ -59,6 +64,9 @@ static func build(state: CombatState) -> Ledger:
 				if e.mitigation_cause != CG.MitigationCause.NONE:
 					m.cause[e.mitigation_cause] = int(m.cause.get(e.mitigation_cause, 0)) + \
 						(e.amount_before_mitigation - e.amount_after_mitigation)
+				if e.mitigation_source_action != &"":
+					var pv := l._row(l.prevented, target.team, e.mitigation_source_action, {"total": 0})
+					pv.total += e.amount_before_mitigation - e.amount_after_mitigation
 		elif source != null:
 			var st := l._row(l.by_dot, source.team, e.status, {"total": 0, "ticks": 0})
 			st.total += e.amount
@@ -77,6 +85,7 @@ static func merge(ledgers: Array) -> Ledger:
 		_merge_counts(out.by_dot, l.by_dot, ["total", "ticks"])
 		_merge_counts(out.by_type, l.by_type, ["dealt", "taken"])
 		_merge_counts(out.fires, l.fires, ["count"])
+		_merge_counts(out.prevented, l.prevented, ["total"])
 		for team in l.mitigation:
 			var src: Dictionary = l.mitigation[team]["totals"]
 			var dst := out._mit(team)
@@ -118,6 +127,25 @@ static func top_sources(l: Ledger, team: int, limit: int) -> Array[Dictionary]:
 ## Empty when no direct hit ever landed on `team`.
 static func mitigation_summary(l: Ledger, team: int) -> Dictionary:
 	return l.mitigation.get(team, {}).get("totals", {})
+
+## Issue 766. Guard and Ward read 0 damage, N casts in `by_ability` -- correct
+## and useless. This is the table that answers "was casting it worth it":
+## dealt (from `by_ability`, 0 for a pure-defensive cast), prevented and casts
+## (from `fires`, since a cast that never mitigated still happened) for every
+## action that has ever prevented damage on `team`, highest prevented first.
+static func prevented_summary(l: Ledger, team: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for id in l.prevented.get(team, {}):
+		var dealt := int(l.by_ability.get(team, {}).get(id, {}).get("total", 0))
+		var casts := int(l.fires.get(team, {}).get(id, {}).get("count", 0))
+		out.append({
+			"name": ability_name(id),
+			"dealt": dealt,
+			"prevented": l.prevented[team][id].total,
+			"casts": casts,
+		})
+	out.sort_custom(func(a, b): return a.prevented > b.prevented)
+	return out
 
 ## An ability that fired and can deal damage (a non-healing `HitEffect` in its
 ## own `effects`) but landed zero total across the whole run -- the

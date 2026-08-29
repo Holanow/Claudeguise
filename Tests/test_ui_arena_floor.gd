@@ -14,19 +14,11 @@ func test_arena_node_carries_the_floor_script() -> void:
 	var arena := battle.get_node("Arena")
 	assert_eq(arena.get_script(), ArenaFloor, "Arena must draw the floor in the same local space _layout_arena scales")
 
-## Issue 26 item 1: a fight built without terrain (CombatState.terrain is
-## empty by default) must draw exactly as it always has — nothing new
-## required from teal's 13b before this is safe to merge.
-func test_terrain_defaults_to_empty() -> void:
-	var arena := ArenaFloor.new()
-	assert_true(arena.terrain.is_empty())
-	arena.free()
-
-## begin() hands CombatState.terrain to the Arena node directly, not a copy
-## or a re-derived version — one source of truth, same reasoning as the
-## rectangle itself. Needs real Registry content (a real encounter to build
-## against), so this is a no-op rather than a false pass while empty.
-func test_begin_wires_the_states_terrain_onto_the_arena() -> void:
+## begin() hands CombatState.grid to the Arena node directly, not a copy or a
+## re-derived version — one source of truth, same reasoning as the rectangle
+## itself. Needs real Registry content (a real encounter to build against),
+## so this is a no-op rather than a false pass while empty.
+func test_begin_wires_the_states_grid_onto_the_arena() -> void:
 	var encounter_ids := RoomLibrary.all_ids()
 	var class_ids := ClassLibrary.all_ids()
 	if encounter_ids.is_empty() or class_ids.is_empty():

@@ -36,9 +36,11 @@ display_name = "Siege Engine"
 hp_max = 140
 move_speed = 0.0
 radius = 30.0
+damage_reduction = 0.9
 attack_power = {
-0: 16
+0: 90
 }
+bleeds = false
 actions = Array[StringName]([&"siege_engine_bolt"])
 display_tags = Array[String](["Ranged", "Construct"])
 plans = Array[ExtResource("2_sepln")]([SubResource("Resource_sepln1")])

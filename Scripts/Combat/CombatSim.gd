@@ -131,6 +131,7 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource = u.resource_max
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
+	u.bleeds = enemy_def.bleeds
 	u.actions = enemy_def.actions.duplicate()
 	u.enemy_plans = enemy_def.plans.duplicate()
 	return u
@@ -656,6 +657,10 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		e.status = status
 		state.emit(e)
+		## Issue 759: BLEED landing is the one hook a bleeding unit leaves blood
+		## from. Terrain fuses pools the same way water's do.
+		if status == CG.Status.BLEED and unit.bleeds:
+			_leave_blood(state, source, [TerrainGrid.cell_of(unit.position)])
 		if _kill_if_dead(state, unit, source, &""):
 			return
 
@@ -708,9 +713,13 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 	if not has_beats:
 		state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, unit.id, unit.focus_id, action.id))
 
-	var summon := action.summon_effect()
-	if summon != null:
-		_spawn_summon(state, unit, action, summon, deps)
+	## Issue 757: composition is by listing, same as every other effect kind,
+	## but `summon_effect()` only ever returns the first match -- so a second
+	## or third `SummonEffect` in the array needs its own loop here rather
+	## than the singular getter the cap check (`max_active_summons`) still uses.
+	for fx in action.effects:
+		if fx is SummonEffect:
+			_spawn_summon(state, unit, action, fx, deps)
 
 	if action.sustain != null:
 		_begin_sustain(state, unit, action)
@@ -889,6 +898,50 @@ static func _paint_cells(state: CombatState, caster: CombatUnit, action: ActionD
 		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
 			Terrain.Kind.WATER, _bounds(wetted), CG.TerrainChange.CAST)
 
+## Issue 759: eats the ground of `fx.kind` under the caster, healing a fraction
+## of max hp. Does nothing on the wrong ground -- the row that fires this is
+## free to find no blood there and simply waste its turn, the same as any
+## other plan row can.
+static func _consume_ground(state: CombatState, unit: CombatUnit, fx: ConsumeGroundEffect) -> void:
+	var c := TerrainGrid.cell_of(unit.position)
+	var cell = state.grid.at(c)
+	if cell == null or cell.kind != fx.kind:
+		return
+	state.grid.clear_cell(TerrainGrid.Layer.EFFECTS, c)
+	if fx.heal_fraction_of_max_hp <= 0.0:
+		return
+	var amount := int(round(float(unit.hp_max) * fx.heal_fraction_of_max_hp))
+	var before := unit.hp
+	unit.hp = mini(unit.hp_max, unit.hp + amount)
+	var applied := unit.hp - before
+	if applied <= 0:
+		return
+	var e := _event(CG.EventKind.HEAL, state.tick, unit.id, unit.id, &"")
+	e.amount = applied
+	state.emit(e)
+
+## Issue 759: blood, from a bleeding hit or a rat's death. Skipped on already-
+## bloody ground and on a HAZARD cell -- blood is not a second way to put a
+## fire out, which stays water's alone. EFFECTS layer, same as a water pool:
+## the fire pit underneath is never touched.
+static func _leave_blood(state: CombatState, source_id: int, cells: Array[Vector2i]) -> void:
+	var blood := TerrainGrid.Cell.new()
+	blood.kind = Terrain.Kind.BLOOD
+	var pooled: Array[Vector2i] = []
+	for c in cells:
+		var was = state.grid.at(c)
+		if was != null and (was.kind == Terrain.Kind.BLOOD or was.kind == Terrain.Kind.HAZARD):
+			continue
+		pooled.append(c)
+		state.grid.stamp_rect(TerrainGrid.Layer.EFFECTS, TerrainGrid.rect_of(c), blood)
+	if pooled.is_empty():
+		return
+	var e := _event(CG.EventKind.TERRAIN_ADDED, state.tick, source_id, -1, &"")
+	e.terrain_kind = Terrain.Kind.BLOOD
+	e.terrain_rect = _bounds(pooled)
+	e.terrain_change = CG.TerrainChange.CAST
+	state.emit(e)
+
 ## The one rectangle covering a run of cells, for an event that has always
 ## carried a rect and whose readers only draw it.
 static func _bounds(cells: Array[Vector2i]) -> Rect2:
@@ -1035,6 +1088,8 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 			_apply_pull(state, unit, target, action, fx)
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
+		elif fx is ConsumeGroundEffect:
+			_consume_ground(state, unit, fx)
 
 	## Issue 632: statuses an ITEM adds to a landed hit. After the action's own
 	## effects, so an item can never pre-empt what the ability itself does, and
@@ -1063,7 +1118,7 @@ static func _apply_hit(state: CombatState, unit: CombatUnit, target: CombatUnit,
 		## Without this the block emits a 0-damage DAMAGE event on the ally it is
 		## protecting, which reads in the log as the Warrior attacking it.
 		return 0
-	return _apply_damage(state, unit, target, action, bonus, deps, onto_shield)
+	return _apply_damage(state, unit, target, action, bonus, deps, fx, onto_shield)
 
 ## The heal half. `applied` is what the health bar actually moved, so a heal on
 ## a target already at full emits nothing rather than a HEAL of 0.
@@ -1079,11 +1134,19 @@ static func _apply_heal(state: CombatState, unit: CombatUnit, target: CombatUnit
 	e.damage_type = action.damage_type
 	state.emit(e)
 
+## Issue 772. Pre-mitigation power of one hit. `fx.caster_max_hp_percent`
+## leans on the CASTER's own max hp (Immolate); everything else still leans
+## on `deps.attack_power`, which is `power_scale` against an attack stat.
+static func _hit_power(state: CombatState, unit: CombatUnit, action: ActionDef, fx: HitEffect, deps: SimDeps) -> float:
+	if fx != null and fx.caster_max_hp_percent > 0.0:
+		return float(unit.hp_max) * (fx.caster_max_hp_percent / 100.0) * AbilityModifiers.power_multiplier(unit, action)
+	return deps.attack_power.call(unit, action, state.rng)
+
 ## The damage half. Returns the MITIGATED figure, which is what a hit-scaled
 ## status stores -- deliberately not the `applied` figure the event carries,
 ## which is clamped by however much health the target had left.
-static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps, onto_shield: bool = false) -> int:
-	var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
+static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps, fx: HitEffect = null, onto_shield: bool = false) -> int:
+	var raw: float = _hit_power(state, unit, action, fx, deps) + bonus
 	var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 	var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
 	var soaked := 0
@@ -1107,6 +1170,13 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	e.amount_absorbed = soaked
 	if mitigated + soaked < e.amount_before_mitigation:
 		e.mitigation_cause = deps.damage_reduction_cause.call(target)
+		## Issue 766: SHIELD and BLOCK are the two causes a cast raises. The
+		## status carries which action applied it; TOUGHNESS, ARMOR, HIDE and
+		## RAISED_SHIELD belong to no cast and are left unattributed.
+		if e.mitigation_cause == CG.MitigationCause.SHIELD:
+			e.mitigation_source_action = target.status_source_action.get(CG.Status.SHIELD, &"")
+		elif e.mitigation_cause == CG.MitigationCause.BLOCK:
+			e.mitigation_source_action = target.status_source_action.get(CG.Status.BLOCK, &"")
 	e.damage_type = action.damage_type
 	state.emit(e)
 	_on_damage_taken(state, target, applied, deps)
@@ -1118,6 +1188,9 @@ static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, 
 		return false
 	unit.alive = false
 	state.emit(_event(CG.EventKind.DEATH, state.tick, source_id, unit.id, action_id))
+	## Issue 759: a rat leaves blood behind, the same as a bleeding hit does.
+	if unit.enemy_id == &"rat":
+		_leave_blood(state, source_id, [TerrainGrid.cell_of(unit.position)])
 	_kill_summons_of(state, unit)
 	return true
 
@@ -1172,6 +1245,7 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	target.statuses[status] = state.tick + fx.duration_ticks
 	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
 	target.status_source[status] = caster.id
+	target.status_source_action[status] = action.id
 	if status == CG.Status.TAUNTING:
 		target.taunt_radius = fx.taunt_radius
 		_broadcast_taunt(state, target, fx.duration_ticks)
@@ -1205,6 +1279,7 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 	unit.statuses.erase(status)
 	unit.status_magnitude.erase(status)
 	unit.status_source.erase(status)
+	unit.status_source_action.erase(status)
 	if status == CG.Status.TAUNTING:
 		unit.taunt_radius = 0.0
 	elif status == CG.Status.SUSTAINING:
@@ -1317,6 +1392,7 @@ static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
 static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
 	unit.sustaining = action.id
 	unit.sustain_started_tick = state.tick
+	unit.sustain_drain_ticks = -1
 	unit.statuses[CG.Status.SUSTAINING] = CG.MAX_TICKS
 	state.emit(_event(CG.EventKind.SUSTAIN_START, state.tick, unit.id, -1, action.id))
 
@@ -1330,6 +1406,7 @@ static func _end_sustain(state: CombatState, unit: CombatUnit) -> void:
 	state.emit(e)
 	unit.sustaining = &""
 	unit.sustain_started_tick = -1
+	unit.sustain_drain_ticks = -1
 	unit.statuses.erase(CG.Status.SUSTAINING)
 
 ## Cause (1). Called from `_decide_phase` with whatever the decision layer just
@@ -1341,7 +1418,9 @@ static func _reaffirm_sustain(state: CombatState, unit: CombatUnit, intent: Inte
 		return
 	_end_sustain(state, unit)
 
-## One tick of upkeep: charge, then deal.
+## One tick of upkeep: pay, then deal. Issue 772: rage runs the sustain while
+## there is any; once it is empty the sustain does not end on its own any
+## more, it starts paying in the caster's own health instead.
 static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.sustaining == &"":
 		return
@@ -1349,17 +1428,44 @@ static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 	if action == null or action.sustain == null:
 		_end_sustain(state, unit)
 		return
-	if unit.resource < action.sustain.cost_per_tick:
-		_end_sustain(state, unit)
-		return
 
-	unit.resource -= action.sustain.cost_per_tick
-	var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
-	spent.amount = action.sustain.cost_per_tick
-	state.emit(spent)
+	if unit.resource >= action.sustain.cost_per_tick:
+		unit.resource -= action.sustain.cost_per_tick
+		unit.sustain_drain_ticks = -1
+		var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
+		spent.amount = action.sustain.cost_per_tick
+		state.emit(spent)
+	else:
+		_pay_sustain_with_health(state, unit, action)
+		if not unit.alive:
+			return
 
 	for target in _sustain_targets(state, unit, action):
 		_apply_action_effect(state, unit, target, action, deps)
+
+## Issue 772. 1% of the caster's max hp per second, escalating by 1% for every
+## second it has been paying this way -- not every second the sustain has been
+## held. Divided evenly across the 15 ticks of whichever second is current, so
+## the derivation is worked in seconds and never rounds at tick granularity.
+## Resets to second 1 the moment rage covers a tick again (`_tick_sustain`
+## above) or the sustain ends (`_begin_sustain`, `_end_sustain`).
+static func _pay_sustain_with_health(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
+	if unit.sustain_drain_ticks < 0:
+		unit.sustain_drain_ticks = 0
+	var current_second := (unit.sustain_drain_ticks / CG.TICKS_PER_SECOND) + 1
+	var percent_this_tick := float(current_second) / float(CG.TICKS_PER_SECOND)
+	unit.sustain_drain_ticks += 1
+	var amount := _stochastic_round(state, float(unit.hp_max) * (percent_this_tick / 100.0))
+	if amount <= 0:
+		return
+	var before := unit.hp
+	unit.hp = maxi(0, unit.hp - amount)
+	var applied := before - unit.hp
+	var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, unit.id, action.id)
+	e.amount = applied
+	e.damage_type = action.damage_type
+	state.emit(e)
+	_kill_if_dead(state, unit, unit.id, action.id)
 
 ## Everyone inside the channel's radius this tick.
 static func _sustain_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
