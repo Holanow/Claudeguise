@@ -19,7 +19,7 @@ func _init() -> void:
 		var display := ClassLibrary.get_class_def(c).display_name
 		party.append(PawnFactory.make_preset_pawn(c, c, display))
 
-	var room_ids := FloorSequence.build(SEED)
+	var room_ids := FloorWalk.default_order(FloorGenerator.generate(SEED))
 	var run := FloorRun.new()
 	var ledgers: Array = []
 	print("Damage ledger, issue 737: one full floor run, planned pawns, seed %d.\n" % SEED)

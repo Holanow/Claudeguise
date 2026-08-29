@@ -25,7 +25,7 @@ func _ready() -> void:
 	for cid in ClassLibrary.all_ids():
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
 	cfg.party = party
-	_room_ids = FloorSequence.build(FLOOR_SEED)
+	_room_ids = FloorWalk.default_order(FloorGenerator.generate(FLOOR_SEED))
 	_log.append("floor seed %d, order: %s" % [FLOOR_SEED, str(_room_ids)])
 	_battle = BATTLE_SCENE.instantiate()
 	add_child(_battle)

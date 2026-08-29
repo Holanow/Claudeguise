@@ -16,7 +16,7 @@ func _init() -> void:
 		return
 	print("Cleared-run final state, issue 792, %d seeds, arm B (planned).\n" % SEEDS)
 	for s in range(SEEDS):
-		var room_ids := FloorSequence.build(s)
+		var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
 		var party: Array[PawnData] = []
 		for cid in class_ids:
 			var c := StringName(cid)

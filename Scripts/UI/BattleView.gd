@@ -30,9 +30,8 @@ var event_cursor: int = 0
 var config: RunConfig = null
 var paused: bool = false
 
-## Issue 729: room ids for the floor in progress, empty when not in floor mode.
-var _floor_room_ids: Array[StringName] = []
-var _floor_index: int = -1
+## Issue 804: the grid floor in progress, null when not in floor mode.
+var _floor_walk: FloorWalk = null
 var _floor_run: FloorRun = null
 var _floor_party: Array[PawnData] = []
 var _floor_seed: int = 0
@@ -42,7 +41,7 @@ var _floor_transition_left: float = -1.0
 const _FLOOR_TRANSITION_BEAT := 1.0
 
 func _floor_active() -> bool:
-	return not _floor_room_ids.is_empty()
+	return _floor_walk != null
 
 ## Setup: the fight is built and held before its first tick, and the party is
 ## draggable. The player's ask -- place them on the screen you fight on.
@@ -1023,24 +1022,24 @@ func begin_setup(cfg: RunConfig, encounter, positions: Array[Vector2] = []) -> v
 # Issue 729: a floor, ten rooms run back to back in this same view. No map,
 # no picker, no rewards screen -- a room resolves, a beat, the next arrives.
 
-## `room_ids` is a fixed, already-ordered sequence (FloorSequence.build output
-## or a test fixture) -- this function does not shuffle anything itself.
-func begin_floor(cfg: RunConfig, room_ids: Array[StringName]) -> void:
-	_floor_room_ids = room_ids
-	_floor_index = 0
+## `plan` is an already-generated floor (FloorGenerator.generate output or a
+## test fixture) -- this function does not generate anything itself.
+func begin_floor(cfg: RunConfig, plan: FloorPlan) -> void:
+	_floor_walk = FloorWalk.new(plan)
 	_floor_party = cfg.party
 	_floor_seed = cfg.seed
 	_floor_run = FloorRun.new()
 	_floor_transition_left = -1.0
 	_start_floor_room()
 
-## Deterministic per room: the floor seed, the room id and the room's index,
-## so re-running one floor seed re-derives the same ten fight seeds.
+## Keyed on the room's own identity, never on how many rooms have been walked
+## through. A grid floor can be re-entered, and an index-keyed seed would give
+## one room a different fight the second time you stood in it.
 func _floor_room_seed(room_id: StringName) -> int:
-	return hash([_floor_seed, room_id, _floor_index])
+	return hash([_floor_seed, room_id])
 
 func _start_floor_room() -> void:
-	var room_id: StringName = _floor_room_ids[_floor_index]
+	var room_id: StringName = _floor_walk.plan.room(_floor_walk.current_id).content_id
 	var cfg := RunConfig.new()
 	cfg.party = _floor_party
 	cfg.encounter_id = room_id
@@ -1075,18 +1074,22 @@ func _record_floor_result() -> void:
 ## come, or the floor itself is over. Called from both places `_process`
 ## notices `state.outcome` resolved.
 func _handle_fight_end() -> void:
-	if _floor_active() and state.outcome == CombatState.Outcome.PLAYER_WIN \
-			and _floor_index < _floor_room_ids.size() - 1:
-		_record_floor_result()
-		_floor_transition_left = _FLOOR_TRANSITION_BEAT
-		return
+	if _floor_active() and state.outcome == CombatState.Outcome.PLAYER_WIN:
+		_floor_walk.mark_cleared(_floor_walk.current_id)
+		if not _floor_walk.route_to_next_fight().is_empty():
+			_record_floor_result()
+			_floor_transition_left = _FLOOR_TRANSITION_BEAT
+			return
 	if _floor_active():
 		floor_ended.emit(state.outcome == CombatState.Outcome.PLAYER_WIN)
 	_show_outcome()
 	set_process(false)
 
+## Walks the whole route to the next uncleared room, so the cleared rooms in
+## between are passed through rather than fought again, then starts that fight.
 func _advance_floor_room() -> void:
-	_floor_index += 1
+	for id in _floor_walk.route_to_next_fight():
+		_floor_walk.enter(id)
 	_start_floor_room()
 
 ## Rebuilt through the same `begin_with_encounter` every other caller uses, so

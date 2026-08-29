@@ -250,7 +250,7 @@ func _run(assignment: Dictionary, shape: String) -> Dictionary:
 	var died_at := {}
 	var depths: Array[int] = []
 	for s in range(SEEDS):
-		var room_ids := FloorSequence.build(s)
+		var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
 		var party := _make_party(assignment)
 		var run := FloorRun.new()
 		var wiped := false
