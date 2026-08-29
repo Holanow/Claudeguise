@@ -600,6 +600,7 @@ static func _tick_statuses(state: CombatState, unit: CombatUnit, deps: SimDeps) 
 		if state.tick >= int(unit.statuses[status]):
 			if _decay_one_stack(state, unit, status, deps):
 				continue
+			_release_held_cooldown(state, unit, status, deps)
 			## `_remove_status` also resets the two fields that shadow a status:
 			_remove_status(unit, status)
 			var e := _event(CG.EventKind.STATUS_EXPIRED, state.tick, -1, unit.id, &"")
@@ -749,7 +750,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		recover += action.beats[-1].delay_ticks
 	unit.recover_ticks_left = recover
 	if action.cooldown_ticks > 0:
-		unit.cooldowns[action.id] = state.tick + action.cooldown_ticks
+		unit.cooldowns[action.id] = state.tick + _cooldown_hold_ticks(action) + action.cooldown_ticks
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
 
@@ -1155,7 +1156,7 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	var soaked := 0
 	if onto_shield:
 		var before_shield := mitigated
-		mitigated = _absorb_on_shield(state, unit, target, action, mitigated)
+		mitigated = _absorb_on_shield(state, unit, target, action, mitigated, deps)
 		soaked = before_shield - mitigated
 	var before := target.hp
 	target.hp = maxi(0, target.hp - mitigated)
@@ -1240,10 +1241,14 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 		target.status_magnitude[status] = carried + 1.0
 	elif def.hit_scaled:
 		target.status_magnitude[status] = maxf(carried, float(dealt))
-	elif fx.magnitude > 0.0:
-		## Issue 593: authored on the action. A refresh refills to full rather
-		## than topping up, so re-raising a half-spent block is worth doing.
-		target.status_magnitude[status] = maxf(carried, fx.magnitude)
+	else:
+		## Issue 593: authored on the action, and issue 831 lets that number be
+		## a share of the caster's own max health instead of a flat one.
+		var authored := fx.magnitude
+		if fx.magnitude_caster_max_hp_percent > 0.0:
+			authored = float(caster.hp_max) * (fx.magnitude_caster_max_hp_percent / 100.0)
+		if authored > 0.0:
+			target.status_magnitude[status] = maxf(carried, authored)
 
 	target.statuses[status] = state.tick + fx.duration_ticks
 	## Latest applier wins, so a refresh re-attributes the ticks that follow it.
@@ -1257,6 +1262,30 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	se.status = status
 	se.amount = int(target.status_magnitude.get(status, 0.0))
 	state.emit(se)
+
+## Issue 831: how long a cast books its own cooldown for on top of
+## `cooldown_ticks`, so an action whose status holds the cooldown is unavailable
+## for as long as that status could possibly last.
+static func _cooldown_hold_ticks(action: ActionDef) -> int:
+	for fx in action.effects:
+		if fx is StatusEffect and fx.holds_cooldown:
+			return fx.duration_ticks
+	return 0
+
+## Issue 831: the held cooldown, brought forward to start now because the status
+## ended early. A cooldown further out than a whole fresh one can only be a held
+## one, which is what makes this safe to call for any status.
+static func _release_held_cooldown(state: CombatState, target: CombatUnit, status: CG.Status, deps: SimDeps) -> void:
+	var caster := state.unit(int(target.status_source.get(status, -1)))
+	if caster == null:
+		return
+	var action_id: StringName = target.status_source_action.get(status, &"")
+	var action: ActionDef = deps.action_lookup.call(action_id)
+	if action == null or action.cooldown_ticks <= 0:
+		return
+	var ready := state.tick + action.cooldown_ticks
+	if int(caster.cooldowns.get(action_id, -1)) > ready:
+		caster.cooldowns[action_id] = ready
 
 ## Strips `fx.consumes_status` off the target and returns the bonus power it
 ## paid, or 0.0 when the action consumes nothing or the target is not carrying
@@ -1296,7 +1325,7 @@ static func _remove_status(unit: CombatUnit, status: CG.Status) -> void:
 ## Narrow on purpose. Soaking every hit the shielder took made the Warrior so
 ## hard to hurt that Second Wind stopped firing and two parties left The Warden
 ## with over 80% of their health.
-static func _absorb_on_shield(state: CombatState, source: CombatUnit, target: CombatUnit, action: ActionDef, mitigated: int) -> int:
+static func _absorb_on_shield(state: CombatState, source: CombatUnit, target: CombatUnit, action: ActionDef, mitigated: int, deps: SimDeps) -> int:
 	if mitigated <= 0:
 		return mitigated
 	var pool := float(target.status_magnitude.get(CG.Status.SHIELDING, 0.0))
@@ -1309,6 +1338,7 @@ static func _absorb_on_shield(state: CombatState, source: CombatUnit, target: Co
 	e.amount = absorbed
 	state.emit(e)
 	if target.status_magnitude[CG.Status.SHIELDING] <= 0.0:
+		_release_held_cooldown(state, target, CG.Status.SHIELDING, deps)
 		_remove_status(target, CG.Status.SHIELDING)
 		var gone := _event(CG.EventKind.STATUS_EXPIRED, state.tick, source.id, target.id, action.id)
 		gone.status = CG.Status.SHIELDING
