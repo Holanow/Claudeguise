@@ -18,6 +18,11 @@ var pawn: PawnData = null
 ## pick a sprite without knowing anything about enemy internals.
 var enemy_id: StringName = &""
 
+## Issue 759. Whether taking BLEED damage leaves a pool of blood underneath.
+## True for everything but a machine; set from `EnemyDef.bleeds` at build time,
+## and every player pawn's default -- there is no exception among pawns today.
+var bleeds: bool = true
+
 var position: Vector2 = Vector2.ZERO
 ## The body, at the size it is drawn: collision, terrain clearance, projectile
 ## hits and every range check are all measured off this one number (issue 642).
@@ -81,6 +86,12 @@ var sustain_drain_ticks: int = -1
 ## is not read.
 var current_action: StringName = &""
 var action_ticks_left: int = 0
+
+## Issue 747: which hand swung the weapon's basic attack last, for a pawn
+## dual-wielding two MARTIAL weapons. `-1` until the first such swing, and
+## never touched at all for a pawn who never dual-wields -- see
+## `DefaultPlan.dual_wields`.
+var last_attack_hand: int = -1
 
 ## What `action_ticks_left` started at for the action currently being performed.
 ## 0 when the unit is free.

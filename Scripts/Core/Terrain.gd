@@ -15,6 +15,7 @@ enum Kind {
 	HAZARD,  ## passable, damages a unit standing in it each tick
 	PIT,     ## blocks movement, does not block line of sight
 	WATER,   ## passable, harmless, and puts out burning ground it touches
+	BLOOD,   ## passable, harmless; the fluid that arrives last wins over WATER
 }
 
 ## Issue 668: Feature is `TerrainFeature`, its own file and a Resource. A plain

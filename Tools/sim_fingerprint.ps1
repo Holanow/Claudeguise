@@ -71,6 +71,18 @@ function Get-SourceHash {
     ($sha.ComputeHash($buffer.ToArray()) | ForEach-Object { $_.ToString('x2') }) -join ''
 }
 
+# Issue 725: the `source:` line written to the record is this, not the bare
+# real-source hash -- it folds the recorded `output:` value in too, so a
+# hand-edited or merge-mangled output line moves this digest even when no
+# source file did, and the fast path below (which never runs SampleFights)
+# catches it on the very next check instead of trusting it until source moves.
+function Get-RecordDigest {
+    param([string] $RealSource, [string] $Output)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes("$RealSource`n$Output")
+    ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join ''
+}
+
 # Runs the tool and returns the digest IT printed. `cmd` redirection rather than
 # a PowerShell pipe, for the reason gate.ps1 documents: 5.1 wraps a native
 # program's stderr in ErrorRecords and $ErrorActionPreference = 'Stop' then kills
@@ -127,18 +139,20 @@ if ($SourceOnly) {
         exit 2
     }
     $recordedSource = $null
+    $recordedOutput = $null
     foreach ($line in Get-Content $recordPath) {
         if ($line -match '^source: ([0-9a-f]{64})$') { $recordedSource = $Matches[1] }
+        if ($line -match '^output: ([0-9a-f]{64})$') { $recordedOutput = $Matches[1] }
     }
-    if (-not $recordedSource) {
-        Write-Output "$recordPath has no source: line."
+    if (-not $recordedSource -or -not $recordedOutput) {
+        Write-Output "$recordPath is missing a source: or output: line."
         exit 2
     }
-    if ($source -eq $recordedSource) {
+    if ((Get-RecordDigest $source $recordedOutput) -eq $recordedSource) {
         Write-Output "UNCHANGED"
         exit 0
     }
-    Write-Output "SOURCE MOVED (not run: -SourceOnly never calls SampleFights)"
+    Write-Output "SOURCE MOVED, OR ITS RECORDED OUTPUT LINE WAS EDITED (not run: -SourceOnly never calls SampleFights)"
     exit 1
 }
 
@@ -159,13 +173,15 @@ if ($Record) {
         exit 2
     }
     $commit = (& git -C $repo rev-parse HEAD).Trim()
+    $digest = Get-RecordDigest $source $output
     @(
         "# What the simulation is, and what it produces. Issue 529.",
         "# Re-record with: powershell -File Tools\sim_fingerprint.ps1 -Record",
         "# Both lines move together. A source change with no output change is",
         "# still a change, and the gate makes you say so here.",
         "# commit: the source tree this was taken against (issue 648), informational only.",
-        "source: $source",
+        "# source: real source hash folded with output (issue 725), not the bare hash.",
+        "source: $digest",
         "output: $output",
         "commit: $commit"
     ) -join "`n" | ForEach-Object {
@@ -173,7 +189,7 @@ if ($Record) {
         # looks dirty the moment it is written is one people stop trusting.
         [System.IO.File]::WriteAllText($recordPath, $_ + "`n", (New-Object System.Text.UTF8Encoding $false))
     }
-    Write-Output "recorded  source: $source"
+    Write-Output "recorded  source: $digest  (real source: $source)"
     Write-Output "          output: $output"
     Write-Output "          commit: $commit"
     exit 0
@@ -211,14 +227,17 @@ if (-not $recorded.ContainsKey('source') -or -not $recorded.ContainsKey('output'
 }
 
 # The fast path, and it is a STRONGER claim than the slow one for a view-only
-# change: the simulation's source is byte-for-byte what it was, so its output
-# cannot have moved. Costs about a second instead of a hundred.
-if ($source -eq $recorded['source']) {
+# change: the simulation's source is byte-for-byte what it was AND the
+# recorded output line is exactly what was hashed in alongside it at record
+# time (issue 725), so neither can have moved. Costs about a second instead
+# of a hundred, and it is what catches a hand-edited or merge-mangled output:
+# line immediately rather than only the next time source moves.
+if ((Get-RecordDigest $source $recorded['output']) -eq $recorded['source']) {
     Write-Output "UNCHANGED  the simulation's own source is byte-identical to the recording"
     exit 0
 }
 
-Write-Output "the simulation's source moved; running SampleFights to see whether its output did"
+Write-Output "the simulation's source moved, or its recorded output line was edited outside a -Record run; running SampleFights to check"
 $output = Get-OutputHash
 if (-not $output) {
     Write-Output "REFUSING TO HASH: $script:Refusal."
@@ -229,7 +248,7 @@ if (-not $output) {
 }
 if ($output -eq $recorded['output']) {
     Write-Output "SOURCE MOVED, OUTPUT DID NOT."
-    Write-Output "  recorded source: $($recorded['source'])"
+    Write-Output "  recorded digest: $($recorded['source'])"
     Write-Output "  actual source:   $source"
     Write-Output "The output is byte-identical, so this changed nothing the simulation does."
     Write-Output "Record it anyway, or every later run pays for this one again:"

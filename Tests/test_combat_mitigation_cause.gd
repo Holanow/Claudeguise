@@ -285,3 +285,17 @@ func test_armour_heavier_than_toughness_is_named() -> void:
 	var u := CombatUnit.new()
 	u.pawn = pawn
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.ARMOR)
+
+## Issue 746: a shield sits in `off_hand`, a slot #364's own reasoning never
+## reached, so this proves the read after the five-slot split still finds it.
+func test_a_shield_in_off_hand_reduces_damage_with_no_body_armor_at_all() -> void:
+	var pawn := PawnData.new()
+	var shield := EquipmentDef.new()
+	shield.damage_reduction = 0.15
+	pawn.off_hand = shield
+	var u := CombatUnit.new()
+	u.pawn = pawn
+	assert_eq(pawn.body, null, "no body armor at all -- the shield is the only source")
+	assert_almost_eq(SimDeps._default_damage_reduction(u), 0.15, 0.0001,
+		"a shield in off_hand must reduce damage on its own")
+	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.ARMOR)

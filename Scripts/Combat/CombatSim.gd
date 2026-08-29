@@ -131,6 +131,7 @@ static func _build_enemy_unit(id: int, enemy_def: EnemyDef, enemy_id: StringName
 	u.resource = u.resource_max
 	u.resource_kind = enemy_def.resource_kind
 	u.move_speed = enemy_def.move_speed
+	u.bleeds = enemy_def.bleeds
 	u.actions = enemy_def.actions.duplicate()
 	u.enemy_plans = enemy_def.plans.duplicate()
 	return u
@@ -506,6 +507,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	unit.focus_id = intent.target_id
 	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
+	_alternate_dual_wield_hand(unit, action)
 	unit.action_ticks_left = _apply_haste(unit, deps, int(deps.wind_up_ticks.call(unit, action)))
 	unit.action_ticks_total = unit.action_ticks_left
 
@@ -522,6 +524,19 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 
 	if unit.action_ticks_left <= 0:
 		_fire_action(state, unit, action, deps)
+
+## Issue 747: toggles which hand a dual-wielding pawn's weapon attack swings
+## from, deterministically -- no rng, so a seed reproduces it for free. Never
+## touches `last_attack_hand` for anyone else, which is what keeps a
+## single-weapon pawn's fingerprint byte-identical.
+static func _alternate_dual_wield_hand(unit: CombatUnit, action: ActionDef) -> void:
+	if not DefaultPlan.dual_wields(unit.pawn):
+		return
+	if action.id != DefaultPlan.weapon_attack(unit).id:
+		return
+	unit.last_attack_hand = EquipmentDef.Slot.OFF_HAND \
+		if unit.last_attack_hand == EquipmentDef.Slot.MAIN_HAND \
+		else EquipmentDef.Slot.MAIN_HAND
 
 # ---------------------------------------------------------------------------
 # tick: wind-ups, recovery, statuses
@@ -645,6 +660,10 @@ static func _tick_dot_statuses(state: CombatState, unit: CombatUnit, deps: SimDe
 		e.damage_type = StatusLibrary.of(status).dot_damage_type
 		e.status = status
 		state.emit(e)
+		## Issue 759: BLEED landing is the one hook a bleeding unit leaves blood
+		## from. Terrain fuses pools the same way water's do.
+		if status == CG.Status.BLEED and unit.bleeds:
+			_leave_blood(state, source, [TerrainGrid.cell_of(unit.position)])
 		if _kill_if_dead(state, unit, source, &""):
 			return
 
@@ -882,6 +901,50 @@ static func _paint_cells(state: CombatState, caster: CombatUnit, action: ActionD
 		_emit_terrain(state, CG.EventKind.TERRAIN_ADDED, caster, action,
 			Terrain.Kind.WATER, _bounds(wetted), CG.TerrainChange.CAST)
 
+## Issue 759: eats the ground of `fx.kind` under the caster, healing a fraction
+## of max hp. Does nothing on the wrong ground -- the row that fires this is
+## free to find no blood there and simply waste its turn, the same as any
+## other plan row can.
+static func _consume_ground(state: CombatState, unit: CombatUnit, fx: ConsumeGroundEffect) -> void:
+	var c := TerrainGrid.cell_of(unit.position)
+	var cell = state.grid.at(c)
+	if cell == null or cell.kind != fx.kind:
+		return
+	state.grid.clear_cell(TerrainGrid.Layer.EFFECTS, c)
+	if fx.heal_fraction_of_max_hp <= 0.0:
+		return
+	var amount := int(round(float(unit.hp_max) * fx.heal_fraction_of_max_hp))
+	var before := unit.hp
+	unit.hp = mini(unit.hp_max, unit.hp + amount)
+	var applied := unit.hp - before
+	if applied <= 0:
+		return
+	var e := _event(CG.EventKind.HEAL, state.tick, unit.id, unit.id, &"")
+	e.amount = applied
+	state.emit(e)
+
+## Issue 759: blood, from a bleeding hit or a rat's death. Skipped on already-
+## bloody ground and on a HAZARD cell -- blood is not a second way to put a
+## fire out, which stays water's alone. EFFECTS layer, same as a water pool:
+## the fire pit underneath is never touched.
+static func _leave_blood(state: CombatState, source_id: int, cells: Array[Vector2i]) -> void:
+	var blood := TerrainGrid.Cell.new()
+	blood.kind = Terrain.Kind.BLOOD
+	var pooled: Array[Vector2i] = []
+	for c in cells:
+		var was = state.grid.at(c)
+		if was != null and (was.kind == Terrain.Kind.BLOOD or was.kind == Terrain.Kind.HAZARD):
+			continue
+		pooled.append(c)
+		state.grid.stamp_rect(TerrainGrid.Layer.EFFECTS, TerrainGrid.rect_of(c), blood)
+	if pooled.is_empty():
+		return
+	var e := _event(CG.EventKind.TERRAIN_ADDED, state.tick, source_id, -1, &"")
+	e.terrain_kind = Terrain.Kind.BLOOD
+	e.terrain_rect = _bounds(pooled)
+	e.terrain_change = CG.TerrainChange.CAST
+	state.emit(e)
+
 ## The one rectangle covering a run of cells, for an event that has always
 ## carried a rect and whose readers only draw it.
 static func _bounds(cells: Array[Vector2i]) -> Rect2:
@@ -1028,14 +1091,20 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 			_apply_pull(state, unit, target, action, fx)
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
+		elif fx is ConsumeGroundEffect:
+			_consume_ground(state, unit, fx)
 
 	## Issue 632: statuses an ITEM adds to a landed hit. After the action's own
 	## effects, so an item can never pre-empt what the ability itself does, and
 	## only on a hit that actually landed -- an item that poisons on fire damage
 	## should not poison a miss.
+	## Issue 746: one `state.rng` draw per candidate status, in the order
+	## `added_statuses` returns them, so a seed always draws the same sequence
+	## regardless of which items happen to be equipped.
 	if dealt > 0 and target.alive:
 		for extra in AbilityModifiers.added_statuses(unit, action):
-			_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
+			if state.rng.randf() < float(extra["chance"]):
+				_grant_status(state, unit, target, action, extra["status"], int(extra["ticks"]))
 
 	if not settled:
 		_kill_if_dead(state, target, unit.id, action.id)
@@ -1122,6 +1191,9 @@ static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, 
 		return false
 	unit.alive = false
 	state.emit(_event(CG.EventKind.DEATH, state.tick, source_id, unit.id, action_id))
+	## Issue 759: a rat leaves blood behind, the same as a bleeding hit does.
+	if unit.enemy_id == &"rat":
+		_leave_blood(state, source_id, [TerrainGrid.cell_of(unit.position)])
 	_kill_summons_of(state, unit)
 	return true
 

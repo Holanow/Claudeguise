@@ -31,8 +31,7 @@ func test_every_item_has_a_description() -> void:
 
 ## README.md: weapons and accessories are percent, armor is flat plus an
 ## occasional CON percent. Every registered item should change something --
-## an item with no attribute_percent, no attribute_flat, no damage_reduction
-## and no granted_actions is a field nobody filled in.
+## an item with none of the capability fields set is a field nobody filled in.
 func test_every_item_changes_something() -> void:
 	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
@@ -40,35 +39,45 @@ func test_every_item_changes_something() -> void:
 			not item.attribute_percent.is_empty()
 			or not item.attribute_flat.is_empty()
 			or item.damage_reduction > 0.0
+			or item.resource_regen_percent_bonus > 0.0
 			or not item.granted_actions.is_empty()
+			or not item.modifiers.is_empty()
 		)
 		assert_true(changes_something, "item %s does not change anything" % id)
 
 
-## Issue 489: a piece of gear may grant Wisdom and it may grant an action. It
-## may not do anything else, so the whole percent layer is gone and the flat
-## layer is Wisdom only.
-func test_gear_grants_wisdom_and_actions_and_nothing_else() -> void:
+## Issue 489 restricted gear to Wisdom and actions; issue 746 added a
+## capability layer beyond that (a shield's `damage_reduction`, a focus's
+## `resource_regen_percent_bonus`, a quiver's `modifiers`), so only the percent
+## layer and non-Wisdom flat bonuses are still forbidden.
+func test_gear_grants_no_percent_and_no_flat_but_wisdom() -> void:
 	var offenders := []
 	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
 		if not item.attribute_percent.is_empty():
 			offenders.append("%s carries a percent bonus %s" % [id, item.attribute_percent])
-		if item.damage_reduction != 0.0:
-			offenders.append("%s absorbs %.2f of every hit" % [id, item.damage_reduction])
 		for a in item.attribute_flat.keys():
 			if a != CG.Attribute.WIS:
 				offenders.append("%s carries flat %s" % [id, CG.attribute_name(a)])
 	assert_eq(offenders, [], "gear is a capability layer and these are numbers")
 
 
-## And the other half of it: a piece that grants neither is an object taking up
-## a slot and a picker row. Issue 489 deleted eight of those.
+## And the other half of it: a piece that grants nothing at all is an object
+## taking up a slot and a picker row. Issue 489 deleted eight of those; issue
+## 746 widened what counts as "grants something" to match the wider capability
+## layer above.
 func test_no_registered_piece_is_inert() -> void:
 	var inert := []
 	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
-		if item.granted_actions.is_empty() and int(item.attribute_flat.get(CG.Attribute.WIS, 0)) == 0:
+		var grants_something := (
+			not item.granted_actions.is_empty()
+			or int(item.attribute_flat.get(CG.Attribute.WIS, 0)) != 0
+			or item.damage_reduction > 0.0
+			or item.resource_regen_percent_bonus > 0.0
+			or not item.modifiers.is_empty()
+		)
+		if not grants_something:
 			inert.append(String(id))
 	assert_eq(inert, [], "these pieces do nothing at all")
 

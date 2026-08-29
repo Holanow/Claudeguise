@@ -78,7 +78,7 @@ is coming rather than only that something is.
 `action/ghoul_maul.png`, `action/cultist_bolt.png`,
 `action/spotter_mark.png`, `action/brute_slam.png`, `action/brute_roar.png`,
 `action/rat_bite.png`,
-`action/rat_king_lash.png`,
+`action/rat_king_lash.png`, `action/rat_king_eat_blood.png`,
 `action/stalker_dart.png`, `action/stalker_mark.png`,
 `action/warden_axe.png`, `action/warden_chain_toss.png`,
 `action/sellsword_seeker_bolts.png`, `action/sellsword_strike.png`,
@@ -124,6 +124,7 @@ One per item, shown on the pre-fight equip screen at about 32 pixels.
 
 `item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
 `item/bow.png`, `item/staff.png`,
+`item/shield.png`, `item/focus.png`, `item/quiver.png`,
 `item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
 `item/censer.png`
 
