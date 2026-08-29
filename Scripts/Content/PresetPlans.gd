@@ -10,6 +10,11 @@ class_name PresetPlans
 ## Smite each cost 15, so 40 is "my own cost, plus the heal's, or I do not cast".
 const PRIEST_SPENDER_RESERVE := 40
 
+## Issue 824: the Mana the Siege Master's Build row waits for, and it is
+## `build_siege_engine`'s own cost. No reserve above it for the Mark row: the
+## class's max Mana is 50, so 40 plus Mark's 15 is a gate nothing can pass.
+const BUILD_WHEN_READY := 40
+
 ## Issue 166: the Mana below which a Channel is worth standing still for. It is
 ## the Channel's own restore, so a Channel never overfills and is never wasted.
 const CHANNEL_WHEN_BELOW := 25
@@ -164,7 +169,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 					_enemy_in_range(CASTER_REACH),
 					[TargetFarthestEnemyBlock.new(), _use(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
-					_resource_at_least(25),
+					_resource_at_least(BUILD_WHEN_READY),
 					[TargetSelfBlock.new(), _use(&"build_siege_engine")]),
 			]
 		&"abomination":
