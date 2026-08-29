@@ -338,3 +338,116 @@ func test_a_lone_pawn_is_thrown_no_further_than_where_it_stands() -> void:
 	_run(state, _deps(), CombatSim.THROW_TICKS + 2)
 	assert_true(thrown.position.distance_to(stood) < 1.0,
 		"thrown from %s to %s with nobody to aim at" % [stood, thrown.position])
+
+# ---------------------------------------------------------------------------
+# the axe combo, #836
+# ---------------------------------------------------------------------------
+
+func test_the_axe_is_a_three_beat_combo() -> void:
+	var axe := ActionLibrary.get_action(&"warden_axe")
+	assert_eq(axe.beats.size(), 3, "three parts, like Crescent")
+	var last := -1
+	for b in axe.beats:
+		assert_true(b.delay_ticks > last, "beats are in ascending delay order")
+		last = b.delay_ticks
+	assert_eq(axe.beats[0].delay_ticks, 0, "the first part lands on the wind-up")
+
+## Crescent's opener carries a `StepEffect` that moves the caster away. The
+## Warden does not retreat: at `move_speed` 1.4 a jumpback costs him far more
+## than it costs a Sellsword, and #830 already measured his own abilities
+## working against him.
+func test_no_beat_steps_the_warden_backwards() -> void:
+	for b in ActionLibrary.get_action(&"warden_axe").beats:
+		for fx in b.effects:
+			assert_false(fx is StepEffect, "the Warden's combo has no jumpback")
+
+## Each part swings a little further than the last, so a target drifting away
+## between beats is still caught. This is the thing that keeps the connect rate
+## at 100%, so it is asserted rather than left to the .tres.
+func test_each_beat_reaches_at_least_as_far_as_the_one_before() -> void:
+	var axe := ActionLibrary.get_action(&"warden_axe")
+	var reach := 0.0
+	for b in axe.beats:
+		var r: float = b.targeting.range_units if b.targeting != null else axe.range_units
+		assert_true(r >= reach, "beat reach never shrinks: %.1f after %.1f" % [r, reach])
+		reach = r
+
+func test_every_beat_can_open_a_bleed() -> void:
+	var axe := ActionLibrary.get_action(&"warden_axe")
+	var with_bleed := 0
+	for b in axe.beats:
+		for fx in b.effects:
+			if fx is StatusEffect and (fx as StatusEffect).status == CG.Status.BLEED:
+				with_bleed += 1
+				assert_true((fx as StatusEffect).chance > 0.0 and (fx as StatusEffect).chance < 1.0,
+					"a bleed CHANCE, not a certainty")
+	assert_eq(with_bleed, axe.beats.size(), "all three parts can bleed")
+
+## BLEED stacks (`bleed.tres`, `stacks = true`), so three landed beats build
+## three stacks rather than refreshing one. That is what makes the number of
+## beats that connected readable on the target.
+func test_bleed_stacks_so_the_combo_builds_rather_than_refreshes() -> void:
+	assert_true(StatusLibrary.of(CG.Status.BLEED).stacks,
+		"the combo's bleed is only interesting because BLEED stacks")
+
+# ---------------------------------------------------------------------------
+# StatusEffect.chance, the one new mechanism
+# ---------------------------------------------------------------------------
+
+## The load-bearing property. An UNCONDITIONAL draw would advance `state.rng`
+## for every status in the game and change every fight ever recorded, so the
+## draw must happen only for an effect authored below 1.0.
+func test_a_certain_status_draws_no_rng_at_all() -> void:
+	var a := CombatState.new(_SEED)
+	var b := CombatState.new(_SEED)
+	var certain := StatusEffect.new()
+	assert_eq(certain.chance, 1.0, "1.0 is the default, so nothing authored before #836 moved")
+	assert_true(CombatSim._status_chance_holds(a, certain), "a certain status always lands")
+	assert_eq(a.rng.randf(), b.rng.randf(),
+		"the stream is where it was: asking about a certain status must not draw")
+
+func test_a_chance_status_draws_exactly_once() -> void:
+	var a := CombatState.new(_SEED)
+	var b := CombatState.new(_SEED)
+	var risky := StatusEffect.new()
+	risky.chance = 0.5
+	CombatSim._status_chance_holds(a, risky)
+	b.rng.randf()
+	assert_eq(a.rng.randf(), b.rng.randf(), "one draw, not two and not none")
+
+## A chance of 0 never lands and a chance of 1 always does, checked over enough
+## draws that a stuck comparison cannot pass by luck.
+func test_the_extremes_hold() -> void:
+	var state := CombatState.new(_SEED)
+	var never := StatusEffect.new()
+	never.chance = 0.0
+	var always := StatusEffect.new()
+	for _i in 50:
+		assert_false(CombatSim._status_chance_holds(state, never), "0.0 never lands")
+		assert_true(CombatSim._status_chance_holds(state, always), "1.0 always lands")
+
+## The negative: a chance in the middle must actually be a coin, not a constant
+## dressed as one. Both outcomes have to appear.
+func test_a_middling_chance_produces_both_outcomes() -> void:
+	var state := CombatState.new(_SEED)
+	var risky := StatusEffect.new()
+	risky.chance = 0.5
+	var landed := 0
+	for _i in 200:
+		if CombatSim._status_chance_holds(state, risky):
+			landed += 1
+	assert_true(landed > 40 and landed < 160,
+		"200 draws at 0.5 landed %d times, which is not a coin" % landed)
+
+## And it is deterministic, which is the whole contract the draw has to keep.
+func test_one_seed_rolls_the_same_bleeds_twice() -> void:
+	var risky := StatusEffect.new()
+	risky.chance = 0.35
+	var first: Array[bool] = []
+	var second: Array[bool] = []
+	var a := CombatState.new(_SEED)
+	var b := CombatState.new(_SEED)
+	for _i in 60:
+		first.append(CombatSim._status_chance_holds(a, risky))
+		second.append(CombatSim._status_chance_holds(b, risky))
+	assert_eq(first, second, "same seed, same rolls")

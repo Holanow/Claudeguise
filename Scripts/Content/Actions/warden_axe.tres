@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_033oi"]
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_k5vgw"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="6_axsta"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionBeat.gd" id="7_axbeat"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_48xmg"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_jmfi3"]
 [ext_resource type="Resource" path="res://Scripts/Content/VFX/warden_axe.tres" id="vfx_warden_axe"]
@@ -14,13 +16,69 @@ power_scale = 2.4
 script = ExtResource("4_jmfi3")
 range_units = 55.0
 
+[sub_resource type="Resource" id="Resource_axbld1"]
+script = ExtResource("6_axsta")
+status = 1
+duration_ticks = 90
+chance = 0.35
+
+[sub_resource type="Resource" id="Resource_axbld2"]
+script = ExtResource("6_axsta")
+status = 1
+duration_ticks = 90
+chance = 0.35
+
+[sub_resource type="Resource" id="Resource_axbld3"]
+script = ExtResource("6_axsta")
+status = 1
+duration_ticks = 90
+chance = 0.35
+
+[sub_resource type="Resource" id="Resource_axhit1"]
+script = ExtResource("2_k5vgw")
+power_scale = 0.6
+
+[sub_resource type="Resource" id="Resource_axhit2"]
+script = ExtResource("2_k5vgw")
+power_scale = 0.8
+
+[sub_resource type="Resource" id="Resource_axhit3"]
+script = ExtResource("2_k5vgw")
+power_scale = 1.0
+
+[sub_resource type="Resource" id="Resource_axtgt2"]
+script = ExtResource("4_jmfi3")
+range_units = 62.0
+
+[sub_resource type="Resource" id="Resource_axtgt3"]
+script = ExtResource("4_jmfi3")
+range_units = 70.0
+
+[sub_resource type="Resource" id="Resource_axbeat1"]
+script = ExtResource("7_axbeat")
+delay_ticks = 0
+effects = Array[ExtResource("1_033oi")]([SubResource("Resource_axhit1"), SubResource("Resource_axbld1")])
+
+[sub_resource type="Resource" id="Resource_axbeat2"]
+script = ExtResource("7_axbeat")
+delay_ticks = 6
+targeting = SubResource("Resource_axtgt2")
+effects = Array[ExtResource("1_033oi")]([SubResource("Resource_axhit2"), SubResource("Resource_axbld2")])
+
+[sub_resource type="Resource" id="Resource_axbeat3"]
+script = ExtResource("7_axbeat")
+delay_ticks = 12
+targeting = SubResource("Resource_axtgt3")
+effects = Array[ExtResource("1_033oi")]([SubResource("Resource_axhit3"), SubResource("Resource_axbld3")])
+
 [resource]
 script = ExtResource("3_48xmg")
 id = &"warden_axe"
 display_name = "Executioner's Axe"
-description = "A melee swing at up to 55 units, with a 0.7-second wind-up."
+description = "A three-part combo at up to 55 units, after a 0.7-second wind-up. Each part swings a little further than the last and each has a 35% chance to open a bleed, so a victim who stands through all three bleeds three times over."
 wind_up_ticks = 20
 recover_ticks = 22
 targeting = SubResource("Resource_bjmo4")
 effects = Array[ExtResource("1_033oi")]([SubResource("Resource_xrlv0")])
 vfx = ExtResource("vfx_warden_axe")
+beats = Array[ExtResource("7_axbeat")]([SubResource("Resource_axbeat1"), SubResource("Resource_axbeat2"), SubResource("Resource_axbeat3")])

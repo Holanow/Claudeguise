@@ -1,0 +1,28 @@
+running WardenCombo (900s budget): --headless --path D:\Projects\Claudeguise-team\worktrees\teal-warden-numbers --script res://Tools/WardenCombo.gd
+Godot Engine v4.7.1.stable.official.a13da4feb - https://godotengine.org
+
+WardenCombo -- issue 836. warden_axe, 3 beats, floor1_warden, 20 seeds x 5 compositions
+  beat 0  delay  0t  reach  55.0
+  beat 1  delay  6t  reach  62.0
+  beat 2  delay 12t  reach  70.0
+
+100 fights, 162 combos started, 11.5s mean fight
+  80 interrupted mid-wind-up, 58 still winding up when the fight ended
+  2145 total damage from warden_axe
+
+  beat   resolved   landed    whiffed   connect
+     0         24       24          0    100.0%
+     1         21       21          0    100.0%
+     2         20       20          0    100.0%
+
+  of 162 combos started:
+    beat 0 resolved in  14.8% of them, connected in  14.8%
+    beat 1 resolved in  13.0% of them, connected in  13.0%
+    beat 2 resolved in  12.3% of them, connected in  12.3%
+
+  what stunned the Warden, which is the only thing that throws a wind-up away:
+    abomination_hook         160
+
+  23 BLEED applications, 0.14 per combo started
+
+

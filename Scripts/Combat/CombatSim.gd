@@ -1091,6 +1091,8 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		if fx is HitEffect:
 			dealt = _apply_hit(state, unit, target, action, fx, deps, onto_shield)
 		elif fx is StatusEffect:
+			if not _status_chance_holds(state, fx):
+				continue
 			## Issue 593: `covers_target` names an ally and shields the CASTER.
 			if action.covers_target:
 				_face_to_cover(state, unit, target)
@@ -1120,6 +1122,16 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 
 	if not settled:
 		_kill_if_dead(state, target, unit.id, action.id)
+
+## Issue 836: whether a chance-gated status lands. The draw happens ONLY for an
+## effect authored below 1.0, which is what keeps this additive: an
+## unconditional draw would move `state.rng` for every status in the game and
+## change every fight ever recorded. #746's item draw is conditional the same
+## way, and for the same reason.
+static func _status_chance_holds(state: CombatState, fx: StatusEffect) -> bool:
+	if fx.chance >= 1.0:
+		return true
+	return state.rng.randf() < fx.chance
 
 ## The heal-or-damage half of one `HitEffect`, including the status it eats to
 ## pay for itself. Returns the mitigated damage, or 0 for a heal.

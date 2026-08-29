@@ -37,6 +37,7 @@ func _ready() -> void:
 	Offscreen.hide_window(self)
 	await _capture(&"warden_throw")
 	await _capture(&"warden_chain_toss")
+	await _capture_combo()
 	get_tree().quit(0)
 
 # ---------------------------------------------------------------------------
@@ -186,6 +187,109 @@ func _capture(action_id: StringName) -> void:
 		printerr("WardenStage: %s never moved anybody" % action_id)
 	_save(action_id, shots)
 
+## Issue 836: the three-beat axe. A different shape from the two above -- there
+## is no travelling subject to follow, so this shoots one frame per tick from
+## the first beat to past the last, and reads the victim's BLEED stack count
+## into the caption. Stacks are what make the number of beats that connected
+## legible on the target rather than only in a log.
+##
+## The bleed is a 35% chance per beat, so this searches seeds for one where all
+## three land and NAMES it in the caption. Picking the seed is legitimate for a
+## demonstration and dishonest if unstated, so it is stated.
+func _capture_combo() -> void:
+	var action_id := &"warden_axe"
+	var beats: int = ActionLibrary.get_action(action_id).beats.size()
+	var seed_used := _seed_that_bleeds_most(action_id, beats)
+	_rebuild_scene()
+
+	var warden := _bare_unit(0, &"the_warden", CG.Team.ENEMY, Vector2(-60.0, 0.0),
+		EnemyLibrary.get_enemy(&"the_warden").radius)
+	warden.move_speed = 0.0
+	warden.actions = [action_id]
+	warden.facing = Vector2.RIGHT
+	var victim := _bare_unit(1, &"warrior", CG.Team.PLAYER, Vector2(-10.0, 0.0), 14.0)
+	_state = CombatState.new(seed_used)
+	var units: Array[CombatUnit] = [warden, victim]
+	_state.units = units
+	_cursor = 0
+
+	var once := ForceOnce.new()
+	once.caster_id = warden.id
+	once.action_id = action_id
+	once.target_id = victim.id
+	var deps := SimDeps.new()
+	deps.default_decide = Callable(once, "decide")
+	for u in _state.units:
+		_add_view(u)
+
+	var shots: Array[Image] = []
+	shots.append(await _shot("%s  BEFORE  seed %d  no bleed" % [action_id, seed_used]))
+	var landed := 0
+	var since_first := -1
+	## My own cursor, advanced once per tick and never rewound. `_consume_events`
+	## looks BACK over a window so the VFX director cannot miss a cue, and
+	## counting beats off that window counted every beat several times: the
+	## first strip captioned three beats as "beat 3 of 3" from tick two onward.
+	var seen := _state.events.size()
+	for t in 400:
+		CombatSim.step(_state, deps)
+		for i in range(seen, _state.events.size()):
+			var e := _state.events[i]
+			if e.action_id == action_id and e.kind == CG.EventKind.ACTION_FIRE:
+				landed += 1
+				## Only the FIRST beat starts the clock. Restarting it on every
+				## beat ran the strip to 55 frames instead of 15.
+				if since_first < 0:
+					since_first = 0
+		seen = _state.events.size()
+		_consume_events()
+		for id in _views:
+			_views[id].sync(_state)
+		for _q in 3:
+			await get_tree().process_frame
+		if since_first < 0:
+			continue
+		shots.append(await _shot("%s  beat %d of %d  +%dt  %d bleed stack(s)" % [
+			action_id, mini(landed, beats), beats, since_first,
+			int(victim.status_magnitude.get(CG.Status.BLEED, 0.0))]))
+		since_first += 1
+		if since_first > ActionLibrary.get_action(action_id).beats[-1].delay_ticks + 2:
+			break
+	if landed == 0:
+		printerr("WardenStage: %s never fired" % action_id)
+	_save(action_id, shots)
+
+## The first seed whose combo lands the most bleeds, searched headlessly on a
+## bare fixture so the strip above spends no frames on rejected seeds.
+func _seed_that_bleeds_most(action_id: StringName, beats: int) -> int:
+	var best_seed := 1
+	var best := -1
+	for s in range(1, 60):
+		var probe := CombatState.new(s)
+		var w := _bare_unit(0, &"the_warden", CG.Team.ENEMY, Vector2(-60.0, 0.0), 33.0)
+		w.move_speed = 0.0
+		w.actions = [action_id]
+		w.facing = Vector2.RIGHT
+		var v := _bare_unit(1, &"warrior", CG.Team.PLAYER, Vector2(-10.0, 0.0), 14.0)
+		var units: Array[CombatUnit] = [w, v]
+		probe.units = units
+		var once := ForceOnce.new()
+		once.caster_id = w.id
+		once.action_id = action_id
+		once.target_id = v.id
+		var deps := SimDeps.new()
+		deps.default_decide = Callable(once, "decide")
+		for _t in 60:
+			CombatSim.step(probe, deps)
+		var stacks := int(v.status_magnitude.get(CG.Status.BLEED, 0.0))
+		if stacks > best:
+			best = stacks
+			best_seed = s
+		if best >= beats:
+			break
+	print("WardenStage: seed %d lands %d bleed stack(s)" % [best_seed, best])
+	return best_seed
+
 func _consume_events() -> void:
 	var events := _state.events_since(_cursor)
 	_cursor = _state.events.size()
@@ -236,6 +340,9 @@ func _save(action_id: StringName, shots: Array[Image]) -> void:
 		sheet.blit_rect(shots[i], Rect2i(Vector2i.ZERO, Vector2i(w, h)),
 			Vector2i((i % per_row) * w, (i / per_row) * h))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	var out := OUT_DIR + "teal_830_%s.png" % action_id
+	## #830 shot the throw and the chain; #836 added the axe combo. The
+	## filename carries the issue that produced the strip.
+	var issue := "836" if action_id == &"warden_axe" else "830"
+	var out := OUT_DIR + "teal_%s_%s.png" % [issue, action_id]
 	sheet.save_png(out)
 	print("WardenStage: %s (%d frames)" % [out, shots.size()])
