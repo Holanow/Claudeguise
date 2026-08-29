@@ -81,6 +81,31 @@ func test_the_menu_opens_plans_and_equipment_over_the_held_fight() -> void:
 	view._pause_menu.plans_pressed.emit()
 	assert_false(view._pause_menu.visible, "the menu gets out of the popout's way")
 	assert_true(view._inspect_panel.visible, "Plans & Equipment must open")
+	assert_true(view.paused,
+		"the menu hands its hold to the popout rather than releasing it")
+	view.free()
+
+## Closing the popout the menu opened gives the fight back, exactly as closing
+## the unit card does.
+func test_closing_the_popout_the_menu_opened_resumes_the_fight() -> void:
+	var view = _battle()
+	_escape(view)
+	view._pause_menu.plans_pressed.emit()
+	view._inspect_panel.close()
+	assert_false(view.paused, "closing the popout must resume the fight it held")
+	view.free()
+
+## Space is the other way to hold a fight, and unguarded it resumed one
+## underneath a card that says "Paused".
+func test_space_over_an_open_menu_closes_it_rather_than_resuming_behind_it() -> void:
+	var view = _battle()
+	_escape(view)
+	var key := InputEventKey.new()
+	key.keycode = KEY_SPACE
+	key.pressed = true
+	view._unhandled_input(key)
+	assert_false(view._pause_menu.visible, "space must close the menu it cannot see past")
+	assert_false(view.paused)
 	view.free()
 
 ## The two the issue warns must not be quietly dropped, plus the three it names.

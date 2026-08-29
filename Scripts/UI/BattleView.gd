@@ -272,9 +272,7 @@ func _build_pause_menu() -> void:
 	hud.add_child(_pause_menu)
 	_pause_menu.adopt_caption([_party_label, _encounter_label, _seed_label, _outcome_label])
 	_pause_menu.resume_pressed.connect(_close_pause_menu)
-	_pause_menu.plans_pressed.connect(func():
-		_close_pause_menu()
-		_on_inspect_pressed())
+	_pause_menu.plans_pressed.connect(_open_plans_from_menu)
 	_pause_menu.restart_pressed.connect(func(): restart_requested.emit())
 	_pause_menu.settings_pressed.connect(_on_view_options_pressed)
 	_pause_menu.change_party_pressed.connect(func(): back_requested.emit())
@@ -309,6 +307,15 @@ func _toggle_pause_menu() -> void:
 		set_paused(true)
 	_pause_menu.visible = true
 	_sync_click_hint()
+
+## The hold is handed to the popout rather than released: a fight running under
+## an open plans screen is exactly what #741 built staging to avoid.
+func _open_plans_from_menu() -> void:
+	if _menu_owns_pause:
+		_menu_owns_pause = false
+		_card_owns_pause = true
+	_close_pause_menu()
+	_on_inspect_pressed()
 
 func _close_pause_menu() -> void:
 	if _pause_menu == null or not _pause_menu.visible:
@@ -1192,6 +1199,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
 		if setup:
 			start_fight()
+		## Issue 825: unguarded, this resumed the fight underneath a card that
+		## says "Paused" and left the menu holding a pause it no longer had.
+		elif _pause_menu != null and _pause_menu.visible:
+			_close_pause_menu()
 		else:
 			set_paused(not paused)
 		if is_inside_tree():
