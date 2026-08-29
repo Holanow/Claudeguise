@@ -177,7 +177,6 @@ look different from the rest, add it under a folder named after the kind:
 
 ```
 Assets/UI/background/party_select.png   just the party select screen
-Assets/UI/background/floor_map.png      just the floor map
 Assets/UI/background/battle.png         just the page the fight is mounted on
 Assets/UI/background/arena.png          just the floor inside the arena
 Assets/UI/border/arena.png              just the frame around the arena

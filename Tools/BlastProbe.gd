@@ -19,7 +19,7 @@ func _init() -> void:
 				party.append(PawnFactory.make_preset_pawn(c, c, d) if planned \
 					else PawnFactory.make_starter_pawn(c, c, d))
 			var run := FloorRun.new()
-			var room_ids := FloorSequence.build(s)
+			var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
 			for i in room_ids.size():
 				var rid: StringName = room_ids[i]
 				var state := CombatSim.build(party, RoomLibrary.get_room(rid), hash([s, rid, i]))

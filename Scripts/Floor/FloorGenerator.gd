@@ -2,37 +2,23 @@ extends RefCounted
 class_name FloorGenerator
 
 
-## Builds a FloorPlan from a seed. Deterministic: same seed, same rooms, same
-## types, same connections, every time -- nothing here reads any source of
-## randomness but the RandomNumberGenerator this file seeds itself.
+## Builds a FloorPlan from a seed, Isaac-style: grow a scatter of cells out from
+## the entrance, then hang the miniboss and the boss off dead ends. Deterministic
+## -- nothing here reads any source of randomness but the
+## RandomNumberGenerator it seeds itself.
 
-## README.md: floor 1 has 8 rooms. Two of them (miniboss, boss) are fixed;
-## the rest are ordinary rooms.
-const FLOOR_1_ROOM_COUNT := 8
-const _GATE_TYPE_COUNT := 2 # miniboss + boss
-const _ORDINARY_ROOM_COUNT := FLOOR_1_ROOM_COUNT - _GATE_TYPE_COUNT
-
-## Issue 5's own finding: picking each of the 6 ordinary rooms uniformly at
-## random from all six types let a seed produce a floor with zero fights
-## (`Library, Cell, Library, Treasure, Treasure, Cell` -- measured, not
-## hypothetical) or zero plain Enemy rooms at all. A floor needs a shape:
-const _GUARANTEED_FIGHTS: Array[FloorRoom.Type] = [
-	FloorRoom.Type.ENEMY,
-	FloorRoom.Type.ENEMY,
-	FloorRoom.Type.BIG_ENEMY,
+## Issue 804: the generator places the ten authored room ids directly rather
+## than staying abstract. There are no treasure, library or cell scenes, so four
+## of the eight `FloorRoom.Type` values have nowhere to land, and a pool that
+## can produce a room nothing can draw is a defect waiting for a seed.
+const ORDINARY_IDS: Array[StringName] = [
+	&"floor1_room1", &"floor1_horde", &"floor1_ghoul_den", &"floor1_cover",
+	&"floor1_hazard", &"floor1_chokepoint", &"floor1_sellsword", &"floor1_narrows_elite",
 ]
+const MINIBOSS_ID: StringName = &"floor1_rat_king"
+const BOSS_ID: StringName = &"floor1_warden"
 
-## TRAP, LIBRARY and TREASURE are already wired or explicitly scoped by this
-## issue (TREASURE: play_treasure_room; CELL: play_cell_room). TRAP has no
-## resolution path yet, same as it did before this change -- not this issue's
-## gap to close, so it stays in the pool rather than being pulled out, on the
-## same footing content already treats it.
-const _REWARD_POOL: Array[FloorRoom.Type] = [
-	FloorRoom.Type.TRAP,
-	FloorRoom.Type.TREASURE,
-	FloorRoom.Type.LIBRARY,
-	FloorRoom.Type.CELL,
-]
+const FLOOR_1_ROOM_COUNT := 10
 
 static func generate(floor_seed: int) -> FloorPlan:
 	var rng := RandomNumberGenerator.new()
@@ -41,82 +27,97 @@ static func generate(floor_seed: int) -> FloorPlan:
 	var plan := FloorPlan.new()
 	plan.seed = floor_seed
 
-	var adjacency := _random_connected_graph(rng, _ORDINARY_ROOM_COUNT)
-	var types := _room_types(rng)
+	var order := ORDINARY_IDS.duplicate()
+	_shuffle(rng, order)
 
-	for i in _ORDINARY_ROOM_COUNT:
-		var r := FloorRoom.new()
-		r.id = i
-		r.type = types[i]
-		r.difficulty = 1 + i / 2
-		r.connections = adjacency[i]
-		plan.rooms.append(r)
+	var cells := _scatter(rng, order.size())
+	for i in order.size():
+		plan.rooms.append(_make_room(i, order[i], FloorRoom.Type.ENEMY, cells[i], 1))
+	plan.index_cells()
 
-	var gate_id := rng.randi_range(0, _ORDINARY_ROOM_COUNT - 1)
-
-	var miniboss := FloorRoom.new()
-	miniboss.id = _ORDINARY_ROOM_COUNT
-	miniboss.type = FloorRoom.Type.MINIBOSS
-	miniboss.difficulty = 5
-	miniboss.connections = [gate_id]
-	plan.rooms.append(miniboss)
-	plan.rooms[gate_id].connections.append(miniboss.id)
-
-	var boss := FloorRoom.new()
-	boss.id = _ORDINARY_ROOM_COUNT + 1
-	boss.type = FloorRoom.Type.BOSS
-	boss.difficulty = 10
-	boss.connections = [miniboss.id]
-	plan.rooms.append(boss)
-	miniboss.connections.append(boss.id)
+	## The miniboss goes on a free cell with exactly one placed neighbour, the
+	## boss on a free cell next to it with none. Placing the boss last is what
+	## makes the gate hold: nothing lands beside it afterwards, so grid
+	## adjacency can never grow it a second door.
+	var gate := _pick_gate_cells(rng, cells)
+	plan.rooms.append(_make_room(order.size(), MINIBOSS_ID, FloorRoom.Type.MINIBOSS, gate[0], 5))
+	plan.rooms.append(_make_room(order.size() + 1, BOSS_ID, FloorRoom.Type.BOSS, gate[1], 10))
+	plan.index_cells()
 
 	plan.entrance_id = 0
-	plan.miniboss_id = miniboss.id
-	plan.boss_id = boss.id
-
+	plan.miniboss_id = order.size()
+	plan.boss_id = order.size() + 1
 	return plan
 
-## `_GUARANTEED_FIGHTS` plus one roll per remaining ordinary-room slot from
-## `_REWARD_POOL`, shuffled together so the fight rooms do not always land on
-## the same room ids (which would make "close to the entrance" mean "always a
-## fight" by construction, rather than by the graph's own random shape).
-static func _room_types(rng: RandomNumberGenerator) -> Array[FloorRoom.Type]:
-	var types: Array[FloorRoom.Type] = _GUARANTEED_FIGHTS.duplicate()
-	for i in _ORDINARY_ROOM_COUNT - _GUARANTEED_FIGHTS.size():
-		types.append(_REWARD_POOL[rng.randi_range(0, _REWARD_POOL.size() - 1)])
-	_shuffle(rng, types)
-	return types
+static func _make_room(id: int, content_id: StringName, type: FloorRoom.Type, cell: Vector2i, difficulty: int) -> FloorRoom:
+	var r := FloorRoom.new()
+	r.id = id
+	r.content_id = content_id
+	r.type = type
+	r.cell = cell
+	r.difficulty = difficulty
+	return r
 
-## Fisher-Yates against the floor's own seeded rng -- Array.shuffle() reads
-## the engine's global RNG, which would break "same seed, same floor."
+## Isaac's growth step: the entrance sits at the origin, and every later room
+## attaches to a free cell orthogonally adjacent to an already-placed one. The
+## result is always connected, and never has two rooms in one cell.
+static func _scatter(rng: RandomNumberGenerator, count: int) -> Array[Vector2i]:
+	var placed: Array[Vector2i] = [Vector2i.ZERO]
+	var taken := {Vector2i.ZERO: true}
+	while placed.size() < count:
+		var options := _free_neighbours(placed, taken)
+		var cell: Vector2i = options[rng.randi_range(0, options.size() - 1)]
+		placed.append(cell)
+		taken[cell] = true
+	return placed
+
+static func _free_neighbours(placed: Array[Vector2i], taken: Dictionary) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var seen := {}
+	for cell in placed:
+		for dir in FloorPlan.DIRECTIONS:
+			var c: Vector2i = cell + dir
+			if taken.has(c) or seen.has(c):
+				continue
+			seen[c] = true
+			out.append(c)
+	return out
+
+## Returns `[miniboss_cell, boss_cell]`. A pair always exists: take the placed
+## cell furthest east (ties to the south), step east twice, and neither of those
+## two cells can touch anything placed except through the other.
+static func _pick_gate_cells(rng: RandomNumberGenerator, placed: Array[Vector2i]) -> Array[Vector2i]:
+	var taken := {}
+	for cell in placed:
+		taken[cell] = true
+
+	var pairs: Array = []
+	for m in _free_neighbours(placed, taken):
+		if _placed_neighbour_count(m, taken) != 1:
+			continue
+		for dir in FloorPlan.DIRECTIONS:
+			var b: Vector2i = m + dir
+			if taken.has(b) or b == m:
+				continue
+			if _placed_neighbour_count(b, taken) == 0:
+				pairs.append([m, b])
+	var pick: Array = pairs[rng.randi_range(0, pairs.size() - 1)]
+	var out: Array[Vector2i] = []
+	out.assign(pick)
+	return out
+
+static func _placed_neighbour_count(cell: Vector2i, taken: Dictionary) -> int:
+	var n := 0
+	for dir in FloorPlan.DIRECTIONS:
+		if taken.has(cell + dir):
+			n += 1
+	return n
+
+## Fisher-Yates against the floor's own seeded rng -- Array.shuffle() reads the
+## engine's global RNG, which would break "same seed, same floor."
 static func _shuffle(rng: RandomNumberGenerator, arr: Array) -> void:
 	for i in range(arr.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var tmp = arr[i]
 		arr[i] = arr[j]
 		arr[j] = tmp
-
-## A random spanning tree over `count` nodes (always connected, node 0 is the
-## entrance), plus a handful of extra edges so the floor branches rather than
-## reading as one corridor. Each node past the first attaches to a uniformly
-## random earlier node, which is enough on its own to guarantee every node is
-## reachable from 0.
-static func _random_connected_graph(rng: RandomNumberGenerator, count: int) -> Array:
-	var adjacency: Array = []
-	for i in count:
-		adjacency.append([] as Array[int])
-
-	for i in range(1, count):
-		var parent := rng.randi_range(0, i - 1)
-		adjacency[i].append(parent)
-		adjacency[parent].append(i)
-
-	var extra_edges := rng.randi_range(0, 2)
-	for i in extra_edges:
-		var a := rng.randi_range(0, count - 1)
-		var b := rng.randi_range(0, count - 1)
-		if a != b and not adjacency[a].has(b):
-			adjacency[a].append(b)
-			adjacency[b].append(a)
-
-	return adjacency

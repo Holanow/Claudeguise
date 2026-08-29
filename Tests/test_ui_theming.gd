@@ -11,11 +11,10 @@ const _GENERAL := "res://Assets/UI/background.png"
 
 ## The screen, and the flat colour it falls back to with no file present. The
 ## fallback used to be `Palette.BACKGROUND` for every screen and was asserted as
-## a constant; issue 807 made these two screens pages of the ledger, so the
+## a constant; issue 807 made this screen a page of the ledger, so the
 ## expectation is per screen and comes from the screen's own call.
 var _ELEMENTS := {
 	"party_select": [PartySelect, Palette.PAPER_LEAF],
-	"floor_map": [FloorMapView, Palette.PAPER_LEAF],
 }
 
 ## Issue 807 ships real theme files, and every test below writes over one of
