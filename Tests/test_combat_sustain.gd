@@ -160,40 +160,105 @@ func test_ignition_does_not_report_a_miss() -> void:
 	assert_eq(state.unit(0).sustaining, action.id, "and it held with no target at all")
 
 # ---------------------------------------------------------------------------
-# what ends it: resource
+# what happens when resource runs dry: it keeps holding, paid in health
 # ---------------------------------------------------------------------------
+#
+# Issue 772. Running out of resource used to end a channel; now it switches
+# what pays for it. 1500 max hp is deliberate: at 1% of max hp for the first
+# second of draining, divided across its 15 ticks, one tick of drain is
+# exactly 1 hp with nothing to round.
 
-func test_it_stops_when_the_resource_runs_out_and_the_last_tick_is_not_partial() -> void:
-	# 10 resource at 3 per tick: three full ticks, then a fourth it cannot pay
-	# for. Nothing is charged and nothing is dealt on that fourth tick -- the
-	# caster is left holding 1, not 0.
+func test_it_pays_in_health_once_the_resource_runs_dry_and_keeps_holding() -> void:
+	# 10 resource at 3 per tick: three full ticks of rage, then a fourth it
+	# cannot pay for in rage -- which no longer ends it.
 	var action := _aura()
 	var state := _arena(action)
+	state.unit(0).hp_max = 1500
+	state.unit(0).hp = 1500
 	var deps := _deps(action)
 	for i in 4:
 		CombatSim.step(state, deps)
 
 	var caster := state.unit(0)
 	assert_eq(caster.resource, 1, "the remainder is not spent")
-	assert_eq(caster.sustaining, &"", "and it is no longer holding")
-	assert_false(caster.has_status(CG.Status.SUSTAINING), "badge gone with it")
-	assert_eq(_count(state, CG.EventKind.RESOURCE_SPENT), 3, "three charges, not four")
-	assert_eq(_count(state, CG.EventKind.DAMAGE), 3, "three ticks of damage, not four")
-	assert_eq(_count(state, CG.EventKind.SUSTAIN_END), 1, "and it said so")
+	assert_eq(caster.sustaining, action.id, "still holding -- an empty pool no longer ends it")
+	assert_true(caster.has_status(CG.Status.SUSTAINING), "badge still on")
+	assert_eq(_count(state, CG.EventKind.RESOURCE_SPENT), 3, "rage paid three ticks, no more")
+	assert_eq(caster.hp, 1500 - 1, "the fourth tick's upkeep came out of its own health: 1% of max hp")
+	assert_eq(state.unit(1).hp, 100 - 4 * int(_POWER), "the enemy keeps burning through the switch")
+	assert_eq(_count(state, CG.EventKind.DAMAGE), 5, "four ticks on the enemy, one on the caster")
+	assert_eq(_count(state, CG.EventKind.SUSTAIN_END), 0, "nothing ended it")
 
-func test_the_end_event_carries_how_long_it_was_held() -> void:
+func test_the_self_damage_is_attributed_to_the_caster_and_the_action() -> void:
 	var action := _aura()
 	var state := _arena(action)
+	state.unit(0).hp_max = 1500
+	state.unit(0).hp = 1500
 	var deps := _deps(action)
 	for i in 4:
 		CombatSim.step(state, deps)
 
-	var ended := _first(state, CG.EventKind.SUSTAIN_END)
-	assert_true(ended != null, "an end event exists")
-	assert_eq(ended.tick, 4, "it ended on the tick it could not pay for")
-	assert_eq(ended.amount, 3, "held for three ticks")
-	assert_eq(ended.action_id, action.id, "and names the action")
-	assert_eq(ended.source_id, 0, "and the caster")
+	var self_hit: CombatEvent = null
+	for e in state.events:
+		if e.kind == CG.EventKind.DAMAGE and e.source_id == 0 and e.target_id == 0:
+			self_hit = e
+	assert_true(self_hit != null, "a DAMAGE event names the caster as both source and target")
+	assert_eq(self_hit.amount, 1, "1% of 1500 max hp, one tick in")
+	assert_eq(self_hit.action_id, action.id, "attributed to the aura, not left anonymous")
+	assert_eq(self_hit.damage_type, action.damage_type, "the same fire the enemy is taking")
+
+## 1500 max hp makes tick k of second k deal exactly k hp (1500 * (k/15) /
+## 100 = k), so a whole second of draining costs 15*k hp -- k percent of 1500.
+func test_the_drain_escalates_by_one_percent_each_second_and_resets_on_relight() -> void:
+	var action := _aura(1)
+	var gap_tick := [false]
+	var decide := func(_s: CombatState, u: CombatUnit) -> Intent:
+		if gap_tick[0]:
+			return Intent.move_to(Vector2(500.0, 0.0))
+		return Intent.use_action(action.id, u.focus_id)
+	var state := _arena(action)
+	state.unit(0).hp_max = 1500
+	state.unit(0).hp = 1500
+	state.unit(0).resource = 0
+	var deps := _deps(action, decide)
+
+	for i in CG.TICKS_PER_SECOND:
+		CombatSim.step(state, deps)
+	var caster := state.unit(0)
+	assert_eq(caster.hp, 1500 - CG.TICKS_PER_SECOND, "second 1 cost 1% of max hp in total")
+
+	for i in CG.TICKS_PER_SECOND:
+		CombatSim.step(state, deps)
+	assert_eq(caster.hp, 1500 - CG.TICKS_PER_SECOND - 2 * CG.TICKS_PER_SECOND, "second 2 cost 2% more")
+
+	## End it, then relight: the escalation must start over at second 1, not
+	## resume at second 3.
+	gap_tick[0] = true
+	CombatSim.step(state, deps)
+	assert_eq(caster.sustaining, &"", "the plan stepped away and ended it")
+	var hp_before_relight := caster.hp
+	gap_tick[0] = false
+	CombatSim.step(state, deps)
+	assert_eq(caster.sustaining, action.id, "relit")
+	assert_eq(caster.hp, hp_before_relight - 1, "the first drained tick after relighting is second 1 again")
+
+func test_the_drain_can_kill_its_own_caster() -> void:
+	# Deliberate: the fiction is the Abomination cooking itself, and nothing
+	# here stops the fire once its own health is what is paying for it. 1500
+	# max hp keeps the first drained tick an exact 1 hp; 1 hp of health left
+	# dies on that same tick.
+	var action := _aura(1)
+	var state := _arena(action)
+	state.unit(0).hp_max = 1500
+	state.unit(0).hp = 1
+	state.unit(0).resource = 0
+	var deps := _deps(action)
+	CombatSim.step(state, deps)
+
+	var caster := state.unit(0)
+	assert_false(caster.alive, "the aura killed its own caster")
+	assert_eq(caster.sustaining, &"", "and the channel died with it")
+	assert_eq(_count(state, CG.EventKind.SUSTAIN_END), 1, "reported the same as any other end")
 
 # ---------------------------------------------------------------------------
 # what ends it: the plan stops choosing it
@@ -223,6 +288,12 @@ func test_it_stops_the_tick_the_decision_layer_chooses_something_else() -> void:
 	assert_eq(_count(state, CG.EventKind.RESOURCE_SPENT), 2, "charged only while chosen")
 	assert_eq(_count(state, CG.EventKind.DAMAGE), 2, "and dealt only while chosen")
 	assert_true(caster.position.x > 0.0, "and it walked away afterwards")
+
+	var ended := _first(state, CG.EventKind.SUSTAIN_END)
+	assert_eq(ended.tick, 3, "it ended on the tick the plan stopped choosing it")
+	assert_eq(ended.amount, 2, "held for two ticks")
+	assert_eq(ended.action_id, action.id, "and names the action")
+	assert_eq(ended.source_id, 0, "and the caster")
 
 func test_re_choosing_a_held_action_does_not_re_commit_it() -> void:
 	# Without the early return in `_resolve_use_action` this pays `resource_cost`

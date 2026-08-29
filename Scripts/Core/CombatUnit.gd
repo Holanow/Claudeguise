@@ -72,6 +72,11 @@ var sustaining: StringName = &""
 ## `action_ticks_total` had to exist.
 var sustain_started_tick: int = -1
 
+## Issue 772. Ticks the current sustain has been paying in health rather than
+## rage. -1 while rage still covers it; the escalating self-burn ramp reads
+## this and it resets to -1 whenever the sustain begins or ends.
+var sustain_drain_ticks: int = -1
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""
