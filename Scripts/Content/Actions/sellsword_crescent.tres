@@ -14,7 +14,7 @@
 [sub_resource type="Resource" id="Resource_crhit"]
 script = ExtResource("2_hitfx")
 damage_type = 7
-power_scale = 3.25
+power_scale = 2.6
 
 [sub_resource type="Resource" id="Resource_crpul"]
 script = ExtResource("3_pullfx")
@@ -56,7 +56,7 @@ effects = Array[ExtResource("1_ab8fx")]([SubResource("Resource_crhit"), SubResou
 [sub_resource type="Resource" id="Resource_hit3"]
 script = ExtResource("2_hitfx")
 damage_type = 7
-power_scale = 4.0
+power_scale = 3.2
 
 [sub_resource type="Resource" id="Resource_tgt3"]
 script = ExtResource("5_sbtgt")
