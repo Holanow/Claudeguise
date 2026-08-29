@@ -1541,7 +1541,7 @@ func _play_action_vfx(e: CombatEvent) -> void:
 	if e.kind == CG.EventKind.ACTION_START:
 		if action.vfx != null:
 			_vfx.play(action.vfx, VFXLayer.Cue.WIND_UP, e.source_id, e.target_id,
-				float(action.wind_up_ticks) * CG.TICK_SECONDS)
+				float(action.wind_up_ticks) * CG.TICK_SECONDS, _dual_wield_reverse_hint(e.source_id))
 	elif e.kind == CG.EventKind.ACTION_FIRE:
 		## Issue 703: a beat states its own vfx; null falls back to the
 		## action's, so beat 2 -- unchanged, no vfx of its own -- looks
@@ -1550,8 +1550,9 @@ func _play_action_vfx(e: CombatEvent) -> void:
 		if e.beat_index >= 0 and e.beat_index < action.beats.size() and action.beats[e.beat_index].vfx != null:
 			vfx = action.beats[e.beat_index].vfx
 		if vfx != null:
-			_vfx.play(vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0)
-			_vfx.play(vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0)
+			var hint: Variant = _dual_wield_reverse_hint(e.source_id)
+			_vfx.play(vfx, VFXLayer.Cue.RELEASE, e.source_id, e.target_id, 0.0, hint)
+			_vfx.play(vfx, VFXLayer.Cue.IMPACT, e.source_id, e.target_id, 0.0, hint)
 	elif e.kind == CG.EventKind.STATUS_EXPIRED:
 		## Issue 657: only the status THIS action eats to pay for itself arms the
 		## look -- a shield break or a cleanse also emits STATUS_EXPIRED under the
@@ -1560,6 +1561,18 @@ func _play_action_vfx(e: CombatEvent) -> void:
 			_vfx.arm_consumed(e.action_id, e.target_id)
 	elif e.kind == CG.EventKind.DAMAGE:
 		_vfx.play_consume_gated(action.vfx, VFXLayer.Cue.IMPACT, e.action_id, e.source_id, e.target_id)
+
+## Issue 747: null for everyone except a pawn dual-wielding two MARTIAL
+## weapons, for whom it says which side the swing that just fired came from --
+## the view's only read of `last_attack_hand`, so the direction is the one
+## thing on screen that changes.
+func _dual_wield_reverse_hint(source_id: int) -> Variant:
+	if state == null:
+		return null
+	var u := state.unit(source_id)
+	if u == null or not DefaultPlan.dual_wields(u.pawn):
+		return null
+	return u.last_attack_hand == EquipmentDef.Slot.OFF_HAND
 
 ## Where the director draws a unit, in arena space.
 func _vfx_position_of(id: int) -> Vector2:

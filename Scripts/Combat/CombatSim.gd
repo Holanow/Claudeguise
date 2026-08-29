@@ -503,6 +503,7 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 	unit.focus_id = intent.target_id
 	_update_facing_toward(state, unit, intent.target_id)
 	unit.current_action = action.id
+	_alternate_dual_wield_hand(unit, action)
 	unit.action_ticks_left = _apply_haste(unit, deps, int(deps.wind_up_ticks.call(unit, action)))
 	unit.action_ticks_total = unit.action_ticks_left
 
@@ -519,6 +520,19 @@ static func _resolve_use_action(state: CombatState, unit: CombatUnit, intent: In
 
 	if unit.action_ticks_left <= 0:
 		_fire_action(state, unit, action, deps)
+
+## Issue 747: toggles which hand a dual-wielding pawn's weapon attack swings
+## from, deterministically -- no rng, so a seed reproduces it for free. Never
+## touches `last_attack_hand` for anyone else, which is what keeps a
+## single-weapon pawn's fingerprint byte-identical.
+static func _alternate_dual_wield_hand(unit: CombatUnit, action: ActionDef) -> void:
+	if not DefaultPlan.dual_wields(unit.pawn):
+		return
+	if action.id != DefaultPlan.weapon_attack(unit).id:
+		return
+	unit.last_attack_hand = EquipmentDef.Slot.OFF_HAND \
+		if unit.last_attack_hand == EquipmentDef.Slot.MAIN_HAND \
+		else EquipmentDef.Slot.MAIN_HAND
 
 # ---------------------------------------------------------------------------
 # tick: wind-ups, recovery, statuses
