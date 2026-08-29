@@ -56,9 +56,9 @@ func is_alive(pawn_id: StringName) -> bool:
 		return bool(carry[pawn_id]["alive"])
 	return true
 
-## Issue 732: a fraction of max HP, healed on arrival in the next room, living
-## pawns only, no revive. The one named constant the issue asks for.
-const BETWEEN_ROOM_HEAL_FRACTION := 0.15
+## Issue 796: a fraction of MISSING HP, healed on arrival in the next room,
+## living pawns only, no revive. Never reaches full, so no room is free.
+const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 
 ## Overwrites `state`'s party units (index i is party[i], the order
 ## `CombatSim.build` always places them in) with what this run carried from
@@ -95,7 +95,7 @@ static func _commit_staged_plan(pawn: PawnData) -> void:
 ## above and this never runs on one. A pawn already at max hp emits nothing,
 ## same "no event for no change" rule `CombatSim._apply_heal` uses.
 static func _apply_arrival_heal(state: CombatState, unit: CombatUnit) -> void:
-	var amount := int(round(float(unit.hp_max) * BETWEEN_ROOM_HEAL_FRACTION))
+	var amount := int(round(float(unit.hp_max - unit.hp) * BETWEEN_ROOM_HEAL_MISSING_FRACTION))
 	var before := unit.hp
 	unit.hp = mini(unit.hp_max, unit.hp + amount)
 	var applied := unit.hp - before
