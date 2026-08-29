@@ -6,9 +6,7 @@ extends SceneTree
 ## sometimes. Same seeds, both arms, side by side, and where each run ends.
 ##
 ## Issue 734: clear rate alone cannot distinguish the two arms while both sit
-## at 0/40 -- depth reached (how many rooms a run survives before it dies, or
-## all of them if it clears) is what tells arm B apart from arm A when
-## neither wins.
+## at 0/40, so depth reached is reported too.
 ##
 ## Issue 808: the party is four. Every composition, unless --party names one.
 
