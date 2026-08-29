@@ -295,6 +295,17 @@ static func nearest(state: CombatState, unit: CombatUnit, team: CG.Team) -> Comb
 			best = candidate
 	return best
 
+## Issue 771: the complement of `nearest` by distance, not by any other stat.
+static func farthest(state: CombatState, unit: CombatUnit, team: CG.Team) -> CombatUnit:
+	var best: CombatUnit = null
+	var best_dist := -1.0
+	for candidate in state.living(team):
+		var d := unit.position.distance_to(candidate.position)
+		if d > best_dist:
+			best_dist = d
+			best = candidate
+	return best
+
 static func nearest_enemy_with_status(state: CombatState, unit: CombatUnit, status: CG.Status) -> CombatUnit:
 	var best: CombatUnit = null
 	var best_dist := INF

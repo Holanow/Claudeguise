@@ -38,6 +38,11 @@ var mitigation_cause: CG.MitigationCause = CG.MitigationCause.NONE
 ## soaked, which damage reduction did not cause and must not be credited with.
 var amount_absorbed: int = 0
 
+## Issue 766. Set on DAMAGE when `mitigation_cause` is SHIELD or BLOCK: the
+## action id of the cast that raised the status doing the mitigating, so the
+## prevented amount can be attributed to that cast rather than only to a cause.
+var mitigation_source_action: StringName = &""
+
 ## Issue 155. Which plan row chose this, copied off `Intent.source_plan` as the
 ## intent is consumed. **Set on ACTION_START only** -- the one event marking a
 ## decision rather than a consequence; a DAMAGE line inherits its reason from the

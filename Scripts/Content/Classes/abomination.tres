@@ -22,6 +22,6 @@ base_attributes = {
 "DEX": 1,
 "INT": 12,
 "STR": 5,
-"WIS": 8
+"WIS": 10
 }
 starting_actions = Array[ExtResource("2_ky32p")]([ExtResource("3_d8e83"), ExtResource("4_s3fqi"), ExtResource("5_jr6dd")])

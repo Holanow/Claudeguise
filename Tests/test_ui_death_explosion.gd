@@ -42,7 +42,7 @@ func test_the_chunks_hold_every_part_once_in_draw_order() -> void:
 ## flies on its own while the head it was sitting on goes the other way. #630 made
 ## the chunk a second question from the slot, so both are asked here.
 func test_every_headwear_part_flies_with_the_head_wearing_it() -> void:
-	for part in [&"hat", &"hat_low", &"hood", &"helm", &"plume", &"crown"]:
+	for part in [&"hat", &"hat_low", &"hood", &"helm", &"plume", &"crown", &"crown_low"]:
 		assert_eq(UnitRecipes.slot_of(part), &"Headwear",
 			"'%s' is worn on a head and must be drawn as headwear" % part)
 		assert_eq(UnitRecipes.chunk_of(part), &"head",
@@ -81,9 +81,9 @@ func test_the_three_bodies_630_names_come_apart_the_way_the_issue_asks() -> void
 	], "a goblin's head flies bald")
 	assert_eq(_chunks(&"rat_king"), [
 		[&"body", [&"body_low"]],
-		[&"head", [&"head_snouted", &"hat_low", &"eyes_snout"]],
+		[&"head", [&"head_snouted", &"crown_low", &"eyes_snout"]],
 		[&"tail", [&"tail"]],
-	], "the Rat King's hat flies alone")
+	], "the Rat King's crown flies alone")
 	assert_eq(_chunks(&"siege_engine"), [
 		[&"body", [&"body_rotund"]],
 		[&"wheels", [&"wheels"]],
