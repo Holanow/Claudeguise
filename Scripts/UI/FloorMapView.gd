@@ -37,9 +37,9 @@ static func create() -> FloorMapView:
 	return (load("res://Scenes/FloorMap.tscn") as PackedScene).instantiate()
 
 func _ready() -> void:
-	theme = AppTheme.shared()
+	theme = AppTheme.paper()
 	# Issue 237. One line instead of three, and the point is not the two lines:
-	var background := UIArt.background_node(&"floor_map", Palette.BACKGROUND)
+	var background := UIArt.background_node(&"floor_map", Palette.PAPER_LEAF)
 	add_child(background)
 	move_child(background, 0)
 
@@ -135,10 +135,10 @@ func _add_room_button(room: FloorRoom, column: int, row: int) -> void:
 	# always in the button's own text (_room_label), never hidden behind a
 	# generic "Room" label — a boss must not be a surprise on arrival.
 	if is_current:
-		button.add_theme_color_override("font_color", Palette.TEAM_PLAYER)
+		button.add_theme_color_override("font_color", Palette.TEAM_PLAYER_INK)
 		button.disabled = true
 	elif is_visited:
-		button.add_theme_color_override("font_color", Palette.TEXT_DIM)
+		button.add_theme_color_override("font_color", Palette.INK_DIM)
 		button.disabled = true
 	elif is_adjacent:
 		button.pressed.connect(_on_room_pressed.bind(room))

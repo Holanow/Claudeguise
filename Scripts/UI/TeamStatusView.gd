@@ -35,12 +35,12 @@ var _row_by_id: Dictionary = {}
 var _overflow_label: Label = null
 
 func _ready() -> void:
-	theme = AppTheme.shared()
+	theme = AppTheme.paper()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
 
 	_backdrop = ColorRect.new()
-	_backdrop.color = Palette.BACKGROUND
+	_backdrop.color = Palette.PAPER_LEAF
 	_backdrop.color.a = 0.72
 	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -58,12 +58,12 @@ func _ready() -> void:
 
 	var heading := Label.new()
 	heading.text = "Your team"
-	heading.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	heading.add_theme_color_override("font_color", Palette.INK_DIM)
 	heading.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	_rows.add_child(heading)
 
 	_overflow_label = Label.new()
-	_overflow_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_overflow_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	_overflow_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	_overflow_label.visible = false
 	_rows.add_child(_overflow_label)
@@ -282,7 +282,7 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 	# most wants named, so it is a hover target rather than a Label.
 	var overflow := Label.new()
 	overflow.set_script(GlossaryLabel)
-	overflow.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	overflow.add_theme_color_override("font_color", Palette.INK_DIM)
 	overflow.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	overflow.visible = false
 	if not overflow.is_inside_tree():
@@ -306,7 +306,7 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 	row.set_meta("cooldown_chips", cd_chips)
 
 	var cd_note := Label.new()
-	cd_note.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	cd_note.add_theme_color_override("font_color", Palette.INK_DIM)
 	cd_note.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	cd_note.visible = false
 	cd_line.add_child(cd_note)
@@ -328,7 +328,7 @@ func _new_chip() -> Control:
 ## is every test and the first frame.
 func _build_bar(parent: Control, height: float, width: float = BAR_WIDTH) -> ColorRect:
 	var back := ColorRect.new()
-	back.color = Palette.HP_BACK
+	back.color = Palette.PAPER_SHADE
 	back.custom_minimum_size = Vector2(width, height)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	back.set_meta("bar_width", width)
@@ -365,7 +365,7 @@ func _update_row(row: Control, state: CombatState, u: CombatUnit) -> void:
 	name_label.tooltip_text = Glossary.team_row_text(state, u)
 	# A dead pawn keeps its row and stops shouting from it. The name is the only
 	# thing left that can carry "this one is gone" once both bars read zero.
-	name_label.add_theme_color_override("font_color", Palette.TEXT if u.alive else Palette.TEXT_DIM)
+	name_label.add_theme_color_override("font_color", Palette.INK if u.alive else Palette.INK_DIM)
 
 	var hp_fraction := _fraction(u.hp, u.hp_max)
 	_set_bar(row.get_meta("hp_fill"), hp_fraction, Palette.hp_color(hp_fraction))

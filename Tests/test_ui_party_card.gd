@@ -119,7 +119,12 @@ func test_a_healer_and_a_ranged_class_read_differently() -> void:
 ## that in #103 and flagged rather than deleted it. They have callers now.
 func test_the_panel_border_drop_in_is_reachable_under_the_advertised_name() -> void:
 	var path := "res://Assets/UI/panel_border.png"
-	assert_false(FileAccess.file_exists(path), "%s already exists; this test would not prove anything" % path)
+	## Issue 807 ships a file under this name, so the empty state has to be made
+	## rather than assumed. It is put back at the end; deleting it outright is
+	## how the suite destroyed committed art the first time both existed.
+	var real := ProjectSettings.globalize_path(path)
+	var shipped := FileAccess.get_file_as_bytes(real) if FileAccess.file_exists(real) else PackedByteArray()
+	DirAccess.remove_absolute(path)
 
 	# Negative half first, and it is the half that matters: with no file the
 	# pipeline says so, which is what makes `draw_border` fall through to the
@@ -138,6 +143,14 @@ func test_the_panel_border_drop_in_is_reachable_under_the_advertised_name() -> v
 	DirAccess.remove_absolute(path)
 	UIArt.clear_cache()
 	assert_false(UIArt.has_art(&"panel_border"), "the test border survived its own deletion")
+
+	if not shipped.is_empty():
+		var f := FileAccess.open(real, FileAccess.WRITE)
+		f.store_buffer(shipped)
+		f.close()
+	UIArt.clear_cache()
+	assert_eq(UIArt.has_art(&"panel_border"), not shipped.is_empty(),
+		"the shipped panel_border.png did not come back")
 
 ## Selection is the one thing a dropped-in border must not be able to erase: a
 ## nine-slice is drawn as painted, so it cannot carry the selected/unselected

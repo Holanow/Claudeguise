@@ -19,6 +19,7 @@ const _MAX_WIDTH := 260.0
 ## and callers read that string as the glossary sentence, and it is.
 static func build(text: String, title: String = "") -> Control:
 	var panel := PanelContainer.new()
+	panel.theme = AppTheme.paper()
 	panel.add_theme_stylebox_override("panel", _style())
 
 	var label := Label.new()
@@ -27,7 +28,7 @@ static func build(text: String, title: String = "") -> Control:
 	label.custom_minimum_size = Vector2(_MAX_WIDTH, 0.0)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	label.add_theme_color_override("font_color", Palette.TEXT)
+	label.add_theme_color_override("font_color", Palette.INK)
 	panel.add_child(label)
 	return panel
 
@@ -36,4 +37,4 @@ static func build(text: String, title: String = "") -> Control:
 ## `UIArt.panel_style` since issue 268, so `Assets/UI/panel.png` reaches it;
 ## with no file present it is the same flat box, to the pixel.
 static func _style() -> StyleBox:
-	return UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.ARENA_EDGE, 1, Palette.SPACE_S)
+	return UIArt.panel_style(&"", Palette.PAPER_FIELD, Palette.INK_DIM, 1, Palette.SPACE_S)

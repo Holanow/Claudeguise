@@ -16,7 +16,7 @@ var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
 ## Word beside the icon. Empty draws the icon alone at ICON_SIZE square.
 var text: String = ""
-var text_color: Color = Palette.TEXT_DIM
+var text_color: Color = Palette.INK_DIM
 
 ## 0.0 to 1.0 of the icon darkened from the top down, the share of a cooldown
 ## still to run. Negative means "no sweep", which is every status chip and an
@@ -44,7 +44,7 @@ func _draw() -> void:
 		# Over the icon, not instead of it: the player still has to be able to
 		# tell which action is waiting, which is the whole reason a cooldown
 		# indicator names an action rather than lighting a lamp.
-		var shade := Palette.BACKGROUND
+		var shade := Palette.PAPER_LEAF
 		shade.a = 0.66
 		draw_rect(Rect2(rect.position, Vector2(rect.size.x, rect.size.y * minf(sweep, 1.0))), shade)
 	if text != "":

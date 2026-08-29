@@ -37,7 +37,7 @@ static func create() -> PartySelect:
 	return (load(SCENE) as PackedScene).instantiate() as PartySelect
 
 func _ready() -> void:
-	theme = AppTheme.shared()
+	theme = AppTheme.paper()
 	## Issue 131: the seed is chosen before the roster, not after. A generated
 	## pawn's attributes are rolled from it, so a roster built first would
 	## belong to a seed the screen never shows.
@@ -84,10 +84,10 @@ func _bind_ui() -> void:
 	# Issue 237. `Assets/UI/README.md` promises the player that dropping in
 	# `background/party_select.png` (or `background.png` for every screen at once)
 	# re-skins this screen. With no file present `background_node` returns exactly
-	# a ColorRect in `Palette.BACKGROUND`. Built here rather than in the scene
+	# a ColorRect in `Palette.PAPER_LEAF`. Built here rather than in the scene
 	# because which node it is depends on whether that file exists; moved to index
 	# 0 because it has to draw behind the tree the scene already brought.
-	var background := UIArt.background_node(&"party_select", Palette.BACKGROUND)
+	var background := UIArt.background_node(&"party_select", Palette.PAPER_LEAF)
 	add_child(background)
 	move_child(background, 0)
 
@@ -154,7 +154,7 @@ func _fill_roster() -> void:
 	if _available.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No classes available yet."
-		empty_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+		empty_label.add_theme_color_override("font_color", Palette.INK_DIM)
 		_roster_box.add_child(empty_label)
 		return
 	for pawn in _available:
@@ -184,8 +184,8 @@ func _fill_rooms() -> void:
 ## something you can edit".
 func _seed_box_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.ARENA_FLOOR
-	style.border_color = Palette.ARENA_EDGE
+	style.bg_color = Palette.PAPER_FIELD
+	style.border_color = Palette.INK_DIM
 	style.set_border_width_all(2)
 	style.set_content_margin_all(Palette.SPACE_S)
 	return style
@@ -307,7 +307,7 @@ func select_room(id: StringName) -> void:
 func _update_status() -> void:
 	if _status_label != null:
 		_status_label.text = "Party: %d/%d" % [_selected.size(), MAX_PARTY_SIZE]
-		_status_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+		_status_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	if _start_button != null:
 		_start_button.disabled = _selected.is_empty()
 		# rook found this on a real 844x390 launch: both buttons read "Pick

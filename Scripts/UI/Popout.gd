@@ -23,6 +23,7 @@ var _press_position: Vector2 = Vector2.ZERO
 static func build(title: String, body: String) -> Control:
 	var popout := PanelContainer.new()
 	popout.set_script(load("res://Scripts/UI/Popout.gd"))
+	popout.theme = AppTheme.paper()
 	popout.add_theme_stylebox_override("panel", _style())
 	popout.mouse_filter = Control.MOUSE_FILTER_STOP
 	# A pinned popout is placed by its owner and then by the player, so it must
@@ -47,7 +48,7 @@ static func build(title: String, body: String) -> Control:
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	title_label.add_theme_color_override("font_color", Palette.TEXT)
+	title_label.add_theme_color_override("font_color", Palette.INK)
 	header.add_child(title_label)
 
 	var close := Button.new()
@@ -65,14 +66,14 @@ static func build(title: String, body: String) -> Control:
 	body_label.custom_minimum_size = Vector2(MAX_WIDTH, 0.0)
 	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	body_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	body_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	body_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	column.add_child(body_label)
 	return popout
 
 ## The same bordered box GlossaryTooltip draws, with a brighter border so a
 ## pinned popout reads as the one you are holding rather than one more panel.
 static func _style() -> StyleBox:
-	return UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.TEAM_PLAYER, 1, Palette.SPACE_S)
+	return UIArt.panel_style(&"", Palette.PAPER_FIELD, Palette.TEAM_PLAYER_INK, 1, Palette.SPACE_S)
 
 ## The control this popout was pinned from, so the text can be kept true.
 var source: WeakRef = null
