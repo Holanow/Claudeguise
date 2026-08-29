@@ -54,6 +54,16 @@ func _run() -> void:
 	var authored: int = RoomLibrary.get_room(ROOM).enemy_spawns.size()
 	print("Wren822Shot: %s is authored with %d enemies" % [ROOM, authored])
 
+	## The room first and the party second, which is the ordinary order and the
+	## one that left the authored count on screen until the summary learned to
+	## refresh on a party change.
+	for i in select._room_picker.item_count:
+		if select._room_picker.get_item_metadata(i) == ROOM:
+			select._room_picker.selected = i
+			select._room_picker.item_selected.emit(i)
+	await _settle()
+	print("Wren822Shot: with no party picked the summary reads '%s'" % select._room_summary.text)
+
 	var by_id := {}
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("PartyCard.gd"):
@@ -62,11 +72,6 @@ func _run() -> void:
 	for id in [&"geysermancer", &"priest", &"siege_master", &"warrior"]:
 		if by_id.has(id):
 			by_id[id].toggled.emit(true)
-
-	for i in select._room_picker.item_count:
-		if select._room_picker.get_item_metadata(i) == ROOM:
-			select._room_picker.selected = i
-			select._room_picker.item_selected.emit(i)
 	await _settle()
 	print("Wren822Shot: party of %d, summary reads '%s'" % [
 		select.selected_pawns().size(), select._room_summary.text])

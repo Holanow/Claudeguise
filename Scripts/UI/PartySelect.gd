@@ -244,6 +244,10 @@ func toggle_pawn(pawn: PawnData, selected: bool) -> void:
 	if _cards.has(pawn.id):
 		_cards[pawn.id].selected = _selected.has(pawn)
 	_update_status()
+	## Issue 822: the room's count is derived from the party, so it goes stale
+	## the moment the party changes. Picking the room first and the party second
+	## is the ordinary order and it left the authored ten on screen.
+	_refresh_room_summary()
 
 func selected_pawns() -> Array[PawnData]:
 	return _selected.duplicate()

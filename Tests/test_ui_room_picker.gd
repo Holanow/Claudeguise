@@ -139,3 +139,19 @@ func test_a_room_with_no_terrain_says_open_ground() -> void:
 	assert_true(bare != &"", "no offered room is open ground, so this check is vacuous")
 	assert_true(PartySelect.room_summary(bare).contains("open ground"),
 		"got: %s" % PartySelect.room_summary(bare))
+
+## Issue 822: the count the summary shows is derived from the party, so it must
+## be re-derived when the party changes. Picking the room and then the party is
+## the ordinary order, and it left the authored count on screen.
+func test_the_summary_follows_the_party_not_only_the_picker() -> void:
+	var room := &"floor1_room1"
+	var authored: int = RoomLibrary.get_room(room).enemy_spawns.size()
+	var scaled := RoomScale.count_for(RoomLibrary.get_room(room), 4)
+	assert_true(scaled < authored, "the fixture is wrong: a four-party sees the authored count")
+	var screen := _screen()
+	screen.select_room(room)
+	assert_true(screen._room_summary.text.contains("%d enemies" % authored),
+		"with no party picked the authored count is the honest answer, got: %s" % screen._room_summary.text)
+	screen.toggle_pawn(screen.available_pawns()[0], true)
+	assert_false(screen._room_summary.text.contains("%d enemies" % authored),
+		"the party changed and the summary still shows the authored count: %s" % screen._room_summary.text)

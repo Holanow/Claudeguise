@@ -34,7 +34,8 @@ func _init() -> void:
 	print("               the room id, so every arm below shares one seed set.")
 	print("  parties      %d compositions of %d from %s, PawnFactory.make_preset_pawn" % [
 		PartySpec.compositions().size(), PartySpec.PARTY_SIZE, ClassLibrary.all_ids()])
-	print("  RoomScale    %s" % [RoomScale.Mode.keys()[RoomScale.MODE]])
+	print("  RoomScale    %s, NOT APPLIED -- this tool measures the authored room" % [
+		RoomScale.Mode.keys()[RoomScale.MODE]])
 	print("  fights/arm   %d" % [PartySpec.compositions().size() * SEEDS])
 	print("  damage       direct hits AND DoT ticks, which CoverAutopsy's")
 	print("               by-ability table leaves out entirely.")
