@@ -1,12 +1,10 @@
 extends "res://Tests/TestCase.gd"
 
 
-## Issue 269, the second half of it. wren's branch made `plan_block_budget` read
-## equipment WIS and made `InspectPanel` dim and label every plan row past the
-## budget. **Nothing enforced it.** `PlanInterpreter.decide` walked
-## `unit.pawn.plans` with no reference to the budget at all, so the budget was
-## enforced only by the plan editor refusing to *add* a row -- and a row the
-## screen labelled "Inert" fired exactly like a live one.
+## Issue 790, the second half of it. wren's #269 branch made `PlanInterpreter`
+## and `InspectPanel` agree on which row is over budget so that a row the
+## screen calls "Inert" cannot fire anyway. The budget is now a flat row cap
+## rather than WIS; this file re-proves the same two-sided guard against it.
 
 func _block(op: StringName, args: Dictionary = {}) -> PlanBlock:
 	return PlanFixtures.block(op, args)
@@ -18,31 +16,25 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 	p.blocks = blocks
 	return p
 
-## A pawn with two 2-block plans and 2 base WIS, so it needs 2 points of
-## equipment WIS to pay for the second row.
-func _pawn_with_two_plans() -> PawnData:
+## `count` filler rows whose condition never holds, followed by one row named
+## "strike" that always fires if the walk reaches it. Filler rows exist only to
+## spend the row cap, so `count` rows before "strike" put it at row `count + 1`.
+func _pawn_with_rows(count: int) -> PawnData:
 	var pawn_class := ClassDef.new()
-	pawn_class.id = &"budgettest"
-	pawn_class.base_attributes = {"WIS": 2}
+	pawn_class.id = &"rowcaptest"
 	var pawn := PawnData.new()
 	pawn.pawn_class = pawn_class
-	pawn.plans = [
-		_plan(&"never", _block(&"self_resource_at_least", {"amount": 999}), [
+	pawn.plans = []
+	for i in count:
+		pawn.plans.append(_plan(StringName("filler_%d" % i), _block(&"self_resource_at_least", {"amount": 999}), [
 			_block(&"target_self"),
 			_block(&"use_action", {"action_id": &"warrior_strike"}),
-		]),
-		_plan(&"strike", null, [
-			_block(&"target_nearest_enemy"),
-			_block(&"use_action", {"action_id": &"warrior_strike"}),
-		]),
-	]
+		]))
+	pawn.plans.append(_plan(&"strike", null, [
+		_block(&"target_nearest_enemy"),
+		_block(&"use_action", {"action_id": &"warrior_strike"}),
+	]))
 	return pawn
-
-func _robes() -> EquipmentDef:
-	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.BODY
-	armor.attribute_flat = {CG.Attribute.WIS: 2}
-	return armor
 
 func _fight(pawn: PawnData) -> Array:
 	var attacker := CombatUnit.new()
@@ -71,74 +63,46 @@ func _fight(pawn: PawnData) -> Array:
 
 
 ## The assertion whose absence let the mark and the behaviour disagree.
-func test_a_plan_past_the_block_budget_does_not_fire() -> void:
-	var pawn := _pawn_with_two_plans()
+func test_a_row_past_the_cap_does_not_fire() -> void:
+	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
-	assert_true(intent == null, "row two costs blocks 3 and 4 of a 2-block budget and must not fire")
+	assert_true(intent == null, "strike is row %d of a %d-row cap and must not fire" % [
+		Balance.PLAN_ROW_CAP + 1, Balance.PLAN_ROW_CAP])
 
 
-## The positive control. Without it the test above passes on an interpreter that
-## refuses every plan, which is the other way to make the screen a liar.
-func test_the_same_plan_fires_once_equipment_pays_for_it() -> void:
-	var pawn := _pawn_with_two_plans()
-	pawn.body = _robes()
+## The positive control. Without it the test above passes on an interpreter
+## that refuses every plan, which is the other way to make the screen a liar.
+func test_a_row_at_the_cap_fires() -> void:
+	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP - 1)
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
-	assert_not_null(intent, "2 WIS on armor buys the two blocks row two needs")
+	assert_not_null(intent, "strike sits at row %d, inside the cap" % Balance.PLAN_ROW_CAP)
 	assert_eq(intent.source_plan, &"strike")
 
 
-## The player's actual route: author to the wider budget, then unequip. The rows
-## are not deleted and the edit is not refused -- they stop firing, which is what
-## the screen has to be saying.
-func test_taking_the_wis_armour_off_strands_the_row_it_paid_for() -> void:
-	var pawn := _pawn_with_two_plans()
-	pawn.body = _robes()
-	assert_eq(PlanInterpreter.active_plan_count(pawn), 2)
-
-	pawn.body = null
-	assert_eq(PlanInterpreter.active_plan_count(pawn), 1, "the budget fell to 2, so only row one is paid for")
-	assert_eq(pawn.plans.size(), 2, "and the row itself is still there for the player to fix")
-
-
-## A pawn inside its budget runs every row. The negative: a guard that fires on
-## healthy input is a guard nobody can trust, and both tests above would pass on
-## one that always refused the last row.
-func test_nothing_is_skipped_when_the_plans_fit() -> void:
-	var pawn := _pawn_with_two_plans()
-	pawn.pawn_class.base_attributes = {"WIS": 8}
-	assert_eq(PlanInterpreter.active_plan_count(pawn), 2)
-	var fight := _fight(pawn)
-	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
-	assert_not_null(intent)
-	assert_eq(intent.source_plan, &"strike")
+func test_active_plan_count_stops_at_the_cap() -> void:
+	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
+	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP + 1)
+	assert_eq(PlanInterpreter.active_plan_count(pawn), Balance.PLAN_ROW_CAP)
 
 
 ## **The deliverable.** Not "the guard exists" but "the guard and the mark are
-## the same rule". Both sides are exercised through the real thing: the screen is
-## built and its labels read, the intent is taken from `decide`, at both budgets.
+## the same rule". Both sides are exercised through the real thing: the screen
+## is built and its labels read, the intent is taken from `decide`.
 func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
-	var pawn := _pawn_with_two_plans()
+	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
 
-	pawn.body = _robes()
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
-	var equipped := _all_label_text(panel._detail_box)
-	var fight_equipped := _fight(pawn)
-	var fired_equipped: Intent = PlanInterpreter.decide(fight_equipped[0], fight_equipped[1])
-	assert_false(equipped.contains("Inert"), "nothing is inert at 4 of 4: " + equipped)
-	assert_not_null(fired_equipped, "and the pawn runs the row the screen shows as live")
-
-	pawn.body = null
-	panel._build_detail(pawn)
-	var stripped := _all_label_text(panel._detail_box)
-	var fight_stripped := _fight(pawn)
-	var fired_stripped: Intent = PlanInterpreter.decide(fight_stripped[0], fight_stripped[1])
-	assert_true(stripped.contains("Inert"), "row two is past a 2-block budget: " + stripped)
-	assert_true(stripped.contains("needs 4 WIS, this pawn has 2"), stripped)
-	assert_true(fired_stripped == null, "and the pawn must not run the row the screen calls inert")
+	var text := _all_label_text(panel._detail_box)
+	var fight := _fight(pawn)
+	var fired: Intent = PlanInterpreter.decide(fight[0], fight[1])
+	assert_true(text.contains("Inert"), "row %d is past a %d-row cap: %s" % [
+		Balance.PLAN_ROW_CAP + 1, Balance.PLAN_ROW_CAP, text])
+	assert_true(text.contains("has 11 rows, capped at 10"), text)
+	assert_true(fired == null, "and the pawn must not run the row the screen calls inert")
 	panel.free()
 
 func _all_label_text(node: Node) -> String:

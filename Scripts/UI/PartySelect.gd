@@ -116,16 +116,16 @@ func _bind_ui() -> void:
 	_start_run_button.pressed.connect(_on_start_run_pressed)
 
 	## Issue 351. Both panels live in the middle column rather than over the top
-	## of the screen, so the plan budget and the WIS that sets it are one glance
-	## apart.
+	## of the screen, so the plan editor and the equip screen beside it are one
+	## glance apart.
 	_inspect_panel = _add_panel(InspectPanelScript, %MiddleColumn)
 	_inspect_panel.embed()
 	_inspect_panel.size_flags_stretch_ratio = 3.0
 	_equip_panel = _add_panel(EquipPanelScript, %MiddleColumn)
 	_equip_panel.embed()
 	_equip_panel.size_flags_stretch_ratio = 2.0
-	## WIS bought by an item changes the plan budget, and the row it un-inerts is
-	## on screen at the time.
+	## An item's granted action can add a row's target choices, and the change
+	## is on screen at the time.
 	_equip_panel.equipment_changed.connect(func(pawn): _inspect_panel.show_pawn(pawn))
 	focus_pawn(_available[0] if not _available.is_empty() else null)
 

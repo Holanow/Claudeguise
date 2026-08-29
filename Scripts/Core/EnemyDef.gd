@@ -50,9 +50,9 @@ class_name EnemyDef
 @export var focus_bias: float = 0.0
 
 ## Issue 671. Rows in the same shape a pawn's are, evaluated the same way but
-## with no WIS budget -- enemies aren't WIS-limited, so every row here is
-## active. Empty falls through to `DefaultPlan`, which is every enemy before
-## this field.
+## with no row cap -- enemies aren't capped, so every row here is active.
+## Empty falls through to `DefaultPlan`, which is every enemy before this
+## field.
 @export var plans: Array[Plan] = []
 
 ## Issue 756: the same standing preferences `PawnData` carries, since an enemy

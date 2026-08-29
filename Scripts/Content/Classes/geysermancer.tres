@@ -22,7 +22,6 @@ base_attributes = {
 "CON": 3,
 "DEX": 0,
 "INT": 10,
-"STR": 0,
-"WIS": 6
+"STR": 0
 }
 starting_actions = Array[ExtResource("2_wpgpm")]([ExtResource("3_sm6uq"), ExtResource("4_ifs2u"), ExtResource("5_vmm67"), ExtResource("6_laelr")])

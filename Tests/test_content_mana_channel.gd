@@ -52,20 +52,19 @@ func test_the_plan_editor_offers_the_channel_to_a_starter_priest() -> void:
 		"a starter Priest cannot pick the Channel out of its own action list")
 
 # ---------------------------------------------------------------------------
-# the plan row, and the two points of WIS that pay for it
+# the plan row, and the flat row cap that pays for it
 # ---------------------------------------------------------------------------
 
-## **No class's preset plans may cost more WIS than it has**, which is what the
-## name says and the half that is a rule rather than a snapshot.
+## **No class's preset plans may cost more rows than the flat cap allows.**
 func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 	var over: Array[String] = []
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		var free_blocks := Balance.plan_block_budget(pawn) - PresetPlans.total_blocks(cid)
-		if free_blocks < 0:
-			over.append("%s (%d over)" % [cid, free_blocks])
+		var free_rows := Balance.plan_row_cap(pawn) - PresetPlans.total_rows(cid)
+		if free_rows < 0:
+			over.append("%s (%d over)" % [cid, free_rows])
 	assert_eq(over, [] as Array[String],
-		"A class's presets cost more blocks than its WIS pays for: %s" % [over])
+		"A class's presets cost more rows than the cap allows: %s" % [over])
 
 ## Both casters run every row in their library, the Channel included. Issue 399:
 ## a starter pawn ships with none, so the rows are added here the way a player
@@ -79,15 +78,15 @@ func test_both_casters_run_every_row_including_the_channel() -> void:
 		assert_eq(last_action.id if last_action != null else &"", CHANNEL,
 			"the Channel is not the %s's last row, so the assertion above proves something else" % cid)
 
-## The Robes are what pay for it, asserted rather than assumed: take them off and
-## the row strands. This is the screen's own "Inert: needs %d WIS" case.
-func test_taking_the_robes_off_strands_the_channel_row() -> void:
+## Issue 790: the row cap is flat now, so nothing pays for a row through
+## equipment any more -- taking the armour off must not strand the Channel row.
+func test_taking_the_robes_off_does_not_strand_the_channel_row() -> void:
 	for cid in [&"priest", &"geysermancer"]:
 		var pawn := PawnFactory.make_preset_pawn(cid, cid, String(cid))
 		assert_not_null(pawn.body, "a starter %s no longer wears anything" % cid)
 		pawn.body = null
-		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size() - 1,
-			"the %s's Channel row is paid for by something other than its armour" % cid)
+		assert_eq(PlanInterpreter.active_plan_count(pawn), pawn.plans.size(),
+			"the %s's Channel row must not go inert when its armour comes off" % cid)
 
 # ---------------------------------------------------------------------------
 # it fires in a real fight

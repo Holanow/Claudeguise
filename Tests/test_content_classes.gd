@@ -79,15 +79,15 @@ const _EXPECTED_PLAN_COUNT := {
 	&"abomination": 4,
 }
 
-func test_every_class_ships_its_expected_preset_plans_within_its_wis_budget() -> void:
+func test_every_class_ships_its_expected_preset_plans_within_its_row_cap() -> void:
 	for id in EXPECTED_CLASS_IDS:
 		var plans := PresetPlans.for_class(id)
 		var expected: int = _EXPECTED_PLAN_COUNT.get(id, 2)
 		assert_eq(plans.size(), expected, "%s should ship exactly %d preset plans" % [id, expected])
 		var pawn := PawnFactory.make_starter_pawn(id, id, String(id))
-		var budget := Balance.plan_block_budget(pawn)
-		var used := PresetPlans.total_blocks(id)
-		assert_true(used <= budget, "%s uses %d blocks, budget is %d" % [id, used, budget])
+		var cap := Balance.plan_row_cap(pawn)
+		var used := PresetPlans.total_rows(id)
+		assert_true(used <= cap, "%s uses %d rows, cap is %d" % [id, used, cap])
 
 
 func test_preset_plan_actions_resolve() -> void:

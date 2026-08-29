@@ -66,18 +66,17 @@ func test_a_library_row_reads_as_the_sentence_it_will_become() -> void:
 		"and it is on the screen, not only available from the function")
 	panel.free()
 
-## The constraint from the issue, stated as a test because it is what keeps the
-## budget checkable: a preset costs its blocks, the same as building it by hand.
-func test_adding_a_preset_charges_exactly_what_its_blocks_cost() -> void:
+## Issue 790: a preset costs exactly one row against the flat cap, the same as
+## building it by hand -- whatever its own block count is.
+func test_adding_a_preset_charges_exactly_one_row() -> void:
 	var pawn := _pawn(&"warrior")
 	var panel := _panel(pawn)
-	var before := panel._blocks_used(pawn)
+	var before := panel._rows_used(pawn)
 	var row = panel._library_rows(pawn)[0]
-	var cost: int = row.block_count()
 	panel._add_preset(pawn, row)
 	assert_eq(pawn.plans.size(), 1, "the row must land on the pawn")
-	assert_eq(panel._blocks_used(pawn) - before, cost,
-		"a preset must charge its own block count and nothing else")
+	assert_eq(panel._rows_used(pawn) - before, 1,
+		"a preset must charge exactly one row and nothing else")
 	assert_eq(pawn.plans[0].id, row.id, "the row taken is the row offered")
 	panel.free()
 
@@ -96,19 +95,24 @@ func test_a_taken_row_leaves_the_library() -> void:
 ## #392's rule: refused with the reason beside it, never silently.
 func test_an_unaffordable_row_is_disabled_and_says_why() -> void:
 	var pawn := _pawn(&"priest")
-	## On the pawn, not on `pawn_class`: the ClassDef is the Registry's own
-	## instance and every later test in the run would inherit the change.
-	pawn.attribute_bonus[CG.Attribute.WIS] = 1 - Balance.plan_block_budget(pawn)
-	assert_eq(Balance.plan_block_budget(pawn), 1, "the fixture must actually be broke")
+	for i in Balance.plan_row_cap(pawn):
+		var filler := Plan.new()
+		filler.id = StringName("filler_%d" % i)
+		pawn.plans.append(filler)
 	var panel := _panel(pawn)
+	## A pawn with rows already on it does not auto-open the library, and
+	## `_toggle_library` rebuilds deferred, so open it and rebuild directly.
+	panel._library_open = true
+	panel._build_detail(pawn)
 	var adds := _adds(panel)
 	assert_true(adds.size() > 0, "the rows are still listed, not hidden")
 	for add in adds:
-		assert_true(add.disabled, "1 block of budget cannot pay for a 2-block row")
-		assert_true(add.tooltip_text.contains("costs"), "the reason must be readable: '%s'" % add.tooltip_text)
+		assert_true(add.disabled, "no rows free -- the cap is already spent")
+		assert_true(add.tooltip_text.contains(str(Balance.plan_row_cap(pawn))),
+			"the reason must be readable: '%s'" % add.tooltip_text)
 	var row = panel._library_rows(pawn)[0]
 	panel._add_preset(pawn, row)
-	assert_eq(pawn.plans.size(), 0, "the guard must hold when the function is called directly too")
+	assert_eq(pawn.plans.size(), Balance.plan_row_cap(pawn), "the guard must hold when the function is called directly too")
 	panel.free()
 
 ## The negative half. A library that refuses everything would pass the test
@@ -119,7 +123,7 @@ func test_an_affordable_row_is_live() -> void:
 	var adds := _adds(panel)
 	assert_true(adds.size() > 0)
 	for add in adds:
-		assert_false(add.disabled, "a starting Priest's WIS pays for any one row")
+		assert_false(add.disabled, "a starting pawn is nowhere near its row cap")
 	panel.free()
 
 func test_the_library_button_opens_and_closes_it() -> void:

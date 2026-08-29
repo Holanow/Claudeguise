@@ -32,7 +32,7 @@ func _make_action(id: String, name: String, description: String = "") -> ActionD
 	a.effects = [HitEffect.new()] as Array[AbilityEffect]
 	return a
 
-func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
+func _make_pawn(role: CG.Role = CG.Role.DPS) -> PawnData:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
@@ -40,12 +40,6 @@ func _make_pawn(role: CG.Role = CG.Role.DPS, wis: int = 8) -> PawnData:
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
 	cls.starting_actions = [_fixture_action(&"test_swing")]
-	# WIS is the plan block budget (Balance.plan_block_budget). Left at the
-	# ClassDef default of 0 every fixture would sit permanently over budget and
-	# every Add button would be disabled, which is a different screen from the
-	# one most of these tests mean to exercise. The budget tests set it
-	# themselves.
-	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -335,7 +329,7 @@ func test_the_general_how_to_play_replaces_the_per_class_plans_explanation() -> 
 	assert_false(per_pawn.contains("in priority order"), "the per-class heading must not restate the general rule: " + per_pawn)
 	# And the section itself is still there and still says whose budget it is.
 	assert_true(per_pawn.contains("Plans"), per_pawn)
-	assert_true(per_pawn.contains("plan blocks used"), per_pawn)
+	assert_true(per_pawn.contains("plan rows used"), per_pawn)
 	panel.free()
 
 ## The heading reframes around editing rather than presenting the screen as
@@ -756,7 +750,7 @@ func test_adding_a_plan_makes_one_the_interpreter_actually_fires() -> void:
 	panel._add_plan(pawn)
 
 	assert_eq(pawn.plans.size(), 1)
-	assert_eq(pawn.plans[0].block_count(), InspectPanel.NEW_PLAN_BLOCK_COST)
+	assert_eq(pawn.plans[0].block_count(), 2, "a blank plan is a target block and a skill block")
 
 	var attacker := _melee_unit(0, CG.Team.PLAYER, Vector2.ZERO)
 	attacker.pawn = pawn
@@ -783,44 +777,44 @@ func test_an_added_plan_goes_last_in_priority() -> void:
 	assert_eq(pawn.plans[0], existing, "an existing plan must keep its priority")
 	panel.free()
 
-## The budget is a real limit, and the button says so rather than doing
-## nothing. WIS 3 buys one two-block plan and leaves 1 free, which is less than
-## a plan costs.
-func test_add_is_refused_and_the_button_disabled_when_the_budget_is_spent() -> void:
-	var pawn := _make_pawn(CG.Role.DPS, 3)
+## The cap is a real limit, and the button says so rather than doing nothing.
+func test_add_is_refused_and_the_button_disabled_when_the_cap_is_spent() -> void:
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
-	panel._add_plan(pawn)
-	assert_eq(pawn.plans.size(), 1, "the first plan fits in a budget of 3")
+	for i in Balance.PLAN_ROW_CAP:
+		panel._add_plan(pawn)
+	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "every row up to the cap must be added")
 
 	panel._build_detail(pawn)
 	var add := _button_named(panel._detail_box, "+ Add a plan")
 	assert_not_null(add, "the Add button must be on the screen")
-	assert_true(add.disabled, "1 block free and a plan costs 2 -- the button must be disabled")
-	assert_true(add.tooltip_text.contains("2"), "the reason must name the cost: '%s'" % add.tooltip_text)
+	assert_true(add.disabled, "0 rows free -- the button must be disabled")
+	assert_true(add.tooltip_text.contains(str(Balance.PLAN_ROW_CAP)),
+		"the reason must name the cap: '%s'" % add.tooltip_text)
 
 	panel._add_plan(pawn)
-	assert_eq(pawn.plans.size(), 1, "the guard must hold even if the function is called directly")
+	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "the guard must hold even if the function is called directly")
 	panel.free()
 
 ## Negative half of the test above: with room, the button is live. A guard that
 ## refuses everything passes the test above and is useless.
 func test_add_is_enabled_when_there_is_room() -> void:
-	var pawn := _make_pawn(CG.Role.DPS, 8)
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 	var add := _button_named(panel._detail_box, "+ Add a plan")
 	assert_not_null(add)
-	assert_false(add.disabled, "8 blocks free is room for a plan costing 2")
+	assert_false(add.disabled, "an empty pawn has room for a row")
 	panel.free()
 
-func test_removing_a_plan_takes_it_out_and_gives_its_blocks_back() -> void:
-	var pawn := _make_pawn(CG.Role.DPS, 4)
+func test_removing_a_plan_takes_it_out_and_gives_its_row_back() -> void:
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -828,11 +822,11 @@ func test_removing_a_plan_takes_it_out_and_gives_its_blocks_back() -> void:
 	panel._add_plan(pawn)
 	panel._add_plan(pawn)
 	assert_eq(pawn.plans.size(), 2)
-	assert_eq(panel._blocks_used(pawn), 4)
+	assert_eq(panel._rows_used(pawn), 2)
 
 	panel._remove_plan(pawn, 0)
 	assert_eq(pawn.plans.size(), 1)
-	assert_eq(panel._blocks_used(pawn), 2, "the removed plan's blocks must come back")
+	assert_eq(panel._rows_used(pawn), 1, "the removed plan's row must come back")
 
 	panel._build_detail(pawn)
 	var add := _button_named(panel._detail_box, "+ Add a plan")
@@ -854,48 +848,42 @@ func test_removing_every_plan_is_allowed_and_the_default_row_remains() -> void:
 	assert_eq(panel._default_rows(pawn).size() > 0, true, "the default row must survive an empty plan list")
 	panel.free()
 
-## The player's standing copy rule: no qualitative words for scale. The budget
+## The player's standing copy rule: no qualitative words for scale. The cap
 ## has to be readable as numbers, and it has to move when the plans do.
 func test_the_budget_is_shown_as_numbers_and_follows_an_edit() -> void:
-	var pawn := _make_pawn(CG.Role.DPS, 6)
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
 
 	var before := _all_label_text(panel._detail_box)
-	assert_true(before.contains("0 of 6 plan blocks used"), before)
-	assert_true(before.contains("6 free"), before)
+	assert_true(before.contains("0 of 10 plan rows used"), before)
+	assert_true(before.contains("10 free"), before)
 
 	panel._add_plan(pawn)
 	panel._build_detail(pawn)
 	var after := _all_label_text(panel._detail_box)
-	assert_true(after.contains("2 of 6 plan blocks used"), after)
-	assert_true(after.contains("4 free"), after)
+	assert_true(after.contains("1 of 10 plan rows used"), after)
+	assert_true(after.contains("9 free"), after)
 	panel.free()
 
 # ---------------------------------------------------------------------------
-# Issue 269: a plan row the pawn can no longer pay for
+# Issue 269/790: a plan row the pawn cannot pay for under the flat cap
 # ---------------------------------------------------------------------------
 #
-# The player ruled that a budget which shrinks under a plan already written does
-# not refuse the unequip -- the surplus rows go inert instead. `CLAUDE.md`'s
-# binding principle is that a pawn never does anything the player cannot see in
-# the plans of action, so an inert row that looks like a live one is the purest
-# violation of it available. These assert the mark, its sentence, and that the
-# controls on the row still work.
+# `CLAUDE.md`'s binding principle is that a pawn never does anything the player
+# cannot see in the plans of action, so an inert row that looks like a live one
+# is the purest violation of it available. These assert the mark, its
+# sentence, and that the controls on the row still work.
 func _pawn_over_budget() -> PawnData:
-	var pawn := _make_pawn(CG.Role.DPS, 8)
+	var pawn := _make_pawn()
 	pawn.plans = []
-	var panel := InspectPanel.create()
-	panel._ready()
-	panel.open([pawn])
-	panel._add_plan(pawn)
-	panel._add_plan(pawn)
-	panel.free()
-	# Two plans, two blocks each, and a budget of 3: the first row is paid for
-	# and the second is one block past the end.
-	pawn.pawn_class.base_attributes = {"WIS": 3}
+	## One row past the cap, authored directly rather than through
+	## `panel._add_plan` -- the button refuses an 11th row, same as it refuses
+	## an 11th block for anyone forming this fixture through the UI.
+	for i in Balance.PLAN_ROW_CAP + 1:
+		pawn.plans.append(_make_plan("plan_%d" % i))
 	return pawn
 
 func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> void:
@@ -904,18 +892,19 @@ func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> vo
 	panel._ready()
 	panel.open([pawn])
 
+	var last := Balance.PLAN_ROW_CAP
 	var paid := panel._plan_row(pawn.plans[0], pawn, 0, false)
-	var inert := panel._plan_row(pawn.plans[1], pawn, 1, true)
-	assert_eq(paid.modulate.a, 1.0, "a row inside the budget must be drawn at full strength")
-	assert_true(inert.modulate.a < 1.0, "a row past the budget must be dimmed")
+	var inert := panel._plan_row(pawn.plans[last], pawn, last, true)
+	assert_eq(paid.modulate.a, 1.0, "a row inside the cap must be drawn at full strength")
+	assert_true(inert.modulate.a < 1.0, "a row past the cap must be dimmed")
 	assert_true(inert.modulate.a > 0.0, "and still visible -- dimmed, not hidden")
 	paid.free()
 	inert.free()
 	panel.free()
 
 ## The sentence is the half that satisfies the principle. It has to carry why
-## (both numbers, and that the stat is WIS) and what to do about it (both ways
-## out), on the screen, under the row it is about.
+## (both numbers) and what to do about it (remove a row), on the screen, under
+## the row it is about.
 func test_the_inert_row_says_why_and_what_to_do_about_it() -> void:
 	var pawn := _pawn_over_budget()
 	var panel := InspectPanel.create()
@@ -923,18 +912,17 @@ func test_the_inert_row_says_why_and_what_to_do_about_it() -> void:
 	panel.open([pawn])
 
 	var screen := _all_label_text(panel._detail_box)
-	assert_true(screen.contains("needs 4 WIS, this pawn has 3"), "the mark must name both numbers: " + screen)
-	assert_true(screen.contains("Equip WIS gear"), "and the way to raise the budget: " + screen)
-	assert_true(screen.contains("remove a row"), "and the way to lower the cost: " + screen)
-	assert_true(screen.contains("4 of 3 plan blocks used"), "the summary must not report this as 0 free: " + screen)
+	assert_true(screen.contains("has 11 rows, capped at 10"), "the mark must name both numbers: " + screen)
+	assert_true(screen.contains("Remove a row to activate it"), "and the way out: " + screen)
+	assert_true(screen.contains("11 of 10 plan rows used"), "the summary must not report this as 0 free: " + screen)
 	assert_true(screen.contains("1 over"), screen)
 	panel.free()
 
-## The negative, and it is the one that matters most: a pawn inside its budget
+## The negative, and it is the one that matters most: a pawn inside its cap
 ## must carry no mark at all. A mark that is always on is furniture within
 ## minutes, and the real one then goes unread.
 func test_a_pawn_inside_its_budget_carries_no_inert_mark() -> void:
-	var pawn := _make_pawn(CG.Role.DPS, 8)
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -943,9 +931,9 @@ func test_a_pawn_inside_its_budget_carries_no_inert_mark() -> void:
 	panel._build_detail(pawn)
 
 	var screen := _all_label_text(panel._detail_box)
-	assert_false(screen.contains("Inert"), "nothing is inert at 2 of 8 blocks: " + screen)
+	assert_false(screen.contains("Inert"), "nothing is inert at 1 of 10 rows: " + screen)
 	assert_false(screen.contains("are inert"), "and the summary must not warn: " + screen)
-	assert_true(screen.contains("6 free"), screen)
+	assert_true(screen.contains("9 free"), screen)
 	var row := panel._plan_row(pawn.plans[0], pawn, 0, false)
 	assert_eq(row.modulate.a, 1.0)
 	row.free()
@@ -959,14 +947,15 @@ func test_an_inert_row_can_still_be_removed() -> void:
 	panel._ready()
 	panel.open([pawn])
 
-	var row := panel._plan_row(pawn.plans[1], pawn, 1, true)
+	var last := Balance.PLAN_ROW_CAP
+	var row := panel._plan_row(pawn.plans[last], pawn, last, true)
 	var remove := _button_named(row, "X")
 	assert_not_null(remove, "the inert row must keep its remove button")
 	assert_false(remove.disabled, "and that button must still work")
 	row.free()
 
-	panel._remove_plan(pawn, 1)
-	assert_eq(pawn.plans.size(), 1, "removing the inert row must bring the pawn back inside its budget")
+	panel._remove_plan(pawn, last)
+	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "removing the inert row must bring the pawn back inside its cap")
 	panel._build_detail(pawn)
 	assert_false(_all_label_text(panel._detail_box).contains("Inert"), "and the mark must go with it")
 	panel.free()
@@ -990,14 +979,14 @@ func test_the_default_row_is_last_and_carries_no_editable_control() -> void:
 	panel.free()
 
 ## Issue 96's build note, agreed with rather than decided quietly: the floor
-## everyone has is not something a pawn spent WIS on.
-func test_the_default_row_costs_no_block_budget() -> void:
+## everyone has does not spend a plan row.
+func test_the_default_row_costs_no_plan_row() -> void:
 	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
-	assert_eq(panel._blocks_used(pawn), 0, "a pawn with no plans of its own has spent nothing")
+	assert_eq(panel._rows_used(pawn), 0, "a pawn with no plans of its own has spent nothing")
 	assert_true(panel._default_rows(pawn).size() > 0, "and still has a default row")
 	panel.free()
 
@@ -1641,22 +1630,22 @@ func test_the_budget_rules_are_hover_on_both_widths() -> void:
 	full.open([pawn])
 
 	var short := _budget_label(embedded)
-	assert_true(short.text.contains("plan blocks used"), short.text)
-	assert_false(short.text.contains("A condition costs 0"),
-		"the rules are five wrapped lines here: " + short.text)
-	assert_true(short.tooltip_text.contains("A condition costs 0"),
+	assert_true(short.text.contains("plan rows used"), short.text)
+	assert_false(short.text.contains("movement is free"),
+		"the rules are wrapped lines here: " + short.text)
+	assert_true(short.tooltip_text.contains("movement is free"),
 		"and they have to still be readable somewhere: " + short.tooltip_text)
 	var wide := _budget_label(full)
-	assert_false(wide.text.contains("A condition costs 0"),
+	assert_false(wide.text.contains("movement is free"),
 		"the full-width screen prints the rules as a paragraph: " + wide.text)
-	assert_true(wide.tooltip_text.contains("A condition costs 0"),
+	assert_true(wide.tooltip_text.contains("movement is free"),
 		"and then they are nowhere at all: " + wide.tooltip_text)
 	embedded.free()
 	full.free()
 
 func _budget_label(panel) -> Label:
 	for child in panel._detail_box.get_children():
-		if child is Label and child.text.contains("plan blocks used"):
+		if child is Label and child.text.contains("plan rows used"):
 			return child
 	return null
 

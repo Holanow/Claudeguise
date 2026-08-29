@@ -76,7 +76,7 @@ func _chips() -> Array[String]:
 	for n in _walk(_main):
 		if not (n is Label and n.is_visible_in_tree()):
 			continue
-		for name in ["STR", "DEX", "AGI", "CON", "INT", "ATN", "WIS"]:
+		for name in ["STR", "DEX", "AGI", "CON", "INT", "ATN"]:
 			if not n.text.begins_with(name + " "):
 				continue
 			## An item description also starts "STR ", so require a number next.
@@ -93,9 +93,9 @@ func _chips() -> Array[String]:
 ## and would have been cited as proof of them. `ensure_control_visible` aims at
 ## the chip itself rather than scrolling to the bottom, which overshot it.
 func _scroll_to_attributes() -> void:
-	var chip := _wis_chip()
+	var chip := _last_chip()
 	if chip == null:
-		_fail("no WIS chip to scroll to")
+		_fail("no ATN chip to scroll to")
 		return
 	var box := chip.get_parent()
 	while box != null and not (box is ScrollContainer):
@@ -108,9 +108,9 @@ func _scroll_to_attributes() -> void:
 	if not _inside(box as ScrollContainer, chip):
 		_fail("the chips are still off screen, so the capture shows nothing")
 
-func _wis_chip() -> Control:
+func _last_chip() -> Control:
 	for n in _walk(_main):
-		if n is Label and n.is_visible_in_tree() and n.text.begins_with("WIS ") 				and n.text.split(" ")[1].is_valid_int():
+		if n is Label and n.is_visible_in_tree() and n.text.begins_with("ATN ") 				and n.text.split(" ")[1].is_valid_int():
 			return n
 	return null
 
@@ -125,9 +125,6 @@ func _report(tag: String) -> Array[String]:
 	print("RolledStatShot: %s -> %s" % [tag, chips])
 	if chips.is_empty():
 		_fail("%s: no attribute chips on the screen" % tag)
-	for c in chips:
-		if c.begins_with("WIS ") and c.contains("("):
-			_fail("WIS shows a roll and the player ruled it out: '%s'" % c)
 	return chips
 
 func _run() -> void:

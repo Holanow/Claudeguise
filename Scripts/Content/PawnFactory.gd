@@ -31,11 +31,7 @@ const STARTING_ARMOR := {
 	&"abomination": &"gown",
 }
 
-## The attributes a generated pawn rolls. **WIS is deliberately not among
-## them**, on the player's ruling: *"I wouldn't randomise WIS access, give it a
-## baseline and let gear improve it."* Its baseline is each class's own current
-## WIS, so a generated pawn can always reach its own class library, and armour
-## is what buys rows past it.
+## The attributes a generated pawn rolls.
 const ROLLED_ATTRIBUTES: Array[CG.Attribute] = [
 	CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI,
 	CG.Attribute.CON, CG.Attribute.INT, CG.Attribute.ATN,

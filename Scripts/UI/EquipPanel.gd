@@ -9,8 +9,8 @@ const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 signal closed
 
-## Issue 351. WIS from an item sets the plan block budget, so the screen beside
-## this one has to hear about a slot changing.
+## Issue 351. An item can change what actions a pawn offers, so the screen
+## beside this one has to hear about a slot changing.
 signal equipment_changed(pawn: PawnData)
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
@@ -28,10 +28,10 @@ const MARKER_SIZE := 34.0
 ## block in the plan editor. Keep it to four if you edit it in the editor.
 const EMPTY_CHOICE := "(nothing)"
 
-## The seven attributes, in the order the plan editor's own chip row uses them.
+## The six attributes, in the order the plan editor's own chip row uses them.
 const ATTRIBUTE_ORDER: Array = [
 	CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
-	CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS,
+	CG.Attribute.INT, CG.Attribute.ATN,
 ]
 
 var _pawns: Array[PawnData] = []

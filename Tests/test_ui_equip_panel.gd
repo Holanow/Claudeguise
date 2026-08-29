@@ -31,7 +31,7 @@ func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.
 	cls.method = method
 	cls.starting_actions = [_fixture_action(&"test_swing")]
 	cls.base_attributes = {
-		"STR": 10, "CON": 10, "WIS": 8,
+		"STR": 10, "CON": 10,
 	}
 	return cls
 
@@ -350,23 +350,24 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 	panel.free()
 
 ## The compounding case, and the reason this screen measures rather than
-## restates. Plate Mail is CON +2 *and* CON +10%: neither number on its own is
-## what the pawn ends up with, and `Balance.attribute` is the only thing that
-## knows the order they apply in.
-## Issue 489 left Wisdom as the only numeric bonus a piece may carry, so the
-## fixture is rebuilt on it. What this guards is unchanged: the "after" number
-## comes from `Balance.attribute`, not from reading the item's own field.
+## restates. A piece with both a flat and a percent bonus on the same
+## attribute means neither number on its own is what the pawn ends up with,
+## and `Balance.attribute` is the only thing that knows the order they apply
+## in. Issue 790 removed WIS, the item this test used to fixture on, so it
+## builds a synthetic item instead of relying on real content.
 func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> void:
 	var panel := _panel()
 	var pawn := _make_pawn(CG.Method.MAGICAL, CG.Role.SUPPORT)
-	pawn.body = ItemLibrary.get_equipment(&"robes")
-	assert_not_null(pawn.body, "robes must still be registered for this to mean anything")
+	var armor := EquipmentDef.new()
+	armor.slot = EquipmentDef.Slot.BODY
+	armor.attribute_flat = {CG.Attribute.CON: 2}
+	pawn.body = armor
 	var bare := panel._stripped(pawn)
 	assert_eq(bare.body, null, "the stripped copy must wear nothing")
 	assert_eq(bare.pawn_class, pawn.pawn_class, "and must keep the class it is measuring")
-	assert_almost_eq(Balance.attribute(bare, CG.Attribute.WIS), 8.0)
-	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.WIS), 10.0, 0.0001,
-		"8 + the Robes' 2 Wisdom, read through Balance rather than off the item")
+	assert_almost_eq(Balance.attribute(bare, CG.Attribute.CON), 10.0)
+	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.CON), 12.0, 0.0001,
+		"10 + the armor's flat 2 CON, read through Balance rather than off the item")
 	panel.free()
 
 ## Stripping must not touch the pawn being drawn. A screen that unequips a pawn

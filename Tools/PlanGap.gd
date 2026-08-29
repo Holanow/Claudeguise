@@ -62,16 +62,16 @@ func _init() -> void:
 	quit(0)
 
 ## How many library rows a pawn can actually run. `PlanInterpreter` stops at the
-## WIS budget, so the whole library is not the same thing as the whole library
+## row cap, so the whole library is not the same thing as the whole library
 ## firing.
 func _print_budgets(class_ids: Array) -> void:
 	print("")
 	print("======== how much of a library a pawn can run ========")
 	for cid in class_ids:
 		var pawn := PawnFactory.make_preset_pawn(cid, StringName("b_%s" % cid), String(cid))
-		print("  %-14s rows %d  blocks %d  budget %d  ACTIVE ROWS %d" % [
+		print("  %-14s rows %d  blocks %d  cap %d  ACTIVE ROWS %d" % [
 			String(cid), pawn.plans.size(), PresetPlans.total_blocks(cid),
-			Balance.plan_block_budget(pawn), PlanInterpreter.active_plan_count(pawn),
+			Balance.plan_row_cap(pawn), PlanInterpreter.active_plan_count(pawn),
 		])
 
 ## Leave-one-out, which is every party a `PartySelect` of five classes can build

@@ -7,8 +7,5 @@ script = ExtResource("1_t30fy")
 id = &"gown"
 display_name = "Gown"
 slot = 3
-description = "Layered and formal. Adds 2 Wisdom."
-attribute_flat = {
-6: 2
-}
+description = "Layered and formal."
 required_tags = Array[int]([7])

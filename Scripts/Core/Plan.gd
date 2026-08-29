@@ -4,7 +4,7 @@ class_name Plan
 
 ## One plan of action: a trigger condition followed by an ordered list of
 ## blocks. Per README.md a plan is "when <condition>, do <blocks>", the number
-## of blocks a pawn may carry is capped by its WIS, and only one plan fires per
+## of rows a pawn may carry is capped flat, and only one plan fires per
 ## tick per pawn.
 
 @export var id: StringName = &""

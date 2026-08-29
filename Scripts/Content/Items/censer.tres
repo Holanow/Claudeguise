@@ -7,7 +7,4 @@ script = ExtResource("1_g7rnw")
 id = &"censer"
 display_name = "Censer"
 slot = 4
-description = "Smoke and slow thought. Adds 1 Wisdom."
-attribute_flat = {
-6: 1
-}
+description = "Smoke and slow thought."
