@@ -152,6 +152,11 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				]
 			if e.amount == 0 and e.amount_before_mitigation == 0:
 				return ""
+			## Issue 772: Immolate paying its upkeep in the caster's own health.
+			if e.source_id == e.target_id:
+				return "%s burns for [color=%s]%d[/color] %s damage" % [
+					target_name, color, e.amount, CG.damage_type_name(e.damage_type)
+				]
 			return "%s hits %s for [color=%s]%d[/color] %s damage%s" % [
 				source_name, target_name, color, e.amount,
 				CG.damage_type_name(e.damage_type), gap_text(e)

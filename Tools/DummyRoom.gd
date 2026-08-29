@@ -232,7 +232,7 @@ func _check_beat_effects(effects: Array[AbilityEffect], state: CombatState, cast
 ## caster and target must not stand in for an earlier beat's own miss, so this
 ## matches the beat's own fire tick as well as source and target.
 func _check_hit_at_tick(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, fire_tick: int) -> Array[String]:
-	if fx.power_scale <= 0.0:
+	if fx.power_scale <= 0.0 and fx.caster_max_hp_percent <= 0.0:
 		return []
 	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
 	for e in state.events:
@@ -248,7 +248,7 @@ func _check_hit(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id
 	## makes a hit do anything visible. `covers_target` suppresses the event
 	## outright by design (issue 593) -- the ally is where the caster looks,
 	## not something it hits.
-	if covers_target or fx.power_scale <= 0.0:
+	if covers_target or (fx.power_scale <= 0.0 and fx.caster_max_hp_percent <= 0.0):
 		return []
 	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
 	if _has_event(state, kind, caster.id, target_id):
@@ -261,7 +261,7 @@ func _check_hit(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id
 ## Issue 563: same check, aimed at the body standing between the caster and its
 ## primary target, so a declared `pierce_count` is proven rather than assumed.
 func _check_pierce(fx: HitEffect, state: CombatState, caster: CombatUnit, target_id: int, covers_target: bool) -> Array[String]:
-	if covers_target or fx.power_scale <= 0.0:
+	if covers_target or (fx.power_scale <= 0.0 and fx.caster_max_hp_percent <= 0.0):
 		return []
 	var kind := CG.EventKind.HEAL if fx.heals else CG.EventKind.DAMAGE
 	if _has_event(state, kind, caster.id, target_id):

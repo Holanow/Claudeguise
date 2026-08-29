@@ -9,6 +9,12 @@ class_name HitEffect
 ## `Balance.gd` owns what that power is; this owns how hard this hit leans on it.
 @export var power_scale: float = 1.0
 
+## Issue 772. Alternative to `power_scale`: percent of the CASTER's own max hp
+## dealt per hit, same units as `StatusDef.damage_percent_of_max_hp_per_tick`.
+## 0 leaves `power_scale` in charge; a caster whose damage is its own body
+## (Immolate) sets this instead and leaves `power_scale` at 0.
+@export var caster_max_hp_percent: float = 0.0
+
 @export var heals: bool = false
 
 ## A status this hit strips off its target for a bonus, scaled by what that
