@@ -5,16 +5,11 @@ extends SceneTree
 ## lose. Arm B -- the same classes carrying their preset plans -- should win
 ## sometimes. Same seeds, both arms, side by side, and where each run ends.
 ##
-## Issue 734: clear rate alone cannot distinguish the two arms while both sit
-## at 0/40, so depth reached is reported too.
-##
+## Issue 734: depth reached, because clear rate cannot separate two arms at 0/40.
 ## Issue 808: the party is four. Every composition, unless --party names one.
-##
-## Issue 817: `--final-state` prints the per-pawn end state of every run that
-## cleared or came within one room of it. That was `Tools/ClearedFinalState.gd`,
-## a second copy of the walk below, which never learned to award loot -- so for
-## two days it described a game with #811's drop table switched off. It reads
-## off THIS loop now, so there is nothing left to drift.
+## Issue 817: `--final-state` prints the per-pawn end state of the runs that
+## cleared or came within one room of it, off this loop rather than off a
+## second copy of it.
 
 const SEEDS := 40
 
