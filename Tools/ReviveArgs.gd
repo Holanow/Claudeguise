@@ -16,7 +16,12 @@ static func apply() -> String:
 			FloorRun.REVIVE_EVERY_N_ROOMS = int(args[i + 1])
 		elif args[i] == "--revive-hp" and i + 1 < args.size():
 			FloorRun.REVIVE_AT_HP_FRACTION = float(args[i + 1])
+		elif args[i] == "--revive-once-on-two-down":
+			FloorRun.REVIVE_ONCE_ON_TWO_DOWN = true
+	var hp := int(round(100.0 * FloorRun.REVIVE_AT_HP_FRACTION))
+	if FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
+		return "revive: ONCE per floor (camp), held until two are down, returning at %d%% of max hp" % hp
 	if FloorRun.REVIVE_EVERY_N_ROOMS <= 0:
 		return "revive: never"
 	return "revive: every %d room(s), returning at %d%% of max hp" % [
-		FloorRun.REVIVE_EVERY_N_ROOMS, int(round(100.0 * FloorRun.REVIVE_AT_HP_FRACTION))]
+		FloorRun.REVIVE_EVERY_N_ROOMS, hp]

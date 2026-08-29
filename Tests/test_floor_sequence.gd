@@ -91,21 +91,60 @@ func _arrive_dead(room_index: int) -> CombatState:
 	FloorRun.carry_into(run, state, party, room_index)
 	return state
 
-func _set_revive(every: int, fraction: float) -> Array:
-	var was := [FloorRun.REVIVE_EVERY_N_ROOMS, FloorRun.REVIVE_AT_HP_FRACTION]
+func _set_revive(every: int, fraction: float, camp: bool = false) -> Array:
+	var was := [FloorRun.REVIVE_EVERY_N_ROOMS, FloorRun.REVIVE_AT_HP_FRACTION,
+		FloorRun.REVIVE_ONCE_ON_TWO_DOWN]
 	FloorRun.REVIVE_EVERY_N_ROOMS = every
 	FloorRun.REVIVE_AT_HP_FRACTION = fraction
+	FloorRun.REVIVE_ONCE_ON_TWO_DOWN = camp
 	return was
 
 func _restore_revive(was: Array) -> void:
 	FloorRun.REVIVE_EVERY_N_ROOMS = was[0]
 	FloorRun.REVIVE_AT_HP_FRACTION = was[1]
+	FloorRun.REVIVE_ONCE_ON_TWO_DOWN = was[2]
 
-## Issue 802 shipped every-3rd-room at 25%: the only configuration measured
-## where arm A still cleared 0 of 40 and arm B cleared 6.
+## Issue 802 shipped the camp at 50%: arm A spent it in 35 of 40 runs and
+## still cleared 0 of 40, arm B cleared 12. The fixed cadence ships off.
 func test_shipped_revive_settings() -> void:
-	assert_eq(FloorRun.REVIVE_EVERY_N_ROOMS, 3)
-	assert_eq(FloorRun.REVIVE_AT_HP_FRACTION, 0.25)
+	assert_true(FloorRun.REVIVE_ONCE_ON_TWO_DOWN)
+	assert_eq(FloorRun.REVIVE_AT_HP_FRACTION, 0.5)
+	assert_eq(FloorRun.REVIVE_EVERY_N_ROOMS, 0)
+
+## Two dead, not one: #797 put the cliff at the second death, so that is the
+## moment a saved camp is worth spending.
+func _pair() -> Array[PawnData]:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"warrior", &"w", "W"),
+		PawnFactory.make_starter_pawn(&"priest", &"p", "P")]
+	return party
+
+func test_camp_waits_for_the_second_death_then_spends_itself() -> void:
+	var was := _set_revive(3, 0.25, true)
+	var party := _pair()
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	assert_eq(run.down_count(party), 1)
+	assert_false(FloorRun.should_revive(run, party, 3),
+		"one down is not the cliff, and the cadence must not fire either")
+	run.record_result(&"p", 0, 0, false)
+	assert_true(FloorRun.should_revive(run, party, 1), "two down spends the camp")
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
+	FloorRun.carry_into(run, state, party, 1)
+	assert_true(run.revive_used)
+	assert_true(state.unit(0).alive, "both come back")
+	assert_true(state.unit(1).alive)
+	assert_false(FloorRun.should_revive(run, party, 4), "one camp per floor, and it is spent")
+	_restore_revive(was)
+
+func test_camp_never_fires_in_the_first_room() -> void:
+	var was := _set_revive(0, 0.25, true)
+	var party := _pair()
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	run.record_result(&"p", 0, 0, false)
+	assert_false(FloorRun.should_revive(run, party, 0))
+	_restore_revive(was)
 
 func test_revive_cadence_zero_never_revives() -> void:
 	var was := _set_revive(0, 0.25)

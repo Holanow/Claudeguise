@@ -63,15 +63,40 @@ const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 ## Issue 802: how often a fallen pawn comes back, and at what share of max hp.
 ## `static var` rather than `const` so one build can sweep several settings
 ## from the command line; nothing but Tools/ ever assigns them.
-static var REVIVE_EVERY_N_ROOMS := 3
-static var REVIVE_AT_HP_FRACTION := 0.25
+static var REVIVE_EVERY_N_ROOMS := 0
+static var REVIVE_AT_HP_FRACTION := 0.5
 
-## True on arrival at 0-based `room_index` when the cadence is on and this is
-## a multiple of it. Room 0 is never a revive room: nobody has died yet.
+## The camp room: one revive per floor, found somewhere and kept until it is
+## needed, so it fires on the first arrival with two or more of the party
+## down. #797 put the cliff at the second death. Set true and the cadence
+## above is ignored. This is roughly optimal play, not the camp itself.
+static var REVIVE_ONCE_ON_TWO_DOWN := true
+
+## Set when the camp's one revive is spent. Still false at the end of a floor
+## means the run never got two pawns down and never used it.
+var revive_used: bool = false
+
+## True on arrival at 0-based `room_index` under the cadence. Room 0 is never
+## a revive room: nobody has died yet.
 static func revives_on_arrival(room_index: int) -> bool:
 	if REVIVE_EVERY_N_ROOMS <= 0:
 		return false
 	return room_index > 0 and room_index % REVIVE_EVERY_N_ROOMS == 0
+
+## The whole decision for one arrival, cadence or camp.
+static func should_revive(run: FloorRun, party: Array[PawnData], room_index: int) -> bool:
+	if not REVIVE_ONCE_ON_TWO_DOWN:
+		return revives_on_arrival(room_index)
+	if run.revive_used or room_index < 1:
+		return false
+	return run.down_count(party) >= 2
+
+func down_count(party: Array[PawnData]) -> int:
+	var n := 0
+	for p in party:
+		if not is_alive(p.id):
+			n += 1
+	return n
 
 ## Overwrites `state`'s party units (index i is party[i], the order
 ## `CombatSim.build` always places them in) with what this run carried from
@@ -79,7 +104,9 @@ static func revives_on_arrival(room_index: int) -> bool:
 ## live floor and Tools/FloorRuns.gd's headless sweep so the carry rule and
 ## the heal have exactly one implementation.
 static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData], room_index: int = 0) -> void:
-	var revive := revives_on_arrival(room_index)
+	var revive := should_revive(run, party, room_index)
+	if revive:
+		run.revive_used = true
 	for i in party.size():
 		var unit := state.unit(i)
 		var pawn_id: StringName = party[i].id

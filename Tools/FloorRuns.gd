@@ -28,6 +28,7 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 	var cleared := 0
 	var died_at := {}
 	var depths: Array[int] = []
+	var camp_unused := 0
 	for s in range(SEEDS):
 		var room_ids := FloorSequence.build(s)
 		var party := _make_party(class_ids, planned)
@@ -51,7 +52,9 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 		if not wiped:
 			cleared += 1
 			depths.append(room_ids.size())
-	return {"cleared": cleared, "died_at": died_at, "depths": depths}
+		if not run.revive_used:
+			camp_unused += 1
+	return {"cleared": cleared, "died_at": died_at, "depths": depths, "camp_unused": camp_unused}
 
 func _make_party(class_ids: Array, planned: bool) -> Array[PawnData]:
 	var party: Array[PawnData] = []
@@ -75,6 +78,9 @@ func _report(label: String, r: Dictionary) -> void:
 		for room_id in ids:
 			var n: int = died_at[room_id]
 			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
+	if FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
+		print("  the camp's one revive went unused in %d of %d runs (never two down)" % [
+			r.camp_unused, SEEDS])
 	_report_depth(r.depths, r.cleared)
 	print("")
 
