@@ -53,7 +53,9 @@ func _run_forcing_attacks(caster: CombatUnit, target: CombatUnit, action_id: Str
 
 func test_single_weapon_pawn_never_sets_last_attack_hand() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
-	assert_eq(pawn.off_hand, null)
+	## Issue 822: a starter Warrior now carries a shield, so the one-weapon
+	## pawn this is about has to be built rather than assumed.
+	pawn.off_hand = null
 	var caster := _caster(pawn, &"warrior_strike")
 	var target := _target()
 	_run_forcing_attacks(caster, target, &"warrior_strike", 200)
