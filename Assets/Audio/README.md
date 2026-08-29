@@ -90,7 +90,7 @@ one, which is the same one-file operation as replacing a blip.
 #### The twelve statuses that land quietly
 
 A status landing is one name per status. Only `stun` is voiced; drop a file on
-any of the rest and that one status starts making a noise, and the other eleven
+any of the rest and that one status starts making a noise, and the other twelve
 do not.
 
 | File | When it would play |
@@ -107,6 +107,7 @@ do not.
 | `event/status_applied/taunting.ogg` | A unit starts taunting. |
 | `event/status_applied/shielding.ogg` | A unit starts intercepting shots crossing its front arc. |
 | `event/status_applied/sustaining.ogg` | A unit starts holding a channelled ability. |
+| `event/status_applied/airborne.ogg` | A unit is thrown off the ground. |
 
 ## Abilities
 

@@ -12,6 +12,10 @@ const _FALLBACK_SPAWN_SPACING := 32.0
 ## stunned for: one number, because the stun IS the pull.
 const PULL_TICKS := 7
 
+## Issue 830: ticks a thrown unit spends in the air, and the exact length of
+## its AIRBORNE. One constant drives both.
+const THROW_TICKS := 12
+
 ## Builds the starting state: places both sides, derives hp and resources
 ## through `deps`, and emits FIGHT_START.
 static func build(party: Array[PawnData], encounter: RoomData, fight_seed: int, deps: SimDeps = null) -> CombatState:
@@ -145,7 +149,12 @@ static func _decide_phase(state: CombatState, deps: SimDeps) -> void:
 		if not unit.alive:
 			continue
 		## Checked BEFORE the busy guard, which is the whole of the #121 change.
-		if unit.has_status(CG.Status.STUN):
+		## Issue 830: AIRBORNE takes the same branch. A unit off the ground
+		## cannot move of its own volition and cannot act, which is exactly what
+		## this branch already enforces; it stays its own enum member so a plan
+		## can ask "is this one in the air?" and get a different answer from
+		## "is this one stunned?".
+		if unit.has_status(CG.Status.STUN) or unit.has_status(CG.Status.AIRBORNE):
 			_interrupt_on_stun(state, unit)
 			continue
 		if unit.intent != null or unit.is_busy():
@@ -561,6 +570,7 @@ static func _tick_phase(state: CombatState, deps: SimDeps) -> void:
 			if unit.recover_ticks_left == 0:
 				unit.current_action = &""
 		_tick_pull(state, unit)
+		_tick_throw(state, unit, deps)
 		_tick_regen(state, unit, deps)
 		_tick_sustain(state, unit, deps)
 		_tick_dot_statuses(state, unit, deps)
@@ -1089,6 +1099,8 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 				_apply_status(state, unit, target, action, fx, dealt)
 		elif fx is PullEffect:
 			_apply_pull(state, unit, target, action, fx)
+		elif fx is ThrowEffect:
+			_apply_throw(state, unit, target, action, fx)
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
 		elif fx is ConsumeGroundEffect:
@@ -1384,6 +1396,87 @@ static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
 	unit.position = _sweep(state, unit, unit.pull_step)
 	if unit.pull_ticks_left <= 0:
 		unit.pull_step = Vector2.ZERO
+
+## Issue 830: throws `target` at the spot that catches the most of its own
+## allies, over `THROW_TICKS`, and keeps it AIRBORNE for exactly that span.
+## Duration and flight are one constant for #562's reason -- two numbers for
+## one thing drift apart -- so this status ends when the unit lands, and does
+## so without any bookkeeping a plan cannot read.
+static func _apply_throw(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: ThrowEffect) -> void:
+	var landing := _landing_spot(state, target, fx)
+	target.throw_step = (landing - target.position) / float(THROW_TICKS)
+	target.throw_ticks_left = THROW_TICKS
+	target.throw_action = action.id
+	target.throw_source_id = caster.id
+	target.statuses[CG.Status.AIRBORNE] = state.tick + THROW_TICKS
+	target.status_source[CG.Status.AIRBORNE] = caster.id
+	var se := _event(CG.EventKind.STATUS_APPLIED, state.tick, caster.id, target.id, action.id)
+	se.status = CG.Status.AIRBORNE
+	state.emit(se)
+
+## Where to aim a thrown body: the spot inside `fx.max_distance` that catches
+## the most of its allies. Candidates are the allies' own positions, which is
+## the cheapest set that can be optimal -- a landing that catches N of them
+## can always be slid onto one of their heads without dropping any.
+##
+## Deterministic and rng-free. Candidates are walked in `state.living` order,
+## which is id order, and a tie never displaces the incumbent, so the lowest id
+## wins. Nobody left alive to aim at means it lands where it stood.
+static func _landing_spot(state: CombatState, thrown: CombatUnit, fx: ThrowEffect) -> Vector2:
+	var impact: ActionDef = ActionLibrary.get_action(fx.landing_action)
+	var radius := impact.splash_radius if impact != null else 0.0
+	var best := thrown.position
+	var best_caught := -1
+	for candidate in state.living(thrown.team):
+		if candidate.id == thrown.id:
+			continue
+		if thrown.position.distance_to(candidate.position) > fx.max_distance:
+			continue
+		var caught := 0
+		for other in state.living(thrown.team):
+			if other.id != thrown.id and candidate.position.distance_to(other.position) <= radius:
+				caught += 1
+		if caught > best_caught:
+			best_caught = caught
+			best = candidate.position
+	return _clamp_to_arena(best)
+
+## One tick of a flight, and AIRBORNE authorises it exactly as the stun
+## authorises a drag. A cleanse mid-flight drops the unit where it is and the
+## landing never goes off, which is the same bargain `_tick_pull` already makes.
+static func _tick_throw(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
+	if unit.throw_ticks_left <= 0:
+		return
+	if not unit.has_status(CG.Status.AIRBORNE):
+		_clear_throw(unit)
+		return
+	unit.throw_ticks_left -= 1
+	unit.position = _sweep(state, unit, unit.throw_step)
+	if unit.throw_ticks_left > 0:
+		return
+	var action: ActionDef = deps.action_lookup.call(unit.throw_action)
+	var source := state.unit(unit.throw_source_id)
+	_clear_throw(unit)
+	if action == null or source == null:
+		return
+	var fx: ThrowEffect = null
+	for e in action.effects:
+		if e is ThrowEffect:
+			fx = e
+	if fx == null:
+		return
+	var impact: ActionDef = deps.action_lookup.call(fx.landing_action)
+	if impact == null:
+		return
+	state.emit(_event(CG.EventKind.ACTION_FIRE, state.tick, source.id, unit.id, impact.id))
+	for caught in _splash_targets(state, source, unit, impact):
+		_apply_action_effect(state, source, caught, impact, deps)
+
+static func _clear_throw(unit: CombatUnit) -> void:
+	unit.throw_ticks_left = 0
+	unit.throw_step = Vector2.ZERO
+	unit.throw_action = &""
+	unit.throw_source_id = -1
 
 # ---------------------------------------------------------------------------
 # sustained actions
