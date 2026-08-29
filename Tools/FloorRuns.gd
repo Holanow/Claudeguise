@@ -9,29 +9,35 @@ extends SceneTree
 ## at 0/40 -- depth reached (how many rooms a run survives before it dies, or
 ## all of them if it clears) is what tells arm B apart from arm A when
 ## neither wins.
+##
+## Issue 808: the party is four. Every composition, unless --party names one.
 
 const SEEDS := 40
 
 func _init() -> void:
-	var class_ids := ClassLibrary.all_ids()
-	if class_ids.is_empty():
-		printerr("no classes registered")
+	var comps := PartySpec.compositions()
+	if comps.is_empty():
+		printerr("no compositions to run")
 		quit(1)
 		return
-	print("Floor runs, issue 730/734: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
+	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
 	print("%s\n" % ReviveArgs.apply())
-	_report("Arm A -- default pawns, no plans", _run_arm(class_ids, false))
-	_report("Arm B -- planned pawns", _run_arm(class_ids, true))
+	for ids in comps:
+		print("========================================================")
+		print("PARTY OF %d: %s" % [ids.size(), PartySpec.label(ids)])
+		print("========================================================")
+		_report("Arm A -- default pawns, no plans", _run_arm(ids, false))
+		_report("Arm B -- planned pawns", _run_arm(ids, true))
 	quit(0)
 
-func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
+func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var cleared := 0
 	var died_at := {}
 	var depths: Array[int] = []
 	var camp_unused := 0
 	for s in range(SEEDS):
 		var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
-		var party := _make_party(class_ids, planned)
+		var party := PartySpec.make(ids, planned)
 		var run := FloorRun.new()
 		var wiped := false
 		for i in room_ids.size():
@@ -55,15 +61,6 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 		if not run.revive_used:
 			camp_unused += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths, "camp_unused": camp_unused}
-
-func _make_party(class_ids: Array, planned: bool) -> Array[PawnData]:
-	var party: Array[PawnData] = []
-	for cid in class_ids:
-		var c := StringName(cid)
-		var display := ClassLibrary.get_class_def(c).display_name
-		party.append(PawnFactory.make_preset_pawn(c, c, display) if planned \
-			else PawnFactory.make_starter_pawn(c, c, display))
-	return party
 
 func _report(label: String, r: Dictionary) -> void:
 	print(label)

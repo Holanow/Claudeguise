@@ -8,19 +8,27 @@ extends SceneTree
 const SEEDS := 40
 
 func _init() -> void:
-	var class_ids := ClassLibrary.all_ids()
+	var comps := PartySpec.compositions()
+	if comps.is_empty():
+		printerr("no compositions to run")
+		quit(1)
+		return
+	print("Room lethality, %d seeds, full-health preset party.\n" % SEEDS)
+	for party_ids in comps:
+		print("PARTY OF %d: %s" % [party_ids.size(), PartySpec.label(party_ids)])
+		_composition(party_ids)
+		print("")
+	quit(0)
+
+func _composition(party_ids: Array) -> void:
 	var ids := RoomLibrary.all_ids()
 	ids.sort_custom(func(a, b): return String(a) < String(b))
-	print("Room lethality, %d seeds, full-health preset party.\n" % SEEDS)
 	for rid in ids:
 		var wins := 0
 		var hp_left := 0.0
 		var deaths := 0
 		for s in range(SEEDS):
-			var party: Array[PawnData] = []
-			for cid in class_ids:
-				var c := StringName(cid)
-				party.append(PawnFactory.make_preset_pawn(c, c, ClassLibrary.get_class_def(c).display_name))
+			var party := PartySpec.make(party_ids, true)
 			var state := CombatSim.build(party, RoomLibrary.get_room(StringName(rid)), hash([s, rid]))
 			CombatSim.run(state)
 			if state.outcome == CombatState.Outcome.PLAYER_WIN:
@@ -36,4 +44,3 @@ func _init() -> void:
 		print("  %-24s win %2d/%d (%3d%%)   party hp left %3d%%   deaths %.1f/fight" \
 			% [String(rid), wins, SEEDS, int(round(100.0 * wins / SEEDS)),
 			int(round(100.0 * hp_left / SEEDS)), float(deaths) / SEEDS])
-	quit(0)
