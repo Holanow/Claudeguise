@@ -1,18 +1,14 @@
 extends RefCounted
 class_name ArmArgs
 
-## Issue 814: which of the three closings of the five-authored/four-played gap
-## a sweep is measuring, off the command line, so one build measures all three
-## rather than a hand edit between runs.
+## Issue 814: which closing of the five-authored/four-played gap a sweep is
+## measuring, off the command line, so one build measures every arm rather
+## than a hand edit between runs.
 ##
 ##   ... --script res://Tools/FloorRuns.gd -- --arm 1
-##
-## 0 is the shipped floor and is the baseline every arm is read against.
-##
-## Returns the line the tool prints. Every report says which arm produced it,
-## because a sweep that does not state its configuration is a number nobody
-## can trust -- finch caught a `--loot-enemy` sweep silently running at 0.00
-## on exactly this.
+
+## Returns the line the tool prints, so every report states its own arm. A
+## sweep that does not say what it measured is a number nobody can trust.
 static func apply() -> String:
 	var arm := 0
 	var args := OS.get_cmdline_user_args()
