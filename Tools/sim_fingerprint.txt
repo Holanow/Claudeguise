@@ -3,6 +3,7 @@
 # Both lines move together. A source change with no output change is
 # still a change, and the gate makes you say so here.
 # commit: the source tree this was taken against (issue 648), informational only.
-source: 7972229f9610a1fefe74bc250e7fae921c42f4866f7e815a0d32ee90da40f653
-output: b3d29960531e2f7a531ce3860159694a233b1affe07f558108a848750b146572
-commit: 9b4c3eed495a95fec94673b98b97cfbbc1bdba23
+# source: real source hash folded with output (issue 725), not the bare hash.
+source: a05b164a8a7a1cc35d72dd2f18d5ebde3adb9888a7744d6f23da6765f84107b7
+output: a5789bdfa7a6b731a93274348acafde46e121ad3f061a8fda3c9a388b262d670
+commit: 7265b34f72ce0df8d149a9d7fe987199e68973f1

@@ -36,9 +36,11 @@ static func power_multiplier(unit: CombatUnit, action: ActionDef) -> float:
 	return f
 
 ## Statuses an item adds to a landed hit that the action itself never applies.
+## `chance` is drawn by the caller, from `state.rng`, in this list's order --
+## never here, so a query never perturbs the fight it is asked about.
 static func added_statuses(unit: CombatUnit, action: ActionDef) -> Array:
 	var out: Array = []
 	for m in of(unit):
 		if m.adds_status_enabled and m.matches(action):
-			out.append({"status": m.adds_status, "ticks": m.adds_status_ticks})
+			out.append({"status": m.adds_status, "ticks": m.adds_status_ticks, "chance": m.adds_status_chance})
 	return out
