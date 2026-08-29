@@ -257,8 +257,8 @@ func test_starting_a_fight_lives_apart_from_the_places_you_can_go() -> void:
 # ---------------------------------------------------------------------------
 #
 # "pawns on the left, pawn inspect in the middle, then the level select and
-# start on the right". The middle column is where the two things that interact
-# become visible together: WIS from equipment sets the plan block budget.
+# start on the right". The middle column is where the plans editor and the
+# equipment screen that feeds it sit side by side.
 
 func test_the_middle_column_opens_on_a_real_pawn_rather_than_empty() -> void:
 	var screen := PartySelect.create()
@@ -295,41 +295,27 @@ func test_a_fifth_card_is_refused_and_still_focuses_the_pawn() -> void:
 	assert_eq(screen.focused_pawn(), pawns[4], "and the middle column must still move")
 	screen.free()
 
-## The whole argument for one column: equipment that adds WIS raises the plan
-## block budget, and the row past the budget is what un-inerts. Driven through
-## the panel a player touches, and asserted on the sentence the player reads.
-func test_equipping_wis_moves_the_plan_budget_in_the_column_beside_it() -> void:
+## Issue 790: the row cap is flat and no longer moves with equipment, so the
+## budget sentence must be on screen and must stay put across a gear swap.
+func test_the_plan_budget_line_is_on_screen_and_flat_across_a_gear_swap() -> void:
 	var screen := PartySelect.create()
 	screen._ready()
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
 
 	var armors: Array = screen._equip_panel.offered_items(pawn, EquipmentDef.Slot.BODY)
-	## Issue 226 dressed every class by default, so "equip the WIS item" was a
-	## no-op on a pawn already wearing the only one it may wear. Strip the slot
-	## first and the test proves what it always meant to.
 	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 0)
 	var before := _budget_line(screen)
 	assert_ne(before, "", "the plans column must state the budget")
 
-
-	var wis_item := -1
-	for i in armors.size():
-		if armors[i].attribute_percent.get(CG.Attribute.WIS, 0.0) > 0.0 				or armors[i].attribute_flat.get(CG.Attribute.WIS, 0.0) > 0.0:
-			wis_item = i
-			break
-	if wis_item < 0:
-		assert_true(true, "no WIS armour is defined, so there is nothing to move")
-		screen.free()
-		return
-	screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, wis_item + 1)
-	assert_ne(_budget_line(screen), before,
-		"the budget sentence must move when the gear that sets it does: still '%s'" % before)
+	if armors.size() > 1:
+		screen._equip_panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, 1)
+		assert_eq(_budget_line(screen), before, "the row cap must not move with gear")
 	screen.free()
 
 func _budget_line(screen) -> String:
 	for node in _all_nodes(screen._inspect_panel):
-		if node is Label and node.text.contains("plan blocks used"):
+		if node is Label and node.text.contains("plan rows used"):
 			return node.text
 	return ""
 
@@ -355,9 +341,6 @@ func test_the_middle_column_states_the_attributes_once() -> void:
 	screen._ready()
 	var pawn: PawnData = screen.available_pawns()[0]
 	screen.focus_pawn(pawn)
-	## The chip, not the word: the plans panel's block-budget sentence names WIS
-	## legitimately ("the budget is this pawn's WIS"), so a bare substring test
-	## measures that sentence rather than the row this is about.
 	assert_true(_has_attribute_chip(screen._equip_panel),
 		"the equipment panel is where the gear-inclusive attributes live")
 	assert_false(_has_attribute_chip(screen._inspect_panel),
@@ -367,7 +350,7 @@ func test_the_middle_column_states_the_attributes_once() -> void:
 ## A chip from an attributes row: a Label whose whole text is an attribute name
 ## followed by its number, e.g. "STR 12".
 func _has_attribute_chip(node: Node) -> bool:
-	var re := RegEx.create_from_string("^(STR|DEX|AGI|CON|INT|ATN|WIS) [0-9]")
+	var re := RegEx.create_from_string("^(STR|DEX|AGI|CON|INT|ATN) [0-9]")
 	for n in _all_nodes(node):
 		if n is Label and re.search(n.text) != null:
 			return true

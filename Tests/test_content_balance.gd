@@ -112,40 +112,13 @@ func test_a_marked_enemy_takes_more_damage_than_the_same_enemy_unmarked() -> voi
 	assert_true(marked < base, "a marked the_warden must have lower damage reduction than an unmarked the_warden")
 
 
-func test_plan_block_budget_tracks_wis() -> void:
-	var low := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.WIS: 2})
-	var high := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.WIS: 6})
-	assert_eq(Balance.plan_block_budget(low), 2)
-	assert_eq(Balance.plan_block_budget(high), 6)
-
-
-## Issue 269. This was the one formula in the file reading `pawn.attribute()`
-func test_plan_block_budget_counts_equipment_wis() -> void:
-	var pawn := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.WIS: 6})
-	assert_eq(Balance.plan_block_budget(pawn), 6, "the bare pawn is its class's WIS")
-	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.BODY
-	armor.attribute_flat = {CG.Attribute.WIS: 2}
-	pawn.body = armor
-	assert_eq(Balance.plan_block_budget(pawn), 8, "two points of WIS on armor must buy two blocks")
-	pawn.body = null
-	assert_eq(Balance.plan_block_budget(pawn), 6, "and taking it off must give them back")
-
-
-## The negative half: equipment carrying no WIS must not move the budget. A
-## reader that returned any equipment total at all would pass the test above.
-func test_plan_block_budget_ignores_equipment_without_wis() -> void:
-	var pawn := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {CG.Attribute.WIS: 4})
-	var armor := EquipmentDef.new()
-	armor.slot = EquipmentDef.Slot.BODY
-	armor.attribute_flat = {CG.Attribute.CON: 5, CG.Attribute.STR: 5}
-	pawn.body = armor
-	assert_eq(Balance.plan_block_budget(pawn), 4, "CON and STR buy no plan blocks")
-
-
-func test_plan_block_budget_never_zero() -> void:
-	var no_wis := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {})
-	assert_true(Balance.plan_block_budget(no_wis) >= 1)
+## Issue 790: the cap is flat, the same for every pawn regardless of class,
+## method or equipment.
+func test_plan_row_cap_is_flat() -> void:
+	var a := _pawn(CG.Method.MARTIAL, CG.Style.MELEE, {})
+	var b := _pawn(CG.Method.MAGICAL, CG.Style.RANGED, {CG.Attribute.INT: 20})
+	assert_eq(Balance.plan_row_cap(a), 10)
+	assert_eq(Balance.plan_row_cap(b), 10)
 
 
 func test_scale_action_ticks_speeds_up_with_agi_and_has_a_floor() -> void:

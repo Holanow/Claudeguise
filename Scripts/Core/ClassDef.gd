@@ -37,7 +37,6 @@ const ATTRIBUTE_NAME := {
 	CG.Attribute.CON: "CON",
 	CG.Attribute.INT: "INT",
 	CG.Attribute.ATN: "ATN",
-	CG.Attribute.WIS: "WIS",
 }
 
 func attribute(a: CG.Attribute) -> int:

@@ -1,7 +1,7 @@
 extends Node
 
-## Issue 723: a photograph of the new `inert` gutter mark (⊘) -- a row past
-## the pawn's block budget, which never renders anywhere else in the repo
+## Issue 723/790: a photograph of the `inert` gutter mark (⊘) -- a row past
+## the pawn's flat row cap, which never renders anywhere else in the repo
 ## before this capture. Same fixture shape as `Tools/FallbackRowShot.gd`: a
 ## real starter pawn, real class, `InspectPanel` built directly.
 
@@ -13,13 +13,16 @@ func _ready() -> void:
 	var panel := InspectPanel.create()
 	add_child(panel)
 	panel.open([pawn])
-	# Real library rows, real cost -- taken until adding one more would fit,
-	# then the WIS budget is cut so the last row(s) taken land past it. This
-	# is the real over-budget path (equipment coming off costs WIS), not a
-	# synthetic fixture.
+	# Real library rows first, then filler rows past the cap: the row cap is
+	# flat now and no longer shrinks under equipment, so this is the only way
+	# to reach the over-cap state for the screenshot.
 	for plan in PresetPlans.for_class(&"warrior"):
 		panel._add_preset(pawn, plan)
-	pawn.pawn_class.base_attributes["WIS"] = 2
+	while pawn.plans.size() <= Balance.PLAN_ROW_CAP:
+		var filler := Plan.new()
+		filler.id = StringName("filler_%d" % pawn.plans.size())
+		filler.display_name = "Filler"
+		pawn.plans.append(filler)
 	panel._build_detail(pawn)
 	await get_tree().process_frame
 	await get_tree().process_frame

@@ -61,9 +61,8 @@ func _focus_class(class_id: StringName) -> bool:
 	_fail("no party card for class '%s'" % class_id)
 	return false
 
-## The picker showing "Main Hand" as its own row -- found the same way
-## `WisBudgetShot` finds the armour picker, by walking to the first
-## `OptionButton` after that row's label.
+## The picker showing "Main Hand" as its own row -- found by walking to the
+## first `OptionButton` after that row's label.
 func _weapon_picker() -> OptionButton:
 	for n in _walk(_main):
 		if n.get_script() != null and n.get_script().resource_path.ends_with("EquipPanel.gd"):

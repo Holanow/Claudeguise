@@ -69,8 +69,6 @@ static func attribute_text(a: CG.Attribute) -> String:
 				Balance.RESOURCE_PER_INT_BONUS, Balance.ATTACK_POWER_PER_POINT]
 		CG.Attribute.ATN:
 			return "Adds %d max resource per point." % Balance.RESOURCE_PER_ATN
-		CG.Attribute.WIS:
-			return "Raises how many plan blocks a pawn's plans may total. At least 1 regardless of WIS."
 		_:
 			return ""
 

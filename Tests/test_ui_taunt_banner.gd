@@ -26,7 +26,6 @@ func _make_pawn() -> PawnData:
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
 	cls.starting_actions = [_fixture_action(&"test_swing")]
-	cls.base_attributes = {"WIS": 8}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"

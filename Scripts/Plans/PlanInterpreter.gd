@@ -36,17 +36,9 @@ const KEEP_DISTANCE_BAND := 15.0
 static func active_plan_count(pawn: PawnData) -> int:
 	if pawn == null:
 		return 0
-	var budget := Balance.plan_block_budget(pawn)
-	var spent := 0
-	var count := 0
-	for plan in pawn.plans:
-		spent += plan.block_count()
-		if spent > budget:
-			break
-		count += 1
-	return count
+	return mini(pawn.plans.size(), Balance.plan_row_cap(pawn))
 
-## Issue 671: a pawn spends its WIS budget on its rows; an enemy has none and
+## Issue 671/790: a pawn is capped at its row limit; an enemy has none and
 ## every row in `unit.enemy_plans` is active. Two sources, one walk.
 static func decide(state: CombatState, unit: CombatUnit) -> Intent:
 	var plans: Array[Plan] = unit.pawn.plans if unit.pawn != null else unit.enemy_plans

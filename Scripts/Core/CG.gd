@@ -42,7 +42,6 @@ enum Attribute {
 	CON,
 	INT,
 	ATN,
-	WIS,
 }
 
 enum ResourceKind {
@@ -205,7 +204,6 @@ static func attribute_name(a: Attribute) -> String:
 		Attribute.CON: return "CON"
 		Attribute.INT: return "INT"
 		Attribute.ATN: return "ATN"
-		Attribute.WIS: return "WIS"
 	return "?"
 
 ## Issue 631: the eight names live on the `DamageTypeDef` resources now.

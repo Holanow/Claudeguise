@@ -24,7 +24,6 @@ base_attributes = {
 "CON": 3,
 "DEX": 0,
 "INT": 8,
-"STR": 1,
-"WIS": 8
+"STR": 1
 }
 starting_actions = Array[ExtResource("2_kriqh")]([ExtResource("3_nabga"), ExtResource("4_b7t4o"), ExtResource("5_vhuxk"), ExtResource("6_umqas"), ExtResource("7_p73tv")])

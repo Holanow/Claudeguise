@@ -22,7 +22,7 @@ func _fixture_action(id: StringName) -> ActionDef:
 ## pawn stands is decided by `DefaultBehavior` for every plan a player can
 ## currently write.
 
-func _make_pawn(wis: int = 8) -> PawnData:
+func _make_pawn() -> PawnData:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
@@ -30,7 +30,6 @@ func _make_pawn(wis: int = 8) -> PawnData:
 	cls.style = CG.Style.MELEE
 	cls.method = CG.Method.MARTIAL
 	cls.starting_actions = [_fixture_action(&"test_swing")]
-	cls.base_attributes = {"WIS": wis}
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
@@ -57,8 +56,8 @@ func _state_with(a: CombatUnit, b: CombatUnit) -> CombatState:
 
 ## A panel with one pawn holding one freshly added plan, which is the shape a
 ## player reaches by pressing "+ Add a plan".
-func _panel_with_one_plan(wis: int = 8) -> Array:
-	var pawn := _make_pawn(wis)
+func _panel_with_one_plan() -> Array:
+	var pawn := _make_pawn()
 	pawn.plans = []
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -134,7 +133,7 @@ func test_the_distance_is_editable_and_the_interpreter_reads_the_edit() -> void:
 ## ---------------------------------------------------------------------------
 ## Taking it off again
 
-func test_picking_no_movement_removes_the_block_and_gives_its_budget_back() -> void:
+func test_picking_no_movement_removes_the_block() -> void:
 	var pair := _panel_with_one_plan()
 	var panel = pair[0]
 	var pawn: PawnData = pair[1]
@@ -161,36 +160,30 @@ func test_swapping_between_movement_ops_does_not_charge_a_second_block() -> void
 	panel.free()
 
 ## ---------------------------------------------------------------------------
-## The budget, which rook asked to be checked rather than assumed
+## Issue 790: movement never spends the row cap, so the picker is never
+## disabled for budget reasons, even on a pawn already at its row cap.
 
-## WIS 2 buys exactly one two-block plan and leaves nothing. The picker must
-## say why rather than silently doing nothing -- issue 95's own failure.
-func test_the_picker_is_disabled_with_a_reason_when_no_block_is_free() -> void:
-	var pair := _panel_with_one_plan(2)
-	var pawn: PawnData = pair[1]
-	assert_eq(Balance.plan_block_budget(pawn) - pair[0]._blocks_used(pawn), 0, "the fixture must be full")
-	var picker: OptionButton = pair[0]._movement_picker(pawn, pawn.plans[0])
-	assert_true(picker.disabled, "no free block, so nothing may be picked")
-	assert_ne(picker.tooltip_text, "", "and it says why")
+func test_the_picker_is_never_disabled_for_budget_even_at_the_row_cap() -> void:
+	var pawn := _make_pawn()
+	pawn.plans = []
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn])
+	for i in Balance.PLAN_ROW_CAP:
+		panel._add_plan(pawn)
+	var picker: OptionButton = panel._movement_picker(pawn, pawn.plans[0])
+	assert_false(picker.disabled, "movement is free, so a full row cap must not disable it")
 	picker.free()
-	pair[0].free()
+	panel.free()
 
-## The pair: with a block free it is live.
-func test_the_picker_is_live_when_a_block_is_free() -> void:
-	var pair := _panel_with_one_plan(8)
-	var picker: OptionButton = pair[0]._movement_picker(pair[1], pair[1].plans[0])
-	assert_false(picker.disabled)
-	picker.free()
-	pair[0].free()
-
-## A plan that already carries one is never locked out by its own cost: taking
-## it off is the way back under budget.
-func test_a_plan_that_already_has_movement_can_still_edit_it_at_a_full_budget() -> void:
-	var pair := _panel_with_one_plan(3)
+## A plan that already carries a movement block is never locked out of editing
+## it, on any pawn, full row cap or not.
+func test_a_plan_that_already_has_movement_can_still_edit_it() -> void:
+	var pair := _panel_with_one_plan()
 	var panel = pair[0]
 	var pawn: PawnData = pair[1]
 	panel._set_movement(pawn, pawn.plans[0], &"keep_distance")
-	assert_eq(panel._blocks_used(pawn), 3, "two blocks plus movement")
+	assert_eq(pawn.plans[0].block_count(), 3, "two blocks plus movement")
 	var picker: OptionButton = panel._movement_picker(pawn, pawn.plans[0])
 	assert_false(picker.disabled, "a row carrying one must always be able to take it off again")
 	picker.free()

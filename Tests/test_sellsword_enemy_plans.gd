@@ -78,7 +78,7 @@ func test_an_enemy_carrying_plans_still_falls_through_when_none_fire() -> void:
 		"null from plan_decide must still fall through to default_decide, and must have tried the plan first")
 
 # ---------------------------------------------------------------------------
-# PlanInterpreter.decide itself: enemy_plans has no WIS budget, every row runs
+# PlanInterpreter.decide itself: enemy_plans has no row cap, every row runs
 # ---------------------------------------------------------------------------
 
 func _always_idle_row(name: StringName) -> Plan:

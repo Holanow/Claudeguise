@@ -78,13 +78,18 @@ static func applied_statuses(plan: Plan) -> Array[int]:
 			out.append(int(action.applies_status))
 	return out
 
-## Total block count across a class's library. It is what adding every preset
-## would cost, checked against Balance.plan_block_budget.
+## Total block count across a class's library, informational only since #790:
+## rows, not blocks, are what a pawn is capped on. See `total_rows`.
 static func total_blocks(class_id: StringName) -> int:
 	var total := 0
 	for p in for_class(class_id):
 		total += p.block_count()
 	return total
+
+## Row count across a class's library. It is what adding every preset would
+## cost, checked against Balance.plan_row_cap.
+static func total_rows(class_id: StringName) -> int:
+	return for_class(class_id).size()
 
 static func for_class(class_id: StringName) -> Array[Plan]:
 	match class_id:

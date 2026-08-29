@@ -2,9 +2,8 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Issue 131's stopgap: a generated pawn's attributes are rolled from the seed.
-## The player's ruling drew one line through it -- *"I wouldn't randomise WIS
-## access, give it a baseline and let gear improve it"* -- and most of what is
-## asserted here defends that line and the fixed roster beside it.
+## What is asserted here defends the fixed roster used to measure every arm in
+## this repo.
 
 
 ## The whole reason a fixed roster has to exist. Every measurement in this
@@ -21,18 +20,6 @@ func test_the_fixed_roster_is_the_default_and_never_moves() -> void:
 				"%s starter pawn differs from its class spread" % class_id)
 
 
-## The ruling, asserted where it can be broken rather than only written down.
-func test_wis_is_never_rolled_and_stays_at_its_class_baseline() -> void:
-	assert_false(PawnFactory.ROLLED_ATTRIBUTES.has(CG.Attribute.WIS),
-		"WIS is in the rolled set and the player ruled it out")
-	for class_id in ClassLibrary.all_ids():
-		var baseline := ClassLibrary.get_class_def(class_id).attribute(CG.Attribute.WIS)
-		for s in 40:
-			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
-			assert_eq(pawn.attribute(CG.Attribute.WIS), baseline,
-				"%s rolled WIS on seed %d" % [class_id, s])
-
-
 ## The reason the baseline is per class and not one shared number: a generated
 ## pawn must always be able to run its own class library.
 func test_every_rolled_pawn_can_still_run_its_whole_class_library() -> void:
@@ -40,7 +27,7 @@ func test_every_rolled_pawn_can_still_run_its_whole_class_library() -> void:
 		for s in 40:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			pawn.plans = PresetPlans.for_class(class_id)
-			assert_true(Balance.plan_block_budget(pawn) >= PresetPlans.total_blocks(class_id),
+			assert_true(Balance.plan_row_cap(pawn) >= PresetPlans.total_rows(class_id),
 				"%s on seed %d cannot run its own library" % [class_id, s])
 
 
@@ -293,7 +280,7 @@ func test_a_rolled_pawn_still_starts_in_gear_it_is_allowed_to_wear() -> void:
 
 func _all_attributes() -> Array:
 	return [CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
-		CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS]
+		CG.Attribute.INT, CG.Attribute.ATN]
 
 ## Mean L1 distance from `class_id`'s rolled pawns to `against`'s baseline.
 func _mean_distance(class_id: StringName, against: StringName) -> float:

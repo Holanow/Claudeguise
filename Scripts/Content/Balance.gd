@@ -130,10 +130,13 @@ static func damage_reduction(unit: CombatUnit) -> float:
 		reduction -= StatusLibrary.of(CG.Status.MARKED).vulnerability
 	return clampf(reduction, 0.0, MAX_DAMAGE_REDUCTION)
 
-## How many blocks a pawn's plans may total, from WIS per README.md.
-##
-static func plan_block_budget(pawn: PawnData) -> int:
-	return maxi(1, floori(attribute(pawn, CG.Attribute.WIS)))
+## Issue 790: flat for every pawn. WIS used to gate this and is gone; a class
+## differs by what it can do, not by how much it is allowed to say.
+const PLAN_ROW_CAP := 10
+
+## How many plan rows a pawn may carry.
+static func plan_row_cap(_pawn: PawnData) -> int:
+	return PLAN_ROW_CAP
 
 ## Ticks a wind-up or recovery takes after AGI is applied. Kept as a modifier on
 ## the action's own numbers so that "this action is slow" and "this pawn is

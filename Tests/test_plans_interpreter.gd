@@ -32,15 +32,11 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 	p.blocks = blocks
 	return p
 
-## Issue 269: **these fixtures used to be `ClassDef.new()` bare, and that is no
-## longer a pawn that can run a plan.** `decide` now stops at
-## `PlanInterpreter.active_plan_count`, which is `Balance.plan_block_budget` --
-## the pawn's WIS. A `ClassDef` with an empty `base_attributes` has 0 WIS, so its
-## budget is the `maxi(1, ...)` floor of 1 block, and every plan below costs 2.
+## Issue 790: `Balance.plan_row_cap` is flat now, so a bare `ClassDef` is a
+## pawn that can run every plan below without needing any base attribute set.
 func _test_class(id: StringName = &"testclass") -> ClassDef:
 	var cls := ClassDef.new()
 	cls.id = id
-	cls.base_attributes = {"WIS": 8}
 	return cls
 
 

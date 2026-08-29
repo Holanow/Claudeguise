@@ -6,7 +6,7 @@ extends SceneTree
 ## Both arms run the same encounters and the same seeds. Arm B rebuilds the
 ## pre-166 starter pawn out of the shipped one -- the Channel row removed and
 ## the Robes taken back off -- so the only difference between the arms is the
-## ability and the two points of WIS that pay for its row.
+## ability itself.
 ##
 ## Nothing is sampled mid-tick: every count below comes from `state.events`
 ## after the fight, so no probe reads a unit between decide and recover.

@@ -13,23 +13,19 @@ signal closed
 
 const _TOUCH := Palette.TOUCH_TARGET_MIN
 
-## What one new plan costs against `Balance.plan_block_budget`. A plan needs a
-## target block and a skill block to do anything at all, and `Plan.block_count`
-const NEW_PLAN_BLOCK_COST := 2
-
 ## Issue 269: how far an over-budget plan row fades. Dim enough to read as "this
 ## one is not like the others" at a glance, light enough that every chip on it is
 ## still legible -- the player asked for dimmed and still visible, not hidden and
 ## not a bare icon, because a row nobody can read is a row nobody can fix.
 const INERT_ROW_ALPHA := 0.45
 
-## Issue 269, and the exact sentence matters more than the dimming does. A row
-## the pawn cannot pay for stops firing, and `CLAUDE.md`'s binding principle is
-## that a pawn never does anything the player cannot see in the plans of action
-## -- so the mark has to carry **why** (the budget is WIS, and here are both
-## numbers) and **what to do about it** (two ways out, one per direction). Fading
-## the row alone would say only that something is wrong with it.
-const INERT_ROW_NOTE := "Inert: needs %d WIS, this pawn has %d. Equip WIS gear or remove a row."
+## Issue 269/790, and the exact sentence matters more than the dimming does. A
+## row past the cap stops firing, and `CLAUDE.md`'s binding principle is that a
+## pawn never does anything the player cannot see in the plans of action -- so
+## the mark has to carry **why** (the row cap, and both numbers) and **what to
+## do about it** (remove a row). Fading the row alone would say only that
+## something is wrong with it.
+const INERT_ROW_NOTE := "Inert: this pawn has %d rows, capped at %d. Remove a row to activate it."
 
 ## Issue 68: this screen is the plan editor. Hover covers reading a class now
 ## (glossary chips here, on the party cards, and the action descriptions below),
@@ -316,7 +312,7 @@ func _attributes_row(pawn: PawnData) -> Control:
 	var attrs := HBoxContainer.new()
 	attrs.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	for a in [CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI, CG.Attribute.CON,
-			CG.Attribute.INT, CG.Attribute.ATN, CG.Attribute.WIS]:
+			CG.Attribute.INT, CG.Attribute.ATN]:
 		var chip := Label.new()
 		chip.set_script(GlossaryLabelScript)
 		chip.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -373,8 +369,8 @@ func _action_display_name(action_id: StringName) -> String:
 ## individually testable and the detail column keeps one separation setting.
 ## Issue 755. Standing preferences a row's own block overrides -- shown above
 ## Plans because they are read before any row is, as `DefaultBehavior`'s
-## baseline. Free against `Balance.plan_block_budget`: nothing here spends a
-## block. Locked mid-fight for the same reason Equipment is (issue 741):
+## baseline. Free against `Balance.plan_row_cap`: nothing here spends a row.
+## Locked mid-fight for the same reason Equipment is (issue 741):
 ## `UnitGlobals` reads these fields live, every tick, with no staged form to
 ## land an edit in yet, so an edit here would reach into the running fight.
 const GLOBALS_LOCKED_NOTE := "Locked while this fight is running. Change it between rooms."
@@ -539,24 +535,22 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		header.add_child(buttons)
 		out.append(header)
 
-	var used := _blocks_used(pawn)
-	var budget := Balance.plan_block_budget(pawn)
-	## Issue 269: the second half of the first sentence changes when the pawn is
-	## over budget, because "0 free" is true and says nothing about the rows that
-	## have gone inert underneath. Equipment can raise WIS now, so the budget can
-	## fall again when the equipment comes off, and "0 free" would be the whole
-	## report of it.
-	var over := used - budget
-	var standing := ("%d free" % maxi(0, budget - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
+	var used := _rows_used(pawn)
+	var cap := Balance.plan_row_cap(pawn)
+	## Issue 269/790: the second half of the first sentence changes when the
+	## pawn is over the cap, because "0 free" is true and says nothing about
+	## the rows that have gone inert underneath.
+	var over := used - cap
+	var standing := ("%d free" % maxi(0, cap - used)) if over <= 0 else ("%d over, so the last rows are inert" % over)
 	## Issue 590: the rules are the counter's mouseover on both widths now, not
 	## only in the party screen's narrow column. Full width they were a second
 	## paragraph of `HOW_TO_PLAY`, four sentences above them on the same screen.
 	## Issue 723: a readout, not a sentence in the corner -- same numbers, no
 	## trailing prose. Still one Label (several tests find it by exact type and
-	## by the literal "plan blocks used" substring), so the readout treatment is
+	## by the literal "plan rows used" substring), so the readout treatment is
 	## a tile and a bigger face rather than separate label/value columns.
-	var standing_line := "%d of %d plan blocks used  ·  %s" % [used, budget, standing]
-	var rules := "A target, a skill and a movement block cost 1 each, so a new plan costs %d and adding movement to one costs 1 more. A condition costs 0. The budget is this pawn's WIS, equipment included." % NEW_PLAN_BLOCK_COST
+	var standing_line := "%d of %d plan rows used  ·  %s" % [used, cap, standing]
+	var rules := "Every pawn may carry up to %d plan rows. Adding a row, blank or from the library, costs 1; movement is free on a row that already exists." % cap
 	var summary := _line(standing_line, Palette.FONT_SIZE_BODY,
 		Palette.TEXT if over <= 0 else Palette.HP_LOW)
 	summary.add_theme_stylebox_override("normal", _tile_style())
@@ -579,21 +573,19 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	if edited:
 		out.append(_live_summary_line(pawn))
 
-	## Issue 269. Rows are paid for in priority order, so the surplus is always at
-	## the bottom, and **which rows those are is not decided here.** Same walk as
-	## `PlanInterpreter.active_plan_count`, kept local rather than called: it reads
-	## `pawn.plans`, and the array a mid-fight edit budgets against is the staged
-	## copy, not that one. `spent` below is a display number only.
+	## Issue 269. Rows past the cap are always at the bottom, and **which rows
+	## those are is not decided here.** Same walk as
+	## `PlanInterpreter.active_plan_count`, kept local rather than called: it
+	## reads `pawn.plans`, and the array a mid-fight edit budgets against is the
+	## staged copy, not that one.
 	var editing := _edit_plans(pawn)
-	var active := _active_count(editing, budget)
-	var spent := 0
+	var active := _active_count(editing, cap)
 	for i in editing.size():
 		var plan = editing[i]
-		spent += plan.block_count()
 		var inert := i >= active
 		out.append(_plan_row(plan, pawn, i, inert, edited))
 		if inert:
-			out.append(_inert_note(spent, budget))
+			out.append(_inert_note(editing.size(), cap))
 		elif not edited and _live_verdict(pawn, plan) == VERDICT_REFUSED:
 			out.append(_refused_note(pawn, plan))
 	if edited:
@@ -649,12 +641,12 @@ func _taunt_banner(pawn: PawnData) -> Control:
 ## warning colour rather than the dim one -- dim is what this screen uses for
 ## explanatory prose, and this is not prose, it is a state the player has to act
 ## on.
-func _inert_note(needed: int, budget: int) -> Control:
+func _inert_note(used: int, cap: int) -> Control:
 	var indent := HBoxContainer.new()
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
 	indent.add_child(gutter)
-	var note := _line(INERT_ROW_NOTE % [needed, budget], Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
+	var note := _line(INERT_ROW_NOTE % [used, cap], Palette.FONT_SIZE_SMALL, Palette.HP_LOW)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	indent.add_child(note)
 	return indent
@@ -700,25 +692,22 @@ func _add_plan_button(pawn: PawnData) -> Button:
 	var button := Button.new()
 	button.text = "+ Add a plan"
 	button.custom_minimum_size = Vector2(0.0, _TOUCH)
-	var free_blocks := Balance.plan_block_budget(pawn) - _blocks_used(pawn)
+	var free_rows := Balance.plan_row_cap(pawn) - _rows_used(pawn)
 	var actions := _available_actions(pawn)
 	if actions.is_empty():
 		button.disabled = true
 		button.tooltip_text = "This pawn has no actions, so a plan would have nothing to call."
-	elif free_blocks < NEW_PLAN_BLOCK_COST:
+	elif free_rows < 1:
 		button.disabled = true
-		button.tooltip_text = "%d block free, and a plan costs %d. Remove a row to make room." % [
-			maxi(0, free_blocks), NEW_PLAN_BLOCK_COST]
+		button.tooltip_text = "%d of %d rows used. Remove a row to make room." % [
+			_rows_used(pawn), Balance.plan_row_cap(pawn)]
 	else:
 		button.pressed.connect(_add_plan.bind(pawn))
 	return button
 
-## Blocks this pawn has spent, by the same count `Balance.plan_block_budget`
-func _blocks_used(pawn: PawnData) -> int:
-	var total := 0
-	for plan in _edit_plans(pawn):
-		total += plan.block_count()
-	return total
+## Rows this pawn has spent, by the same count `Balance.plan_row_cap`.
+func _rows_used(pawn: PawnData) -> int:
+	return _edit_plans(pawn).size()
 
 ## One plan as a row of blocks. Rebuilds the whole detail panel on any change
 ## rather than patching one chip in place — plans are short and this screen is
@@ -837,7 +826,7 @@ func _add_plan(pawn: PawnData) -> void:
 	var actions := _available_actions(pawn)
 	if actions.is_empty():
 		return
-	if Balance.plan_block_budget(pawn) - _blocks_used(pawn) < NEW_PLAN_BLOCK_COST:
+	if _rows_used(pawn) >= Balance.plan_row_cap(pawn):
 		return
 	_mark_edited(pawn)
 	var plan := PlanScript.new()
@@ -873,7 +862,7 @@ const LIBRARY_EMPTY_STATE := "No plans yet. Take a ready-made row from the libra
 const LIBRARY_EXHAUSTED := "Every row this class's library offers is already on this pawn."
 const LIBRARY_NONE := "This class has no library rows."
 const LIBRARY_ADD := "Add"
-const LIBRARY_COST := "%d blocks"
+const LIBRARY_COST := "1 row"
 
 ## Issue 434. The list is read top-down and it is also priority order, and the
 ## Geysermancer's first row does nothing until a second row applies BURN, so
@@ -885,7 +874,7 @@ const LIBRARY_NEEDS_FIGHT := "Waits for %s to come from the fight. Nothing else 
 
 ## Why an Add is dead rather than silently refusing, the same rule the movement
 ## picker follows (issue 392).
-const LIBRARY_NO_ROOM := "%d block(s) free, and this row costs %d. Remove a row, or raise this pawn's WIS."
+const LIBRARY_NO_ROOM := "This pawn already has %d rows, the cap. Remove a row first."
 
 ## Open by default on a pawn with no rows: the empty state is where the screen
 ## has to teach, and it was showing nothing.
@@ -946,23 +935,22 @@ func _library_section(pawn: PawnData) -> Array[Control]:
 ## One library row: what it would do, in the same words the editable row above
 ## prints, plus what it costs and a button to take it.
 func _library_row(pawn: PawnData, plan) -> Control:
-	var cost: int = plan.block_count()
-	var free_blocks := Balance.plan_block_budget(pawn) - _blocks_used(pawn)
+	var full := _rows_used(pawn) >= Balance.plan_row_cap(pawn)
 
 	var add := Button.new()
 	add.text = LIBRARY_ADD
 	add.custom_minimum_size = Vector2(_TOUCH * 1.6, _TOUCH)
-	if free_blocks < cost:
+	if full:
 		add.disabled = true
-		add.tooltip_text = LIBRARY_NO_ROOM % [maxi(0, free_blocks), cost]
+		add.tooltip_text = LIBRARY_NO_ROOM % Balance.plan_row_cap(pawn)
 	else:
-		add.tooltip_text = "Add \"%s\" as a new last row. It costs %d blocks." % [plan.display_name, cost]
+		add.tooltip_text = "Add \"%s\" as a new last row. It costs 1 row." % plan.display_name
 		add.pressed.connect(_add_preset.bind(pawn, plan))
 
-	var price := _tag_label(LIBRARY_COST % cost)
+	var price := _tag_label(LIBRARY_COST)
 	var texts := _library_row_texts(plan)
 	var row := _assemble_library_row(add, price, texts)
-	if free_blocks < cost:
+	if full:
 		row.modulate = Color(1.0, 1.0, 1.0, INERT_ROW_ALPHA)
 
 	var note := _dependency_text(pawn, plan)
@@ -1048,11 +1036,9 @@ func _library_row_texts(plan) -> Array[String]:
 	var condition: ConditionBlock = plan.condition if plan.condition != null else AlwaysBlock.new()
 	return [skill, target, _cap_first(condition.describe())] as Array[String]
 
-## Takes the row as-is. It is charged exactly what its blocks total, which is
-## what building the same row by hand charges -- no special case, or the budget
-## stops being checkable.
+## Takes the row as-is. It costs 1 row, the same as building it by hand.
 func _add_preset(pawn: PawnData, plan) -> void:
-	if Balance.plan_block_budget(pawn) - _blocks_used(pawn) < plan.block_count():
+	if _rows_used(pawn) >= Balance.plan_row_cap(pawn):
 		return
 	_mark_edited(pawn)
 	_edit_plans(pawn).append(plan)
@@ -1208,10 +1194,6 @@ func _set_action(plan, pawn: PawnData, block: UseActionBlock, choices: Array, de
 const NO_MOVEMENT := &""
 const NO_MOVEMENT_CAPTION := "default movement"
 
-## Why the picker is dead rather than silently doing nothing, which is issue
-## 95's own failure.
-const MOVEMENT_NO_ROOM := "No plan block free, and a movement block costs 1. Remove a row, or raise this pawn's WIS."
-
 ## The movement block on this plan, or null. There is at most one:
 ## `_run_blocks` keeps the last MOVEMENT block it walks past, so a second would
 ## be paid for and never read.
@@ -1221,8 +1203,8 @@ static func movement_block_of(plan):
 			return block
 	return null
 
-## The row's movement chip. Never disabled for a plan that already carries a
-## block, whatever the budget says: taking it off again is the way back under.
+## The row's movement chip. Issue 790: never disabled for budget any more --
+## movement rides on a row already paid for, so it does not spend the row cap.
 func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 	var block = movement_block_of(plan)
 	var ops := _available_movements(pawn)
@@ -1238,10 +1220,6 @@ func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 	picker.selected = current
 	_size_to_caption(picker)
 	_caption_tooltip(picker)
-	if block == null and Balance.plan_block_budget(pawn) - _blocks_used(pawn) < 1:
-		picker.disabled = true
-		picker.tooltip_text = MOVEMENT_NO_ROOM
-		return picker
 	picker.item_selected.connect(func(idx): _set_movement(pawn, plan,
 		NO_MOVEMENT if idx == 0 else ops[idx - 1]))
 	return picker
@@ -1413,15 +1391,8 @@ const _CHIP_CHROME := 40.0
 ## Same walk as `PlanInterpreter.active_plan_count`, against whichever array
 ## the caller is drawing rows for -- see `_plans_section`'s comment on why it
 ## is not called directly.
-func _active_count(plans: Array, budget: int) -> int:
-	var spent := 0
-	var count := 0
-	for plan in plans:
-		spent += plan.block_count()
-		if spent > budget:
-			break
-		count += 1
-	return count
+func _active_count(plans: Array, cap: int) -> int:
+	return mini(plans.size(), cap)
 
 ## Issue 741: what the fight is doing this instant, read off `pawn.plans`
 ## regardless of any staged edit. The other half of "show the live row and the

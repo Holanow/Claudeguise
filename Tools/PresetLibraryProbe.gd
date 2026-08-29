@@ -171,7 +171,7 @@ func _run() -> void:
 	_check(adds.size() > 0, "the library offers %d rows" % adds.size())
 	if adds.is_empty():
 		return
-	var before: int = panel._blocks_used(pawn)
+	var before: int = panel._rows_used(pawn)
 	var offered := adds.size()
 	if not await _click_control(adds[0], "the first Add"):
 		return
@@ -179,9 +179,8 @@ func _run() -> void:
 	if pawn.plans.is_empty():
 		return
 	var added = pawn.plans[0]
-	var charged: int = panel._blocks_used(pawn) - before
-	_check(charged == added.block_count(),
-		"charged %d for a %d-block row" % [charged, added.block_count()])
+	var charged: int = panel._rows_used(pawn) - before
+	_check(charged == 1, "charged %d rows for one row" % charged)
 	_check(_buttons(panel, InspectPanel.LIBRARY_ADD).size() == offered - 1,
 		"the taken row left the library")
 	print("PresetLibraryProbe: took '%s' (%s)" % [added.display_name, added.id])
