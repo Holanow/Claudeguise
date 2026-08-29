@@ -11,10 +11,6 @@ const BOUNDARY_WIDTH := 2.0
 const GRID_ALPHA := 0.16
 const CENTER_LINE_ALPHA := 0.3
 
-## A pre-#689 room authors rectangles here. A fight sets `grid` instead;
-## whichever is set is what gets drawn.
-var terrain: Array = []
-
 ## Set by BattleView from CombatState.grid, once, and mutated in place after.
 var grid: TerrainGrid = null
 
@@ -74,9 +70,6 @@ func _draw() -> void:
 
 	if grid != null:
 		_draw_grid()
-	else:
-		for feature in terrain:
-			_draw_feature(feature)
 
 	ShieldWall.draw_all(self, units, unit_positions)
 
@@ -127,34 +120,6 @@ func _update_trail(id: int, at: Vector2) -> Array:
 		pts = pts.slice(pts.size() - _TRAIL_LENGTH, pts.size())
 	_trails[id] = pts
 	return pts
-
-## Four kinds, two axes (blocks movement / blocks sight), and no new Palette
-## colours: everything below reuses tokens that already exist, distinguished
-## by fill, footprint and pattern rather than a fifth colour nobody asked for.
-func _draw_feature(feature) -> void:
-	match feature.kind:
-		Terrain.Kind.WALL:
-			draw_rect(feature.rect, Palette.ARENA_EDGE)
-			draw_rect(feature.rect, Palette.TEXT_DIM, false, 2.0)
-		Terrain.Kind.PILLAR:
-			var center: Vector2 = feature.rect.get_center()
-			var radius: float = min(feature.rect.size.x, feature.rect.size.y) * 0.5
-			draw_circle(center, radius, Palette.ARENA_EDGE)
-			draw_arc(center, radius, 0.0, TAU, 24, Palette.TEXT_DIM, 2.0, true)
-		Terrain.Kind.HAZARD:
-			var color := Palette.damage_color(feature.damage_type)
-			color.a = 0.35
-			draw_rect(feature.rect, color)
-			_draw_hazard_stripes(feature.rect, color)
-		Terrain.Kind.PIT:
-			draw_rect(feature.rect, Palette.BACKGROUND)
-			draw_rect(feature.rect, Palette.ARENA_EDGE, false, 2.0)
-		## Issue 492. Flat and unstriped on purpose: a hazard's stripes say "do
-		## not stand here" and a pool is the one piece of ground that is safe.
-		Terrain.Kind.WATER:
-			var water := Palette.damage_color(CG.DamageType.WATER)
-			water.a = 0.45
-			draw_rect(feature.rect, water)
 
 ## Issue 625: the ground as cells. Cells of one kind sit flush and read as one
 ## shape, so only the edges where the kind changes get an outline -- filling
