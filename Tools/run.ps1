@@ -19,6 +19,12 @@
 # a capture tool waits for a frame that cannot arrive. Three sessions hit that
 # in one night, one of them burning 650 seconds of CPU. `-Headless` is refused
 # for anything with a scene rather than started and left to the wall clock.
+#
+# Issue 715: calling godot directly instead of through this script skips all
+# three of the above and hangs indefinitely on a fresh worktree -- confirmed
+# on a bare `--script` run with no scene at all, and `--check-only` does not
+# catch it either (exits 0 in under a second regardless of cache state). Use
+# this script, always; there is no flag that makes a raw call safe.
 param(
     [Parameter(Mandatory = $true, Position = 0)] [string] $Tool,
     [int] $TimeoutSeconds = 300,

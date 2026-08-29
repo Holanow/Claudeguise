@@ -157,7 +157,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
 					_enemy_in_range(CASTER_REACH),
-					[TargetNearestEnemyBlock.new(), _use(&"spotter_mark")]),
+					[TargetFarthestEnemyBlock.new(), _use(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
 					_resource_at_least(25),
 					[TargetSelfBlock.new(), _use(&"build_siege_engine")]),

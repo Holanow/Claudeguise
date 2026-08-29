@@ -18,17 +18,25 @@ const SEEDS := 8
 # the numbers are the derivation, not a taste
 # ---------------------------------------------------------------------------
 
-## `IMMOLATE_TICK_POWER_SCALE` is Grapple's own power over Grapple's own cycle.
-func test_a_tick_of_the_channel_is_worth_a_tick_of_grapple() -> void:
-	var grapple := ActionLibrary.get_action(GRAPPLE)
+## Issue 772. Immolate no longer leans on an attack stat at all -- it burns
+## off the Abomination's own max hp, the same shape BURN and POISON already
+## use (`Balance.status_damage_per_tick`). `power_scale` is retired to 0 so
+## the two sources can never both be live on the same hit by accident.
+func test_the_channel_deals_no_power_scale_damage() -> void:
 	var immolate := ActionLibrary.get_action(IMMOLATE)
-	assert_not_null(grapple, "grapple should exist")
 	assert_not_null(immolate, "immolate should exist")
-	var cycle := grapple.wind_up_ticks + grapple.recover_ticks
-	assert_true(cycle > 0, "a cycle of zero ticks would make the derivation meaningless")
+	assert_eq(immolate.power_scale, 0.0, "power_scale is retired for this action")
+
+## 3% of the Abomination's own max hp per second, divided across the 15 ticks
+## the sustain fires on: 3.0 / 15 = 0.2% per tick. Worked from the rate rather
+## than the other way around, so the two numbers cannot silently disagree.
+func test_the_channel_deals_three_percent_of_the_abominations_max_hp_per_second() -> void:
+	var immolate := ActionLibrary.get_action(IMMOLATE)
+	var hit := immolate.hit()
+	assert_not_null(hit, "immolate should carry a HitEffect")
 	assert_almost_eq(
-		immolate.power_scale, grapple.power_scale / float(cycle), 0.0001,
-		"a tick of the aura should be worth a tick of Grapple"
+		hit.caster_max_hp_percent * float(CG.TICKS_PER_SECOND), 3.0, 0.0001,
+		"one tick's percent, times the ticks in a second, should be the per-second rate"
 	)
 
 ## The band the plan is named for: close enough to burn, too far to grip. If the
@@ -70,3 +78,74 @@ func _immolate_plan() -> Plan:
 		if p.id == IMMOLATE_PLAN:
 			return p
 	return null
+
+# ---------------------------------------------------------------------------
+# issue 772: a plan row is how a player stops the aura
+# ---------------------------------------------------------------------------
+
+## `self_hp_below_fraction` already exists in `BlockCatalog` -- no new
+## mechanism needed. A row using it, ranked above the burn row, is "hold
+## Immolate while my health is above 50%" and this proves that row actually
+## drops a live sustain on the tick health crosses, not just in theory.
+func test_a_self_hp_below_row_drops_a_live_immolate_sustain_on_the_crossing_tick() -> void:
+	var immolate := ActionLibrary.get_action(IMMOLATE)
+	var claw := ActionLibrary.get_action(&"abomination_claw")
+
+	var stop_condition := SelfHpBelowBlock.new()
+	stop_condition.fraction = 0.5
+	var claw_block := UseActionBlock.new()
+	claw_block.action = claw
+	var stop_row := Plan.new()
+	stop_row.id = &"stop_at_half_health"
+	stop_row.condition = stop_condition
+	stop_row.blocks = [TargetNearestEnemyBlock.new(), claw_block] as Array[PlanBlock]
+
+	var burn_condition := EnemyInRangeBlock.new()
+	burn_condition.range_units = immolate.sustain_radius
+	var immolate_block := UseActionBlock.new()
+	immolate_block.action = immolate
+	var burn_row := Plan.new()
+	burn_row.id = IMMOLATE_PLAN
+	burn_row.condition = burn_condition
+	burn_row.blocks = [TargetSelfBlock.new(), immolate_block] as Array[PlanBlock]
+
+	var pawn := PawnData.new()
+	pawn.id = &"p1"
+	pawn.pawn_class = ClassLibrary.get_class_def(&"abomination")
+	pawn.plans = [stop_row, burn_row]
+
+	var caster := CombatUnit.new()
+	caster.id = 0
+	caster.team = CG.Team.PLAYER
+	caster.pawn = pawn
+	caster.actions = [&"abomination_claw", IMMOLATE]
+	caster.hp_max = 1000
+	caster.hp = 1000
+	caster.resource_max = 100
+	caster.resource = 100
+	caster.resource_kind = CG.ResourceKind.RAGE
+	caster.position = Vector2.ZERO
+
+	var enemy := CombatUnit.new()
+	enemy.id = 1
+	enemy.team = CG.Team.ENEMY
+	enemy.hp_max = 100000
+	enemy.hp = 100000
+	## Inside both Claw's 45-unit reach and Immolate's 90, so the only thing
+	## deciding between the two rows is the hp condition.
+	enemy.position = Vector2(40.0, 0.0)
+
+	var state := CombatState.new(772)
+	state.units.append(caster)
+	state.units.append(enemy)
+	var deps := SimDeps.new()
+
+	## Immolate's own wind_up_ticks (15) has to complete before it ignites.
+	for i in immolate.wind_up_ticks + 1:
+		CombatSim.step(state, deps)
+	assert_eq(caster.sustaining, IMMOLATE, "holding the aura above half health")
+
+	caster.hp = int(caster.hp_max * 0.4)
+	CombatSim.step(state, deps)
+
+	assert_eq(caster.sustaining, &"", "the stop row took over on the tick hp crossed 50%")

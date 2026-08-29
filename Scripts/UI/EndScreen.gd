@@ -298,14 +298,15 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 		parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)
 
-## The three questions the player asked for, one short line each rather than
-## one long line that truncates -- issue 737 review: a fixed-width label
-## holding variable-length prose is the same failure #723's plan editor has.
+## The questions the player asked for, one short line each rather than one
+## long line that truncates -- issue 737 review: a fixed-width label holding
+## variable-length prose is the same failure #723's plan editor has.
 ## Mitigation goes FIRST: `amount_before_mitigation` against
 ## `amount_after_mitigation` was read by nothing before this issue, and it is
 ## the number a player has no other way to learn. `top_sources` mixes ability
 ## casts and DoT ticks, highest total first, so the busiest cause wins
-## regardless of which of the two damage paths it travelled.
+## regardless of which of the two damage paths it travelled. Issue 766 appends
+## a last line for the best defensive cast, if any prevented damage this fight.
 static func ledger_lines(state: CombatState) -> Array[String]:
 	var l := DamageLedger.build(state)
 	var m := DamageLedger.mitigation_summary(l, CG.Team.PLAYER)
@@ -313,11 +314,17 @@ static func ledger_lines(state: CombatState) -> Array[String]:
 	if not m.is_empty() and m.before > 0:
 		var pct := int(round(100.0 * (m.before - m.after) / m.before))
 		armor = "Your armour stopped %d%% of the damage aimed at you." % pct
-	return [
+	var lines: Array[String] = [
 		armor,
 		"Dealt most: %s." % _top_two(l, CG.Team.PLAYER),
 		"Hurt you most: %s." % _top_two(l, CG.Team.ENEMY),
 	]
+	var best := DamageLedger.prevented_summary(l, CG.Team.PLAYER)
+	if not best.is_empty():
+		var row: Dictionary = best[0]
+		lines.append("%s: %d dealt, %d prevented, %d casts." % \
+			[row.name, row.dealt, row.prevented, row.casts])
+	return lines
 
 # ---------------------------------------------------------------------------
 

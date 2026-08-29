@@ -77,6 +77,11 @@ var sustaining: StringName = &""
 ## `action_ticks_total` had to exist.
 var sustain_started_tick: int = -1
 
+## Issue 772. Ticks the current sustain has been paying in health rather than
+## rage. -1 while rage still covers it; the escalating self-burn ramp reads
+## this and it resets to -1 whenever the sustain begins or ends.
+var sustain_drain_ticks: int = -1
+
 ## The action being performed, or &"" when free. While busy the unit's intent
 ## is not read.
 var current_action: StringName = &""
@@ -104,6 +109,11 @@ var status_magnitude: Dictionary = {}
 ## Read by key and never iterated, so it exposes no new order. A DOT tick can
 ## name its author, which `-1` on the event could not.
 var status_source: Dictionary = {}
+
+## Issue 766. Which action applied each status, keyed by CG.Status. Alongside
+## `status_source` so a mitigation caused by the status can be attributed back
+## to the cast that raised it, not only to the unit that cast it.
+var status_source_action: Dictionary = {}
 
 ## Action ids available to this unit, from class, equipment and enemy
 ## definition combined at build time.

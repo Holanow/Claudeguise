@@ -5,11 +5,8 @@ class_name AbilityModifier
 ## author. Equipment could already grant actions and move attributes; it could
 ## not make every projectile spell throw an extra bolt.
 ##
-## Two of the six fields #632 designed are not here: `pierce_bonus` and
-## `status_chance_bonus`. Nothing in the game pierces and no status rolls a
-## chance, so both would be exported fields that do nothing -- the "NOT YET
-## WIRED" comment `CLAUDE.md` names, in field form. They arrive with the
-## mechanics they modify.
+## `pierce_bonus`, the other of #632's six fields, is still absent: nothing in
+## the game pierces, so it would be an exported field that does nothing.
 
 @export var display_name: String = ""
 
@@ -33,6 +30,10 @@ class_name AbilityModifier
 @export var adds_status: CG.Status = CG.Status.SHIELD
 @export var adds_status_enabled: bool = false
 @export var adds_status_ticks: int = 0
+## Issue 746: chance the added status actually lands, drawn from `state.rng`
+## once per landed hit. Defaults to 1.0 so every modifier authored before this
+## field existed still applies unconditionally.
+@export_range(0.0, 1.0) var adds_status_chance: float = 1.0
 
 func matches(action: ActionDef) -> bool:
 	if only_projectiles and action.delivery == null:
