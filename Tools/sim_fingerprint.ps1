@@ -42,17 +42,26 @@ $recordPath = Join-Path $PSScriptRoot 'sim_fingerprint.txt'
 # is read by `BattleView` and by nothing below the presentation layer (#570).
 # `SampleFights.gd` is IN the set: the instrument is part of the measurement,
 # and editing it moves the output.
-## Issue 633: `.tres` counts as source. Content left GDScript in #621 and #628,
-## so hashing only `*.gd` would let an edited action or class move no hash while
-## the gate printed `sim pass` on a changed simulation.
+## Issue 821: EVERY file in these directories is source, rather than a list of
+## extensions. An allow-list lost `.tres` in #633 and `.tscn` in #680, both
+## times because content moved to a file type nobody added to it; the sim/view
+## separation is carried by these directories, never by the extension.
 $SOURCE_DIRS = @('Combat', 'Content', 'Core', 'Floor', 'Plans', 'Rooms')
+
+## Godot writes these next to a script when the EDITOR opens the project, and
+## `.gitignore` excludes both. Hashing them would make the fingerprint differ
+## between a fresh clone and an editor tree, which is a defect, not a guard.
+$GENERATED_SIDECARS = @('.uid', '.import')
 
 function Get-SourceHash {
     $files = @()
     foreach ($dir in $SOURCE_DIRS) {
         $path = Join-Path $repo "Scripts\$dir"
         if (Test-Path $path) {
-            $files += Get-ChildItem -Path $path -Recurse -File -Include *.gd, *.tres
+            # Enumerated then filtered: `-Exclude` with `-Recurse` is unreliable
+            # in PowerShell 5.1.
+            $files += Get-ChildItem -Path $path -Recurse -File |
+                Where-Object { $GENERATED_SIDECARS -notcontains $_.Extension }
         }
     }
     $files += Get-Item (Join-Path $repo 'Tools\SampleFights.gd')
