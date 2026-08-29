@@ -18,7 +18,8 @@ func _init() -> void:
 		printerr("no classes registered")
 		quit(1)
 		return
-	print("Floor runs, issue 730/734: arm A (default) vs arm B (planned), %d seeds.\n" % SEEDS)
+	print("Floor runs, issue 730/734: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
+	print("%s\n" % ReviveArgs.apply())
 	_report("Arm A -- default pawns, no plans", _run_arm(class_ids, false))
 	_report("Arm B -- planned pawns", _run_arm(class_ids, true))
 	quit(0)
@@ -27,6 +28,7 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 	var cleared := 0
 	var died_at := {}
 	var depths: Array[int] = []
+	var camp_unused := 0
 	for s in range(SEEDS):
 		var room_ids := FloorSequence.build(s)
 		var party := _make_party(class_ids, planned)
@@ -35,7 +37,7 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 		for i in room_ids.size():
 			var room_id: StringName = room_ids[i]
 			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
-			FloorRun.carry_into(run, state, party)
+			FloorRun.carry_into(run, state, party, i)
 			CombatSim.run(state)
 			for j in party.size():
 				var unit := state.unit(j)
@@ -50,7 +52,9 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 		if not wiped:
 			cleared += 1
 			depths.append(room_ids.size())
-	return {"cleared": cleared, "died_at": died_at, "depths": depths}
+		if not run.revive_used:
+			camp_unused += 1
+	return {"cleared": cleared, "died_at": died_at, "depths": depths, "camp_unused": camp_unused}
 
 func _make_party(class_ids: Array, planned: bool) -> Array[PawnData]:
 	var party: Array[PawnData] = []
@@ -74,6 +78,9 @@ func _report(label: String, r: Dictionary) -> void:
 		for room_id in ids:
 			var n: int = died_at[room_id]
 			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
+	if FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
+		print("  the camp's one revive went unused in %d of %d runs (never two down)" % [
+			r.camp_unused, SEEDS])
 	_report_depth(r.depths, r.cleared)
 	print("")
 
