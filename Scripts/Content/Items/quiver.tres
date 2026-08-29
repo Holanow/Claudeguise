@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EquipmentDef" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_qvr1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityModifier.gd" id="2_qvr2"]
+
+[sub_resource type="Resource" id="Resource_qvrbleed"]
+script = ExtResource("2_qvr2")
+display_name = "Barbed arrowheads"
+adds_status = 1
+adds_status_enabled = true
+adds_status_ticks = 45
+adds_status_chance = 0.25
+
+[resource]
+script = ExtResource("1_qvr1")
+id = &"quiver"
+display_name = "Quiver"
+slot = 1
+description = "Barbed arrowheads. A landed attack has a chance to draw Bleed."
+modifiers = Array[ExtResource("2_qvr2")]([SubResource("Resource_qvrbleed")])
+required_tags = Array[int]([0])

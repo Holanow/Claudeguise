@@ -191,6 +191,15 @@ func _parts() -> Dictionary:
 	_tri(crown, Vector2(16.0, 5.0), Vector2(19.0, 0.0), Vector2(22.0, 5.0))
 	out["crown"] = crown
 
+	## Issue 757: the same crown, on the rat's head rather than on a person's.
+	## Same +8.5/+13.5 offset `hat_low` already applies to `hat` for the same
+	## reason -- the rat's head sits lower and further right than a human one.
+	var crown_low := _blank()
+	_tri(crown_low, Vector2(18.5, 18.5), Vector2(21.5, 13.5), Vector2(24.5, 18.5))
+	_tri(crown_low, Vector2(21.5, 18.5), Vector2(24.5, 13.5), Vector2(27.5, 18.5))
+	_tri(crown_low, Vector2(24.5, 18.5), Vector2(27.5, 13.5), Vector2(30.5, 18.5))
+	out["crown_low"] = crown_low
+
 	var hood := _blank()
 	_tri(hood, Vector2(16.0, 0.0), Vector2(8.0, 13.0), Vector2(24.0, 13.0))
 	out["hood"] = hood

@@ -26,6 +26,11 @@ class_name EnemyDef
 
 @export var damage_reduction: float = 0.0
 
+## Issue 759. Whether this enemy leaves blood when BLEED damages it. True by
+## default; the exception is authored here rather than assumed -- a machine
+## like the Siege Engine sets this false.
+@export var bleeds: bool = true
+
 ## Issue 542. Multiplier on how fast this enemy gets through an action's
 ## authored wind-up and recovery; 1.0 is exactly as authored, above 1.0 is
 ## faster. A pawn gets the same thing from AGI and an enemy had nothing.

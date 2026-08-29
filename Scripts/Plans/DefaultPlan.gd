@@ -91,3 +91,20 @@ static func weapon_attack(unit: CombatUnit) -> ActionDef:
 			actions.append(a)
 	var attack_shaped := PlanInterpreter.attacks(actions)
 	return attack_shaped[0] if not attack_shaped.is_empty() else null
+
+## Issue 747: whether `off_hand` is a second weapon that alternates the attack,
+## rather than a shield, a focus or a quiver. MARTIAL, per the player's own
+## words, and `required_tags` is where that lives on an item (#131) -- every
+## weapon in the game already requires it, and no shield/focus/quiver does not
+## also grant an attack, so the two checks together are exactly "a weapon".
+static func dual_wields(pawn: PawnData) -> bool:
+	if pawn == null or pawn.off_hand == null:
+		return false
+	if not pawn.off_hand.required_tags.has(CG.Tag.MARTIAL):
+		return false
+	var actions: Array[ActionDef] = []
+	for id in pawn.off_hand.granted_actions:
+		var a: ActionDef = ActionLibrary.get_action(id)
+		if a != null:
+			actions.append(a)
+	return not PlanInterpreter.attacks(actions).is_empty()

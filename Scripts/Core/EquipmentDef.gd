@@ -30,8 +30,13 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 ## Empty on every item that ships today, so nothing changes until one is set.
 @export var modifiers: Array[AbilityModifier] = []
 
-## Body armor only. Fraction of incoming damage removed before it is applied.
+## Fraction of incoming damage removed before it is applied. The best across
+## every equipped item counts, not the sum -- see `Balance.gear_damage_reduction`.
 @export var damage_reduction: float = 0.0
+
+## Issue 746: percentage points per second added to `Balance.resource_regen_per_tick`.
+## Additive across equipment; 0.0 does nothing, which is every item but the focus.
+@export var resource_regen_percent_bonus: float = 0.0
 
 ## ActionDef ids this piece grants its wielder.
 @export var granted_actions: Array[StringName] = []
