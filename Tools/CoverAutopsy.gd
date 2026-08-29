@@ -9,8 +9,10 @@ const SEEDS := 40
 ## `floor1_rat_king` is not one of the four ten-enemy rooms. It is here because
 ## it is the only other room that fields rats, so it is the control on issue
 ## 818's own warning: a change to the rat itself would land there too.
+## Issue 830 adds `floor1_warden`: the boss room is measured beside its peers
+## because it has been the second-easiest room on the floor.
 const ROOMS := [&"floor1_cover", &"floor1_room1", &"floor1_hazard", &"floor1_chokepoint",
-	&"floor1_rat_king"]
+	&"floor1_rat_king", &"floor1_warden"]
 
 func _init() -> void:
 	print("CoverAutopsy -- fresh full-health preset party, no equipment beyond PawnFactory's")
@@ -30,6 +32,10 @@ func _init() -> void:
 		var wins := 0
 		var deaths := 0.0
 		var runs := 0
+		## Issue 830: how long the room lasts. A boss that dies in fourteen
+		## seconds cannot be made harder by giving it more abilities, and
+		## without this number that reads as the abilities not working.
+		var ticks := 0
 		for combo in PartySpec.compositions():
 			for s in range(SEEDS):
 				var party: Array[PawnData] = []
@@ -39,6 +45,7 @@ func _init() -> void:
 				var state := CombatSim.build(party, RoomLibrary.get_room(rid), hash([s, rid]))
 				CombatSim.run(state)
 				runs += 1
+				ticks += state.tick
 				if state.outcome == CombatState.Outcome.PLAYER_WIN:
 					wins += 1
 				for j in party.size():
@@ -64,8 +71,9 @@ func _init() -> void:
 		var grand := 0
 		for r in rows:
 			grand += r[0]
-		print("\n=== %s  win %d/%d (%d%%)  deaths %.2f/fight" % [String(rid), wins, runs,
-			int(round(100.0 * wins / runs)), deaths / float(runs)])
+		print("\n=== %s  win %d/%d (%d%%)  deaths %.2f/fight  %.1fs/fight" % [String(rid), wins, runs,
+			int(round(100.0 * wins / runs)), deaths / float(runs),
+			float(ticks) / float(runs) * CG.TICK_SECONDS])
 		for r in rows:
 			print("   %-22s %6d  (%2d%% of the room's damage) over %d hits" % [
 				r[1], r[0], int(round(100.0 * r[0] / maxf(1.0, grand))), r[2]])

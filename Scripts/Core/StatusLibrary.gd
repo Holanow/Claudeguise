@@ -23,6 +23,7 @@ const PATHS: Array[String] = [
 	"res://Scripts/Core/Statuses/taunting.tres",
 	"res://Scripts/Core/Statuses/shielding.tres",
 	"res://Scripts/Core/Statuses/sustaining.tres",
+	"res://Scripts/Core/Statuses/airborne.tres",
 ]
 
 static var _defs: Dictionary = {}

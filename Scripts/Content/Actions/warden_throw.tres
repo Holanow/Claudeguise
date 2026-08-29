@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_tw_fx"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_tw_hit"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/ThrowEffect.gd" id="5_tw_thr"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_tw_def"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_tw_tgt"]
+
+[sub_resource type="Resource" id="Resource_tw_hit"]
+script = ExtResource("2_tw_hit")
+power_scale = 1.2
+
+[sub_resource type="Resource" id="Resource_tw_thr"]
+script = ExtResource("5_tw_thr")
+max_distance = 260.0
+landing_action = &"warden_throw_impact"
+
+[sub_resource type="Resource" id="Resource_tw_tgt"]
+script = ExtResource("4_tw_tgt")
+range_units = 70.0
+requires_line_of_sight = true
+
+[resource]
+script = ExtResource("3_tw_def")
+id = &"warden_throw"
+display_name = "Hurl"
+description = "Grabs whoever is nearest, within 70 units, and throws them up to 260 units at the spot that catches the most of their allies. The thrown body is hurt twice: once by the grab, once by the landing."
+wind_up_ticks = 24
+recover_ticks = 24
+cooldown_ticks = 180
+targeting = SubResource("Resource_tw_tgt")
+effects = Array[ExtResource("1_tw_fx")]([SubResource("Resource_tw_hit"), SubResource("Resource_tw_thr")])
