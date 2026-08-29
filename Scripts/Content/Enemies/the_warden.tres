@@ -4,28 +4,49 @@
 [ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_wdpln"]
 [ext_resource type="Script" path="res://Scripts/Plans/Blocks/AlwaysBlock.gd" id="3_wdalw"]
 [ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetNearestAttackableEnemyBlock.gd" id="4_wdtna"]
-[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseBestAttackBlock.gd" id="5_wduba"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetFarthestEnemyBlock.gd" id="8_wdtfe"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseActionBlock.gd" id="9_wduse"]
 [ext_resource type="Script" path="res://Scripts/Plans/Blocks/CloseAndActBlock.gd" id="6_wdcaa"]
 [ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="7_wdblk"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/warden_chain_toss.tres" id="act_warden_chain_toss"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/warden_axe.tres" id="act_warden_axe"]
 
 [sub_resource type="Resource" id="Resource_wdalw1"]
 script = ExtResource("3_wdalw")
 
+[sub_resource type="Resource" id="Resource_wdalw2"]
+script = ExtResource("3_wdalw")
+
+[sub_resource type="Resource" id="Resource_wdtfe1"]
+script = ExtResource("8_wdtfe")
+
+[sub_resource type="Resource" id="Resource_wduse1"]
+script = ExtResource("9_wduse")
+action = ExtResource("act_warden_chain_toss")
+
 [sub_resource type="Resource" id="Resource_wdtna1"]
 script = ExtResource("4_wdtna")
 
-[sub_resource type="Resource" id="Resource_wduba1"]
-script = ExtResource("5_wduba")
+[sub_resource type="Resource" id="Resource_wduse2"]
+script = ExtResource("9_wduse")
+action = ExtResource("act_warden_axe")
 
 [sub_resource type="Resource" id="Resource_wdcaa1"]
 script = ExtResource("6_wdcaa")
 
+[sub_resource type="Resource" id="Resource_wdpln0"]
+script = ExtResource("2_wdpln")
+id = &"warden_chain_row"
+display_name = "Chain the enemy farthest away and haul them in"
+condition = SubResource("Resource_wdalw1")
+blocks = Array[ExtResource("7_wdblk")]([SubResource("Resource_wdtfe1"), SubResource("Resource_wduse1")])
+
 [sub_resource type="Resource" id="Resource_wdpln1"]
 script = ExtResource("2_wdpln")
 id = &"warden_attack_row"
-display_name = "Axe up close, chain toss at range"
-condition = SubResource("Resource_wdalw1")
-blocks = Array[ExtResource("7_wdblk")]([SubResource("Resource_wdtna1"), SubResource("Resource_wduba1"), SubResource("Resource_wdcaa1")])
+display_name = "Otherwise walk to the nearest enemy and axe them"
+condition = SubResource("Resource_wdalw2")
+blocks = Array[ExtResource("7_wdblk")]([SubResource("Resource_wdtna1"), SubResource("Resource_wduse2"), SubResource("Resource_wdcaa1")])
 
 [resource]
 script = ExtResource("1_tmy0m")
@@ -40,4 +61,4 @@ attack_power = {
 damage_reduction = 0.05
 actions = Array[StringName]([&"warden_axe", &"warden_chain_toss"])
 display_tags = Array[String](["Melee", "Ranged", "Boss"])
-plans = Array[ExtResource("2_wdpln")]([SubResource("Resource_wdpln1")])
+plans = Array[ExtResource("2_wdpln")]([SubResource("Resource_wdpln0"), SubResource("Resource_wdpln1")])

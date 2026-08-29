@@ -1,0 +1,57 @@
+running CoverAutopsy (1800s budget): --headless --path D:\Projects\Claudeguise-team\worktrees\teal-warden --script res://Tools/CoverAutopsy.gd
+Godot Engine v4.7.1.stable.official.a13da4feb - https://godotengine.org
+
+CoverAutopsy -- fresh full-health preset party, no equipment beyond PawnFactory's
+  rooms        [&"floor1_cover", &"floor1_room1", &"floor1_hazard", &"floor1_chokepoint", &"floor1_rat_king", &"floor1_warden"]
+  seeds        40 per composition, seed = hash([s, room_id])
+  parties      5 compositions of 4 from [&"abomination", &"geysermancer", &"priest", &"siege_master", &"warrior"]
+  pawns        PawnFactory.make_preset_pawn (arm B, planned)
+  RoomScale    EVERY_ROOM, NOT APPLIED -- this tool measures the authored room
+  fights       200 per room
+  NOTE: the by-ability table is DIRECT HITS ONLY. DamageLedger routes
+        status damage to by_dot, printed separately under each room.
+
+=== floor1_cover  win 196/200 (98%)  deaths 0.88/fight
+   goblin_stab             16154  (42% of the room's damage) over 2099 hits
+   cultist_bolt            10563  (28% of the room's damage) over 2162 hits
+   goblin_arrow             5456  (14% of the room's damage) over 825 hits
+   rat_bite                 5263  (14% of the room's damage) over 2017 hits
+   stalker_dart              452  ( 1% of the room's damage) over 384 hits
+   stalker_mark              172  ( 0% of the room's damage) over 198 hits
+   DoT POISON              26691  (+70% on top of the table above) over 26691 ticks
+   DoT BLEED               13999  (+37% on top of the table above) over 4534 ticks
+
+=== floor1_room1  win 200/200 (100%)  deaths 0.49/fight
+   goblin_arrow            16981  (41% of the room's damage) over 4545 hits
+   cultist_bolt             8651  (21% of the room's damage) over 1610 hits
+   ghoul_maul               7989  (19% of the room's damage) over 528 hits
+   goblin_stab              7956  (19% of the room's damage) over 1265 hits
+   DoT POISON              19303  (+46% on top of the table above) over 19303 ticks
+
+=== floor1_hazard  win 200/200 (100%)  deaths 0.48/fight
+   goblin_arrow            18211  (31% of the room's damage) over 4485 hits
+   ghoul_maul              16647  (28% of the room's damage) over 1162 hits
+   brute_slam              14585  (25% of the room's damage) over 467 hits
+   goblin_stab              9324  (16% of the room's damage) over 1449 hits
+   brute_roar                  0  ( 0% of the room's damage) over 200 hits
+
+=== floor1_chokepoint  win 198/200 (99%)  deaths 0.69/fight
+   goblin_arrow            33398  (69% of the room's damage) over 8889 hits
+   cultist_bolt            11023  (23% of the room's damage) over 2219 hits
+   ghoul_maul               2790  ( 6% of the room's damage) over 201 hits
+   goblin_stab              1507  ( 3% of the room's damage) over 264 hits
+   DoT POISON              29061  (+60% on top of the table above) over 29061 ticks
+
+=== floor1_rat_king  win 199/200 (100%)  deaths 0.36/fight
+   rat_bite                 9473  (60% of the room's damage) over 4585 hits
+   rat_king_lash            6292  (40% of the room's damage) over 460 hits
+   DoT BLEED               47344  (+300% on top of the table above) over 7582 ticks
+
+=== floor1_warden  win 200/200 (100%)  deaths 0.00/fight
+   warden_axe              26098  (58% of the room's damage) over 282 hits
+   warden_chain_toss       18790  (42% of the room's damage) over 610 hits
+
+
+done
+
+[exited with code 0]

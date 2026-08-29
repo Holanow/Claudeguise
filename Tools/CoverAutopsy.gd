@@ -9,8 +9,10 @@ const SEEDS := 40
 ## `floor1_rat_king` is not one of the four ten-enemy rooms. It is here because
 ## it is the only other room that fields rats, so it is the control on issue
 ## 818's own warning: a change to the rat itself would land there too.
+## Issue 830 adds `floor1_warden`: the boss room is measured beside its peers
+## because it has been the second-easiest room on the floor.
 const ROOMS := [&"floor1_cover", &"floor1_room1", &"floor1_hazard", &"floor1_chokepoint",
-	&"floor1_rat_king"]
+	&"floor1_rat_king", &"floor1_warden"]
 
 func _init() -> void:
 	print("CoverAutopsy -- fresh full-health preset party, no equipment beyond PawnFactory's")
