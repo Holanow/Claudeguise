@@ -131,3 +131,35 @@ func test_the_fallback_reaches_and_attacks_from_inside_hazardous_ground() -> voi
 			break
 	assert_true(landed, "the attacker never landed a hit -- it deadlocked against hazard it could not avoid")
 	assert_true(attacker.hp < attacker.hp_max, "and it really did walk through the fire to get there")
+
+# ---------------------------------------------------------------------------
+# Issue 747: dual_wields
+
+func test_dual_wields_true_for_two_martial_weapons() -> void:
+	var pawn := _pawn(&"warrior")
+	pawn.main_hand = ItemLibrary.get_equipment(&"sword")
+	pawn.off_hand = ItemLibrary.get_equipment(&"wrench")
+	assert_true(DefaultPlan.dual_wields(pawn))
+
+func test_dual_wields_false_for_a_shield() -> void:
+	var pawn := _pawn(&"warrior")
+	pawn.off_hand = ItemLibrary.get_equipment(&"shield")
+	assert_false(DefaultPlan.dual_wields(pawn), "a shield grants no attack")
+
+func test_dual_wields_false_for_a_quiver() -> void:
+	var pawn := _pawn(&"siege_master")
+	pawn.off_hand = ItemLibrary.get_equipment(&"quiver")
+	assert_false(DefaultPlan.dual_wields(pawn), "a quiver is MARTIAL-tagged but grants no attack")
+
+func test_dual_wields_false_for_a_focus() -> void:
+	var pawn := _pawn(&"priest")
+	pawn.off_hand = ItemLibrary.get_equipment(&"focus")
+	assert_false(DefaultPlan.dual_wields(pawn), "MAGICAL, not MARTIAL, and the wrong hand entirely")
+
+func test_dual_wields_false_with_an_empty_off_hand() -> void:
+	var pawn := _pawn(&"warrior")
+	assert_eq(pawn.off_hand, null)
+	assert_false(DefaultPlan.dual_wields(pawn))
+
+func test_dual_wields_false_with_no_pawn() -> void:
+	assert_false(DefaultPlan.dual_wields(null))

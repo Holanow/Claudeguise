@@ -40,6 +40,7 @@ damage_reduction = 0.9
 attack_power = {
 0: 90
 }
+bleeds = false
 actions = Array[StringName]([&"siege_engine_bolt"])
 display_tags = Array[String](["Ranged", "Construct"])
 plans = Array[ExtResource("2_sepln")]([SubResource("Resource_sepln1")])

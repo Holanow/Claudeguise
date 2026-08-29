@@ -59,13 +59,19 @@ func hit_stop() -> void:
 
 ## Entry point. `seconds` is how long the cue itself lasts, which a wind-up
 ## layer needs and an impact layer ignores.
-func play(vfx: AbilityVFX, cue: VFXLayer.Cue, source_id: int, target_id: int, seconds: float) -> void:
+##
+## Issue 747: `reverse_hint`, null by default, lets a caller who knows which
+## hand just swung override `ArcSweepLayer`'s own authored `reverse` for this
+## one play -- every other caller passes nothing and every other layer ignores
+## a hint it never asked for.
+func play(vfx: AbilityVFX, cue: VFXLayer.Cue, source_id: int, target_id: int, seconds: float,
+		reverse_hint: Variant = null) -> void:
 	if vfx == null:
 		return
 	for layer in vfx.for_cue(cue):
 		if layer.when != VFXLayer.When.ALWAYS:
 			continue
-		_play_layer(layer, source_id, target_id, seconds)
+		_play_layer(layer, source_id, target_id, seconds, reverse_hint)
 
 ## Issue 657. The consumed-or-not half of a look, played from the hit that
 ## actually landed rather than from the cast: for a travelling shot the
@@ -93,10 +99,12 @@ func take_consumed(action_id: StringName, target_id: int) -> bool:
 func _consumed_key(action_id: StringName, target_id: int) -> String:
 	return "%s|%d" % [action_id, target_id]
 
-func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float) -> void:
+func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float,
+		reverse_hint: Variant = null) -> void:
 	var ctx := {
 		"director": self, "source_id": source_id,
 		"target_id": target_id, "seconds": seconds,
+		"reverse_hint": reverse_hint,
 	}
 	if layer.delay <= 0.0:
 		layer.play(ctx)

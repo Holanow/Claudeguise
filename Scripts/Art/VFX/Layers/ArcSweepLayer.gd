@@ -27,8 +27,13 @@ func play(ctx: Dictionary) -> void:
 	arc.material.set_shader_parameter("half_arc_radians", deg_to_rad(half_arc_degrees))
 	arc.material.set_shader_parameter("inner", inner_fraction)
 	director.aim(arc, ctx["source_id"])
-	var start := 1.0 if reverse else 0.0
-	var end := 0.0 if reverse else 1.0
+	## Issue 747: a dual-wielding pawn's off-hand swing overrides the authored
+	## direction; every other caller leaves `reverse_hint` null and this reads
+	## exactly as it always did.
+	var hint = ctx.get("reverse_hint")
+	var effective_reverse: bool = reverse if hint == null else bool(hint)
+	var start := 1.0 if effective_reverse else 0.0
+	var end := 0.0 if effective_reverse else 1.0
 	director.tween_shader(arc, "progress", start, end, sweep_seconds, Tween.EASE_OUT, Tween.TRANS_QUAD)
 	director.tween_shader(arc, "fade", 1.0, 0.0, fade_seconds, Tween.EASE_IN, Tween.TRANS_QUAD, sweep_seconds)
 	director.free_after(arc, sweep_seconds + fade_seconds)
