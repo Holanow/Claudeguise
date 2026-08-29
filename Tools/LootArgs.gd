@@ -14,4 +14,7 @@ static func apply() -> String:
 	for i in args.size():
 		if args[i] == "--loot-scale" and i + 1 < args.size():
 			LootTables.CHANCE_SCALE = float(args[i + 1])
-	return "loot: the shipped drop table x%.2f" % LootTables.CHANCE_SCALE
+		elif args[i] == "--loot-enemy" and i + 1 < args.size():
+			LootTables.ENEMY_CHANCE = float(args[i + 1])
+	return "loot: the shipped drop table x%.2f, plain ENEMY rooms at %.2f" % [
+		LootTables.CHANCE_SCALE, LootTables.ENEMY_CHANCE]

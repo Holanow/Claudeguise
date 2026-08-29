@@ -94,10 +94,11 @@ func test_the_same_floor_seed_pays_out_the_same_items() -> void:
 	var party_a := _party()
 	var party_b := _party()
 	for i in 6:
-		var room := _room(FloorRoom.Type.MINIBOSS, &"floor1_rat_king")
+		var room := _room(FloorRoom.Type.MINIBOSS, &"room%d" % i)
 		FloorRun.award_room_loot(a, room, party_a, 11)
 		FloorRun.award_room_loot(b, room, party_b, 11)
 	assert_eq(a.loot.size(), b.loot.size())
+	assert_true(a.loot.size() > 0, "six MINIBOSS rooms at 0.75 must drop something")
 	for i in a.loot.size():
 		assert_eq(a.loot[i].id, b.loot[i].id, "the drop is a function of the floor seed")
 
@@ -119,5 +120,6 @@ func test_the_pickup_is_announced_in_the_next_room() -> void:
 	assert_eq(run.pending_pickups.size(), 0, "and not again in the room after that")
 
 
-func test_the_drop_rate_multiplier_ships_at_one() -> void:
+func test_the_sweep_knobs_ship_at_the_shipped_table() -> void:
 	assert_eq(LootTables.CHANCE_SCALE, 1.0)
+	assert_eq(LootTables.ENEMY_CHANCE, 0.0, "a plain ENEMY room drops nothing unless a sweep says so")

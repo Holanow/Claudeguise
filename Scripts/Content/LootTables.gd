@@ -26,13 +26,22 @@ const DROP_CHANCE: Dictionary = {
 ## nothing but Tools/LootArgs.gd ever assigns this.
 static var CHANCE_SCALE := 1.0
 
+## Issue 811: what a plain ENEMY room would drop, if it dropped. Not in the
+## table above and deliberately not added to it -- the floor has no treasure
+## room, so this is the only way to sweep "what if the bread-and-butter rooms
+## paid out" without authoring a number the player did not ask for. Ships at
+## 0.0, which is the table exactly as it is.
+static var ENEMY_CHANCE := 0.0
+
 ## Returns null on "nothing dropped", never an empty-but-real EquipmentDef --
 ## a caller that wants "did anything drop" gets to ask that directly rather
 ## than checking a sentinel id. `candidate_ids` narrows what may be picked;
 ## empty is the whole library.
 static func roll_drop(room_type: FloorRoom.Type, difficulty: int, rng: RandomNumberGenerator,
 		candidate_ids: Array[StringName] = [] as Array[StringName]) -> EquipmentDef:
-	var chance: float = float(DROP_CHANCE.get(room_type, 0.0)) * CHANCE_SCALE
+	var base: float = ENEMY_CHANCE if room_type == FloorRoom.Type.ENEMY \
+		else float(DROP_CHANCE.get(room_type, 0.0))
+	var chance: float = base * CHANCE_SCALE
 	if chance <= 0.0:
 		return null
 	if rng.randf() >= chance:
