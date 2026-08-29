@@ -32,6 +32,10 @@ func _init() -> void:
 		var wins := 0
 		var deaths := 0.0
 		var runs := 0
+		## Issue 830: how long the room lasts. A boss that dies in fourteen
+		## seconds cannot be made harder by giving it more abilities, and
+		## without this number that reads as the abilities not working.
+		var ticks := 0
 		for combo in PartySpec.compositions():
 			for s in range(SEEDS):
 				var party: Array[PawnData] = []
@@ -41,6 +45,7 @@ func _init() -> void:
 				var state := CombatSim.build(party, RoomLibrary.get_room(rid), hash([s, rid]))
 				CombatSim.run(state)
 				runs += 1
+				ticks += state.tick
 				if state.outcome == CombatState.Outcome.PLAYER_WIN:
 					wins += 1
 				for j in party.size():
