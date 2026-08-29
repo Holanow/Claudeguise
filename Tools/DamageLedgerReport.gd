@@ -52,6 +52,8 @@ func _print(l: DamageLedger.Ledger) -> void:
 		print("")
 	_print_mitigation(l, CG.Team.PLAYER, "YOUR")
 	_print_mitigation(l, CG.Team.ENEMY, "ENEMY")
+	_print_prevented(l, CG.Team.PLAYER, "YOUR")
+	_print_prevented(l, CG.Team.ENEMY, "ENEMY")
 
 func _print_abilities(l: DamageLedger.Ledger, team: int, total_dealt: int) -> void:
 	print("  by ability:")
@@ -99,3 +101,14 @@ func _print_mitigation(l: DamageLedger.Ledger, team: int, label: String) -> void
 		print("  reduction by cause:")
 		for c in m.cause:
 			print("    %-14s %d" % [CG.MitigationCause.keys()[c], m.cause[c]])
+
+## Issue 766. Guard and Ward read 0 damage, N casts everywhere above -- this is
+## where that stops being useless: dealt against prevented, per cast.
+func _print_prevented(l: DamageLedger.Ledger, team: int, label: String) -> void:
+	var rows := DamageLedger.prevented_summary(l, team)
+	if rows.is_empty():
+		return
+	print("== %s DEFENSIVE CASTS (dealt vs prevented) ==" % label)
+	for row in rows:
+		print("    %-28s dealt %6d  prevented %6d  casts %3d" % \
+			[row.name, row.dealt, row.prevented, row.casts])
