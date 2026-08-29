@@ -56,7 +56,7 @@ static func create() -> EquipPanel:
 	return (load("res://Scenes/EquipPanel.tscn") as PackedScene).instantiate()
 
 func _ready() -> void:
-	theme = AppTheme.shared()
+	theme = AppTheme.paper()
 	%CloseButton.pressed.connect(close)
 
 func open(pawns: Array[PawnData]) -> void:
@@ -130,10 +130,10 @@ func _build_detail(pawn: PawnData) -> void:
 	## one in the same column, and printing them twice is what the first
 	## capture of issue 351 showed.
 	if not _embedded:
-		%DetailBox.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
+		%DetailBox.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.INK))
 	if pawn.pawn_class == null:
 		%DetailBox.add_child(_line("No class assigned, so nothing can be equipped.",
-			Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
+			Palette.FONT_SIZE_BODY, Palette.INK_DIM))
 		return
 
 	if _locked:
@@ -146,7 +146,7 @@ func _build_detail(pawn: PawnData) -> void:
 			String(CG.Role.keys()[cls.role_primary]).capitalize(),
 			String(CG.Style.keys()[cls.style]).capitalize(),
 			String(CG.Method.keys()[cls.method]).capitalize(),
-		], Palette.FONT_SIZE_BODY, Palette.TEXT_DIM)
+		], Palette.FONT_SIZE_BODY, Palette.INK_DIM)
 	tags.set_script(GlossaryLabelScript)
 	# Set here rather than left to GlossaryLabel._ready(): this panel is often
 	# built outside a live tree, where _ready() never fires, and a Label's engine
@@ -299,7 +299,7 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	# the same colour on the first capture, so the three sections read as one
 	# flat list. Dimming the repeated word is what separates them, rather than
 	# adding a rule or growing the header.
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_color_override("font_color", Palette.INK_DIM)
 	row.add_child(label)
 
 	var items := offered_items(pawn, slot)
@@ -335,7 +335,7 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	out.append(row)
 
 	out.append(_line(_slot_effect_text(worn), Palette.FONT_SIZE_SMALL,
-		Palette.TEXT if worn != null else Palette.TEXT_DIM))
+		Palette.INK if worn != null else Palette.INK_DIM))
 	return out
 
 ## Deferred, not immediate. The picker emitting `item_selected` is a child of
@@ -406,7 +406,7 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 
 	if pawn.equipment().is_empty():
 		out.append(_line("Nothing equipped, so these are this pawn's own numbers.",
-			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+			Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 
 	## Issue 744: `HFlowContainer`, not `HBoxContainer` -- seven chips in a row
 	## that cannot wrap forced this panel's own minimum width past 320px, the
@@ -428,7 +428,7 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 		chip.tooltip_text = Glossary.attribute_text(a) + _roll_text(pawn, a)
 		chip.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 		chip.add_theme_color_override("font_color",
-			Palette.HP_FULL if after != before else Palette.TEXT_DIM)
+			Palette.HP_FULL if after != before else Palette.INK_DIM)
 		attrs.add_child(chip)
 	out.append(attrs)
 
@@ -447,19 +447,19 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 	# function uses once it has one.
 	var absorbed := Balance.gear_damage_reduction(pawn)
 	out.append(_line("Damage absorbed: %d%% of every hit." % int(round(absorbed * 100.0)),
-		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.TEXT_DIM))
+		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.INK_DIM))
 	return out
 
 func _derived_line(label: String, before: int, after: int) -> Label:
 	return _line("%s: %s" % [label, _stat_text("", before, after, 0)],
-		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if after != before else Palette.TEXT_DIM)
+		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if after != before else Palette.INK_DIM)
 
 func _derived_line_float(label: String, before: float, after: float, suffix: String) -> Label:
 	var text := "%.1f" % before
 	if not is_equal_approx(before, after):
 		text = "%.1f to %.1f (%+.1f)" % [before, after, after - before]
 	return _line("%s: %s%s." % [label, text, suffix], Palette.FONT_SIZE_SMALL,
-		Palette.HP_FULL if not is_equal_approx(before, after) else Palette.TEXT_DIM)
+		Palette.HP_FULL if not is_equal_approx(before, after) else Palette.INK_DIM)
 
 ## Issue 131: where this pawn's own number came from, when it is not simply the
 ## class's. The chip already spends its text on the gear delta, so the roll goes
@@ -508,7 +508,7 @@ func _action_controls(pawn: PawnData) -> Array[Control]:
 	var available: Array = ActionLibrary.actions_for_pawn(pawn)
 	if available.is_empty():
 		out.append(_line("None. This pawn has nothing to call.",
-			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+			Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 		return out
 	var row := HFlowContainer.new()
 	row.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
@@ -521,13 +521,13 @@ func _action_controls(pawn: PawnData) -> Array[Control]:
 	if granted.is_empty():
 		out.append(_line(
 			"All %d are this pawn's own; nothing it is wearing teaches a skill." % available.size(),
-			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+			Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 		return out
 	var names := granted.map(func(a): return _action_display_name(a))
 	out.append(_line(
 		"%s came from gear, on top of this pawn's own %d." % [
 			", ".join(names), _class_action_count(pawn)],
-		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 	return out
 
 func _class_action_count(pawn: PawnData) -> int:
@@ -556,7 +556,7 @@ static func _action_display_name(action_id: StringName) -> String:
 	return action.display_name if action != null else String(action_id).capitalize()
 
 func _section_header(text: String) -> Control:
-	return _line(text, Palette.FONT_SIZE_BODY, Palette.TEXT)
+	return _line(text, Palette.FONT_SIZE_BODY, Palette.INK)
 
 func _line(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
@@ -622,8 +622,10 @@ class DollView extends Control:
 		return Rect2(p - Vector2(MARKER_SIZE, MARKER_SIZE) * 0.5, Vector2(MARKER_SIZE, MARKER_SIZE))
 
 	func _slot_marker(rect: Rect2, slot: int, item: EquipmentDef) -> void:
-		draw_rect(rect, Palette.HP_BACK)
-		UIArt.draw_border(self, rect, EquipmentIcons.slot_color(slot), 1.0)
+		draw_rect(rect, Palette.PAPER_SHADE)
+		## Not `UIArt.draw_border`: the rim colour is which SLOT this is, and a
+		## nine-sliced picture would paint over it. README's own rule.
+		draw_rect(rect, EquipmentIcons.slot_color(slot), false, 1.0)
 		if item == null:
 			EquipmentIcons.draw_empty_slot(self, slot, rect)
 		else:

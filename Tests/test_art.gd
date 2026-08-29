@@ -1313,10 +1313,34 @@ func test_the_ability_icon_instructions_match_the_real_content() -> void:
 
 
 const _THEME_SCRATCH := ["res://Assets/UI/panel.png", "res://Assets/UI/panel/scratch_element.png",
-	"res://Assets/UI/background.png", "res://Assets/UI/border/scratch_element.png"]
+	"res://Assets/UI/background.png", "res://Assets/UI/border/scratch_element.png",
+	"res://Assets/UI/panel_border.png"]
+
+## Issue 807 ships real files under three of those names, and these tests need
+## the empty state to check the fallback. Deleting them outright destroyed
+## committed art the first time both existed; they are moved aside here and put
+## back by `teardown` after every test.
+var _shipped: Dictionary = {}
+
+func teardown() -> void:
+	for path in _shipped:
+		var f := FileAccess.open(ProjectSettings.globalize_path(path), FileAccess.WRITE)
+		f.store_buffer(_shipped[path])
+		f.close()
+	if not _shipped.is_empty():
+		_shipped.clear()
+		UIArt.clear_cache()
+	super.teardown()
+
+func _set_aside(path: String) -> void:
+	var real := ProjectSettings.globalize_path(path)
+	if _shipped.has(path) or not FileAccess.file_exists(real):
+		return
+	_shipped[path] = FileAccess.get_file_as_bytes(real)
 
 
 func _write_theme_png(path: String, size: int = 12) -> void:
+	_set_aside(path)
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0.0, 1.0, 1.0, 1.0))
@@ -1326,6 +1350,7 @@ func _write_theme_png(path: String, size: int = 12) -> void:
 
 func _clear_theme_scratch() -> void:
 	for path in _THEME_SCRATCH:
+		_set_aside(path)
 		DirAccess.remove_absolute(path)
 	DirAccess.remove_absolute("res://Assets/UI/panel")
 	DirAccess.remove_absolute("res://Assets/UI/background")

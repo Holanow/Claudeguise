@@ -27,6 +27,59 @@ const RESOURCE_ENERGY := Color("e0d24b")
 
 const FOCUS_LINE := Color("ffffff40")
 
+## ---------------------------------------------------------------------------
+## THE LEDGER. Issue 807.
+##
+## The player reviews the combat records of mercenaries they hired, so every
+## information surface is a page of that ledger and the arena is not: the fight
+## is the record being replayed, not a page. Everything above this line is the
+## arena's; everything below it is the page's. `TEXT` and `INK` are the same
+## job on the two sides of that line and neither may be used on the other.
+
+## Three paper tones, used structurally rather than as one beige. The leaf is
+## the screen, the field is a card laid on it, the shade is a recess or a
+## banded row.
+const PAPER_LEAF := Color("e2d5ba")
+const PAPER_FIELD := Color("efe6d2")
+const PAPER_SHADE := Color("cdbc9b")
+
+## Iron gall ink dries brown-black rather than black, and a true black on paper
+## reads as a screenshot of a website.
+const INK := Color("2a2118")
+const INK_DIM := Color("6a5946")
+const INK_FAINT := Color("9b8a72")
+
+## The two ruling colours, and they are the whole reason this does not read as
+## generic old paper. Account books were ruled with red vertical money columns
+## over blue-grey horizontal feint.
+const RULE_RED := Color("9a3324")
+const RULE_FEINT := Color("7d8b9c")
+
+## The book itself: board, leather, the strap the arena is mounted under.
+const BINDING := Color("4b3226")
+const BINDING_DEEP := Color("2e1e17")
+
+## Team colours are information and keep their meaning on paper, but the arena
+## versions are chosen against `#14131a` and go chalky on parchment. These are
+## the same two hues at paper contrast.
+const TEAM_PLAYER_INK := Color("1d5f61")
+const TEAM_ENEMY_INK := Color("8e3527")
+
+static func team_ink(t: CG.Team) -> Color:
+	return TEAM_PLAYER_INK if t == CG.Team.PLAYER else TEAM_ENEMY_INK
+
+## The paper counterpart of `damage_color`. A damage type's own colour is
+## authored against the dark arena; darkened it keeps its hue and its identity
+## and stops glowing off the page.
+static func damage_ink(d: CG.DamageType) -> Color:
+	return ink_of(damage_color(d))
+
+## Any arena colour, pulled down to something that reads as ink on paper.
+static func ink_of(c: Color) -> Color:
+	var out := c.darkened(0.45)
+	out.s = minf(out.s * 1.15, 1.0)
+	return out
+
 const SPACE_XS := 4.0
 const SPACE_S := 8.0
 const SPACE_M := 16.0

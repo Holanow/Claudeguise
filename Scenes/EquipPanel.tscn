@@ -53,7 +53,7 @@ text = "Back"
 [node name="HowToPlay" type="Label" parent="Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6039216, 0.5803922, 0.6666667, 1)
+theme_override_colors/font_color = Color(0.4156863, 0.3490196, 0.2745098, 1)
 theme_override_font_sizes/font_size = 16
 text = "Each pawn wears one weapon, one armor and one accessory. A weapon or accessory raises attributes by a percentage, armor adds flat points and absorbs a share of every hit. An item a class cannot use is not offered. Armor can also teach a skill, and a skill your gear grants becomes a block you can plan with in Edit your pawns' plans."
 autowrap_mode = 2

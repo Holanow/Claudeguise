@@ -143,6 +143,7 @@ func _ready() -> void:
 	# its mouse_filter, its label and its backdrop did not exist.
 	if not _combat_log.is_inside_tree():
 		_combat_log._ready()
+	_build_page_ground()
 	_build_pause_dim()
 	_build_top_bar()
 	_build_team_status()
@@ -154,6 +155,16 @@ func _ready() -> void:
 	if is_inside_tree():
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
+
+## Issue 807: the battle screen is a ledger page with the record mounted on it,
+## so the page goes on its own layer BELOW the arena rather than in `Hud`, which
+## is a CanvasLayer and would paint over the fight.
+func _build_page_ground() -> void:
+	var below := CanvasLayer.new()
+	below.layer = -1
+	below.name = "PageGround"
+	add_child(below)
+	below.add_child(UIArt.background_node(&"battle", Palette.PAPER_LEAF))
 
 ## Issue 550. The voices live under one child so the tree stays readable, and
 ## `SoundBank` decides which events are audible -- this end of it only hands it
@@ -179,10 +190,10 @@ func _build_pause_dim() -> void:
 ## reading the log is the reason to pause or to look at a Victory screen at all
 ## (issue 343). `CombatLog` is a scene child and is therefore already Hud's
 ## first, which is why this needs move_child rather than being added early.
-func _build_dim(alpha: float) -> ColorRect:
+func _build_dim(alpha: float, tone: Color = Palette.BACKGROUND) -> ColorRect:
 	var hud := get_node("Hud")
 	var dim := ColorRect.new()
-	dim.color = Palette.BACKGROUND
+	dim.color = tone
 	dim.color.a = alpha
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -195,8 +206,8 @@ func _build_top_bar() -> void:
 	var hud := get_node("Hud")
 
 	var backdrop := ColorRect.new()
-	backdrop.color = Palette.BACKGROUND
-	backdrop.color.a = 0.72
+	backdrop.color = Palette.PAPER_SHADE
+	backdrop.color.a = 0.55
 	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	backdrop.offset_bottom = _TOP_BAR_BOTTOM
 	backdrop.offset_right = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
@@ -224,25 +235,31 @@ func _build_top_bar() -> void:
 	summary.offset_left = Palette.SPACE_M
 	summary.offset_top = _SUMMARY_ROW_TOP
 	hud.add_child(summary)
-	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER)
-	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY)
+	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER_INK)
+	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY_INK)
 
 	_party_label = Label.new()
-	_party_label.add_theme_color_override("font_color", Palette.TEXT)
+	_party_label.add_theme_color_override("font_color", Palette.INK)
 	bar.add_child(_party_label)
 
 	_encounter_label = Label.new()
-	_encounter_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_encounter_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	bar.add_child(_encounter_label)
 
 	_seed_label = Label.new()
-	_seed_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_seed_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	bar.add_child(_seed_label)
 
 	_outcome_label = Label.new()
-	_outcome_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_outcome_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	bar.add_child(_outcome_label)
+
+	## Issue 807: the toolbar and the header sit on the ledger's page, so they
+	## take the page's theme. `BattleView` itself does not -- the arena is under
+	## it and is not a page.
+	bar.theme = AppTheme.paper()
+	controls.theme = AppTheme.paper()
 
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"
@@ -380,9 +397,12 @@ func _build_end_banner() -> void:
 	## mouse event and painting over every word. It is now a sibling at the front
 	## of the child order, and the banner itself does not take input -- only its
 	## own buttons do.
-	_end_dim = _build_dim(0.88)
+	_end_dim = _build_dim(0.88, Palette.PAPER_LEAF)
 
 	_end_banner = Control.new()
+	## Issue 807: the end card is a fresh page laid over the record, so its room
+	## picker and its buttons are the page's, not the arena's.
+	_end_banner.theme = AppTheme.paper()
 	_end_banner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_end_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_end_banner.visible = false
@@ -415,14 +435,14 @@ func _build_end_banner() -> void:
 	_end_banner.add_child(column)
 
 	_end_outcome_label = Label.new()
-	_end_outcome_label.add_theme_color_override("font_color", Palette.TEXT)
+	_end_outcome_label.add_theme_color_override("font_color", Palette.INK)
 	## Issue 552: was HEADING * 2, which no longer fits above a roster and a log.
 	_end_outcome_label.add_theme_font_size_override("font_size", int(Palette.FONT_SIZE_HEADING * 1.15))
 	_end_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_end_outcome_label)
 
 	_end_cost_label = Label.new()
-	_end_cost_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_end_cost_label.add_theme_color_override("font_color", Palette.INK_DIM)
 	_end_cost_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_end_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	## Issue 442: the casualty list arrived in #367 and nobody re-measured the
@@ -436,7 +456,7 @@ func _build_end_banner() -> void:
 	## player who has none, at the moment they have just watched what that
 	## costs. The field stays clear of it: this is the end card only.
 	_end_prompt_label = Label.new()
-	_end_prompt_label.add_theme_color_override("font_color", Palette.TEXT)
+	_end_prompt_label.add_theme_color_override("font_color", Palette.INK)
 	_end_prompt_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	_end_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_end_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -527,7 +547,7 @@ func _build_room_picker(banner: Control) -> Control:
 
 	var caption := Label.new()
 	caption.text = ROOM_PICKER_CAPTION
-	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	caption.add_theme_color_override("font_color", Palette.INK_DIM)
 	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(caption)
@@ -618,7 +638,7 @@ func _build_click_hint() -> void:
 	_click_hint.text = CLICK_HINT
 	_click_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_click_hint.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_click_hint.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_click_hint.add_theme_color_override("font_color", Palette.INK_DIM)
 	_click_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_click_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_click_hint.offset_left = Palette.SPACE_M
@@ -633,7 +653,7 @@ func _build_click_hint() -> void:
 	_setup_hint.text = SETUP_HINT
 	_setup_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_setup_hint.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_setup_hint.add_theme_color_override("font_color", Palette.TEXT)
+	_setup_hint.add_theme_color_override("font_color", Palette.INK)
 	_setup_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_setup_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_setup_hint.offset_left = Palette.SPACE_M
@@ -804,12 +824,12 @@ func _build_summary_bar(parent: Container, label_text: String, color: Color) -> 
 	var label := Label.new()
 	label.text = label_text
 	label.custom_minimum_size = Vector2(_SUMMARY_LABEL_WIDTH, 0.0)
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_color_override("font_color", Palette.INK_DIM)
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	row.add_child(label)
 
 	var back := ColorRect.new()
-	back.color = Palette.HP_BACK
+	back.color = Palette.PAPER_SHADE
 	back.custom_minimum_size = Vector2(_SUMMARY_BAR_WIDTH, _SUMMARY_ROW_HEIGHT)
 	row.add_child(back)
 
@@ -1962,9 +1982,9 @@ func _show_outcome() -> void:
 
 	_end_outcome_label.text = verdict
 	_end_outcome_label.add_theme_color_override("font_color",
-		Palette.TEAM_PLAYER if verdict == "Victory"
-		else Palette.TEAM_ENEMY if verdict == "Defeat"
-		else Palette.TEXT)
+		Palette.TEAM_PLAYER_INK if verdict == "Victory"
+		else Palette.TEAM_ENEMY_INK if verdict == "Defeat"
+		else Palette.INK)
 	## Each sentence on its own line. The duration used to ride on the end of
 	## the casualty list and printed through the last name in it (issue 442).
 	var lines: Array[String] = [_cost_summary()]

@@ -327,8 +327,10 @@ func test_a_death_line_is_coloured_by_the_side_that_lost_the_unit() -> void:
 	enemy.target_id = 1
 	var mine := CombatEvent.make(CG.EventKind.DEATH, 3)
 	mine.target_id = 0
-	assert_true(view.line_for_event(state, enemy).contains(Palette.TEAM_ENEMY.to_html()))
-	assert_true(view.line_for_event(state, mine).contains(Palette.TEAM_PLAYER.to_html()),
+	## Issue 807: the log is a page of the ledger, so the two sides read in the
+	## paper-contrast pair rather than the arena's.
+	assert_true(view.line_for_event(state, enemy).contains(Palette.TEAM_ENEMY_INK.to_html()))
+	assert_true(view.line_for_event(state, mine).contains(Palette.TEAM_PLAYER_INK.to_html()),
 		"the player's own casualty must not read in the enemy colour")
 	view.free()
 

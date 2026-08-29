@@ -20,7 +20,7 @@ var _column: VBoxContainer = null
 const ROW_STATES := ["normal", "hover", "pressed", "hover_pressed", "focus"]
 
 func _ready() -> void:
-	theme = AppTheme.shared()
+	theme = AppTheme.paper()
 	visible = false
 	# Sized to its contents and placed by the caller. Not a full-rect overlay:
 	# it must be possible to watch the fight change as a box is ticked, which a
@@ -98,13 +98,19 @@ static func row_text(label: String, on: bool) -> String:
 	return "%s: %s" % [label, "showing" if on else "hidden"]
 
 ## A row that looks like the buttons the player has already pressed to get here.
+##
+## NOT through `UIArt.panel_style`: the panel behind it goes through it, and
+## with `Assets/UI/panel.png` present both resolved to the same picture and the
+## rows disappeared into the panel. A row's plate is what says it is a separate
+## switch, which is information, and README's rule is that art replaces
+## decoration and not information.
 func _row_style(hover: bool) -> StyleBox:
-	var bg := Palette.BACKGROUND.lightened(0.12 if hover else 0.06)
-	var style := UIArt.panel_style(&"", bg, Palette.ARENA_EDGE, 1)
-	if style is StyleBoxFlat:
-		style.set_corner_radius_all(4)
-		style.content_margin_left = Palette.SPACE_S
-		style.content_margin_right = Palette.SPACE_S
+	var style := StyleBoxFlat.new()
+	style.bg_color = Palette.PAPER_FIELD.lightened(0.10 if hover else 0.0)
+	style.border_color = Palette.INK_DIM
+	style.set_border_width_all(1)
+	style.content_margin_left = Palette.SPACE_S
+	style.content_margin_right = Palette.SPACE_S
 	return style
 
 func toggle_visible() -> void:
@@ -138,7 +144,7 @@ func fit_within(room: float) -> void:
 ## this panel the way the README has always claimed it does. With no file
 ## present it is the identical `StyleBoxFlat` this built by hand.
 func _panel_style() -> StyleBox:
-	var style := UIArt.panel_style(&"", Palette.BACKGROUND, Palette.ARENA_EDGE, 2)
+	var style := UIArt.panel_style(&"", Palette.PAPER_LEAF, Palette.INK_DIM, 2)
 	if style is StyleBoxFlat:
 		style.set_corner_radius_all(4)
 	return style

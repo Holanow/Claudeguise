@@ -20,16 +20,18 @@ func _ready() -> void:
 	## the corner is real. Left on the Control default it is a screen-sized
 	## click target, which is the shape of the defect issue 343 is about.
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## Issue 807: the log is the ledger's margin, so it is a page and not arena.
+	theme = AppTheme.paper()
 
 	_backdrop = ColorRect.new()
-	_backdrop.color = Palette.BACKGROUND
+	_backdrop.color = Palette.PAPER_LEAF
 	_backdrop.color.a = 0.72
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop)
 
 	# Left open when issue 15 merged: the arena's own boundary (ArenaFloor)
 	_seam = ColorRect.new()
-	_seam.color = Palette.ARENA_EDGE
+	_seam.color = Palette.INK_DIM
 	_seam.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_seam)
 
@@ -37,7 +39,7 @@ func _ready() -> void:
 	_label.bbcode_enabled = true
 	_label.scroll_following = true
 	_label.clip_contents = true
-	_label.add_theme_color_override("default_color", Palette.TEXT)
+	_label.add_theme_color_override("default_color", Palette.INK)
 	add_child(_label)
 
 	_apply_orientation()
@@ -128,11 +130,11 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 
 	match e.kind:
 		CG.EventKind.FIGHT_START:
-			return "[color=%s]The fight begins.[/color]" % Palette.TEXT_DIM.to_html()
+			return "[color=%s]The fight begins.[/color]" % Palette.INK_DIM.to_html()
 		CG.EventKind.FIGHT_END:
 			return "[b]The fight ends.[/b]"
 		CG.EventKind.DAMAGE:
-			var color := Palette.damage_color(e.damage_type).to_html()
+			var color := Palette.damage_ink(e.damage_type).to_html()
 			## `e.status` decides which of the two silent kinds this is, and it
 			## must be tested before the source. A status tick names its applier
 			## since #410, so `source_id == -1` first let a poisoned tick escape
@@ -163,7 +165,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			]
 		CG.EventKind.MISS:
 			return "[color=%s]%s's %s misses %s[/color]" % [
-				Palette.TEXT_DIM.to_html(), source_name, _action_name(e.action_id), target_name
+				Palette.INK_DIM.to_html(), source_name, _action_name(e.action_id), target_name
 			]
 		CG.EventKind.HEAL:
 			## Issue 799: the between-room arrival heal has no caster, so it
@@ -192,7 +194,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				var action := ActionLibrary.get_action(e.action_id)
 				if action != null and action.consumes_status_enabled and action.consumes_status == e.status:
 					return "[color=%s]%s's %s consumes %s's %s[/color]" % [
-						Palette.damage_color(CG.DamageType.FIRE).to_html(),
+						Palette.damage_ink(CG.DamageType.FIRE).to_html(),
 						source_name, _action_name(e.action_id), target_name, _status_name(e.status)
 					]
 				return "%s's %s lifts %s's %s" % [
@@ -204,13 +206,13 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.BLOCKED:
 			# `target_id` is the BLOCKER, not the unit the shot was aimed at --
 			return "[color=%s]%s blocks %s's %s[/color]" % [
-				Palette.TEAM_PLAYER.to_html(), target_name, source_name, _action_name(e.action_id)
+				Palette.TEAM_PLAYER_INK.to_html(), target_name, source_name, _action_name(e.action_id)
 			]
 		## Issue 593: the block has health, so the player has to be able to
 		## watch it being spent rather than only see it vanish.
 		CG.EventKind.SHIELD_ABSORBED:
 			return "[color=%s]%s's shield soaks %d[/color]" % [
-				Palette.TEAM_PLAYER.to_html(), target_name, e.amount
+				Palette.TEAM_PLAYER_INK.to_html(), target_name, e.amount
 			]
 		CG.EventKind.SUSTAIN_START:
 			# ACTION_FIRE printed "X's Y fires" on this same tick, and a channel
@@ -223,7 +225,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 		CG.EventKind.INTERRUPTED:
 			# `source_id` is the unit that LOST the action, not the interrupter.
 			return "[color=%s]%s's %s is interrupted, %s of wind-up lost[/color]" % [
-				Palette.TEAM_ENEMY.to_html(), source_name,
+				Palette.TEAM_ENEMY_INK.to_html(), source_name,
 				_action_name(e.action_id), _seconds(e.amount)
 			]
 		CG.EventKind.SUMMONED:
@@ -237,7 +239,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "%s's %s leaves a pool of water" % [source_name, _action_name(e.action_id)]
 		CG.EventKind.TERRAIN_REMOVED:
 			return "[color=%s]%s's %s puts out the burning ground[/color]" % [
-				Palette.damage_color(CG.DamageType.WATER).to_html(),
+				Palette.damage_ink(CG.DamageType.WATER).to_html(),
 				source_name, _action_name(e.action_id)
 			]
 		CG.EventKind.RESOURCE_SPENT:
@@ -249,7 +251,7 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 ## Issue 320: every death read in the enemy colour, so losing your own Warrior
 ## looked exactly like killing a Goblin.
 func _death_line(target, target_name: String) -> String:
-	var color := Palette.TEAM_ENEMY if target == null else Palette.team_color(target.team)
+	var color := Palette.TEAM_ENEMY_INK if target == null else Palette.team_ink(target.team)
 	return "[b][color=%s]%s dies.[/color][/b]" % [color.to_html(), target_name]
 
 ## Every CG.EventKind either produces a line above or is named here, and
@@ -282,7 +284,7 @@ func _plan_tag(source, e: CombatEvent) -> String:
 	else:
 		var index := plan_row_number(source.pawn, e.source_plan)
 		text = "plan %d" % index if index > 0 else String(e.source_plan)
-	return " [color=%s][%s][/color]" % [Palette.TEXT_DIM.to_html(), text]
+	return " [color=%s][%s][/color]" % [Palette.INK_DIM.to_html(), text]
 
 ## 1-based row number of `plan_id` in the pawn's plans, or 0 when it has none.
 ## Public because the test suite asserts the log's number against the editor's.
