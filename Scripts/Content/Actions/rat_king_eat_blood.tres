@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_abef"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/ConsumeGroundEffect.gd" id="2_cgef"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_actd"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_actg"]
+
+[sub_resource type="Resource" id="Resource_cg1"]
+script = ExtResource("2_cgef")
+kind = 5
+heal_fraction_of_max_hp = 0.15
+
+[sub_resource type="Resource" id="Resource_tg1"]
+script = ExtResource("4_actg")
+targets_self = true
+
+[resource]
+script = ExtResource("3_actd")
+id = &"rat_king_eat_blood"
+display_name = "Feast on Blood"
+description = "Eats a pool of blood underfoot to recover 15% of max hp."
+wind_up_ticks = 15
+recover_ticks = 15
+cooldown_ticks = 60
+targeting = SubResource("Resource_tg1")
+effects = Array[ExtResource("1_abef")]([SubResource("Resource_cg1")])

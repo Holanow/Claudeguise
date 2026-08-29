@@ -20,6 +20,7 @@ const COLOURS := {
 	Terrain.Kind.HAZARD: Color(0.72, 0.28, 0.18),
 	Terrain.Kind.PIT: Color(0.10, 0.09, 0.13),
 	Terrain.Kind.WATER: Color(0.22, 0.48, 0.72),
+	Terrain.Kind.BLOOD: Color(0.45, 0.05, 0.09),
 }
 
 ## Two passes on purpose. A PNG written this run has no import yet, so `load`
@@ -35,16 +36,26 @@ const NUMBERS := {
 }
 
 ## Issue 680: a tile IS its numbers, and the floor does NOT have exactly one
-## hazard -- the chokepoint's is a slow status (above), the Burn Pit's is fire
-## damage, and one shared `TileData` cannot hold both. Appended after the
-## per-`Kind` tiles so indices 0-4 and everything already baked onto them are
-## untouched; index 5 is HAZARD-shaped for movement/sight but carries its own
-## damage instead of the status.
+## hazard -- the chokepoint's is a slow status (above). Appended after the
+## per-`Kind` tiles so the indices already baked onto them are untouched; this
+## one is HAZARD-shaped for movement/sight but carries its own numbers.
+##
+## Issue 767: the Burn Pit deals no flat damage of its own any more. It applies
+## BURN, hit_scaled off `status_magnitude` -- a stand-in for the "reasonable"
+## hit that lights you, matching `geyser_scald`'s own authored duration -- and
+## the DOT that follows is what does the damage, ledgered by status like a real
+## fire rather than subtracted as an unexplained flat number.
 const EXTRA_TILES := [
 	{
 		"kind": Terrain.Kind.HAZARD,
 		"colour": Color(0.85, 0.35, 0.05),
-		"numbers": {"damage_per_tick": 2, "damage_type": CG.DamageType.FIRE},
+		"numbers": {
+			"damage_type": CG.DamageType.FIRE,
+			"applies_status": CG.Status.BURN,
+			"applies_status_enabled": 1,
+			"status_duration_ticks": 90,
+			"status_magnitude": 20.0,
+		},
 	},
 ]
 

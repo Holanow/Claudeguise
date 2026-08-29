@@ -15,7 +15,7 @@ speed = 16.0
 [sub_resource type="Resource" id="Resource_ukmyh"]
 script = ExtResource("3_rmt4v")
 damage_type = 2
-power_scale = 0.8
+power_scale = 2.0
 consumes_status_enabled = true
 consumes_status = 3
 consumed_power_scale = 1.0
