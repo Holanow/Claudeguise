@@ -77,11 +77,25 @@ func test_a_refusal_names_the_tag_the_class_lacks() -> void:
 func test_every_starting_piece_passes_its_own_gate() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"p", "p")
-		for piece in [pawn.main_hand, pawn.body, pawn.accessory]:
+		for piece in [pawn.main_hand, pawn.off_hand, pawn.head, pawn.body, pawn.accessory]:
 			if piece == null:
 				continue
 			assert_true(piece.allows_class(pawn.pawn_class),
 				"%s starts with %s and could not equip it" % [class_id, piece.id])
+
+
+## Issue 814 arm 3 fills `off_hand` and `accessory`, and the test above cannot
+## see either table while `FILL_EMPTY_SLOTS` is off -- a starter pawn's slots
+## come back null and the loop skips them. So the tables are read directly:
+## every class named, and every piece it names legal for that class.
+func test_the_slots_arm_3_would_fill_are_legal_for_every_class() -> void:
+	for class_id in ClassLibrary.all_ids():
+		var c := ClassLibrary.get_class_def(class_id)
+		for table in [PawnFactory.STARTING_OFF_HAND, PawnFactory.STARTING_ACCESSORY]:
+			assert_true(table.has(class_id), "%s is in no arm 3 table" % class_id)
+			var piece := ItemLibrary.get_equipment(table.get(class_id, &""))
+			assert_true(piece != null and piece.allows_class(c),
+				"%s would start with %s and could not equip it" % [class_id, table.get(class_id)])
 
 
 ## Why issue 226 dressed the Abomination in a Gown and not in something chosen:

@@ -38,7 +38,9 @@ static var FILL_EMPTY_SLOTS := false
 ## The off-hand each class starts with. `required_tags` decides most of it --
 ## shield and quiver are MARTIAL, focus is MAGICAL -- and the Warrior takes the
 ## shield over the quiver on its TANK role, the Siege Master the quiver on
-## RANGED. There is a test that every entry passes `allows_class`.
+## RANGED. `test_the_slots_arm_3_would_fill_are_legal_for_every_class` reads
+## this table directly, because a starter pawn's off hand is null while
+## `FILL_EMPTY_SLOTS` is off and the older test simply skips it.
 const STARTING_OFF_HAND := {
 	&"warrior": &"shield",
 	&"priest": &"focus",
