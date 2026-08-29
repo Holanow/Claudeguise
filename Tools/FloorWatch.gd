@@ -43,7 +43,7 @@ func _process(_delta: float) -> void:
 func _capture() -> void:
 	await RenderingServer.frame_post_draw
 	var room_id: StringName = _room_ids[_room_index]
-	var path := "%s/teal_729_floor_room%02d_%s.png" % [OUT_DIR, _room_index + 1, room_id]
+	var path := "%s/teal_796_floor_room%02d_%s.png" % [OUT_DIR, _room_index + 1, room_id]
 	get_viewport().get_texture().get_image().save_png(path)
 	var w0: CombatUnit = _battle.state.unit(0)
 	_log.append("room %d/%d (%s): unit0 hp %d/%d, alive=%s -- %s" % [
