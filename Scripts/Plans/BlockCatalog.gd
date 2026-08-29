@@ -31,6 +31,7 @@ const CONDITIONS := {
 
 const TARGETING := {
 	&"target_nearest_enemy": preload("res://Scripts/Plans/Blocks/TargetNearestEnemyBlock.gd"),
+	&"target_farthest_enemy": preload("res://Scripts/Plans/Blocks/TargetFarthestEnemyBlock.gd"),
 	&"target_lowest_hp_fraction_ally": preload("res://Scripts/Plans/Blocks/TargetLowestHpAllyBlock.gd"),
 	&"target_lowest_hp_fraction_enemy": preload("res://Scripts/Plans/Blocks/TargetLowestHpEnemyBlock.gd"),
 	&"target_self": preload("res://Scripts/Plans/Blocks/TargetSelfBlock.gd"),
