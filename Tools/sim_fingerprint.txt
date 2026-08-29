@@ -6,4 +6,4 @@
 # source: real source hash folded with output (issue 725), not the bare hash.
 source: bedb4d272ecd125ffe9399eb1e7b669310a946318fd823db2c53b5a625ae6e06
 output: 0ae90c20d2de4df4891182ffa1fc6c5332071db5cb2c0d5625155efc1a85b133
-commit: ba9b3f30e42081f01e33f0b7f1f4cd5d492d0baa
+commit: a9c945f11220b7d0fbbd7a12bc179dd551d025bb
