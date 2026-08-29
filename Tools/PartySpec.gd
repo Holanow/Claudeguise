@@ -9,29 +9,37 @@ class_name PartySpec
 const PARTY_SIZE := 4
 
 ## Every composition a sweep runs. `--party warrior,priest,...` names one;
-## absent, all size-4 compositions of the class library.
+## absent, all size-4 compositions of the class library. Empty means a
+## `--party` was given and refused, which every caller reports and quits on --
+## a refused spec must never fall through to the whole sweep.
 static func compositions() -> Array:
+	if not OS.get_cmdline_user_args().has("--party"):
+		return _combinations(ClassLibrary.all_ids(), PARTY_SIZE)
 	var named := _from_cmdline()
-	if not named.is_empty():
-		return [named]
-	return _combinations(ClassLibrary.all_ids(), PARTY_SIZE)
+	return [] if named.is_empty() else [named]
 
-## Empty when no `--party` was given, and empty after an unknown id has been
-## reported -- a typo must not quietly run a party of three.
+## Refuses an unknown id, a duplicate, and any count but PARTY_SIZE. A pawn's
+## id is its class id, so two of one class collide in `FloorRun.carry`.
 static func _from_cmdline() -> Array:
 	var args := OS.get_cmdline_user_args()
-	for i in args.size():
-		if args[i] != "--party" or i + 1 >= args.size():
-			continue
-		var ids: Array = []
-		for name in String(args[i + 1]).split(",", false):
-			var c := StringName(name.strip_edges())
-			if ClassLibrary.get_class_def(c) == null:
-				printerr("--party: no such class '%s'; known: %s" % [c, ClassLibrary.all_ids()])
-				return []
-			ids.append(c)
-		return ids
-	return []
+	var at := args.find("--party")
+	if at + 1 >= args.size():
+		printerr("--party needs a comma-separated list of %d class ids" % PARTY_SIZE)
+		return []
+	var ids: Array = []
+	for name in String(args[at + 1]).split(",", false):
+		var c := StringName(name.strip_edges())
+		if ClassLibrary.get_class_def(c) == null:
+			printerr("--party: no such class '%s'; known: %s" % [c, ClassLibrary.all_ids()])
+			return []
+		if ids.has(c):
+			printerr("--party: '%s' twice; one pawn per class, ids collide otherwise" % c)
+			return []
+		ids.append(c)
+	if ids.size() != PARTY_SIZE:
+		printerr("--party: %d classes, and the party is %d" % [ids.size(), PARTY_SIZE])
+		return []
+	return ids
 
 ## Lexicographic by index, so the order a report lists compositions in does
 ## not depend on anything but the class library's own order.
@@ -53,6 +61,8 @@ static func label(ids: Array) -> String:
 	return ", ".join(parts)
 
 ## One pawn per id, preset plans for arm B and a bare starter for arm A.
+## Order is kept: it decides placement, so the same four in another order is a
+## different fight. A sweep uses `ClassLibrary.all_ids()`' sorted order.
 static func make(ids: Array, planned: bool) -> Array[PawnData]:
 	var party: Array[PawnData] = []
 	for id in ids:
