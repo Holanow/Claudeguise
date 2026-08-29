@@ -4,6 +4,6 @@
 # still a change, and the gate makes you say so here.
 # commit: the source tree this was taken against (issue 648), informational only.
 # source: real source hash folded with output (issue 725), not the bare hash.
-source: 84c41ac27836457c01ebdbf8022fdcbb70d6f32ac5f6a88c2e42caab25ae39c0
+source: 78c311937bffdfce97546a12d94550edfb286ce691e348310d960cc50bd2b104
 output: dbc59e01ac13f896cfd5228a0748bf9389dce3f4b7fb6d65ba8e828e32d7c27a
-commit: b6a7fe9f62434ea8f2e3dc594f8d50b7f646a329
+commit: 1fd0fa3442fb3db93ebabe5abbbd81ee68278ee3
