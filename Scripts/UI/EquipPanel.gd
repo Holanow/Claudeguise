@@ -433,11 +433,11 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 		Balance.move_speed(bare) * float(CG.TICKS_PER_SECOND),
 		Balance.move_speed(pawn) * float(CG.TICKS_PER_SECOND), " units per second"))
 
-	# Read off the armor rather than through `Balance.damage_reduction`, which
-	# takes a CombatUnit that does not exist before a fight is built. Armor is
-	# the only source of it on a pawn, which is the same branch that function
-	# takes, and a content test holds that.
-	var absorbed := 0.0 if pawn.body == null else pawn.body.damage_reduction
+	# Read off the equipment rather than through `Balance.damage_reduction`,
+	# which takes a CombatUnit that does not exist before a fight is built.
+	# `Balance.gear_damage_reduction` is the same best-across-slots read that
+	# function uses once it has one.
+	var absorbed := Balance.gear_damage_reduction(pawn)
 	out.append(_line("Damage absorbed: %d%% of every hit." % int(round(absorbed * 100.0)),
 		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.TEXT_DIM))
 	return out

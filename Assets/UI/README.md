@@ -124,6 +124,7 @@ One per item, shown on the pre-fight equip screen at about 32 pixels.
 
 `item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
 `item/bow.png`, `item/staff.png`,
+`item/shield.png`, `item/focus.png`, `item/quiver.png`,
 `item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
 `item/censer.png`
 
