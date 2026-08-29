@@ -1,6 +1,30 @@
 [gd_resource type="Resource" script_class="EnemyDef" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EnemyDef.gd" id="1_vmw3w"]
+[ext_resource type="Script" path="res://Scripts/Core/Plan.gd" id="2_rkpln"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/SelfHpBelowBlock.gd" id="3_rkhpb"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/TargetSelfBlock.gd" id="4_rktsb"]
+[ext_resource type="Script" path="res://Scripts/Plans/Blocks/UseActionBlock.gd" id="5_rkuse"]
+[ext_resource type="Script" path="res://Scripts/Core/PlanBlock.gd" id="6_rkblk"]
+[ext_resource type="Resource" path="res://Scripts/Content/Actions/rat_king_eat_blood.tres" id="act_rat_king_eat_blood"]
+
+[sub_resource type="Resource" id="Resource_rkhpb1"]
+script = ExtResource("3_rkhpb")
+fraction = 0.5
+
+[sub_resource type="Resource" id="Resource_rktsb1"]
+script = ExtResource("4_rktsb")
+
+[sub_resource type="Resource" id="Resource_rkuse1"]
+script = ExtResource("5_rkuse")
+action = ExtResource("act_rat_king_eat_blood")
+
+[sub_resource type="Resource" id="Resource_rkpln1"]
+script = ExtResource("2_rkpln")
+id = &"rat_king_eat_blood_row"
+display_name = "Eat blood when below half health"
+condition = SubResource("Resource_rkhpb1")
+blocks = Array[ExtResource("6_rkblk")]([SubResource("Resource_rktsb1"), SubResource("Resource_rkuse1")])
 
 [resource]
 script = ExtResource("1_vmw3w")
@@ -12,5 +36,6 @@ radius = 36.0
 attack_power = {
 0: 21
 }
-actions = Array[StringName]([&"rat_king_lash"])
+actions = Array[StringName]([&"rat_king_lash", &"rat_king_eat_blood"])
 display_tags = Array[String](["Ranged", "Miniboss", "Summoner"])
+plans = Array[ExtResource("2_rkpln")]([SubResource("Resource_rkpln1")])

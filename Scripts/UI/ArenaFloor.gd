@@ -189,11 +189,17 @@ func _draw_cell(c: Vector2i, cell) -> void:
 			var water := Palette.damage_color(CG.DamageType.WATER)
 			water.a = 0.45
 			draw_rect(r, water)
+		## Issue 759. No new colour: the same physical-damage token BLEED itself
+		## uses, at a pool's own flat unstriped fill.
+		Terrain.Kind.BLOOD:
+			var blood := Palette.damage_color(CG.DamageType.PHYSICAL)
+			blood.a = 0.5
+			draw_rect(r, blood)
 
 ## The four sides of `c` that face different ground, so a block of cells is
 ## outlined once round the outside instead of once per cell.
 func _draw_cell_edges(c: Vector2i, cell) -> void:
-	if cell.kind == Terrain.Kind.HAZARD or cell.kind == Terrain.Kind.WATER:
+	if cell.kind == Terrain.Kind.HAZARD or cell.kind == Terrain.Kind.WATER or cell.kind == Terrain.Kind.BLOOD:
 		return
 	var color := Palette.TEXT_DIM if cell.kind != Terrain.Kind.PIT else Palette.ARENA_EDGE
 	var r := TerrainGrid.rect_of(c)
