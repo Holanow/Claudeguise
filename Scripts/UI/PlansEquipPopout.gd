@@ -88,17 +88,12 @@ func _build() -> void:
 
 	_content_column = column
 
-## Built on first `open()` rather than here. `_build()` runs inside `create()`,
-## before this popout has a parent of its own -- adding `_inspect`/`_equip` to
-## `column` here would add them to a not-yet-live node, so the engine never
-## fires their real `_ready()` and a later manual call is the only way to
-## reach it. But this popout does go on to enter a live `hud` in every real
-## caller, and Godot then fires a real, automatic `_ready()` on the whole
-## subtree it did not know about -- including one already fired by hand,
-## which is a second set of signal connections on the same buttons. Building
-## these two once this popout is already live sidesteps it entirely: the
-## `add_child` below fires their one real `_ready()` itself, same as every
-## panel PartySelect embeds.
+## Built on first `open()`, not in `_build()`: `create()` runs before this
+## popout has a parent, so `_inspect`/`_equip` would enter a not-yet-live
+## tree, get a manual `_ready()`, and then get a second, real one for free
+## when the whole popout later enters `hud` -- doubling their connections.
+## Building them once this popout is already live sidesteps it, matching
+## how `PartySelect` embeds the same two panels.
 var _content_column: VBoxContainer = null
 
 func _ensure_panels() -> void:
