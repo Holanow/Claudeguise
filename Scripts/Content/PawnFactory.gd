@@ -31,6 +31,36 @@ const STARTING_ARMOR := {
 	&"abomination": &"gown",
 }
 
+## Issue 814 arm 3: what a pawn puts in the two slots it leaves empty for a
+## whole run. Off by default; `Tools/ArmArgs.gd` turns it on for the sweep.
+static var FILL_EMPTY_SLOTS := false
+
+## The off-hand each class starts with. `required_tags` decides most of it --
+## shield and quiver are MARTIAL, focus is MAGICAL -- and the Warrior takes the
+## shield over the quiver on its TANK role, the Siege Master the quiver on
+## RANGED. `test_the_slots_arm_3_would_fill_are_legal_for_every_class` reads
+## this table directly, because a starter pawn's off hand is null while
+## `FILL_EMPTY_SLOTS` is off and the older test simply skips it.
+const STARTING_OFF_HAND := {
+	&"warrior": &"shield",
+	&"priest": &"focus",
+	&"geysermancer": &"focus",
+	&"siege_master": &"quiver",
+	&"abomination": &"focus",
+}
+
+## The censer is the only accessory the game ships and it requires no tags, so
+## every class takes it. **It grants nothing** -- no attributes, no reduction,
+## no actions, no modifiers -- so filling this slot is measurably a no-op, and
+## it is here so that arm 3's measurement says so rather than assumes it.
+const STARTING_ACCESSORY := {
+	&"warrior": &"censer",
+	&"priest": &"censer",
+	&"geysermancer": &"censer",
+	&"siege_master": &"censer",
+	&"abomination": &"censer",
+}
+
 ## The attributes a generated pawn rolls.
 const ROLLED_ATTRIBUTES: Array[CG.Attribute] = [
 	CG.Attribute.STR, CG.Attribute.DEX, CG.Attribute.AGI,
@@ -70,6 +100,11 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 		pawn.main_hand = ItemLibrary.get_equipment(STARTING_WEAPON[class_id])
 	if STARTING_ARMOR.has(class_id):
 		pawn.body = ItemLibrary.get_equipment(STARTING_ARMOR[class_id])
+	if FILL_EMPTY_SLOTS:
+		if STARTING_OFF_HAND.has(class_id):
+			pawn.off_hand = ItemLibrary.get_equipment(STARTING_OFF_HAND[class_id])
+		if STARTING_ACCESSORY.has(class_id):
+			pawn.accessory = ItemLibrary.get_equipment(STARTING_ACCESSORY[class_id])
 	return pawn
 
 ## The same pawn with its attributes distributed from `run_seed`. Issue 485:

@@ -77,11 +77,25 @@ func test_a_refusal_names_the_tag_the_class_lacks() -> void:
 func test_every_starting_piece_passes_its_own_gate() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"p", "p")
-		for piece in [pawn.main_hand, pawn.body, pawn.accessory]:
+		for piece in [pawn.main_hand, pawn.off_hand, pawn.head, pawn.body, pawn.accessory]:
 			if piece == null:
 				continue
 			assert_true(piece.allows_class(pawn.pawn_class),
 				"%s starts with %s and could not equip it" % [class_id, piece.id])
+
+
+## Issue 814 arm 3 fills `off_hand` and `accessory`, and the test above cannot
+## see either table while `FILL_EMPTY_SLOTS` is off -- a starter pawn's slots
+## come back null and the loop skips them. So the tables are read directly:
+## every class named, and every piece it names legal for that class.
+func test_the_slots_arm_3_would_fill_are_legal_for_every_class() -> void:
+	for class_id in ClassLibrary.all_ids():
+		var c := ClassLibrary.get_class_def(class_id)
+		for table in [PawnFactory.STARTING_OFF_HAND, PawnFactory.STARTING_ACCESSORY]:
+			assert_true(table.has(class_id), "%s is in no arm 3 table" % class_id)
+			var piece := ItemLibrary.get_equipment(table.get(class_id, &""))
+			assert_true(piece != null and piece.allows_class(c),
+				"%s would start with %s and could not equip it" % [class_id, table.get(class_id)])
 
 
 ## Why issue 226 dressed the Abomination in a Gown and not in something chosen:
@@ -109,5 +123,8 @@ func _permits(class_id: StringName, item_id: StringName, why: String) -> void:
 	assert_true(ItemLibrary.get_equipment(item_id).allows_class(ClassLibrary.get_class_def(class_id)),
 		"%s should permit %s: %s" % [class_id, item_id, why])
 
+## One name per `EquipmentDef.Slot`. Three, against five slots, since #745 --
+## so every BODY and ACCESSORY message indexed out of bounds and printed a
+## SCRIPT ERROR on each gate run instead of the assertion's own text.
 func _slot_name(slot: int) -> String:
-	return ["weapon", "armor", "accessory"][slot]
+	return ["main hand", "off hand", "head", "body", "accessory"][slot]

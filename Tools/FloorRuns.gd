@@ -18,7 +18,12 @@ func _init() -> void:
 		printerr("no compositions to run")
 		quit(1)
 		return
+	var arm := ArmArgs.apply()
+	if arm.is_empty():
+		quit(1)
+		return
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
+	print(arm)
 	print(ReviveArgs.apply())
 	print("%s\n" % LootArgs.apply())
 	for ids in comps:
@@ -35,16 +40,23 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var depths: Array[int] = []
 	var camp_unused := 0
 	var drops := 0
+	## Issue 814: survivor count is the only narrowness axis a clear has, so a
+	## clear that has to be read as "by the skin of their teeth" is reported by
+	## how many of the four are still standing, not only that it happened.
+	var clear_survivors: Array[int] = []
 	for s in range(SEEDS):
 		var plan := FloorGenerator.generate(s)
 		var walk := FloorWalk.default_room_order(plan)
 		var party := PartySpec.make(ids, planned)
 		var run := FloorRun.new()
 		var wiped := false
+		var last_state: CombatState = null
 		for i in walk.size():
 			var room := plan.room(walk[i])
 			var room_id: StringName = room.content_id
-			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
+			var encounter := RoomScale.scaled(RoomLibrary.get_room(room_id), party.size())
+			var state := CombatSim.build(party, encounter, hash([s, room_id, i]))
+			last_state = state
 			FloorRun.carry_into(run, state, party, i)
 			CombatSim.run(state)
 			for j in party.size():
@@ -63,11 +75,17 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 		if not wiped:
 			cleared += 1
 			depths.append(walk.size())
+			var standing := 0
+			for j in party.size():
+				if last_state.unit(j).alive:
+					standing += 1
+			clear_survivors.append(standing)
 		drops += run.loot.size()
 		if not run.revive_used:
 			camp_unused += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths,
-		"camp_unused": camp_unused, "drops": drops}
+		"camp_unused": camp_unused, "drops": drops, "party": ids.size(),
+		"clear_survivors": clear_survivors}
 
 func _report(label: String, r: Dictionary) -> void:
 	print(label)
@@ -90,7 +108,23 @@ func _report(label: String, r: Dictionary) -> void:
 	print("  loot: %d items found and worn across %d runs (%.2f a run)" % [
 		r.drops, SEEDS, float(r.drops) / SEEDS])
 	_report_depth(r.depths, r.cleared)
+	_report_survivors(r.clear_survivors, int(r.party))
 	print("")
+
+## Issue 814: #802 measured that a run cannot finish in the red while The
+## Warden leaves an intact party at 93% health, so this is the only axis a
+## "by the skin of their teeth" clear can be read on.
+func _report_survivors(survivors: Array[int], party_size: int) -> void:
+	if survivors.is_empty():
+		return
+	var histogram := {}
+	for n in survivors:
+		histogram[n] = int(histogram.get(n, 0)) + 1
+	var line := "  the cleared runs finished with (of %d): " % party_size
+	for n in range(party_size, -1, -1):
+		if histogram.has(n):
+			line += "%d alive x%d  " % [n, histogram[n]]
+	print(line)
 
 ## Issue 734: how many rooms a run entered before it ended. Mean alone hides
 ## "usually 4, occasionally 9" behind "6.5" -- min/median/max plus the
