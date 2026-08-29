@@ -19,7 +19,8 @@ func _init() -> void:
 		quit(1)
 		return
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
-	print("%s\n" % ReviveArgs.apply())
+	print(ReviveArgs.apply())
+	print("%s\n" % LootArgs.apply())
 	for ids in comps:
 		print("========================================================")
 		print("PARTY OF %d: %s" % [ids.size(), PartySpec.label(ids)])
@@ -33,13 +34,16 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var died_at := {}
 	var depths: Array[int] = []
 	var camp_unused := 0
+	var drops := 0
 	for s in range(SEEDS):
-		var room_ids := FloorWalk.default_order(FloorGenerator.generate(s))
+		var plan := FloorGenerator.generate(s)
+		var walk := FloorWalk.default_room_order(plan)
 		var party := PartySpec.make(ids, planned)
 		var run := FloorRun.new()
 		var wiped := false
-		for i in room_ids.size():
-			var room_id: StringName = room_ids[i]
+		for i in walk.size():
+			var room := plan.room(walk[i])
+			var room_id: StringName = room.content_id
 			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
 			FloorRun.carry_into(run, state, party, i)
 			CombatSim.run(state)
@@ -53,12 +57,17 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 				## before this one, i.e. reached depth i + 1.
 				depths.append(i + 1)
 				break
+			## Issue 811: the room resolved, so it pays out -- the same call
+			## BattleView._handle_fight_end makes on the live floor.
+			FloorRun.award_room_loot(run, room, party, s)
 		if not wiped:
 			cleared += 1
-			depths.append(room_ids.size())
+			depths.append(walk.size())
+		drops += run.loot.size()
 		if not run.revive_used:
 			camp_unused += 1
-	return {"cleared": cleared, "died_at": died_at, "depths": depths, "camp_unused": camp_unused}
+	return {"cleared": cleared, "died_at": died_at, "depths": depths,
+		"camp_unused": camp_unused, "drops": drops}
 
 func _report(label: String, r: Dictionary) -> void:
 	print(label)
@@ -76,6 +85,10 @@ func _report(label: String, r: Dictionary) -> void:
 	if FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
 		print("  the camp's one revive went unused in %d of %d runs (never two down)" % [
 			r.camp_unused, SEEDS])
+	## Issue 811: every drop is filtered to something a living pawn can put on,
+	## so items found and items worn are the same number by construction.
+	print("  loot: %d items found and worn across %d runs (%.2f a run)" % [
+		r.drops, SEEDS, float(r.drops) / SEEDS])
 	_report_depth(r.depths, r.cleared)
 	print("")
 

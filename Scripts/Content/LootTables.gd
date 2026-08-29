@@ -21,25 +21,42 @@ const DROP_CHANCE: Dictionary = {
 	FloorRoom.Type.BIG_ENEMY: 0.35,
 }
 
+## Issue 811: a multiplier on every chance above, so the drop rate can be swept
+## from the command line without editing the table. 1.0 is the shipped table and
+## nothing but Tools/LootArgs.gd ever assigns this.
+static var CHANCE_SCALE := 1.0
+
+## Issue 811: what a plain ENEMY room would drop, if it dropped. Not in the
+## table above and deliberately not added to it -- the floor has no treasure
+## room, so this is the only way to sweep "what if the bread-and-butter rooms
+## paid out" without authoring a number the player did not ask for. Ships at
+## 0.0, which is the table exactly as it is.
+static var ENEMY_CHANCE := 0.0
+
 ## Returns null on "nothing dropped", never an empty-but-real EquipmentDef --
 ## a caller that wants "did anything drop" gets to ask that directly rather
-## than checking a sentinel id.
-static func roll_drop(room_type: FloorRoom.Type, difficulty: int, rng: RandomNumberGenerator) -> EquipmentDef:
-	var chance: float = DROP_CHANCE.get(room_type, 0.0)
+## than checking a sentinel id. `candidate_ids` narrows what may be picked;
+## empty is the whole library.
+static func roll_drop(room_type: FloorRoom.Type, difficulty: int, rng: RandomNumberGenerator,
+		candidate_ids: Array[StringName] = [] as Array[StringName]) -> EquipmentDef:
+	var base: float = ENEMY_CHANCE if room_type == FloorRoom.Type.ENEMY \
+		else float(DROP_CHANCE.get(room_type, 0.0))
+	var chance: float = base * CHANCE_SCALE
 	if chance <= 0.0:
 		return null
 	if rng.randf() >= chance:
 		return null
-	return _pick_item(difficulty, rng)
+	return _pick_item(difficulty, rng, candidate_ids)
 
 ## No rarity tier exists on EquipmentDef yet -- every registered item is
 ## equally likely regardless of `difficulty`. `difficulty` is threaded
 ## through now (rather than added when a tier field exists) so the call
 ## site and the roll's own determinism don't need to change shape later;
 ## only this function's body would.
-static func _pick_item(difficulty: int, rng: RandomNumberGenerator) -> EquipmentDef:
+static func _pick_item(difficulty: int, rng: RandomNumberGenerator,
+		candidate_ids: Array[StringName]) -> EquipmentDef:
 	var _unused := difficulty
-	var ids := ItemLibrary.all_ids()
+	var ids := candidate_ids if not candidate_ids.is_empty() else ItemLibrary.all_ids()
 	if ids.is_empty():
 		return null
 	var index := rng.randi_range(0, ids.size() - 1)

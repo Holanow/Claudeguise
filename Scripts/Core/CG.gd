@@ -184,6 +184,9 @@ enum EventKind {
 	## reached a health bar. Appended rather than filed beside BLOCKED because
 	## these values are ordinals and inserting one renumbers every kind below.
 	SHIELD_ABSORBED,
+	## Issue 811: a room's drop reached a pawn's empty slot. Announced on
+	## arrival in the next room, where there is a live fight to announce into.
+	LOOT_AWARDED,
 }
 
 ## Why a piece of terrain appeared or went away. Issue 492: the log has to be

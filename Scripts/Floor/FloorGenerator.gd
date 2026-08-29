@@ -32,7 +32,7 @@ static func generate(floor_seed: int) -> FloorPlan:
 
 	var cells := _scatter(rng, order.size())
 	for i in order.size():
-		plan.rooms.append(_make_room(i, order[i], FloorRoom.Type.ENEMY, cells[i], 1))
+		plan.rooms.append(_make_room(i, order[i], ordinary_type_of(order[i]), cells[i], 1))
 	plan.index_cells()
 
 	## The miniboss goes on a free cell with exactly one placed neighbour, the
@@ -48,6 +48,22 @@ static func generate(floor_seed: int) -> FloorPlan:
 	plan.miniboss_id = order.size()
 	plan.boss_id = order.size() + 1
 	return plan
+
+## Issue 811: what makes an ordinary room a BIG_ENEMY is what is standing in
+## it -- a room holding an enemy the bestiary tags "Elite". Read off the room's
+## own spawns rather than listed here, so a room that gains or loses its elite
+## changes type with it. Everything else is the floor's bread and butter.
+const ELITE_TAG := "Elite"
+
+static func ordinary_type_of(content_id: StringName) -> FloorRoom.Type:
+	var room := RoomLibrary.get_room(content_id)
+	if room == null:
+		return FloorRoom.Type.ENEMY
+	for spawn in room.enemy_spawns:
+		var enemy := EnemyLibrary.get_enemy(spawn["enemy_id"])
+		if enemy != null and enemy.display_tags.has(ELITE_TAG):
+			return FloorRoom.Type.BIG_ENEMY
+	return FloorRoom.Type.ENEMY
 
 static func _make_room(id: int, content_id: StringName, type: FloorRoom.Type, cell: Vector2i, difficulty: int) -> FloorRoom:
 	var r := FloorRoom.new()

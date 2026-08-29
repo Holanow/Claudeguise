@@ -95,9 +95,18 @@ func _unwind(came_from: Dictionary, target: int) -> Array[int]:
 ## The fight order a headless sweep walks, as authored room ids. One caller of
 ## the same route function the live floor uses, so the two cannot drift.
 static func default_order(plan: FloorPlan) -> Array[StringName]:
-	var walk := FloorWalk.new(plan)
 	var out: Array[StringName] = []
-	out.append(plan.room(walk.current_id).content_id)
+	for id in default_room_order(plan):
+		out.append(plan.room(id).content_id)
+	return out
+
+## The same route as `FloorPlan.rooms` indices. A caller that needs a room's
+## type or difficulty -- issue 811's drop table does -- cannot get there from a
+## content id, which several cells could share.
+static func default_room_order(plan: FloorPlan) -> Array[int]:
+	var walk := FloorWalk.new(plan)
+	var out: Array[int] = []
+	out.append(walk.current_id)
 	walk.mark_cleared(walk.current_id)
 	while true:
 		var route := walk.route_to_next_fight()
@@ -105,6 +114,6 @@ static func default_order(plan: FloorPlan) -> Array[StringName]:
 			break
 		for id in route:
 			walk.enter(id)
-		out.append(plan.room(walk.current_id).content_id)
+		out.append(walk.current_id)
 		walk.mark_cleared(walk.current_id)
 	return out
