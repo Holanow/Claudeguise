@@ -1100,7 +1100,7 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		elif fx is PullEffect:
 			_apply_pull(state, unit, target, action, fx)
 		elif fx is ThrowEffect:
-			_apply_throw(state, unit, target, action, fx)
+			_apply_throw(state, unit, target, action, fx, deps)
 		elif fx is CleanseEffect:
 			_cleanse_harmful(state, unit, target, action)
 		elif fx is ConsumeGroundEffect:
@@ -1402,8 +1402,8 @@ static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
 ## Duration and flight are one constant for #562's reason -- two numbers for
 ## one thing drift apart -- so this status ends when the unit lands, and does
 ## so without any bookkeeping a plan cannot read.
-static func _apply_throw(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: ThrowEffect) -> void:
-	var landing := _landing_spot(state, target, fx)
+static func _apply_throw(state: CombatState, caster: CombatUnit, target: CombatUnit, action: ActionDef, fx: ThrowEffect, deps: SimDeps) -> void:
+	var landing := _landing_spot(state, target, fx, deps)
 	target.throw_step = (landing - target.position) / float(THROW_TICKS)
 	target.throw_ticks_left = THROW_TICKS
 	target.throw_action = action.id
@@ -1422,8 +1422,8 @@ static func _apply_throw(state: CombatState, caster: CombatUnit, target: CombatU
 ## Deterministic and rng-free. Candidates are walked in `state.living` order,
 ## which is id order, and a tie never displaces the incumbent, so the lowest id
 ## wins. Nobody left alive to aim at means it lands where it stood.
-static func _landing_spot(state: CombatState, thrown: CombatUnit, fx: ThrowEffect) -> Vector2:
-	var impact: ActionDef = ActionLibrary.get_action(fx.landing_action)
+static func _landing_spot(state: CombatState, thrown: CombatUnit, fx: ThrowEffect, deps: SimDeps) -> Vector2:
+	var impact: ActionDef = deps.action_lookup.call(fx.landing_action)
 	var radius := impact.splash_radius if impact != null else 0.0
 	var best := thrown.position
 	var best_caught := -1
