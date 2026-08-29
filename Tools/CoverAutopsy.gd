@@ -71,8 +71,9 @@ func _init() -> void:
 		var grand := 0
 		for r in rows:
 			grand += r[0]
-		print("\n=== %s  win %d/%d (%d%%)  deaths %.2f/fight" % [String(rid), wins, runs,
-			int(round(100.0 * wins / runs)), deaths / float(runs)])
+		print("\n=== %s  win %d/%d (%d%%)  deaths %.2f/fight  %.1fs/fight" % [String(rid), wins, runs,
+			int(round(100.0 * wins / runs)), deaths / float(runs),
+			float(ticks) / float(runs) * CG.TICK_SECONDS])
 		for r in rows:
 			print("   %-22s %6d  (%2d%% of the room's damage) over %d hits" % [
 				r[1], r[0], int(round(100.0 * r[0] / maxf(1.0, grand))), r[2]])
