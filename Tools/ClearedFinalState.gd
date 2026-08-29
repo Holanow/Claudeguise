@@ -14,7 +14,8 @@ func _init() -> void:
 		printerr("no classes registered")
 		quit(1)
 		return
-	print("Cleared-run final state, issue 792, %d seeds, arm B (planned).\n" % SEEDS)
+	print("Cleared-run final state, issue 792, %d seeds, arm B (planned)." % SEEDS)
+	print("%s\n" % ReviveArgs.apply())
 	for s in range(SEEDS):
 		var room_ids := FloorSequence.build(s)
 		var party: Array[PawnData] = []
@@ -29,7 +30,7 @@ func _init() -> void:
 		for i in room_ids.size():
 			var room_id: StringName = room_ids[i]
 			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
-			FloorRun.carry_into(run, state, party)
+			FloorRun.carry_into(run, state, party, i)
 			CombatSim.run(state)
 			last_state = state
 			for j in party.size():

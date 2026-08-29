@@ -18,7 +18,8 @@ func _init() -> void:
 		printerr("no classes registered")
 		quit(1)
 		return
-	print("Floor runs, issue 730/734: arm A (default) vs arm B (planned), %d seeds.\n" % SEEDS)
+	print("Floor runs, issue 730/734: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
+	print("%s\n" % ReviveArgs.apply())
 	_report("Arm A -- default pawns, no plans", _run_arm(class_ids, false))
 	_report("Arm B -- planned pawns", _run_arm(class_ids, true))
 	quit(0)
@@ -35,7 +36,7 @@ func _run_arm(class_ids: Array, planned: bool) -> Dictionary:
 		for i in room_ids.size():
 			var room_id: StringName = room_ids[i]
 			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
-			FloorRun.carry_into(run, state, party)
+			FloorRun.carry_into(run, state, party, i)
 			CombatSim.run(state)
 			for j in party.size():
 				var unit := state.unit(j)

@@ -102,6 +102,10 @@ if (Test-Path $scene) {
         exit 3
     }
     $godotArgs = @('--headless', '--path', $repo, '--script', "res://Tools/$name.gd")
+    # Issue 802: -ToolArgs was appended in the scene branch only, so a
+    # SceneTree tool silently ran with its defaults and reported a real-looking
+    # number for a configuration nobody asked for.
+    if ($ToolArgs.Count -gt 0) { $godotArgs += '--'; $godotArgs += $ToolArgs }
 }
 
 Write-Host ("running {0} ({1}s budget): {2}" -f $name, $TimeoutSeconds, ($godotArgs -join ' '))

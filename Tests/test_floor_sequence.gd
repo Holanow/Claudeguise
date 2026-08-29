@@ -79,3 +79,63 @@ func test_carry_into_keeps_dead_pawns_dead() -> void:
 	FloorRun.carry_into(run, state, party)
 	assert_false(state.unit(0).alive)
 	assert_eq(state.unit(0).hp, 0)
+
+## Issue 802. The cadence and the returning fraction are static vars so the
+## sweep can set them from the command line; every test below puts back what
+## it found, or the next test in this file inherits a swept setting.
+func _arrive_dead(room_index: int) -> CombatState:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	FloorRun.carry_into(run, state, party, room_index)
+	return state
+
+func _set_revive(every: int, fraction: float) -> Array:
+	var was := [FloorRun.REVIVE_EVERY_N_ROOMS, FloorRun.REVIVE_AT_HP_FRACTION]
+	FloorRun.REVIVE_EVERY_N_ROOMS = every
+	FloorRun.REVIVE_AT_HP_FRACTION = fraction
+	return was
+
+func _restore_revive(was: Array) -> void:
+	FloorRun.REVIVE_EVERY_N_ROOMS = was[0]
+	FloorRun.REVIVE_AT_HP_FRACTION = was[1]
+
+## Issue 802 shipped every-3rd-room at 25%: the only configuration measured
+## where arm A still cleared 0 of 40 and arm B cleared 6.
+func test_shipped_revive_settings() -> void:
+	assert_eq(FloorRun.REVIVE_EVERY_N_ROOMS, 3)
+	assert_eq(FloorRun.REVIVE_AT_HP_FRACTION, 0.25)
+
+func test_revive_cadence_zero_never_revives() -> void:
+	var was := _set_revive(0, 0.25)
+	assert_false(FloorRun.revives_on_arrival(1))
+	assert_false(FloorRun.revives_on_arrival(9))
+	assert_false(_arrive_dead(9).unit(0).alive, "cadence 0 is pre-802 behaviour: dead stays dead")
+	_restore_revive(was)
+
+func test_revive_never_fires_in_the_first_room() -> void:
+	var was := _set_revive(1, 0.25)
+	assert_false(FloorRun.revives_on_arrival(0), "nobody has died before room 0")
+	assert_false(_arrive_dead(0).unit(0).alive)
+	_restore_revive(was)
+
+func test_revive_returns_a_pawn_at_its_fraction_and_no_arrival_heal() -> void:
+	var was := _set_revive(1, 0.25)
+	var state := _arrive_dead(1)
+	var unit := state.unit(0)
+	var expected := maxi(1, int(round(float(unit.hp_max) * 0.25)))
+	assert_true(unit.alive, "a revive room brings a fallen pawn back")
+	assert_eq(unit.hp, expected, "exactly the fraction: the arrival heal must not stack on top")
+	assert_eq(unit.resource, 0, "a revived pawn arrives with no resource")
+	_restore_revive(was)
+
+func test_revive_every_third_room_skips_the_rooms_between() -> void:
+	var was := _set_revive(3, 0.25)
+	assert_false(FloorRun.revives_on_arrival(1))
+	assert_false(FloorRun.revives_on_arrival(2))
+	assert_true(FloorRun.revives_on_arrival(3))
+	assert_true(FloorRun.revives_on_arrival(6))
+	assert_false(_arrive_dead(2).unit(0).alive, "room 2 is not a checkpoint")
+	assert_true(_arrive_dead(3).unit(0).alive, "room 3 is")
+	_restore_revive(was)
