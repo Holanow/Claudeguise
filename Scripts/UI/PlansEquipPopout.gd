@@ -50,8 +50,8 @@ func _build() -> void:
 	custom_minimum_size = Vector2(WIDTH, HEIGHT)
 	size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	theme = AppTheme.shared()
-	add_theme_stylebox_override("panel", UIArt.panel_style(&"", Palette.ARENA_FLOOR, Palette.ARENA_EDGE, 2, Palette.SPACE_S))
+	theme = AppTheme.paper()
+	add_theme_stylebox_override("panel", UIArt.panel_style(&"", Palette.PAPER_FIELD, Palette.INK_DIM, 2, Palette.SPACE_S))
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 

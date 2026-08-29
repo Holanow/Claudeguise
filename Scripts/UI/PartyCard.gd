@@ -58,15 +58,15 @@ func _draw() -> void:
 	if class_def == null:
 		return
 	var rect := Rect2(Vector2.ZERO, size)
-	draw_rect(rect, Palette.ARENA_FLOOR)
+	draw_rect(rect, Palette.PAPER_FIELD)
 	_draw_frame(rect)
 
 	_draw_silhouette(Vector2(size.x * 0.5, SILHOUETTE_CENTER_Y))
 
 	var font := ThemeDB.fallback_font
-	_centered_text(font, class_def.display_name, 128.0, Palette.FONT_SIZE_BODY, Palette.TEXT)
-	_centered_text(font, _role_text(), 154.0, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
-	_centered_text(font, _style_text(), 174.0, Palette.FONT_SIZE_SMALL, Palette.damage_color(_accent()))
+	_centered_text(font, class_def.display_name, 128.0, Palette.FONT_SIZE_BODY, Palette.INK)
+	_centered_text(font, _role_text(), 154.0, Palette.FONT_SIZE_SMALL, Palette.INK_DIM)
+	_centered_text(font, _style_text(), 174.0, Palette.FONT_SIZE_SMALL, Palette.damage_ink(_accent()))
 
 ## The card's frame, through the drop-in pipeline: with
 ## `Assets/UI/panel_border.png` present this is that PNG, nine-sliced; with no
@@ -75,11 +75,11 @@ func _draw() -> void:
 ## `UIArt.draw_border` was written for it and had no game caller at all --
 ## found by sable in #103 and flagged rather than deleted, correctly.
 func _draw_frame(rect: Rect2) -> void:
-	var border_color := Palette.TEAM_PLAYER if selected else Palette.ARENA_EDGE
+	var border_color := Palette.TEAM_PLAYER_INK if selected else Palette.INK_DIM
 	var thickness := 3.0 if selected else 1.0
 	UIArt.draw_border(self, rect, border_color, thickness)
 	if selected and UIArt.has_art(&"panel_border"):
-		draw_rect(rect.grow(-SELECTION_INSET), Palette.TEAM_PLAYER, false, thickness)
+		draw_rect(rect.grow(-SELECTION_INSET), Palette.TEAM_PLAYER_INK, false, thickness)
 
 ## `draw_unit` takes a `center`, so the card draws the shipped sprite rather than
 ## composing one itself.

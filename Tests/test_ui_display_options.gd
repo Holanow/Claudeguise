@@ -362,7 +362,7 @@ func test_every_row_is_visible_against_the_panel_behind_it() -> void:
 		for state in DisplayOptionsPanel.ROW_STATES:
 			var style: StyleBox = n.get_theme_stylebox(StringName(state))
 			assert_true(style is StyleBoxFlat, "row %s has no filled %s" % [n.text, state])
-			var lift: float = _luminance(style.bg_color) - _luminance(Palette.BACKGROUND)
+			var lift: float = _luminance(style.bg_color) - _luminance(Palette.PAPER_LEAF)
 			assert_true(lift > 0.02,
 				"%s '%s' is %.4f over the panel, which is what nobody could see" % [
 					state, n.text, lift])
@@ -374,7 +374,7 @@ func test_every_row_is_visible_against_the_panel_behind_it() -> void:
 func test_the_contrast_check_would_catch_the_engine_default() -> void:
 	var bare := CheckBox.new()
 	var style: StyleBox = bare.get_theme_stylebox(&"normal")
-	var lift := 0.0 if not (style is StyleBoxFlat) else _luminance(style.bg_color) - _luminance(Palette.BACKGROUND)
+	var lift := 0.0 if not (style is StyleBoxFlat) else _luminance(style.bg_color) - _luminance(Palette.PAPER_LEAF)
 	assert_false(lift > 0.02,
 		"an unstyled CheckBox must not pass the check the styled ones have to")
 	bare.free()

@@ -39,7 +39,7 @@ text = "Pick your party"
 [node name="StatusLabel" type="Label" parent="Margin/Columns/LeftColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.603922, 0.580392, 0.666667, 1)
+theme_override_colors/font_color = Color(0.4156863, 0.3490196, 0.2745098, 1)
 
 [node name="RosterScroll" type="ScrollContainer" parent="Margin/Columns/LeftColumn"]
 layout_mode = 2
@@ -82,7 +82,7 @@ fit_to_longest_item = false
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
-theme_override_colors/font_color = Color(0.603922, 0.580392, 0.666667, 1)
+theme_override_colors/font_color = Color(0.4156863, 0.3490196, 0.2745098, 1)
 theme_override_font_sizes/font_size = 16
 
 [node name="SeedRow" type="HBoxContainer" parent="Margin/Columns/RightColumn"]

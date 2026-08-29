@@ -169,6 +169,7 @@ static func create() -> EndScreen:
 ## toolbar and the log all at once. Nothing structural here accepts a mouse
 ## event; only the buttons and the log's scroll do.
 func _build() -> void:
+	theme = AppTheme.paper()
 	name = "EndScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -200,7 +201,7 @@ func _build_roster_side() -> Control:
 
 	var caption := Label.new()
 	caption.text = "Sort by"
-	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	caption.add_theme_color_override("font_color", Palette.INK_DIM)
 	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sorts.add_child(caption)
@@ -256,7 +257,7 @@ func _build_log_side() -> Control:
 
 	var caption := Label.new()
 	caption.text = "The whole fight"
-	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	caption.add_theme_color_override("font_color", Palette.INK_DIM)
 	caption.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(caption)
@@ -273,7 +274,7 @@ func _build_log_side() -> Control:
 	_log_label.bbcode_enabled = true
 	_log_label.fit_content = true
 	_log_label.scroll_active = false
-	_log_label.add_theme_color_override("default_color", Palette.TEXT)
+	_log_label.add_theme_color_override("default_color", Palette.INK)
 	_log_label.add_theme_font_size_override("normal_font_size", Palette.FONT_SIZE_SMALL)
 	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	## A `RichTextLabel` defaults to taking the mouse, and it is the one node in
@@ -357,7 +358,7 @@ func _refresh() -> void:
 	for key in _sort_buttons:
 		var b: Button = _sort_buttons[key]
 		b.button_pressed = key == _sort
-		b.add_theme_color_override("font_color", Palette.TEXT if key == _sort else Palette.TEXT_DIM)
+		b.add_theme_color_override("font_color", Palette.INK if key == _sort else Palette.INK_DIM)
 	for child in _roster.get_children():
 		child.queue_free()
 		_roster.remove_child(child)
@@ -368,8 +369,8 @@ func _card(row: Dictionary) -> Control:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.HP_BACK
-	style.border_color = Palette.TEAM_PLAYER if bool(row["alive"]) else Palette.TEAM_ENEMY
+	style.bg_color = Palette.PAPER_SHADE
+	style.border_color = Palette.TEAM_PLAYER_INK if bool(row["alive"]) else Palette.TEAM_ENEMY_INK
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
 	style.set_content_margin_all(Palette.SPACE_S)
@@ -385,20 +386,20 @@ func _card(row: Dictionary) -> Control:
 
 	var name_label := Label.new()
 	name_label.text = String(row["name"])
-	name_label.add_theme_color_override("font_color", Palette.TEXT)
+	name_label.add_theme_color_override("font_color", Palette.INK)
 	name_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(name_label)
 
-	column.add_child(_stat("Dealt", _dealt_text(row), Palette.HP_FULL))
-	column.add_child(_stat("Taken", str(int(row["taken"])), Palette.HP_LOW))
+	column.add_child(_stat("Dealt", _dealt_text(row), Palette.ink_of(Palette.HP_FULL)))
+	column.add_child(_stat("Taken", str(int(row["taken"])), Palette.ink_of(Palette.HP_LOW)))
 	## Printed on every card, including the nine tenths of them that read 0. A
 	## row that appears only when it is non-zero makes two cards different
 	## heights, and the card the player is comparing against is the one missing
 	## the line.
-	column.add_child(_stat("Healed", str(int(row["healed"])), Palette.TEAM_PLAYER))
-	column.add_child(_stat("", _fate_text(row), Palette.TEXT_DIM))
+	column.add_child(_stat("Healed", str(int(row["healed"])), Palette.TEAM_PLAYER_INK))
+	column.add_child(_stat("", _fate_text(row), Palette.INK_DIM))
 	return panel
 
 ## The portrait is a baked PNG. A class with no file gets the black square the
@@ -460,7 +461,7 @@ func _stat(caption: String, value: String, color: Color) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var left := Label.new()
 	left.text = caption
-	left.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	left.add_theme_color_override("font_color", Palette.INK_DIM)
 	left.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.mouse_filter = Control.MOUSE_FILTER_IGNORE

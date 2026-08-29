@@ -87,20 +87,20 @@ static func create() -> InspectPanel:
 
 ## Everything a `.tscn` cannot say. Two kinds only:
 func _ready() -> void:
-	theme = AppTheme.shared()
-	%Backdrop.color = Palette.BACKGROUND
+	theme = AppTheme.paper()
+	%Backdrop.color = Palette.PAPER_LEAF
 	for side in ["left", "top", "right", "bottom"]:
 		%Margin.add_theme_constant_override("margin_" + side, int(Palette.SPACE_L))
 	%Column.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	%TopRow.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	%Body.add_theme_constant_override("separation", int(Palette.SPACE_L))
 	%Title.text = HEADING
-	%Title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_HEADING)
+	AppTheme.as_heading(%Title)
 	%CloseButton.custom_minimum_size = Vector2(0.0, _TOUCH)
 	%CloseButton.pressed.connect(close)
 	%HowToPlay.text = HOW_TO_PLAY
 	%HowToPlay.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	%HowToPlay.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	%HowToPlay.add_theme_color_override("font_color", Palette.INK_DIM)
 	_list_box = %ListBox
 	_detail_box = %DetailBox
 	_detail_scale = %DetailScale
@@ -206,18 +206,18 @@ func _build_detail(pawn: PawnData) -> void:
 	for child in _detail_box.get_children():
 		child.free()
 	if pawn.pawn_class == null:
-		_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
-		_detail_box.add_child(_line("No class assigned.", Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
+		_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.INK))
+		_detail_box.add_child(_line("No class assigned.", Palette.FONT_SIZE_BODY, Palette.INK_DIM))
 		return
 
 	var cls := pawn.pawn_class
-	_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.TEXT))
+	_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.INK))
 	# Hover-info-box system, phase 1: the same trio PartyCard already makes
 	# hoverable, read through the one shared Glossary function so the two
 	# screens' copy cannot drift apart.
 	var tags_line := _line(
 		"%s · %s" % [_role_text(cls.role_primary), _style_method_text(cls.style, cls.method)],
-		Palette.FONT_SIZE_BODY, Palette.TEXT_DIM)
+		Palette.FONT_SIZE_BODY, Palette.INK_DIM)
 	tags_line.set_script(GlossaryLabelScript)
 	# Set explicitly rather than left to GlossaryLabel's own _ready(): this
 	# node is built while InspectPanel may not yet be inside a live tree (a
@@ -243,7 +243,7 @@ func _build_detail(pawn: PawnData) -> void:
 		# description is exactly what hover is for now.
 		_detail_box.add_child(_section_header("Actions"))
 		if available.is_empty():
-			_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+			_detail_box.add_child(_line("No actions.", Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 		else:
 			var actions_row := HBoxContainer.new()
 			actions_row.add_theme_constant_override("separation", int(Palette.SPACE_M))
@@ -263,7 +263,7 @@ func _build_detail(pawn: PawnData) -> void:
 		var names := unused.map(func(a): return _action_display_name(a))
 		_detail_box.add_child(_line(
 			"Also available, not called by any plan: %s (falls to default behaviour)." % ", ".join(names),
-			Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+			Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 	_apply_detail_scale.call_deferred()
 
 ## Issue 742: `DetailBox`'s own minimum width used to propagate up through
@@ -380,7 +380,7 @@ const GLOBALS_SUB := "Free. A row's own target or movement block overrides these
 func _globals_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 	out.append(_section_header(GLOBALS_HEADING))
-	out.append(_line(GLOBALS_SUB, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+	out.append(_line(GLOBALS_SUB, Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 
 	var locked := _running(pawn)
 	if locked:
@@ -552,7 +552,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	var standing_line := "%d of %d plan rows used  ·  %s" % [used, cap, standing]
 	var rules := "Every pawn may carry up to %d plan rows. Adding a row, blank or from the library, costs 1; movement is free on a row that already exists." % cap
 	var summary := _line(standing_line, Palette.FONT_SIZE_BODY,
-		Palette.TEXT if over <= 0 else Palette.HP_LOW)
+		Palette.INK if over <= 0 else Palette.HP_LOW)
 	summary.add_theme_stylebox_override("normal", _tile_style())
 	summary.set_script(GlossaryLabelScript)
 	summary.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -604,7 +604,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		fallback_header.add_child(_verdict_label(fallback_verdict))
 	var fallback_title := _line(
 		DEFAULT_ROW_TITLE,
-		Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+		Palette.FONT_SIZE_SMALL, Palette.INK_DIM)
 	## Autowrap with no share of the row wraps this to one word per line the
 	## moment a verdict sits beside it (issue 308's screenshot).
 	fallback_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -668,7 +668,7 @@ func _staged_note() -> Control:
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
 	indent.add_child(gutter)
-	var note := _line(STAGED_NOTE, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	var note := _line(STAGED_NOTE, Palette.FONT_SIZE_SMALL, Palette.INK_DIM)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	indent.add_child(note)
 	return indent
@@ -680,7 +680,7 @@ func _refused_note(pawn: PawnData, plan) -> Control:
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
 	indent.add_child(gutter)
-	var note := _line(REFUSED_NOTE % reason, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	var note := _line(REFUSED_NOTE % reason, Palette.FONT_SIZE_SMALL, Palette.INK_DIM)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	indent.add_child(note)
 	return indent
@@ -920,13 +920,13 @@ func _toggle_library(pawn: PawnData) -> void:
 func _library_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
 	if _edit_plans(pawn).is_empty():
-		out.append(_line(LIBRARY_EMPTY_STATE, Palette.FONT_SIZE_SMALL, Palette.TEXT))
+		out.append(_line(LIBRARY_EMPTY_STATE, Palette.FONT_SIZE_SMALL, Palette.INK))
 	if not _library_open:
 		return out
 	out.append(_section_header(LIBRARY_HEADING))
 	var rows := _library_rows(pawn)
 	if rows.is_empty():
-		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM))
+		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
 		return out
 	for plan in rows:
 		out.append(_library_row(pawn, plan))
@@ -992,7 +992,7 @@ func _indented_note(text: String) -> Control:
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(_TOUCH * 1.6, 0.0)
 	line.add_child(gutter)
-	var label := _line(text, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	var label := _line(text, Palette.FONT_SIZE_SMALL, Palette.INK_DIM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(label)
 	return line
@@ -1014,7 +1014,7 @@ func _assemble_library_row(add: Button, price: Label, texts: Array[String]) -> C
 
 	var narrow := HBoxContainer.new()
 	narrow.add_child(add)
-	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.INK)
 	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	narrow.add_child(sentence)
 	narrow.add_child(price)
@@ -1398,7 +1398,7 @@ func _active_count(plans: Array, cap: int) -> int:
 ## regardless of any staged edit. The other half of "show the live row and the
 ## staged row as different" -- this is the live row.
 func _live_summary_line(pawn: PawnData) -> Control:
-	var line := _line("Now running: %s" % _live_summary_text(pawn), Palette.FONT_SIZE_SMALL, Palette.TEAM_PLAYER)
+	var line := _line("Now running: %s" % _live_summary_text(pawn), Palette.FONT_SIZE_SMALL, Palette.TEAM_PLAYER_INK)
 	line.add_theme_stylebox_override("normal", _tile_style())
 	return line
 
@@ -1418,7 +1418,7 @@ func _live_summary_text(pawn: PawnData) -> String:
 ## alike. Issue 723: they used to be two visual languages, a themed dropdown
 ## button beside a bordered panel; sharing this makes them one tile either way.
 func _tile_style() -> StyleBox:
-	var style := UIArt.panel_style(&"inspect", Palette.HP_BACK, Palette.ARENA_EDGE, 1)
+	var style := UIArt.panel_style(&"inspect", Palette.PAPER_SHADE, Palette.INK_DIM, 1)
 	if style is StyleBoxFlat:
 		style.set_corner_radius_all(3)
 	style.content_margin_left = Palette.SPACE_S
@@ -1548,7 +1548,7 @@ func _narrow_fixed_row(texts: Array) -> Control:
 	var gutter := Control.new()
 	gutter.custom_minimum_size = Vector2(24.0, 0.0)
 	row.add_child(gutter)
-	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.TEXT)
+	var sentence := _line(" · ".join(texts), Palette.FONT_SIZE_SMALL, Palette.INK)
 	sentence.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(sentence)
 	return row
@@ -1558,8 +1558,12 @@ func _cap_first(s: String) -> String:
 		return s
 	return s.substr(0, 1).to_upper() + s.substr(1)
 
+## Issue 807: a section header is the page's pre-printed column heading, so it
+## takes the printed voice rather than the clerk's.
 func _section_header(text: String) -> Control:
-	return _line(text, Palette.FONT_SIZE_BODY, Palette.TEXT)
+	var label := _line(text, Palette.FONT_SIZE_BODY, Palette.INK)
+	AppTheme.as_heading(label, Palette.FONT_SIZE_BODY)
+	return label
 
 func _line(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
@@ -1762,7 +1766,7 @@ func _verdict_mark(text: String) -> Label:
 	mark.text = String(VERDICT_MARK.get(text, ""))
 	mark.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	mark.add_theme_color_override("font_color",
-		Palette.TEAM_PLAYER if text == VERDICT_ACTING else Palette.TEXT_DIM)
+		Palette.TEAM_PLAYER_INK if text == VERDICT_ACTING else Palette.INK_DIM)
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mark.custom_minimum_size = Vector2(20.0, 0.0)
 	return mark
@@ -1772,8 +1776,8 @@ func _verdict_label(text: String) -> Label:
 	label.text = text
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	label.add_theme_color_override("font_color",
-		Palette.TEAM_PLAYER if text == VERDICT_ACTING else (
-			Palette.TEXT if text == VERDICT_READY else Palette.TEXT_DIM))
+		Palette.TEAM_PLAYER_INK if text == VERDICT_ACTING else (
+			Palette.INK if text == VERDICT_READY else Palette.INK_DIM))
 	label.set_script(GlossaryLabelScript)
 	# Same reason every other chip on this screen sets it: `Label`'s engine
 	# default is MOUSE_FILTER_IGNORE and a chip left at the default never gets a
@@ -1787,7 +1791,7 @@ func _tag_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_color_override("font_color", Palette.INK_DIM)
 	return label
 
 func _role_text(role: CG.Role) -> String:

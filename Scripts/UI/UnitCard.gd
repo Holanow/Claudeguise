@@ -65,19 +65,19 @@ func _build() -> void:
 
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	_title.add_theme_color_override("font_color", Palette.TEXT)
+	_title.add_theme_color_override("font_color", Palette.INK)
 	column.add_child(_title)
 
 	_side = Label.new()
 	_side.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_side.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_side.add_theme_color_override("font_color", Palette.INK_DIM)
 	column.add_child(_side)
 
 	_body = Label.new()
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.custom_minimum_size = Vector2(MAX_WIDTH - Palette.SPACE_M * 2.0, 0.0)
 	_body.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	_body.add_theme_color_override("font_color", Palette.TEXT)
+	_body.add_theme_color_override("font_color", Palette.INK)
 
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -111,8 +111,8 @@ func _build() -> void:
 
 static func _style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(Palette.BACKGROUND, 0.94)
-	style.border_color = Palette.TEXT_DIM
+	style.bg_color = Color(Palette.PAPER_LEAF, 0.94)
+	style.border_color = Palette.INK_DIM
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(4)
 	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
