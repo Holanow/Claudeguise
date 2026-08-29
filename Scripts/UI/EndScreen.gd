@@ -392,8 +392,8 @@ func _card(row: Dictionary) -> Control:
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(name_label)
 
-	column.add_child(_stat("Dealt", _dealt_text(row), Palette.HP_FULL))
-	column.add_child(_stat("Taken", str(int(row["taken"])), Palette.HP_LOW))
+	column.add_child(_stat("Dealt", _dealt_text(row), Palette.ink_of(Palette.HP_FULL)))
+	column.add_child(_stat("Taken", str(int(row["taken"])), Palette.ink_of(Palette.HP_LOW)))
 	## Printed on every card, including the nine tenths of them that read 0. A
 	## row that appears only when it is non-zero makes two cards different
 	## heights, and the card the player is comparing against is the one missing

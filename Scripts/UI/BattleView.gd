@@ -401,6 +401,9 @@ func _build_end_banner() -> void:
 	_end_dim = _build_dim(0.88, Palette.PAPER_LEAF)
 
 	_end_banner = Control.new()
+	## Issue 807: the end card is a fresh page laid over the record, so its room
+	## picker and its buttons are the page's, not the arena's.
+	_end_banner.theme = AppTheme.paper()
 	_end_banner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_end_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_end_banner.visible = false
