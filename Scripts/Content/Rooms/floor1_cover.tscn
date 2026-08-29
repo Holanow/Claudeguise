@@ -53,7 +53,7 @@ enemy_id = &"rat"
 [node name="@Marker2D@28" type="Marker2D" parent="EnemySpawns" unique_id=888359081]
 position = Vector2(260, -85)
 script = ExtResource("3_pe85p")
-enemy_id = &"rat"
+enemy_id = &"goblin_archer"
 
 [node name="@Marker2D@29" type="Marker2D" parent="EnemySpawns" unique_id=1500465367]
 position = Vector2(260, 85)
