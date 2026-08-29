@@ -1,7 +1,8 @@
 extends SceneTree
 
 ## Issue 792. FloorRuns.gd reports depth and clear count only; this reports
-## what a cleared arm B run's party looks like at the end -- hp fraction and
+## what a cleared arm B run's party looks like at the end, and what the
+## deepest losing runs look like when there are no clears -- hp fraction and
 ## alive/dead per pawn, per #730's "winning narrowly" target. Planned pawns
 ## only, same 40 seeds FloorRuns.gd uses.
 
@@ -24,6 +25,7 @@ func _init() -> void:
 		var run := FloorRun.new()
 		var wiped := false
 		var last_state: CombatState = null
+		var depth := 0
 		for i in room_ids.size():
 			var room_id: StringName = room_ids[i]
 			var state := CombatSim.build(party, RoomLibrary.get_room(room_id), hash([s, room_id, i]))
@@ -35,10 +37,14 @@ func _init() -> void:
 				run.record_result(party[j].id, unit.hp, unit.resource, unit.alive)
 			if state.outcome != CombatState.Outcome.PLAYER_WIN:
 				wiped = true
+				depth = i + 1
 				break
-		if wiped:
+		if not wiped:
+			depth = room_ids.size()
+		if wiped and depth < room_ids.size() - 1:
 			continue
-		print("seed %d cleared:" % s)
+		print("seed %d %s (depth %d/%d):" % [
+			s, "CLEARED" if not wiped else "died", depth, room_ids.size()])
 		for j in party.size():
 			var unit := last_state.unit(j)
 			var pct := 0
