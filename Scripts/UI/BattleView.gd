@@ -112,14 +112,15 @@ var _display_options: Control = null
 var _pause_button: Button = null
 var _team_status: Control = null
 
-var _party_summary_fill: ColorRect = null
-var _enemy_summary_fill: ColorRect = null
 
 var _end_banner: Control = null
 var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
 var _end_prompt_label: Label = null
 var _inspect_panel = null
+
+var _pause_menu: PauseMenu = null
+var _menu_owns_pause: bool = false
 
 var _pause_dim: ColorRect = null
 var _end_dim: ColorRect = null
@@ -143,10 +144,11 @@ func _ready() -> void:
 	# its mouse_filter, its label and its backdrop did not exist.
 	if not _combat_log.is_inside_tree():
 		_combat_log._ready()
-	_build_page_ground()
+	_build_surround()
 	_build_pause_dim()
-	_build_top_bar()
+	_build_setup_controls()
 	_build_team_status()
+	_build_pause_menu()
 	_build_end_banner()
 	_build_unit_card()
 	_build_sound()
@@ -156,15 +158,19 @@ func _ready() -> void:
 		_layout_arena()
 		get_viewport().size_changed.connect(_layout_arena)
 
-## Issue 807: the battle screen is a ledger page with the record mounted on it,
-## so the page goes on its own layer BELOW the arena rather than in `Hud`, which
-## is a CanvasLayer and would paint over the fight.
-func _build_page_ground() -> void:
+## Issue 825: the page is gone from this screen. The fight is the record being
+## replayed rather than a page in the ledger, so what lies outside the simulated
+## bounds is the arena's own dark ground, not parchment.
+func _build_surround() -> void:
 	var below := CanvasLayer.new()
 	below.layer = -1
-	below.name = "PageGround"
+	below.name = "Surround"
 	add_child(below)
-	below.add_child(UIArt.background_node(&"battle", Palette.PAPER_LEAF))
+	var ground := ColorRect.new()
+	ground.color = Palette.BACKGROUND
+	ground.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	below.add_child(ground)
 
 ## Issue 550. The voices live under one child so the tree stays readable, and
 ## `SoundBank` decides which events are audible -- this end of it only hands it
@@ -202,67 +208,26 @@ func _build_dim(alpha: float, tone: Color = Palette.BACKGROUND) -> ColorRect:
 	hud.move_child(dim, 0)
 	return dim
 
-func _build_top_bar() -> void:
+## Issue 825: the five toolbar buttons are gone and Escape opens a menu instead.
+## The two that survive on the screen itself belong to placement, not to the
+## fight, and are drawn only while the party is still draggable.
+func _build_setup_controls() -> void:
 	var hud := get_node("Hud")
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.PAPER_SHADE
-	backdrop.color.a = 0.55
-	backdrop.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	backdrop.offset_bottom = _TOP_BAR_BOTTOM
-	backdrop.offset_right = CombatLogView.LOG_MARGIN - TeamStatusViewScript.PANEL_WIDTH
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(backdrop)
-
-	var bar := HBoxContainer.new()
-	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bar.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	bar.offset_left = Palette.SPACE_M
-	bar.offset_right = -Palette.SPACE_M
-	bar.offset_top = Palette.SPACE_M
-	hud.add_child(bar)
-
 	var controls := HBoxContainer.new()
-	controls.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	controls.name = "SetupControls"
+	controls.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	controls.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	controls.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	controls.add_theme_constant_override("separation", int(Palette.SPACE_M))
-	controls.offset_left = Palette.SPACE_M
-	controls.offset_top = Palette.SPACE_M + _INFO_ROW_HEIGHT + Palette.SPACE_S
-	hud.add_child(controls)
-
-	var summary := VBoxContainer.new()
-	summary.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	summary.add_theme_constant_override("separation", int(Palette.SPACE_XS))
-	summary.offset_left = Palette.SPACE_M
-	summary.offset_top = _SUMMARY_ROW_TOP
-	hud.add_child(summary)
-	_party_summary_fill = _build_summary_bar(summary, "Party", Palette.TEAM_PLAYER_INK)
-	_enemy_summary_fill = _build_summary_bar(summary, "Enemies", Palette.TEAM_ENEMY_INK)
-
-	_party_label = Label.new()
-	_party_label.add_theme_color_override("font_color", Palette.INK)
-	bar.add_child(_party_label)
-
-	_encounter_label = Label.new()
-	_encounter_label.add_theme_color_override("font_color", Palette.INK_DIM)
-	bar.add_child(_encounter_label)
-
-	_seed_label = Label.new()
-	_seed_label.add_theme_color_override("font_color", Palette.INK_DIM)
-	bar.add_child(_seed_label)
-
-	_outcome_label = Label.new()
-	_outcome_label.add_theme_color_override("font_color", Palette.INK_DIM)
-	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	bar.add_child(_outcome_label)
-
-	## Issue 807: the toolbar and the header sit on the ledger's page, so they
-	## take the page's theme. `BattleView` itself does not -- the arena is under
-	## it and is not a page.
-	bar.theme = AppTheme.paper()
+	controls.offset_top = -(Palette.TOUCH_TARGET_MIN + _SETUP_ROW_BOTTOM)
+	controls.offset_bottom = -_SETUP_ROW_BOTTOM
 	controls.theme = AppTheme.paper()
+	hud.add_child(controls)
 
 	_pause_button = Button.new()
 	_pause_button.text = "Pause"
+	_pause_button.visible = false
 	_pause_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	_pause_button.pressed.connect(_on_pause_pressed)
 	controls.add_child(_pause_button)
@@ -276,39 +241,91 @@ func _build_top_bar() -> void:
 	_reset_button.visible = false
 	controls.add_child(_reset_button)
 
-	var restart_button := Button.new()
-	restart_button.text = "Restart (same seed)"
-	restart_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	restart_button.pressed.connect(func(): restart_requested.emit())
-	controls.add_child(restart_button)
+## How far the setup row's buttons sit above the bottom of the window: clear of
+## the hint line that tells the player what to do with them.
+const _SETUP_ROW_BOTTOM := Palette.SPACE_M * 2.0 + _INFO_ROW_HEIGHT
 
-	var back_button := Button.new()
-	back_button.text = "Change party"
-	back_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	back_button.pressed.connect(func(): back_requested.emit())
-	controls.add_child(back_button)
+## Issue 825. Escape opens this and Escape closes it; the fight is genuinely
+## held while it is up, and the four header labels move into it because a seed
+## nobody can read makes "Restart (same seed)" a promise about nothing.
+func _build_pause_menu() -> void:
+	var hud := get_node("Hud")
 
-	var view_button := Button.new()
-	view_button.text = "What to show"
-	view_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	view_button.pressed.connect(_on_view_options_pressed)
-	controls.add_child(view_button)
+	_party_label = Label.new()
+	_party_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_party_label.add_theme_color_override("font_color", Palette.INK)
+	_party_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
 
-	var plans_button := Button.new()
-	plans_button.text = "Plans & Equipment"
-	plans_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
-	plans_button.pressed.connect(_on_inspect_pressed)
-	controls.add_child(plans_button)
+	_encounter_label = Label.new()
+	_encounter_label.add_theme_color_override("font_color", Palette.INK_DIM)
+	_encounter_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+
+	_seed_label = Label.new()
+	_seed_label.add_theme_color_override("font_color", Palette.INK_DIM)
+	_seed_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+
+	_outcome_label = Label.new()
+	_outcome_label.add_theme_color_override("font_color", Palette.INK_DIM)
+	_outcome_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+
+	_pause_menu = PauseMenu.create()
+	hud.add_child(_pause_menu)
+	_pause_menu.adopt_caption([_party_label, _encounter_label, _seed_label, _outcome_label])
+	_pause_menu.resume_pressed.connect(_close_pause_menu)
+	_pause_menu.plans_pressed.connect(_open_plans_from_menu)
+	_pause_menu.restart_pressed.connect(func(): restart_requested.emit())
+	_pause_menu.settings_pressed.connect(_on_view_options_pressed)
+	_pause_menu.change_party_pressed.connect(func(): back_requested.emit())
 
 	_display_options = Control.new()
 	_display_options.set_script(DisplayOptionsPanelScript)
 	hud.add_child(_display_options)
 	if not _display_options.is_inside_tree():
 		_display_options._ready()
-	# Under the control row it belongs to. Issue 145 taught me to add_child
-	# before any manual _ready(), or the engine runs a second one.
-	_display_options.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
+	# Issue 145 taught me to add_child before any manual _ready(), or the engine
+	# runs a second one.
+	_display_options.position = Vector2(Palette.SPACE_M, _OVERLAY_TOP)
 	_display_options.changed.connect(_rebuild_log)
+
+## Escape opens the menu and Escape closes it, and the fight is held for as
+## long as it is up unless the player had already paused it themselves.
+func _toggle_pause_menu() -> void:
+	if _pause_menu == null or setup:
+		return
+	## The end card owns the screen once a room resolves and carries its own
+	## Restart, Change party and Plans, so a second menu over it would be two
+	## answers to the same question.
+	if _end_banner != null and _end_banner.visible:
+		return
+	if _pause_menu.visible:
+		_close_pause_menu()
+		return
+	if _unit_card != null:
+		_unit_card.dismiss()
+	_menu_owns_pause = not paused
+	if _menu_owns_pause:
+		set_paused(true)
+	_pause_menu.visible = true
+	_sync_click_hint()
+
+## The hold is handed to the popout rather than released: a fight running under
+## an open plans screen is exactly what #741 built staging to avoid.
+func _open_plans_from_menu() -> void:
+	if _menu_owns_pause:
+		_menu_owns_pause = false
+		_card_owns_pause = true
+	_close_pause_menu()
+	_on_inspect_pressed()
+
+func _close_pause_menu() -> void:
+	if _pause_menu == null or not _pause_menu.visible:
+		return
+	_pause_menu.visible = false
+	_display_options.visible = false
+	if _menu_owns_pause:
+		_menu_owns_pause = false
+		set_paused(false)
+	_sync_click_hint()
 
 ## The hint sits at the bottom of the arena band and the options panel and the
 ## plans screen both open across it, so one of them has to give and it is not
@@ -322,6 +339,7 @@ func _sync_click_hint() -> void:
 	## Issue 552: the end card's buttons stand on the same pixels, and "click any
 	## unit" is advice about a fight that is over.
 	covered = covered or (_end_banner != null and _end_banner.visible)
+	covered = covered or (_pause_menu != null and _pause_menu.visible)
 	# The setup hint stands on the same pixels and is the one a player needs first.
 	covered = covered or setup
 	_click_hint.visible = not card_discovered and not covered
@@ -354,12 +372,9 @@ func _build_team_status() -> void:
 	_team_status.offset_top = _PANEL_TOP
 	_team_status.offset_bottom = _PANEL_TOP + TeamStatusViewScript.MAX_PANEL_HEIGHT
 
-## Where the top bar's backdrop ends. Still the bar's own height; the panel no
-## longer sits under it.
-## Issue 396: this counted ONE summary row while two are drawn, so the backdrop
-## stopped 20px above the Enemies bar and the "What to show" panel opened on top
-## of it.
-const _TOP_BAR_BOTTOM := _SUMMARY_ROW_TOP + 2.0 * _SUMMARY_ROW_HEIGHT + Palette.SPACE_XS + Palette.SPACE_S
+## Where an overlay opened over the fight begins. Issue 825: there is no toolbar
+## left to clear, so it is the window's own margin.
+const _OVERLAY_TOP := Palette.SPACE_M
 
 const _PANEL_TOP := Palette.SPACE_M
 
@@ -423,7 +438,7 @@ func _build_end_banner() -> void:
 	column.anchor_top = 0.0
 	column.anchor_bottom = 1.0
 	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	column.offset_top = _SUMMARY_ROW_TOP
+	column.offset_top = _OVERLAY_TOP
 	column.offset_bottom = -_END_BUTTON_ROW_RESERVED
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.clip_contents = true
@@ -512,7 +527,7 @@ func _build_end_banner() -> void:
 	## Anchored under the top bar rather than centred: a popout the player can
 	## see past to the arena while it is open is the whole point of it.
 	_inspect_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_inspect_panel.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
+	_inspect_panel.position = Vector2(Palette.SPACE_M, _OVERLAY_TOP)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
 	_inspect_panel.closed.connect(_on_card_closed)
@@ -810,65 +825,12 @@ static func name_list(names: Array[String]) -> String:
 ## itself from font metrics, not this constant, but this only positions
 ## the *next* row, so a few pixels of slack costs nothing.
 const _INFO_ROW_HEIGHT := 28.0
-const _SUMMARY_ROW_TOP := Palette.SPACE_M * 2.0 + _INFO_ROW_HEIGHT + Palette.SPACE_S + Palette.TOUCH_TARGET_MIN
-const _SUMMARY_ROW_HEIGHT := 20.0
-const _SUMMARY_BAR_WIDTH := 120.0
-
-## One "<Label> [======    ]" row: a Label plus a back/fill ColorRect pair.
-const _SUMMARY_LABEL_WIDTH := 64.0
-
-func _build_summary_bar(parent: Container, label_text: String, color: Color) -> ColorRect:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(Palette.SPACE_S))
-	parent.add_child(row)
-
-	var label := Label.new()
-	label.text = label_text
-	label.custom_minimum_size = Vector2(_SUMMARY_LABEL_WIDTH, 0.0)
-	label.add_theme_color_override("font_color", Palette.INK_DIM)
-	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
-	row.add_child(label)
-
-	var back := ColorRect.new()
-	back.color = Palette.PAPER_SHADE
-	back.custom_minimum_size = Vector2(_SUMMARY_BAR_WIDTH, _SUMMARY_ROW_HEIGHT)
-	row.add_child(back)
-
-	var fill := ColorRect.new()
-	fill.color = color
-	fill.position = Vector2.ZERO
-	fill.size = Vector2(_SUMMARY_BAR_WIDTH, _SUMMARY_ROW_HEIGHT)
-	back.add_child(fill)
-
-	return fill
-
-## "Are we winning" answerable without parsing seven small bars -- issue 15's
-## first failure. Total hp_max is each side's starting capacity; total hp
-## (0 for a dead unit, not removed from the total) is what is left of it, so
-## the bar reads as "how much of this side's health is gone", the same
-## reading a single unit's own hp bar gives.
-func _update_team_summary() -> void:
-	if state == null or _party_summary_fill == null:
-		return
-	_party_summary_fill.size.x = _SUMMARY_BAR_WIDTH * _team_hp_fraction(CG.Team.PLAYER)
-	_enemy_summary_fill.size.x = _SUMMARY_BAR_WIDTH * _team_hp_fraction(CG.Team.ENEMY)
-
-func _team_hp_fraction(team: CG.Team) -> float:
-	var total := 0
-	var current := 0
-	for u in state.units:
-		if u.team != team:
-			continue
-		total += u.hp_max
-		current += maxi(u.hp, 0)
-	if total <= 0:
-		return 0.0
-	return float(current) / float(total)
-
-## World-space room added around the arena's own bounds when fitting it to
-## the viewport.
-const _MARGIN_TOP := 150.0 * UnitViewScript.DISPLAY_SCALE
-const _MARGIN_BOTTOM := 70.0 * UnitViewScript.DISPLAY_SCALE
+## World-space room added around the arena's own bounds when fitting it to the
+## viewport. Issue 825: the top margin was 150, sized for a toolbar and two
+## summary bars that no longer exist, and it alone held the arena to 62% of a
+## 1280x720 window. What is left is head-room for the bars a unit carries.
+const _MARGIN_TOP := 25.0 * UnitViewScript.DISPLAY_SCALE
+const _MARGIN_BOTTOM := 25.0 * UnitViewScript.DISPLAY_SCALE
 const _MARGIN_SIDE := 45.0 * UnitViewScript.DISPLAY_SCALE
 
 ## Issue 18, criterion 2 ("in portrait the arena is at least half the
@@ -902,7 +864,7 @@ func _layout_arena() -> void:
 ## at every other height -- too tall to fit at 600, and 190 pixels of unused
 ## screen at 900.
 static func card_body_ceiling(viewport_height: float) -> float:
-	var free := viewport_height - _TOP_BAR_BOTTOM - 2.0 * Palette.SPACE_M - UnitCard.CHROME_HEIGHT
+	var free := viewport_height - _OVERLAY_TOP - 2.0 * Palette.SPACE_M - UnitCard.CHROME_HEIGHT
 	return maxf(free, UnitCard.MIN_BODY_HEIGHT)
 
 ## Out of the log's way in either orientation: the log is a right-hand column in
@@ -933,11 +895,10 @@ static func compute_layout(size: Vector2) -> Dictionary:
 	var fit_width := fit_half_width * 2.0
 	var fit_height := fit_top + fit_bottom
 
-	var usable_size: Vector2
-	if size.x >= size.y:
-		usable_size = Vector2(max(size.x - CombatLogView.LOG_WIDTH, 1.0), size.y)
-	else:
-		usable_size = Vector2(size.x, max(size.y - CombatLogView.LOG_HEIGHT, 1.0))
+	## Issue 825: the whole window, not the window minus the log. The log, the
+	## team panel and the menu are overlays on the fight now rather than
+	## neighbours of it, so nothing is subtracted from the arena's fit.
+	var usable_size := Vector2(max(size.x, 1.0), max(size.y, 1.0))
 	var scale_factor: float = min(usable_size.x / fit_width, usable_size.y / fit_height)
 	var box := Vector2(fit_width, fit_height) * scale_factor
 	var offset := (usable_size - box) * 0.5
@@ -990,15 +951,15 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
 	_seed_label.text = "Seed " + cfg.seed_text()
 	_outcome_label.text = ""
-	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
-		label.visible = true
+	if _pause_menu != null:
+		_pause_menu.visible = false
+	_menu_owns_pause = false
 	_end_banner.visible = false
 	_end_dim.visible = false
 	if _unit_card != null:
 		_unit_card.dismiss()
 	_sync_click_hint()
 	_card_owns_pause = false
-	_update_team_summary()
 	if _team_status != null:
 		_team_status.sync(state)
 	set_process(true)
@@ -1013,6 +974,9 @@ func set_paused(p: bool) -> void:
 func _sync_setup_ui() -> void:
 	if _pause_button != null:
 		_pause_button.text = "Start Fight" if setup else ("Resume" if paused else "Pause")
+		## Issue 825: placement is the only thing this row is for. Once the fight
+		## is running, Escape and Space hold it and no button stands on the arena.
+		_pause_button.visible = setup
 	if _reset_button != null:
 		_reset_button.visible = setup
 	if _setup_hint != null:
@@ -1090,7 +1054,6 @@ func _carry_floor_condition() -> void:
 		_text_layer.sync(state)
 	if _team_status != null:
 		_team_status.sync(state)
-	_update_team_summary()
 
 func _record_floor_result() -> void:
 	for i in _floor_party.size():
@@ -1222,9 +1185,24 @@ func _drag_slop() -> float:
 	return DRAG_SLOP_PIXELS / s
 
 func _unhandled_input(event: InputEvent) -> void:
+	## Issue 825. The plans popout takes Escape first, in `_unhandled_key_input`,
+	## which runs before this -- so Escape closes whatever is open and opens the
+	## menu only when nothing is.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if _unit_card != null and _unit_card.visible and not (_pause_menu != null and _pause_menu.visible):
+			_unit_card.close()
+		else:
+			_toggle_pause_menu()
+		if is_inside_tree():
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
 		if setup:
 			start_fight()
+		## Issue 825: unguarded, this resumed the fight underneath a card that
+		## says "Paused" and left the menu holding a pause it no longer had.
+		elif _pause_menu != null and _pause_menu.visible:
+			_close_pause_menu()
 		else:
 			set_paused(not paused)
 		if is_inside_tree():
@@ -1411,7 +1389,6 @@ func _process(delta: float) -> void:
 		_text_layer.sync(state)
 		_arena.projectiles = state.projectiles
 		_arena.units = state.units
-		_update_team_summary()
 		# Issue 113. Same place and same trigger as the unit views: "live means live"
 		if _team_status != null:
 			_team_status.sync(state)
@@ -2013,12 +1990,6 @@ func _show_outcome() -> void:
 	_sync_room_picker()
 	_end_banner.visible = true
 	_end_dim.visible = true
-	## Issue 552: the end card is as tall as the window, so its heading lands on
-	## the toolbar's own first row. Every label on that row is either restated by
-	## the card or not worth reading over it; the buttons beside them stay, which
-	## is the half issue 343 is about. The text stays set, only the drawing stops.
-	for label in [_outcome_label, _party_label, _encounter_label, _seed_label]:
-		label.visible = false
 	_sync_click_hint()
 
 ## Issue 441. After #399 the editor starts empty, so a new player's first fight

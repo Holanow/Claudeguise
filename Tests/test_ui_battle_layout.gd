@@ -36,18 +36,19 @@ func test_arena_never_exceeds_the_visible_area_at_portrait_phone_size() -> void:
 		"must stay fully visible — the alternative (crop to hit 50% height) hid the entire party, a worse failure")
 	assert_true(_arena_height(layout) <= 2770.0)
 
-## Issue 26 item 2 found this as a bottom-edge overlap (three of seven units
-## drawn behind the log's own text). Issue 29 moved the log from a
-## bottom-docked strip to a right-docked column, so the check moves with
-## it: the arena's *right* edge must clear the log strip now, not the
-## bottom.
-func test_arena_right_edge_clears_the_combat_log_strip() -> void:
+## Issue 825 REPLACES issue 29's version of this test, which asserted the
+## opposite: the arena's right edge used to have to clear the log strip. The log
+## is an overlay on the fight now, so the arena is fitted to the whole window and
+## the property worth pinning is that nothing is subtracted from it.
+func test_the_arena_is_fitted_to_the_whole_window_not_the_window_minus_the_log() -> void:
 	var size := Vector2(1280.0, 720.0)
-	var layout := BattleView.compute_layout(size)
-	var arena_right: float = layout.position.x + CG.ARENA_HALF_WIDTH * layout.scale.x
-	assert_true(arena_right <= size.x - CombatLogView.LOG_WIDTH,
-		"arena right edge (%f) overlaps the log strip starting at %f" % [
-			arena_right, size.x - CombatLogView.LOG_WIDTH])
+	var full := BattleView.compute_layout(size)
+	var minus_log := BattleView.compute_layout(Vector2(size.x - CombatLogView.LOG_WIDTH, size.y))
+	assert_true(full.scale.x > minus_log.scale.x,
+		"the arena is still being fitted to a window narrowed by the log: %f against %f" % [
+			full.scale.x, minus_log.scale.x])
+	var arena_right: float = full.position.x + CG.ARENA_HALF_WIDTH * full.scale.x
+	assert_true(arena_right <= size.x, "the arena must still not run off the right edge")
 
 ## Issue 29's own criterion 1: the arena must be measurably larger at
 ## 1280x720 than the bottom-docked version was. Pinned against the actual
@@ -73,17 +74,21 @@ func test_portrait_height_fraction_is_a_known_geometric_limit_not_a_regression()
 	var fraction := _arena_height(layout) / size.y
 	assert_true(fraction > 0.2, "should not have regressed below the measured ~24%%, got %f" % fraction)
 
-## Issue 396: the top bar's bottom counted one summary row while two are drawn,
-## so the "What to show" panel opened on top of the Enemies bar. Measured off
-## the real nodes rather than off the constant, or the check restates the bug.
-func test_the_top_bar_clears_both_summary_bars() -> void:
+## Issue 825 REPLACES issue 396's version of this test, which pinned a toolbar
+## that no longer exists. What survives is the property under it: an overlay
+## opened over the fight starts inside the window rather than off the top of it.
+func test_an_overlay_over_the_fight_opens_inside_the_window() -> void:
 	var view = in_tree(preload("res://Scenes/Battle.tscn").instantiate())
-	var lowest := 0.0
-	for child in view.get_node("Hud").get_children():
-		if child is VBoxContainer:
-			lowest = maxf(lowest, child.offset_top + child.get_combined_minimum_size().y)
-	assert_true(lowest > 0.0, "the fixture found no summary column")
-	assert_true(BattleView._TOP_BAR_BOTTOM >= lowest,
-		"the bar ends at %.1f and the bars it covers end at %.1f" % [BattleView._TOP_BAR_BOTTOM, lowest])
-	assert_true(view._display_options.position.y >= BattleView._TOP_BAR_BOTTOM,
-		"the options panel opens under the bar, not over it")
+	for overlay in [view._display_options, view._inspect_panel]:
+		assert_true(overlay.position.y >= 0.0 and overlay.position.x >= 0.0,
+			"an overlay opens at %s, off the window" % [overlay.position])
+
+## The five toolbar buttons are gone and nothing on the fight screen replaces
+## them, so a control on the arena outside placement is a regression.
+func test_no_button_stands_on_the_running_fight() -> void:
+	var view = in_tree(preload("res://Scenes/Battle.tscn").instantiate())
+	assert_false(view._pause_button.visible,
+		"the setup row must be hidden until begin_setup shows it")
+	for node in view.get_node("Hud").get_children():
+		assert_false(node is HBoxContainer and node.name != "SetupControls",
+			"an unexpected control row '%s' is on the battle screen" % node.name)
