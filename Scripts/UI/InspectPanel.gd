@@ -161,7 +161,7 @@ func show_pawn(pawn: PawnData, state = null) -> void:
 	_pawns = [pawn] as Array[PawnData]
 	_live_state = state
 	_selected_index = 0
-	_library_open = pawn.plans.is_empty()
+	_library_open = _edit_plans(pawn).is_empty()
 	visible = true
 	if _embedded:
 		%Title.visible = false
@@ -189,7 +189,7 @@ func _select(index: int) -> void:
 	if index < 0 or index >= _pawns.size():
 		return
 	_selected_index = index
-	_library_open = _pawns[index].plans.is_empty()
+	_library_open = _edit_plans(_pawns[index]).is_empty()
 	for i in _list_box.get_child_count():
 		_list_box.get_child(i).button_pressed = i == index
 	_build_detail(_pawns[index])
@@ -286,7 +286,7 @@ func _apply_detail_scale() -> void:
 
 func _actions_used_in_plans(pawn: PawnData) -> Array:
 	var out := []
-	for plan in pawn.plans:
+	for plan in _edit_plans(pawn):
 		for block in plan.blocks:
 			if block is UseActionBlock:
 				var used: ActionDef = (block as UseActionBlock).action
@@ -417,23 +417,35 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 	if banner != null:
 		out.append(banner)
 
+	## Issue 741. `edited` is true only once the player has actually changed a
+	## staged row -- opening the panel mid-fight and changing nothing must show
+	## the same real verdicts it would show closed. Once true, the rows below
+	## stop being what the fight is doing this instant, so that fact goes here,
+	## read off `pawn.plans`, never the staged copy, so it cannot drift from
+	## the verdict rule the rows themselves follow.
+	var edited := _running(pawn) and pawn.plans_edited
+	if edited:
+		out.append(_live_summary_line(pawn))
+
 	## Issue 269. Rows are paid for in priority order, so the surplus is always at
-	## the bottom, and **which rows those are is not decided here.**
-	## `PlanInterpreter.active_plan_count` is the single definition, and the
-	## interpreter's own loop stops at the same index -- so a row this screen draws
-	## as inert is a row the pawn does not run, by construction rather than by two
-	## implementations happening to agree. `spent` below is a display number only:
-	var active := PlanInterpreter.active_plan_count(pawn)
+	## the bottom, and **which rows those are is not decided here.** Same walk as
+	## `PlanInterpreter.active_plan_count`, kept local rather than called: it reads
+	## `pawn.plans`, and the array a mid-fight edit budgets against is the staged
+	## copy, not that one. `spent` below is a display number only.
+	var editing := _edit_plans(pawn)
+	var active := _active_count(editing, budget)
 	var spent := 0
-	for i in pawn.plans.size():
-		var plan = pawn.plans[i]
+	for i in editing.size():
+		var plan = editing[i]
 		spent += plan.block_count()
 		var inert := i >= active
-		out.append(_plan_row(plan, pawn, i, inert))
+		out.append(_plan_row(plan, pawn, i, inert, edited))
 		if inert:
 			out.append(_inert_note(spent, budget))
-		elif _live_verdict(pawn, plan) == VERDICT_REFUSED:
+		elif not edited and _live_verdict(pawn, plan) == VERDICT_REFUSED:
 			out.append(_refused_note(pawn, plan))
+	if edited:
+		out.append(_staged_note())
 
 	for control in _library_section(pawn):
 		out.append(control)
@@ -501,6 +513,22 @@ func _inert_note(needed: int, budget: int) -> Control:
 ## position and by the word "Refused" rather than by a second colour.
 const REFUSED_NOTE := "Refused: %s."
 
+## Issue 741, same position as `_inert_note` and `_refused_note`: the words a
+## mark and a colour cannot carry alone. This fight keeps running the plan it
+## started with; this sentence is the only place that says so where the
+## player does not have to hover to read it.
+const STAGED_NOTE := "Editing mid-fight: takes effect next room. This fight keeps the plan it started with."
+
+func _staged_note() -> Control:
+	var indent := HBoxContainer.new()
+	var gutter := Control.new()
+	gutter.custom_minimum_size = Vector2(Palette.SPACE_M, 0.0)
+	indent.add_child(gutter)
+	var note := _line(STAGED_NOTE, Palette.FONT_SIZE_SMALL, Palette.TEXT_DIM)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	indent.add_child(note)
+	return indent
+
 func _refused_note(pawn: PawnData, plan) -> Control:
 	var unit = _live_unit(pawn)
 	var reason := _refusal_reason(_live_state, unit, plan) if unit != null else ""
@@ -536,14 +564,19 @@ func _add_plan_button(pawn: PawnData) -> Button:
 ## Blocks this pawn has spent, by the same count `Balance.plan_block_budget`
 func _blocks_used(pawn: PawnData) -> int:
 	var total := 0
-	for plan in pawn.plans:
+	for plan in _edit_plans(pawn):
 		total += plan.block_count()
 	return total
 
 ## One plan as a row of blocks. Rebuilds the whole detail panel on any change
 ## rather than patching one chip in place — plans are short and this screen is
 ## not on a hot path, so simplicity wins over an incremental update.
-func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control:
+## `staged`: this row is the mid-fight editable copy, not the one running.
+## Issue 741: its verdict is never `_live_verdict` -- that would compare the
+## edited row's id against the live plan that fired and could read "acting"
+## for a row that no longer says what it said when it fired. It always reads
+## `VERDICT_STAGED` instead, because that is the true claim about it.
+func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false, staged: bool = false) -> Control:
 	var handle := HBoxContainer.new()
 
 	var number := _tag_label("%d." % (index + 1))
@@ -555,11 +588,12 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 	## Issue 723: an inert row's own live verdict is a claim about a row
 	## `PlanInterpreter` never reads (it stops at `active_plan_count`), so it
 	## gets its own word instead of a stale "waiting" nobody asked about.
-	var verdict := VERDICT_INERT if inert else _live_verdict(pawn, plan)
+	var verdict := VERDICT_STAGED if staged else (VERDICT_INERT if inert else _live_verdict(pawn, plan))
 	if verdict != "":
 		handle.add_child(_verdict_mark(verdict))
 		handle.add_child(_verdict_label(verdict))
 
+	var editing := _edit_plans(pawn)
 	var up := Button.new()
 	up.text = "^"
 	up.custom_minimum_size = Vector2(_TOUCH, _TOUCH)
@@ -570,7 +604,7 @@ func _plan_row(plan, pawn: PawnData, index: int, inert: bool = false) -> Control
 	var down := Button.new()
 	down.text = "v"
 	down.custom_minimum_size = Vector2(_TOUCH, _TOUCH)
-	down.disabled = index == pawn.plans.size() - 1
+	down.disabled = index == editing.size() - 1
 	down.pressed.connect(_move_plan.bind(pawn, index, 1))
 	handle.add_child(down)
 
@@ -653,23 +687,27 @@ func _add_plan(pawn: PawnData) -> void:
 		return
 	if Balance.plan_block_budget(pawn) - _blocks_used(pawn) < NEW_PLAN_BLOCK_COST:
 		return
+	_mark_edited(pawn)
 	var plan := PlanScript.new()
-	plan.id = StringName("custom_plan_%d" % (pawn.plans.size() + 1))
+	var editing := _edit_plans(pawn)
+	plan.id = StringName("custom_plan_%d" % (editing.size() + 1))
 	plan.display_name = "New plan"
 	var targeting := BlockCatalog.targeting(_available_targetings(pawn)[0])
 	var action := UseActionBlock.new()
 	action.action = _resolve_pawn_action(pawn, actions[0])
 	plan.blocks = [targeting, action]
-	pawn.plans.append(plan)
+	editing.append(plan)
 	call_deferred("_build_detail", pawn)
 
 ## Removing every plan is allowed and is no longer a state a player can reach
 ## without seeing what happens: the default row below the list is what the pawn
 ## falls back to, and it is on the screen the whole time.
 func _remove_plan(pawn: PawnData, index: int) -> void:
-	if index < 0 or index >= pawn.plans.size():
+	var editing := _edit_plans(pawn)
+	if index < 0 or index >= editing.size():
 		return
-	pawn.plans.remove_at(index)
+	_mark_edited(pawn)
+	editing.remove_at(index)
 	call_deferred("_build_detail", pawn)
 
 # ---------------------------------------------------------------------------
@@ -708,7 +746,7 @@ func _library_rows(pawn: PawnData) -> Array[Plan]:
 	if pawn.pawn_class == null:
 		return []
 	var taken := {}
-	for p in pawn.plans:
+	for p in _edit_plans(pawn):
 		taken[p.id] = true
 	var out: Array[Plan] = []
 	for p in PresetPlans.for_class(pawn.pawn_class.id):
@@ -740,7 +778,7 @@ func _toggle_library(pawn: PawnData) -> void:
 
 func _library_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	if pawn.plans.is_empty():
+	if _edit_plans(pawn).is_empty():
 		out.append(_line(LIBRARY_EMPTY_STATE, Palette.FONT_SIZE_SMALL, Palette.TEXT))
 	if not _library_open:
 		return out
@@ -864,7 +902,8 @@ func _library_row_texts(plan) -> Array[String]:
 func _add_preset(pawn: PawnData, plan) -> void:
 	if Balance.plan_block_budget(pawn) - _blocks_used(pawn) < plan.block_count():
 		return
-	pawn.plans.append(plan)
+	_mark_edited(pawn)
+	_edit_plans(pawn).append(plan)
 	call_deferred("_build_detail", pawn)
 
 # ---------------------------------------------------------------------------
@@ -899,16 +938,19 @@ func _resolve_pawn_action(pawn: PawnData, action_id: StringName) -> ActionDef:
 				return a
 	return ActionLibrary.get_action(action_id)
 
-## Swaps two plans' priority by index and redraws. `pawn.plans` is the same
-## array PartySelect/BattleView hand into CombatState, so this is the whole
-## edit — no separate "apply" step and nothing to serialize back.
+## Swaps two plans' priority by index and redraws. Outside a run this is
+## `pawn.plans`, the same array PartySelect/BattleView hand into CombatState,
+## so it is the whole edit -- no separate "apply" step. Mid-fight it is the
+## staged copy instead; see `_edit_plans`.
 func _move_plan(pawn: PawnData, index: int, delta: int) -> void:
+	var editing := _edit_plans(pawn)
 	var target := index + delta
-	if target < 0 or target >= pawn.plans.size():
+	if target < 0 or target >= editing.size():
 		return
-	var tmp = pawn.plans[index]
-	pawn.plans[index] = pawn.plans[target]
-	pawn.plans[target] = tmp
+	_mark_edited(pawn)
+	var tmp = editing[index]
+	editing[index] = editing[target]
+	editing[target] = tmp
 	call_deferred("_build_detail", pawn)
 
 ## A TARGETING block's choices are `BlockCatalog.TARGETING_OPS`, in the catalog's
@@ -936,6 +978,7 @@ func _targeting_picker(pawn: PawnData, plan, block: TargetingBlock) -> Control:
 ## `item_selected` signal, and a rebuild frees that same picker. Swapping the op
 ## swaps the block, in place, so the plan's execution order does not move.
 func _set_targeting(plan, block: TargetingBlock, op: StringName) -> void:
+	_mark_edited(_pawns[_selected_index])
 	var index: int = plan.blocks.find(block)
 	if index != -1:
 		plan.blocks[index] = BlockCatalog.targeting(op)
@@ -997,6 +1040,7 @@ func _set_action(plan, pawn: PawnData, block: UseActionBlock, choices: Array, de
 	var index: int = plan.blocks.find(block)
 	if index == -1:
 		return
+	_mark_edited(pawn)
 	if idx < choices.size():
 		var fresh := UseActionBlock.new()
 		fresh.action = _resolve_pawn_action(pawn, choices[idx])
@@ -1054,6 +1098,7 @@ func _movement_picker(pawn: PawnData, plan) -> OptionButton:
 ## place, so only going from none to some costs a block and only going back
 ## refunds one.
 func _set_movement(pawn: PawnData, plan, op: StringName) -> void:
+	_mark_edited(pawn)
 	var block = movement_block_of(plan)
 	if op == NO_MOVEMENT:
 		if block != null:
@@ -1126,6 +1171,7 @@ func _condition_editor(plan) -> Control:
 ## overwrites the existing one, args reset to the new op's own default rather
 ## than carried over from an op that meant something else by them.
 func _set_condition_op(plan, op: StringName) -> void:
+	_mark_edited(_pawns[_selected_index])
 	plan.condition = BlockCatalog.condition(op)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
@@ -1198,6 +1244,7 @@ func _status_operand_editor(block: PlanBlock, key: StringName) -> Control:
 ## Deferred for the same reason as `_move_plan`. The key is a real property name
 ## off `get_property_list()`, so this cannot write an operand nothing reads.
 func _set_operand(block: PlanBlock, key: StringName, value) -> void:
+	_mark_edited(_pawns[_selected_index])
 	block.set(key, value)
 	call_deferred("_build_detail", _pawns[_selected_index])
 
@@ -1210,6 +1257,38 @@ const CHIP_MIN_WIDTH := 72.0
 ## drawn width, so `_size_to_caption` asks for enough space to show the whole
 ## word rather than the word plus a guess.
 const _CHIP_CHROME := 40.0
+
+## Same walk as `PlanInterpreter.active_plan_count`, against whichever array
+## the caller is drawing rows for -- see `_plans_section`'s comment on why it
+## is not called directly.
+func _active_count(plans: Array, budget: int) -> int:
+	var spent := 0
+	var count := 0
+	for plan in plans:
+		spent += plan.block_count()
+		if spent > budget:
+			break
+		count += 1
+	return count
+
+## Issue 741: what the fight is doing this instant, read off `pawn.plans`
+## regardless of any staged edit. The other half of "show the live row and the
+## staged row as different" -- this is the live row.
+func _live_summary_line(pawn: PawnData) -> Control:
+	var line := _line("Now running: %s" % _live_summary_text(pawn), Palette.FONT_SIZE_SMALL, Palette.TEAM_PLAYER)
+	line.add_theme_stylebox_override("normal", _tile_style())
+	return line
+
+func _live_summary_text(pawn: PawnData) -> String:
+	for plan in pawn.plans:
+		if _live_verdict(pawn, plan) == VERDICT_ACTING:
+			return _library_row_texts(plan)[0]
+	var fallback := _live_fallback_verdict(pawn)
+	if fallback == VERDICT_ACTING:
+		return "its default"
+	if fallback == VERDICT_TAUNTED:
+		return "compelled -- none of its rows"
+	return "nothing this instant"
 
 ## The one tile stylebox every block on this screen draws with -- an editable
 ## picker (`_block_chip`) and the immutable default row's chip (`_fixed_chip`)
@@ -1379,6 +1458,10 @@ const VERDICT_REFUSED := "refused"
 ## `PlanInterpreter` never consults at all. Its own word instead.
 const VERDICT_INERT := "inert"
 
+## Issue 741: the fifth state. Never computed by `_live_verdict` -- it marks a
+## row being edited mid-fight, which the running fight is not reading at all.
+const VERDICT_STAGED := "staged"
+
 ## One word for one plan row, or "" when there is no live fight to read, and
 ## **none at all while the pawn is taunted**: `CombatSim._decide_phase` checks
 ## the compulsion before it calls the plan layer, so a `ready` beside a row is
@@ -1485,6 +1568,41 @@ func _live_unit(pawn: PawnData):
 			return u
 	return null
 
+## Issue 741. `true` while this pawn's fight is still going -- the state the
+## player's ruling protects: "plans can be edited mid fight, but changes
+## wouldn't take effect until the next room." Between rooms and outside a run
+## `_live_state` is null or already resolved, and edits there are immediate.
+func _running(_pawn: PawnData) -> bool:
+	return _live_state != null and _live_state.outcome == CombatState.Outcome.UNRESOLVED
+
+## The array every plan-editing function reads and writes. `CombatSim` reads
+## `pawn.plans` and only `pawn.plans`, so while the fight is running an edit
+## goes to a staged clone instead -- `FloorRun.carry_into` is what commits it,
+## at the next room's boundary. Outside a run this is `pawn.plans` itself, so
+## editing there is still the single-step edit it always was.
+func _edit_plans(pawn: PawnData) -> Array:
+	if not _running(pawn):
+		# A staged copy left over from a run that ended without reaching
+		# another room is stale the moment the fight it belonged to is gone.
+		pawn.plans_staged = false
+		pawn.plans_edited = false
+		pawn.staged_plans = []
+		return pawn.plans
+	if not pawn.plans_staged:
+		var copy: Array[Plan] = []
+		for p in pawn.plans:
+			copy.append(p.duplicate(true))
+		pawn.staged_plans = copy
+		pawn.plans_staged = true
+	return pawn.staged_plans
+
+## Call at the point of an actual edit, never at the point of opening the
+## panel: opening must not silently turn "browsing" into "editing" -- see
+## `plans_edited`'s own comment on `PawnData`.
+func _mark_edited(pawn: PawnData) -> void:
+	if _running(pawn):
+		pawn.plans_edited = true
+
 ## Issue 590: what each verdict word means, on the word itself. It was a
 ## standing key sentence over the rows, which is explainer text beside the thing
 ## it explains rather than on it.
@@ -1496,6 +1614,7 @@ const VERDICT_HELP := {
 	VERDICT_TAUNTED: "The pawn is compelled and none of its rows are read at all.",
 	VERDICT_REFUSED: "This row's condition holds and the pawn is free, but its skill cannot fire. The line beneath it names the reason.",
 	VERDICT_INERT: "This row costs more than the pawn has left in its budget, so PlanInterpreter never reads it. The line beneath it names both numbers.",
+	VERDICT_STAGED: "You are editing this row mid-fight. It takes effect next room -- this fight keeps running the plan it started with.",
 }
 
 ## Issue 723: the glyph half of the gutter mark, always beside `_verdict_label`
@@ -1512,6 +1631,7 @@ const VERDICT_MARK := {
 	VERDICT_TAUNTED: "!",
 	VERDICT_REFUSED: "✕",
 	VERDICT_INERT: "⊘",
+	VERDICT_STAGED: "✎",
 }
 
 func _verdict_mark(text: String) -> Label:

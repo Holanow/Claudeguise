@@ -24,7 +24,23 @@ class_name PawnData
 
 ## Plans in priority order, highest first. Per README.md, when several plans
 ## would fire on the same tick exactly one fires: the earliest in this array.
+## `CombatSim` reads this and only this; a running fight must never see it
+## change mid-fight, so an edit made while a fight is live goes to
+## `staged_plans` instead and is committed here by `FloorRun.carry_into`.
 @export var plans: Array[Plan] = []
+
+## `true` once a staged clone of `plans` exists for the fight in progress.
+## Opening the editor mid-fight sets this; it says nothing about whether the
+## player has actually changed anything yet -- see `plans_edited` for that.
+@export var plans_staged: bool = false
+@export var staged_plans: Array[Plan] = []
+
+## `true` once the player has actually changed a staged row, as opposed to
+## merely opening the editor while a fight runs. The verdict column and the
+## "takes effect next room" note key off this, not off `plans_staged`: a
+## player who opened the panel and changed nothing must see the same real
+## verdicts they would see with the panel closed.
+@export var plans_edited: bool = false
 
 func attribute(a: CG.Attribute) -> int:
 	var base := 0

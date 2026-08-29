@@ -37,6 +37,17 @@ const ATTRIBUTE_ORDER: Array = [
 var _pawns: Array[PawnData] = []
 var _selected_index: int = 0
 
+## Issue 741: gear is read once when `CombatSim` builds a unit, the same as a
+## plan, but changing it mid-fight has no staged form to land in -- there is
+## no equipment equivalent of `FloorRun.carry_into` reading a per-pawn queue.
+## Locking is the cheap, honest choice until that is asked for.
+var _locked := false
+var _lock_reason := ""
+
+func set_locked(locked: bool, reason: String = "") -> void:
+	_locked = locked
+	_lock_reason = reason
+
 ## `new()` gives a bare Control with none of the tree. Everything static --
 ## backdrop, heading, how-to-play, the two scrolling columns -- is in
 ## `Scenes/EquipPanel.tscn`; the pawn list and the detail column are built per
@@ -124,6 +135,9 @@ func _build_detail(pawn: PawnData) -> void:
 		%DetailBox.add_child(_line("No class assigned, so nothing can be equipped.",
 			Palette.FONT_SIZE_BODY, Palette.TEXT_DIM))
 		return
+
+	if _locked:
+		%DetailBox.add_child(_line(_lock_reason, Palette.FONT_SIZE_SMALL, Palette.HP_LOW))
 
 	var cls := pawn.pawn_class
 	# The same three words the plan editor and the party cards print, built the
@@ -314,8 +328,8 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 		picker.set_item_text(0, "(nothing this class can use)")
 	# Disabled only when there is nothing to read either way. With refusals in
 	# it the list is worth opening even when none of it can be taken.
-	picker.disabled = items.is_empty() and refused.is_empty()
-	if not items.is_empty():
+	picker.disabled = _locked or (items.is_empty() and refused.is_empty())
+	if not _locked and not items.is_empty():
 		picker.item_selected.connect(func(idx): _on_slot_selected(pawn, slot, items, idx))
 	row.add_child(picker)
 	out.append(row)

@@ -304,7 +304,9 @@ func test_the_plans_button_opens_the_pawn_whose_card_it_is() -> void:
 			continue
 		view.select_unit_at(u.position)
 		view._on_card_plans_requested()
-		assert_eq(view.config.party[view._inspect_panel._selected_index].id, u.pawn.id,
+		# Issue 741: the full-screen editor became a narrow tabbed popout;
+		# which pawn it landed on is `_focused`, not an index into a list.
+		assert_eq(view._inspect_panel._focused.id, u.pawn.id,
 			"%s's card must open %s's plans" % [u.display_name, u.display_name])
 		view._inspect_panel.close()
 	view.free()

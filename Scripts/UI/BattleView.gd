@@ -279,7 +279,7 @@ func _build_top_bar() -> void:
 	controls.add_child(view_button)
 
 	var plans_button := Button.new()
-	plans_button.text = "Plans"
+	plans_button.text = "Plans & Equipment"
 	plans_button.custom_minimum_size.y = Palette.TOUCH_TARGET_MIN
 	plans_button.pressed.connect(_on_inspect_pressed)
 	controls.add_child(plans_button)
@@ -478,7 +478,7 @@ func _build_end_banner() -> void:
 	buttons.add_child(back_button)
 
 	var inspect_button := Button.new()
-	inspect_button.text = "Plans"
+	inspect_button.text = "Plans & Equipment"
 	inspect_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	inspect_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	inspect_button.pressed.connect(_on_inspect_pressed)
@@ -486,8 +486,14 @@ func _build_end_banner() -> void:
 
 	_build_room_picker(_end_banner)
 
-	_inspect_panel = InspectPanel.create()
+	## Issue 741: a narrow tabbed popout rather than the full-screen editor --
+	## it opens over the fight instead of replacing it.
+	_inspect_panel = PlansEquipPopout.create()
 	hud.add_child(_inspect_panel)
+	## Anchored under the top bar rather than centred: a popout the player can
+	## see past to the arena while it is open is the whole point of it.
+	_inspect_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_inspect_panel.position = Vector2(Palette.SPACE_M, _TOP_BAR_BOTTOM + Palette.SPACE_M)
 	if not _inspect_panel.is_inside_tree():
 		_inspect_panel._ready()
 	_inspect_panel.closed.connect(_on_card_closed)
