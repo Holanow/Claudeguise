@@ -174,6 +174,8 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			return "%s heals %s for %d" % [source_name, target_name, e.amount]
 		CG.EventKind.DEATH:
 			return _death_line(target, target_name)
+		CG.EventKind.LOOT_AWARDED:
+			return "[b]%s picks up %s[/b], found in the last room" % [target_name, _item_name(e.item_id)]
 		CG.EventKind.ACTION_START:
 			return "%s begins %s%s" % [source_name, _action_name(e.action_id), _plan_tag(source, e)]
 		CG.EventKind.ACTION_FIRE:
@@ -245,6 +247,11 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			# silence distinguishable from an oversight.
 			return ""
 	return ""
+
+## The item's own display name, so the log says "Shield" rather than "shield".
+func _item_name(item_id: StringName) -> String:
+	var item := ItemLibrary.get_equipment(item_id)
+	return item.display_name if item != null else String(item_id)
 
 ## Issue 320: every death read in the enemy colour, so losing your own Warrior
 ## looked exactly like killing a Goblin.

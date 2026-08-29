@@ -19,6 +19,9 @@ var amount: int = 0
 
 var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 var action_id: StringName = &""
+
+## Set on LOOT_AWARDED only: the `EquipmentDef.id` the pawn picked up.
+var item_id: StringName = &""
 var status: CG.Status = CG.Status.SHIELD
 
 ## Set on DAMAGE when the raw roll was reduced, so the log can show mitigation

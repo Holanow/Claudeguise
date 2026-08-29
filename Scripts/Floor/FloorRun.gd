@@ -23,6 +23,64 @@ var loot: Array[EquipmentDef] = []
 func add_loot(item: EquipmentDef) -> void:
 	loot.append(item)
 
+## Issue 811: pickups awarded since the last arrival, drained by `carry_into`
+## into LOOT_AWARDED events. A drop happens between rooms, where there is no
+## live fight to emit into, so the announcement waits for the next one.
+var pending_pickups: Array[Dictionary] = []
+
+## Which PawnData property holds each equipment slot.
+const SLOT_PROPERTY := {
+	EquipmentDef.Slot.MAIN_HAND: &"main_hand",
+	EquipmentDef.Slot.OFF_HAND: &"off_hand",
+	EquipmentDef.Slot.HEAD: &"head",
+	EquipmentDef.Slot.BODY: &"body",
+	EquipmentDef.Slot.ACCESSORY: &"accessory",
+}
+
+## The whole award for one resolved room: roll that room's own drop table and
+## put what falls out on the first party member who can wear it. Returns the
+## item or null, and is the only caller of `LootTables.roll_drop` in the game.
+##
+## Seeded from the floor and the room rather than from the fight, so the drop
+## is deterministic and does not perturb a single tick of combat.
+static func award_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData], floor_seed: int) -> EquipmentDef:
+	var wearable := _wearable_ids(run, party)
+	if wearable.is_empty():
+		return null
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([floor_seed, room.content_id, "loot"])
+	var item := LootTables.roll_drop(room.type, room.difficulty, rng, wearable)
+	if item == null:
+		return null
+	run.add_loot(item)
+	var taker := _taker_for(run, party, item)
+	taker.set(SLOT_PROPERTY[item.slot], item)
+	run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
+	return item
+
+## Party order, living pawns, first empty slot this class is allowed to fill.
+## **Empty slots only, never an upgrade** -- deciding one item is better than
+## the one already worn is a balance judgement and this is not the place for it.
+static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef) -> PawnData:
+	for p in party:
+		if not run.is_alive(p.id):
+			continue
+		if not item.allows_class(p.pawn_class):
+			continue
+		if p.get(SLOT_PROPERTY[item.slot]) == null:
+			return p
+	return null
+
+## What this party could actually put on right now. Without it the roll is
+## uniform over the whole library and most of it lands on a slot `PawnFactory`
+## already filled, which is a list nobody wears rather than loot.
+static func _wearable_ids(run: FloorRun, party: Array[PawnData]) -> Array[StringName]:
+	var out: Array[StringName] = []
+	for id in ItemLibrary.all_ids():
+		if _taker_for(run, party, ItemLibrary.get_equipment(id)) != null:
+			out.append(id)
+	return out
+
 ## `floor_plan` is optional: issue 729's linear floor sequence has no graph,
 ## only order, and needs the `carry` bookkeeping below without one.
 func _init(floor_plan: FloorPlan = null) -> void:
@@ -121,6 +179,21 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
 		_apply_arrival_heal(state, unit)
+	_announce_pickups(state, run, party)
+
+## Issue 811: the drop the last room paid out, said out loud in the room it is
+## first worn in. Same precedent `_revive` sets -- a between-room fact reaches
+## the player as an event in the arriving fight, because that is where the log is.
+static func _announce_pickups(state: CombatState, run: FloorRun, party: Array[PawnData]) -> void:
+	for pickup in run.pending_pickups:
+		for i in party.size():
+			if party[i].id != pickup["pawn_id"]:
+				continue
+			var e := CombatEvent.make(CG.EventKind.LOOT_AWARDED, state.tick)
+			e.target_id = state.unit(i).id
+			e.item_id = pickup["item_id"]
+			state.emit(e)
+	run.pending_pickups.clear()
 
 ## Issue 741: a plan edited while its owner's fight was running lands in
 ## `staged_plans` rather than `plans`, so the fight it started in stays

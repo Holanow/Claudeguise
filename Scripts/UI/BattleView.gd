@@ -1076,8 +1076,14 @@ func _record_floor_result() -> void:
 func _handle_fight_end() -> void:
 	if _floor_active() and state.outcome == CombatState.Outcome.PLAYER_WIN:
 		_floor_walk.mark_cleared(_floor_walk.current_id)
+		## Issue 811: the room is over, so its drop table pays out. After
+		## `_record_floor_result`, which is what tells the award who is still
+		## alive to carry it, and before the branch below so the boss room
+		## drops too even though its item can change nothing on this floor.
+		_record_floor_result()
+		FloorRun.award_room_loot(_floor_run, _floor_walk.plan.room(_floor_walk.current_id),
+			_floor_party, _floor_seed)
 		if not _floor_walk.route_to_next_fight().is_empty():
-			_record_floor_result()
 			_floor_transition_left = _FLOOR_TRANSITION_BEAT
 			return
 	if _floor_active():
