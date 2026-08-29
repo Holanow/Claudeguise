@@ -10,7 +10,8 @@
 [sub_resource type="Resource" id="Resource_2hqdb"]
 script = ExtResource("2_gvwfm")
 damage_type = 1
-power_scale = 0.15555555555555556
+power_scale = 0.0
+caster_max_hp_percent = 0.2
 
 [sub_resource type="Resource" id="Resource_ls5t8"]
 script = ExtResource("4_8u1bk")
@@ -25,7 +26,7 @@ targets_self = true
 script = ExtResource("3_qsdwc")
 id = &"abomination_immolate"
 display_name = "Immolate"
-description = "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking a Grapple's worth of damage each second. Costs 1 Rage to light and 15 Rage a second to hold."
+description = "Sets the Abomination alight. Every enemy within 90 units burns for as long as it is held, taking 3% of the Abomination's own max health as fire damage each second. Costs 1 Rage to light and 15 Rage a second to hold; once Rage runs dry the fire keeps burning on the Abomination itself, starting at 1% of its max health a second and rising by 1% every second it keeps draining."
 wind_up_ticks = 15
 resource_cost = 1
 targeting = SubResource("Resource_bp0a5")

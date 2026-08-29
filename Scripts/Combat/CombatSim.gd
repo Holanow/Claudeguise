@@ -1049,7 +1049,7 @@ static func _apply_hit(state: CombatState, unit: CombatUnit, target: CombatUnit,
 		## Without this the block emits a 0-damage DAMAGE event on the ally it is
 		## protecting, which reads in the log as the Warrior attacking it.
 		return 0
-	return _apply_damage(state, unit, target, action, bonus, deps, onto_shield)
+	return _apply_damage(state, unit, target, action, bonus, deps, fx, onto_shield)
 
 ## The heal half. `applied` is what the health bar actually moved, so a heal on
 ## a target already at full emits nothing rather than a HEAL of 0.
@@ -1065,11 +1065,19 @@ static func _apply_heal(state: CombatState, unit: CombatUnit, target: CombatUnit
 	e.damage_type = action.damage_type
 	state.emit(e)
 
+## Issue 772. Pre-mitigation power of one hit. `fx.caster_max_hp_percent`
+## leans on the CASTER's own max hp (Immolate); everything else still leans
+## on `deps.attack_power`, which is `power_scale` against an attack stat.
+static func _hit_power(state: CombatState, unit: CombatUnit, action: ActionDef, fx: HitEffect, deps: SimDeps) -> float:
+	if fx != null and fx.caster_max_hp_percent > 0.0:
+		return float(unit.hp_max) * (fx.caster_max_hp_percent / 100.0) * AbilityModifiers.power_multiplier(unit, action)
+	return deps.attack_power.call(unit, action, state.rng)
+
 ## The damage half. Returns the MITIGATED figure, which is what a hit-scaled
 ## status stores -- deliberately not the `applied` figure the event carries,
 ## which is clamped by however much health the target had left.
-static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps, onto_shield: bool = false) -> int:
-	var raw: float = deps.attack_power.call(unit, action, state.rng) + bonus
+static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, bonus: float, deps: SimDeps, fx: HitEffect = null, onto_shield: bool = false) -> int:
+	var raw: float = _hit_power(state, unit, action, fx, deps) + bonus
 	var reduction: float = clampf(deps.damage_reduction.call(target), 0.0, 1.0)
 	var mitigated := maxi(0, int(round(raw * (1.0 - reduction))))
 	var soaked := 0
@@ -1312,6 +1320,7 @@ static func _tick_pull(state: CombatState, unit: CombatUnit) -> void:
 static func _begin_sustain(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
 	unit.sustaining = action.id
 	unit.sustain_started_tick = state.tick
+	unit.sustain_drain_ticks = -1
 	unit.statuses[CG.Status.SUSTAINING] = CG.MAX_TICKS
 	state.emit(_event(CG.EventKind.SUSTAIN_START, state.tick, unit.id, -1, action.id))
 
@@ -1325,6 +1334,7 @@ static func _end_sustain(state: CombatState, unit: CombatUnit) -> void:
 	state.emit(e)
 	unit.sustaining = &""
 	unit.sustain_started_tick = -1
+	unit.sustain_drain_ticks = -1
 	unit.statuses.erase(CG.Status.SUSTAINING)
 
 ## Cause (1). Called from `_decide_phase` with whatever the decision layer just
@@ -1336,7 +1346,9 @@ static func _reaffirm_sustain(state: CombatState, unit: CombatUnit, intent: Inte
 		return
 	_end_sustain(state, unit)
 
-## One tick of upkeep: charge, then deal.
+## One tick of upkeep: pay, then deal. Issue 772: rage runs the sustain while
+## there is any; once it is empty the sustain does not end on its own any
+## more, it starts paying in the caster's own health instead.
 static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -> void:
 	if unit.sustaining == &"":
 		return
@@ -1344,17 +1356,44 @@ static func _tick_sustain(state: CombatState, unit: CombatUnit, deps: SimDeps) -
 	if action == null or action.sustain == null:
 		_end_sustain(state, unit)
 		return
-	if unit.resource < action.sustain.cost_per_tick:
-		_end_sustain(state, unit)
-		return
 
-	unit.resource -= action.sustain.cost_per_tick
-	var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
-	spent.amount = action.sustain.cost_per_tick
-	state.emit(spent)
+	if unit.resource >= action.sustain.cost_per_tick:
+		unit.resource -= action.sustain.cost_per_tick
+		unit.sustain_drain_ticks = -1
+		var spent := _event(CG.EventKind.RESOURCE_SPENT, state.tick, unit.id, -1, action.id)
+		spent.amount = action.sustain.cost_per_tick
+		state.emit(spent)
+	else:
+		_pay_sustain_with_health(state, unit, action)
+		if not unit.alive:
+			return
 
 	for target in _sustain_targets(state, unit, action):
 		_apply_action_effect(state, unit, target, action, deps)
+
+## Issue 772. 1% of the caster's max hp per second, escalating by 1% for every
+## second it has been paying this way -- not every second the sustain has been
+## held. Divided evenly across the 15 ticks of whichever second is current, so
+## the derivation is worked in seconds and never rounds at tick granularity.
+## Resets to second 1 the moment rage covers a tick again (`_tick_sustain`
+## above) or the sustain ends (`_begin_sustain`, `_end_sustain`).
+static func _pay_sustain_with_health(state: CombatState, unit: CombatUnit, action: ActionDef) -> void:
+	if unit.sustain_drain_ticks < 0:
+		unit.sustain_drain_ticks = 0
+	var current_second := (unit.sustain_drain_ticks / CG.TICKS_PER_SECOND) + 1
+	var percent_this_tick := float(current_second) / float(CG.TICKS_PER_SECOND)
+	unit.sustain_drain_ticks += 1
+	var amount := _stochastic_round(state, float(unit.hp_max) * (percent_this_tick / 100.0))
+	if amount <= 0:
+		return
+	var before := unit.hp
+	unit.hp = maxi(0, unit.hp - amount)
+	var applied := before - unit.hp
+	var e := _event(CG.EventKind.DAMAGE, state.tick, unit.id, unit.id, action.id)
+	e.amount = applied
+	e.damage_type = action.damage_type
+	state.emit(e)
+	_kill_if_dead(state, unit, unit.id, action.id)
 
 ## Everyone inside the channel's radius this tick.
 static func _sustain_targets(state: CombatState, unit: CombatUnit, action: ActionDef) -> Array[CombatUnit]:
