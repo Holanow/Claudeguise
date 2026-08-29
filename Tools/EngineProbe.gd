@@ -26,7 +26,8 @@ func _init() -> void:
 				## inside the tick reads as free once `step` has returned.
 				while state.outcome == CombatState.Outcome.UNRESOLVED and state.tick < CG.MAX_TICKS:
 					for u in state.units:
-						if not u.alive or u.pawn == null or u.pawn.class_id != &"siege_master":
+						if not u.alive or u.pawn == null or u.pawn.pawn_class == null \
+								or u.pawn.pawn_class.id != &"siege_master":
 							continue
 						if u.is_busy():
 							census["busy"] = int(census.get("busy", 0)) + 1
@@ -56,6 +57,6 @@ func _init() -> void:
 ## Whether the Mark row's condition holds, asked without calling `decide`.
 static func _enemy_within(state: CombatState, unit: CombatUnit, reach: float) -> bool:
 	for o in state.units:
-		if o.alive and o.team != unit.team and o.pos.distance_to(unit.pos) <= reach:
+		if o.alive and o.team != unit.team and o.position.distance_to(unit.position) <= reach:
 			return true
 	return false
