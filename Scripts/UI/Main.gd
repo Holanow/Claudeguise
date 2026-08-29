@@ -6,7 +6,6 @@ extends Node
 
 const SCENE_PARTY_SELECT := "res://Scenes/PartySelect.tscn"
 const SCENE_BATTLE := "res://Scenes/Battle.tscn"
-const SCENE_FLOOR_MAP := "res://Scenes/FloorMap.tscn"
 
 var run_config: RunConfig = null
 var _current: Node = null

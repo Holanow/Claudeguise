@@ -199,7 +199,7 @@ func _run() -> void:
 		print("ScreenSweep: %s = %s" % [tag, ", ".join(PackedStringArray(parties[i]))])
 		await _party_select_full_and_start_fight(parties[i], tag)
 	await _plan_editor()
-	await _floor_map_and_end_of_fight()
+	await _start_run_enters_the_floor()
 
 ## Party select, nothing picked yet -- the very first screen a player sees.
 func _party_select_empty() -> void:
@@ -310,8 +310,8 @@ func _plan_editor_for(class_id: StringName, inspect_panel: Node, shot: String) -
 		_fail("%s's plan editor shows no rows, so '%s' is a picture of an empty editor" % [
 			class_id, shot])
 
-## The floor map, reached via Start Run, plus whichever room resolves first.
-func _floor_map_and_end_of_fight() -> void:
+## Start Run drops straight into the battle screen -- no map, no picker.
+func _start_run_enters_the_floor() -> void:
 	await _fresh_main()
 	var parties := sweep_parties(ClassLibrary.all_ids())
 	if parties.is_empty() or not _select_classes(parties[0]):
@@ -328,10 +328,10 @@ func _floor_map_and_end_of_fight() -> void:
 		return
 	run_btn.emit_signal("pressed")
 	await _settle()
-	if _current_screen_name() != "FloorMap":
-		_fail("did not reach FloorMap from Start Run at %s" % _res_tag)
+	if _current_screen_name() != "Battle":
+		_fail("did not reach Battle from Start Run at %s" % _res_tag)
 		return
-	await _shot("sweep_floor_map")
+	await _shot("sweep_floor_first_room")
 
 ## True while the battle screen is held before its first tick with the party
 ## draggable, which is where "Start Fight" means "begin" rather than "place".
