@@ -59,10 +59,11 @@ func test_the_boss_is_not_adjacent_to_the_entrance() -> void:
 		assert_false(plan.neighbours_of(plan.entrance_id).has(plan.boss_id),
 			"seed %d: the boss door is the first thing the player sees" % seed)
 
+## `expected` comes from `RoomLibrary`, not from `FloorGenerator`'s own
+## constants: comparing the generator against its own list would agree with
+## itself no matter what either side said.
 func test_ten_authored_rooms_each_placed_once() -> void:
-	var expected := FloorGenerator.ORDINARY_IDS.duplicate()
-	expected.append(FloorGenerator.MINIBOSS_ID)
-	expected.append(FloorGenerator.BOSS_ID)
+	var expected := RoomLibrary.all_ids()
 	expected.sort()
 	for seed in range(SEEDS):
 		var plan := FloorGenerator.generate(seed)

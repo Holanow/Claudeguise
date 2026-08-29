@@ -39,6 +39,11 @@ func enter(room_id: int) -> void:
 func mark_cleared(room_id: int) -> void:
 	_cleared[room_id] = true
 
+## How many rooms the party has already put behind them. The grid replacement
+## for the old walk index: `FloorRun`'s revive cadence and camp rule key on it.
+func cleared_count() -> int:
+	return _cleared.size()
+
 func is_cleared(room_id: int) -> bool:
 	return _cleared.has(room_id)
 
