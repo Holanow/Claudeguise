@@ -24,11 +24,8 @@ func test_no_tool_takes_a_prefix_of_the_roster() -> void:
 	for path in _tool_scripts():
 		if ALLOWED.has(path):
 			continue
-		var line_no := 0
-		for line in FileAccess.get_file_as_string(path).split("\n"):
-			line_no += 1
-			if _takes_a_prefix(line):
-				offenders.append("%s:%d  %s" % [path, line_no, line.strip_edges()])
+		for hit in _prefix_offenders(FileAccess.get_file_as_string(path)):
+			offenders.append("%s:%s" % [path, hit])
 	assert_eq(offenders, [] as Array[String],
 		"these pick a party by position in the roster instead of by class id:\n  %s"
 			% "\n  ".join(offenders))
@@ -54,6 +51,30 @@ func test_the_guard_fires_on_the_lines_it_was_written_for() -> void:
 		"walking a party that was chosen by id must pass")
 	assert_false(_takes_a_prefix('## takes class_ids.slice(0, mini(4, class_ids.size())), said a comment'),
 		"a comment must not be flagged")
+
+
+func test_the_guard_fires_on_indexing_the_roster_by_a_loop_variable() -> void:
+	# Issue 816: `for k in n: class_ids[k]` is a prefix, matched none of the line
+	# shapes, and the guard was green over a live one in PartySizeLethality.
+	assert_false(_prefix_offenders("for k in n:\n\tvar c := StringName(class_ids[k])").is_empty(),
+		"indexing the roster by a loop variable with a short bound must be flagged")
+	assert_false(_prefix_offenders("for i in 4:\n\tparty.append(class_ids[i])").is_empty(),
+		"a literal loop bound over the roster must be flagged")
+	assert_false(_prefix_offenders("\tparty.append(class_ids[0])").is_empty(),
+		"a literal roster index must be flagged")
+	assert_false(_prefix_offenders("\tparty.append(ClassLibrary.all_ids()[0])").is_empty(),
+		"indexing the roster inline must be flagged")
+
+	assert_eq(_prefix_offenders("for skip in class_ids.size():\n\tfor i in class_ids.size():\n\t\tif i != skip:\n\t\t\tparty.append(class_ids[i])"),
+		[] as Array[String], "leave-one-out walks the whole roster and must pass")
+	assert_eq(_prefix_offenders("for skip in class_ids.size():\n\tprint(String(class_ids[skip]))"),
+		[] as Array[String], "naming the left-out class must pass")
+	assert_eq(_prefix_offenders("\twhile taken < class_ids.size():\n\t\tparty.append(class_ids[taken])"),
+		[] as Array[String], "the covering sweep partition is the fix, not the defect")
+	assert_eq(_prefix_offenders("\tcfg.encounter_id = RoomLibrary.all_ids()[0]"),
+		[] as Array[String], "the room roster is not the class roster")
+	assert_eq(_prefix_offenders("## for k in n: class_ids[k], said a comment"),
+		[] as Array[String], "a comment must not be flagged")
 
 
 func test_the_allowlisted_tools_still_cover_every_class() -> void:
@@ -88,4 +109,50 @@ func _takes_a_prefix(line: String) -> bool:
 		return true
 	if code.contains("cards[") and code.contains("toggled"):
 		return true
+	return false
+
+
+## Every offending line in one file's text, as "line_no  code".
+func _prefix_offenders(text: String) -> Array[String]:
+	var out: Array[String] = []
+	var covering := {}
+	var line_no := 0
+	for line in text.split("\n"):
+		line_no += 1
+		var code := line.strip_edges()
+		if code.begins_with("#"):
+			continue
+		for v in _covering_vars(code):
+			covering[v] = true
+		if _takes_a_prefix(line) or _indexes_roster_by_position(code, covering):
+			out.append("%d  %s" % [line_no, code])
+	return out
+
+
+## Index variables shown to walk the whole roster, from `for i in
+## class_ids.size()` and from `while taken < class_ids.size()`.
+func _covering_vars(code: String) -> Array[String]:
+	var out: Array[String] = []
+	if code.contains("mini(") or code.contains("min(") or code.contains("slice("):
+		return out
+	for pattern in [
+		"for\\s+([A-Za-z_]\\w*)\\s+in\\s+[^:]*class_ids\\.size\\(\\)",
+		"([A-Za-z_]\\w*)\\s*<=?\\s*class_ids\\.size\\(\\)",
+	]:
+		var re := RegEx.create_from_string(pattern)
+		for m in re.search_all(code):
+			out.append(m.get_string(1))
+	return out
+
+
+## True when a line reads the class roster at a position never shown to walk
+## all of it, which is a prefix whatever the loop bound happens to be.
+func _indexes_roster_by_position(code: String, covering: Dictionary) -> bool:
+	var inline := RegEx.create_from_string("(ClassLibrary\\.all_ids|all_class_ids)\\(\\)\\[")
+	if inline.search(code) != null:
+		return true
+	var re := RegEx.create_from_string("class_ids\\[([A-Za-z_]\\w*|\\d+)\\]")
+	for m in re.search_all(code):
+		if not covering.has(m.get_string(1)):
+			return true
 	return false
