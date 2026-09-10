@@ -406,3 +406,41 @@ func test_the_card_takes_the_column_it_is_given() -> void:
 	assert_true(view._end_screen.size_flags_vertical & Control.SIZE_EXPAND,
 		"the card does not expand, so the log inside it cannot")
 	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 801: the between-room arrival heal has no caster and so no card.
+
+## `source_id == -1` on a HEAL is the arrival heal and nothing else (#799), so
+## the tally cannot credit it to a pawn and the end card has to name it itself.
+## The rendered line is proved by `Tools/ArrivalEndCardShot.gd` rather than
+## here: `ledger_lines` cannot be called under this runner at all, because
+## `run_tests` reloads every script and `DamageLedger.Ledger` then fails
+## `_top_two`'s own type check.
+func test_the_arrival_heal_is_totalled_for_the_end_card() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_pawn_unit(1, &"priest"))
+	s.events.append(_heal(0, -1, 0, 16))
+	s.events.append(_heal(0, -1, 1, 9))
+	assert_eq(EndScreenScript.arrival_healed(s), 25,
+		"the two un-sourced heals are not totalled")
+
+## The negative half: a heal somebody cast is not an arrival heal, or the line
+## double-counts the priest and appears on every single-room card.
+func test_a_cast_heal_is_not_counted_as_an_arrival_heal() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"priest"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_damage(1, 1, 0, 20))
+	s.events.append(_heal(2, 0, 0, 12))
+	assert_eq(EndScreenScript.arrival_healed(s), 0,
+		"a cast heal was read as an arrival heal")
+
+## And it is still not attributed to a pawn: nobody cast it, so no card's
+## Healed column may move.
+func test_the_arrival_heal_is_credited_to_no_pawn() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.events.append(_heal(0, -1, 0, 16))
+	assert_eq(int(EndScreenScript.tally(s)[0]["healed"]), 0,
+		"the arrival heal was credited to a pawn that did not cast it")

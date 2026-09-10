@@ -299,6 +299,17 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 		parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)
 
+## Issue 801: what the party got back on walking into this room. A HEAL with
+## `source_id == -1` is the between-room arrival heal and nothing else (#799),
+## so `tally` above can credit it to no pawn and this screen has to name the
+## arrival itself rather than invent a healer.
+static func arrival_healed(state: CombatState) -> int:
+	var total := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.HEAL and e.source_id == -1 and e.amount > 0:
+			total += e.amount
+	return total
+
 ## The questions the player asked for, one short line each rather than one
 ## long line that truncates -- issue 737 review: a fixed-width label holding
 ## variable-length prose is the same failure #723's plan editor has.
@@ -325,6 +336,10 @@ static func ledger_lines(state: CombatState) -> Array[String]:
 		var row: Dictionary = best[0]
 		lines.append("%s: %d dealt, %d prevented, %d casts." % \
 			[row.name, row.dealt, row.prevented, row.casts])
+	## Left off entirely in a first room, where nobody arrived from anywhere.
+	var arrival := arrival_healed(state)
+	if arrival > 0:
+		lines.append("Recovered on arrival: %d." % arrival)
 	return lines
 
 # ---------------------------------------------------------------------------
