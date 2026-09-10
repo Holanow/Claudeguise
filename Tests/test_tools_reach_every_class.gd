@@ -73,6 +73,10 @@ func test_the_guard_fires_on_indexing_the_roster_by_a_loop_variable() -> void:
 		[] as Array[String], "the covering sweep partition is the fix, not the defect")
 	assert_eq(_prefix_offenders("\tcfg.encounter_id = RoomLibrary.all_ids()[0]"),
 		[] as Array[String], "the room roster is not the class roster")
+	assert_false(_prefix_offenders("for i in class_ids.size():\n\tparty.append(class_ids[i])\nfor i in 4:\n\tparty.append(class_ids[i])").is_empty(),
+		"a covering loop earlier in the file must not excuse a later prefix on the same name")
+	assert_false(_prefix_offenders("for i in class_ids.size() - 1:\n\tparty.append(class_ids[i])").is_empty(),
+		"a bound one short of the roster is issue 350 written arithmetically")
 	assert_eq(_prefix_offenders("## for k in n: class_ids[k], said a comment"),
 		[] as Array[String], "a comment must not be flagged")
 
@@ -122,6 +126,8 @@ func _prefix_offenders(text: String) -> Array[String]:
 		var code := line.strip_edges()
 		if code.begins_with("#"):
 			continue
+		for v in _rebound_vars(code):
+			covering.erase(v)
 		for v in _covering_vars(code):
 			covering[v] = true
 		if _takes_a_prefix(line) or _indexes_roster_by_position(code, covering):
@@ -129,15 +135,24 @@ func _prefix_offenders(text: String) -> Array[String]:
 	return out
 
 
+## Every variable this line gives a new bound to, covering or not, so an
+## earlier covering loop cannot excuse a later prefix on the same name.
+func _rebound_vars(code: String) -> Array[String]:
+	var out: Array[String] = []
+	for pattern in ["for\\s+([A-Za-z_]\\w*)\\s+in\\s+", "while\\s+([A-Za-z_]\\w*)\\s*<"]:
+		var re := RegEx.create_from_string(pattern)
+		for m in re.search_all(code):
+			out.append(m.get_string(1))
+	return out
+
+
 ## Index variables shown to walk the whole roster, from `for i in
 ## class_ids.size()` and from `while taken < class_ids.size()`.
 func _covering_vars(code: String) -> Array[String]:
 	var out: Array[String] = []
-	if code.contains("mini(") or code.contains("min(") or code.contains("slice("):
-		return out
 	for pattern in [
-		"for\\s+([A-Za-z_]\\w*)\\s+in\\s+[^:]*class_ids\\.size\\(\\)",
-		"([A-Za-z_]\\w*)\\s*<=?\\s*class_ids\\.size\\(\\)",
+		"for\\s+([A-Za-z_]\\w*)\\s+in\\s+(?:range\\()?class_ids\\.size\\(\\)\\)?\\s*:",
+		"([A-Za-z_]\\w*)\\s*<=?\\s*class_ids\\.size\\(\\)(?!\\s*[-+])",
 	]:
 		var re := RegEx.create_from_string(pattern)
 		for m in re.search_all(code):
