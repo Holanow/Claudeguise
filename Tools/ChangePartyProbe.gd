@@ -1,9 +1,12 @@
 extends Node
 
 ## Issue 380, driven the way a player drives it: write a plan row on the party
-## screen with a real click, take the fight, press "Change party", and read the
-## row back. The playtester built the Warrior's four rows three separate times
-## because this path threw them away.
+## screen with a real click, take the fight, go back to the party screen, and
+## read the row back. The playtester built the Warrior's four rows three
+## separate times because this path threw them away.
+##
+## Issue 840 made Restart the only control that leaves a fight, so the way back
+## is Escape and then the menu's Restart.
 
 const OUT_DIR := "user://probe"
 
@@ -58,6 +61,16 @@ func _buttons(root: Node, prefix: String) -> Array[Node]:
 			out.append(n)
 	return out
 
+## A real key. Escape is what opens the menu #825 moved these controls into.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
+		get_viewport().push_input(e)
+		await _settle(2)
+
 func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
 		var e := InputEventMouseButton.new()
@@ -79,10 +92,11 @@ func _click_control(c: Control, what: String) -> bool:
 	await _click(at)
 	return true
 
-func _check(ok: bool, message: String) -> void:
+func _check(ok: bool, message: String) -> bool:
 	print("ChangePartyProbe: %s %s" % ["ok  " if ok else "FAIL", message])
 	if not ok:
 		_failures += 1
+	return ok
 
 func _run() -> void:
 	_main = load(ProjectSettings.get_setting("application/run/main_scene", "res://Scenes/Main.tscn")).instantiate()
@@ -135,20 +149,24 @@ func _run() -> void:
 			return
 		if not await _click_control(start[0], "Start Fight"):
 			return
-	if _node_with("BattleView.gd") == null:
+	var battle := _node_with("BattleView.gd")
+	if battle == null:
 		_check(false, "the fight never started")
 		return
 
-	var back := _buttons(_main, "change party")
-	if back.is_empty():
-		_check(false, "no Change party button")
+	await _key(KEY_ESCAPE)
+	if not _check(battle._pause_menu.visible, "Escape opens the pause menu"):
 		return
-	if not await _click_control(back[0], "Change party"):
+	var back := _buttons(battle._pause_menu, "restart")
+	if back.is_empty():
+		_check(false, "no Restart button on the Escape menu")
+		return
+	if not await _click_control(back[0], "Restart"):
 		return
 
 	var again := _node_with("PartySelect.gd")
 	if again == null:
-		_check(false, "Change party did not return to the party screen")
+		_check(false, "Restart did not return to the party screen")
 		return
 	var back_pawn: PawnData = again.available_pawns()[0]
 	_check(back_pawn == pawn, "the same pawn object came back")
@@ -158,5 +176,5 @@ func _run() -> void:
 	if room != &"":
 		_check(again.selected_room() == room,
 			"the room came back as %s, wanted %s" % [again.selected_room(), room])
-	await _shot("wren_380_after_change_party")
+	await _shot("wren_380_after_restart")
 	_finished = true

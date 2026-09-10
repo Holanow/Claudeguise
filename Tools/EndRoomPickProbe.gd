@@ -60,11 +60,24 @@ func _walk(n: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
-func _button(prefix: String) -> Button:
-	for n in _walk(_main):
+## Issue 850: resolved under a named node when one is given, never by
+## first-match across the whole screen.
+func _button(prefix: String, root: Node = null) -> Button:
+	for n in _walk(root if root != null else _main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
 			return n
 	return null
+
+## A real key. Issue 825 put the toolbar's Pause on Escape, and Escape is what
+## opens the menu the rest of those controls moved into.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
+		get_viewport().push_input(e)
+		await _settle(2)
 
 func _node_with(f: String) -> Node:
 	for n in _walk(_main):
@@ -182,9 +195,12 @@ func _run() -> void:
 	if not _check(battle != null, "the battle screen opens"):
 		return
 
-	## The What-to-show panel, opened the way a player opens it, then hovered.
-	var toggles := _button("what to show")
-	if _check(toggles != null, "the What to show button is on the toolbar"):
+	## The What-to-show panel, opened the way a player opens it: issue 825
+	## deleted the toolbar, so it is Escape and then the menu's Settings.
+	await _key(KEY_ESCAPE)
+	_check(battle._pause_menu.visible, "Escape opens the pause menu")
+	var toggles := _button("settings", battle._pause_menu)
+	if _check(toggles != null, "the Settings button is on the Escape menu"):
 		await _click(toggles.get_global_rect().get_center())
 		await _settle()
 		var panel := _node_with("DisplayOptionsPanel.gd")
@@ -214,8 +230,12 @@ func _run() -> void:
 				visible_rows, rows.size()])
 			await _wheel(panel._scroll.get_global_rect().get_center(), false, 12)
 			await _check_hover(last, "the LAST What-to-show row, the one #518 found below the fold")
-			await _click(toggles.get_global_rect().get_center())
+			## Escape rather than Settings again: closing the menu is what hides
+			## the panel and hands back the pause the menu took when it opened.
+			await _key(KEY_ESCAPE)
 			await _settle()
+			_check(not battle._pause_menu.visible and not battle._display_options.visible,
+				"Escape closes the menu and the panel with it")
 
 	await _run_out(battle)
 	if not _check(battle.state.outcome != CombatState.Outcome.UNRESOLVED,
@@ -274,10 +294,12 @@ func _run() -> void:
 	_check(text.contains("Healed"), "the end card names damage healed: %s" % text.substr(0, 200))
 	_check(text.contains("Damage healed"), "and it is a sort of its own")
 
-	## A portrait, hovered.
+	## A portrait, hovered. Issue 827: matched by carrying a sentence rather than
+	## by node class -- the portrait is a `Control` that draws itself, so the old
+	## TextureRect/ColorRect test could not find one on any branch.
 	var portraits: Array[Control] = []
 	for n in _walk(battle._end_screen):
-		if (n is TextureRect or n is ColorRect) and n.tooltip_text != "":
+		if n is Control and not (n is Button) and not (n is Label) 				and (n as Control).tooltip_text != "":
 			portraits.append(n)
 	if _check(not portraits.is_empty(), "the roster draws portraits that carry a sentence"):
 		await _check_hover(portraits[0], "the first end-card portrait")

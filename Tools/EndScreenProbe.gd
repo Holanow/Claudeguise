@@ -2,9 +2,12 @@ extends Node
 
 ## Issue 343. Three claims from a blind playtester, each of which is either
 ## true or not: the log will not scroll, the Victory overlay dims it, and the
-## whole toolbar is dead after the fight ends. Measured the way TogglesProbe
+## controls are dead after the fight ends. Measured the way TogglesProbe
 ## measures a checkbox -- a real InputEvent at a real screen position, and a
 ## report of what the viewport would actually hand it to.
+##
+## Issue 827: the third claim was read off the toolbar #825 has since deleted.
+## Its subject is the end card's own row instead.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const OUT_DIR := "user://probe"
@@ -41,8 +44,10 @@ func _walk(n: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
-func _button(prefix: String) -> Button:
-	for n in _walk(_main):
+## Issue 850: resolved under a named node when one is given, never by
+## first-match across the whole screen.
+func _button(prefix: String, root: Node = null) -> Button:
+	for n in _walk(root if root != null else _main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
 			return n
 	return null
@@ -63,6 +68,16 @@ func _topmost_at(point: Vector2) -> String:
 				and n.get_global_rect().has_point(point):
 			hit = "%s (%s)" % [n.name, n.get_class()]
 	return hit
+
+## A real key. Escape is the only pause control #825 left.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
+		get_viewport().push_input(e)
+		await _settle(2)
 
 func _click(at: Vector2) -> void:
 	var point := get_viewport().get_screen_transform() * at
@@ -188,16 +203,27 @@ func _run() -> bool:
 	if battle.state.outcome == CombatState.Outcome.UNRESOLVED:
 		print("EndScreenProbe: the fight never resolved, so there is no end screen to probe")
 		return false
+	## The banner waits out the hit-stop freeze on the last death, so the
+	## outcome resolving is not the same moment as the card being on screen.
+	var waited := 0
+	while not battle._end_banner.visible and waited < 600:
+		battle._process(CG.TICK_SECONDS)
+		waited += 1
+	if not battle._end_banner.visible:
+		print("EndScreenProbe: FAIL the end card never appeared after %d frames of hit-stop" % waited)
+		_failures += 1
 	await _settle()
 	await _shot("wren_endscreen_victory")
 	print("EndScreenProbe: outcome %s at tick %d" % [
 		CombatState.Outcome.keys()[battle.state.outcome], battle.state.tick])
 
-	## Every toolbar control, by what a click on it would reach.
-	for name in ["Pause", "Restart", "Change party", "What to show", "Plans"]:
-		var b := _button(name)
+	## Every control the end card owns, by what a click on it would reach.
+	## Resolved under the banner, never by first-match: three controls on this
+	## screen carry the words "Plans & Equipment" (#850).
+	for name in ["Restart", "Plans & Equipment"]:
+		var b := _button(name, battle._end_banner)
 		if b == null:
-			print("EndScreenProbe: FAIL no visible button '%s' after the fight" % name)
+			print("EndScreenProbe: FAIL no visible button '%s' on the end card" % name)
 			_failures += 1
 			continue
 		var reach := _topmost_at(b.get_global_rect().get_center())
@@ -207,14 +233,31 @@ func _run() -> bool:
 		if not reachable:
 			_failures += 1
 
+	## Issue 840 rolls a new seed on Restart, so the card has to say which fight
+	## this was or the one just watched is unrecoverable.
+	var seed_label := battle._end_seed_label as Label
+	var seed_shown := seed_label != null and seed_label.is_visible_in_tree() and seed_label.text.strip_edges() != ""
+	print("EndScreenProbe: the end card's seed line reads '%s'" % [
+		seed_label.text if seed_label != null else "<no label>"])
+	if not seed_shown:
+		print("EndScreenProbe: FAIL the end card does not name the fight's seed")
+		_failures += 1
+
+	## Issue 825's rule, asserted rather than assumed: the card owns the screen,
+	## so Escape opens no second menu over it.
+	await _key(KEY_ESCAPE)
+	if battle._pause_menu.visible:
+		print("EndScreenProbe: FAIL Escape opened the pause menu over the end card")
+		_failures += 1
+
 	## And the one that matters most: Plans, pressed the way a player presses it.
-	var plans := _button("Plans")
-	var panel := _node_with("InspectPanel.gd")
+	var plans := _button("Plans & Equipment", battle._end_banner)
+	var panel: Control = battle._inspect_panel
 	if plans != null and panel != null:
 		await _click(plans.get_global_rect().get_center())
-		print("EndScreenProbe: after clicking Plans, the inspect panel is visible=%s" % panel.visible)
+		print("EndScreenProbe: after clicking Plans & Equipment, the popout is visible=%s" % panel.visible)
 		if not panel.visible:
-			print("EndScreenProbe: FAIL Plans is dead on the end screen")
+			print("EndScreenProbe: FAIL Plans & Equipment is dead on the end screen")
 			_failures += 1
 		await _shot("wren_endscreen_plans")
 		if panel.visible:

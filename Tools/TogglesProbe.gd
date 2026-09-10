@@ -39,13 +39,26 @@ func _walk(n: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
-func _press(prefix: String) -> bool:
-	for n in _walk(_main):
+## Issue 850: resolved under a named node when one is given, never by
+## first-match across the whole screen.
+func _press(prefix: String, root: Node = null) -> bool:
+	for n in _walk(root if root != null else _main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
 			n.emit_signal("pressed")
 			return true
 	print("TogglesProbe: no visible button '%s'" % prefix)
 	return false
+
+## A real key, the way a player sends one: Escape is the control #825 put the
+## toolbar's Pause on, and it opens and closes the menu that carries the rest.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
+		get_viewport().push_input(e)
+		await _settle(2)
 
 func _node_with(f: String) -> Node:
 	for n in _walk(_main):
@@ -108,8 +121,13 @@ func _run() -> bool:
 		return false
 	battle.set_process(false)
 
-	## Through the button a player presses, not through toggle_visible().
-	if not _press("what to show"):
+	## Through the controls a player presses, not through toggle_visible():
+	## issue 825 moved "What to show" behind Escape, where it is called Settings.
+	await _key(KEY_ESCAPE)
+	if not battle._pause_menu.visible:
+		print("TogglesProbe: Escape did not open the pause menu")
+		return false
+	if not _press("settings", battle._pause_menu):
 		return false
 	await _settle()
 
@@ -163,7 +181,11 @@ func _run() -> bool:
 			await _click(box.get_global_rect().get_center())
 	await _settle()
 	await _shot("wren_toggles_on")
-	if not _press("what to show"):
+	## Escape rather than Settings again: closing the menu is what hides the
+	## panel and hands back the pause the menu took when it opened.
+	await _key(KEY_ESCAPE)
+	if battle._pause_menu.visible or battle._display_options.visible:
+		print("TogglesProbe: Escape left the menu or the panel up")
 		return false
 	for tick in 60:
 		battle._process(CG.TICK_SECONDS)
