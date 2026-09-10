@@ -135,8 +135,8 @@ func test_covering_an_ally_does_not_damage_it() -> void:
 ## The pool is authored on the action, not derived from a hit.
 func test_the_block_starts_with_the_health_its_action_declares() -> void:
 	var block := _block()
-	assert_true(block.status_magnitude > 0.0,
-		"warrior_block carries no status_magnitude, so its shield has no health and #593 is not built")
+	assert_true(block.status_magnitude_caster_max_hp_percent > 0.0,
+		"warrior_block carries no pool, so its shield has no health and #593 is not built")
 	assert_true(block.covers_target, "warrior_block should name an ally rather than itself")
 
 ## A shield with no pool would be a shield with a timer wearing a new name.
@@ -147,7 +147,7 @@ func test_a_shielding_action_in_the_content_always_carries_health() -> void:
 		if a == null or not a.applies_status_enabled or a.applies_status != CG.Status.SHIELDING:
 			continue
 		checked += 1
-		assert_true(a.status_magnitude > 0.0,
+		assert_true(a.status_magnitude > 0.0 or a.status_magnitude_caster_max_hp_percent > 0.0,
 			"%s grants SHIELDING with no health pool, so nothing can ever break that shield" % id)
 	assert_true(checked > 0, "no action grants SHIELDING at all, so this guard measures nothing")
 
@@ -407,3 +407,133 @@ func test_the_raised_shield_has_a_word_no_other_cause_uses() -> void:
 			continue
 		assert_ne(LogScript.mitigation_cause_text(cause), word,
 			"%s shares its word with the raised shield" % CG.MitigationCause.keys()[cause])
+
+# ---------------------------------------------------------------------------
+# issue 831: the pool is a share of caster health, and the cooldown waits
+# ---------------------------------------------------------------------------
+
+## A 200 hp Warrior raises a 50-point shield; a 100 hp one raises 25. The number
+## is the CASTER's, not the covered ally's.
+func test_the_pool_is_a_quarter_of_the_casters_own_max_health() -> void:
+	for hp in [200, 100]:
+		var block := _block()
+		var deps := _deps([block], 0.0)
+		var state := CombatState.new(831)
+		var warrior := _unit(0, CG.Team.PLAYER, hp, Vector2.ZERO)
+		warrior.actions = [block.id]
+		var ally := _unit(1, CG.Team.PLAYER, 999, Vector2(60, 0))
+		var foe := _unit(2, CG.Team.ENEMY, 100, Vector2(0, -300))
+		state.units.append(warrior)
+		state.units.append(ally)
+		state.units.append(foe)
+		warrior.intent = Intent.use_action(block.id, ally.id)
+		for i in 20:
+			CombatSim.step(state, deps)
+		assert_almost_eq(float(warrior.status_magnitude.get(CG.Status.SHIELDING, 0.0)),
+			float(hp) * 0.25, 0.001,
+			"a %d hp Warrior should raise a %.1f pool, not the ally's 999" % [hp, float(hp) * 0.25])
+
+## The refill loop the issue is about. While the shield is up the action is not
+## available at all, so nothing can top the pool back up.
+func test_the_block_cannot_be_raised_again_while_it_is_still_up() -> void:
+	var block := _block()
+	var deps := _deps([block], 0.0)
+	var state := CombatState.new(832)
+	var warrior := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO)
+	warrior.actions = [block.id]
+	var ally := _unit(1, CG.Team.PLAYER, 200, Vector2(60, 0))
+	var foe := _unit(2, CG.Team.ENEMY, 100, Vector2(0, -300))
+	state.units.append(warrior)
+	state.units.append(ally)
+	state.units.append(foe)
+	warrior.intent = Intent.use_action(block.id, ally.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+
+	var ready := int(warrior.cooldowns.get(block.id, -1))
+	assert_true(ready > state.tick + block.cooldown_ticks,
+		"the cooldown should be held past a plain %d ticks while the shield is up, reads %d at tick %d"
+			% [block.cooldown_ticks, ready, state.tick])
+	## Spend half the pool, then try again: still refused, and the pool is
+	## untouched rather than refilled.
+	warrior.status_magnitude[CG.Status.SHIELDING] = 10.0
+	warrior.intent = Intent.use_action(block.id, ally.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+	assert_almost_eq(float(warrior.status_magnitude.get(CG.Status.SHIELDING, 0.0)), 10.0, 0.001,
+		"a half-spent block was refilled, which is exactly the loop #831 closes")
+
+## And it starts when the shield breaks. `_absorb_on_shield` empties the pool,
+## so the caster is ready `cooldown_ticks` after that tick and not before.
+func test_the_cooldown_starts_when_the_shield_breaks() -> void:
+	var block := _block()
+	var shot := _shot()
+	var deps := _deps([block, shot], 200.0)
+	var state := CombatState.new(833)
+	var warrior := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO)
+	warrior.actions = [block.id]
+	var ally := _unit(1, CG.Team.PLAYER, 200, Vector2(60, 0))
+	var shooter := _unit(2, CG.Team.ENEMY, 100, Vector2(0, -300))
+	shooter.actions = [shot.id]
+	state.units.append(warrior)
+	state.units.append(ally)
+	state.units.append(shooter)
+	warrior.intent = Intent.use_action(block.id, ally.id)
+	for i in 20:
+		CombatSim.step(state, deps)
+	assert_true(warrior.has_status(CG.Status.SHIELDING), "the fixture needs the shield up first")
+
+	## One shot bigger than the whole 50-point pool, aimed at the shielder.
+	shooter.intent = Intent.use_action(shot.id, warrior.id)
+	var broke_at := -1
+	for i in 60:
+		CombatSim.step(state, deps)
+		if broke_at < 0 and not warrior.has_status(CG.Status.SHIELDING):
+			broke_at = state.tick
+	assert_true(broke_at > 0, "the shot never broke the shield, so this measures nothing")
+	assert_eq(int(warrior.cooldowns.get(block.id, -1)), broke_at + block.cooldown_ticks,
+		"the cooldown should run %d ticks from the break at tick %d" % [block.cooldown_ticks, broke_at])
+
+## THE NEGATIVE. An action whose status does not hold its cooldown is unchanged:
+## it is ready exactly `cooldown_ticks` after the cast, as every action was.
+func test_an_ordinary_cooldown_still_starts_on_the_cast() -> void:
+	var plain := ActionDef.new()
+	plain.id = &"probe_buff"
+	plain.wind_up_ticks = 2
+	plain.recover_ticks = 2
+	plain.cooldown_ticks = 30
+	plain.targeting = ActionTargeting.new()
+	plain.targeting.range_units = 9999.0
+	var fx := StatusEffect.new()
+	fx.status = CG.Status.HASTE
+	fx.duration_ticks = 300
+	plain.effects = [fx] as Array[AbilityEffect]
+	assert_false(plain.status_holds_cooldown, "the fixture needs an action that does NOT hold")
+
+	var deps := _deps([plain], 0.0)
+	var state := CombatState.new(834)
+	var warrior := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO)
+	warrior.actions = [plain.id]
+	var foe := _unit(1, CG.Team.ENEMY, 100, Vector2(0, -300))
+	state.units.append(warrior)
+	state.units.append(foe)
+	warrior.intent = Intent.use_action(plain.id, warrior.id)
+	var fired_at := -1
+	for i in 20:
+		CombatSim.step(state, deps)
+		if fired_at < 0 and warrior.cooldowns.has(plain.id):
+			fired_at = state.tick
+	assert_true(fired_at > 0, "the probe action never fired, so this measures nothing")
+	assert_eq(int(warrior.cooldowns.get(plain.id, -1)), fired_at + plain.cooldown_ticks,
+		"an ordinary action's cooldown must still be exactly cooldown_ticks from the cast")
+
+## And warrior_block is the only action in the game that holds one, so the two
+## tests above cover the whole content set rather than one example of it.
+func test_the_block_is_the_only_action_that_holds_its_cooldown() -> void:
+	var holders: Array = []
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
+		if a != null and a.status_holds_cooldown:
+			holders.append(id)
+	assert_eq(holders, [&"warrior_block"],
+		"a second action started holding its cooldown and nothing here says what it should do: %s" % [holders])
