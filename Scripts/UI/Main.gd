@@ -151,8 +151,6 @@ func start_run(config: RunConfig) -> void:
 	)
 
 ## Issue 878: the roster is taken as the party screen closes, not as it opens.
-## Taken at open it went stale the moment a typed seed rerolled the pawns, and
-## Restart handed back a roster the player's plans were not written on.
 func _swap_to(scene_path: String, wire: Callable) -> void:
 	if _current != null:
 		if _current is PartySelect:
