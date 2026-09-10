@@ -139,9 +139,9 @@ static func _before(x: Dictionary, y: Dictionary) -> bool:
 		return bool(x["held"])
 	return int(x["ticks_left"]) < int(y["ticks_left"])
 
-## The cooldowns actually running on this unit right now, anything held first
-## and then soonest ready, capped at MAX_COOLDOWN_CHIPS.
-static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
+## Everything running on this unit right now, anything held first and then
+## soonest ready, before the row's cap is applied to it.
+static func _running_cooldowns(state: CombatState, u: CombatUnit) -> Array:
 	var running: Array = []
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		return running
@@ -172,9 +172,31 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 			"wait_text": wait_text,
 		})
 	running.sort_custom(func(x, y): return _before(x, y))
+	return running
+
+## The cooldowns the row draws chips for: the queue above, capped.
+static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
+	var running := _running_cooldowns(state, u)
 	if running.size() <= MAX_COOLDOWN_CHIPS:
 		return running
 	return running.slice(0, MAX_COOLDOWN_CHIPS)
+
+## Issue 876: the queue minus what the cap kept, so the marker cannot report a
+## number the row did not actually hide.
+static func hidden_cooldowns(state: CombatState, u: CombatUnit) -> Array:
+	return _running_cooldowns(state, u).slice(cooldowns_for(state, u).size())
+
+static func hidden_cooldown_count(state: CombatState, u: CombatUnit) -> int:
+	return hidden_cooldowns(state, u).size()
+
+## What the "+N" says when hovered.
+static func hidden_cooldowns_text(state: CombatState, u: CombatUnit) -> String:
+	var parts: Array[String] = []
+	for entry in hidden_cooldowns(state, u):
+		parts.append("%s (%s)" % [entry["display_name"], entry["chip_text"]])
+	if parts.is_empty():
+		return ""
+	return "The cooldown row has no space for %s." % ", ".join(parts)
 
 ## What the cooldown line says when there are no chips to draw on it. Empty
 ## string means chips are being drawn and this is not used.
@@ -338,6 +360,16 @@ func _build_pawn_row(u: CombatUnit) -> Control:
 		cd_chips.append(chip)
 	row.set_meta("cooldown_chips", cd_chips)
 
+	var cd_overflow := Label.new()
+	cd_overflow.set_script(GlossaryLabel)
+	cd_overflow.add_theme_color_override("font_color", Palette.INK_DIM)
+	cd_overflow.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	cd_overflow.visible = false
+	if not cd_overflow.is_inside_tree():
+		cd_overflow._ready()
+	cd_line.add_child(cd_overflow)
+	row.set_meta("cooldown_overflow", cd_overflow)
+
 	var cd_note := Label.new()
 	cd_note.add_theme_color_override("font_color", Palette.INK_DIM)
 	cd_note.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
@@ -461,6 +493,11 @@ func _update_cooldown_chips(row: Control, state: CombatState, u: CombatUnit) -> 
 		chip.custom_minimum_size = Vector2(chip.measured_width(), IconChip.ICON_SIZE)
 		chip.visible = true
 		chip.queue_redraw()
+	var overflow: Label = row.get_meta("cooldown_overflow")
+	var hidden := hidden_cooldown_count(state, u)
+	overflow.visible = hidden > 0
+	overflow.text = "+%d" % hidden
+	overflow.tooltip_text = hidden_cooldowns_text(state, u)
 	var note: Label = row.get_meta("cooldown_note")
 	var summary := cooldown_summary(state, u)
 	note.visible = summary != ""

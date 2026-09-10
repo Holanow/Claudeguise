@@ -188,6 +188,76 @@ func test_the_soonest_cooldown_is_first_and_the_list_is_capped() -> void:
 	assert_eq(running[0]["action_id"], gated[gated.size() - 1],
 		"the two shown must be the two soonest, not the first two in the action list")
 
+## Issue 876: the cap used to drop the third cooldown with nothing to show for
+## it, so a player could not tell two running from five running.
+func test_a_dropped_cooldown_is_counted_and_named() -> void:
+	var state := CombatState.new(1)
+	var priest := _real_unit(&"priest", 0)
+	state.units.append(priest)
+	state.tick = 0
+	var gated := _gated_actions(priest)
+	assert_true(gated.size() >= 3, "got %d gated actions, this test needs three" % gated.size())
+	for i in gated.size():
+		priest.cooldowns[gated[i]] = 900 - i * 100
+
+	assert_eq(TeamStatusView.cooldowns_for(state, priest).size(), TeamStatusView.MAX_COOLDOWN_CHIPS)
+	assert_eq(TeamStatusView.hidden_cooldown_count(state, priest), gated.size() - TeamStatusView.MAX_COOLDOWN_CHIPS)
+	var dropped = ActionLibrary.get_action(gated[0])
+	assert_true(TeamStatusView.hidden_cooldowns_text(state, priest).findn(dropped.display_name) >= 0,
+		"the longest wait is the one the cap drops, so the marker has to name it: %s" % [
+			TeamStatusView.hidden_cooldowns_text(state, priest)])
+
+## The negative half. A row showing everything it has must say nothing extra,
+## or the marker becomes furniture the player learns to ignore.
+func test_nothing_is_marked_when_every_cooldown_fits() -> void:
+	var state := CombatState.new(1)
+	var priest := _real_unit(&"priest", 0)
+	state.units.append(priest)
+	state.tick = 0
+	var gated := _gated_actions(priest)
+	for i in TeamStatusView.MAX_COOLDOWN_CHIPS:
+		priest.cooldowns[gated[i]] = 900 - i * 100
+	assert_eq(TeamStatusView.cooldowns_for(state, priest).size(), TeamStatusView.MAX_COOLDOWN_CHIPS)
+	assert_eq(TeamStatusView.hidden_cooldown_count(state, priest), 0)
+	assert_eq(TeamStatusView.hidden_cooldowns_text(state, priest), "")
+
+## Issue 442's rule reaches the marker too: a resolved fight has no next move,
+## so a row drawing no chips must not claim it is hiding three.
+func test_a_resolved_fight_hides_nothing_because_it_shows_nothing() -> void:
+	var state := CombatState.new(1)
+	var priest := _real_unit(&"priest", 0)
+	state.units.append(priest)
+	state.tick = 0
+	for action_id in _gated_actions(priest):
+		priest.cooldowns[action_id] = 900
+	state.outcome = CombatState.Outcome.PLAYER_WIN
+	assert_eq(TeamStatusView.cooldowns_for(state, priest).size(), 0)
+	assert_eq(TeamStatusView.hidden_cooldown_count(state, priest), 0)
+
+## The property the marker exists to keep: shown plus hidden is everything that
+## is running, so the count cannot drift away from the cap that produced it.
+func test_shown_plus_hidden_is_every_running_cooldown() -> void:
+	var state := CombatState.new(1)
+	var priest := _real_unit(&"priest", 0)
+	state.units.append(priest)
+	state.tick = 0
+	var gated := _gated_actions(priest)
+	for running in range(1, gated.size() + 1):
+		priest.cooldowns.clear()
+		for i in running:
+			priest.cooldowns[gated[i]] = 900 - i * 100
+		assert_eq(TeamStatusView.cooldowns_for(state, priest).size()
+			+ TeamStatusView.hidden_cooldown_count(state, priest), running,
+			"%d cooldowns running, and the row accounts for a different number" % running)
+
+func _gated_actions(u: CombatUnit) -> Array:
+	var out: Array = []
+	for action_id in u.actions:
+		var a = ActionLibrary.get_action(action_id)
+		if a != null and a.cooldown_ticks > 0:
+			out.append(action_id)
+	return out
+
 func _first_action_with_a_cooldown(u: CombatUnit) -> StringName:
 	for action_id in u.actions:
 		var a = ActionLibrary.get_action(action_id)
