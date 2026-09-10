@@ -61,7 +61,7 @@ func test_change_party_keeps_the_room_that_was_chosen() -> void:
 	main.start_battle(screen.current_config())
 	main.show_party_select()
 	assert_eq(main._current.selected_room(), other,
-		"switching rooms means going through Change party, and it reset to room 1")
+		"switching rooms means going back to the party screen, and it reset to room 1")
 
 ## The control. This one already worked, and it is the pattern the three above
 ## now copy: if it ever fails, the harness is wrong rather than the fix.

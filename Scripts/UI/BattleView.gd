@@ -246,8 +246,8 @@ func _build_setup_controls() -> void:
 const _SETUP_ROW_BOTTOM := Palette.SPACE_M * 2.0 + _INFO_ROW_HEIGHT
 
 ## Issue 825. Escape opens this and Escape closes it; the fight is genuinely
-## held while it is up, and the four header labels move into it because a seed
-## nobody can read makes "Restart (same seed)" a promise about nothing.
+## held while it is up, and the four header labels move into it because since
+## issue 840 this caption is the only place the fight's seed can be read.
 func _build_pause_menu() -> void:
 	var hud := get_node("Hud")
 
@@ -275,7 +275,6 @@ func _build_pause_menu() -> void:
 	_pause_menu.plans_pressed.connect(_open_plans_from_menu)
 	_pause_menu.restart_pressed.connect(func(): restart_requested.emit())
 	_pause_menu.settings_pressed.connect(_on_view_options_pressed)
-	_pause_menu.change_party_pressed.connect(func(): back_requested.emit())
 
 	_display_options = Control.new()
 	_display_options.set_script(DisplayOptionsPanelScript)
@@ -293,8 +292,8 @@ func _toggle_pause_menu() -> void:
 	if _pause_menu == null or setup:
 		return
 	## The end card owns the screen once a room resolves and carries its own
-	## Restart, Change party and Plans, so a second menu over it would be two
-	## answers to the same question.
+	## Restart and Plans, so a second menu over it would be two answers to the
+	## same question.
 	if _end_banner != null and _end_banner.visible:
 		return
 	if _pause_menu.visible:
@@ -389,7 +388,7 @@ const _END_TEXT_WIDTH := 440.0
 const _END_TEXT_MIN := 200.0
 
 ## Issue 616: the button row's own height plus the margin above and below it,
-## reserved out of the column's rect so Restart, Change party and Plans sit at
+## reserved out of the column's rect so Restart and Plans sit at
 ## a fixed distance from the bottom of the window rather than after whatever
 ## height the card above them adds up to.
 const _END_BUTTON_ROW_RESERVED := Palette.TOUCH_TARGET_MIN + 2.0 * Palette.SPACE_M
@@ -497,19 +496,15 @@ func _build_end_banner() -> void:
 	buttons.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	_end_banner.add_child(buttons)
 
+	## Issue 840: one button where Restart and Change party stood. It rolls a new
+	## seed and opens the party screen, so changing the party is a step of
+	## restarting rather than a control of its own.
 	var restart_button := Button.new()
-	restart_button.text = "Restart (same seed)"
+	restart_button.text = "Restart"
 	restart_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
 	restart_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
 	restart_button.pressed.connect(func(): restart_requested.emit())
 	buttons.add_child(restart_button)
-
-	var back_button := Button.new()
-	back_button.text = "Change party"
-	back_button.custom_minimum_size = Vector2(0.0, Palette.TOUCH_TARGET_MIN)
-	back_button.add_theme_font_size_override("font_size", Palette.FONT_SIZE_BODY)
-	back_button.pressed.connect(func(): back_requested.emit())
-	buttons.add_child(back_button)
 
 	var inspect_button := Button.new()
 	inspect_button.text = "Plans & Equipment"
