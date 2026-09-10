@@ -241,6 +241,11 @@ static func status_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 static func cooldown_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 	var out: Array[String] = []
 	for entry in TeamStatusView.cooldowns_for(state, u):
+		## Issue 851: a held cooldown's booked tick is a placeholder no fight
+		## reaches, so the card says what the chip says rather than counting it.
+		if bool(entry["held"]):
+			out.append(String(entry["wait_text"]))
+			continue
 		out.append("%s: %s until it can fire again." % [
 			action_name(entry["action_id"]), _seconds(int(entry["ticks_left"]))])
 	return out
