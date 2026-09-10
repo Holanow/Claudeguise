@@ -131,8 +131,16 @@ static func held_text(a: ActionDef, display_name: String) -> String:
 		display_name, Glossary.status_name(a.applies_status),
 		seconds_text(a.cooldown_ticks), Glossary.status_name(a.applies_status)]
 
-## The cooldowns actually running on this unit right now, soonest ready first,
-## capped at MAX_COOLDOWN_CHIPS.
+## Issue 857: `ticks_left` orders the answer to "when do I get this back", and a
+## held booking has no answer, so it is pinned ahead of that queue rather than
+## sorted into it by a placeholder that always lands last.
+static func _before(x: Dictionary, y: Dictionary) -> bool:
+	if bool(x["held"]) != bool(y["held"]):
+		return bool(x["held"])
+	return int(x["ticks_left"]) < int(y["ticks_left"])
+
+## The cooldowns actually running on this unit right now, anything held first
+## and then soonest ready, capped at MAX_COOLDOWN_CHIPS.
 static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 	var running: Array = []
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
@@ -163,7 +171,7 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 			"chip_text": HELD_CHIP_TEXT if held else seconds_text(left),
 			"wait_text": wait_text,
 		})
-	running.sort_custom(func(x, y): return int(x["ticks_left"]) < int(y["ticks_left"]))
+	running.sort_custom(func(x, y): return _before(x, y))
 	if running.size() <= MAX_COOLDOWN_CHIPS:
 		return running
 	return running.slice(0, MAX_COOLDOWN_CHIPS)

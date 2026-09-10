@@ -463,3 +463,71 @@ func test_the_drawn_chip_says_held_rather_than_250_seconds() -> void:
 	assert_true(chip.tooltip_text.findn("250.0s") < 0,
 		"the chip drew the booked placeholder: %s" % chip.tooltip_text)
 	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 857: the held chip survives the cap
+# ---------------------------------------------------------------------------
+
+## The defect: a held booking is `duration_ticks + cooldown_ticks` out, so it
+## sorted behind every real countdown and the cap dropped the one entry that
+## does not resolve itself on a clock.
+func test_a_held_cooldown_is_shown_ahead_of_the_countdowns() -> void:
+	var a := _holding_action()
+	assert_not_null(a, "no action in the library holds its cooldown, so this measures nothing")
+	var state := CombatState.new(1)
+	var warrior := _warrior_holding(state, a)
+	var gated: Array = []
+	for action_id in warrior.actions:
+		var other := ActionLibrary.get_action(action_id)
+		if other != null and other.cooldown_ticks > 0 and not other.status_holds_cooldown:
+			gated.append(action_id)
+	assert_true(gated.size() >= TeamStatusView.MAX_COOLDOWN_CHIPS,
+		"a Warrior in plate needs %d ordinary cooldowns plus the hold to fill the cap: got %d" % [
+			TeamStatusView.MAX_COOLDOWN_CHIPS, gated.size()])
+	state.tick = 60
+	warrior.cooldowns[a.id] = state.tick + a.status_duration_ticks + a.cooldown_ticks
+	for i in TeamStatusView.MAX_COOLDOWN_CHIPS:
+		warrior.cooldowns[gated[i]] = state.tick + 30 + i * 30
+
+	var running := TeamStatusView.cooldowns_for(state, warrior)
+	assert_eq(running.size(), TeamStatusView.MAX_COOLDOWN_CHIPS,
+		"the cap has not moved: %d chips, not three" % TeamStatusView.MAX_COOLDOWN_CHIPS)
+	assert_eq(running[0]["action_id"], a.id,
+		"the held entry leads, because it is the one a player cannot learn about by waiting")
+	assert_true(bool(running[0]["held"]))
+	assert_eq(running[1]["action_id"], gated[0],
+		"what the cap drops is the later countdown, which the player sees again in seconds")
+
+## The instrument check: with nothing held, the order is still soonest first, or
+## the rule above reads as "the list is no longer sorted".
+func test_nothing_held_leaves_the_soonest_first_order_alone() -> void:
+	var state := CombatState.new(1)
+	var priest := _real_unit(&"priest", 0)
+	state.units.append(priest)
+	state.tick = 0
+	var gated: Array = []
+	for action_id in priest.actions:
+		var a = ActionLibrary.get_action(action_id)
+		if a != null and a.cooldown_ticks > 0:
+			gated.append(action_id)
+	for i in gated.size():
+		priest.cooldowns[gated[i]] = 900 - i * 100
+
+	var running := TeamStatusView.cooldowns_for(state, priest)
+	assert_eq(running.size(), TeamStatusView.MAX_COOLDOWN_CHIPS)
+	assert_false(bool(running[0]["held"]))
+	assert_true(int(running[0]["ticks_left"]) < int(running[1]["ticks_left"]))
+	assert_eq(running[0]["action_id"], gated[gated.size() - 1])
+
+## Pinning holds ahead of the cap is only safe while one unit cannot hold two:
+## a second holding action would push every countdown off the row. This fires
+## the day one is added, and the fix then is an overflow marker on the line.
+func test_only_one_action_in_the_library_holds_its_cooldown() -> void:
+	var holders: Array = []
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
+		if a != null and a.status_holds_cooldown:
+			holders.append(id)
+	assert_eq(holders.size(), 1,
+		"%d actions hold their cooldown, so a unit can now hide both countdowns behind holds: %s" % [
+			holders.size(), holders])
