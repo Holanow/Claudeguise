@@ -189,8 +189,7 @@ static func hidden_cooldowns(state: CombatState, u: CombatUnit) -> Array:
 static func hidden_cooldown_count(state: CombatState, u: CombatUnit) -> int:
 	return hidden_cooldowns(state, u).size()
 
-## What the "+N" says when hovered; the unit card reads the same capped list, so
-## this tooltip is the only place these are named.
+## What the "+N" says when hovered.
 static func hidden_cooldowns_text(state: CombatState, u: CombatUnit) -> String:
 	var parts: Array[String] = []
 	for entry in hidden_cooldowns(state, u):
