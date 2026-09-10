@@ -79,3 +79,24 @@ func test_the_first_visit_builds_a_roster_of_its_own() -> void:
 	var main := _main()
 	assert_true(main._current.available_pawns().size() > 0,
 		"party select with no roster to restore showed no classes")
+
+## Issue 878. Typing a seed rerolls the roster into new PawnData, and Main took
+## its copy once when the screen opened, so Restart handed back the pawns from
+## before the reroll and matched none of them against the party.
+func test_a_rerolled_roster_survives_the_trip_through_a_fight() -> void:
+	var main := _main()
+	var screen = main._current
+	var before: PawnData = screen.available_pawns()[0]
+	screen.reroll_from_seed("0000BEEF")
+	var pawn: PawnData = screen.available_pawns()[0]
+	assert_true(pawn != before, "the reroll built no new pawns, so this proves nothing")
+	pawn.plans = [_authored_plan()]
+	screen.toggle_pawn(pawn, true)
+	main.start_battle(screen.current_config())
+	main.show_party_select()
+	var again = main._current
+	var back: PawnData = again.available_pawns()[0]
+	assert_true(back == pawn, "the roster from before the reroll came back")
+	assert_eq(back.plans.size(), 1, "the row written on a rerolled pawn was thrown away")
+	assert_eq(back.plans[0].id if not back.plans.is_empty() else &"", &"wren_380_marker")
+	assert_eq(again.selected_pawns().size(), 1, "the party came back empty")

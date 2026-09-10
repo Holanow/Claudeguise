@@ -86,7 +86,6 @@ func show_party_select() -> void:
 			screen.prefill_seed(run_config.seed_text())
 			screen.restore_selection(run_config.party)
 			screen.select_room(run_config.encounter_id)
-		_roster = screen.available_pawns()
 	)
 
 ## Start Fight opens the battle screen itself, held before its first tick with
@@ -151,8 +150,11 @@ func start_run(config: RunConfig) -> void:
 		screen.begin_floor(config, plan)
 	)
 
+## Issue 878: the roster is taken as the party screen closes, not as it opens.
 func _swap_to(scene_path: String, wire: Callable) -> void:
 	if _current != null:
+		if _current is PartySelect:
+			_roster = _current.available_pawns()
 		remove_child(_current)
 		_current.queue_free()
 		_current = null
