@@ -37,7 +37,15 @@ func _init() -> void:
 	var failures := 0
 	for path in ActionLibrary.PATHS:
 		var action: ActionDef = load(path)
-		var problems := _check_action(action)
+		var problems := _check_action(action, 1)
+		## Issue 836: a `StatusEffect.chance` below 1.0 can legitimately lose
+		## its roll on one seed, so a rolled action is asked again on other
+		## seeds before it is called a defect.
+		if not problems.is_empty() and _rolls_a_status(action):
+			for s in range(2, 40):
+				problems = _check_action(action, s)
+				if problems.is_empty():
+					break
 		if problems.is_empty():
 			_say("%-24s OK" % String(action.id))
 		else:
@@ -54,7 +62,17 @@ func _init() -> void:
 ## Builds a caster and a dummy, forces the action once, runs it out, and
 ## returns one string per effect that did not do what it declared. Empty means
 ## every effect the action lists fired.
-func _check_action(action: ActionDef) -> Array[String]:
+func _rolls_a_status(action: ActionDef) -> bool:
+	var lists: Array = [action.effects]
+	for beat in action.beats:
+		lists.append(beat.effects)
+	for effects in lists:
+		for fx in effects:
+			if fx is StatusEffect and fx.chance < 1.0:
+				return true
+	return false
+
+func _check_action(action: ActionDef, seed_value: int) -> Array[String]:
 	var problems: Array[String] = []
 	var is_sustain := action.sustain != null
 	var self_targeted := not is_sustain and action.targeting != null and action.targeting.targets_self
@@ -133,7 +151,7 @@ func _check_action(action: ActionDef) -> Array[String]:
 		pierce_target.team = target.team
 		pierce_target.position = caster.position + (target.position - caster.position) * 0.5
 
-	var state := CombatState.new(1)
+	var state := CombatState.new(seed_value)
 	var units: Array[CombatUnit] = [caster, target]
 	if pierce_target != null:
 		units.append(pierce_target)
