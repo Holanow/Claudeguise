@@ -64,6 +64,14 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e)
 		await _settle(2)
 
+func _escape() -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = KEY_ESCAPE
+		e.pressed = pressed
+		get_viewport().push_input(e)
+	await _settle()
+
 func _check(ok: bool, message: String) -> void:
 	print("RestartFlowShot: %s %s" % ["ok  " if ok else "FAIL", message])
 	if not ok:
@@ -139,15 +147,14 @@ func _run() -> void:
 	var first_seed: String = _main.run_config.seed_text()
 
 	## The Escape menu, mid-fight, because the end card suppresses it.
-	battle._toggle_pause_menu()
-	await _settle()
+	await _escape()
 	_check(battle._pause_menu.visible, "Escape opened the pause menu")
 	print("RestartFlowShot: the Escape menu offers %s" % [battle._pause_menu.button_labels()])
 	_check(not ("Change party" in battle._pause_menu.button_labels()),
 		"no Change party button in the Escape menu")
 	await _shot("wren2_840_escape_menu")
-	battle._toggle_pause_menu()
-	await _settle()
+	await _escape()
+	_check(not battle._pause_menu.visible, "Escape closed it again")
 
 	var first := await _run_to_the_end(battle)
 	if first == "":
@@ -191,8 +198,13 @@ func _run() -> void:
 	if again == null:
 		_check(false, "the second Restart did not reach the party screen")
 		return
-	again._seed_edit.text = first_seed
+	## `prefill_seed`, not `_seed_edit.text = `: it fills the field and adopts
+	## the roster seed without rebuilding, which is issue 538's requirement and
+	## the only way the party from fight 1 survives to be fought again.
+	again.prefill_seed(first_seed)
 	await _settle()
+	_check(again._seed_edit.text == first_seed,
+		"the field shows the typed seed (%s)" % again._seed_edit.text)
 	await _shot("wren2_840_same_seed_typed_back")
 	var retry := await _start_fight()
 	if retry == null:
