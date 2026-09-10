@@ -299,10 +299,10 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 		parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)
 
-## Issue 801: what the party got back on walking into this room. A HEAL with
-## `source_id == -1` is the between-room arrival heal and nothing else (#799),
-## so `tally` above can credit it to no pawn and this screen has to name the
-## arrival itself rather than invent a healer.
+## Issue 801: what the party got back on walking into this room, the #796
+## arrival heal and #802's camp revive both, which are the two HEALs
+## `FloorRun.carry_into` emits with no caster (#799). `tally` above can credit
+## a caster-less heal to no pawn, so this screen names the arrival instead.
 static func arrival_healed(state: CombatState) -> int:
 	var total := 0
 	for e in state.events:

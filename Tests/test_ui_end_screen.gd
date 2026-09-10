@@ -410,8 +410,8 @@ func test_the_card_takes_the_column_it_is_given() -> void:
 # ---------------------------------------------------------------------------
 # Issue 801: the between-room arrival heal has no caster and so no card.
 
-## `source_id == -1` on a HEAL is the arrival heal and nothing else (#799), so
-## the tally cannot credit it to a pawn and the end card has to name it itself.
+## A HEAL with `source_id == -1` had no caster (#799) -- the arrival heal, or
+## #802's revive -- so the tally credits it to no pawn and the card names it.
 ## The rendered line is proved by `Tools/ArrivalEndCardShot.gd` rather than
 ## here: `ledger_lines` cannot be called under this runner at all, because
 ## `run_tests` reloads every script and `DamageLedger.Ledger` then fails
