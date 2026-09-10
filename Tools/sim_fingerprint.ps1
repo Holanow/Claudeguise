@@ -53,6 +53,19 @@ $SOURCE_DIRS = @('Combat', 'Content', 'Core', 'Floor', 'Plans', 'Rooms')
 ## between a fresh clone and an editor tree, which is a defect, not a guard.
 $GENERATED_SIDECARS = @('.uid', '.import')
 
+## The instrument's entry point, named once: it is what gets run AND the first
+## thing hashed, so it cannot fall out of the source set the way a second copy
+## of the path could.
+$INSTRUMENT_ENTRY = 'Tools/SampleFights.gd'
+
+## Issue 837: every `Tools/` file the instrument's output depends on, named here
+## and nowhere else. `Tests/test_tools_sim_fingerprint.gd` reads this list and
+## fails when the instrument reaches a `Tools/` file that is not in it, so the
+## list is enforced rather than remembered -- which is what `Tools/` gets
+## instead of a directory sweep, because 436 tracked files live there and one
+## of them is the instrument.
+$INSTRUMENT_FILES = @($INSTRUMENT_ENTRY)
+
 function Get-SourceHash {
     $files = @()
     foreach ($dir in $SOURCE_DIRS) {
@@ -64,7 +77,9 @@ function Get-SourceHash {
                 Where-Object { $GENERATED_SIDECARS -notcontains $_.Extension }
         }
     }
-    $files += Get-Item (Join-Path $repo 'Tools\SampleFights.gd')
+    foreach ($rel in $INSTRUMENT_FILES) {
+        $files += Get-Item (Join-Path $repo ($rel -replace '/', '\'))
+    }
 
     # Sorted by path, and the path goes into the digest with the bytes, so a
     # rename or a deletion moves it and not only an edit.
@@ -104,7 +119,7 @@ $script:Refusal = ""
 
 function Get-OutputHash {
     $log = Join-Path $env:TEMP ("claudeguise-sim-" + [guid]::NewGuid().ToString('N') + ".txt")
-    cmd /c "`"$godot`" --headless --path `"$repo`" --script res://Tools/SampleFights.gd > `"$log`" 2>&1"
+    cmd /c "`"$godot`" --headless --path `"$repo`" --script res://$INSTRUMENT_ENTRY > `"$log`" 2>&1"
     $captured = if (Test-Path $log) { (Get-Content $log | Measure-Object -Line).Lines } else { 0 }
     $countLine = Select-String -Path $log -Pattern '^lines: ([0-9]+)$' | Select-Object -First 1
     $hashLine = Select-String -Path $log -Pattern '^fingerprint: ([0-9a-f]{64})$' | Select-Object -First 1
@@ -135,7 +150,7 @@ function Get-OutputHash {
 # in flight while recording, and #648 says as much.
 function Test-SourceDirty {
     $paths = $SOURCE_DIRS | ForEach-Object { "Scripts/$_" }
-    $paths += 'Tools/SampleFights.gd'
+    $paths += $INSTRUMENT_FILES
     $status = & git -C $repo status --porcelain -- $paths
     return @($status | Where-Object { $_ -ne '' }).Count -gt 0
 }
