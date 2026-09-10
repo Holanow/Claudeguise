@@ -252,3 +252,42 @@ func test_refresh_leaves_a_sourceless_popout_alone_and_survives_a_freed_host() -
 	assert_eq(orphan.body_text(), "Bleed. 3 stacks.",
 		"a popout whose chip is gone must keep what it last truthfully said")
 	screen.free()
+
+# ---------------------------------------------------------------------------
+# Issue 861: a status that outlasts the fight has no clock to show
+# ---------------------------------------------------------------------------
+
+func _state(tick: int) -> CombatState:
+	var s := CombatState.new()
+	s.tick = tick
+	return s
+
+## The block's booking is `CG.MAX_TICKS`, so every Glossary surface must name
+## the condition instead of counting to a tick no fight reaches.
+func test_a_status_booked_past_the_end_of_the_fight_shows_no_countdown() -> void:
+	var u := _unit("Warrior")
+	u.statuses[CG.Status.SHIELDING] = 6 + CG.MAX_TICKS
+	u.status_magnitude[CG.Status.SHIELDING] = 61.0
+	var popup := Glossary.status_popup_text(u, CG.Status.SHIELDING, 6)
+	assert_false(popup.contains("s left"), "the popup still counts a shield down: %s" % popup)
+	assert_true(popup.contains(Glossary.NO_CLOCK_TEXT), popup)
+	assert_true(popup.contains("61 shield left"), "the number the player watches is gone: %s" % popup)
+	var summary := Glossary.status_summary(_state(6), u)
+	assert_false(summary.contains("s left"), "the hover summary still counts it down: %s" % summary)
+	assert_true(summary.contains(Glossary.NO_CLOCK_TEXT), summary)
+
+## The instrument check: the rule must not degenerate into "no status has a
+## timer". A bleed with 45 ticks on it still counts down on both surfaces.
+func test_an_ordinary_timed_status_still_counts_down() -> void:
+	var u := _unit("Warrior")
+	u.statuses[CG.Status.BLEED] = 60
+	u.status_magnitude[CG.Status.BLEED] = 3.0
+	assert_true(Glossary.status_popup_text(u, CG.Status.BLEED, 15).contains("3.0s left"))
+	assert_true(Glossary.status_summary(_state(15), u).contains("3.0s left"))
+	assert_false(Glossary.status_summary(_state(15), u).contains(Glossary.NO_CLOCK_TEXT))
+
+## The boundary is the fight's own cap, one tick either side of it.
+func test_the_boundary_is_the_fight_cap() -> void:
+	assert_false(Glossary.outlasts_fight(CG.MAX_TICKS - 1), "a status that expires in a fight has a clock")
+	assert_true(Glossary.outlasts_fight(CG.MAX_TICKS), "a status expiring at the cap never runs out")
+	assert_eq(Glossary.status_left_text(CG.MAX_TICKS - 1, CG.MAX_TICKS - 16), "1.0s left")
