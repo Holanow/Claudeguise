@@ -126,10 +126,22 @@ static func draw_cover(canvas: CanvasItem, tex: Texture2D, rect: Rect2) -> void:
 static func clear_cache() -> void:
 	_cache.clear()
 
-## Reads a PNG off disk into a texture, or null when there is no file there. A
-## missing file is the normal case and is silent; a file that exists and cannot
-## be read is a real mistake and says so.
+## True when the game is running from an exported pack, where `project.godot`
+## has become `project.binary` and no source PNG ships at all.
+static func _exported() -> bool:
+	return not FileAccess.file_exists("res://project.godot")
+
+## The art at `path` as a texture, or null when there is none: the imported
+## resource where there is one, because reading the PNG itself works from
+## source and cannot work in an export, and the PNG itself where there is not,
+## because a file dropped in while the game runs has no import yet.
 static func load_png(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path) and not _exported():
+		return null
+	if ResourceLoader.exists(path, "Texture2D"):
+		var res := ResourceLoader.load(path, "Texture2D")
+		if res is Texture2D:
+			return res
 	if not FileAccess.file_exists(path):
 		return null
 	var image := Image.new()

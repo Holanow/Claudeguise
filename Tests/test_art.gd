@@ -941,6 +941,21 @@ func test_ui_art_returns_null_for_a_name_with_no_file() -> void:
 	assert_false(UIArt.has_art(&"status/definitely_not_a_real_status"))
 
 
+## Issue 871. `Image.load` reads the PNG itself, which is not in an export
+## pack at all, so every shipped icon has to arrive through the resource system.
+func test_shipped_art_arrives_through_the_resource_system() -> void:
+	UIArt.clear_cache()
+	var tex := UIArt.texture_for(&"action/priest_smite")
+	assert_not_null(tex, "the shipped action icon is not being found at all")
+	if tex == null:
+		return
+	assert_true(tex is CompressedTexture2D,
+		("Assets/UI/action/priest_smite.png came back as a %s, so it was read as a file " +
+		"rather than loaded as a resource. That is the form that does not survive export.") % tex.get_class())
+	assert_true(ResourceLoader.exists("res://Assets/UI/action/priest_smite.png", "Texture2D"),
+		"the shipped icon has no imported resource, so nothing could load it in an export")
+
+
 func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 	# The item-15 claim, exercised end to end rather than reasoned about.
 	var art_name := StatusIcons.art_name(CG.Status.BLEED)
