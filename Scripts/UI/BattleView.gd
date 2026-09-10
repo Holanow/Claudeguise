@@ -117,6 +117,11 @@ var _end_banner: Control = null
 var _end_outcome_label: Label = null
 var _end_cost_label: Label = null
 var _end_prompt_label: Label = null
+var _end_seed_label: Label = null
+
+## Issue 840: captured as text when the fight begins, never re-read off the
+## config, because `Main.rerun` rolls the new seed into that same object.
+var _fight_seed_text := ""
 var _inspect_panel = null
 
 var _pause_menu: PauseMenu = null
@@ -477,6 +482,14 @@ func _build_end_banner() -> void:
 	_end_prompt_label.custom_minimum_size = Vector2(_END_TEXT_WIDTH, 0.0)
 	_end_prompt_label.visible = false
 	column.add_child(_end_prompt_label)
+
+	## Issue 840: Restart rolls a fresh seed, so this is where a player reads the
+	## fight they just watched in order to type it back into the seed field.
+	_end_seed_label = Label.new()
+	_end_seed_label.add_theme_color_override("font_color", Palette.INK_DIM)
+	_end_seed_label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	_end_seed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_end_seed_label)
 
 	## Issue 552: the roster and the whole log. Inside the banner rather than
 	## beside it, so issue 343's arrangement -- dim as a sibling, banner itself
@@ -944,7 +957,8 @@ func begin_with_encounter(cfg: RunConfig, encounter) -> void:
 		_combat_log.clear_log()
 	_party_label.text = "Party: " + ", ".join(cfg.party.map(func(p): return p.display_name))
 	_encounter_label.text = encounter.display_name if encounter != null and encounter.display_name != "" else String(cfg.encounter_id)
-	_seed_label.text = "Seed " + cfg.seed_text()
+	_fight_seed_text = cfg.seed_text()
+	_seed_label.text = "Seed " + _fight_seed_text
 	_outcome_label.text = ""
 	if _pause_menu != null:
 		_pause_menu.visible = false
@@ -1981,6 +1995,7 @@ func _show_outcome() -> void:
 	var prompt := plans_prompt(state)
 	_end_prompt_label.text = prompt
 	_end_prompt_label.visible = prompt != ""
+	_end_seed_label.text = "Seed " + _fight_seed_text
 	_end_screen.open(state, _combat_log)
 	_sync_room_picker()
 	_end_banner.visible = true

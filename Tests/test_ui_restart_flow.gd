@@ -51,6 +51,39 @@ func test_the_rolled_seed_survives_the_trip_through_the_field() -> void:
 		assert_eq(shown, main.run_config.seed, "the field truncated the rolled seed")
 		main.start_battle(main._current.current_config())
 
+## The end card names the fight that just ended, in the spelling the seed field
+## parses, so a player who wants it again can read it and type it back.
+func test_the_end_card_names_the_seed_of_the_fight_that_just_ended() -> void:
+	var main := _main_in_a_fight()
+	var view = main._current
+	view._show_outcome()
+	assert_eq(view._end_seed_label.text, "Seed 0000002A")
+	assert_eq(RunConfig.parse_seed("0000002A"), main.run_config.seed,
+		"the card shows a seed the field cannot turn back into this fight")
+
+## `Main.rerun` rolls the new seed into the very RunConfig the finished fight
+## was run from, so a card that re-reads that object names a fight nobody has
+## watched. Mutated here between the first tick and the outcome, because that is
+## the window a lazy read would lose.
+func test_the_end_card_names_the_fight_that_ran_not_whatever_the_config_says_now() -> void:
+	var main := _main_in_a_fight()
+	var view = main._current
+	main.run_config.seed = 0x0BADBEEF
+	view._show_outcome()
+	assert_eq(view._end_seed_label.text, "Seed 0000002A",
+		"the card read the seed back off a config that had already been re-rolled")
+
+## And end to end: the seed on the card is still the watched one after Restart.
+func test_restart_does_not_relabel_the_card_it_was_pressed_on() -> void:
+	var main := _main_in_a_fight()
+	var view = main._current
+	view._show_outcome()
+	var watched: String = view._end_seed_label.text
+	main.rerun()
+	assert_eq(view._end_seed_label.text, watched,
+		"the end card relabelled itself with the seed of a fight nobody has watched")
+	assert_ne(main.run_config.seed_text(), "0000002A", "rerun did not roll at all")
+
 func test_neither_the_end_card_nor_the_escape_menu_offers_change_party() -> void:
 	var main := _main_in_a_fight()
 	var view = main._current
