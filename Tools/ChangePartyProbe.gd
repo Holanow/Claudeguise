@@ -81,6 +81,17 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e)
 		await _settle(2)
 
+## Issue 520: a ScrollContainer clips input as well as pixels, so a control
+## below the fold gets no event and reads as inert.
+func _scrolls(c: Control) -> Array[ScrollContainer]:
+	var out: Array[ScrollContainer] = []
+	var n: Node = c.get_parent()
+	while n != null:
+		if n is ScrollContainer:
+			out.append(n)
+		n = n.get_parent()
+	return out
+
 func _click_control(c: Control, what: String) -> bool:
 	var rect := c.get_global_rect()
 	var at := rect.get_center()
@@ -89,7 +100,24 @@ func _click_control(c: Control, what: String) -> bool:
 		print("ChangePartyProbe: %s is at %s, outside %s -- not clicking" % [what, rect, window.size])
 		_failures += 1
 		return false
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("ChangePartyProbe: %s is below the fold of %s (%s vs %s), scrolling to it" % [
+			what, scroll.name, rect, scroll.get_global_rect()])
+		scroll.ensure_control_visible(c)
+		await _settle(2)
+		rect = c.get_global_rect()
+		at = rect.get_center()
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("ChangePartyProbe: %s sits at %s, clipped by %s at %s, and will not scroll into view -- not clicking" % [
+			what, rect, scroll.name, scroll.get_global_rect()])
+		_failures += 1
+		return false
 	await _click(at)
+	print("ChangePartyProbe: clicked %s at %s" % [what, at])
 	return true
 
 func _check(ok: bool, message: String) -> bool:
