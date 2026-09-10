@@ -189,7 +189,7 @@ static func status_name(s: CG.Status) -> String:
 const HOVER_CLICK_HINT := "Click it for everything the game knows about it."
 
 ## One unit, in the four lines that answer "what is it doing and why". The
-## status list is names and timers only -- what each one MEANS is one badge
+## status list is names and durations only -- what each one MEANS is one badge
 ## hover away, and repeating it here would make the box taller than the fight.
 static func unit_hover_text(state: CombatState, u: CombatUnit) -> String:
 	var lines: Array[String] = [UnitCard.side_text(u), UnitCard.resource_line(u),
@@ -201,7 +201,7 @@ static func unit_hover_text(state: CombatState, u: CombatUnit) -> String:
 	lines.append(HOVER_CLICK_HINT)
 	return "\n".join(lines)
 
-## Every status on the unit as name and countdown, in the badge row's own order.
+## Every status on the unit as name and duration, in the badge row's own order.
 static func status_summary(state: CombatState, u: CombatUnit) -> String:
 	var parts := _status_parts(state, u, UnitView.ordered_statuses(u))
 	if parts.is_empty():
