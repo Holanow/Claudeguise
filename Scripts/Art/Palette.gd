@@ -27,6 +27,11 @@ const RESOURCE_ENERGY := Color("e0d24b")
 
 const FOCUS_LINE := Color("ffffff40")
 
+## Issue 855: blood's own colour, dark and desaturated so a stain recedes
+## rather than competing with `TEAM_ENEMY`, which is the same hue family two
+## thirds brighter.
+const ARENA_BLOOD := Color("7a1f2b")
+
 ## ---------------------------------------------------------------------------
 ## THE LEDGER. Issue 807.
 ##

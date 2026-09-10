@@ -60,6 +60,22 @@ func test_both_fluids_run_the_same_shader_with_different_parameters() -> void:
 	assert_ne(water.get_shader_parameter(&"tint"), blood.get_shader_parameter(&"tint"))
 	assert_ne(water.get_shader_parameter(&"speed"), blood.get_shader_parameter(&"speed"))
 
+## Issue 855: the player ruled blood can be red, so it carries its own palette
+## entry rather than the physical-damage token #759 gave it.
+func test_blood_is_tinted_from_the_palette_not_the_physical_damage_token() -> void:
+	var arena := in_tree(BattleScene.instantiate()).get_node("Arena")
+	var blood: ShaderMaterial = arena._blood_layer.material
+	assert_eq(blood.get_shader_parameter(&"tint"), Palette.ARENA_BLOOD)
+	assert_ne(blood.get_shader_parameter(&"tint"),
+		Palette.damage_color(CG.DamageType.PHYSICAL))
+
+## `HP_LOW` is byte-identical to `TEAM_ENEMY` and that aliasing has caused three
+## defects; a pool under every pawn is the fourth place it could happen.
+func test_blood_cannot_be_mistaken_for_the_enemy_team_colour() -> void:
+	assert_ne(Palette.ARENA_BLOOD, Palette.TEAM_ENEMY)
+	assert_true(Palette.ARENA_BLOOD.v < Palette.TEAM_ENEMY.v - 0.3,
+		"a stain that matches the enemy team colour in value competes with it")
+
 ## Both pools sit above the ground and below everything the arena draws on
 ## itself, and `z_index` is what holds that -- `BattleView._rebuild_units` frees
 ## every child of the arena, so tree order is not ours to depend on.
