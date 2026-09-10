@@ -42,7 +42,7 @@ func _run() -> void:
 	await _phase_full_fight()
 
 	_log("")
-	_log("=== PHASE 3: in-fight controls (pause, restart, resize, change party) ===")
+	_log("=== PHASE 3: in-fight controls (pause, restart, resize) ===")
 	await _phase_battle_controls()
 
 	_log("")
@@ -302,9 +302,20 @@ func _phase_battle_controls() -> void:
 	get_window().size = Vector2i(1280, 720)
 	await _settle()
 
-	_log("pressing Restart (same seed)")
+	## Issue 840: Restart rolls a new seed and lands on the party screen, so the
+	## fight it restarts into is two presses away rather than one.
+	_log("pressing Restart")
 	_press_named("restart")
 	await _settle()
+	_log("screen after Restart: %s (want PartySelect)" % _current_screen_name())
+	_press_named("start fight")
+	await _settle()
+	_press_named("start fight")
+	await _settle()
+	if _current_screen_name() != "Battle":
+		_log("Restart did not lead back to a fight; skipping the rest of phase 3")
+		_failed = true
+		return
 	battle = _main.get_child(0)
 	_log("after restart: tick=%d outcome=%s (want tick near 0, outcome UNRESOLVED)" % [
 		battle.state.tick, CombatState.Outcome.keys()[battle.state.outcome]
@@ -324,10 +335,9 @@ func _phase_battle_controls() -> void:
 	_log("30 frames after pausing, tick moved from %d to %d (want: unchanged)" % [tick_at_pause, battle.state.tick])
 	_press_named("resume")
 
-	_log("pressing Change party")
-	_press_named("change")
-	await _settle()
-	_log("screen after Change party: %s (want PartySelect)" % _current_screen_name())
+	## Issue 840 folded Change party into Restart, so the way back to the party
+	## screen is the Escape menu's Restart and it is checked above.
+	_log("phase 3 done; the way back to the party screen is Restart, checked above")
 
 # ---------------------------------------------------------------------------
 # Phase 4 -- same seed, three+ parties, outcomes and survivors.

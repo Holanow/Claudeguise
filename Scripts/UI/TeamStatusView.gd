@@ -115,6 +115,22 @@ static func has_cooldown_actions(u: CombatUnit) -> bool:
 			return true
 	return false
 
+## Issue 851: what a held cooldown says instead of a countdown.
+const HELD_CHIP_TEXT := "Held"
+
+## Issue 851: whether this booking is the hold rather than the wait, which is
+## `CombatSim._release_held_cooldown`'s own test -- a booking further out than a
+## whole fresh cooldown can only be a held one.
+static func is_held(a: ActionDef, ticks_left: int) -> bool:
+	return a.status_holds_cooldown and ticks_left > a.cooldown_ticks
+
+## The condition, named from the action's own status rather than from
+## `warrior_block`, so the next ability that holds its cooldown describes itself.
+static func held_text(a: ActionDef, display_name: String) -> String:
+	return "%s is held while %s is up. Its %s cooldown starts when %s ends." % [
+		display_name, Glossary.status_name(a.applies_status),
+		seconds_text(a.cooldown_ticks), Glossary.status_name(a.applies_status)]
+
 ## The cooldowns actually running on this unit right now, soonest ready first,
 ## capped at MAX_COOLDOWN_CHIPS.
 static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
@@ -130,13 +146,22 @@ static func cooldowns_for(state: CombatState, u: CombatUnit) -> Array:
 		var left: int = int(u.cooldowns[action_id]) - state.tick
 		if left <= 0:
 			continue
+		var held := is_held(a, left)
+		var display_name: String = a.display_name if a.display_name != "" else String(action_id).capitalize()
+		var wait_text := "%s is on cooldown for another %s of %s." % [
+			display_name, seconds_text(left), seconds_text(a.cooldown_ticks)]
+		if held:
+			wait_text = held_text(a, display_name)
 		running.append({
 			"action_id": action_id,
 			"ticks_left": left,
-			"fraction": clampf(float(left) / float(a.cooldown_ticks), 0.0, 1.0),
+			"held": held,
+			"fraction": 1.0 if held else clampf(float(left) / float(a.cooldown_ticks), 0.0, 1.0),
 			"damage_type": a.damage_type,
-			"display_name": a.display_name if a.display_name != "" else String(action_id).capitalize(),
+			"display_name": display_name,
 			"cooldown_ticks": a.cooldown_ticks,
+			"chip_text": HELD_CHIP_TEXT if held else seconds_text(left),
+			"wait_text": wait_text,
 		})
 	running.sort_custom(func(x, y): return int(x["ticks_left"]) < int(y["ticks_left"]))
 	if running.size() <= MAX_COOLDOWN_CHIPS:
@@ -422,13 +447,9 @@ func _update_cooldown_chips(row: Control, state: CombatState, u: CombatUnit) -> 
 		chip.action_id = entry["action_id"]
 		chip.damage_type = entry["damage_type"]
 		chip.sweep = entry["fraction"]
-		chip.text = seconds_text(int(entry["ticks_left"]))
+		chip.text = entry["chip_text"]
 		chip.pin_title = entry["display_name"]
-		chip.tooltip_text = "%s is on cooldown for another %s of %s." % [
-			entry["display_name"],
-			seconds_text(int(entry["ticks_left"])),
-			seconds_text(int(entry["cooldown_ticks"])),
-		]
+		chip.tooltip_text = entry["wait_text"]
 		chip.custom_minimum_size = Vector2(chip.measured_width(), IconChip.ICON_SIZE)
 		chip.visible = true
 		chip.queue_redraw()

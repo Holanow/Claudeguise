@@ -495,3 +495,58 @@ func test_the_click_hint_is_hidden_while_the_plans_screen_is_open() -> void:
 	view._inspect_panel.close()
 	assert_true(view._click_hint.visible, "and it comes back once the screen is shut")
 	view.free()
+
+## ---------------------------------------------------------------------------
+## Issue 851: the card and the chip say one thing about a held cooldown
+
+func _holding_action() -> ActionDef:
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
+		if a != null and a.status_holds_cooldown:
+			return a
+	return null
+
+func _pawn_holding(state: CombatState, a: ActionDef) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = 0
+	u.team = CG.Team.PLAYER
+	u.display_name = "Warrior"
+	u.pawn = PawnData.new()
+	u.hp_max = 100
+	u.hp = 100
+	u.actions = [a.id] as Array[StringName]
+	state.units.append(u)
+	state.tick = 60
+	u.cooldowns[a.id] = state.tick + a.status_duration_ticks + a.cooldown_ticks
+	return u
+
+## The property is the two surfaces agreeing, not the words: the card printed
+## the booked placeholder as "250.0s until it can fire again" while the chip
+## beside it already said the ability was held.
+func test_the_card_says_what_the_chip_says_about_a_held_cooldown() -> void:
+	var a := _holding_action()
+	assert_not_null(a, "no action in the library holds its cooldown, so this measures nothing")
+	var state := CombatState.new(1)
+	var u := _pawn_holding(state, a)
+
+	var entry: Dictionary = TeamStatusView.cooldowns_for(state, u)[0]
+	assert_true(bool(entry["held"]), "sanity: this fixture is the held case")
+	var lines := UnitCard.cooldown_lines(state, u)
+	assert_eq(lines.size(), 1)
+	assert_eq(lines[0], String(entry["wait_text"]),
+		"the click card and the chip's hover must not describe one cooldown two ways")
+	assert_true(lines[0].findn(TeamStatusView.seconds_text(int(entry["ticks_left"]))) < 0,
+		"the card still printed the booked placeholder: %s" % lines[0])
+
+## The instrument check: a cooldown that is really running still counts down on
+## the card, or the rule above is "the card never says seconds".
+func test_a_running_cooldown_still_counts_down_on_the_card() -> void:
+	var a := _holding_action()
+	var state := CombatState.new(1)
+	var u := _pawn_holding(state, a)
+	u.cooldowns[a.id] = state.tick + a.cooldown_ticks
+
+	var lines := UnitCard.cooldown_lines(state, u)
+	assert_eq(lines.size(), 1)
+	assert_true(lines[0].findn(TeamStatusView.seconds_text(a.cooldown_ticks)) >= 0,
+		"the shield is gone and the ten seconds are real: %s" % lines[0])

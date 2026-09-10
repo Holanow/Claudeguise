@@ -368,3 +368,98 @@ func test_the_reserved_height_matches_the_worst_case_the_nodes_actually_measure(
 	assert_true(TeamStatusView.MAX_PANEL_HEIGHT - worst <= TeamStatusView.ROW_SEPARATION + 24.0,
 		"the reservation is %.0f and the worst case is %.0f -- the log has been pushed down past anything the panel uses" % [TeamStatusView.MAX_PANEL_HEIGHT, worst])
 	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 851: a held cooldown is not a wait anybody serves
+# ---------------------------------------------------------------------------
+
+## The holding action, found from the library rather than named, because the
+## rule is about `holds_cooldown` and not about the Warrior's shield.
+func _holding_action() -> ActionDef:
+	for id in ActionLibrary.all_ids():
+		var a := ActionLibrary.get_action(id)
+		if a != null and a.status_holds_cooldown:
+			return a
+	return null
+
+## `warrior_block` comes from armour rather than from the class, so the action is
+## appended the way equipment grants it.
+func _warrior_holding(state: CombatState, a: ActionDef) -> CombatUnit:
+	var warrior := _real_unit(&"warrior", 0)
+	warrior.actions.append(a.id)
+	state.units.append(warrior)
+	return warrior
+
+## The defect: the cast books `duration_ticks + cooldown_ticks`, and 3600 of that
+## is a placeholder meaning "not until this is gone" that no fight reaches.
+func test_a_held_cooldown_does_not_render_a_countdown() -> void:
+	var a := _holding_action()
+	assert_not_null(a, "no action in the library holds its cooldown, so this measures nothing")
+	var state := CombatState.new(1)
+	var warrior := _warrior_holding(state, a)
+	state.tick = 60
+	warrior.cooldowns[a.id] = state.tick + a.status_duration_ticks + a.cooldown_ticks
+
+	var running := TeamStatusView.cooldowns_for(state, warrior)
+	assert_eq(running.size(), 1)
+	assert_true(bool(running[0]["held"]), "a booking past a whole fresh cooldown is the hold")
+	assert_eq(String(running[0]["chip_text"]), TeamStatusView.HELD_CHIP_TEXT)
+	assert_true(String(running[0]["wait_text"]).findn("Shielding") >= 0,
+		"the sentence has to name the condition the ability is waiting on: %s" % running[0]["wait_text"])
+	assert_true(String(running[0]["wait_text"]).findn(TeamStatusView.seconds_text(a.cooldown_ticks)) >= 0,
+		"the real wait is %s and the sentence has to carry it: %s" % [
+			TeamStatusView.seconds_text(a.cooldown_ticks), running[0]["wait_text"]])
+	assert_true(String(running[0]["wait_text"]).findn(
+		TeamStatusView.seconds_text(int(running[0]["ticks_left"]))) < 0,
+		"the booked 250.0s must appear nowhere a player reads")
+
+## The other half, on the tick the shield goes: `_release_held_cooldown` writes
+## exactly `tick + cooldown_ticks`, and from there it is an ordinary countdown.
+func test_the_hold_becomes_an_ordinary_countdown_once_the_status_ends() -> void:
+	var a := _holding_action()
+	var state := CombatState.new(1)
+	var warrior := _warrior_holding(state, a)
+	state.tick = 60
+	warrior.cooldowns[a.id] = state.tick + a.cooldown_ticks
+
+	var running := TeamStatusView.cooldowns_for(state, warrior)
+	assert_eq(running.size(), 1)
+	assert_false(bool(running[0]["held"]), "the shield is gone, so the ten seconds are real and running")
+	assert_eq(int(running[0]["ticks_left"]), a.cooldown_ticks)
+	assert_eq(String(running[0]["chip_text"]), TeamStatusView.seconds_text(a.cooldown_ticks))
+	assert_almost_eq(float(running[0]["fraction"]), 1.0, 0.001)
+
+## The instrument check: an action that does not hold must be unaffected, or the
+## rule above is "no cooldown counts down" rather than "a held one does not".
+func test_an_action_that_does_not_hold_still_counts_down() -> void:
+	var state := CombatState.new(1)
+	var warrior := _real_unit(&"warrior", 0)
+	state.units.append(warrior)
+	var gated := _first_action_with_a_cooldown(warrior)
+	var a = ActionLibrary.get_action(gated)
+	assert_false(a.status_holds_cooldown, "this fixture needs an action that does NOT hold")
+	state.tick = 100
+	warrior.cooldowns[gated] = state.tick + a.cooldown_ticks
+	var running := TeamStatusView.cooldowns_for(state, warrior)
+	assert_eq(String(running[0]["chip_text"]), TeamStatusView.seconds_text(a.cooldown_ticks))
+	assert_false(bool(running[0]["held"]))
+
+## The chip a player actually looks at, through the panel's own sync rather than
+## off the dictionary: the defect was in what got drawn.
+func test_the_drawn_chip_says_held_rather_than_250_seconds() -> void:
+	var a := _holding_action()
+	var state := CombatState.new(1)
+	var warrior := _warrior_holding(state, a)
+	state.tick = 60
+	warrior.cooldowns[a.id] = state.tick + a.status_duration_ticks + a.cooldown_ticks
+
+	var panel := Control.new()
+	panel.set_script(TeamStatusView)
+	panel._ready()
+	panel.sync(state)
+	var chip: Control = panel._row_by_id[warrior.id].get_meta("cooldown_chips")[0]
+	assert_true(chip.visible, "the ability is unavailable, so the row still has to show it")
+	assert_eq(chip.text, TeamStatusView.HELD_CHIP_TEXT)
+	assert_true(chip.tooltip_text.findn("250.0s") < 0,
+		"the chip drew the booked placeholder: %s" % chip.tooltip_text)
+	panel.free()
