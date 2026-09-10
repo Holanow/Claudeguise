@@ -412,10 +412,7 @@ func test_the_card_takes_the_column_it_is_given() -> void:
 
 ## A HEAL with `source_id == -1` had no caster (#799) -- the arrival heal, or
 ## #802's revive -- so the tally credits it to no pawn and the card names it.
-## The rendered line is proved by `Tools/ArrivalEndCardShot.gd` rather than
-## here: `ledger_lines` cannot be called under this runner at all, because
-## `run_tests` reloads every script and `DamageLedger.Ledger` then fails
-## `_top_two`'s own type check.
+## The rendered line is asserted by the #844 section at the end of this file.
 func test_the_arrival_heal_is_totalled_for_the_end_card() -> void:
 	var s := _state()
 	s.units.append(_pawn_unit(0, &"warrior"))
@@ -444,3 +441,60 @@ func test_the_arrival_heal_is_credited_to_no_pawn() -> void:
 	s.events.append(_heal(0, -1, 0, 16))
 	assert_eq(int(EndScreenScript.tally(s)[0]["healed"]), 0,
 		"the arrival heal was credited to a pawn that did not cast it")
+
+
+# ---------------------------------------------------------------------------
+# Issue 844: the end card's whole summary, asserted under the runner at last.
+
+## Fake action ids: `DamageLedger.ability_name` falls back to the id when the
+## library does not know it, so these lines do not move when content does.
+func _hit(tick: int, source: int, target: int, action: StringName, amount: int) -> CombatEvent:
+	var e := _damage(tick, source, target, amount)
+	e.action_id = action
+	e.amount_before_mitigation = amount
+	e.amount_after_mitigation = amount
+	return e
+
+func _fire(tick: int, source: int, action: StringName) -> CombatEvent:
+	var e := CombatEvent.make(CG.EventKind.ACTION_FIRE, tick)
+	e.source_id = source
+	e.action_id = action
+	return e
+
+## Every line at once, because the card shows them together and the order they
+## appear in is the order the player reads them.
+func test_the_end_card_summary_reads_every_line_off_the_ledger() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_hit(1, 0, 1, &"test_jab", 20))
+	s.events.append(_hit(2, 0, 1, &"test_jab", 10))
+	s.events.append(_hit(3, 0, 1, &"test_kick", 12))
+	s.events.append(_hit(4, 0, 1, &"test_bite", 5))
+	s.events.append(_fire(5, 0, &"test_guard"))
+	var taken := _hit(6, 1, 0, &"test_claw", 12)
+	taken.amount_before_mitigation = 20
+	taken.mitigation_source_action = &"test_guard"
+	s.events.append(taken)
+	s.events.append(_heal(7, -1, 0, 7))
+
+	assert_eq(EndScreenScript.ledger_lines(s), [
+		"Your armour stopped 40% of the damage aimed at you.",
+		"Dealt most: test_jab (30), test_kick (12).",
+		"Hurt you most: test_claw (12).",
+		"test_guard: 0 dealt, 8 prevented, 1 casts.",
+		"Recovered on arrival: 7.",
+	], "the end card summary is not what the ledger says the fight did")
+
+## The negative half, and the shape of a first room: nothing landed on the
+## party, nothing prevented anything, nobody arrived from anywhere.
+func test_the_end_card_summary_says_nothing_rather_than_inventing_lines() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+
+	assert_eq(EndScreenScript.ledger_lines(s), [
+		"Your armour: no direct hits landed on you.",
+		"Dealt most: nothing.",
+		"Hurt you most: nothing.",
+	], "an empty fight produced a summary it has no numbers for")
