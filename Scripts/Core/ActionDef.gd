@@ -29,7 +29,8 @@ class_name ActionDef
 @export var delivery: ActionDelivery
 
 ## What happens on arrival, in resolution order. An action that does three
-## things lists three of them.
+## things lists three of them. Empty on a beat action, which authors its
+## effects in its beats instead; read `all_effects()` rather than this.
 @export var effects: Array[AbilityEffect] = []
 
 ## A state the caster enters instead of arriving anywhere. Null on all but
@@ -45,46 +46,58 @@ class_name ActionDef
 ## `sellsword_crescent`. Issue 703.
 @export var beats: Array[ActionBeat] = []
 
+## Issue 880: what this action actually does, which for a beat action is its
+## beats' effects rather than `effects` -- `_fire_action` never reads the outer
+## array on that branch, so a beat action authors nothing there.
+func all_effects() -> Array[AbilityEffect]:
+	if beats.is_empty():
+		return effects
+	var out: Array[AbilityEffect] = []
+	for beat in beats:
+		out.append_array(beat.effects)
+	return out
+
 ## The first effect of each kind. Actions carry at most one of any of these, so
-## a linear walk over a list of three is the whole lookup.
+## a linear walk over a list of three is the whole lookup. On a beat action the
+## first is the first beat's, which is a number the fight really uses.
 func hit() -> HitEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is HitEffect:
 			return fx
 	return null
 
 func status_effect() -> StatusEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is StatusEffect:
 			return fx
 	return null
 
 func pull_effect() -> PullEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is PullEffect:
 			return fx
 	return null
 
 func summon_effect() -> SummonEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is SummonEffect:
 			return fx
 	return null
 
 func pool_effect() -> PoolEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is PoolEffect:
 			return fx
 	return null
 
 func restore_effect() -> RestoreEffect:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is RestoreEffect:
 			return fx
 	return null
 
 func has_cleanse() -> bool:
-	for fx in effects:
+	for fx in all_effects():
 		if fx is CleanseEffect:
 			return true
 	return false

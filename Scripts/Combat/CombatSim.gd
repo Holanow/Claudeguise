@@ -1283,7 +1283,7 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 ## `cooldown_ticks`, so an action whose status holds the cooldown is unavailable
 ## for as long as that status could possibly last.
 static func _cooldown_hold_ticks(action: ActionDef) -> int:
-	for fx in action.effects:
+	for fx in action.all_effects():
 		if fx is StatusEffect and fx.holds_cooldown:
 			return fx.duration_ticks
 	return 0

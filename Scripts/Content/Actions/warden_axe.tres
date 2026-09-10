@@ -8,10 +8,6 @@
 [ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="5_axsta"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionBeat.gd" id="6_axbeat"]
 
-[sub_resource type="Resource" id="Resource_xrlv0"]
-script = ExtResource("2_k5vgw")
-power_scale = 2.4
-
 [sub_resource type="Resource" id="Resource_bjmo4"]
 script = ExtResource("4_jmfi3")
 range_units = 55.0
@@ -69,6 +65,5 @@ description = "A three-part melee combo at up to 55 units, with a 0.7-second win
 wind_up_ticks = 20
 recover_ticks = 22
 targeting = SubResource("Resource_bjmo4")
-effects = Array[ExtResource("1_033oi")]([SubResource("Resource_xrlv0")])
 vfx = ExtResource("vfx_warden_axe")
 beats = Array[ExtResource("6_axbeat")]([SubResource("Resource_axbeat1"), SubResource("Resource_axbeat2"), SubResource("Resource_axbeat3")])
