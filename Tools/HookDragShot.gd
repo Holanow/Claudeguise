@@ -5,7 +5,7 @@ extends Node
 ## with the drawn position printed for every frame. A snap is one jump and
 ## repeats either side of it; a drag is a new position on nearly every frame.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 ## A 60Hz display against a 15Hz simulation, the ratio #501 is about.
 const FRAMES_PER_TICK := 4

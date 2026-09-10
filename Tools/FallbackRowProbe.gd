@@ -3,7 +3,7 @@ extends Node
 ## Issue 414: how tall the fallback row actually is in the party screen's
 ## column, measured off the laid-out control rather than counted by eye.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

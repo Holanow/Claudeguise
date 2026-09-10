@@ -7,7 +7,7 @@ extends Node
 ##   run.ps1 -Scene res://Tools/FloorRecord.tscn -FixedFps 60 -WriteMovie <path.avi>
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const FLOOR_SEED := 36
 const PARTY := [&"abomination", &"priest", &"siege_master", &"warrior"]
 

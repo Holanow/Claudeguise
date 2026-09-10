@@ -10,7 +10,7 @@ extends Node
 ##
 ## `CROP`, `ZOOM` and `_changed` are copied from `BurstShot` and must stay
 ## copied. #517's numbers were taken through them.
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES := 8
 const CROP := Vector2i(64, 48)

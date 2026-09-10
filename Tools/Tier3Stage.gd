@@ -9,7 +9,7 @@ extends Node
 ## way `BattleView` wires them. BEFORE is taken before `CombatSim.step` ever
 ## runs, so the subject is provably at rest.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(420, 320)
 const ZOOM := 2
 const RUN_TICKS := 600

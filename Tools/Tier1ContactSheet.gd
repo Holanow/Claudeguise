@@ -10,7 +10,7 @@ extends Node
 ## live class' or enemy's action list (checked `Scripts/Content/Classes` and
 ## `Scripts/Content/Enemies`), so no fight can reach them -- see the PR body.
 
-const OUT := "res://Screenshots/linnet_696_tier1_contact_sheet.png"
+const OUT := "user://probe/linnet_696_tier1_contact_sheet.png"
 const CROP := Vector2i(420, 280)
 const ZOOM := 2
 const SEED := 11
@@ -150,6 +150,6 @@ func _run() -> void:
 	var sheet := Image.create(cell.x * shots.size(), cell.y, false, shots[0].get_format())
 	for i in shots.size():
 		sheet.blit_rect(shots[i], Rect2i(Vector2i.ZERO, cell), Vector2i(i * cell.x, 0))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	sheet.save_png(OUT)
 	print("Tier1ContactSheet: %s (%d shots)" % [OUT, shots.size()])

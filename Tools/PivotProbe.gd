@@ -5,7 +5,7 @@ extends Node
 ## `Screenshots/rook_pivot_probe.png`: the blade must sit in the hand at every
 ## angle, not just at 0.
 
-const OUT := "res://Screenshots/linnet_690_pivot_fixed.png"
+const OUT := "user://probe/linnet_690_pivot_fixed.png"
 const ANGLES_DEG := [0.0, 25.0, 50.0, 75.0]
 const RADIUS := 22.5
 const CELL := Vector2i(180, 180)
@@ -36,6 +36,6 @@ func _run() -> void:
 	var sheet := Image.create(CELL.x * ZOOM * shots.size(), CELL.y * ZOOM, false, shots[0].get_format())
 	for i in shots.size():
 		sheet.blit_rect(shots[i], Rect2i(Vector2i.ZERO, CELL * ZOOM), Vector2i(i * CELL.x * ZOOM, 0))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	sheet.save_png(OUT)
 	print("PivotProbe: %s" % OUT)

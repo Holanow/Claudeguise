@@ -4,7 +4,7 @@ extends Node
 ## the real menus, because the claim being checked is that a *default* game now
 ## shows pools.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const TICKS := [40, 200]
 
 var _main: Node

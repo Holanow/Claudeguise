@@ -8,7 +8,7 @@ extends Node
 ## wall clock -- and a `GPUParticles2D` ages on the engine's own delta, so a
 ## hand-driven strip would photograph the same burst twelve times.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES := 8
 const CROP := Vector2i(64, 48)

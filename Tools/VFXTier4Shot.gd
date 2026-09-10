@@ -6,7 +6,7 @@ extends Node
 ## its wind-up, release and impact -- generalised to run over every action in
 ## `_CONFIGS` in one process instead of one hand-written script per action.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(480, 320)
 const COLS := 4
 const ZOOM := 2

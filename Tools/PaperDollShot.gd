@@ -5,7 +5,7 @@ extends Node
 ## pawn (the held weapon changes when the picker changes), and the screen
 ## scales down to a narrow popout column.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

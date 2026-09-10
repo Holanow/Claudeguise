@@ -11,7 +11,7 @@ extends Node
 ## Then what it costs a WHOLE RENDERED FRAME at 14 and at 100 units, because the
 ## canvas is rebuilt after `_process` returns.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 ## Four ticks, because RECOIL_SECONDS is 0.18 and a strip shorter than the decay

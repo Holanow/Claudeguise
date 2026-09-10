@@ -5,7 +5,7 @@ extends Node
 ## itself -- "Cover the weakest ally", a TARGETING block naming the ally and the
 ## block beneath it -- on the real party screen a player clicks.
 
-const OUT := "res://Screenshots/finch_593_plan_row.png"
+const OUT := "user://probe/finch_593_plan_row.png"
 
 ## The library renders a row as its blocks, so this is the sentence that proves
 ## the ally is CHOSEN rather than picked for the player behind the screen.

@@ -8,7 +8,7 @@ extends Node
 ## because a `GPUParticles2D` ages on the engine's own delta and a hand-driven
 ## strip photographs the same burst twelve times.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES := 6
 ## Wide enough to hold the struck body and its neighbours. #517 used 64x48.

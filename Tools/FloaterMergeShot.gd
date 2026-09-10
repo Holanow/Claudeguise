@@ -9,7 +9,7 @@ const ENC := &"floor1_hazard"
 const PARTY := ["abomination", "geysermancer", "priest", "siege_master"]
 const TICK := 154
 const SHOTS := [
-	{"on": true, "out": "res://Screenshots/issue390_numbers.png"},
+	{"on": true, "out": "user://probe/issue390_numbers.png"},
 ]
 
 var _battle: Node = null

@@ -3,7 +3,7 @@ extends Node
 ## Issue 384: the condition dropdown the player opened in the third blind
 ## playtest, driven through the same control they used.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

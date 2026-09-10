@@ -5,7 +5,7 @@ extends Node
 ## the pause menu open, and placement. Same pattern as `Tools/LedgerScreenshot.gd`.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 ## Enough ticks that the log has overflowed its box and is scrolling, and few
 ## enough that the fight is still a fight.

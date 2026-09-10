@@ -6,7 +6,7 @@ extends Node2D
 ## as Tools/ArtPreview.gd and Tools/AttackFXPreview.gd: "the shapes are fine" is
 ## not a conclusion to reach from reading a coordinate table.
 
-const CAPTURE_PATH := "res://Screenshots/ui_icons_sheet.png"
+const CAPTURE_PATH := "user://probe/ui_icons_sheet.png"
 
 const _MARGIN := 50.0
 
@@ -34,7 +34,7 @@ func _ready() -> void:
 
 func _capture() -> void:
 	var image := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	var err := image.save_png(CAPTURE_PATH)
 	if err != OK:
 		printerr("UIArtPreview: could not save %s (error %d)" % [CAPTURE_PATH, err])
@@ -147,7 +147,7 @@ func _draw_bars_and_borders(top: float) -> void:
 	# boxes: the source PNG came out correct, which ruled the art out and left
 	# the draw, and the draw turned out to be a lifetime bug rather than
 	# geometry.
-	tex.get_image().save_png("res://Screenshots/ui_border_source.png")
+	tex.get_image().save_png("user://probe/ui_border_source.png")
 	UIArt.draw_nine_slice(self, tex, Rect2(_MARGIN + 260.0, by, 220.0, 90.0))
 	UIArt.draw_nine_slice(self, tex, Rect2(_MARGIN + 510.0, by, 90.0, 90.0))
 	UIArt.draw_nine_slice(self, tex, Rect2(_MARGIN + 630.0, by, 400.0, 44.0))

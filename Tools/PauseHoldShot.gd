@@ -6,7 +6,7 @@ extends Node
 ## them. Held means ZERO, not a small number: the ring lives 0.35s and the
 ## plate 2.4s, so without the fix both have moved on under the player's eyes.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const HOLD_SECONDS := 1.2
 
 var _main: Node

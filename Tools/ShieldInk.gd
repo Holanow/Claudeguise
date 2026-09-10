@@ -9,7 +9,7 @@ extends Node
 ## every changed pixel is the plate and only the plate.
 ## OWNER: sable. Not part of the game and not part of the gate.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 
 ## The party is named, never an alphabetical prefix of the roster. Issue 350:

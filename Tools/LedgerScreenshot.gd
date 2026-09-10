@@ -4,7 +4,7 @@ extends Node
 ## ledger summary at the top of its log. Same pattern as `Tools/EndScreenProbe.gd`.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

@@ -6,7 +6,7 @@ extends Node
 ## Equipment tab, and shoots both. Run once per size named in the PR.
 
 const BattleScene := preload("res://Scenes/Battle.tscn")
-const OUT := "res://Screenshots/pipit_741_popout"
+const OUT := "user://probe/pipit_741_popout"
 
 func _make_party() -> Array[PawnData]:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"warrior", "Warrior")
@@ -37,7 +37,7 @@ func _ready() -> void:
 	for i in 4:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	get_viewport().get_texture().get_image().save_png("%s_plans_%s.png" % [OUT, tag])
 	print("wrote plans shot at ", tag)
 

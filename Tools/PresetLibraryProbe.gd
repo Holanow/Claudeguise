@@ -6,16 +6,12 @@ extends Node
 ## the probe found. UnitClickProbe's technique, and it is here for the same
 ## reason: a signal emitted by hand passes for a control nothing can reach.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 ## Issue 520: the gate runs this probe, and the gate runs in the main checkout.
-## Set by `gate.ps1` only; a hand run still refuses, and a gate run writes its
-## captures to `user://` so it never dirties anybody's Screenshots.
+## Set by `gate.ps1` only; a hand run still refuses.
 static func gated() -> bool:
 	return OS.get_environment("CLAUDEGUISE_GATE") != ""
-
-func _out_dir() -> String:
-	return "user://probe" if gated() else OUT_DIR
 
 var _main: Node
 var _tag := ""
@@ -45,7 +41,7 @@ func _settle(n: int = 6) -> void:
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var dir := _out_dir()
+	var dir := OUT_DIR
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	img.save_png("%s/%s_%s.png" % [dir, name, _tag])
 	print("PresetLibraryProbe: %s_%s.png" % [name, _tag])

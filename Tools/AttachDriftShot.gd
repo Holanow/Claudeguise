@@ -10,7 +10,7 @@ extends Node
 ## rather than off the geometry that produced them: a check on the geometry
 ## keeps passing once the geometry stops being what ships (#280).
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 const FRAMES := 8

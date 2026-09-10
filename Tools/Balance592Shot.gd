@@ -7,8 +7,8 @@ extends Node
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const PARTY := ["geysermancer", "priest", "siege_master", "warrior"]
 const SHOTS := [
-	{"enc": &"floor1_rat_king", "seed": 3, "tick": 260, "out": "res://Screenshots/finch_592_ratking.png"},
-	{"enc": &"floor1_hazard", "seed": 3, "tick": 200, "out": "res://Screenshots/finch_592_reach.png"},
+	{"enc": &"floor1_rat_king", "seed": 3, "tick": 260, "out": "user://probe/finch_592_ratking.png"},
+	{"enc": &"floor1_hazard", "seed": 3, "tick": 200, "out": "user://probe/finch_592_reach.png"},
 ]
 
 var _battle: Node = null

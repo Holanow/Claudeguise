@@ -4,8 +4,8 @@ extends Control
 ## The theming half of `UIArt` (issue #115), rendered with art and without it,
 ## side by side, in the node types the real screens are actually built from.
 
-const CAPTURE_BARE := "res://Screenshots/ui_theming_no_file.png"
-const CAPTURE_THEMED := "res://Screenshots/ui_theming_dropped_in.png"
+const CAPTURE_BARE := "user://probe/ui_theming_no_file.png"
+const CAPTURE_THEMED := "user://probe/ui_theming_dropped_in.png"
 
 ## TWO PASSES IN ONE PROCESS, AND THE FIRST VERSION OF THIS TOOL WAS WRONG.
 func _ready() -> void:
@@ -79,7 +79,7 @@ func _background_png(path: String) -> void:
 
 func _capture(path: String) -> void:
 	var image := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	if image.save_png(path) != OK:
 		printerr("ThemePreview: could not save ", path)
 		return

@@ -5,7 +5,7 @@ extends Node
 ## at a real screen position, pushed into the viewport -- rather than calling
 ## the handler underneath.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

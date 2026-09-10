@@ -498,10 +498,25 @@ All of these, in order. Do not skip to the last one.
 4. **The runner actually collected your new test file.** Check the count went up,
    or name your file to the runner directly. A test file outside the runner's
    globs reports nothing and is indistinguishable from a passing one.
-5. **You have looked at the running app.** Take a screenshot and save it in the
-   repo. A green suite proves your logic; it does not prove the screen renders.
+5. **You have looked at the running app.** Take a screenshot and commit **one**
+   of it. A green suite proves your logic; it does not prove the screen renders.
    In the source run a suite passed while the app showed an error banner,
    because the tests never reached that screen.
+
+   **`Screenshots/` is tracked, and it holds exactly one image per issue: the
+   one that shows the result.** The player's ruling, 2026-09-10, issue 854:
+   *"Why don't we track one screenshot per issue that shows the result."* Not a
+   before-and-after pair, not the iterations, not every frame a probe emits.
+   Name it `<you>_<issue>_<what>.png` so the rule can be checked, and copy it in
+   by hand from `user://probe`. `Tools/one_shot_per_issue.ps1` runs in the gate
+   and fails when an issue has two.
+
+   **Everything else stays out of the repository.** Probe and capture tools now
+   write to `user://probe`
+   (`%APPDATA%/Godot/app_userdata/Claudeguise/probe/`), never into
+   `Screenshots/`, so a routine run leaves the working tree clean. Before that,
+   one run of `EndRoomPickProbe` silently overwrote five tracked PNGs another
+   session had committed, and nothing said so.
 
    **Take the screenshot after your last commit, not before.** A screenshot of
    an earlier state is worse than none: it is evidence for something you are no

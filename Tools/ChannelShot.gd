@@ -3,7 +3,7 @@ extends Node
 ## Issue 166: the Channel row on the plan editor, and the same Priest mid-cast
 ## in a real fight.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 var _main: Node

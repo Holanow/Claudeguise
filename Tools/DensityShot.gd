@@ -7,13 +7,13 @@ const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const SHOTS := [
 	{"enc": &"floor1_cover", "seed": 4, "tick": 134,
 		"party": ["warrior", "priest", "geysermancer", "siege_master"],
-		"out": "res://Screenshots/issue421_cover_t134_10units.png"},
+		"out": "user://probe/issue421_cover_t134_10units.png"},
 	{"enc": &"floor1_chokepoint", "seed": 0, "tick": 65,
 		"party": ["warrior", "abomination", "geysermancer", "siege_master"],
-		"out": "res://Screenshots/issue421_chokepoint_t65_9units.png"},
+		"out": "user://probe/issue421_chokepoint_t65_9units.png"},
 	{"enc": &"floor1_warden", "seed": 0, "tick": 76,
 		"party": ["warrior", "abomination", "geysermancer", "siege_master"],
-		"out": "res://Screenshots/issue421_warden_t76_5units.png"},
+		"out": "user://probe/issue421_warden_t76_5units.png"},
 ]
 
 var _battle: Node = null

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name Offscreen
 
+const OUT_DIR := "user://probe"
+
 ## Move a screenshot tool's window off the desktop so a capture run does not
 ## take over the machine somebody is using.
 ##
@@ -9,6 +11,7 @@ class_name Offscreen
 static func hide_window(node: Node) -> bool:
 	if not require_renderer(node):
 		return false
+	ensure_out_dir()
 	var w := node.get_window()
 	if w == null:
 		return true
@@ -35,3 +38,10 @@ static func require_renderer(node: Node) -> bool:
 	if node.get_tree() != null:
 		node.get_tree().quit(4)
 	return false
+
+## Issue 854: captures go to `user://probe`, never into the tracked
+## `Screenshots/`, so a probe run cannot overwrite another session's committed
+## evidence. Created here because every capture tool calls `hide_window` first.
+static func ensure_out_dir() -> String:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
+	return OUT_DIR

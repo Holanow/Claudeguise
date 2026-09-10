@@ -5,7 +5,7 @@ extends Control
 ## a real `CombatLogView` -- staged rather than filmed, because in a live fight
 ## nothing holds still on the tick a room opens.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ROOM_ID := &"floor1_cover"
 
 ## What each pawn walked out of the last room with, as a fraction of its max hp.

@@ -42,7 +42,7 @@ func _process(_delta: float) -> void:
 func _maybe_capture() -> void:
 	if not CAPTURE_AT.has(_frames):
 		return
-	var path := "res://Screenshots/kestrel2_760_fluid_%s_f%d.png" % [label, _frames]
+	var path := "user://probe/kestrel2_760_fluid_%s_f%d.png" % [label, _frames]
 	get_viewport().get_texture().get_image().save_png(path)
 	print("FluidShot: ", path)
 	_saved += 1

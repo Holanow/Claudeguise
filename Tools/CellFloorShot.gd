@@ -6,8 +6,8 @@ extends Node
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const SHOTS := [
-	{"enc": &"floor1_chokepoint", "tick": 60, "out": "res://Screenshots/teal_625_cells_chokepoint.png"},
-	{"enc": &"floor1_cover", "tick": 60, "out": "res://Screenshots/teal_625_cells_cover.png"},
+	{"enc": &"floor1_chokepoint", "tick": 60, "out": "user://probe/teal_625_cells_chokepoint.png"},
+	{"enc": &"floor1_cover", "tick": 60, "out": "user://probe/teal_625_cells_cover.png"},
 ]
 const PARTY := ["warrior", "abomination", "geysermancer", "siege_master"]
 

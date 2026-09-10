@@ -11,7 +11,7 @@ extends Node
 ## `_process` alone answers the wrong question: the canvas is rebuilt after it
 ## returns, and a squash is a canvas rebuild.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 ## Four ticks, because SQUASH_SECONDS is 0.22 and a strip shorter than the decay

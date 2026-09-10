@@ -3,7 +3,7 @@ extends Node
 ## Issue 406: a class's library as the screen draws it, through the real pawn tab
 ## a player clicks. Takes class ids on the command line.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _failures := 0

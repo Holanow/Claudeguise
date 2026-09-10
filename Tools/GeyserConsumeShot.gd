@@ -11,10 +11,10 @@ extends Node
 ##   godot --path . res://Tools/GeyserConsumeShot.tscn -- consume
 ##   godot --path . res://Tools/GeyserConsumeShot.tscn -- no_consume strip
 
-const OUT_CONSUME := "res://Screenshots/curlew_657_geyser_consume.png"
-const OUT_NO_CONSUME := "res://Screenshots/curlew_657_geyser_no_consume.png"
-const STRIP_CONSUME := "res://Screenshots/kestrel_707_geyser_consume_strip.png"
-const STRIP_NO_CONSUME := "res://Screenshots/kestrel_707_geyser_no_consume_strip.png"
+const OUT_CONSUME := "user://probe/curlew_657_geyser_consume.png"
+const OUT_NO_CONSUME := "user://probe/curlew_657_geyser_no_consume.png"
+const STRIP_CONSUME := "user://probe/kestrel_707_geyser_consume_strip.png"
+const STRIP_NO_CONSUME := "user://probe/kestrel_707_geyser_no_consume_strip.png"
 const CROP := Vector2i(200, 160)
 const ZOOM := 3
 const SEED := 7
@@ -101,7 +101,7 @@ func _run(burning: bool, out_path: String) -> void:
 	var origin := (Vector2i(at) - CROP / 2).clamp(Vector2i.ZERO, full.get_size() - CROP)
 	var shot := full.get_region(Rect2i(origin, CROP))
 	shot.resize(CROP.x * ZOOM, CROP.y * ZOOM, Image.INTERPOLATE_NEAREST)
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	shot.save_png(out_path)
 	print("GeyserConsumeShot: %s" % out_path)
 
@@ -131,6 +131,6 @@ func _run_strip(burning: bool, out_path: String) -> void:
 	for i in shots.size():
 		strip.blit_rect(shots[i], Rect2i(Vector2i.ZERO, shots[i].get_size()),
 			Vector2i(shots[0].get_width() * i, 0))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	strip.save_png(out_path)
 	print("GeyserConsumeShot: %s (%d frames at offsets %s)" % [out_path, shots.size(), STRIP_OFFSETS])

@@ -2,7 +2,7 @@ extends Node
 
 ## Issue 330: the re-authored colonnade, at the tick the two lines meet.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const TICKS := 90
 
 func _ready() -> void:

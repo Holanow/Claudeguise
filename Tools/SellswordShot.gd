@@ -3,7 +3,7 @@ extends Node
 ## Issue 650. Frames of one `sellsword_crescent` cast in a real BattleView, tiled into
 ## a strip. The whole point of an authored look is that somebody looks at it.
 
-const OUT := "res://Screenshots/rook_671_sellsword_crescent.png"
+const OUT := "user://probe/rook_671_sellsword_crescent.png"
 const CROP := Vector2i(420, 280)
 const COLS := 4
 const ZOOM := 2
@@ -78,6 +78,6 @@ func _run() -> void:
 	for i in shots.size():
 		sheet.blit_rect(shots[i], Rect2i(Vector2i.ZERO, CROP * ZOOM),
 			Vector2i((i % COLS) * CROP.x * ZOOM, (i / COLS) * CROP.y * ZOOM))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	sheet.save_png(OUT)
 	print("VFXShot: %s" % OUT)

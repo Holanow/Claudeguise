@@ -5,7 +5,7 @@ extends Control
 ## the real emitter and `EndScreen.open` the real screen, but no `BattleView`,
 ## so the end banner cannot fail to appear the way #827 records.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ROOM_ID := &"floor1_cover"
 const SHOT := "linnet2_801_arrival_end_card"
 

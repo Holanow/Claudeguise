@@ -4,7 +4,7 @@ extends Node
 ## `ScreenSweep` takes the first four class cards and the Warrior is the fifth,
 ## so no whole-game screenshot this project has ever taken contains one.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 ## Since #399 a starter pawn has NO plan rows, so a Warrior picked out of the
 ## roster never casts anything and this tool photographed 262 ticks of nothing.

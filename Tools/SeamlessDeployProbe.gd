@@ -7,7 +7,7 @@ extends Node
 ## `emit_signal("pressed")` bypasses hit-testing and has passed over two real
 ## defects this week, so even the buttons are clicked at their screen position.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

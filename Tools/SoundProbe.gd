@@ -9,7 +9,7 @@ extends SceneTree
 ## are distinguishable by ear is not something this can answer.
 
 
-const OUT_DIR := "res://Screenshots/sound_placeholders"
+const OUT_DIR := "user://probe/sound_placeholders"
 const SEEDS := 8
 
 ## Both rooms, because they answer different halves. `floor1_room1` is the

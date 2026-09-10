@@ -6,7 +6,7 @@ extends Node
 ## the layout is real and the fight is not.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 

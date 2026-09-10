@@ -40,7 +40,8 @@ func _init() -> void:
 		var origin := Vector2i(i % COLUMNS, i / COLUMNS) * tile
 		_draw_plan(img, plans[i], origin, tile)
 
-	var out := "res://Screenshots/wren_804_floor_scatter.png"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
+	var out := "user://probe/wren_804_floor_scatter.png"
 	img.save_png(ProjectSettings.globalize_path(out))
 	print("FloorMapShot: seeds %s -> %s (%dx%d)" % [seeds, out, img.get_width(), img.get_height()])
 	quit()

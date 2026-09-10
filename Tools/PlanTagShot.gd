@@ -5,7 +5,7 @@ extends Node
 ## is cropped to it and doubled -- a 1280x720 frame cannot show a dim 12px tag.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const STOP_TICK := 60
 
 var _main: Node

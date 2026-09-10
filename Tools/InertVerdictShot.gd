@@ -5,7 +5,7 @@ extends Node
 ## before this capture. Same fixture shape as `Tools/FallbackRowShot.gd`: a
 ## real starter pawn, real class, `InspectPanel` built directly.
 
-const OUT := "res://Screenshots/sable_723_inert_verdict"
+const OUT := "user://probe/sable_723_inert_verdict"
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
@@ -31,7 +31,7 @@ func _ready() -> void:
 		scroll.scroll_vertical = 0
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	var tag := "%dx%d" % [DisplayServer.window_get_size().x, DisplayServer.window_get_size().y]
 	get_viewport().get_texture().get_image().save_png("%s_%s.png" % [OUT, tag])
 	print("wrote ", "%s_%s.png" % [OUT, tag])

@@ -10,7 +10,7 @@ extends Node
 ## of it rather than one still: `ENGINEER.md` records two features that read
 ## identically in a pair of screenshots and correctly in a strip.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(520, 360)
 const ZOOM := 1
 

@@ -10,7 +10,7 @@ extends Node
 ## cast) have no lifetime to spread across and keep one impact-window strip.
 ## HUD chrome is hidden so nothing sits on top of the struck pawn.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(360, 280)
 const COLS := 5
 const ZOOM := 2

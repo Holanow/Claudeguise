@@ -10,7 +10,7 @@ extends Node
 ## was. `gui_get_hovered_control` is the same question asked of a hover.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

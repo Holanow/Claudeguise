@@ -7,7 +7,7 @@ extends Node
 ## a dummy audio driver -- and neither can the suite, which never runs a fight
 ## through `_process`. This is the instrument that would have caught #514.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 const FRAMES := 1800
