@@ -7,5 +7,6 @@ script = ExtResource("1_3hogr")
 id = &"robes"
 display_name = "Robes"
 slot = 3
-description = "Heavy cloth, well worn."
+description = "Heavy cloth, well worn. Softens every hit that lands."
+damage_reduction = 0.05
 required_tags = Array[int]([6])
