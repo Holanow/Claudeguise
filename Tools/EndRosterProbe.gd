@@ -59,8 +59,10 @@ func _node_with(f: String) -> Node:
 			return n
 	return null
 
-func _button(prefix: String) -> Button:
-	for n in _walk(_main):
+## Issue 850: resolved under a named node when one is given, never by
+## first-match across the whole screen.
+func _button(prefix: String, root: Node = null) -> Button:
+	for n in _walk(root if root != null else _main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
 			return n
 	return null
@@ -78,6 +80,16 @@ func _click(at: Vector2) -> void:
 		e.pressed = pressed
 		e.position = point
 		e.global_position = point
+		get_viewport().push_input(e)
+		await _settle(2)
+
+## A real key. Escape is the only pause control #825 left.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
 		get_viewport().push_input(e)
 		await _settle(2)
 
@@ -280,20 +292,19 @@ func _run() -> void:
 			"the roster ends at %.0f and the team panel starts at %.0f -- they overlap" % [
 				banner.end.x, panel_left])
 
-	## Issue 343 keeps the toolbar visible under the banner, so the card has to
-	## clear its text rather than print over it. Every overlap here is two strings
-	## on the same pixels.
-	var toolbar: Array[Control] = []
+	## The card has to clear whatever else is still drawn rather than print over
+	## it. Every overlap here is two strings on the same pixels.
+	var others: Array[Control] = []
 	for n in _walk(_main):
 		if (n is Label or n is Button) and n.is_visible_in_tree() \
 				and not battle._end_banner.is_ancestor_of(n) and (n as Control).text != "":
-			toolbar.append(n)
+			others.append(n)
 	var collisions: Array[String] = []
 	for card_part in [battle._end_outcome_label, battle._end_cost_label, battle._end_prompt_label]:
 		var part := card_part as Control
 		if part == null or not part.is_visible_in_tree():
 			continue
-		for other in toolbar:
+		for other in others:
 			if part.get_global_rect().intersects(other.get_global_rect()):
 				collisions.append("'%s' %s over '%s' %s" % [
 					(part as Label).text.split("\n")[0], part.get_global_rect(),
@@ -301,7 +312,7 @@ func _run() -> void:
 	_check(collisions.is_empty(), "the end card's own text prints over nothing else: %s" % [collisions])
 	print("EndRosterProbe: end card y %.0f..%.0f over %d visible labels and buttons outside it" % [
 		screen.get_parent().get_global_rect().position.y,
-		screen.get_parent().get_global_rect().end.y, toolbar.size()])
+		screen.get_parent().get_global_rect().end.y, others.size()])
 
 	## "I want to be able to view the whole battle log" is only true if the log
 	## scrolls, and the log is taller than its slab by design. Driven with a real
@@ -335,15 +346,29 @@ func _run() -> void:
 		_check(screen.sort_by() == EndScreenScript.SortBy.DEALT, "and back again")
 		_check(_is_ordered_by(screen, "dealt"), "and ordered by damage dealt again")
 
-	## Issue 343's claim, re-checked because this screen is what would break it:
-	## the toolbar is still alive under the roster.
-	for name in ["Pause", "Restart", "Change party", "Plans"]:
-		var b := _button(name)
+	## Issue 343's claim, re-aimed by #827 at what it always meant: the controls
+	## under the roster still take clicks. Its old subject was the toolbar #825
+	## deleted, and the card's own row is what stands there now.
+	for name in ["Restart", "Plans & Equipment"]:
+		var b := _button(name, battle._end_banner)
 		if b == null:
-			_check(false, "no visible button '%s' after the fight" % name)
+			_check(false, "no visible button '%s' on the end card" % name)
 			continue
 		var reached := _topmost_at(b.get_global_rect().get_center())
 		_check(reached == b, "'%s' still takes its own clicks, not %s" % [
 			name, reached.name if reached != null else "nothing"])
+
+	## Issue 840 rolls a new seed on Restart, so this line is the only record of
+	## the fight the roster above it describes.
+	var seed_label := battle._end_seed_label as Label
+	_check(seed_label != null and seed_label.is_visible_in_tree()
+		and seed_label.text.strip_edges() != "",
+		"the end card names the fight's seed: '%s'" % [
+			seed_label.text if seed_label != null else "<no label>"])
+
+	## Issue 825's rule, asserted rather than assumed: the card owns the screen,
+	## so Escape opens no second menu over it.
+	await _key(KEY_ESCAPE)
+	_check(not battle._pause_menu.visible, "Escape opens no pause menu over the end card")
 
 	_finished = true

@@ -68,9 +68,9 @@ func _walk(node: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
-func _buttons() -> Array[Button]:
+func _buttons(root: Node = null) -> Array[Button]:
 	var out: Array[Button] = []
-	for n in _walk(_main):
+	for n in _walk(root if root != null else _main):
 		if n is Button:
 			out.append(n)
 	return out
@@ -99,6 +99,12 @@ func _selected_count() -> int:
 	var screen := _party_select()
 	return screen.selected_pawns().size() if screen != null else -1
 
+## What Start Fight reads, which is "Pick a party to fight" whenever nothing is
+## selected -- so a restart that lost the party names itself here.
+func _start_button_text() -> String:
+	var screen := _party_select()
+	return screen._start_button.text if screen != null and screen._start_button != null else "<no party screen>"
+
 func _labels() -> Array[Label]:
 	var out: Array[Label] = []
 	for n in _walk(_main):
@@ -119,8 +125,21 @@ func _label_text_containing(fragment: String) -> String:
 			return l.text
 	return "<not found>"
 
-func _press_named(prefix: String) -> bool:
-	for b in _buttons():
+## A real key. Issue 825 deleted the toolbar's Pause button and put pausing on
+## Escape, which also opens the menu carrying Resume.
+func _key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = keycode
+		e.physical_keycode = keycode
+		e.pressed = pressed
+		get_viewport().push_input(e)
+		await _settle(2)
+
+## Issue 850: resolved under a named node when one is given, never by
+## first-match across the whole screen.
+func _press_named(prefix: String, root: Node = null) -> bool:
+	for b in _buttons(root):
 		if b.text.to_lower().begins_with(prefix.to_lower()):
 			if b.disabled:
 				_log("button '%s' is DISABLED, not pressing" % b.text)
@@ -304,10 +323,25 @@ func _phase_battle_controls() -> void:
 
 	## Issue 840: Restart rolls a new seed and lands on the party screen, so the
 	## fight it restarts into is two presses away rather than one.
-	_log("pressing Restart")
-	_press_named("restart")
+	_log("pressing Restart on the end card")
+	_press_named("restart", battle._end_banner)
 	await _settle()
-	_log("screen after Restart: %s (want PartySelect)" % _current_screen_name())
+	_log("screen after Restart: %s (want PartySelect), party %d picked, start button reads '%s'" % [
+		_current_screen_name(), _selected_count(), _start_button_text()])
+	## A defect this probe reproduces rather than works around: `Main._roster` is
+	## read once, when party select is first shown, so a roster the player
+	## rerolled by typing a seed is not the one Restart hands back and the
+	## selection cannot be matched against it.
+	if _selected_count() == 0:
+		_log("DEFECT: Restart came back with nothing selected. This run typed a seed,")
+		_log("  PartySelect.reroll_from_seed built new pawns, and Main._roster still")
+		_log("  holds the pawns from before the reroll, so restore_selection matches none.")
+		_failed = true
+		for c in _party_cards():
+			if BALANCED_PARTY.has(_card_name(c)):
+				c.toggled.emit(true)
+		await _settle()
+		_log("re-picked the balanced four by hand so the rest of phase 3 still runs")
 	_press_named("start fight")
 	await _settle()
 	_press_named("start fight")
@@ -325,15 +359,16 @@ func _phase_battle_controls() -> void:
 	## "0 to 0" proves nothing: an unpaused fight would have shown the same.
 	for i in 60:
 		await get_tree().process_frame
-	_log("pressing Pause at tick %d" % battle.state.tick)
-	_press_named("pause")
-	await _settle()
+	_log("pressing Escape to pause at tick %d" % battle.state.tick)
+	await _key(KEY_ESCAPE)
 	var tick_at_pause: int = battle.state.tick
 	await _shot("play_08_paused")
 	for i in 30:
 		await get_tree().process_frame
 	_log("30 frames after pausing, tick moved from %d to %d (want: unchanged)" % [tick_at_pause, battle.state.tick])
-	_press_named("resume")
+	if not _press_named("resume", battle._pause_menu):
+		_failed = true
+	await _settle()
 
 	## Issue 840 folded Change party into Restart, so the way back to the party
 	## screen is the Escape menu's Restart and it is checked above.
