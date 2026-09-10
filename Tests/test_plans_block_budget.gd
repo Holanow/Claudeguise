@@ -64,34 +64,34 @@ func _fight(pawn: PawnData) -> Array:
 
 ## The assertion whose absence let the mark and the behaviour disagree.
 func test_a_row_past_the_cap_does_not_fire() -> void:
-	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
+	var pawn := _pawn_with_rows(PawnData.PLAN_ROW_CAP)
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
 	assert_true(intent == null, "strike is row %d of a %d-row cap and must not fire" % [
-		Balance.PLAN_ROW_CAP + 1, Balance.PLAN_ROW_CAP])
+		PawnData.PLAN_ROW_CAP + 1, PawnData.PLAN_ROW_CAP])
 
 
 ## The positive control. Without it the test above passes on an interpreter
 ## that refuses every plan, which is the other way to make the screen a liar.
 func test_a_row_at_the_cap_fires() -> void:
-	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP - 1)
+	var pawn := _pawn_with_rows(PawnData.PLAN_ROW_CAP - 1)
 	var fight := _fight(pawn)
 	var intent: Intent = PlanInterpreter.decide(fight[0], fight[1])
-	assert_not_null(intent, "strike sits at row %d, inside the cap" % Balance.PLAN_ROW_CAP)
+	assert_not_null(intent, "strike sits at row %d, inside the cap" % PawnData.PLAN_ROW_CAP)
 	assert_eq(intent.source_plan, &"strike")
 
 
 func test_active_plan_count_stops_at_the_cap() -> void:
-	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
-	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP + 1)
-	assert_eq(PlanInterpreter.active_plan_count(pawn), Balance.PLAN_ROW_CAP)
+	var pawn := _pawn_with_rows(PawnData.PLAN_ROW_CAP)
+	assert_eq(pawn.plans.size(), PawnData.PLAN_ROW_CAP + 1)
+	assert_eq(PlanInterpreter.active_plan_count(pawn), PawnData.PLAN_ROW_CAP)
 
 
 ## **The deliverable.** Not "the guard exists" but "the guard and the mark are
 ## the same rule". Both sides are exercised through the real thing: the screen
 ## is built and its labels read, the intent is taken from `decide`.
 func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
-	var pawn := _pawn_with_rows(Balance.PLAN_ROW_CAP)
+	var pawn := _pawn_with_rows(PawnData.PLAN_ROW_CAP)
 
 	var panel := InspectPanel.create()
 	panel._ready()
@@ -100,7 +100,7 @@ func test_the_screen_and_the_simulation_mark_the_same_row() -> void:
 	var fight := _fight(pawn)
 	var fired: Intent = PlanInterpreter.decide(fight[0], fight[1])
 	assert_true(text.contains("Inert"), "row %d is past a %d-row cap: %s" % [
-		Balance.PLAN_ROW_CAP + 1, Balance.PLAN_ROW_CAP, text])
+		PawnData.PLAN_ROW_CAP + 1, PawnData.PLAN_ROW_CAP, text])
 	assert_true(text.contains("has 11 rows, capped at 10"), text)
 	assert_true(fired == null, "and the pawn must not run the row the screen calls inert")
 	panel.free()

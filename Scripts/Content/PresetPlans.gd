@@ -92,7 +92,7 @@ static func total_blocks(class_id: StringName) -> int:
 	return total
 
 ## Row count across a class's library. It is what adding every preset would
-## cost, checked against Balance.plan_row_cap.
+## cost, checked against `PawnData.PLAN_ROW_CAP`.
 static func total_rows(class_id: StringName) -> int:
 	return for_class(class_id).size()
 

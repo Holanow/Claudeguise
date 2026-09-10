@@ -3,7 +3,7 @@ extends SceneTree
 ## Issue 488: whether a rolled pawn can ever pay for its own library rows.
 ##
 ## For every preset plan gated on a resource, this counts the rolled pawns
-## whose `Balance.max_resource` sits BELOW what the row asks (the row can never
+## whose `PawnData.max_resource` sits BELOW what the row asks (the row can never
 ## fire) and the ones for whom the row asks for the whole pool. Seeds 0..499,
 ## matching `RollSpread`.
 
@@ -17,12 +17,12 @@ func _init() -> void:
 		var fixed := PawnFactory.make_starter_pawn(cid, &"p", "p")
 		var ceilings: Array[int] = []
 		for s in SEEDS:
-			ceilings.append(Balance.max_resource(PawnFactory.make_rolled_pawn(cid, &"p", "p", s)))
+			ceilings.append(PawnFactory.make_rolled_pawn(cid, &"p", "p", s).max_resource())
 		var sorted := ceilings.duplicate()
 		sorted.sort()
 		print("")
 		print("  %s  fixed ceiling %d   rolled ceiling min %d / median %d / max %d" % [
-			String(cid), Balance.max_resource(fixed),
+			String(cid), fixed.max_resource(),
 			sorted[0], sorted[sorted.size() / 2], sorted[sorted.size() - 1]])
 		print("    worst case the floors allow: %d" % floor_ceiling(cls))
 		var hist := {}
@@ -74,4 +74,4 @@ static func floor_ceiling(class_def: ClassDef) -> int:
 	var pawn := PawnFactory.make_starter_pawn(class_def.id, &"p", "p")
 	for a in PawnFactory.ROLLED_ATTRIBUTES:
 		pawn.attribute_bonus[a] = PawnFactory.attribute_floor(class_def, a) - class_def.attribute(a)
-	return Balance.max_resource(pawn)
+	return pawn.max_resource()

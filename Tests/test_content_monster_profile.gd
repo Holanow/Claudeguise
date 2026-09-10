@@ -29,25 +29,25 @@ func test_a_multiplier_of_one_is_the_baseline_itself() -> void:
 ## 1.0 today, so every authored tick count must survive the new path unchanged.
 func test_action_speed_of_one_returns_the_authored_ticks() -> void:
 	for ticks in [1, 2, 3, 5, 8, 13, 18, 20, 45, 120, 240]:
-		assert_eq(Balance.scale_enemy_action_ticks(ticks, 1.0), ticks,
+		assert_eq(MonsterProfile.scale_action_ticks(ticks, 1.0), ticks,
 			"an enemy at 1.0 must act at exactly its authored %d ticks" % ticks)
 
 func test_action_speed_is_capped_at_both_ends() -> void:
-	assert_eq(Balance.scale_enemy_action_ticks(20, 2.0), 10, "twice as fast is the floor")
-	assert_eq(Balance.scale_enemy_action_ticks(20, 100.0), 10, "and it is a cap, not a slope")
-	assert_eq(Balance.scale_enemy_action_ticks(20, 0.5), 40, "half speed is the ceiling")
-	assert_eq(Balance.scale_enemy_action_ticks(20, 0.01), 40, "and that is a cap too")
+	assert_eq(MonsterProfile.scale_action_ticks(20, 2.0), 10, "twice as fast is the floor")
+	assert_eq(MonsterProfile.scale_action_ticks(20, 100.0), 10, "and it is a cap, not a slope")
+	assert_eq(MonsterProfile.scale_action_ticks(20, 0.5), 40, "half speed is the ceiling")
+	assert_eq(MonsterProfile.scale_action_ticks(20, 0.01), 40, "and that is a cap too")
 
 func test_action_speed_never_reaches_zero_ticks() -> void:
-	assert_true(Balance.scale_enemy_action_ticks(1, 100.0) >= 1,
+	assert_true(MonsterProfile.scale_action_ticks(1, 100.0) >= 1,
 		"a one-tick action must still take a tick")
 
 ## Passthrough, matching the pawn's: an action with no wind-up has none.
 func test_zero_ticks_stay_zero() -> void:
-	assert_eq(Balance.scale_enemy_action_ticks(0, 2.0), 0)
-	assert_eq(Balance.scale_enemy_action_ticks(0, 1.0), 0)
+	assert_eq(MonsterProfile.scale_action_ticks(0, 2.0), 0)
+	assert_eq(MonsterProfile.scale_action_ticks(0, 1.0), 0)
 
 ## A nonsense speed must not turn an action instant.
 func test_a_zero_action_speed_falls_back_to_the_authored_ticks() -> void:
-	assert_eq(Balance.scale_enemy_action_ticks(20, 0.0), 20)
-	assert_eq(Balance.scale_enemy_action_ticks(20, -1.0), 20)
+	assert_eq(MonsterProfile.scale_action_ticks(20, 0.0), 20)
+	assert_eq(MonsterProfile.scale_action_ticks(20, -1.0), 20)

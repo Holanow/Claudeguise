@@ -149,7 +149,7 @@ func _check_action(action: ActionDef) -> Array[String]:
 	## `SimDeps._default_attack_power` derives its number from `unit.pawn` or
 	## `EnemyLibrary.get_enemy(unit.enemy_id)`, both null on a bare dummy, which
 	## would silently floor every hit at 0 regardless of what the action
-	## declares. Fixed and independent of `Balance.gd`, on purpose: this rig
+	## declares. Fixed and independent of the derivation on `PawnData`, on purpose: this rig
 	## is testing whether an effect fires, not what it is tuned to.
 	deps.attack_power = Callable(self, "_attack_power")
 

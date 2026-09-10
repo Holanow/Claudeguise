@@ -77,3 +77,109 @@ func equipment() -> Array[EquipmentDef]:
 		if e != null:
 			out.append(e)
 	return out
+
+
+## Issue 770: every number derived from this pawn's attributes, next to the
+## attributes it derives from. Was `Balance.gd`.
+
+const BASE_HP := 60
+const HP_PER_CON := 12
+const HP_PER_STR_BONUS := 2
+
+const BASE_RESOURCE := 30
+const RESOURCE_PER_ATN := 8
+const RESOURCE_PER_INT_BONUS := 2
+
+## World units per tick.
+const BASE_MOVE_SPEED := 3.0
+const MOVE_PER_AGI := 0.4
+const MOVE_PER_DEX_BONUS := 0.05
+
+## Issue 491: 1.9 x the mean starting-weapon grant. Every pawn has always held
+## a weapon, so a class's real damage was always its base times that multiplier;
+## #489 removed the multiplier and revealed that the base was never the whole
+## number. The five grants were sword STR 15%, staff INT 12%, orb INT 18%, bow
+## DEX 15% and sickle INT 15%, and their mean is exactly 15%.
+const ATTACK_POWER_PER_POINT := 2.185
+
+## Issue 7: a hit rolls within [1 - spread, 1 + spread] of its base power.
+const ATTACK_VARIANCE_SPREAD := 0.55
+
+const DAMAGE_REDUCTION_PER_CON := 0.01
+const NATURAL_DAMAGE_REDUCTION_CAP := 0.9
+
+## Fraction shaved off an action's ticks per point of AGI. Issue 592 raised the
+## cap to 0.9; `scale_action_ticks` floors the resolved count at one tick, so
+## nothing here can take an action to zero.
+const AGI_TICK_SCALE_PER_POINT := 0.015
+const MAX_AGI_TICK_SCALE := 0.9
+
+## Issue 790: how many plan rows a pawn may carry, flat for every pawn. WIS
+## used to gate this and is gone; a class differs by what it can do, not by how
+## much it is allowed to say.
+const PLAN_ROW_CAP := 10
+
+## Issue 39: `attribute` above plus equipment's `attribute_flat` and
+## `attribute_percent`, which is what everything below derives from.
+func effective_attribute(a: CG.Attribute) -> float:
+	var value := float(attribute(a))
+	var flat := 0.0
+	var percent := 0.0
+	for e in equipment():
+		flat += float(e.attribute_flat.get(a, 0))
+		percent += float(e.attribute_percent.get(a, 0.0))
+	return (value + flat) * (1.0 + percent)
+
+func max_hp() -> int:
+	var str_bonus := effective_attribute(CG.Attribute.STR)
+	return int(round(BASE_HP + effective_attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS))
+
+func max_resource() -> int:
+	var int_bonus := effective_attribute(CG.Attribute.INT)
+	return int(round(BASE_RESOURCE + effective_attribute(CG.Attribute.ATN) * RESOURCE_PER_ATN + int_bonus * RESOURCE_PER_INT_BONUS))
+
+## World units per tick.
+func move_speed() -> float:
+	var dex_bonus := effective_attribute(CG.Attribute.DEX)
+	return BASE_MOVE_SPEED + effective_attribute(CG.Attribute.AGI) * MOVE_PER_AGI + dex_bonus * MOVE_PER_DEX_BONUS
+
+## Attack power for one damage type, before the action's own power_scale.
+func attack_power(d: CG.DamageType, rng: RandomNumberGenerator = null) -> float:
+	var _unused := d
+	if pawn_class == null:
+		return 0.0
+	var attr := CG.Attribute.STR
+	if pawn_class.method == CG.Method.MAGICAL:
+		attr = CG.Attribute.INT
+	elif pawn_class.style == CG.Style.MELEE:
+		attr = CG.Attribute.STR
+	else:
+		attr = CG.Attribute.DEX
+	var base := effective_attribute(attr) * ATTACK_POWER_PER_POINT
+	if rng == null:
+		return base
+	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
+
+## Issue 746: the best `damage_reduction` across every equipped item, not just
+## `body`. A shield in `off_hand` carries the same field body armor always has,
+## so a single-slot read stops seeing it. Best rather than summed: two items
+## both reducing damage is not twice the protection.
+func gear_damage_reduction() -> float:
+	var best := 0.0
+	for e in equipment():
+		best = maxf(best, e.damage_reduction)
+	return best
+
+## Fraction of incoming damage this pawn's own toughness removes, before gear
+## and before any status.
+func natural_damage_reduction() -> float:
+	return clampf(effective_attribute(CG.Attribute.CON) * DAMAGE_REDUCTION_PER_CON, 0.0, NATURAL_DAMAGE_REDUCTION_CAP)
+
+## Ticks a wind-up or recovery takes after AGI is applied. Kept as a modifier on
+## the action's own numbers so that "this action is slow" and "this pawn is
+## slow" stay separately readable.
+func scale_action_ticks(base_ticks: int) -> int:
+	if base_ticks <= 0:
+		return base_ticks
+	var scale := clampf(effective_attribute(CG.Attribute.AGI) * AGI_TICK_SCALE_PER_POINT, 0.0, MAX_AGI_TICK_SCALE)
+	return maxi(1, int(round(float(base_ticks) * (1.0 - scale))))

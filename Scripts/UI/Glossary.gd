@@ -45,7 +45,7 @@ static func method_text(method: CG.Method) -> String:
 static func class_tags_text(role: CG.Role, style: CG.Style, method: CG.Method) -> String:
 	return "%s %s %s" % [role_text(role), style_text(style), method_text(method)]
 
-## Which attribute drives a class's own attack power, per Balance.attack_power
+## Which attribute drives a class's own attack power, per `PawnData.attack_power`
 ## -- Melee Martial reads STR, Ranged/Summoner Martial reads DEX, any Magical
 ## class reads INT regardless of style. Mirrored here (not called) because
 ## attack_power needs a live PawnData and the glossary describes the stat in
@@ -54,21 +54,21 @@ static func attribute_text(a: CG.Attribute) -> String:
 	match a:
 		CG.Attribute.STR:
 			return "Adds %d hp per point. Drives attack power (%.1f per point) for Melee Martial classes." % [
-				Balance.HP_PER_STR_BONUS, Balance.ATTACK_POWER_PER_POINT]
+				PawnData.HP_PER_STR_BONUS, PawnData.ATTACK_POWER_PER_POINT]
 		CG.Attribute.DEX:
 			return "Adds %.2f move speed per point. Drives attack power (%.1f per point) for Ranged and Summoner Martial classes." % [
-				Balance.MOVE_PER_DEX_BONUS, Balance.ATTACK_POWER_PER_POINT]
+				PawnData.MOVE_PER_DEX_BONUS, PawnData.ATTACK_POWER_PER_POINT]
 		CG.Attribute.AGI:
 			return "Adds %.1f move speed per point. Shortens wind-up and recovery, capped at %d%% faster." % [
-				Balance.MOVE_PER_AGI, int(round(Balance.MAX_AGI_TICK_SCALE * 100.0))]
+				PawnData.MOVE_PER_AGI, int(round(PawnData.MAX_AGI_TICK_SCALE * 100.0))]
 		CG.Attribute.CON:
 			return "Adds %d hp per point. Reduces incoming damage by %d%% per point, capped at %d%%." % [
-				Balance.HP_PER_CON, int(round(Balance.DAMAGE_REDUCTION_PER_CON * 100.0)), int(round(Balance.NATURAL_DAMAGE_REDUCTION_CAP * 100.0))]
+				PawnData.HP_PER_CON, int(round(PawnData.DAMAGE_REDUCTION_PER_CON * 100.0)), int(round(PawnData.NATURAL_DAMAGE_REDUCTION_CAP * 100.0))]
 		CG.Attribute.INT:
 			return "Adds %d max resource per point. Drives attack power (%.1f per point) for Magical classes." % [
-				Balance.RESOURCE_PER_INT_BONUS, Balance.ATTACK_POWER_PER_POINT]
+				PawnData.RESOURCE_PER_INT_BONUS, PawnData.ATTACK_POWER_PER_POINT]
 		CG.Attribute.ATN:
-			return "Adds %d max resource per point." % Balance.RESOURCE_PER_ATN
+			return "Adds %d max resource per point." % PawnData.RESOURCE_PER_ATN
 		_:
 			return ""
 

@@ -416,7 +416,7 @@ static func _slot_effect_text(item: EquipmentDef) -> String:
 # ---------------------------------------------------------------------------
 # What the gear is worth
 #
-# Every number here is the same pawn measured twice through `Balance`: as it
+# Every number here is the same pawn measured twice through `PawnData`: as it
 # stands, and stripped of equipment. Nothing is restated from an item's own
 # fields, because the interesting cases are the ones where they compound -- a
 # flat +2 CON and a +10% CON on the same piece are not "+2 and +10%", they are
@@ -446,8 +446,8 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 	attrs.add_theme_constant_override("h_separation", int(Palette.SPACE_M))
 	attrs.add_theme_constant_override("v_separation", int(Palette.SPACE_XS))
 	for a in ATTRIBUTE_ORDER:
-		var before := Balance.attribute(bare, a)
-		var after := Balance.attribute(pawn, a)
+		var before := bare.effective_attribute(a)
+		var after := pawn.effective_attribute(a)
 		# Not `_line`: an autowrapping Label reports a near-zero minimum width,
 		# so seven of them in one HBoxContainer draw on top of each other. The
 		# plan editor found this on a real launch and these chips are the same
@@ -463,20 +463,20 @@ func _effect_controls(pawn: PawnData) -> Array[Control]:
 		attrs.add_child(chip)
 	out.append(attrs)
 
-	out.append(_derived_line("Health", Balance.max_hp(bare), Balance.max_hp(pawn)))
-	out.append(_derived_line("Resource", Balance.max_resource(bare), Balance.max_resource(pawn)))
-	# Units per second, not the per-tick number `Balance.move_speed` returns. A
+	out.append(_derived_line("Health", bare.max_hp(), pawn.max_hp()))
+	out.append(_derived_line("Resource", bare.max_resource(), pawn.max_resource()))
+	# Units per second, not the per-tick number `PawnData.move_speed` returns. A
 	# tick is an implementation detail of the simulation and appears nowhere a
 	# player looks.
 	out.append(_derived_line_float("Move speed",
-		Balance.move_speed(bare) * float(CG.TICKS_PER_SECOND),
-		Balance.move_speed(pawn) * float(CG.TICKS_PER_SECOND), " units per second"))
+		bare.move_speed() * float(CG.TICKS_PER_SECOND),
+		pawn.move_speed() * float(CG.TICKS_PER_SECOND), " units per second"))
 
-	# Read off the equipment rather than through `Balance.damage_reduction`,
+	# Read off the equipment rather than through `SimDeps._default_damage_reduction`,
 	# which takes a CombatUnit that does not exist before a fight is built.
-	# `Balance.gear_damage_reduction` is the same best-across-slots read that
+	# `PawnData.gear_damage_reduction` is the same best-across-slots read that
 	# function uses once it has one.
-	var absorbed := Balance.gear_damage_reduction(pawn)
+	var absorbed := pawn.gear_damage_reduction()
 	out.append(_line("Damage absorbed: %d%% of every hit." % int(round(absorbed * 100.0)),
 		Palette.FONT_SIZE_SMALL, Palette.HP_FULL if absorbed > 0.0 else Palette.INK_DIM))
 	return out

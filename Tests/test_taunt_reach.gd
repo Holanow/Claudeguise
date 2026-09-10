@@ -46,7 +46,7 @@ func _victims() -> Array[Dictionary]:
 			ids.append_array(pawn.pawn_class.starting_action_ids())
 		for e in pawn.equipment():
 			ids.append_array(e.granted_actions)
-		out.append({"name": String(class_id), "speed": Balance.move_speed(pawn), "reach": _reach(ids)})
+		out.append({"name": String(class_id), "speed": pawn.move_speed(), "reach": _reach(ids)})
 	for enemy_id in EnemyLibrary.all_ids():
 		var enemy := EnemyLibrary.get_enemy(enemy_id)
 		if enemy == null or enemy.move_speed <= 0.0:

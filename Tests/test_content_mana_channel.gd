@@ -60,7 +60,7 @@ func test_no_class_carries_a_plan_row_it_cannot_pay_for() -> void:
 	var over: Array[String] = []
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		var free_rows := Balance.plan_row_cap(pawn) - PresetPlans.total_rows(cid)
+		var free_rows := PawnData.PLAN_ROW_CAP - PresetPlans.total_rows(cid)
 		if free_rows < 0:
 			over.append("%s (%d over)" % [cid, free_rows])
 	assert_eq(over, [] as Array[String],

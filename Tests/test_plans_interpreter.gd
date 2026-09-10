@@ -32,7 +32,7 @@ func _plan(id: StringName, condition: PlanBlock, blocks: Array[PlanBlock]) -> Pl
 	p.blocks = blocks
 	return p
 
-## Issue 790: `Balance.plan_row_cap` is flat now, so a bare `ClassDef` is a
+## Issue 790: `PawnData.PLAN_ROW_CAP` is flat, so a bare `ClassDef` is a
 ## pawn that can run every plan below without needing any base attribute set.
 func _test_class(id: StringName = &"testclass") -> ClassDef:
 	var cls := ClassDef.new()

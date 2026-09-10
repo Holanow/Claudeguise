@@ -20,7 +20,7 @@ const SEEDS := 8
 
 ## Issue 772. Immolate no longer leans on an attack stat at all -- it burns
 ## off the Abomination's own max hp, the same shape BURN and POISON already
-## use (`Balance.status_damage_per_tick`). `power_scale` is retired to 0 so
+## use (`StatusDef.damage_per_tick`). `power_scale` is retired to 0 so
 ## the two sources can never both be live on the same hit by accident.
 func test_the_channel_deals_no_power_scale_damage() -> void:
 	var immolate := ActionLibrary.get_action(IMMOLATE)

@@ -10,16 +10,16 @@ const SEEDS := 8
 func test_the_two_casters_split_the_way_the_player_asked_them_to() -> void:
 	var priest := PawnFactory.make_starter_pawn(&"priest", &"p", "Priest")
 	var geyser := PawnFactory.make_starter_pawn(&"geysermancer", &"g", "Geysermancer")
-	var p_hp := Balance.max_hp(priest)
-	var g_hp := Balance.max_hp(geyser)
+	var p_hp := priest.max_hp()
+	var g_hp := geyser.max_hp()
 	print("556: priest hp %d resource %d move %.2f power %.2f | geysermancer hp %d resource %d move %.2f power %.2f" % [
-		p_hp, Balance.max_resource(priest), Balance.move_speed(priest), Balance.attack_power(priest, CG.DamageType.DIVINE),
-		g_hp, Balance.max_resource(geyser), Balance.move_speed(geyser), Balance.attack_power(geyser, CG.DamageType.WATER)])
-	assert_true(Balance.max_resource(priest) > Balance.max_resource(geyser),
+		p_hp, priest.max_resource(), priest.move_speed(), priest.attack_power(CG.DamageType.DIVINE),
+		g_hp, geyser.max_resource(), geyser.move_speed(), geyser.attack_power(CG.DamageType.WATER)])
+	assert_true(priest.max_resource() > geyser.max_resource(),
 		"the Priest's pool is not the larger one")
-	assert_true(Balance.attack_power(geyser, CG.DamageType.WATER) > Balance.attack_power(priest, CG.DamageType.DIVINE),
+	assert_true(geyser.attack_power(CG.DamageType.WATER) > priest.attack_power(CG.DamageType.DIVINE),
 		"the Geysermancer does not hit harder")
-	assert_true(Balance.move_speed(geyser) > Balance.move_speed(priest),
+	assert_true(geyser.move_speed() > priest.move_speed(),
 		"the Geysermancer is not the faster one")
 	assert_true(g_hp < p_hp, "the Priest does not have more health")
 func test_a_dps_library_leads_with_a_damaging_row() -> void:

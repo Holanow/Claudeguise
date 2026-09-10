@@ -18,7 +18,7 @@ func _ready() -> void:
 	# to reach the over-cap state for the screenshot.
 	for plan in PresetPlans.for_class(&"warrior"):
 		panel._add_preset(pawn, plan)
-	while pawn.plans.size() <= Balance.PLAN_ROW_CAP:
+	while pawn.plans.size() <= PawnData.PLAN_ROW_CAP:
 		var filler := Plan.new()
 		filler.id = StringName("filler_%d" % pawn.plans.size())
 		filler.display_name = "Filler"

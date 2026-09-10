@@ -85,7 +85,7 @@ func test_every_class_ships_its_expected_preset_plans_within_its_row_cap() -> vo
 		var expected: int = _EXPECTED_PLAN_COUNT.get(id, 2)
 		assert_eq(plans.size(), expected, "%s should ship exactly %d preset plans" % [id, expected])
 		var pawn := PawnFactory.make_starter_pawn(id, id, String(id))
-		var cap := Balance.plan_row_cap(pawn)
+		var cap := PawnData.PLAN_ROW_CAP
 		var used := PresetPlans.total_rows(id)
 		assert_true(used <= cap, "%s uses %d rows, cap is %d" % [id, used, cap])
 
