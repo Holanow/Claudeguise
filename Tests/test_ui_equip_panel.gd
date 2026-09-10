@@ -349,6 +349,74 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 	assert_eq(panel.item_effect_text(null), "Empty.")
 	panel.free()
 
+## Issue 847: the Quiver applies Bleed on a landed hit through `modifiers`, and
+## this line read "No effect." until it was derived from that array too.
+func test_a_quiver_names_the_bleed_it_applies() -> void:
+	var panel := _panel()
+	var text := panel.item_effect_text(ItemLibrary.get_equipment(&"quiver"))
+	assert_false(text == "No effect.", "an item that applies Bleed must not read as inert")
+	assert_true(text.contains("Bleed"), "the status by name, got: %s" % text)
+	assert_true(text.contains("25%"), "the chance in numbers, got: %s" % text)
+	assert_true(text.contains("3.0s"), "the duration in seconds, got: %s" % text)
+	panel.free()
+
+## The other field this line never read. A focus grants an action too, so it
+## never read "No effect." -- it dropped the pool bonus silently instead.
+func test_a_focus_names_the_pool_it_quickens() -> void:
+	var panel := _panel()
+	var text := panel.item_effect_text(ItemLibrary.get_equipment(&"focus"))
+	assert_true(text.contains("2%"), "the regen bonus in numbers, got: %s" % text)
+	assert_true(text.contains("second"), "and per what, got: %s" % text)
+	panel.free()
+
+## `adds_status_chance` defaults to 1.0, and "100% chance" is true and reads
+## wrong. No shipped item exercises this, so the fixture is synthetic.
+func test_a_modifier_that_always_lands_reads_as_every_hit() -> void:
+	var panel := _panel()
+	var item := _make_item("test_brand", EquipmentDef.Slot.MAIN_HAND)
+	item.modifiers.append(_make_modifier(CG.Status.BURN, 30, 1.0))
+	var text := panel.item_effect_text(item)
+	assert_true(text.contains("Burn"), "the status by name, got: %s" % text)
+	assert_true(text.contains("every"), "certainty reads as every hit, got: %s" % text)
+	assert_false(text.contains("100%"), "and never as a percentage, got: %s" % text)
+	panel.free()
+
+## The three fields nothing ships yet. Scope comes off `only_projectiles` and
+## `any_damage_type`, never off `only_damage_type` alone, which defaults to
+## PHYSICAL on a modifier that matches everything.
+func test_a_scoped_modifier_says_what_it_applies_to() -> void:
+	var panel := _panel()
+	var item := _make_item("test_glass", EquipmentDef.Slot.OFF_HAND)
+	var m := AbilityModifier.new()
+	m.only_projectiles = true
+	m.power_multiplier = 1.2
+	m.target_count_bonus = 1
+	item.modifiers.append(m)
+	var text := panel.item_effect_text(item)
+	assert_true(text.contains("projectile"), "the scope, got: %s" % text)
+	assert_true(text.contains("+20%"), "the power change in numbers, got: %s" % text)
+	assert_true(text.contains("+1"), "the extra projectile in numbers, got: %s" % text)
+	panel.free()
+
+## The negative. Naming modifiers must not make an empty item read as though it
+## did something, and an all-default modifier changes nothing.
+func test_an_item_that_does_nothing_still_reads_as_no_effect() -> void:
+	var panel := _panel()
+	var item := _make_item("test_rock", EquipmentDef.Slot.ACCESSORY)
+	assert_eq(panel.item_effect_text(item), "No effect.")
+	item.modifiers.append(AbilityModifier.new())
+	assert_eq(panel.item_effect_text(item), "No effect.",
+		"a modifier with every field at its default changes nothing")
+	panel.free()
+
+func _make_modifier(status: CG.Status, ticks: int, chance: float) -> AbilityModifier:
+	var m := AbilityModifier.new()
+	m.adds_status = status
+	m.adds_status_enabled = true
+	m.adds_status_ticks = ticks
+	m.adds_status_chance = chance
+	return m
+
 ## The compounding case, and the reason this screen measures rather than
 ## restates. A piece with both a flat and a percent bonus on the same
 ## attribute means neither number on its own is what the pawn ends up with,

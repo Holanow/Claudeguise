@@ -371,11 +371,43 @@ static func item_effect_text(item: EquipmentDef) -> String:
 			parts.append("%s %+d%%" % [CG.attribute_name(a), int(round(percent * 100.0))])
 	if item.damage_reduction != 0.0:
 		parts.append("absorbs %d%% of every hit" % int(round(item.damage_reduction * 100.0)))
+	if item.resource_regen_percent_bonus != 0.0:
+		parts.append("regenerates %d%% more of its pool each second"
+			% int(round(item.resource_regen_percent_bonus)))
+	for m in item.modifiers:
+		if m != null:
+			parts.append_array(_modifier_parts(m))
 	for action_id in item.granted_actions:
 		parts.append("grants %s" % _action_display_name(action_id))
 	if parts.is_empty():
 		return "No effect."
 	return ", ".join(parts) + "."
+
+## Issue 847: what an `AbilityModifier` does, off its own fields, so a modifier
+## authored next week is described here without anybody writing a sentence for
+## it. Every field is skipped at its default, which is why an all-default
+## modifier still reads "No effect."
+static func _modifier_parts(m: AbilityModifier) -> Array[String]:
+	var out: Array[String] = []
+	var scope := "projectile hit" if m.only_projectiles else "hit"
+	# `only_damage_type` defaults to PHYSICAL on a modifier that matches
+	# everything, so the scope reads off `any_damage_type` instead.
+	if not m.any_damage_type:
+		scope = "%s %s" % [CG.damage_type_name(m.only_damage_type).to_lower(), scope]
+	if m.adds_status_enabled and m.adds_status_ticks > 0:
+		var status := Glossary.status_name(m.adds_status)
+		var seconds := "%.1fs" % (float(m.adds_status_ticks) / float(CG.TICKS_PER_SECOND))
+		if m.adds_status_chance < 1.0:
+			out.append("%d%% chance of %s for %s on a landed %s"
+				% [int(round(m.adds_status_chance * 100.0)), status, seconds, scope])
+		else:
+			out.append("%s for %s on every landed %s" % [status, seconds, scope])
+	if m.power_multiplier != 1.0:
+		out.append("%+d%% damage on every %s"
+			% [int(round((m.power_multiplier - 1.0) * 100.0)), scope])
+	if m.target_count_bonus != 0:
+		out.append("throws %+d projectile per cast" % m.target_count_bonus)
+	return out
 
 static func _slot_effect_text(item: EquipmentDef) -> String:
 	if item == null:
