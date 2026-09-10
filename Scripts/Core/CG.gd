@@ -102,6 +102,9 @@ enum Status {
 	## A ranged attack crossing this unit's front arc is stopped by it.
 	SHIELDING,
 	SUSTAINING,
+	## Issue 830: lifted off the ground by something else. Appended LAST on
+	## #790's rule -- a status inserted mid-enum rewrites every stored index.
+	AIRBORNE,
 }
 
 ## Whether a status is something a unit would want removed. Issue 627: the

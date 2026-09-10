@@ -46,8 +46,9 @@ built around a shape you can still tell apart at that size.
 | `status/marked.png` | Marked — takes more damage |
 | `status/slowed.png` | Slowed — moves slower |
 | `status/taunted.png` | Taunted — forced to attack whoever taunted it |
+| `status/airborne.png` | Airborne — thrown, off the ground, cannot move or act |
 
-The first six are helpful and the last seven are harmful, which is the split the
+The first six are helpful and the last eight are harmful, which is the split the
 plate direction and rim colour below are drawn from.
 
 **The badges follow a rule, and a replacement should keep it.** Helpful
@@ -81,6 +82,7 @@ is coming rather than only that something is.
 `action/rat_king_lash.png`, `action/rat_king_eat_blood.png`,
 `action/stalker_dart.png`, `action/stalker_mark.png`,
 `action/warden_axe.png`, `action/warden_chain_toss.png`,
+`action/warden_throw.png`, `action/warden_throw_impact.png`,
 `action/sellsword_seeker_bolts.png`, `action/sellsword_strike.png`,
 `action/sellsword_crescent.png`
 

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/Core/ActionDelivery.gd" id="1_0wv4e"]
 [ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="2_ywr8y"]
 [ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="3_y7cbg"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/PullEffect.gd" id="6_pull"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_gla4b"]
 [ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_a856w"]
 [ext_resource type="Resource" path="res://Scripts/Content/VFX/warden_chain_toss.tres" id="vfx_warden_chain_toss"]
@@ -14,6 +15,10 @@ speed = 16.0
 [sub_resource type="Resource" id="Resource_0rh7f"]
 script = ExtResource("3_y7cbg")
 
+[sub_resource type="Resource" id="Resource_pull1"]
+script = ExtResource("6_pull")
+distance = 200.0
+
 [sub_resource type="Resource" id="Resource_ds0an"]
 script = ExtResource("5_a856w")
 range_units = 270.0
@@ -23,10 +28,11 @@ requires_line_of_sight = true
 script = ExtResource("4_gla4b")
 id = &"warden_chain_toss"
 display_name = "Chain Toss"
-description = "A ranged attack at up to 270 units."
+description = "Hurls the chain up to 270 units and hauls whoever it catches 200 units toward the Warden, stunning them for the whole drag."
 wind_up_ticks = 16
 recover_ticks = 18
+cooldown_ticks = 90
 targeting = SubResource("Resource_ds0an")
 delivery = SubResource("Resource_grkcv")
-effects = Array[ExtResource("2_ywr8y")]([SubResource("Resource_0rh7f")])
+effects = Array[ExtResource("2_ywr8y")]([SubResource("Resource_0rh7f"), SubResource("Resource_pull1")])
 vfx = ExtResource("vfx_warden_chain_toss")

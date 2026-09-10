@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_ti_fx"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_ti_hit"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="3_ti_def"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="4_ti_tgt"]
+
+[sub_resource type="Resource" id="Resource_ti_hit"]
+script = ExtResource("2_ti_hit")
+power_scale = 1.4
+
+[sub_resource type="Resource" id="Resource_ti_tgt"]
+script = ExtResource("4_ti_tgt")
+range_units = 90.0
+splash_radius = 90.0
+
+[resource]
+script = ExtResource("3_ti_def")
+id = &"warden_throw_impact"
+display_name = "Impact"
+description = "Where a thrown body lands. Everything within 90 units of it is hit, including the body itself."
+targeting = SubResource("Resource_ti_tgt")
+effects = Array[ExtResource("1_ti_fx")]([SubResource("Resource_ti_hit")])

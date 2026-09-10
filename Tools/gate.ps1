@@ -202,17 +202,28 @@ if ($code -ne 0) {
 # pixels, and the probe reported the button as inert for a day.
 $env:CLAUDEGUISE_GATE = '1'
 $probeLog = Join-Path $env:TEMP ("claudeguise-probe-" + [guid]::NewGuid().ToString('N') + ".txt")
-& (Join-Path $PSScriptRoot 'run.ps1') PresetLibraryProbe -TimeoutSeconds 240 > $probeLog 2>&1
+# Issue 839: `*>`, not `>`, because run.ps1 writes every line with Write-Host,
+# which goes to stream 6 and left this log empty.
+& (Join-Path $PSScriptRoot 'run.ps1') PresetLibraryProbe -TimeoutSeconds 240 *> $probeLog
 $probeCode = $LASTEXITCODE
 Remove-Item Env:\CLAUDEGUISE_GATE -ErrorAction SilentlyContinue
 
 if ($probeCode -ne 0) {
     Write-Host ""
     Write-Host "  clicks     FAIL   (PresetLibraryProbe exited $probeCode)"
-    Get-Content $probeLog | Select-String -Pattern 'PresetLibraryProbe' | ForEach-Object { Write-Host ("      " + $_.Line.Trim()) }
+    $probeLines = @(Get-Content $probeLog | Select-String -Pattern 'PresetLibraryProbe:')
+    $probeLines | ForEach-Object { Write-Host ("      " + $_.Line.Trim()) }
     Remove-Item $probeLog -ErrorAction SilentlyContinue
-    Write-Host "  A control the suite cannot reach. This needs a screen, so it needs a window:"
-    Write-Host "  a machine with no display cannot run the gate."
+    # Issue 839: a probe that printed a line of its own had a window, so the
+    # display hint is only honest when it printed none.
+    if ($probeLines.Count -eq 0) {
+        Write-Host "  The probe printed nothing of its own, so it never got as far as a control."
+        Write-Host "  This needs a screen, so it needs a window: a machine with no display"
+        Write-Host "  cannot run the gate."
+    } else {
+        Write-Host "  The probe opened a window and clicked. Those are product failures above,"
+        Write-Host "  not a problem with this machine."
+    }
     Write-Host "GATE FAILED (real-click probe)"
     exit 7
 }

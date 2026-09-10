@@ -36,6 +36,11 @@ const OLD_DOT: Dictionary = {
 	CG.Status.BLEED: CG.DamageType.PHYSICAL,
 }
 
+## Statuses added after 227b2a0. `OLD_HARMFUL` is a transcription of a moment
+## and cannot say anything about a member that did not exist in it, so a new
+## status is named here rather than appended to the frozen list above.
+const ADDED_SINCE_627: Array = [CG.Status.AIRBORNE]
+
 const OLD_STACKING: Array = [CG.Status.BLEED]
 const OLD_HIT_SCALED: Array = [CG.Status.BURN]
 
@@ -105,10 +110,24 @@ func test_no_status_gained_a_number_it_never_had() -> void:
 
 func test_harmful_matches_the_list_is_harmful_used_to_hold() -> void:
 	for d in StatusLibrary.all():
+		if ADDED_SINCE_627.has(d.status):
+			continue
 		var name := String(CG.Status.keys()[d.status])
 		assert_eq(d.harmful, OLD_HARMFUL.has(d.status), name + " changed side")
 		assert_eq(CG.is_harmful(d.status), OLD_HARMFUL.has(d.status),
 			"CG.is_harmful disagrees with the def for " + name)
+
+## The skip above must not become a hole. `CG.is_harmful` reads the def through
+## `StatusLibrary`, and a status nothing checks is a status whose badge can get
+## the wrong rim colour with nothing going red.
+func test_every_status_added_since_627_still_agrees_with_its_own_def() -> void:
+	assert_false(ADDED_SINCE_627.is_empty(), "nothing is exempt, so nothing to check")
+	for s in ADDED_SINCE_627:
+		var d := _def(s)
+		assert_eq(CG.is_harmful(s), d.harmful,
+			"CG.is_harmful disagrees with the def for " + String(CG.Status.keys()[s]))
+		assert_false(OLD_HARMFUL.has(s),
+			"%s is in OLD_HARMFUL, so it is not new and the exemption is wrong" % CG.Status.keys()[s])
 
 func test_the_stacking_and_hit_scaled_rules_match_the_dictionaries_they_replaced() -> void:
 	for d in StatusLibrary.all():
