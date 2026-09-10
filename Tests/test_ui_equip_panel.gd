@@ -349,8 +349,7 @@ func test_an_empty_slot_reads_as_empty_rather_than_blank() -> void:
 	assert_eq(panel.item_effect_text(null), "Empty.")
 	panel.free()
 
-## Issue 847: the Quiver applies Bleed on a landed hit through `modifiers`, and
-## this line read "No effect." until it was derived from that array too.
+## Issue 847: the Quiver applies Bleed on a landed hit through `modifiers`.
 func test_a_quiver_names_the_bleed_it_applies() -> void:
 	var panel := _panel()
 	var text := panel.item_effect_text(ItemLibrary.get_equipment(&"quiver"))
@@ -360,8 +359,8 @@ func test_a_quiver_names_the_bleed_it_applies() -> void:
 	assert_true(text.contains("3.0s"), "the duration in seconds, got: %s" % text)
 	panel.free()
 
-## The other field this line never read. A focus grants an action too, so it
-## never read "No effect." -- it dropped the pool bonus silently instead.
+## The other field this line never read: a focus grants an action too, so it
+## dropped the pool bonus silently rather than reading "No effect."
 func test_a_focus_names_the_pool_it_quickens() -> void:
 	var panel := _panel()
 	var text := panel.item_effect_text(ItemLibrary.get_equipment(&"focus"))
@@ -370,7 +369,7 @@ func test_a_focus_names_the_pool_it_quickens() -> void:
 	panel.free()
 
 ## `adds_status_chance` defaults to 1.0, and "100% chance" is true and reads
-## wrong. No shipped item exercises this, so the fixture is synthetic.
+## wrong.
 func test_a_modifier_that_always_lands_reads_as_every_hit() -> void:
 	var panel := _panel()
 	var item := _make_item("test_brand", EquipmentDef.Slot.MAIN_HAND)
@@ -381,9 +380,9 @@ func test_a_modifier_that_always_lands_reads_as_every_hit() -> void:
 	assert_false(text.contains("100%"), "and never as a percentage, got: %s" % text)
 	panel.free()
 
-## The three fields nothing ships yet. Scope comes off `only_projectiles` and
-## `any_damage_type`, never off `only_damage_type` alone, which defaults to
-## PHYSICAL on a modifier that matches everything.
+## Scope comes off `only_projectiles` and `any_damage_type`, never off
+## `only_damage_type` alone, which defaults to PHYSICAL on a modifier that
+## matches everything.
 func test_a_scoped_modifier_says_what_it_applies_to() -> void:
 	var panel := _panel()
 	var item := _make_item("test_glass", EquipmentDef.Slot.OFF_HAND)
@@ -398,8 +397,8 @@ func test_a_scoped_modifier_says_what_it_applies_to() -> void:
 	assert_true(text.contains("+1"), "the extra projectile in numbers, got: %s" % text)
 	panel.free()
 
-## The negative. Naming modifiers must not make an empty item read as though it
-## did something, and an all-default modifier changes nothing.
+## The negative: naming modifiers must not make an empty item read as though it
+## did something.
 func test_an_item_that_does_nothing_still_reads_as_no_effect() -> void:
 	var panel := _panel()
 	var item := _make_item("test_rock", EquipmentDef.Slot.ACCESSORY)
@@ -407,6 +406,20 @@ func test_an_item_that_does_nothing_still_reads_as_no_effect() -> void:
 	item.modifiers.append(AbilityModifier.new())
 	assert_eq(panel.item_effect_text(item), "No effect.",
 		"a modifier with every field at its default changes nothing")
+	panel.free()
+
+## The damage-type branch, which nothing ships and which reaches
+## `DamageTypeLibrary` from a static UI call.
+func test_a_damage_typed_modifier_names_the_damage_it_rides_on() -> void:
+	var panel := _panel()
+	var item := _make_item("test_ember", EquipmentDef.Slot.ACCESSORY)
+	var m := _make_modifier(CG.Status.BURN, 15, 0.5)
+	m.any_damage_type = false
+	m.only_damage_type = CG.DamageType.FIRE
+	item.modifiers.append(m)
+	var text := panel.item_effect_text(item)
+	assert_true(text.to_lower().contains("fire"), "the damage type by name, got: %s" % text)
+	assert_false(text.contains("?"), "and resolved, not a missing lookup, got: %s" % text)
 	panel.free()
 
 func _make_modifier(status: CG.Status, ticks: int, chance: float) -> AbilityModifier:

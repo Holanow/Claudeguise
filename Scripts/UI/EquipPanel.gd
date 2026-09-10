@@ -385,8 +385,7 @@ static func item_effect_text(item: EquipmentDef) -> String:
 
 ## Issue 847: what an `AbilityModifier` does, off its own fields, so a modifier
 ## authored next week is described here without anybody writing a sentence for
-## it. Every field is skipped at its default, which is why an all-default
-## modifier still reads "No effect."
+## it.
 static func _modifier_parts(m: AbilityModifier) -> Array[String]:
 	var out: Array[String] = []
 	var scope := "projectile hit" if m.only_projectiles else "hit"
