@@ -370,7 +370,7 @@ func _text_of(node: Node) -> String:
 # Issue 591: the card has to fit the window it is drawn in.
 #
 # The Healed row costs 27 px per card and a defeat whose casualty list wraps to
-# three lines costs another 31, and together they pushed Restart (same seed)
+# three lines costs another 31, and together they pushed the Restart row
 # 21 px past the bottom of a 720 px window. The log gives way instead. The
 # arrangement is asserted here; `Tools/EndRoomPickProbe.gd` is what proves it
 # works, by forcing a card too tall to fit and re-checking every button's rect
