@@ -64,9 +64,10 @@ if ($needsImport) {
     ## Issue 865: `--editor --quit` quits after one iteration and can leave the
     ## import partial; `--import` waits for it, which is what its help says.
     Write-Host "Importing. Nothing starts until this finishes."
-    $log = Join-Path $env:TEMP ("claudeguise-import-" + [guid]::NewGuid().ToString('N') + ".txt")
-    cmd /c "`"$godot`" --headless --import --path `"$repo`" > `"$log`" 2>&1"
-    Remove-Item $log -ErrorAction SilentlyContinue
+    ## Issue 888: one pass is not always enough on a cold worktree, so import
+    ## until import_check.ps1 agrees rather than once.
+    & (Join-Path $PSScriptRoot 'import_until_done.ps1') -Repo $repo -Godot $godot
+    $importConverged = ($LASTEXITCODE -eq 0)
     if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
         Write-Host "The import produced no class cache at $cache."
         Write-Host "Anything launched now would start on a blank screen. Not launching."
@@ -74,7 +75,7 @@ if ($needsImport) {
     }
     Write-Host ("class cache rebuilt, {0} bytes" -f (Get-Item $cache).Length)
     & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo -Quiet
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -ne 0 -or -not $importConverged) {
         & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo
         Write-Host "The import did not finish. Anything launched now would fail to load"
         Write-Host "these assets, possibly as a crash rather than an error. Not launching."
