@@ -5,7 +5,7 @@ extends "res://Tests/TestCase.gd"
 ## by hand, per issue 1: Balance and PlanInterpreter are teal's stubs and this
 ## file must not wait for them. `_deps()` and `_make_attack_nearest()` are the
 ## whole test-only "content system": fixed numbers and one simple decision
-## rule, wired through SimDeps rather than Registry or Balance.
+## rule, wired through SimDeps rather than Registry or content.
 
 # ---------------------------------------------------------------------------
 # helpers

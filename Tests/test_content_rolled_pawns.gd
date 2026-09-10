@@ -27,7 +27,7 @@ func test_every_rolled_pawn_can_still_run_its_whole_class_library() -> void:
 		for s in 40:
 			var pawn := PawnFactory.make_rolled_pawn(class_id, &"p", "p", s)
 			pawn.plans = PresetPlans.for_class(class_id)
-			assert_true(Balance.plan_row_cap(pawn) >= PresetPlans.total_rows(class_id),
+			assert_true(PawnData.PLAN_ROW_CAP >= PresetPlans.total_rows(class_id),
 				"%s on seed %d cannot run its own library" % [class_id, s])
 
 
@@ -181,7 +181,7 @@ func test_a_rolled_pawn_reads_as_its_class_on_average() -> void:
 
 ## And the hard version of the same thing: the attribute a class attacks with
 ## can never reach zero, because a pawn that deals no damage is not a pawn.
-## `Balance.attack_power` picks it off method and style.
+## `PawnData.attack_power` picks it off method and style.
 func test_the_attribute_a_class_attacks_with_never_reaches_zero() -> void:
 	var zeroed := []
 	for class_id in ClassLibrary.all_ids():

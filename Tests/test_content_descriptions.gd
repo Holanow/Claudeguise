@@ -64,7 +64,6 @@ func test_every_duration_in_an_ability_description_matches_its_own_ticks() -> vo
 	assert_true(checked >= 10, "only %d durations were checked, the walk found nothing" % checked)
 
 func test_the_poison_rate_a_description_promises_is_the_rate_it_deals() -> void:
-	var Balance = load("res://Scripts/Content/Balance.gd")
 	var per_second: float = StatusLibrary.of(CG.Status.POISON).damage_percent_of_max_hp_per_tick * float(CG.TICKS_PER_SECOND)
 	var re := RegEx.new()
 	re.compile("([0-9]+(?:\\.[0-9]+)?)% of its max health per second")

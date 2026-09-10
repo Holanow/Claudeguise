@@ -19,26 +19,26 @@ func _pawn_unit(state: CombatState):
 # ---------------------------------------------------------------------------
 
 func test_mana_starts_full_and_rage_and_energy_start_empty() -> void:
-	assert_eq(Balance.starting_resource(CG.ResourceKind.MANA, 100), 100,
+	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.MANA, 100), 100,
 		"a caster that cannot cast on tick one is not playing the first half of the fight")
-	assert_eq(Balance.starting_resource(CG.ResourceKind.RAGE, 100), 0,
+	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.RAGE, 100), 0,
 		"Rage is earned inside a fight -- the player's own ruling")
-	assert_eq(Balance.starting_resource(CG.ResourceKind.ENERGY, 100), 0,
+	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.ENERGY, 100), 0,
 		"Energy is earned inside a fight -- the player's own ruling")
 
 ## The pool size is not this function's business, and a version that returned a
 ## constant would pass the test above.
 func test_a_full_pool_means_that_pawns_own_maximum() -> void:
 	for max_resource in [1, 37, 250]:
-		assert_eq(Balance.starting_resource(CG.ResourceKind.MANA, max_resource), max_resource)
+		assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.MANA, max_resource), max_resource)
 
 ## Every class in the game gets an answer, so no future resource kind falls
 ## through to a default nobody chose.
 func test_every_class_has_a_defined_opening_pool() -> void:
 	for cid in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(cid, cid, String(cid))
-		var max_resource := Balance.max_resource(pawn)
-		var start := Balance.starting_resource(pawn.pawn_class.resource_kind, max_resource)
+		var max_resource := pawn.max_resource()
+		var start := SimDeps._default_starting_resource(pawn.pawn_class.resource_kind, max_resource)
 		assert_true(start == 0 or start == max_resource,
 			"%s opens on %d of %d, which is neither empty nor full -- issue 132 defines only those two" % [cid, start, max_resource])
 
@@ -88,7 +88,7 @@ func test_no_action_returns_more_resource_than_it_costs() -> void:
 ## Wired at issue 164. This replaces `test_the_opening_pool_is_still_unwired`,
 ## whose own instruction was to delete it and assert the real thing the day it
 ## went red -- which it did the moment `CombatSim.build` started calling
-## `Balance.starting_resource`.
+## `SimDeps._default_starting_resource`.
 func test_a_rage_pawn_opens_empty_and_a_mana_pawn_opens_full() -> void:
 	for class_id in [&"warrior", &"abomination"]:
 		var unit = _pawn_unit(_fresh_state(class_id))

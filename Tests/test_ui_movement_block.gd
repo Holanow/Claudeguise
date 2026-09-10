@@ -169,7 +169,7 @@ func test_the_picker_is_never_disabled_for_budget_even_at_the_row_cap() -> void:
 	var panel := InspectPanel.create()
 	panel._ready()
 	panel.open([pawn])
-	for i in Balance.PLAN_ROW_CAP:
+	for i in PawnData.PLAN_ROW_CAP:
 		panel._add_plan(pawn)
 	var picker: OptionButton = panel._movement_picker(pawn, pawn.plans[0])
 	assert_false(picker.disabled, "movement is free, so a full row cap must not disable it")

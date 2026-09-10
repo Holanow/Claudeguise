@@ -369,7 +369,7 @@ func _action_display_name(action_id: StringName) -> String:
 ## individually testable and the detail column keeps one separation setting.
 ## Issue 755. Standing preferences a row's own block overrides -- shown above
 ## Plans because they are read before any row is, as `DefaultBehavior`'s
-## baseline. Free against `Balance.plan_row_cap`: nothing here spends a row.
+## baseline. Free against `PawnData.PLAN_ROW_CAP`: nothing here spends a row.
 ## Locked mid-fight for the same reason Equipment is (issue 741):
 ## `UnitGlobals` reads these fields live, every tick, with no staged form to
 ## land an edit in yet, so an edit here would reach into the running fight.
@@ -536,7 +536,7 @@ func _plans_section(pawn: PawnData) -> Array[Control]:
 		out.append(header)
 
 	var used := _rows_used(pawn)
-	var cap := Balance.plan_row_cap(pawn)
+	var cap := PawnData.PLAN_ROW_CAP
 	## Issue 269/790: the second half of the first sentence changes when the
 	## pawn is over the cap, because "0 free" is true and says nothing about
 	## the rows that have gone inert underneath.
@@ -692,7 +692,7 @@ func _add_plan_button(pawn: PawnData) -> Button:
 	var button := Button.new()
 	button.text = "+ Add a plan"
 	button.custom_minimum_size = Vector2(0.0, _TOUCH)
-	var free_rows := Balance.plan_row_cap(pawn) - _rows_used(pawn)
+	var free_rows := PawnData.PLAN_ROW_CAP - _rows_used(pawn)
 	var actions := _available_actions(pawn)
 	if actions.is_empty():
 		button.disabled = true
@@ -700,12 +700,12 @@ func _add_plan_button(pawn: PawnData) -> Button:
 	elif free_rows < 1:
 		button.disabled = true
 		button.tooltip_text = "%d of %d rows used. Remove a row to make room." % [
-			_rows_used(pawn), Balance.plan_row_cap(pawn)]
+			_rows_used(pawn), PawnData.PLAN_ROW_CAP]
 	else:
 		button.pressed.connect(_add_plan.bind(pawn))
 	return button
 
-## Rows this pawn has spent, by the same count `Balance.plan_row_cap`.
+## Rows this pawn has spent, against the same `PawnData.PLAN_ROW_CAP`.
 func _rows_used(pawn: PawnData) -> int:
 	return _edit_plans(pawn).size()
 
@@ -826,7 +826,7 @@ func _add_plan(pawn: PawnData) -> void:
 	var actions := _available_actions(pawn)
 	if actions.is_empty():
 		return
-	if _rows_used(pawn) >= Balance.plan_row_cap(pawn):
+	if _rows_used(pawn) >= PawnData.PLAN_ROW_CAP:
 		return
 	_mark_edited(pawn)
 	var plan := PlanScript.new()
@@ -935,14 +935,14 @@ func _library_section(pawn: PawnData) -> Array[Control]:
 ## One library row: what it would do, in the same words the editable row above
 ## prints, plus what it costs and a button to take it.
 func _library_row(pawn: PawnData, plan) -> Control:
-	var full := _rows_used(pawn) >= Balance.plan_row_cap(pawn)
+	var full := _rows_used(pawn) >= PawnData.PLAN_ROW_CAP
 
 	var add := Button.new()
 	add.text = LIBRARY_ADD
 	add.custom_minimum_size = Vector2(_TOUCH * 1.6, _TOUCH)
 	if full:
 		add.disabled = true
-		add.tooltip_text = LIBRARY_NO_ROOM % Balance.plan_row_cap(pawn)
+		add.tooltip_text = LIBRARY_NO_ROOM % PawnData.PLAN_ROW_CAP
 	else:
 		add.tooltip_text = "Add \"%s\" as a new last row. It costs 1 row." % plan.display_name
 		add.pressed.connect(_add_preset.bind(pawn, plan))
@@ -1038,7 +1038,7 @@ func _library_row_texts(plan) -> Array[String]:
 
 ## Takes the row as-is. It costs 1 row, the same as building it by hand.
 func _add_preset(pawn: PawnData, plan) -> void:
-	if _rows_used(pawn) >= Balance.plan_row_cap(pawn):
+	if _rows_used(pawn) >= PawnData.PLAN_ROW_CAP:
 		return
 	_mark_edited(pawn)
 	_edit_plans(pawn).append(plan)

@@ -2,11 +2,11 @@ extends "res://Tests/TestCase.gd"
 
 
 ## Hover-info-box system, phase 1 (see TEAM_LOG.md, wren's block). The rule
-## that matters most: the glossary owns the sentence, Balance owns the
+## that matters most: the glossary owns the sentence, `PawnData` owns the
 ## number, and the sentence reads the number -- rook's correction after the
 ## condition-editor bug found a UI file captioning a control from a copy of
 ## a fact PlanInterpreter already owned. These tests check the numbers in
-## the glossary text actually come from Balance's real constants rather
+## the glossary text actually come from `PawnData`'s real constants rather
 ## than a retyped literal that can drift the moment a balance pass changes
 ## the source.
 
@@ -37,19 +37,19 @@ func test_class_tags_text_combines_all_three() -> void:
 	assert_true(text.contains(Glossary.method_text(CG.Method.MARTIAL)))
 
 # ---------------------------------------------------------------------------
-# The glossary owns the sentence, Balance owns the number.
+# The glossary owns the sentence, `PawnData` owns the number.
 # ---------------------------------------------------------------------------
 
 func test_str_text_reads_the_real_hp_bonus_and_attack_power() -> void:
 	var text := Glossary.attribute_text(CG.Attribute.STR)
-	assert_true(text.contains(str(Balance.HP_PER_STR_BONUS)), text)
-	assert_true(text.contains("%.1f" % Balance.ATTACK_POWER_PER_POINT), text)
+	assert_true(text.contains(str(PawnData.HP_PER_STR_BONUS)), text)
+	assert_true(text.contains("%.1f" % PawnData.ATTACK_POWER_PER_POINT), text)
 
 func test_con_text_reads_the_real_hp_and_reduction_constants() -> void:
 	var text := Glossary.attribute_text(CG.Attribute.CON)
-	assert_true(text.contains(str(Balance.HP_PER_CON)), text)
-	assert_true(text.contains("%d%%" % int(round(Balance.DAMAGE_REDUCTION_PER_CON * 100.0))), text)
-	assert_true(text.contains("%d%%" % int(round(Balance.NATURAL_DAMAGE_REDUCTION_CAP * 100.0))), text)
+	assert_true(text.contains(str(PawnData.HP_PER_CON)), text)
+	assert_true(text.contains("%d%%" % int(round(PawnData.DAMAGE_REDUCTION_PER_CON * 100.0))), text)
+	assert_true(text.contains("%d%%" % int(round(PawnData.NATURAL_DAMAGE_REDUCTION_CAP * 100.0))), text)
 
 func test_poison_text_reads_the_real_damage_percent() -> void:
 	var text := Glossary.status_text(CG.Status.POISON)

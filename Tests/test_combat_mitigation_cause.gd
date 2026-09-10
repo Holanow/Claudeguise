@@ -231,21 +231,13 @@ func test_a_blocking_enemy_is_actually_blocking() -> void:
 	u.statuses[CG.Status.BLOCK] = 999
 	assert_almost_eq(SimDeps._default_damage_reduction(u), bare + StatusLibrary.of(CG.Status.BLOCK).damage_reduction)
 
-## The seam and Balance must agree for every target, which is the property the
-## old enemy short-circuit broke.
-func test_the_seam_agrees_with_balance_for_every_enemy_in_content() -> void:
-	var checked := 0
-	for id in EnemyLibrary.all_ids():
-		for marked in [false, true]:
-			var u := CombatUnit.new()
-			u.enemy_id = id
-			if marked:
-				u.statuses[CG.Status.MARKED] = 999
-			assert_almost_eq(SimDeps._default_damage_reduction(u), Balance.damage_reduction(u),
-				0.0001, "seam disagrees with Balance for %s (marked %s)" % [id, marked])
-			checked += 1
-	assert_eq(checked, EnemyLibrary.all_ids().size() * 2,
-		"'every enemy in content' is the claim, so the count must be the roster, not a floor under it")
+## Issue 770 deleted `test_the_seam_agrees_with_balance_for_every_enemy_in_content`
+## from here. It compared `SimDeps._default_damage_reduction` against
+## `Balance.damage_reduction`, which the seam called; the two are one function
+## now, so the assertion read `f(u) == f(u)`. The property it guarded -- MARKED
+## reaching an enemy rather than being short-circuited -- is still guarded by
+## `test_a_marked_enemy_takes_more_damage_than_the_same_enemy_unmarked` in
+## `test_pawn_derived_numbers.gd` and by the BLOCK case above.
 
 # ---------------------------------------------------------------------------
 # issue 364: why ARMOR is never the cause

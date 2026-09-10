@@ -31,3 +31,17 @@ static func move_speed(multiplier: float) -> float:
 
 static func resistance(multiplier: float) -> float:
 	return BASE_RESISTANCE * multiplier
+
+## Issue 542. The enemy half of `PawnData.scale_action_ticks`, clamped at both
+## ends: the fast end mirrors the pawn's -50% floor, the slow end stops a small
+## multiplier turning a wind-up into a stall nobody can read.
+const MIN_ENEMY_TICK_SCALE := 0.5
+const MAX_ENEMY_TICK_SCALE := 2.0
+
+static func scale_action_ticks(base_ticks: int, action_speed: float) -> int:
+	if base_ticks <= 0:
+		return base_ticks
+	if action_speed <= 0.0:
+		return base_ticks
+	var scale := clampf(1.0 / action_speed, MIN_ENEMY_TICK_SCALE, MAX_ENEMY_TICK_SCALE)
+	return maxi(1, int(round(float(base_ticks) * scale)))

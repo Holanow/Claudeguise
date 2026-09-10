@@ -5,8 +5,8 @@ func _init() -> void:
 		var sm: PawnData = PawnFactory.make_starter_pawn(&"siege_master", &"sm", "SM") if maker == "starter" \
 			else PawnFactory.make_preset_pawn(&"siege_master", &"sm", "SM")
 		print("siege_master %s max_resource %d, start %d" % [
-			maker, Balance.max_resource(sm),
-			Balance.starting_resource(ClassLibrary.get_class_def(&"siege_master").resource_kind, Balance.max_resource(sm))])
+			maker, sm.max_resource(),
+			SimDeps._default_starting_resource(ClassLibrary.get_class_def(&"siege_master").resource_kind, sm.max_resource())])
 	for planned in [false, true]:
 		var fires := {}
 		var census := {}

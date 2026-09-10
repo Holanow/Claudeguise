@@ -29,9 +29,9 @@ var default_decide: Callable = DefaultPlan.decide
 var default_attack_action: Callable = DefaultBehavior.default_attack_action
 
 ## What a pawn's pool opens at, given its kind and its maximum. Issue 164.
-var starting_resource: Callable = Balance.starting_resource
+var starting_resource: Callable = _default_starting_resource
 
-## Resource per tick, before the ceiling. Never consulted for a RAGE unit Ã¢â‚¬--
+## Resource per tick, before the ceiling. Never consulted for a RAGE unit --
 ## CombatSim enforces that structurally rather than trusting every possible
 ## rate function to return 0 for it.
 var resource_regen_per_tick: Callable = _default_resource_regen_per_tick
@@ -70,31 +70,50 @@ var haste_tick_scale: Callable = _default_haste_tick_scale
 var slowed_speed_scale: Callable = _default_slowed_speed_scale
 
 static func _default_max_hp(pawn: PawnData) -> int:
-	return Balance.max_hp(pawn)
+	return pawn.max_hp()
 
 static func _default_max_resource(pawn: PawnData) -> int:
-	return Balance.max_resource(pawn)
+	return pawn.max_resource()
 
 static func _default_move_speed(pawn: PawnData) -> float:
-	return Balance.move_speed(pawn)
+	return pawn.move_speed()
 
 ## Enemies carry attack power directly on EnemyDef; they skip the attribute
-## system per EnemyDef's own doc comment, so there is nothing for Balance to
-## derive for them.
+## system per EnemyDef's own doc comment, so there is nothing for a pawn's own
+## derivation to give them.
 static func _default_attack_power(unit: CombatUnit, action: ActionDef, rng: RandomNumberGenerator = null) -> float:
 	if unit.pawn != null:
-		return Balance.attack_power(unit.pawn, action.damage_type, rng) * action.power_scale * AbilityModifiers.power_multiplier(unit, action)
+		return unit.pawn.attack_power(action.damage_type, rng) * action.power_scale * AbilityModifiers.power_multiplier(unit, action)
 	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	if enemy_def == null:
 		return 0.0
 	return float(enemy_def.attack_power.get(action.damage_type, 0)) * action.power_scale
 
-## Issue 364. `Balance.damage_reduction` already splits pawn from enemy and then
-## applies SHIELD, BLOCK and MARKED to whichever it got; this used to take the
-## enemy branch itself and return before reaching that clause, so all three were
-## inert on every non-pawn target.
+const MAX_DAMAGE_REDUCTION := 0.9
+
+## Fraction of incoming damage removed, from armor, natural toughness and
+## statuses. Issue 364: the pawn/enemy split happens first and the three
+## statuses apply to whichever branch ran, so none of them can be inert on a
+## non-pawn target.
 static func _default_damage_reduction(unit: CombatUnit) -> float:
-	return Balance.damage_reduction(unit)
+	var reduction := 0.0
+	if unit.pawn != null:
+		reduction = unit.pawn.natural_damage_reduction()
+		reduction += unit.pawn.gear_damage_reduction()
+	else:
+		var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
+		if enemy_def != null:
+			reduction = enemy_def.damage_reduction
+	## Three statuses, named one at a time rather than looped over whatever the
+	## unit is carrying: float addition is not associative, and `unit.statuses`
+	## is in the order the statuses happened to land in.
+	if unit.has_status(CG.Status.SHIELD):
+		reduction += StatusLibrary.of(CG.Status.SHIELD).damage_reduction
+	if unit.has_status(CG.Status.BLOCK):
+		reduction += StatusLibrary.of(CG.Status.BLOCK).damage_reduction
+	if unit.has_status(CG.Status.MARKED):
+		reduction -= StatusLibrary.of(CG.Status.MARKED).vulnerability
+	return clampf(reduction, 0.0, MAX_DAMAGE_REDUCTION)
 
 ## Names the largest single contributor to `_default_damage_reduction`, branch
 ## for branch, so the cause can never name something the number did not use.
@@ -102,13 +121,11 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 	var best := CG.MitigationCause.NONE
 	var best_v := 0.0
 	if unit.pawn != null:
-		var toughness := clampf(
-			Balance.attribute(unit.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
-			0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)
+		var toughness := unit.pawn.natural_damage_reduction()
 		if toughness > best_v:
 			best_v = toughness
 			best = CG.MitigationCause.TOUGHNESS
-		var gear := Balance.gear_damage_reduction(unit.pawn)
+		var gear := unit.pawn.gear_damage_reduction()
 		if gear > best_v:
 			best_v = gear
 			best = CG.MitigationCause.ARMOR
@@ -131,13 +148,13 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 
 static func _default_wind_up_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
-		return Balance.scale_action_ticks(action.wind_up_ticks, unit.pawn)
-	return Balance.scale_enemy_action_ticks(action.wind_up_ticks, _enemy_action_speed(unit))
+		return unit.pawn.scale_action_ticks(action.wind_up_ticks)
+	return MonsterProfile.scale_action_ticks(action.wind_up_ticks, _enemy_action_speed(unit))
 
 static func _default_recover_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
-		return Balance.scale_action_ticks(action.recover_ticks, unit.pawn)
-	return Balance.scale_enemy_action_ticks(action.recover_ticks, _enemy_action_speed(unit))
+		return unit.pawn.scale_action_ticks(action.recover_ticks)
+	return MonsterProfile.scale_action_ticks(action.recover_ticks, _enemy_action_speed(unit))
 
 ## Issue 542. Same `EnemyLibrary.get_enemy` the attack-power and hide branches above
 ## already do per call; an unknown enemy acts at its authored speed.
@@ -145,11 +162,45 @@ static func _enemy_action_speed(unit: CombatUnit) -> float:
 	var enemy_def: EnemyDef = EnemyLibrary.get_enemy(unit.enemy_id)
 	return MonsterProfile.BASE_ACTION_SPEED if enemy_def == null else enemy_def.action_speed
 
-static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
-	return Balance.resource_regen_per_tick(unit)
+## Issue 20: percent of max resource per second. Mana large and slow, Energy
+## small and fast, per README.md.
+const MANA_REGEN_PERCENT_PER_SECOND := 4.0
+const ENERGY_REGEN_PERCENT_PER_SECOND := 18.0
 
+## Issue 20: percent of max Rage gained per landed attack. README.md: Rage
+## "fills as the pawn attacks" and nothing else.
+const RAGE_GAIN_PERCENT_PER_HIT := 18.0
+
+## What a pawn's resource pool holds at the moment a fight starts.
+static func _default_starting_resource(kind: CG.ResourceKind, max_resource: int) -> int:
+	match kind:
+		CG.ResourceKind.MANA:
+			return max_resource
+		CG.ResourceKind.ENERGY, CG.ResourceKind.RAGE:
+			return 0
+	return max_resource
+
+## Rage returns 0.0: it never rises on a timer, only from a landed attack.
+static func _default_resource_regen_per_tick(unit: CombatUnit) -> float:
+	var percent_per_second := 0.0
+	match unit.resource_kind:
+		CG.ResourceKind.MANA:
+			percent_per_second = MANA_REGEN_PERCENT_PER_SECOND
+		CG.ResourceKind.ENERGY:
+			percent_per_second = ENERGY_REGEN_PERCENT_PER_SECOND
+		CG.ResourceKind.RAGE:
+			return 0.0
+	if unit.pawn != null:
+		for e in unit.pawn.equipment():
+			percent_per_second += e.resource_regen_percent_bonus
+	return float(unit.resource_max) * (percent_per_second / 100.0) / float(CG.TICKS_PER_SECOND)
+
+## Rage gained the moment an attack lands. 0.0 for any other resource kind:
+## Mana and Energy regenerate on a timer instead, never from landing a hit.
 static func _default_rage_gain_on_attack(unit: CombatUnit) -> float:
-	return Balance.rage_gain_per_attack(unit)
+	if unit.resource_kind != CG.ResourceKind.RAGE:
+		return 0.0
+	return float(unit.resource_max) * (RAGE_GAIN_PERCENT_PER_HIT / 100.0)
 
 ## Percent of the victim's own max Rage per point of damage taken, so a big hit
 ## pays more than a small one and a large pool does not fill faster than a small
@@ -160,7 +211,7 @@ static func _default_rage_gain_on_damage_taken(unit: CombatUnit, damage: int) ->
 	return float(unit.resource_max) * (_RAGE_PERCENT_PER_DAMAGE_TAKEN / 100.0) * float(damage)
 
 static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status) -> float:
-	return Balance.status_damage_per_tick(unit, status)
+	return StatusLibrary.of(status).damage_per_tick(unit.hp_max)
 
 ## Issue 627: bleed's three numbers and slowed's scale used to be consts here.
 ## Two of them had a twin in `Balance` and the twins disagreed about which was
@@ -168,7 +219,8 @@ static func _default_status_damage_per_tick(unit: CombatUnit, status: CG.Status)
 ## slowed's was the other way round. Both pairs happened to hold the same
 ## value. They are one field each on a `StatusDef` now.
 static func _default_status_damage_per_magnitude(unit: CombatUnit, status: CG.Status) -> float:
-	return Balance.status_damage_per_magnitude(unit, status)
+	var _unused := unit
+	return StatusLibrary.of(status).damage_per_magnitude_per_tick
 
 static func _default_status_tick_interval(status: CG.Status) -> int:
 	return StatusLibrary.of(status).tick_interval
@@ -177,10 +229,11 @@ static func _default_status_stack_decay_ticks(status: CG.Status) -> int:
 	return StatusLibrary.of(status).stack_decay_ticks
 
 static func _default_haste_tick_scale(unit: CombatUnit) -> float:
-	return Balance.haste_tick_scale(unit)
+	var _unused := unit
+	return StatusLibrary.of(CG.Status.HASTE).tick_scale
 
 static func _default_slowed_speed_scale(_unit: CombatUnit) -> float:
-	return Balance.slowed_speed_scale(_unit)
+	return StatusLibrary.of(CG.Status.SLOWED).speed_scale
 
 ## 1.0 is "idling recovers no faster than any other tick", which is what every
 ## fight in this project has always done. See the field's own comment above for

@@ -133,7 +133,7 @@ func test_cloth_armor_reduces_damage_for_the_pawn_that_starts_in_it() -> void:
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"probe", "Probe")
 		assert_eq(pawn.body.id, CLOTH_ARMOR[class_id],
 			"%s no longer starts in %s" % [class_id, CLOTH_ARMOR[class_id]])
-		assert_almost_eq(Balance.gear_damage_reduction(pawn), 0.05, 0.0001,
+		assert_almost_eq(pawn.gear_damage_reduction(), 0.05, 0.0001,
 			"%s wears %s and gets no mitigation from it" % [class_id, CLOTH_ARMOR[class_id]])
 
 
@@ -143,7 +143,7 @@ func test_taking_the_cloth_off_removes_the_mitigation() -> void:
 	for class_id in CLOTH_ARMOR:
 		var pawn := PawnFactory.make_starter_pawn(class_id, &"probe", "Probe")
 		pawn.body = null
-		assert_almost_eq(Balance.gear_damage_reduction(pawn), 0.0, 0.0001,
+		assert_almost_eq(pawn.gear_damage_reduction(), 0.0, 0.0001,
 			"%s keeps mitigation with nothing in the body slot" % class_id)
 
 

@@ -433,7 +433,7 @@ func _make_modifier(status: CG.Status, ticks: int, chance: float) -> AbilityModi
 ## The compounding case, and the reason this screen measures rather than
 ## restates. A piece with both a flat and a percent bonus on the same
 ## attribute means neither number on its own is what the pawn ends up with,
-## and `Balance.attribute` is the only thing that knows the order they apply
+## and `PawnData.effective_attribute` is the only thing that knows the order they apply
 ## in. Issue 790 removed WIS, the item this test used to fixture on, so it
 ## builds a synthetic item instead of relying on real content.
 func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> void:
@@ -446,9 +446,9 @@ func test_the_after_number_is_what_balance_says_not_the_items_own_field() -> voi
 	var bare := panel._stripped(pawn)
 	assert_eq(bare.body, null, "the stripped copy must wear nothing")
 	assert_eq(bare.pawn_class, pawn.pawn_class, "and must keep the class it is measuring")
-	assert_almost_eq(Balance.attribute(bare, CG.Attribute.CON), 10.0)
-	assert_almost_eq(Balance.attribute(pawn, CG.Attribute.CON), 12.0, 0.0001,
-		"10 + the armor's flat 2 CON, read through Balance rather than off the item")
+	assert_almost_eq(bare.effective_attribute(CG.Attribute.CON), 10.0)
+	assert_almost_eq(pawn.effective_attribute(CG.Attribute.CON), 12.0, 0.0001,
+		"10 + the armor's flat 2 CON, read through PawnData rather than off the item")
 	panel.free()
 
 ## Stripping must not touch the pawn being drawn. A screen that unequips a pawn

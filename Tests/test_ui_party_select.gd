@@ -334,7 +334,7 @@ func _all_nodes(node: Node) -> Array[Node]:
 
 ## The middle column printed the same seven attribute chips twice, forty pixels
 ## apart, and the two disagreed: the plans panel reads them off the pawn, the
-## equipment panel reads them through `Balance` with the gear in. Equipment's is
+## equipment panel reads them through `PawnData` with the gear in. Equipment's is
 ## the truthful copy, so it is the one that stays.
 func test_the_middle_column_states_the_attributes_once() -> void:
 	var screen := PartySelect.create()

@@ -785,19 +785,19 @@ func test_add_is_refused_and_the_button_disabled_when_the_cap_is_spent() -> void
 	panel._ready()
 	panel.open([pawn])
 
-	for i in Balance.PLAN_ROW_CAP:
+	for i in PawnData.PLAN_ROW_CAP:
 		panel._add_plan(pawn)
-	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "every row up to the cap must be added")
+	assert_eq(pawn.plans.size(), PawnData.PLAN_ROW_CAP, "every row up to the cap must be added")
 
 	panel._build_detail(pawn)
 	var add := _button_named(panel._detail_box, "+ Add a plan")
 	assert_not_null(add, "the Add button must be on the screen")
 	assert_true(add.disabled, "0 rows free -- the button must be disabled")
-	assert_true(add.tooltip_text.contains(str(Balance.PLAN_ROW_CAP)),
+	assert_true(add.tooltip_text.contains(str(PawnData.PLAN_ROW_CAP)),
 		"the reason must name the cap: '%s'" % add.tooltip_text)
 
 	panel._add_plan(pawn)
-	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "the guard must hold even if the function is called directly")
+	assert_eq(pawn.plans.size(), PawnData.PLAN_ROW_CAP, "the guard must hold even if the function is called directly")
 	panel.free()
 
 ## Negative half of the test above: with room, the button is live. A guard that
@@ -882,7 +882,7 @@ func _pawn_over_budget() -> PawnData:
 	## One row past the cap, authored directly rather than through
 	## `panel._add_plan` -- the button refuses an 11th row, same as it refuses
 	## an 11th block for anyone forming this fixture through the UI.
-	for i in Balance.PLAN_ROW_CAP + 1:
+	for i in PawnData.PLAN_ROW_CAP + 1:
 		pawn.plans.append(_make_plan("plan_%d" % i))
 	return pawn
 
@@ -892,7 +892,7 @@ func test_a_row_past_the_budget_is_dimmed_and_the_rows_before_it_are_not() -> vo
 	panel._ready()
 	panel.open([pawn])
 
-	var last := Balance.PLAN_ROW_CAP
+	var last := PawnData.PLAN_ROW_CAP
 	var paid := panel._plan_row(pawn.plans[0], pawn, 0, false)
 	var inert := panel._plan_row(pawn.plans[last], pawn, last, true)
 	assert_eq(paid.modulate.a, 1.0, "a row inside the cap must be drawn at full strength")
@@ -947,7 +947,7 @@ func test_an_inert_row_can_still_be_removed() -> void:
 	panel._ready()
 	panel.open([pawn])
 
-	var last := Balance.PLAN_ROW_CAP
+	var last := PawnData.PLAN_ROW_CAP
 	var row := panel._plan_row(pawn.plans[last], pawn, last, true)
 	var remove := _button_named(row, "X")
 	assert_not_null(remove, "the inert row must keep its remove button")
@@ -955,7 +955,7 @@ func test_an_inert_row_can_still_be_removed() -> void:
 	row.free()
 
 	panel._remove_plan(pawn, last)
-	assert_eq(pawn.plans.size(), Balance.PLAN_ROW_CAP, "removing the inert row must bring the pawn back inside its cap")
+	assert_eq(pawn.plans.size(), PawnData.PLAN_ROW_CAP, "removing the inert row must bring the pawn back inside its cap")
 	panel._build_detail(pawn)
 	assert_false(_all_label_text(panel._detail_box).contains("Inert"), "and the mark must go with it")
 	panel.free()

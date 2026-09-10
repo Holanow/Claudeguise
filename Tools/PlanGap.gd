@@ -71,7 +71,7 @@ func _print_budgets(class_ids: Array) -> void:
 		var pawn := PawnFactory.make_preset_pawn(cid, StringName("b_%s" % cid), String(cid))
 		print("  %-14s rows %d  blocks %d  cap %d  ACTIVE ROWS %d" % [
 			String(cid), pawn.plans.size(), PresetPlans.total_blocks(cid),
-			Balance.plan_row_cap(pawn), PlanInterpreter.active_plan_count(pawn),
+			PawnData.PLAN_ROW_CAP, PlanInterpreter.active_plan_count(pawn),
 		])
 
 ## Leave-one-out, which is every party a `PartySelect` of five classes can build

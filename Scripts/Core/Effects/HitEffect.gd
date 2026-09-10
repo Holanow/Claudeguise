@@ -6,7 +6,7 @@ class_name HitEffect
 @export var damage_type: CG.DamageType = CG.DamageType.PHYSICAL
 
 ## Multiplier on the wielder's derived attack power for this damage type.
-## `Balance.gd` owns what that power is; this owns how hard this hit leans on it.
+## `PawnData.attack_power` owns what that power is; this owns how hard this hit leans on it.
 @export var power_scale: float = 1.0
 
 ## Issue 772. Alternative to `power_scale`: percent of the CASTER's own max hp

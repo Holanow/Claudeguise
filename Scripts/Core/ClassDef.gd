@@ -20,7 +20,7 @@ class_name ClassDef
 
 @export var resource_kind: CG.ResourceKind = CG.ResourceKind.ENERGY
 
-## Keyed by attribute NAME, e.g. "STR". Base spread before equipment. Balance.gd
+## Keyed by attribute NAME, e.g. "STR". Base spread before equipment. `PawnData`
 ## turns these into the derived numbers the simulation uses.
 @export var base_attributes: Dictionary = {}
 

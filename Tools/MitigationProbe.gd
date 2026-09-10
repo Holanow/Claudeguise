@@ -106,9 +106,7 @@ func _inspect(u: CombatUnit, used: float) -> void:
 	if u.pawn.body == null or u.pawn.body.damage_reduction <= 0.0:
 		return
 	var armor: float = u.pawn.body.damage_reduction
-	var toughness := clampf(
-		Balance.attribute(u.pawn, CG.Attribute.CON) * Balance.DAMAGE_REDUCTION_PER_CON,
-		0.0, Balance.NATURAL_DAMAGE_REDUCTION_CAP)
+	var toughness := u.pawn.natural_damage_reduction()
 	_bump(_armor_share, "armour %.2f vs own toughness %.2f" % [armor, toughness])
 	if armor > toughness:
 		_bump(_armor_share, "armour IS the largest contributor")

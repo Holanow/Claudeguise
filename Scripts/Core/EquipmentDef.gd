@@ -31,10 +31,10 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 @export var modifiers: Array[AbilityModifier] = []
 
 ## Fraction of incoming damage removed before it is applied. The best across
-## every equipped item counts, not the sum -- see `Balance.gear_damage_reduction`.
+## every equipped item counts, not the sum -- see `PawnData.gear_damage_reduction`.
 @export var damage_reduction: float = 0.0
 
-## Issue 746: percentage points per second added to `Balance.resource_regen_per_tick`.
+## Issue 746: percentage points per second added to `SimDeps._default_resource_regen_per_tick`.
 ## Additive across equipment; 0.0 does nothing, which is every item but the focus.
 @export var resource_regen_percent_bonus: float = 0.0
 

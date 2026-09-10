@@ -36,7 +36,7 @@ const KEEP_DISTANCE_BAND := 15.0
 static func active_plan_count(pawn: PawnData) -> int:
 	if pawn == null:
 		return 0
-	return mini(pawn.plans.size(), Balance.plan_row_cap(pawn))
+	return mini(pawn.plans.size(), PawnData.PLAN_ROW_CAP)
 
 ## Issue 671/790: a pawn is capped at its row limit; an enemy has none and
 ## every row in `unit.enemy_plans` is active. Two sources, one walk.

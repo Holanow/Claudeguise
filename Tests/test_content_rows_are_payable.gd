@@ -38,7 +38,7 @@ func _resource_rows(class_id: StringName) -> Array:
 func test_every_resource_gated_row_is_reachable_by_the_weakest_roll() -> void:
 	var checked := 0
 	for cid in ClassLibrary.all_ids():
-		var ceiling := Balance.max_resource(_floor_pawn(cid))
+		var ceiling := _floor_pawn(cid).max_resource()
 		for plan in _resource_rows(cid):
 			checked += 1
 			assert_true(_requirement(plan.condition, ceiling) <= ceiling,
@@ -50,7 +50,7 @@ func test_every_resource_gated_row_is_reachable_by_the_weakest_roll() -> void:
 ## the zero margin is the defect, not the value that produced it.
 func test_no_fixed_amount_row_sits_on_its_own_classes_ceiling() -> void:
 	for cid in ClassLibrary.all_ids():
-		var ceiling := Balance.max_resource(PawnFactory.make_starter_pawn(cid, &"p", String(cid)))
+		var ceiling := PawnFactory.make_starter_pawn(cid, &"p", String(cid)).max_resource()
 		for plan in _resource_rows(cid):
 			if not (plan.condition is SelfResourceAtLeastBlock):
 				continue

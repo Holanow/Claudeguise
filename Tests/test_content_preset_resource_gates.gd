@@ -14,7 +14,7 @@ func test_every_resource_gate_covers_its_own_action_and_is_reachable() -> void:
 		var def := ClassLibrary.get_class_def(class_id)
 		if def == null:
 			continue
-		var ceiling := Balance.max_resource(PawnFactory.make_preset_pawn(class_id, &"probe", "probe"))
+		var ceiling := PawnFactory.make_preset_pawn(class_id, &"probe", "probe").max_resource()
 		for plan in PresetPlans.for_class(class_id):
 			if not (plan.condition is SelfResourceAtLeastBlock):
 				continue

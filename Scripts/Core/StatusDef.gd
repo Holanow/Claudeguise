@@ -59,3 +59,10 @@ class_name StatusDef
 ## here: it is one rule off `harmful`, so a red rim can never appear on a
 ## helpful badge, and thirteen authored colours could.
 @export var icon_name: StringName = &""
+
+
+## Issue 770: what `damage_percent_of_max_hp_per_tick` is worth against one
+## victim's max hp. The last of #627's readers, moved off `Balance.gd` to sit
+## beside the field it reads.
+func damage_per_tick(hp_max: int) -> float:
+	return float(hp_max) * (damage_percent_of_max_hp_per_tick / 100.0)

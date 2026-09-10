@@ -95,7 +95,7 @@ func test_a_taken_row_leaves_the_library() -> void:
 ## #392's rule: refused with the reason beside it, never silently.
 func test_an_unaffordable_row_is_disabled_and_says_why() -> void:
 	var pawn := _pawn(&"priest")
-	for i in Balance.plan_row_cap(pawn):
+	for i in PawnData.PLAN_ROW_CAP:
 		var filler := Plan.new()
 		filler.id = StringName("filler_%d" % i)
 		pawn.plans.append(filler)
@@ -108,11 +108,11 @@ func test_an_unaffordable_row_is_disabled_and_says_why() -> void:
 	assert_true(adds.size() > 0, "the rows are still listed, not hidden")
 	for add in adds:
 		assert_true(add.disabled, "no rows free -- the cap is already spent")
-		assert_true(add.tooltip_text.contains(str(Balance.plan_row_cap(pawn))),
+		assert_true(add.tooltip_text.contains(str(PawnData.PLAN_ROW_CAP)),
 			"the reason must be readable: '%s'" % add.tooltip_text)
 	var row = panel._library_rows(pawn)[0]
 	panel._add_preset(pawn, row)
-	assert_eq(pawn.plans.size(), Balance.plan_row_cap(pawn), "the guard must hold when the function is called directly too")
+	assert_eq(pawn.plans.size(), PawnData.PLAN_ROW_CAP, "the guard must hold when the function is called directly too")
 	panel.free()
 
 ## The negative half. A library that refuses everything would pass the test
