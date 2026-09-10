@@ -91,15 +91,7 @@ func test_the_allowlisted_tools_still_cover_every_class() -> void:
 
 
 func _tool_scripts() -> Array[String]:
-	var out: Array[String] = []
-	var dir := DirAccess.open("res://Tools")
-	if dir == null:
-		return out
-	for f in dir.get_files():
-		if f.ends_with(".gd"):
-			out.append("res://Tools/%s" % f)
-	out.sort()
-	return out
+	return ToolScripts.under("res://Tools")
 
 
 ## True when a line chooses a party by position in the roster rather than by id.
