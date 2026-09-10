@@ -11,7 +11,6 @@ var _misplaced_tests: Array[String] = []
 var _test_failures: Array[String] = []
 var _tests_run := 0
 var _assertions := 0
-var _self_path := "res://Tests/run_tests.gd"
 
 ## An optional substring filter, for iterating on one file without paying for the
 ## whole suite:
@@ -57,8 +56,6 @@ func _run() -> void:
 		])
 		collected = kept
 
-	## After `_check_parse`, which reloads every script including TestCase.gd and
-	## so resets its statics.
 	TestCase.tree = self
 	_run_tests(collected)
 
@@ -84,8 +81,11 @@ func _run() -> void:
 func _verdict(ok: bool) -> String:
 	return "pass" if ok else "FAIL"
 
-## `load()` alone is not enough here, and the difference is not cosmetic. A .gd
-## file with a type error prints three SCRIPT ERROR lines and then `load()`
+## `load()` hands back a GDScript even for a file that did not parse, so the
+## null check alone sees nothing; `can_instantiate()` is false for exactly
+## those, and unlike `reload()` it does not rebuild the script it checks --
+## rebuilding gave every inner class a fresh script object and left any type
+## annotation naming one, in a file already reloaded, pointing at the old one.
 func _check_parse(scripts: Array[String]) -> void:
 	for path in scripts:
 		var res := load(path)
@@ -96,14 +96,10 @@ func _check_parse(scripts: Array[String]) -> void:
 		var script := res as GDScript
 		if script == null:
 			continue
-		# Reloading the script that is currently executing always reports an
-		# error, so the runner would fail itself on every clean run. It parsed:
-		# it is running.
-		if path == _self_path:
+		if script.can_instantiate():
 			continue
-		if script.reload() != OK:
-			_parse_failures.append(path)
-			printerr("PARSE FAIL  %s" % path)
+		_parse_failures.append(path)
+		printerr("PARSE FAIL  %s" % path)
 
 func _check_discovery(scripts: Array[String]) -> Array[String]:
 	var collected: Array[String] = []
