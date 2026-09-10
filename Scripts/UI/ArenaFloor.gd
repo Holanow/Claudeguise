@@ -86,10 +86,10 @@ func _ensure_layers() -> void:
 	_blood_layer = _make_layer(Terrain.Kind.BLOOD, -2)
 	_water_layer.material = _fluid_material(
 		Palette.damage_color(CG.DamageType.WATER), 0.45, 1.0, 0.055)
-	## Darkened, not recoloured: blood keeps the physical-damage token #759
-	## chose for it and reads as the thicker, deeper of the two fluids.
+	## Issue 855: its own red, not the physical-damage token, because moving
+	## grey read as smoke. Still the thicker, slower, tighter of the two.
 	_blood_layer.material = _fluid_material(
-		Palette.damage_color(CG.DamageType.PHYSICAL).darkened(0.4), 0.6, 0.4, 0.085)
+		Palette.ARENA_BLOOD, 0.55, 0.4, 0.085)
 	for layer in [_ground_layer, _water_layer, _blood_layer]:
 		add_child(layer)
 
