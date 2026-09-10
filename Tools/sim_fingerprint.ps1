@@ -60,10 +60,7 @@ $INSTRUMENT_ENTRY = 'Tools/SampleFights.gd'
 
 ## Issue 837: every `Tools/` file the instrument's output depends on, named here
 ## and nowhere else. `Tests/test_tools_sim_fingerprint.gd` reads this list and
-## fails when the instrument reaches a `Tools/` file that is not in it, so the
-## list is enforced rather than remembered -- which is what `Tools/` gets
-## instead of a directory sweep, because 436 tracked files live there and one
-## of them is the instrument.
+## fails the gate when the instrument reaches a `Tools/` file that is not in it.
 $INSTRUMENT_FILES = @($INSTRUMENT_ENTRY)
 
 function Get-SourceHash {

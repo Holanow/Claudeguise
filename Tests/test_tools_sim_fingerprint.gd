@@ -277,7 +277,7 @@ func _reach_offenders(rel: String, code: String, hashed: Array[String],
 		types: Dictionary) -> Array[String]:
 	var out: Array[String] = []
 	var path_re := RegEx.new()
-	path_re.compile("res://(Tools/[A-Za-z0-9_/]+\\.gd)")
+	path_re.compile("res://(Tools/[A-Za-z0-9_./-]+)")
 	for m in path_re.search_all(code):
 		var hit := m.get_string(1)
 		if not hashed.has(hit):
@@ -318,6 +318,9 @@ func test_the_reach_guard_fires_on_a_helper_outside_the_set() -> void:
 	assert_eq(_reach_offenders("Tools/SampleFights.gd",
 		"var x := preload(\"res://Tools/Helper.gd\")", one, types).size(),
 		1, "a res:// load of an unhashed Tools/ file must be flagged")
+	assert_eq(_reach_offenders("Tools/SampleFights.gd",
+		"var x := load(\"res://Tools/roster.tres\")", one, types).size(),
+		1, "any file type counts: an extension allow-list is what lost .tres in #633")
 	assert_eq(_reach_offenders("Tools/SampleFights.gd", "var x := PartySpec.new()", both, types),
 		[] as Array[String], "a helper that IS in the hashed set must not be flagged")
 	assert_eq(_reach_offenders("Tools/SampleFights.gd", "var x := PartySpecial.new()", one, types),
