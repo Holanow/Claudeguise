@@ -83,9 +83,7 @@ func _verdict(ok: bool) -> String:
 
 ## `load()` hands back a GDScript even for a file that did not parse, so the
 ## null check alone sees nothing; `can_instantiate()` is false for exactly
-## those, and unlike `reload()` it does not rebuild the script it checks --
-## rebuilding gave every inner class a fresh script object and left any type
-## annotation naming one, in a file already reloaded, pointing at the old one.
+## those, and unlike `reload()` it does not rebuild the script it checks.
 func _check_parse(scripts: Array[String]) -> void:
 	for path in scripts:
 		var res := load(path)
