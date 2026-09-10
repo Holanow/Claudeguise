@@ -76,7 +76,8 @@ func test_the_layers_rebuild_after_the_arena_is_swept() -> void:
 	for child in arena.get_children():
 		arena.remove_child(child)
 		child.free()
-	arena._ground_layer = null
+	## Freed rather than nulled: `_rebuild_units` leaves a dead reference, not
+	## an empty one, and `is_instance_valid` is what has to tell them apart.
 	arena._process(0.0)
 	assert_true(is_instance_valid(arena._water_layer))
 	assert_eq(arena.get_child_count(), 3)
