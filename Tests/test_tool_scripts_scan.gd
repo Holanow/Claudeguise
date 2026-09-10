@@ -38,6 +38,26 @@ func test_a_missing_root_is_empty_rather_than_a_crash() -> void:
 		"a root that does not exist yields nothing")
 
 
+## No subdirectory tool exists to run these guards against, so the standing
+## check is structural: each must use the shared walk and keep no private one.
+const GUARDS := [
+	"res://Tests/test_probe_does_not_perturb.gd",
+	"res://Tests/test_tools_are_launchable.gd",
+	"res://Tests/test_tools_reach_every_class.gd",
+	"res://Tests/test_tools_refuse_headless.gd",
+	"res://Tests/test_tools_seed_is_submitted.gd",
+]
+
+
+func test_every_tools_guard_walks_through_the_shared_helper() -> void:
+	for path in GUARDS:
+		var source := FileAccess.get_file_as_string(path)
+		assert_true(source.contains("ToolScripts.under("),
+			"%s must scan Tools/ through the shared walk" % path)
+		assert_false(source.contains("get_files()"),
+			"%s has grown its own walk again; get_files() does not recurse" % path)
+
+
 func _write(path: String) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string("extends Node\n")
