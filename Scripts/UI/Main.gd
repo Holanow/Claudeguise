@@ -112,15 +112,16 @@ func start_battle_at(config: RunConfig, positions: Array[Vector2]) -> void:
 			RoomLibrary.get_room(config.encounter_id), config.party.size()), positions)
 	)
 
-## Same party, same encounter, same seed **and same placement**. The comparison
-## control: it is the reason the simulation is deterministic and it is the first
-## thing to check works, because if it does not, nothing measured on this screen
-## is worth anything.
+## Issue 840: Restart rolls a fresh seed and opens the party screen rather than
+## re-entering the fight, because party, room and seed are all chosen there --
+## "change party" is restarting's second half rather than a button of its own.
+## Masked to 31 bits so the roll survives the trip through the seed field.
 func rerun() -> void:
 	if run_config == null:
 		push_error("Main.rerun called with no run_config set")
 		return
-	start_battle_at(run_config, _party_positions)
+	run_config.seed = randi() & 0x7FFFFFFF
+	show_party_select()
 
 ## Issue 591: the same party and the same seed in a different room, straight off
 ## the end card. The placement is deliberately NOT carried over: it was chosen
