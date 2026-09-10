@@ -92,7 +92,7 @@ func test_marked_status_lowers_damage_reduction() -> void:
 ## `EnemyDef.damage_reduction` directly and never called this function for
 ## one. MARKED lives on `CombatUnit` and applies to enemies far more often
 ## than to a pawn, so an enemy must actually flow through here now.
-func test_enemy_units_read_their_own_damage_reduction_through_balance() -> void:
+func test_enemy_units_read_their_own_damage_reduction_through_the_seam() -> void:
 	var u := CombatUnit.new()
 	u.enemy_id = &"the_warden"
 	var warden := EnemyLibrary.get_enemy(&"the_warden")
