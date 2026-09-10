@@ -165,6 +165,16 @@ var status_magnitude: float:
 	get:
 		var s := status_effect()
 		return s.magnitude if s != null else 0.0
+## Issue 831: the same pool as `status_magnitude`, written as a share of the
+## caster's max health, so it cannot be resolved without a caster.
+var status_magnitude_caster_max_hp_percent: float:
+	get:
+		var s := status_effect()
+		return s.magnitude_caster_max_hp_percent if s != null else 0.0
+var status_holds_cooldown: bool:
+	get:
+		var s := status_effect()
+		return s.holds_cooldown if s != null else false
 var taunt_radius: float:
 	get:
 		var s := status_effect()

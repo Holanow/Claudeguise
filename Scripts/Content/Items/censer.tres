@@ -1,10 +1,20 @@
-[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+[gd_resource type="Resource" script_class="EquipmentDef" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_g7rnw"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityModifier.gd" id="2_cnsr2"]
+
+[sub_resource type="Resource" id="Resource_cnsrslow"]
+script = ExtResource("2_cnsr2")
+display_name = "Choking smoke"
+adds_status = 9
+adds_status_enabled = true
+adds_status_ticks = 45
+adds_status_chance = 0.25
 
 [resource]
 script = ExtResource("1_g7rnw")
 id = &"censer"
 display_name = "Censer"
 slot = 4
-description = "Smoke and slow thought."
+description = "Smoke and slow thought. A landed attack has a chance to leave its target Slowed."
+modifiers = Array[ExtResource("2_cnsr2")]([SubResource("Resource_cnsrslow")])

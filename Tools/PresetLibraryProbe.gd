@@ -214,6 +214,14 @@ func _fight(select, pawn, added) -> void:
 		_check(false, "no battle screen")
 		return
 	battle.set_process(false)
+	## Issue 842: the roster seed is rolled fresh per launch, so the fight this
+	## run measured is only reproducible if the probe says which one it was.
+	print("PresetLibraryProbe: seed %s" % battle.config.seed_text())
+
+	## Issue 842: the unit card's route needs the fight still running, so it
+	## runs before the ticks that resolve it rather than after them.
+	await _unit_card_route(battle, pawn)
+
 	for tick in 600:
 		battle._process(CG.TICK_SECONDS)
 	await _settle()
@@ -224,32 +232,83 @@ func _fight(select, pawn, added) -> void:
 			fired += 1
 	_check(fired > 0, "'%s' fired %d times in the fight" % [added.display_name, fired])
 	await _shot("wren_412_fight_after_the_row")
-	await _wide(battle, pawn)
+	await _end_card_route(battle)
 	_finished = true
 
-## The other screen the library appears on: issue 741's narrow tabbed popout a
-## player opens off a unit card mid-fight. Narrow rather than full-width now --
-## the popout replaces the old full-screen editor there on purpose.
-func _wide(battle, pawn) -> void:
+## Issue 741's narrow tabbed popout, opened off a unit card while the fight is
+## still running -- the route this probe is for.
+func _unit_card_route(battle, pawn) -> void:
+	var unit = null
 	for u in battle.state.units:
-		if u.pawn != pawn:
-			continue
-		await _click(battle._arena.get_global_transform() * BattleView.drawn_position(battle.state, u))
-	var plans := _buttons(battle, "plans")
+		if u.pawn == pawn:
+			unit = u
+	_check(unit != null, "the edited pawn is a unit in the fight")
+	if unit == null:
+		return
+	_check(battle.state.outcome == CombatState.Outcome.UNRESOLVED, "the fight is still running")
+	await _click(battle._arena.get_global_transform() * BattleView.drawn_position(battle.state, unit))
+	var card = battle._unit_card
+	_check(card != null and card.is_visible_in_tree(), "clicking the pawn opened its unit card")
+	if card == null or not card.is_visible_in_tree():
+		return
+	if not await _popout_from(battle, card, "the unit card"):
+		return
+	await _shot("wren_412_library_mid_fight")
+	var esc := _buttons(battle._inspect_panel, "esc")
+	_check(esc.size() == 1, "one close button on the popout, found %d" % esc.size())
+	if esc.is_empty() or not await _click_control(esc[0], "Esc on the popout"):
+		return
+	_check(not battle._inspect_panel.is_visible_in_tree(), "Esc closes the popout")
+	_check(not battle.paused, "and the fight is running again")
+
+## The other door to the same popout: the end card's own button, once the
+## fight is over.
+func _end_card_route(battle) -> void:
+	var banner = battle._end_banner
+	_check(banner != null and banner.is_visible_in_tree(), "the end card is up after the fight")
+	if banner == null or not banner.is_visible_in_tree():
+		return
+	if not await _popout_from(battle, banner, "the end card"):
+		return
+	await _shot("wren_412_library_wide")
+
+## The popout, opened by `root`'s own Plans button. Issue 842: `root`, not the
+## whole battle screen -- three controls open this popout and a search across
+## all of them returns whichever tree order happens to put first.
+func _popout_from(battle, root: Node, what: String) -> bool:
+	var plans := _buttons(root, "plans")
+	_check(plans.size() == 1, "one Plans button on %s, found %d" % [what, plans.size()])
 	if plans.is_empty():
-		_check(false, "the unit card has no Plans button")
-		return
-	if not await _click_control(plans[0], "Plans"):
-		return
+		return false
+	if not await _click_control(plans[0], "Plans on %s" % what):
+		return false
 	var popout = battle._inspect_panel
-	_check(popout != null and popout.is_visible_in_tree(), "the Plans & Equipment popout opened")
-	if popout == null:
-		return
+	var opened: bool = popout != null and popout.is_visible_in_tree()
+	_check(opened, "the Plans & Equipment popout opened from %s" % what)
+	if not opened:
+		_why_not(battle, plans[0])
+		return false
 	var open_button := _buttons(popout, "Library (")
 	_check(open_button.size() == 1, "the library button is on the popout too")
 	if open_button.is_empty():
-		return
+		return false
 	if not await _click_control(open_button[0], open_button[0].text):
-		return
+		return false
 	_check(_buttons(popout, InspectPanel.LIBRARY_ADD).size() > 0, "and it opens there")
-	await _shot("wren_412_library_wide")
+	return true
+
+## Issue 842: what stood between the click and the popout, so a failure that
+## does not reproduce still explains itself.
+func _why_not(battle, button: Control) -> void:
+	print("PresetLibraryProbe: outcome=%s paused=%s end_banner=%s pause_menu=%s popout=%s" % [
+		battle.state.outcome, battle.paused,
+		battle._end_banner != null and battle._end_banner.visible,
+		battle._pause_menu != null and battle._pause_menu.visible,
+		battle._inspect_panel != null and battle._inspect_panel.visible])
+	var at := button.get_global_rect().get_center()
+	for n in _walk(_main):
+		if n == button or not (n is Control) or not n.is_visible_in_tree():
+			continue
+		if n.mouse_filter == Control.MOUSE_FILTER_IGNORE or not n.get_global_rect().has_point(at):
+			continue
+		print("PresetLibraryProbe: over the click at %s: %s" % [at, n.get_path()])

@@ -7,5 +7,6 @@ script = ExtResource("1_ixtps")
 id = &"silk_wraps"
 display_name = "Silk Wraps"
 slot = 3
-description = "Light and quiet."
+description = "Light and quiet. Softens every hit that lands."
+damage_reduction = 0.05
 required_tags = Array[int]([5])
