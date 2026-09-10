@@ -117,15 +117,7 @@ func _strip_comment(line: String) -> String:
 
 
 func _tool_scripts() -> Array[String]:
-	var out: Array[String] = []
-	var dir := DirAccess.open(TOOLS_DIR)
-	if dir == null:
-		return out
-	for f in dir.get_files():
-		if f.ends_with(".gd"):
-			out.append(TOOLS_DIR.path_join(f))
-	out.sort()
-	return out
+	return ToolScripts.under(TOOLS_DIR)
 
 
 ## The same fight, observed with `PlanInterpreter.decide` instead. `restore`
