@@ -234,7 +234,7 @@ static func status_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 		var magnitude := Glossary.status_magnitude_text(s, int(u.status_magnitude.get(s, 0.0)))
 		if magnitude != "":
 			parts.append(magnitude)
-		parts.append("%s left" % _seconds(int(u.statuses[s]) - state.tick))
+		parts.append(Glossary.status_left_text(int(u.statuses[s]), state.tick))
 		out.append("%s (%s): %s" % [Glossary.status_name(s), ", ".join(parts), Glossary.status_text(s)])
 	return out
 

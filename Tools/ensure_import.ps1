@@ -10,13 +10,17 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 
+## Refusals here use [Environment]::Exit because `exit` in a dot-sourced script
+## returns to the caller instead of stopping it (measured), so every refusal in
+## this file was inert.
+
 $godot = $env:CLAUDEGUISE_GODOT
 if (-not $godot) {
     $godot = "D:\Projects\Claudeguise-team\tools\godot\Godot_v4.7.1-stable_win64_console.exe"
 }
 if (-not (Test-Path $godot)) {
     Write-Host "No Godot at $godot. Set CLAUDEGUISE_GODOT and run again."
-    exit 2
+    [Environment]::Exit(2)
 }
 
 $cache = Join-Path $repo ".godot\global_script_class_cache.cfg"
@@ -46,15 +50,34 @@ if (-not $needsImport) {
         Write-Host ("import is older than {0}" -f $newest.Name)
     }
 }
+## Issue 865: a current class cache is not evidence that the project imported.
+## A fresh worktree held one beside 3 entries in .godot/imported, this script
+## skipped the import, and the caller died inside RoomLoader.load_room.
+if (-not $needsImport) {
+    & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo -Quiet
+    if ($LASTEXITCODE -ne 0) {
+        $needsImport = $true
+        Write-Host "the class cache is current but the project is not imported"
+    }
+}
 if ($needsImport) {
-    Write-Host "Importing (about a minute the first time). Nothing starts until this finishes."
+    ## Issue 865: `--editor --quit` quits after one iteration and can leave the
+    ## import partial; `--import` waits for it, which is what its help says.
+    Write-Host "Importing. Nothing starts until this finishes."
     $log = Join-Path $env:TEMP ("claudeguise-import-" + [guid]::NewGuid().ToString('N') + ".txt")
-    cmd /c "`"$godot`" --headless --editor --quit --path `"$repo`" > `"$log`" 2>&1"
+    cmd /c "`"$godot`" --headless --import --path `"$repo`" > `"$log`" 2>&1"
     Remove-Item $log -ErrorAction SilentlyContinue
     if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
         Write-Host "The import produced no class cache at $cache."
         Write-Host "Anything launched now would start on a blank screen. Not launching."
-        exit 4
+        [Environment]::Exit(4)
     }
     Write-Host ("class cache rebuilt, {0} bytes" -f (Get-Item $cache).Length)
+    & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo -Quiet
+    if ($LASTEXITCODE -ne 0) {
+        & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo
+        Write-Host "The import did not finish. Anything launched now would fail to load"
+        Write-Host "these assets, possibly as a crash rather than an error. Not launching."
+        [Environment]::Exit(9)
+    }
 }
