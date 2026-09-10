@@ -6,12 +6,11 @@ extends Node
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const PARTY := ["warrior", "priest", "geysermancer", "siege_master"]
-const ENCOUNTER := &"floor1_chokepoint"
-const SEED := 1
 const HELD := &"warrior_block"
 
 var _battle: Node = null
 var _busy := false
+var _best := 0
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
@@ -19,8 +18,8 @@ func _ready() -> void:
 	DisplayOptions.set_enabled(&"name_plates", true)
 	var cfg := RunConfig.new()
 	cfg.party = _party(PARTY)
-	cfg.encounter_id = ENCOUNTER
-	cfg.seed = SEED
+	cfg.encounter_id = _encounter()
+	cfg.seed = _seed()
 	_battle = BATTLE_SCENE.instantiate()
 	add_child(_battle)
 	_battle.begin(cfg)
@@ -47,6 +46,7 @@ func _holder() -> CombatUnit:
 			var a = ActionLibrary.get_action(action_id)
 			if a != null and a.cooldown_ticks > 0 and not a.status_holds_cooldown and _running(u, action_id):
 				others += 1
+		_best = maxi(_best, others)
 		if others >= TeamStatusView.MAX_COOLDOWN_CHIPS:
 			return u
 	return null
@@ -55,7 +55,8 @@ func _process(_delta: float) -> void:
 	if _busy or _battle == null or _battle.state == null:
 		return
 	if _battle.state.outcome != CombatState.Outcome.UNRESOLVED:
-		printerr("Block857Shot: the fight ended with no frame holding the block and two cooldowns")
+		printerr("Block857Shot: %s seed %d ended at tick %d, best ordinary cooldowns running while held was %d" % [
+			_encounter(), _seed(), _battle.state.tick, _best])
 		get_tree().quit(1)
 		return
 	var u := _holder()
@@ -74,3 +75,11 @@ func _process(_delta: float) -> void:
 func _out_path() -> String:
 	var args := OS.get_cmdline_user_args()
 	return args[0] if args.size() > 0 else "user://block857.png"
+
+func _encounter() -> StringName:
+	var args := OS.get_cmdline_user_args()
+	return StringName(args[1]) if args.size() > 1 else &"floor1_chokepoint"
+
+func _seed() -> int:
+	var args := OS.get_cmdline_user_args()
+	return int(args[2]) if args.size() > 2 else 1
