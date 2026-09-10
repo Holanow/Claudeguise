@@ -10,9 +10,9 @@ const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const SEED := 0x2A
 const SHOTS := [
 	{"enc": &"floor1_room1", "party": ["warrior", "abomination", "geysermancer", "priest"], "tick": 116,
-		"out": "res://Screenshots/issue378_after_room1_t116.png"},
+		"out": "user://probe/issue378_after_room1_t116.png"},
 	{"enc": &"floor1_hazard", "party": ["abomination", "geysermancer", "priest", "siege_master"], "tick": 154,
-		"out": "res://Screenshots/issue378_after_hazard_t154.png"},
+		"out": "user://probe/issue378_after_hazard_t154.png"},
 ]
 
 var _battle: Node = null

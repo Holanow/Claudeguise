@@ -9,7 +9,7 @@ extends Node
 ## since the previous one, so "the freeze holds the explosion's first frame" is
 ## a measurement and not a claim.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 ## The stem every sheet this run writes is named from. #630 re-cut the chunks, so
 ## it writes `sable_630_*` and leaves #589's committed evidence alone.
 const STEM := "sable_630"

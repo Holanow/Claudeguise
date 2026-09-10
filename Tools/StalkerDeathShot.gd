@@ -7,7 +7,7 @@ extends Node
 ##
 ##   powershell -ExecutionPolicy Bypass -File Tools\run.ps1 StalkerDeathShot
 
-const OUT := "res://Screenshots/kestrel_639_stalker_death_%s.png"
+const OUT := "user://probe/kestrel_639_stalker_death_%s.png"
 const SEED := 3
 var _view: Node2D = null
 
@@ -67,6 +67,6 @@ func _run(tag: String) -> void:
 		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	img.save_png(OUT % tag)
 	print("StalkerDeathShot: %s" % (OUT % tag))

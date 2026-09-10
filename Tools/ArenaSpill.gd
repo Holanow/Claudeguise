@@ -13,7 +13,7 @@ const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 0x2A
 
 ## The two ten-enemy rooms the third blind playtest could not read.

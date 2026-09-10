@@ -3,7 +3,7 @@ extends Node
 ## Issue 386. The movement chip in use, driven through the OptionButton a
 ## player clicks rather than through `_set_movement` underneath it.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 func _ready() -> void:
 	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path("res://.git")):

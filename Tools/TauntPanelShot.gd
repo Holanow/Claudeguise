@@ -4,7 +4,7 @@ extends Node
 ## not arrived yet. Driven through the screens a player uses -- party select,
 ## the room picker, the battle screen's own tick, its "Inspect party" button.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 
 var _main: Node

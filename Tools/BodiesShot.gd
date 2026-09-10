@@ -38,7 +38,7 @@ func _process(_delta: float) -> void:
 		return
 	_busy = true
 	await RenderingServer.frame_post_draw
-	var path := "res://Screenshots/plover_642_bodies_%d.png" % TICKS[_i]
+	var path := "user://probe/plover_642_bodies_%d.png" % TICKS[_i]
 	get_viewport().get_texture().get_image().save_png(path)
 	print("wrote ", path, " at tick ", _battle.state.tick)
 	_busy = false

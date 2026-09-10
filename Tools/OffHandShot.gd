@@ -4,7 +4,7 @@ extends Node
 ## through the real picker -- not a `.tres` read, whether the player can
 ## actually put one on.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

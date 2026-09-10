@@ -4,7 +4,7 @@ extends Node
 ## from has to be findable. Two seeds typed into the real seed field, the same
 ## class read off the real attribute chips both times.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

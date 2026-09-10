@@ -11,7 +11,7 @@ extends Node
 ## finished image. Both live outside the node that shakes, which is the whole
 ## point: a ruler drawn in the arena shakes with the picture and proves nothing.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 const FRAMES_PER_TICK := 4
 const FRAMES := 16

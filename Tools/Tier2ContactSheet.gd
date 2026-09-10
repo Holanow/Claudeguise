@@ -6,7 +6,7 @@ extends Node
 ## the frame shows only the action under test and no plan chrome.
 ## Five of the nine are not here -- see the PR body for why each one.
 
-const OUT := "res://Screenshots/linnet_696_tier2_contact_sheet.png"
+const OUT := "user://probe/linnet_696_tier2_contact_sheet.png"
 const CROP := Vector2i(420, 280)
 const ZOOM := 2
 const SEED := 13
@@ -204,6 +204,6 @@ func _run() -> void:
 	var sheet := Image.create(cell.x * shots.size(), cell.y, false, shots[0].get_format())
 	for i in shots.size():
 		sheet.blit_rect(shots[i], Rect2i(Vector2i.ZERO, cell), Vector2i(i * cell.x, 0))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	sheet.save_png(OUT)
 	print("Tier2ContactSheet: %s (%d shots)" % [OUT, shots.size()])

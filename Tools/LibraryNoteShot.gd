@@ -3,7 +3,7 @@ extends Node
 ## Issue 434: the library, on the screen a new player meets it on, with the
 ## Geysermancer picked so the row that waits for BURN is on screen.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

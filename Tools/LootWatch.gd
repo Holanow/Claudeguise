@@ -8,7 +8,7 @@ extends Node
 ## floor transition, which `.claude/ENGINEER.md` names as the one exception.
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
 

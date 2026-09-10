@@ -4,7 +4,7 @@ extends Node
 ## (sword/bow/staff/orb/sickle), before the fight starts -- proof a weapon
 ## shows in a hand at rest, not only mid-swing.
 
-const OUT := "res://Screenshots/sable_685_weapons_rest.png"
+const OUT := "user://probe/sable_685_weapons_rest.png"
 const CLASSES := [&"warrior", &"siege_master", &"priest", &"geysermancer", &"abomination"]
 
 func _ready() -> void:
@@ -34,7 +34,7 @@ func _run() -> void:
 	for _i in 6:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	var full := get_viewport().get_texture().get_image()
 	full.save_png(OUT)
 	var crop := full.get_region(Rect2i(150, 160, 160, 480))

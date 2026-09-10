@@ -4,7 +4,7 @@ extends Node
 ## Off Hand picker -- `EquipPanel._fits_slot` is what makes Sword offerable
 ## there, and this is the check that it works end to end.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

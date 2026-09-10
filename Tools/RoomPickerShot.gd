@@ -3,7 +3,7 @@ extends Node
 ## Issue 176: can a player actually reach all four rooms?
 
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 var _main: Node
 var _tag := ""

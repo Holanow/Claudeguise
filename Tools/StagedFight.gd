@@ -86,8 +86,8 @@ func _maybe_capture() -> void:
 	if _frames != capture_frame:
 		return
 	var img := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
-	var path := "res://Screenshots/kestrel_675_%s_f%d.png" % [label, capture_frame]
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
+	var path := "user://probe/kestrel_675_%s_f%d.png" % [label, capture_frame]
 	img.save_png(path)
 	print("StagedFight: %s" % path)
 	_finish()

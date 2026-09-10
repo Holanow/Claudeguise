@@ -5,7 +5,7 @@ extends Node
 ## `SimDeps.default_decide`, no `Battle.tscn`. Shows the Rat King's crown at
 ## rest, then the wind-up, cast, three summons and the stun landing.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(420, 320)
 const ZOOM := 2
 const RUN_TICKS := 200

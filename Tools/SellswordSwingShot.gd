@@ -4,7 +4,7 @@ extends Node
 ## `EnemyDef.weapon_part` puts a sword in an enemy's hand, where before this
 ## issue `UnitView._weapon_part` returned "" for anything with no `pawn`.
 
-const OUT := "res://Screenshots/sable_685_sellsword_crescent.png"
+const OUT := "user://probe/sable_685_sellsword_crescent.png"
 const CROP := Vector2i(150, 130)
 const ZOOM := 4
 const SEED := 7
@@ -82,6 +82,6 @@ func _run() -> void:
 	var origin := (Vector2i(at) - CROP / 2).clamp(Vector2i.ZERO, full.get_size() - CROP)
 	var reg := full.get_region(Rect2i(origin, CROP))
 	reg.resize(CROP.x * ZOOM, CROP.y * ZOOM, Image.INTERPOLATE_NEAREST)
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	reg.save_png(OUT)
 	print("SellswordSwingShot: %s" % OUT)

@@ -7,7 +7,7 @@ extends Node
 ## a second decide callable that keeps re-choosing the aura so the strip can
 ## show the hold rather than one instant of it.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(420, 320)
 const ZOOM := 2
 const RUN_TICKS := 400

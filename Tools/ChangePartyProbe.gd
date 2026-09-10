@@ -5,7 +5,7 @@ extends Node
 ## row back. The playtester built the Warrior's four rows three separate times
 ## because this path threw them away.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

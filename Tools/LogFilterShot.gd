@@ -4,7 +4,7 @@ extends Node
 ## off, at the same tick of the same fight. The window a blind playtester lost.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const STOP_TICK := 88
 
 var _main: Node

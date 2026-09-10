@@ -5,7 +5,7 @@ extends Node
 ## is crowded. `Tools/PlateTetherShot.gd` renders `Battle.tscn` directly, which
 ## proves the pixels and not the path to them.
 
-const OUT := "res://Screenshots/issue440_played_1280x720.png"
+const OUT := "user://probe/issue440_played_1280x720.png"
 const LIVE := 9
 
 var _main: Node

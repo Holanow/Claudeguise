@@ -9,8 +9,8 @@ const ENC := &"floor1_hazard"
 const PARTY := ["abomination", "geysermancer", "priest", "siege_master"]
 const TICK := 154
 const SHOTS := [
-	{"on": false, "out": "res://Screenshots/issue440_defaults_off.png"},
-	{"on": true, "out": "res://Screenshots/issue440_switched_on.png"},
+	{"on": false, "out": "user://probe/issue440_defaults_off.png"},
+	{"on": true, "out": "user://probe/issue440_switched_on.png"},
 ]
 
 var _battle: Node = null

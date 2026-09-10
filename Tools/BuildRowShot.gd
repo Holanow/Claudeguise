@@ -4,7 +4,7 @@ extends Node
 ## reads it on, scrolled into frame, so the gate it states can be compared
 ## against `build_siege_engine`'s 40 Mana without opening the source.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _failures := 0

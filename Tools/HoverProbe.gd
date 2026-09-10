@@ -7,7 +7,7 @@
 ## harness -- see issue 452 -- so what is asserted is which Control the engine
 ## picked and what `Control.get_tooltip` returns at that pixel.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

@@ -3,7 +3,7 @@ extends Node
 ## Issue 474: gear a class cannot wear is refused by omission, so this opens the
 ## real armour picker's popup and photographs what a player can read in it.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

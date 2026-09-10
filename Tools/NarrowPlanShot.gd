@@ -6,7 +6,7 @@ extends Node
 ## column inside a taller window, so the rest of the frame stays visible and
 ## the column's own clearance is easy to read off the screenshot.
 
-const OUT := "res://Screenshots/sable_723_narrow"
+const OUT := "user://probe/sable_723_narrow"
 
 func _run(panel_width: int) -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"abomination", "Abomination")
@@ -28,7 +28,7 @@ func _run(panel_width: int) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	get_viewport().get_texture().get_image().save_png("%s_%dpx_column.png" % [OUT, panel_width])
 	print("wrote ", "%s_%dpx_column.png" % [OUT, panel_width])
 	panel.queue_free()

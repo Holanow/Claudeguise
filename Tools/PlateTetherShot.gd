@@ -10,8 +10,8 @@ const LIVE := 9
 const PARTY := ["warrior", "abomination", "geysermancer", "siege_master"]
 
 ## Set on the command line so the same tool takes both halves of the
-## comparison: `-- --out=res://Screenshots/issue440_before.png`.
-const DEFAULT_OUT := "res://Screenshots/issue440_chokepoint_t65_9units.png"
+## comparison: `-- --out=user://probe/issue440_before.png`.
+const DEFAULT_OUT := "user://probe/issue440_chokepoint_t65_9units.png"
 
 var _battle: Node = null
 var _busy := false

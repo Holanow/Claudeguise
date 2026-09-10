@@ -11,7 +11,7 @@ extends Node
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const EndScreenScript := preload("res://Scripts/UI/EndScreen.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

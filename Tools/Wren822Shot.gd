@@ -5,7 +5,7 @@ extends Node
 ## summary and the fight itself hold the scaled count rather than the authored
 ## ten.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ROOM := &"floor1_room1"
 
 var _main: Node

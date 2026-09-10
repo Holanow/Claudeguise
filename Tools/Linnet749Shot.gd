@@ -11,7 +11,7 @@ extends Node
 ## unreadable. A trail is visible against a scrum in a way a returning pose is
 ## not, so this tool stays live-fight for that half only.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(480, 320)
 const COLS := 4
 const ZOOM := 2

@@ -4,7 +4,7 @@ extends Node
 ## is true and the pawn is busy and reading no row. Driven through the screens a
 ## player uses -- party select, the room picker, the battle screen, its "Plans".
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const PARTY := [&"abomination", &"priest", &"geysermancer", &"warrior"]
 

@@ -9,7 +9,7 @@ extends Node
 ## frames either side of it must move the same distance. A double-spaced frame
 ## on the way out is the freeze repaying itself.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 ## A 60Hz display against a 15Hz simulation.
 const FRAMES_PER_TICK := 4

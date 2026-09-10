@@ -3,7 +3,7 @@ extends Node
 ## Issue 771/764/765: proof the Siege Master's mark row reads "the farthest
 ## enemy" on the real plan screen, not just in `PresetPlans.gd`'s source.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 

@@ -6,7 +6,7 @@ extends Node
 ## rather than calling the signal underneath.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

@@ -6,7 +6,7 @@ extends Node
 ## player uses -- party select, the room picker, the battle screen, its
 ## "Plans" button -- with a real fight running behind the panel.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const PARTY := [&"abomination", &"priest", &"geysermancer", &"warrior"]
 

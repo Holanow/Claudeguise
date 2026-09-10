@@ -6,7 +6,7 @@ extends Node
 ## whole floor so a reviewer can see damage persist without opening the engine.
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
 

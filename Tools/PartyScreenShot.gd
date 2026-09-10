@@ -4,7 +4,7 @@ extends Node
 ## plans and equipment in the middle, where to fight and Start on the right.
 
 const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

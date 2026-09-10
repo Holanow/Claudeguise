@@ -6,7 +6,7 @@ extends Node
 ## phase. Nothing here steps the simulation and every body stands still, so
 ## anything that moves in a strip is the hands.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const FRAMES := 8
 const FRAMES_PER_TICK := 4
 const CROP := Vector2i(84, 92)

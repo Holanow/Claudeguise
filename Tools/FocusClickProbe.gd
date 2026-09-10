@@ -4,7 +4,7 @@ extends Node
 ## controls -- a real InputEventMouseButton at a real screen position and a real
 ## button press -- then reading what the party actually aims at afterwards.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _tag := ""

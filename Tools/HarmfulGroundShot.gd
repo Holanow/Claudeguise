@@ -3,7 +3,7 @@ extends Node
 ## Issue 420: the movement dropdown the playtester found short one entry,
 ## driven through the same control they used.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 
 var _main: Node
 var _res_tag: String = ""

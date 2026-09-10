@@ -184,6 +184,9 @@ if ($ratioFailures.Count -gt 0) {
 }
 Write-Host "  comments   pass   (no file over 2:1 that is not recorded debt)"
 
+# One tracked screenshot per issue. Player's ruling 2026-09-10, issue 854.
+& (Join-Path $PSScriptRoot 'one_shot_per_issue.ps1'); if ($LASTEXITCODE -ne 0) { Write-Host "GATE FAILED (one screenshot per issue)"; exit $LASTEXITCODE }
+
 if ($code -ne 0) {
     Write-Host "GATE FAILED (exit $code)"
     exit $code

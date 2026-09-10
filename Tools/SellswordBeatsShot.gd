@@ -5,7 +5,7 @@ extends Node
 ## captures frames. One crop per beat: the small reversed opener with its
 ## step back, the unchanged signature, the larger reversed finisher.
 
-const OUT := "res://Screenshots/wren_703_crescent_beats.png"
+const OUT := "user://probe/wren_703_crescent_beats.png"
 const CROP := Vector2i(520, 320)
 const ZOOM := 2
 const FRAMES_PER_TICK := 4
@@ -103,6 +103,6 @@ func _run() -> void:
 		var reg := shots[i]
 		reg.resize(CROP.x * ZOOM, CROP.y * ZOOM, Image.INTERPOLATE_NEAREST)
 		sheet.blit_rect(reg, Rect2i(Vector2i.ZERO, CROP * ZOOM), Vector2i(i * CROP.x * ZOOM, 0))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	sheet.save_png(OUT)
 	print("SellswordBeatsShot: %s" % OUT)

@@ -6,7 +6,7 @@ extends Node
 ## distinct positions is the fix. Then the per-frame cost at 14 and 100 units,
 ## because a lerp per body per frame is new work the view has never carried.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 7
 ## A 60Hz display against a 15Hz simulation. The whole defect is this ratio.
 const FRAMES_PER_TICK := 4

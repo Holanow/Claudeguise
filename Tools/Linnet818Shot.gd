@@ -4,7 +4,7 @@ extends Node
 ## across the approach, so the goblin archer that replaced the second rat can
 ## be seen standing where the rat stood.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const AT_TICKS := [0, 45, 90, 180]
 
 func _ready() -> void:

@@ -10,7 +10,7 @@ extends Node
 ##
 ##   godot --headless --path . --script res://Tools/DualWieldStage.gd
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(420, 320)
 const ZOOM := 2
 const ACTION_ID := &"warrior_strike"

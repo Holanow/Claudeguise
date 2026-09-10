@@ -4,7 +4,7 @@ extends Node
 ## `VFXLayer.Cue.RELEASE` fires and the swing is at full extension) rather than
 ## mid wind-up, so the arc the fix is proving is actually in frame.
 
-const OUT := "res://Screenshots/linnet_690_sellsword_crescent.png"
+const OUT := "user://probe/linnet_690_sellsword_crescent.png"
 const CROP := Vector2i(130, 130)
 const ZOOM := 4
 const SEED := 11
@@ -73,6 +73,6 @@ func _run() -> void:
 	var origin := (Vector2i(at) - Vector2i(int(CROP.x * 0.85), CROP.y / 2)).clamp(Vector2i.ZERO, full.get_size() - CROP)
 	var reg := full.get_region(Rect2i(origin, CROP))
 	reg.resize(CROP.x * ZOOM, CROP.y * ZOOM, Image.INTERPOLATE_NEAREST)
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	reg.save_png(OUT)
 	print("SellswordCrescentReleaseShot: %s" % OUT)

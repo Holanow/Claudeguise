@@ -12,7 +12,7 @@ const RADII := [25.0, 50.0]
 ## named, divides neither and is drawn anyway so the reason is visible.
 const SIZES := [15.0, 20.0, 25.0, 30.0]
 
-const OUT := "res://Screenshots/teal_625_pool_cell_sizes.png"
+const OUT := "user://probe/teal_625_pool_cell_sizes.png"
 const PANEL := Vector2(300.0, 170.0)
 
 func _ready() -> void:

@@ -18,7 +18,7 @@ const ScreenSweepScript := preload("res://Tools/ScreenSweep.gd")
 const SpillScript := preload("res://Tools/ArenaSpill.gd")
 const DamageFloaterScript := preload("res://Scripts/UI/DamageFloater.gd")
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const SEED := 0x2A
 const LEGIBLE_ALPHA := 0.35
 

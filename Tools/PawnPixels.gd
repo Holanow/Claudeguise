@@ -7,7 +7,7 @@ extends Node
 ## SAMPLING MOMENT: the fight is paused before anything is read, and nothing
 ## here touches `state.rng` or steps `CombatSim`.
 
-const OUT_DIR := "res://Screenshots"
+const OUT_DIR := "user://probe"
 const ENCOUNTER := &"floor1_warden"
 const SEED := 0x2A
 const PARTY := ["warrior", "priest", "geysermancer", "siege_master"]

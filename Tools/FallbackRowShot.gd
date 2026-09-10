@@ -3,7 +3,7 @@ extends Node
 ## Issue 719: what the InspectPanel shows for a planless pawn's fallback row,
 ## after the fallback became two rules -- nearest enemy, weapon's basic attack.
 
-const OUT := "res://Screenshots/issue719_fallback_row.png"
+const OUT := "user://probe/issue719_fallback_row.png"
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
@@ -19,7 +19,7 @@ func _ready() -> void:
 		scroll.scroll_vertical = 100000
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://Screenshots"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://probe"))
 	get_viewport().get_texture().get_image().save_png(OUT)
 	print("wrote ", OUT)
 	get_tree().quit(0)

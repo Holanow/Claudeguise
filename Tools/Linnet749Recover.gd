@@ -6,7 +6,7 @@ extends Node
 ## no scrum to hide the one swing this is meant to show. One frame per tick
 ## from a provably-at-rest BEFORE through wind-up, recover and a settled tail.
 
-const OUT_DIR := "res://Screenshots/"
+const OUT_DIR := "user://probe/"
 const CROP := Vector2i(300, 260)
 const ZOOM := 3
 const ACTION_ID := &"warrior_strike"
