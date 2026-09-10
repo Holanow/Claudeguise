@@ -32,11 +32,15 @@ var _vfx: VFXDirector = null
 var _views: Dictionary = {}
 var _state: CombatState = null
 var _cursor := 0
+## A `Callable` does not keep its `RefCounted` alive, so a `ForceOnce` built
+## inside a helper is freed before the first `decide` reaches it.
+var _forced: ForceOnce = null
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
 	await _capture(&"warden_throw")
 	await _capture(&"warden_chain_toss")
+	await _capture_axe()
 	get_tree().quit(0)
 
 # ---------------------------------------------------------------------------
@@ -239,3 +243,83 @@ func _save(action_id: StringName, shots: Array[Image]) -> void:
 	var out := OUT_DIR + "teal_830_%s.png" % action_id
 	sheet.save_png(out)
 	print("WardenStage: %s (%d frames)" % [out, shots.size()])
+
+# ---------------------------------------------------------------------------
+# Issue 836: the axe combo
+# ---------------------------------------------------------------------------
+
+## The axe moves nobody, so `_capture`'s displacement loop never fires for it.
+## This shoots one frame per beat instead, plus the state the combo leaves
+## behind, and captions the Bleed stacks standing on the target.
+func _axe_pair(seed_value: int) -> CombatState:
+	var warden := _bare_unit(0, &"the_warden", CG.Team.ENEMY, Vector2(-60.0, 0.0),
+		EnemyLibrary.get_enemy(&"the_warden").radius)
+	warden.move_speed = 0.0
+	warden.facing = Vector2.RIGHT
+	warden.actions = [&"warden_axe"]
+	var victim := _bare_unit(1, &"warrior", CG.Team.PLAYER, Vector2(-10.0, 0.0), 14.0)
+	victim.move_speed = 0.0
+	var state := CombatState.new(seed_value)
+	var units: Array[CombatUnit] = [warden, victim]
+	state.units = units
+	return state
+
+func _axe_deps(warden_id: int, victim_id: int) -> SimDeps:
+	_forced = ForceOnce.new()
+	_forced.caster_id = warden_id
+	_forced.action_id = &"warden_axe"
+	_forced.target_id = victim_id
+	var deps := SimDeps.new()
+	deps.default_decide = Callable(_forced, "decide")
+	return deps
+
+## Bleed is a 25% roll per beat, so a seed can legitimately land none of it and
+## a strip showing no stacks would read as the mechanic being broken. This
+## finds the first seed on which at least one beat's roll lands.
+func _axe_seed() -> int:
+	for s in range(1, 60):
+		var state := _axe_pair(s)
+		var deps := _axe_deps(0, 1)
+		for _t in 80:
+			CombatSim.step(state, deps)
+		if float(state.unit(1).status_magnitude.get(CG.Status.BLEED, 0.0)) > 0.0:
+			return s
+	return 1
+
+func _capture_axe() -> void:
+	var seed_value := _axe_seed()
+	_rebuild_scene()
+	_state = _axe_pair(seed_value)
+	_cursor = 0
+	var victim := _state.unit(1)
+	var deps := _axe_deps(0, 1)
+	for u in _state.units:
+		_add_view(u)
+
+	var shots: Array[Image] = []
+	shots.append(await _shot("warden_axe  BEFORE  seed %d  no bleed" % seed_value))
+	var seen := {}
+	for t in 80:
+		CombatSim.step(_state, deps)
+		var fired := -1
+		for e in _state.events_since(_cursor):
+			if e.action_id == &"warden_axe" and e.kind == CG.EventKind.ACTION_FIRE and e.beat_index >= 0:
+				fired = e.beat_index
+		_consume_events()
+		for id in _views:
+			_views[id].sync(_state)
+		for _q in 3:
+			await get_tree().process_frame
+		if fired >= 0 and not seen.has(fired):
+			seen[fired] = true
+			shots.append(await _shot("warden_axe  BEAT %d  tick %d  hp %d  bleed %d" % [
+				fired + 1, t, victim.hp_max - victim.hp,
+				int(victim.status_magnitude.get(CG.Status.BLEED, 0.0))]))
+		if seen.size() == 3 and t > 60:
+			break
+	shots.append(await _shot("warden_axe  AFTER  damage %d  bleed %d stack(s)" % [
+		victim.hp_max - victim.hp,
+		int(victim.status_magnitude.get(CG.Status.BLEED, 0.0))]))
+	if seen.size() < 3:
+		printerr("WardenStage: only %d of 3 axe beats fired" % seen.size())
+	_save(&"warden_axe", shots)

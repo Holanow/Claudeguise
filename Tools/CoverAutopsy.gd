@@ -29,6 +29,11 @@ func _init() -> void:
 	for rid in ROOMS:
 		var totals := {}
 		var dots := {}
+		## Issue 836: how often each beat of a multi-beat action connects. A
+		## combo that lands one beat in three is a defect wearing a feature's
+		## clothes, and `by_ability` cannot show it because it counts DAMAGE
+		## events, which a beat combo emits once per beat.
+		var beats := {}
 		var wins := 0
 		var deaths := 0.0
 		var runs := 0
@@ -51,6 +56,7 @@ func _init() -> void:
 				for j in party.size():
 					if not state.unit(j).alive:
 						deaths += 1.0
+				_count_beats(state, beats)
 				var l := DamageLedger.build(state)
 				for aid in l.by_ability.get(CG.Team.ENEMY, {}):
 					var r = l.by_ability[CG.Team.ENEMY][aid]
@@ -84,4 +90,36 @@ func _init() -> void:
 		for r in dot_rows:
 			print("   DoT %-18s %6d  (+%d%% on top of the table above) over %d ticks" % [
 				r[1], r[0], int(round(100.0 * r[0] / maxf(1.0, grand))), r[2]])
+		_print_beats(beats)
 	quit(0)
+
+## A beat fires an ACTION_FIRE of its own and a MISS beside it when it reaches
+## nothing, so what connected is the difference between the two.
+func _count_beats(state: CombatState, beats: Dictionary) -> void:
+	for e in state.events:
+		if e.beat_index < 0:
+			continue
+		if e.kind != CG.EventKind.ACTION_FIRE and e.kind != CG.EventKind.MISS:
+			continue
+		var src := state.unit(e.source_id)
+		if src == null or src.team != CG.Team.ENEMY:
+			continue
+		var per_action: Dictionary = beats.get(e.action_id, {})
+		var row: Dictionary = per_action.get(e.beat_index, {"fires": 0, "misses": 0})
+		if e.kind == CG.EventKind.ACTION_FIRE:
+			row.fires += 1
+		else:
+			row.misses += 1
+		per_action[e.beat_index] = row
+		beats[e.action_id] = per_action
+
+func _print_beats(beats: Dictionary) -> void:
+	for aid in beats:
+		var indices: Array = beats[aid].keys()
+		indices.sort()
+		for i in indices:
+			var row: Dictionary = beats[aid][i]
+			var connected: int = int(row.fires) - int(row.misses)
+			print("   beat %d of %-14s %6d fired, %6d connected (%d%%)" % [
+				i, String(aid), int(row.fires), connected,
+				int(round(100.0 * connected / maxf(1.0, float(row.fires))))])

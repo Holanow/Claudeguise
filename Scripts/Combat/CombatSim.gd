@@ -1092,6 +1092,10 @@ static func _apply_action_effect(state: CombatState, unit: CombatUnit, target: C
 		if fx is HitEffect:
 			dealt = _apply_hit(state, unit, target, action, fx, deps, onto_shield)
 		elif fx is StatusEffect:
+			## Issue 836: one draw per rolled status, in effect order, and none
+			## at all at 1.0 so certain statuses do not move the stream.
+			if fx.chance < 1.0 and state.rng.randf() >= fx.chance:
+				continue
 			## Issue 593: `covers_target` names an ally and shields the CASTER.
 			if action.covers_target:
 				_face_to_cover(state, unit, target)
