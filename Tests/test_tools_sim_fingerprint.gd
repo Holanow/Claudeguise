@@ -225,3 +225,125 @@ func test_comments_are_not_searched_for_view_types() -> void:
 	assert_true(stripped.contains("var x := 1"), "the stripper must keep the code")
 	assert_false(_code_only("\t## `ArenaFloor` at fight start\n").contains("ArenaFloor"),
 		"an indented doc comment must not reach the scan either")
+
+
+# ---------------------------------------------------------------------------
+# The instrument's own `Tools/` files: a list, and a guard that enforces it
+# ---------------------------------------------------------------------------
+
+## How many `class_name` globals the `Tools/` scan must find before the guard
+## below is believed. A scan that silently returned nothing would make it pass
+## on anything, which is #536's empty capture wearing a third hat.
+const MIN_TOOL_TYPES := 5
+
+## `$INSTRUMENT_FILES` read out of the checker itself, so this file cannot hold
+## a second copy that agrees with itself forever while the script moves.
+func _instrument_files() -> Array[String]:
+	var text := _text(SCRIPT)
+	var out: Array[String] = []
+	var entry := RegEx.new()
+	entry.compile("\\$INSTRUMENT_ENTRY\\s*=\\s*'([^']+)'")
+	var m := entry.search(text)
+	if m != null:
+		out.append(m.get_string(1))
+	var list := RegEx.new()
+	list.compile("(?s)\\$INSTRUMENT_FILES\\s*=\\s*@\\((.*?)\\)")
+	var lm := list.search(text)
+	if lm != null:
+		var quoted := RegEx.new()
+		quoted.compile("'([^']+)'")
+		for q in quoted.search_all(lm.get_string(1)):
+			if not out.has(q.get_string(1)):
+				out.append(q.get_string(1))
+	return out
+
+## Every `class_name` declared anywhere under `Tools/`, mapped to the file that
+## declares it. Recursive, unlike the `Tools/` scans in the other test files.
+func _tool_type_files() -> Dictionary:
+	var out := {}
+	var re := RegEx.new()
+	re.compile("^class_name\\s+(\\w+)")
+	var files: Array[String] = []
+	_gd_files("res://Tools", files)
+	for path in files:
+		for line in _text(path).split("\n"):
+			var m := re.search(line.strip_edges())
+			if m != null:
+				out[m.get_string(1)] = path.substr(6)
+	return out
+
+## Every way `code` reaches a `Tools/` file that `hashed` does not cover.
+func _reach_offenders(rel: String, code: String, hashed: Array[String],
+		types: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var path_re := RegEx.new()
+	path_re.compile("res://(Tools/[A-Za-z0-9_/]+\\.gd)")
+	for m in path_re.search_all(code):
+		var hit := m.get_string(1)
+		if not hashed.has(hit):
+			out.append("%s loads res://%s" % [rel, hit])
+	for name in types:
+		if hashed.has(types[name]):
+			continue
+		var re := RegEx.new()
+		re.compile("\\b%s\\b" % name)
+		if re.search(code) != null:
+			out.append("%s names %s, declared by %s" % [rel, name, types[name]])
+	return out
+
+## Issue 837: the instrument's `Tools/` files were one hardcoded name, which is
+## the shape that lost `.tres` in #633 and `.tscn` in #680 one level down.
+func test_the_instrument_reaches_no_tools_file_outside_the_hashed_set() -> void:
+	var hashed := _instrument_files()
+	assert_true(hashed.has("Tools/SampleFights.gd"),
+		"the checker no longer names SampleFights as instrument source: %s" % str(hashed))
+	var types := _tool_type_files()
+	var offenders: Array[String] = []
+	for rel in hashed:
+		var code := _code_only(_text("res://" + rel))
+		offenders.append_array(_reach_offenders(rel, code, hashed, types))
+	assert_eq(offenders, [] as Array[String],
+		("these Tools/ files decide the fingerprint's output and are not hashed with it, so "
+		+ "editing one reads as 'the simulation did not move'. Add each to $INSTRUMENT_FILES "
+		+ "in Tools/sim_fingerprint.ps1, then re-record:\n  %s") % "\n  ".join(offenders))
+
+## The negative half, both directions. This guard passes trivially while the set
+## holds one file, so it is exactly the kind nobody would ever watch go red.
+func test_the_reach_guard_fires_on_a_helper_outside_the_set() -> void:
+	var one: Array[String] = ["Tools/SampleFights.gd"]
+	var both: Array[String] = ["Tools/SampleFights.gd", "Tools/PartySpec.gd"]
+	var types := {"PartySpec": "Tools/PartySpec.gd"}
+	assert_eq(_reach_offenders("Tools/SampleFights.gd", "var x := PartySpec.new()", one, types).size(),
+		1, "a class_name declared by an unhashed Tools/ file must be flagged")
+	assert_eq(_reach_offenders("Tools/SampleFights.gd",
+		"var x := preload(\"res://Tools/Helper.gd\")", one, types).size(),
+		1, "a res:// load of an unhashed Tools/ file must be flagged")
+	assert_eq(_reach_offenders("Tools/SampleFights.gd", "var x := PartySpec.new()", both, types),
+		[] as Array[String], "a helper that IS in the hashed set must not be flagged")
+	assert_eq(_reach_offenders("Tools/SampleFights.gd", "var x := PartySpecial.new()", one, types),
+		[] as Array[String], "a longer name that merely begins with one must not match")
+	assert_false(_code_only("## PartySpec is what the sweep builds\n").contains("PartySpec"),
+		"a doc comment naming a Tools/ type must not reach the scan")
+
+## The derivation has to find the types, or the guard above checks nothing.
+func test_the_tools_type_scan_is_derived_and_not_empty() -> void:
+	var types := _tool_type_files()
+	assert_true(types.size() >= MIN_TOOL_TYPES,
+		("only %d class_name globals were found under Tools/; the scan is broken and the "
+		+ "guard above would pass on anything") % types.size())
+	assert_true(types.has("PartySpec"), "PartySpec is declared in Tools/ and must be found")
+
+## The list is only a rule while every site reads it instead of the path.
+func test_the_checker_names_its_instrument_file_exactly_once() -> void:
+	var text := _text(SCRIPT)
+	assert_true(_instrument_files().size() > 0,
+		"$INSTRUMENT_FILES could not be read out of the checker, so the guard reads nothing")
+	assert_eq(text.count("Tools/SampleFights.gd"), 1,
+		"the instrument's path is written more than once; the copies are what drift apart")
+	assert_true(text.count("$INSTRUMENT_FILES") >= 3,
+		"$INSTRUMENT_FILES must be defined and then read by both Get-SourceHash and Test-SourceDirty")
+
+## The third way one script reaches another, and the guard above cannot see it.
+func test_no_autoload_points_into_tools() -> void:
+	assert_false(_text("res://project.godot").contains("res://Tools/"),
+		"project.godot references res://Tools/; an autoload would reach the instrument invisibly")
