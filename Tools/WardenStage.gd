@@ -297,7 +297,9 @@ func _capture_axe() -> void:
 		_add_view(u)
 
 	var shots: Array[Image] = []
-	shots.append(await _shot("warden_axe  BEFORE  seed %d  no bleed" % seed_value))
+	shots.append(await _shot("warden_axe  BEFORE  seed %d  no bleed  warden %d hp, %d power" % [
+		seed_value, EnemyLibrary.get_enemy(&"the_warden").hp_max,
+		int(EnemyLibrary.get_enemy(&"the_warden").attack_power.get(0, 0))]))
 	var seen := {}
 	for t in 80:
 		CombatSim.step(_state, deps)
