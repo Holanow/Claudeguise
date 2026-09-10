@@ -23,3 +23,8 @@ class_name StatusEffect
 ## How far a TAUNTING reaches, in world units. It belongs to the status rather
 ## than to the action: the reach is what the taunt does, not a second effect.
 @export var taunt_radius: float = 0.0
+
+## Probability this status is applied at all, rolled once against `state.rng`.
+## 1.0 skips the draw, so an action that always applies its status leaves the
+## stream exactly where it was.
+@export var chance: float = 1.0
