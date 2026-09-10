@@ -57,12 +57,10 @@ func _refuses(source: String) -> bool:
 	return false
 
 
+## `Offscreen.gd` is the refusal itself, not a tool that must call it.
 func _tool_scripts() -> Array[String]:
 	var out: Array[String] = []
-	var dir := DirAccess.open(TOOLS_DIR)
-	if dir == null:
-		return out
-	for name in dir.get_files():
-		if name.ends_with(".gd") and name != "Offscreen.gd":
-			out.append("%s/%s" % [TOOLS_DIR, name])
+	for path in ToolScripts.under(TOOLS_DIR):
+		if path != TOOLS_DIR + "/Offscreen.gd":
+			out.append(path)
 	return out

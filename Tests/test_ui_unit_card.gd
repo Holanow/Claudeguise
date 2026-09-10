@@ -550,3 +550,34 @@ func test_a_running_cooldown_still_counts_down_on_the_card() -> void:
 	assert_eq(lines.size(), 1)
 	assert_true(lines[0].findn(TeamStatusView.seconds_text(a.cooldown_ticks)) >= 0,
 		"the shield is gone and the ten seconds are real: %s" % lines[0])
+
+## ---------------------------------------------------------------------------
+## Issue 861: the card's status line read `Shielding (61 shield left, 240.0s
+## left)`, which is the booking `CG.MAX_TICKS` no fight reaches.
+
+func test_a_status_that_outlasts_the_fight_names_no_countdown_on_the_card() -> void:
+	var state := CombatState.new()
+	state.tick = 6
+	var u := CombatUnit.new()
+	u.id = 0
+	u.display_name = "Warrior"
+	u.statuses[CG.Status.SHIELDING] = state.tick + CG.MAX_TICKS
+	u.status_magnitude[CG.Status.SHIELDING] = 61.0
+	var text := "\n".join(UnitCard.status_lines(state, u))
+	assert_false(text.contains("s left,") or text.contains("240.0s"),
+		"the card still claims the shield expires on a clock: %s" % text)
+	assert_true(text.contains(Glossary.NO_CLOCK_TEXT), text)
+	assert_true(text.contains("61 shield left"), "the shield's real number is gone: %s" % text)
+
+## The instrument check for the assertion above: a bleed still counts down.
+func test_an_ordinary_status_still_counts_down_on_the_card() -> void:
+	var state := CombatState.new()
+	state.tick = 15
+	var u := CombatUnit.new()
+	u.id = 0
+	u.display_name = "Warrior"
+	u.statuses[CG.Status.BLEED] = 60
+	u.status_magnitude[CG.Status.BLEED] = 3.0
+	var text := "\n".join(UnitCard.status_lines(state, u))
+	assert_true(text.contains("3.0s left"), text)
+	assert_false(text.contains(Glossary.NO_CLOCK_TEXT), text)

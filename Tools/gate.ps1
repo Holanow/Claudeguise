@@ -60,7 +60,7 @@ if (-not (Test-Path $godot)) {
 # A --script run cannot build it, so it is built here first: without it every file
 # fails to parse with an error naming a type rather than the cause.
 $import = Join-Path $env:TEMP ("claudeguise-import-" + [guid]::NewGuid().ToString('N') + ".txt")
-cmd /c "`"$godot`" --headless --editor --quit --path `"$repo`" > `"$import`" 2>&1"
+cmd /c "`"$godot`" --headless --import --path `"$repo`" > `"$import`" 2>&1"
 $cache = Join-Path $repo ".godot\global_script_class_cache.cfg"
 if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
     Write-Host "GATE CANNOT RUN: the editor import produced no class cache at"
@@ -68,7 +68,12 @@ if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
     Write-Host "Every class_name would fail to resolve. This is a failure, not a pass."
     exit 4
 }
-Write-Host ("  import     pass   (class cache {0} bytes)" -f (Get-Item $cache).Length)
+# Issue 865: the class cache above is not evidence that the assets imported.
+& (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "GATE CANNOT RUN: the project is not imported. This is a failure, not a pass."
+    exit 9
+}
 
 $log = Join-Path $env:TEMP ("claudeguise-gate-" + [guid]::NewGuid().ToString('N') + ".txt")
 cmd /c "`"$godot`" --headless --path `"$repo`" --script res://Tests/run_tests.gd > `"$log`" 2>&1"

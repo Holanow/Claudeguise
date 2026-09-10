@@ -13,15 +13,7 @@ func _text(path: String) -> String:
 	return FileAccess.get_file_as_string(path)
 
 func _tool_scripts() -> Array[String]:
-	var out: Array[String] = []
-	var dir := DirAccess.open("res://Tools")
-	if dir == null:
-		return out
-	for f in dir.get_files():
-		if f.ends_with(".gd"):
-			out.append("res://Tools/%s" % f)
-	out.sort()
-	return out
+	return ToolScripts.under("res://Tools")
 
 ## True when a line writes into the seed field.
 func _assigns_a_seed(line: String) -> bool:

@@ -75,11 +75,4 @@ func _extends_of(source: String) -> String:
 
 
 func _tool_scripts() -> Array[String]:
-	var out: Array[String] = []
-	var dir := DirAccess.open(TOOLS_DIR)
-	if dir == null:
-		return out
-	for name in dir.get_files():
-		if name.ends_with(".gd"):
-			out.append("%s/%s" % [TOOLS_DIR, name])
-	return out
+	return ToolScripts.under(TOOLS_DIR)

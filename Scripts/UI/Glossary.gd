@@ -141,6 +141,21 @@ static func status_magnitude_text(status: CG.Status, magnitude: int) -> String:
 		return "%d shield left" % magnitude
 	return ""
 
+## Issue 861: what the duration slot says when there is no clock to say.
+const NO_CLOCK_TEXT := "no time limit"
+
+## Whether this booking outlasts the fight, which is the only expiry a status
+## screen can read: `CombatSim` stops at `CG.MAX_TICKS`, so nothing at or past
+## it can run out while anyone is watching.
+static func outlasts_fight(expiry_tick: int) -> bool:
+	return expiry_tick >= CG.MAX_TICKS
+
+## The duration slot every status surface prints, countdown or not.
+static func status_left_text(expiry_tick: int, tick: int) -> String:
+	if outlasts_fight(expiry_tick):
+		return NO_CLOCK_TEXT
+	return "%.1fs left" % (float(maxi(expiry_tick - tick, 0)) / float(CG.TICKS_PER_SECOND))
+
 ## The live half of the popup: what `unit` is carrying of `status` at `tick`.
 static func status_now_text(unit, status: CG.Status, tick: int) -> String:
 	if unit == null or not unit.statuses.has(status):
@@ -149,8 +164,7 @@ static func status_now_text(unit, status: CG.Status, tick: int) -> String:
 	var magnitude := status_magnitude_text(status, int(unit.status_magnitude.get(status, 0.0)))
 	if magnitude != "":
 		parts.append(magnitude)
-	var left := maxi(int(unit.statuses[status]) - tick, 0)
-	parts.append("%.1fs left" % (float(left) / float(CG.TICKS_PER_SECOND)))
+	parts.append(status_left_text(int(unit.statuses[status]), tick))
 	return "On %s now: %s." % [unit.display_name, ", ".join(parts)]
 
 ## The whole popup for one status badge, general sentence and live numbers.
@@ -175,7 +189,7 @@ static func status_name(s: CG.Status) -> String:
 const HOVER_CLICK_HINT := "Click it for everything the game knows about it."
 
 ## One unit, in the four lines that answer "what is it doing and why". The
-## status list is names and timers only -- what each one MEANS is one badge
+## status list is names and durations only -- what each one MEANS is one badge
 ## hover away, and repeating it here would make the box taller than the fight.
 static func unit_hover_text(state: CombatState, u: CombatUnit) -> String:
 	var lines: Array[String] = [UnitCard.side_text(u), UnitCard.resource_line(u),
@@ -187,7 +201,7 @@ static func unit_hover_text(state: CombatState, u: CombatUnit) -> String:
 	lines.append(HOVER_CLICK_HINT)
 	return "\n".join(lines)
 
-## Every status on the unit as name and countdown, in the badge row's own order.
+## Every status on the unit as name and duration, in the badge row's own order.
 static func status_summary(state: CombatState, u: CombatUnit) -> String:
 	var parts := _status_parts(state, u, UnitView.ordered_statuses(u))
 	if parts.is_empty():
@@ -213,7 +227,7 @@ static func _status_parts(state: CombatState, u: CombatUnit, statuses: Array) ->
 		var magnitude := status_magnitude_text(s, int(u.status_magnitude.get(s, 0.0)))
 		if magnitude != "":
 			bits.append(magnitude)
-		bits.append("%.1fs left" % (float(maxi(int(u.statuses[s]) - state.tick, 0)) / float(CG.TICKS_PER_SECOND)))
+		bits.append(status_left_text(int(u.statuses[s]), state.tick))
 		parts.append("%s (%s)" % [status_name(s), ", ".join(bits)])
 	return parts
 
