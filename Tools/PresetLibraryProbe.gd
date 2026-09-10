@@ -214,6 +214,9 @@ func _fight(select, pawn, added) -> void:
 		_check(false, "no battle screen")
 		return
 	battle.set_process(false)
+	## Issue 842: the roster seed is rolled fresh per launch, so the fight this
+	## run measured is only reproducible if the probe says which one it was.
+	print("PresetLibraryProbe: seed %s" % battle.config.seed_text())
 
 	## Issue 842: the unit card's route needs the fight still running, so it
 	## runs before the ticks that resolve it rather than after them.
@@ -233,8 +236,7 @@ func _fight(select, pawn, added) -> void:
 	_finished = true
 
 ## Issue 741's narrow tabbed popout, opened off a unit card while the fight is
-## still running -- the route this probe is for. Issue 842: the click used to
-## land after 600 ticks, on a pawn that was usually dead behind an end card.
+## still running -- the route this probe is for.
 func _unit_card_route(battle, pawn) -> void:
 	var unit = null
 	for u in battle.state.units:
@@ -259,8 +261,8 @@ func _unit_card_route(battle, pawn) -> void:
 	_check(not battle._inspect_panel.is_visible_in_tree(), "Esc closes the popout")
 	_check(not battle.paused, "and the fight is running again")
 
-## The other door to the same popout, and the one this probe reached by
-## accident until issue 842: the end card's own button, once the fight is over.
+## The other door to the same popout: the end card's own button, once the
+## fight is over.
 func _end_card_route(battle) -> void:
 	var banner = battle._end_banner
 	_check(banner != null and banner.is_visible_in_tree(), "the end card is up after the fight")
@@ -295,9 +297,8 @@ func _popout_from(battle, root: Node, what: String) -> bool:
 	_check(_buttons(popout, InspectPanel.LIBRARY_ADD).size() > 0, "and it opens there")
 	return true
 
-## Issue 842: what stood between the click and the popout. The failure it is
-## for was seen once and has not reproduced in 20 runs, so the next one has to
-## explain itself rather than be reasoned about from a coordinate.
+## Issue 842: what stood between the click and the popout, so a failure that
+## does not reproduce still explains itself.
 func _why_not(battle, button: Control) -> void:
 	print("PresetLibraryProbe: outcome=%s paused=%s end_banner=%s pause_menu=%s popout=%s" % [
 		battle.state.outcome, battle.paused,
