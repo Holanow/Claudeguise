@@ -108,12 +108,14 @@ func test_space_over_an_open_menu_closes_it_rather_than_resuming_behind_it() -> 
 	assert_false(view.paused)
 	view.free()
 
-## The two the issue warns must not be quietly dropped, plus the three it names.
+## Still the control it always was -- nothing the toolbar had may be quietly
+## dropped. Issue 840 folded Change party into Restart, so the set is four.
 func test_the_menu_carries_every_control_the_toolbar_had() -> void:
 	var view = _battle()
 	var labels: Array[String] = view._pause_menu.button_labels()
-	for wanted in ["Resume", "Plans & Equipment", "Restart (same seed)", "Settings", "Change party"]:
+	for wanted in ["Resume", "Plans & Equipment", "Restart", "Settings"]:
 		assert_true(labels.has(wanted), "the pause menu is missing '%s': it has %s" % [wanted, labels])
+	assert_eq(labels.size(), 4, "the menu grew a control nothing named: %s" % [labels])
 	view.free()
 
 ## `What to show` is display options and belongs under Settings.
@@ -125,8 +127,8 @@ func test_settings_opens_the_display_options() -> void:
 	assert_true(view._display_options.visible, "Settings must reach 'What to show'")
 	view.free()
 
-## The seed is the whole content of "Restart (same seed)", so it moved into the
-## card with the button rather than off the screen.
+## Issue 840: Restart rolls a new seed, so this caption is the only place the
+## fight being watched can be read off in order to be typed back.
 func test_the_menu_names_the_party_the_room_and_the_seed() -> void:
 	var view = _battle()
 	for label in [view._party_label, view._encounter_label, view._seed_label]:

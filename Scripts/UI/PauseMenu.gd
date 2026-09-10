@@ -13,7 +13,6 @@ signal resume_pressed
 signal plans_pressed
 signal restart_pressed
 signal settings_pressed
-signal change_party_pressed
 
 var _caption: VBoxContainer = null
 
@@ -45,8 +44,8 @@ func _build() -> void:
 	column.add_child(heading)
 
 	## The party, the room and the seed used to be a header row over the arena.
-	## They are reference, not live, and "Restart (same seed)" is unreadable
-	## without the seed beside it.
+	## They are reference, not live, and since issue 840 this seed is the only
+	## place a player can read the fight they are watching to type it back.
 	_caption = VBoxContainer.new()
 	_caption.add_theme_constant_override("separation", int(Palette.SPACE_XS))
 	column.add_child(_caption)
@@ -55,12 +54,13 @@ func _build() -> void:
 
 	_add_button(column, "Resume", func(): resume_pressed.emit())
 	_add_button(column, "Plans & Equipment", func(): plans_pressed.emit())
-	_add_button(column, "Restart (same seed)", func(): restart_pressed.emit())
 	_add_button(column, "Settings", func(): settings_pressed.emit())
 
 	column.add_child(_rule())
 
-	_add_button(column, "Change party", func(): change_party_pressed.emit())
+	## Below the rule, where Change party stood: issue 840 made Restart the one
+	## control that leaves this fight, and it leaves via the party screen.
+	_add_button(column, "Restart", func(): restart_pressed.emit())
 
 	var hint := Label.new()
 	hint.text = "Escape closes this."
