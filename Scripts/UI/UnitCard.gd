@@ -238,9 +238,12 @@ static func status_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 		out.append("%s (%s): %s" % [Glossary.status_name(s), ", ".join(parts), Glossary.status_text(s)])
 	return out
 
+## Every cooldown, not the two the row has space for: the row's chips plus
+## issue 876's remainder, which together are the whole queue by construction.
 static func cooldown_lines(state: CombatState, u: CombatUnit) -> Array[String]:
 	var out: Array[String] = []
-	for entry in TeamStatusView.cooldowns_for(state, u):
+	var running: Array = TeamStatusView.cooldowns_for(state, u) + TeamStatusView.hidden_cooldowns(state, u)
+	for entry in running:
 		## Issue 851: a held cooldown's booked tick is a placeholder no fight
 		## reaches, so the card says what the chip says rather than counting it.
 		if bool(entry["held"]):
