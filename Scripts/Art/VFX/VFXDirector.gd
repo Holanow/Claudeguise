@@ -263,8 +263,16 @@ func free_after(rect: ColorRect, seconds: float) -> void:
 			holder.queue_free())
 
 ## A timer that ignores time scale, so a hit stop cannot strand a cleanup.
+##
+## Issue 956: the timer outlives this node -- `BattleView._rebuild_units` frees
+## the director on every room -- and everything `what` captures is a child of
+## it, so firing then only printed "Lambda capture was freed" at a guard that
+## was going to do nothing anyway. Sixty of those ended every `FloorRecord` run.
 func after(seconds: float, what: Callable) -> void:
-	get_tree().create_timer(seconds, true, false, true).timeout.connect(what)
+	var alive := weakref(self)
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func() -> void:
+		if alive.get_ref() != null:
+			what.call())
 
 ## `seed` is the caller's own play -- issue 907: a `CPUParticles2D` with no
 ## fixed seed picks one from the wall clock when it starts emitting, which is
