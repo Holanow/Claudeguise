@@ -59,8 +59,10 @@ if (-not (Test-Path $godot)) {
 # `class_name` needs the editor's class cache, which lives in gitignored .godot/.
 # A --script run cannot build it, so it is built here first: without it every file
 # fails to parse with an error naming a type rather than the cause.
-$import = Join-Path $env:TEMP ("claudeguise-import-" + [guid]::NewGuid().ToString('N') + ".txt")
-cmd /c "`"$godot`" --headless --import --path `"$repo`" > `"$import`" 2>&1"
+# Issue 888: one pass is not always enough on a cold worktree, so this runs the
+# importer until import_check.ps1 agrees, bounded, and reports which pass failed.
+& (Join-Path $PSScriptRoot 'import_until_done.ps1') -Repo $repo -Godot $godot
+$importConverged = ($LASTEXITCODE -eq 0)
 $cache = Join-Path $repo ".godot\global_script_class_cache.cfg"
 if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
     Write-Host "GATE CANNOT RUN: the editor import produced no class cache at"
@@ -70,7 +72,7 @@ if (-not (Test-Path $cache) -or (Get-Item $cache).Length -lt 64) {
 }
 # Issue 865: the class cache above is not evidence that the assets imported.
 & (Join-Path $PSScriptRoot 'import_check.ps1') -Repo $repo
-if ($LASTEXITCODE -ne 0) {
+if ($LASTEXITCODE -ne 0 -or -not $importConverged) {
     Write-Host "GATE CANNOT RUN: the project is not imported. This is a failure, not a pass."
     exit 9
 }
