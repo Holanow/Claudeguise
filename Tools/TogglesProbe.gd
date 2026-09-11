@@ -41,6 +41,8 @@ func _walk(n: Node) -> Array[Node]:
 
 ## Issue 850: resolved under a named node when one is given, never by
 ## first-match across the whole screen.
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String, root: Node = null) -> bool:
 	for n in _walk(root if root != null else _main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):

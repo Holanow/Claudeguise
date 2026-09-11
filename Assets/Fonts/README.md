@@ -1,11 +1,10 @@
 # Fonts
 
 Two vendored faces, both SIL Open Font License 1.1, each with its `OFL.txt`
-next to it. They are loaded at run time by `Scripts/Art/FontLibrary.gd` with
-`FontFile.load_dynamic_font`, the same way `Assets/UI/` PNGs are loaded with
-`Image.load` and for the same reason: nothing here needs Godot's import step,
-so a dropped-in file works whether or not the editor has ever seen it.
-`*.import` is gitignored, so a `.tres` reference would not survive anyway.
+next to it. `Scripts/Art/FontLibrary.gd` loads the imported `FontFile` first
+and reads the `.ttf` by path only when there is no import, so an export ships a
+usable face and a file dropped in while the game runs still works. `*.import`
+is gitignored, so a `.tres` reference would not survive anyway.
 
 | Family | File | Role |
 | --- | --- | --- |

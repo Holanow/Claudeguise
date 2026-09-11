@@ -78,6 +78,8 @@ func _card_for(cards: Array, class_id: StringName) -> Control:
 			return c
 	return null
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press_named(prefix: String) -> bool:
 	for n in _walk(_main):
 		if n is Button and (n as Button).text.to_lower().begins_with(prefix.to_lower()) 				and (n as Button).is_visible_in_tree() and not (n as Button).disabled:

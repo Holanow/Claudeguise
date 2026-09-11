@@ -41,6 +41,8 @@ func _walk(n: Node) -> Array[Node]:
 			out.append_array(_walk(c))
 	return out
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String) -> bool:
 	for n in _walk(_main):
 		if is_instance_valid(n) and n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
@@ -65,6 +67,44 @@ func _click(at: Vector2) -> void:
 		## Issue 910: local coordinates, because the position is already viewport space and the default would transform it again.
 		get_viewport().push_input(e, true)
 		await _settle(2)
+
+## Issue 520: a ScrollContainer clips input as well as pixels, so a control
+## below the fold gets no event and reads as inert.
+func _scrolls(c: Control) -> Array[ScrollContainer]:
+	var out: Array[ScrollContainer] = []
+	var n: Node = c.get_parent()
+	while n != null:
+		if n is ScrollContainer:
+			out.append(n)
+		n = n.get_parent()
+	return out
+
+## Clicks the control where it is drawn, and refuses rather than clicking a
+## point a player could not reach, which would report as "it did nothing".
+func _click_control(c: Control, what: String) -> bool:
+	var rect := c.get_global_rect()
+	var at := rect.get_center()
+	var window := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	if not window.has_point(at) or rect.size.x < 1.0:
+		print("UnitClickProbe: %s is at %s, outside the window %s -- not clicking" % [what, rect, window.size])
+		return false
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("UnitClickProbe: %s is below the fold of %s, scrolling to it" % [what, scroll.name])
+		scroll.ensure_control_visible(c)
+		await _settle(2)
+		rect = c.get_global_rect()
+		at = rect.get_center()
+	for scroll in _scrolls(c):
+		if scroll.get_global_rect().has_point(at):
+			continue
+		print("UnitClickProbe: %s sits at %s, clipped by %s at %s, and will not scroll into view -- not clicking" % [
+			what, rect, scroll.name, scroll.get_global_rect()])
+		return false
+	await _click(at)
+	print("UnitClickProbe: clicked %s at %s" % [what, at])
+	return true
 
 ## What the card is showing, or "" when nothing is. Read off the panel rather
 ## than off the view's own field, so a card that opened invisibly still reads
@@ -166,10 +206,12 @@ func _plans_route(battle) -> int:
 		await _click(battle._arena.get_global_transform() * BattleView.drawn_position(battle.state, u))
 		if _card_text(battle) == "":
 			continue
-		battle._unit_card._plans_button.emit_signal("pressed")
+		if not await _click_control(battle._unit_card._plans_button, "Plans"):
+			bad += 1
+			continue
 		await _settle()
 		var panel = battle._inspect_panel
-		var landed: String = panel._pawns[panel._selected_index].display_name
+		var landed: String = panel._focused.display_name
 		var covered: bool = battle._unit_card.is_visible_in_tree()
 		print("UnitClickProbe: Plans on %-16s opened %-16s card still up=%s" % [u.display_name, landed, covered])
 		if landed != u.display_name or covered:
@@ -185,6 +227,9 @@ func _plans_route(battle) -> int:
 ## points at. Six blind playtesters clicked and opened nothing.
 func _plate_clicks(battle) -> int:
 	var bad := 0
+	## A plate is a click target only while it is drawn, and it is off by default.
+	DisplayOptions.set_enabled(&"name_plates", true)
+	await _settle()
 	var layout: Dictionary = UnitView.plate_layout(battle.state)
 	for u in battle.state.units:
 		if not u.alive or not layout.has(u.id):
@@ -198,5 +243,6 @@ func _plate_clicks(battle) -> int:
 		if not took:
 			bad += 1
 	await _shot("wren_click_plates")
+	DisplayOptions.set_enabled(&"name_plates", false)
 	print("UnitClickProbe: %d plate click(s) opened the wrong thing or nothing" % bad)
 	return bad

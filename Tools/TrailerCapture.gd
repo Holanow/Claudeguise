@@ -931,6 +931,7 @@ func _clip_roster(fight: Dictionary) -> void:
 		if button == null:
 			_failures.append("roster: no button named %s" % arm["button"])
 			continue
+		## Emitted, not clicked: staging, not a reachability claim (#913).
 		button.pressed.emit()
 		var from := _begin()
 		for i in ROSTER_FRAMES:
@@ -1079,6 +1080,7 @@ func _clip_party_deploy() -> void:
 	## the closure's own copy and the caller would see `config` stay null.
 	var box := {"config": null}
 	ps.battle_requested.connect(func(cfg): box["config"] = cfg)
+	## Emitted, not clicked: staging, not a reachability claim (#913).
 	ps._start_button.pressed.emit()
 	for i in 10:
 		await _capture_ui_frame()

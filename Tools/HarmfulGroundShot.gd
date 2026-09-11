@@ -85,6 +85,8 @@ func _run() -> void:
 		if add == null:
 			print("HarmfulGroundShot: no '+ Add a plan' button on the screen")
 			return
+		## Emits `pressed` rather than clicking, so a green run says nothing about
+		## whether a player can reach this button (#913).
 		add.pressed.emit()
 		await _settle(8)
 

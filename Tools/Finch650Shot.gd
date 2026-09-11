@@ -34,6 +34,8 @@ func _node_with(f: String) -> Node:
 			return n
 	return null
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String) -> bool:
 	for n in _walk(_main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
@@ -98,6 +100,7 @@ func _run() -> bool:
 	if pick == null:
 		print("Finch650Shot: no Priest button in the panel")
 		return false
+	## Emitted, not clicked: staging, not a reachability claim (#913).
 	pick.emit_signal("pressed")
 	await _settle()
 	for n in _walk(panel):

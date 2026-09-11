@@ -207,9 +207,10 @@ if ($code -ne 0) {
 # nothing. So the only place a click through Godot's picking can be checked is
 # a windowed run, and if it is not here it is a tool nobody remembers.
 #
-# What it caught: since #470 the library's first Add sat 11 px below the fold
-# of the party screen's Plans scroll, a ScrollContainer clips input as well as
-# pixels, and the probe reported the button as inert for a day.
+# What it catches: a ScrollContainer clips input as well as pixels, so a
+# control outside the fold takes no event at all. #892 put the library's first
+# row back inside the fold and `Tests/test_ui_library_is_above_the_fold.gd`
+# holds it there; this probe checks that a real click on it lands.
 $env:CLAUDEGUISE_GATE = '1'
 $probeLog = Join-Path $env:TEMP ("claudeguise-probe-" + [guid]::NewGuid().ToString('N') + ".txt")
 # Issue 839: `*>`, not `>`, because run.ps1 writes every line with Write-Host,

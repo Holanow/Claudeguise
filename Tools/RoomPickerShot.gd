@@ -1,6 +1,8 @@
 extends Node
 
-## Issue 176: can a player actually reach all four rooms?
+## Issue 176: is every room the picker offers one that starts its own fight?
+## The picker and the buttons are driven by signal, so this checks what the
+## screens do with a choice, never that the controls are pickable (#913).
 
 
 const OUT_DIR := "user://probe"
@@ -36,6 +38,8 @@ func _walk(n: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String) -> bool:
 	for n in _walk(_main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):

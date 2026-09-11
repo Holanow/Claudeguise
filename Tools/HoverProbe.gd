@@ -47,6 +47,8 @@ func _walk(n: Node) -> Array[Node]:
 			out.append_array(_walk(c))
 	return out
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String) -> bool:
 	for n in _walk(_main):
 		if is_instance_valid(n) and n is Button and n.is_visible_in_tree() \

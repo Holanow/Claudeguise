@@ -20,10 +20,6 @@ const DEFAULT_SEED := 0x5EED0897
 ## banner rather than of the debris from the hit that raised it.
 const SETTLE_FRAMES := 48
 
-## Shots taken while a fight is running, which carry live debris and are the
-## only ones this tool cannot promise repeat -- see `_report_repeatability`.
-const LIVE_VFX_SHOTS := ["sweep_battle_mid", "sweep_battle_end_banner"]
-
 var _main: Node
 var _seed := DEFAULT_SEED
 var _res_tag: String = ""
@@ -75,23 +71,11 @@ func _ready() -> void:
 		ok = false
 	get_tree().quit(0 if ok else 3)
 
-## Issue 897: `VFXDirector.burst` builds a `CPUParticles2D` with no fixed seed,
-## the defect #675 fixed for `ImpactBurst`, so its debris lands somewhere else
-## in every run and a shot carrying it is not a controlled comparison.
+## Every shot repeats at a fixed seed, the live-VFX ones included since #907
+## seeded `VFXDirector.burst`.
 func _report_repeatability() -> void:
-	var loose: Array[String] = []
-	for name in _taken:
-		for prefix in LIVE_VFX_SHOTS:
-			if name.begins_with(prefix):
-				loose.append(name)
-				break
-	print("ScreenSweep: %d of %d shots carry no live VFX at seed %s; compare those." % [
-		_taken.size() - loose.size(), _taken.size(), _seed_text()])
-	if loose.is_empty():
-		return
-	printerr("ScreenSweep: DO NOT DIFF %s --" % ", ".join(loose))
-	printerr("  unseeded CPUParticles2D debris in VFXDirector.burst lands elsewhere")
-	printerr("  every run, so a difference there is not evidence of a change.")
+	print("ScreenSweep: all %d shots repeat at seed %s, so a difference between two runs is a change." % [
+		_taken.size(), _seed_text()])
 
 ## Fails the run when a class was never photographed, so the blind spot in
 ## issue 327 cannot come back silently.
@@ -210,6 +194,8 @@ func _select_classes(ids: Array) -> bool:
 		_classes_shot[id] = true
 	return true
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press_named(prefix: String) -> bool:
 	for b in _buttons():
 		if b.text.to_lower().begins_with(prefix.to_lower()) and b.is_visible_in_tree():
@@ -409,6 +395,7 @@ func _start_run_enters_the_floor() -> void:
 	if run_btn == null:
 		_fail("NO 'Start Run' BUTTON FOUND at %s" % _res_tag)
 		return
+	## Emitted, not clicked: staging, not a reachability claim (#913).
 	run_btn.emit_signal("pressed")
 	await _settle()
 	if _current_screen_name() != "Battle":
