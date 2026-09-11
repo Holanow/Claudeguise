@@ -98,7 +98,11 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 				break
 			## Issue 811: the room resolved, so it pays out -- the same call
 			## BattleView._handle_fight_end makes on the live floor.
+			## Issue 955: one pickup entry per piece actually put on, counted
+			## here because `carry_into` drains the list at the next arrival.
+			var pickups_before := run.pending_pickups.size()
 			FloorRun.award_room_loot(run, room, party, s)
+			worn += run.pending_pickups.size() - pickups_before
 			walk.mark_cleared(walk.current_id)
 			i += 1
 			if _camp_needed(run, party):
@@ -123,7 +127,6 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			_final_state_lines(detail, s, party, last_state,
 				depths[depths.size() - 1], walk.size(), wiped)
 		drops += run.loot.size()
-		worn += run.loot.size() - run.bag.size()
 		for item in run.loot:
 			dropped[item.id] = int(dropped.get(item.id, 0)) + 1
 		if not run.revive_used:
