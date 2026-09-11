@@ -17,7 +17,8 @@ func play(ctx: Dictionary) -> void:
 	var director = ctx["director"]
 	var who: int = ctx["target_id"] if on_target else ctx["source_id"]
 	director.burst(director.position_of(who),
-		amount, colour_hot, colour_cool, speed, lifetime, gravity, explosive)
+		amount, colour_hot, colour_cool, speed, lifetime, gravity, explosive,
+		int(ctx["seed"]))
 
 func describe() -> String:
 	return "an ember burst"

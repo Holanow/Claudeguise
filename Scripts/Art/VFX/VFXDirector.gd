@@ -19,7 +19,6 @@ var facing_of_fn: Callable = func(_id: int) -> Vector2: return Vector2.RIGHT
 var shake_fn: Callable = func(_pixels: float) -> void: pass
 var hit_stop_fn: Callable = func() -> void: pass
 
-var _rng := RandomNumberGenerator.new()
 var _followers: Array[Node2D] = []
 var _beams: Array[Node2D] = []
 
@@ -28,8 +27,9 @@ var _beams: Array[Node2D] = []
 ## DAMAGE that follows it -- so the state never outlives the one hit it answers.
 var _consumed: Dictionary = {}
 
-func _ready() -> void:
-	_rng.seed = 12345
+## Issue 907: every play gets a seed off the dispatch order and the pair it
+## fires between, so a particle system never reads the wall clock.
+var _play_seq: int = 0
 
 func position_of(id: int) -> Vector2:
 	return position_of_fn.call(id)
@@ -104,7 +104,7 @@ func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float
 	var ctx := {
 		"director": self, "source_id": source_id,
 		"target_id": target_id, "seconds": seconds,
-		"reverse_hint": reverse_hint,
+		"reverse_hint": reverse_hint, "seed": _next_seed(source_id, target_id),
 	}
 	if layer.delay <= 0.0:
 		layer.play(ctx)
@@ -120,6 +120,12 @@ func _play_layer(layer: VFXLayer, source_id: int, target_id: int, seconds: float
 		after(layer.delay, func():
 			if is_instance_valid(l) and is_instance_valid(director):
 				l.play(ctx))
+
+## Issue 907: the same shape as `BattleView._event_seed`, with the dispatch
+## count standing in for the tick the view never hands a layer.
+func _next_seed(source_id: int, target_id: int) -> int:
+	_play_seq += 1
+	return _play_seq * 1000003 + target_id * 97 + source_id
 
 func _process(_delta: float) -> void:
 	for i in range(_followers.size() - 1, -1, -1):
@@ -260,9 +266,14 @@ func free_after(rect: ColorRect, seconds: float) -> void:
 func after(seconds: float, what: Callable) -> void:
 	get_tree().create_timer(seconds, true, false, true).timeout.connect(what)
 
+## `seed` is the caller's own play -- issue 907: a `CPUParticles2D` with no
+## fixed seed picks one from the wall clock when it starts emitting, which is
+## the defect #713 fixed for `ImpactBurst`'s `GPUParticles2D`.
 func burst(at: Vector2, amount: int, hot: Color, cool: Color, speed: float,
-		lifetime: float, gravity: Vector2, explosive: bool) -> void:
+		lifetime: float, gravity: Vector2, explosive: bool, seed: int) -> void:
 	var p := CPUParticles2D.new()
+	p.use_fixed_seed = true
+	p.seed = seed
 	p.position = at
 	p.amount = amount
 	p.lifetime = lifetime
