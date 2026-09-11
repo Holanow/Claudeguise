@@ -956,6 +956,40 @@ func test_shipped_art_arrives_through_the_resource_system() -> void:
 		"the shipped icon has no imported resource, so nothing could load it in an export")
 
 
+func test_shipped_fonts_arrive_through_the_resource_system() -> void:
+	var font := FontLibrary.entry()
+	assert_not_null(font, "the shipped entry face is not being found at all")
+	if font == null:
+		return
+	assert_eq(font.resource_path, FontLibrary.ENTRY_PATH,
+		("the entry face came back with resource_path '%s', so it was read from the .ttf " +
+		"rather than loaded as a resource. That is the form that does not survive export.") % font.resource_path)
+	for path in [FontLibrary.PRINTED_PATH, FontLibrary.ENTRY_PATH, FontLibrary.ENTRY_BOLD_PATH]:
+		assert_true(ResourceLoader.exists(path, "FontFile"),
+			"%s has no imported resource, so nothing could load it in an export" % path)
+
+
+func test_the_imported_face_measures_the_same_as_the_ttf() -> void:
+	# The imported resource is what ships, so it has to set the same type as the
+	# .ttf the screens were designed against.
+	var from_file := FontFile.new()
+	assert_eq(from_file.load_dynamic_font(FontLibrary.ENTRY_PATH), OK,
+		"the entry .ttf could not be read, so this test cannot compare anything")
+	from_file.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	from_file.hinting = TextServer.HINTING_LIGHT
+	from_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
+	var imported := FontLibrary.entry()
+	assert_not_null(imported, "the shipped entry face is not being found at all")
+	if imported == null:
+		return
+	assert_eq(imported.get_font_name(), from_file.get_font_name(), "a different family is being loaded")
+	var text := "Seed 38AA5AD7 lorem ipsum 0123456789"
+	for size in [14, 16, 20, 28]:
+		assert_eq(imported.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size),
+			from_file.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size),
+			"the imported face sets differently from the .ttf at %dpx" % size)
+
+
 func test_a_dropped_in_png_is_found_with_no_registration() -> void:
 	# The item-15 claim, exercised end to end rather than reasoned about.
 	var art_name := StatusIcons.art_name(CG.Status.BLEED)
