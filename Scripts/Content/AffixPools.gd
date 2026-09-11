@@ -7,12 +7,20 @@ class_name AffixPools
 ## Ordered arrays, never dictionary keys: a roll indexes into these and the
 ## order has to be the same on every machine. `vital` is in every pool because
 ## README ranks body against ring at +HP and cannot do that unless both roll it.
+## Issue 931: the verbs sit in these same lists and `ItemRoller.unlocked`
+## filters them out below the verb floor, so there is no second pool to keep in
+## step. A verb is placed where its sentence makes sense on the piece: a weapon
+## leeches and bleeds, a shield and a helm shorten a cooldown.
 const POOLS: Dictionary = {
-	EquipmentDef.Slot.MAIN_HAND: [&"tempered", &"balanced", &"etched", &"keen", &"vital"],
-	EquipmentDef.Slot.OFF_HAND: [&"reinforced", &"attuned", &"padded", &"vital"],
-	EquipmentDef.Slot.HEAD: [&"reinforced", &"attuned", &"etched", &"padded", &"vital"],
-	EquipmentDef.Slot.BODY: [&"reinforced", &"tempered", &"padded", &"vital"],
-	EquipmentDef.Slot.ACCESSORY: [&"swift", &"attuned", &"keen", &"vital"],
+	EquipmentDef.Slot.MAIN_HAND: [&"tempered", &"balanced", &"etched", &"keen", &"vital",
+		&"thirsting", &"ravenous", &"serrated"],
+	EquipmentDef.Slot.OFF_HAND: [&"reinforced", &"attuned", &"padded", &"vital",
+		&"flowing", &"serrated"],
+	EquipmentDef.Slot.HEAD: [&"reinforced", &"attuned", &"etched", &"padded", &"vital",
+		&"flowing"],
+	EquipmentDef.Slot.BODY: [&"reinforced", &"tempered", &"padded", &"vital", &"flowing"],
+	EquipmentDef.Slot.ACCESSORY: [&"swift", &"attuned", &"keen", &"vital",
+		&"thirsting", &"flowing", &"ravenous"],
 }
 
 ## Multiplies an affix's `base_min`/`base_max`, which are written at the

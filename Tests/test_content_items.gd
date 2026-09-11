@@ -208,8 +208,8 @@ func _caster_holding(item_id: StringName) -> CombatUnit:
 func test_the_book_shortens_a_cooldown_the_simulation_books() -> void:
 	var bare := _caster_holding(&"")
 	var reading := _caster_holding(&"book")
-	var full := CombatSim._geared_cooldown_ticks(bare, 200)
-	var cut := CombatSim._geared_cooldown_ticks(reading, 200)
+	var full := CombatSim.geared_cooldown_ticks(bare, 200)
+	var cut := CombatSim.geared_cooldown_ticks(reading, 200)
 	assert_eq(full, 200, "a pawn carrying no Book must book the authored cooldown")
 	assert_true(cut < full, "the Book shortened nothing: %d against %d" % [cut, full])
 

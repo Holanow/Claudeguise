@@ -253,6 +253,19 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				Palette.damage_ink(CG.DamageType.WATER).to_html(),
 				source_name, _action_name(e.action_id)
 			]
+		## Issue 931: README requires a passive proc to be visible during the
+		## watch phase, so both verbs that fire on an event name their gear.
+		CG.EventKind.LEECHED:
+			return "%s leeches [color=%s]%d[/color] health%s" % [
+				source_name, Palette.HP_FULL.to_html(), e.amount,
+				_affix_tag(source, AffixDef.Effect.LIFE_LEECH)
+			]
+		CG.EventKind.RESOURCE_GAINED:
+			return "%s gains %d %s from the kill%s" % [
+				source_name, e.amount,
+				UnitCard.resource_name(source.resource_kind) if source != null else "resource",
+				_affix_tag(source, AffixDef.Effect.RESOURCE_ON_KILL)
+			]
 		CG.EventKind.RESOURCE_SPENT:
 			# Deliberate. See SILENT_KINDS below -- the list is what makes this
 			# silence distinguishable from an oversight.
@@ -299,20 +312,32 @@ func _proc_tag(source, e: CombatEvent) -> String:
 ## Which equipped piece added this status, or "" when the action applies it
 ## itself and the two cannot be told apart. Public because the test suite
 ## asserts it against the same modifier the plan editor's trait strip names.
+##
+## Issue 931: read off `AbilityModifiers.added_statuses`, the same list the
+## simulation draws its chance from, so a modifier and a rolled affix are named
+## by one routine rather than by two that can drift.
 static func proc_source_text(source, e: CombatEvent) -> String:
 	if source == null or source.pawn == null or e.source_id == e.target_id:
 		return ""
 	var action := ActionLibrary.get_action(e.action_id)
 	if action == null or _action_applies(action, e.status):
 		return ""
+	for extra in AbilityModifiers.added_statuses(source, action):
+		if extra["status"] == e.status:
+			return String(extra["source"])
+	return ""
+
+## Issue 931: the gear behind a verb that fires on an event rather than on a
+## hit. Named off the affix's own effect, so the log and the trait strip credit
+## the same piece.
+static func _affix_tag(source, effect: AffixDef.Effect) -> String:
+	if source == null or source.pawn == null:
+		return ""
 	for item in source.pawn.equipment():
-		for m in item.modifiers:
-			if m == null or not m.adds_status_enabled or m.adds_status != e.status:
-				continue
-			if not m.matches(action):
-				continue
-			return item.display_name if m.display_name == "" else "%s: %s" % [
-				item.display_name, m.display_name]
+		for r in item.affixes:
+			if r != null and r.affix != null and r.affix.effect == effect:
+				return " [color=%s][%s: %s][/color]" % [
+					Palette.INK_DIM.to_html(), item.display_name, r.affix.display_name]
 	return ""
 
 ## Read off the action's own effects, so an action that already applies the

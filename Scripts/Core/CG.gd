@@ -190,6 +190,12 @@ enum EventKind {
 	## Issue 811: a room's drop reached a pawn's empty slot. Announced on
 	## arrival in the next room, where there is a live fight to announce into.
 	LOOT_AWARDED,
+	## Issue 931: a leech affix returned a share of a landed hit to the attacker.
+	## Its own kind rather than a HEAL, because a heal nobody can attribute is
+	## exactly the hidden number this project keeps paying for.
+	LEECHED,
+	## Issue 931: a kill refunded a share of the killer's own resource pool.
+	RESOURCE_GAINED,
 }
 
 ## Why a piece of terrain appeared or went away. Issue 492: the log has to be

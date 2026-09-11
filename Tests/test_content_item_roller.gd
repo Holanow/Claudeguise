@@ -189,11 +189,15 @@ func test_a_deeper_floor_does_roll_a_verb() -> void:
 			drew = true
 	assert_true(drew, "the verb gate opens at floor %d" % ItemRoller.VERB_UNLOCK_FLOOR)
 
-## Every shipped affix is a number, which is what makes floor 1 playable at all.
-func test_nothing_shipped_is_a_verb_yet() -> void:
+## Issue 931 authored the first verbs, so "nothing shipped is a verb yet" is
+## gone. What replaces it is the invariant that outlives it: `kind` is authored
+## beside `effect` and a `.tres` that disagrees with itself would roll a verb on
+## floor 1 or hide one from the trait strip.
+func test_every_shipped_affix_agrees_with_its_own_effect() -> void:
 	for id in AffixLibrary.all_ids():
-		assert_eq(AffixLibrary.get_affix(id).kind, AffixDef.Kind.NUMBER,
-			"%s is a verb and no floor rolls verbs yet" % id)
+		var a := AffixLibrary.get_affix(id)
+		var want := AffixDef.Kind.VERB if AffixDef.is_verb_effect(a.effect) else AffixDef.Kind.NUMBER
+		assert_eq(a.kind, want, "%s's kind does not match its effect" % id)
 
 # ---------------------------------------------------------------------------
 # What a rolled affix does to a pawn

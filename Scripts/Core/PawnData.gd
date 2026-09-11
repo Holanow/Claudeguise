@@ -187,12 +187,28 @@ func gear_damage_reduction() -> float:
 	return best
 
 ## Issue 918: the share of every cooldown gear takes off, summed across pieces
-## and capped, which is the Book's whole effect.
+## and capped. Issue 931: the Book's authored points and a rolled fraction add
+## up here, because to the wearer they are one number.
 func gear_cooldown_reduction() -> float:
 	var out := 0.0
 	for e in equipment():
-		out += e.cooldown_reduction_percent
-	return clampf(out / 100.0, 0.0, MAX_GEAR_COOLDOWN_REDUCTION)
+		out += e.total_cooldown_reduction()
+	return clampf(out, 0.0, MAX_GEAR_COOLDOWN_REDUCTION)
+
+## Issue 931: the share of a landed hit gear returns as health, summed across
+## pieces -- two leeching items leech twice, unlike damage reduction.
+func gear_life_leech() -> float:
+	var out := 0.0
+	for e in equipment():
+		out += e.affix_life_leech()
+	return out
+
+## Issue 931: the share of this pawn's own resource pool a kill refunds.
+func gear_resource_on_kill() -> float:
+	var out := 0.0
+	for e in equipment():
+		out += e.affix_resource_on_kill()
+	return out
 
 ## Issue 918: percentage points of extra resource pool, summed across pieces.
 func gear_resource_max_percent() -> float:

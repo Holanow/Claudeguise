@@ -464,13 +464,26 @@ static func _affix_part(r: AffixRoll) -> String:
 	return "%s (%s)" % [r.affix.display_name, affix_value_text(r)]
 
 static func affix_value_text(r: AffixRoll) -> String:
+	var percent := int(round(r.value * 100.0))
 	match r.affix.effect:
 		AffixDef.Effect.MAX_HP_FLAT:
 			return "%+d max health" % int(round(r.value))
 		AffixDef.Effect.DAMAGE_REDUCTION:
-			return "absorbs %d%% of every hit" % int(round(r.value * 100.0))
+			return "absorbs %d%% of every hit" % percent
 		AffixDef.Effect.DAMAGE_PERCENT:
-			return "%+d%% damage" % int(round(r.value * 100.0))
+			return "%+d%% damage" % percent
+		## Issue 931: README's four verbs. Each says what the pawn now DOES,
+		## because a verb the player reads as arithmetic is the defect #931 is.
+		AffixDef.Effect.LIFE_LEECH:
+			return "returns %d%% of the damage it deals as health" % percent
+		AffixDef.Effect.COOLDOWN_RECOVERY:
+			return "cuts every cooldown by %d%%" % percent
+		AffixDef.Effect.RESOURCE_ON_KILL:
+			return "restores %d%% of its pool on a kill" % percent
+		AffixDef.Effect.ON_HIT_STATUS:
+			return "%d%% chance of %s for %s on a landed hit" % [
+				percent, Glossary.status_name(r.affix.status),
+				"%.1fs" % (float(r.affix.status_ticks) / float(CG.TICKS_PER_SECOND))]
 	return "%s %+d" % [CG.attribute_name(r.affix.attribute), int(round(r.value))]
 
 ## Issue 847: what an `AbilityModifier` does, off its own fields, so a modifier

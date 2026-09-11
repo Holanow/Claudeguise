@@ -121,15 +121,17 @@ const HELD_CHIP_TEXT := "Held"
 ## Issue 851: whether this booking is the hold rather than the wait, which is
 ## `CombatSim._release_held_cooldown`'s own test -- a booking further out than a
 ## whole fresh cooldown can only be a held one.
-static func is_held(a: ActionDef, ticks_left: int) -> bool:
-	return a.status_holds_cooldown and ticks_left > a.cooldown_ticks
+static func is_held(a: ActionDef, ticks_left: int, whole_ticks: int = -1) -> bool:
+	var whole := a.cooldown_ticks if whole_ticks < 0 else whole_ticks
+	return a.status_holds_cooldown and ticks_left > whole
 
 ## The condition, named from the action's own status rather than from
 ## `warrior_block`, so the next ability that holds its cooldown describes itself.
-static func held_text(a: ActionDef, display_name: String) -> String:
+static func held_text(a: ActionDef, display_name: String, whole_ticks: int = -1) -> String:
+	var whole := a.cooldown_ticks if whole_ticks < 0 else whole_ticks
 	return "%s is held while %s is up. Its %s cooldown starts when %s ends." % [
 		display_name, Glossary.status_name(a.applies_status),
-		seconds_text(a.cooldown_ticks), Glossary.status_name(a.applies_status)]
+		seconds_text(whole), Glossary.status_name(a.applies_status)]
 
 ## Issue 857: `ticks_left` orders the answer to "when do I get this back", and a
 ## held booking has no answer, so it is pinned ahead of that queue rather than
@@ -154,20 +156,25 @@ static func _running_cooldowns(state: CombatState, u: CombatUnit) -> Array:
 		var left: int = int(u.cooldowns[action_id]) - state.tick
 		if left <= 0:
 			continue
-		var held := is_held(a, left)
+		## Issue 931: the whole this chip divides by is the cooldown THIS unit
+		## waits, not the one the action was authored with -- gear that cuts
+		## cooldowns otherwise leaves the bar starting part-full and the
+		## sentence naming a total nobody ever waits.
+		var whole := CombatSim.geared_cooldown_ticks(u, a.cooldown_ticks)
+		var held := is_held(a, left, whole)
 		var display_name: String = a.display_name if a.display_name != "" else String(action_id).capitalize()
 		var wait_text := "%s is on cooldown for another %s of %s." % [
-			display_name, seconds_text(left), seconds_text(a.cooldown_ticks)]
+			display_name, seconds_text(left), seconds_text(whole)]
 		if held:
-			wait_text = held_text(a, display_name)
+			wait_text = held_text(a, display_name, whole)
 		running.append({
 			"action_id": action_id,
 			"ticks_left": left,
 			"held": held,
-			"fraction": 1.0 if held else clampf(float(left) / float(a.cooldown_ticks), 0.0, 1.0),
+			"fraction": 1.0 if held else clampf(float(left) / float(whole), 0.0, 1.0),
 			"damage_type": a.damage_type,
 			"display_name": display_name,
-			"cooldown_ticks": a.cooldown_ticks,
+			"cooldown_ticks": whole,
 			"chip_text": HELD_CHIP_TEXT if held else seconds_text(left),
 			"wait_text": wait_text,
 		})
