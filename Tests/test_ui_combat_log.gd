@@ -838,3 +838,75 @@ func test_a_heal_with_no_source_is_named_rather_than_anonymous() -> void:
 	e.source_id = 1
 	assert_eq(view.line_for_event(state, e), "Rat heals Warrior for 16")
 	view.free()
+
+# ---------------------------------------------------------------------------
+# Issue 920: a passive proc that fires and says nothing is the pawn-behaviour
+# principle broken at the watch end. The proc reaches the log through the same
+# STATUS_APPLIED an action's own status does, carrying the attack's id.
+
+func _wearing_quiver() -> CombatState:
+	var state := _make_state()
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"s0", "Siege Master")
+	state.units[0].pawn = pawn
+	state.units[0].display_name = "Siege Master"
+	return state
+
+## The action the quiver rides: its own effects never apply Bleed, so the Bleed
+## in the log came from the gear and from nothing else.
+func _quiver_action() -> ActionDef:
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"s0", "Siege Master")
+	for id in pawn.main_hand.granted_actions:
+		var action := ActionLibrary.get_action(id)
+		if action != null and not CombatLogView._action_applies(action, CG.Status.BLEED):
+			return action
+	return null
+
+func test_a_gear_proc_names_the_piece_that_fired_it() -> void:
+	var state := _wearing_quiver()
+	var action := _quiver_action()
+	assert_not_null(action, "the Siege Master's weapon grants an attack")
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.status = CG.Status.BLEED
+	e.action_id = action.id
+	var line := view.line_for_event(state, e)
+	assert_true(line.contains("Quiver"), "the piece is named: %s" % line)
+	assert_true(line.contains(state.units[0].pawn.off_hand.modifiers[0].display_name),
+		"and so is the trait the plan editor shows: %s" % line)
+	assert_true(line.contains("Bleed"), line)
+	view.free()
+
+## The action's own status must never be credited to a piece of gear that
+## happens to add the same one.
+func test_an_actions_own_status_is_not_blamed_on_gear() -> void:
+	var state := _wearing_quiver()
+	var view := CombatLogView.new()
+	var named := 0
+	for id in ActionLibrary.all_ids():
+		var action := ActionLibrary.get_action(id)
+		if not CombatLogView._action_applies(action, CG.Status.BLEED):
+			continue
+		var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+		e.source_id = 0
+		e.target_id = 1
+		e.status = CG.Status.BLEED
+		e.action_id = id
+		assert_eq(CombatLogView.proc_source_text(state.units[0], e), "",
+			"%s applies Bleed itself" % id)
+		named += 1
+	assert_true(named > 0, "no registered action applies Bleed, so this proves nothing")
+	view.free()
+
+## A unit with no pawn carries no gear, so every existing line is unchanged.
+func test_an_enemys_status_line_gains_nothing() -> void:
+	var state := _make_state()
+	var view := CombatLogView.new()
+	var e := CombatEvent.make(CG.EventKind.STATUS_APPLIED, 1)
+	e.source_id = 0
+	e.target_id = 1
+	e.status = CG.Status.BLEED
+	assert_false(view.line_for_event(state, e).contains("["),
+		view.line_for_event(state, e))
+	view.free()

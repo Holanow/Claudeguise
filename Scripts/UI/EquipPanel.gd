@@ -376,7 +376,7 @@ static func item_effect_text(item: EquipmentDef) -> String:
 			% int(round(item.resource_regen_percent_bonus)))
 	for m in item.modifiers:
 		if m != null:
-			parts.append_array(_modifier_parts(m))
+			parts.append_array(modifier_parts(m))
 	for r in item.affixes:
 		if r != null and r.affix != null:
 			parts.append(_affix_part(r))
@@ -404,8 +404,10 @@ static func affix_value_text(r: AffixRoll) -> String:
 
 ## Issue 847: what an `AbilityModifier` does, off its own fields, so a modifier
 ## authored next week is described here without anybody writing a sentence for
-## it.
-static func _modifier_parts(m: AbilityModifier) -> Array[String]:
+## it. Public since #920: the plan editor's trait strip says the same sentence
+## about the same modifier, and two renderers for one affix is how #861 got
+## five surfaces of one defect.
+static func modifier_parts(m: AbilityModifier) -> Array[String]:
 	var out: Array[String] = []
 	var scope := "projectile hit" if m.only_projectiles else "hit"
 	# `only_damage_type` defaults to PHYSICAL on a modifier that matches
