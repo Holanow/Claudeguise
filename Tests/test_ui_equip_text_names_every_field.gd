@@ -43,6 +43,19 @@ func test_every_registered_item_is_fully_described() -> void:
 		complaints.append_array(_complaints(id, item, EquipPanel.item_effect_text(item)))
 	assert_eq(complaints, [], "the equip screen is silent about fields these items carry")
 
+## Issue 916: the walk above only ever sees hand-authored items, none of which
+## carry an affix, so rolled items are walked through the same complaints.
+func test_every_rolled_item_is_fully_described() -> void:
+	var complaints: Array[String] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 916
+	for id in ItemLibrary.all_ids():
+		var base := ItemLibrary.get_equipment(id)
+		for i in 40:
+			var rolled := ItemRoller.roll(base, 1, rng)
+			complaints.append_array(_complaints(id, rolled, EquipPanel.item_effect_text(rolled)))
+	assert_eq(complaints, [], "the equip screen is silent about affixes these rolls carry")
+
 ## A field nobody has taught the renderer about must fail rather than pass
 ## quietly, so this is asserted at the class level too: it goes red the moment
 ## the export is added, before any item sets it.
@@ -154,6 +167,12 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 		&"resource_regen_percent_bonus":
 			out.append("%d%%" % int(round(item.resource_regen_percent_bonus)))
 			out.append("second")
+		&"affixes":
+			for r in item.affixes:
+				if r == null or r.affix == null:
+					continue
+				out.append(r.affix.display_name)
+				out.append_array(_affix_value_tokens(r))
 		&"granted_actions":
 			for action_id in item.granted_actions:
 				var action: ActionDef = ActionLibrary.get_action(action_id)
@@ -161,6 +180,18 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 		_:
 			return null
 	return out
+
+## Derived from `AffixDef`'s own fields rather than from the panel's routine,
+## so a renderer that stops saying the number still fails here.
+func _affix_value_tokens(r: AffixRoll) -> Array[String]:
+	match r.affix.effect:
+		AffixDef.Effect.MAX_HP_FLAT:
+			return ["%+d" % int(round(r.value))]
+		AffixDef.Effect.DAMAGE_REDUCTION:
+			return ["%d%%" % int(round(r.value * 100.0))]
+		AffixDef.Effect.DAMAGE_PERCENT:
+			return ["%+d%%" % int(round(r.value * 100.0))]
+	return ["%s %+d" % [CG.attribute_name(r.affix.attribute), int(round(r.value))]]
 
 ## The gates here are the simulation's, read off `AbilityModifiers` and
 ## `AbilityModifier.matches`, not the renderer's: mirroring the renderer's own

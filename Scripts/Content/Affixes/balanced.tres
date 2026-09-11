@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AffixDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AffixDef.gd" id="1_affix"]
+
+[resource]
+script = ExtResource("1_affix")
+id = &"balanced"
+display_name = "Balanced"
+kind = 0
+effect = 0
+attribute = 1
+base_min = 1.0
+base_max = 2.0
