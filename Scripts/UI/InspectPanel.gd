@@ -105,7 +105,9 @@ func _ready() -> void:
 	_detail_box = %DetailBox
 	_detail_scale = %DetailScale
 	_detail_scroll = _detail_scale.get_parent() as ScrollContainer
-	_detail_scroll.resized.connect(_apply_detail_scale)
+	## Issue 904: `DetailScale`, not `DetailScroll` -- the scroll keeps its width
+	## when the vertical scrollbar appears and only the child narrows.
+	_detail_scale.resized.connect(_apply_detail_scale)
 
 ## Issue 155's second half, and the answer to that issue's volume question.
 ## `focus` is the pawn to land on. Without it the panel always opened on the
@@ -283,7 +285,10 @@ func _apply_detail_scale() -> void:
 	var natural := _detail_box.get_combined_minimum_size()
 	if natural.x <= 0.0:
 		return
-	var avail := _detail_scroll.size.x
+	## Issue 904: the width the scroll granted its child, which is 6 px short of
+	## the scroll's own once the vertical scrollbar is up, and the 6 px that hid
+	## the right border of "+ Add a plan".
+	var avail := _detail_scale.size.x
 	if avail <= 0.0:
 		return
 	if avail >= natural.x:
