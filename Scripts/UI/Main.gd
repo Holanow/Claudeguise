@@ -73,6 +73,10 @@ func _start_direct_floor() -> void:
 ## the screen: issue 380, and the seed below is the pattern it copies.
 var _roster: Array[PawnData] = []
 
+## Issue 884: the seed those pawns were rolled from, snapshotted with them. -1
+## until a party screen has been left, which is the only place either is known.
+var _roster_seed := -1
+
 ## Everything the player set on this screen round-trips: the pawns themselves
 ## (and so their plans and their gear), which of them are picked, the room and
 ## the seed. Rebuilding any of it would make "run the same fight again" a lie
@@ -81,7 +85,7 @@ func show_party_select() -> void:
 	_swap_to(SCENE_PARTY_SELECT, func(screen):
 		screen.battle_requested.connect(start_battle)
 		screen.run_requested.connect(start_run)
-		screen.restore_roster(_roster)
+		screen.restore_roster(_roster, _roster_seed)
 		if run_config != null:
 			screen.prefill_seed(run_config.seed_text())
 			screen.restore_selection(run_config.party)
@@ -155,6 +159,7 @@ func _swap_to(scene_path: String, wire: Callable) -> void:
 	if _current != null:
 		if _current is PartySelect:
 			_roster = _current.available_pawns()
+			_roster_seed = _current.roster_seed()
 		remove_child(_current)
 		_current.queue_free()
 		_current = null
