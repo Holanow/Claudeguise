@@ -174,6 +174,9 @@ func _fill_roster() -> void:
 		card.toggled.connect(_on_card_toggled.bind(pawn))
 		_roster_box.add_child(card)
 		_cards[pawn.id] = card
+	## Issue 899: here rather than in each caller, so every path that swaps the
+	## roster repoints the middle column and cannot edit a pawn that just left.
+	focus_pawn(_available[0])
 
 ## Issue 176: one item per offered room, so it stays in code.
 func _fill_rooms() -> void:
@@ -308,7 +311,6 @@ func restore_roster(pawns: Array[PawnData], seed: int = -1) -> void:
 		child.queue_free()
 	_fill_roster()
 	_update_status()
-	focus_pawn(_available[0])
 
 ## Matched by identity, not by id: the point is that these are the same objects
 ## the player edited, so a pawn from anywhere else does not belong here.
