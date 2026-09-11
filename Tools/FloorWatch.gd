@@ -35,6 +35,7 @@ var _skip := false
 var _offer_room := -1
 var _chests_opened := 0
 var _boss_gear := "never reached the boss"
+var _boss_resource := "never reached the boss"
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
@@ -140,6 +141,15 @@ func _gear_text() -> String:
 		parts.append("%s[%s]" % [p.id, ", ".join(worn)])
 	return " ".join(parts)
 
+## Issue 868: every pawn's resource pool as the room opens, because the
+## between-room claim is about what a caster walks in with, not its health.
+func _resource_text() -> String:
+	var parts: Array[String] = []
+	for i in _battle._floor_party.size():
+		var u: CombatUnit = _battle.state.unit(i)
+		parts.append("%s %d/%d" % [_battle._floor_party[i].id, u.resource, u.resource_max])
+	return ", ".join(parts)
+
 func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
 		var e := InputEventMouseButton.new()
@@ -160,8 +170,10 @@ func _capture() -> void:
 		_battle._floor_walk.cleared_count() + 1, _plan.rooms.size(), room_id,
 		_plan.room(_battle._floor_walk.current_id).cell, w0.hp, w0.hp_max, w0.alive, path])
 	_log.append("  wearing: %s" % _gear_text())
+	_log.append("  resource: %s" % _resource_text())
 	if _plan.room(_battle._floor_walk.current_id).type == FloorRoom.Type.BOSS:
 		_boss_gear = _gear_text()
+		_boss_resource = _resource_text()
 	_shot_pending = false
 
 func _on_floor_ended(victory: bool) -> void:
@@ -173,6 +185,7 @@ func _on_floor_ended(victory: bool) -> void:
 		victory, _chests_opened, run.loot.size(),
 		run.loot.size() - run.bag.size(), run.bag.size()])
 	_log.append("SUMMARY gear on arrival in the boss room: %s" % _boss_gear)
+	_log.append("SUMMARY resource on arrival in the boss room: %s" % _boss_resource)
 	for line in _log:
 		print(line)
 	get_tree().quit(0)
