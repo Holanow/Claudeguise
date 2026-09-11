@@ -20,6 +20,7 @@ const CONDITIONS := {
 	&"ally_has_harmful_status": preload("res://Scripts/Plans/Blocks/AllyHasHarmfulStatusBlock.gd"),
 	&"enemy_has_status": preload("res://Scripts/Plans/Blocks/EnemyHasStatusBlock.gd"),
 	&"enemy_lacks_status": preload("res://Scripts/Plans/Blocks/EnemyLacksStatusBlock.gd"),
+	&"enemy_in_range_without_status": preload("res://Scripts/Plans/Blocks/EnemyInRangeWithoutStatusBlock.gd"),
 	&"self_on_harmful_ground": preload("res://Scripts/Plans/Blocks/SelfOnHarmfulGroundBlock.gd"),
 	&"self_on_safe_ground": preload("res://Scripts/Plans/Blocks/SelfOnSafeGroundBlock.gd"),
 	&"self_in_cover": preload("res://Scripts/Plans/Blocks/SelfInCoverBlock.gd"),
