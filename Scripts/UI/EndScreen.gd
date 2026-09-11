@@ -297,7 +297,7 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 	var parts: Array[String] = []
 	for row in rows:
 		if int(row.casts) > 0:
-			parts.append("%s (%d, %d/%d hit)" % [row.name, row.total, row.count, row.casts])
+			parts.append("%s (%d, %d cast, %d hit)" % [row.name, row.total, row.casts, row.count])
 		else:
 			parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)

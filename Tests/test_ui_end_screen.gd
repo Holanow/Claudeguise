@@ -549,7 +549,7 @@ func test_the_end_card_shows_hits_against_casts() -> void:
 	s.events.append(_hit(1, 0, 1, &"test_jab", 20))
 	s.events.append(_hit(2, 0, 1, &"test_jab", 10))
 
-	assert_eq(EndScreenScript.ledger_lines(s)[1], "Dealt most: test_jab (30, 2/5 hit).",
+	assert_eq(EndScreenScript.ledger_lines(s)[1], "Dealt most: test_jab (30, 5 cast, 2 hit).",
 		"the end card hid the gap between what an ability fired and what it landed")
 
 ## A raised block's soak is inside `before - after`, so crediting the reduction
@@ -568,3 +568,16 @@ func test_a_blocks_soak_is_not_credited_to_the_damage_reduction_cause() -> void:
 	var m := DamageLedger.mitigation_summary(DamageLedger.build(s), CG.Team.PLAYER)
 	assert_eq(int(m.cause[CG.MitigationCause.ARMOR]), 6,
 		"the block soak was credited to armour as if armour had reduced it")
+
+## One cast can land more than once -- a splash, a volley, a beat action -- so
+## the line names each number rather than printing a ratio that reads inverted.
+func test_the_end_card_line_survives_more_hits_than_casts() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_fire(1, 0, &"test_cleave"))
+	s.events.append(_hit(1, 0, 1, &"test_cleave", 7))
+	s.events.append(_hit(1, 0, 1, &"test_cleave", 5))
+
+	assert_eq(EndScreenScript.ledger_lines(s)[1], "Dealt most: test_cleave (12, 1 cast, 2 hit).",
+		"a cast that landed twice printed as a ratio the wrong way round")
