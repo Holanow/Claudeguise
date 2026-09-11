@@ -73,10 +73,15 @@ func attribute(a: CG.Attribute) -> int:
 
 func equipment() -> Array[EquipmentDef]:
 	var out: Array[EquipmentDef] = []
-	for e in [main_hand, off_hand, head, body, accessory]:
+	for e in [main_hand, null if off_hand_blocked() else off_hand, head, body, accessory]:
 		if e != null:
 			out.append(e)
 	return out
+
+## Issue 917: a two-handed main hand occupies the off hand too, so nothing in
+## that slot reaches the simulation while one is held.
+func off_hand_blocked() -> bool:
+	return main_hand != null and main_hand.two_handed
 
 
 ## Issue 770: every number derived from this pawn's attributes, next to the

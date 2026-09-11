@@ -173,6 +173,8 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 					continue
 				out.append(r.affix.display_name)
 				out.append_array(_affix_value_tokens(r))
+		&"two_handed":
+			out.append("two-handed")
 		&"granted_actions":
 			for action_id in item.granted_actions:
 				var action: ActionDef = ActionLibrary.get_action(action_id)

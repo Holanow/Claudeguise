@@ -4,10 +4,9 @@ class_name PawnFactory
 
 ## Builds a starter PawnData: class definition, starting gear, and no plan rows.
 
-## The weapon each class starts holding. Every entry must satisfy
-## `EquipmentDef.allows(class.method)` -- MARTIAL takes Sword and Bow, MAGICAL
-## takes Sickle, Orb and Staff -- or the pawn is equipped with something the
-## equip screen would refuse to offer it. There is a test for that.
+## The weapon each class starts holding, named deliberately. Every entry must
+## satisfy `EquipmentDef.allows_class` or the pawn holds something the equip
+## screen would refuse to offer it; there is a test for that.
 const STARTING_WEAPON := {
 	&"warrior": &"sword",
 	&"priest": &"staff",
@@ -17,12 +16,9 @@ const STARTING_WEAPON := {
 }
 
 ## The armour a class starts wearing, one entry per class on the player's
-## ruling that "every class should have default dress" (issue 226).
-##
-## Every entry must pass `EquipmentDef.allows_class`, and the tags leave little
-## room: only `gown` fits the Abomination at all, and the Siege Master's choice
-## between `silk_wraps` and `gown` is settled by its primary role. There is a
-## test for both the gate and the completeness of this table.
+## ruling that "every class should have default dress" (issue 226). Named
+## deliberately since #915: body gates on Method alone, so the gate no longer
+## narrows any of these to one legal choice.
 const STARTING_ARMOR := {
 	&"warrior": &"plate_mail",
 	&"priest": &"robes",
@@ -35,10 +31,10 @@ const STARTING_ARMOR := {
 ## stays empty on purpose -- it is the only slot a drop can still land in.
 static var FILL_EMPTY_SLOTS := true
 
-## The off-hand each class starts with. `required_tags` decides most of it --
-## shield and quiver are MARTIAL, focus is MAGICAL -- and the Warrior takes the
-## shield over the quiver on its TANK role, the Siege Master the quiver on
-## RANGED.
+## The off-hand each class starts with, one named choice per class: #915
+## narrowed the gate to Method and Style, so no role tag is left to derive the
+## Warrior's shield or the Siege Master's quiver from.
+## A class holding a two-handed weapon never reaches its entry (#917).
 const STARTING_OFF_HAND := {
 	&"warrior": &"shield",
 	&"priest": &"focus",
@@ -86,7 +82,7 @@ static func make_starter_pawn(class_id: StringName, pawn_id: StringName, display
 		pawn.main_hand = ItemLibrary.get_equipment(STARTING_WEAPON[class_id])
 	if STARTING_ARMOR.has(class_id):
 		pawn.body = ItemLibrary.get_equipment(STARTING_ARMOR[class_id])
-	if FILL_EMPTY_SLOTS and STARTING_OFF_HAND.has(class_id):
+	if FILL_EMPTY_SLOTS and STARTING_OFF_HAND.has(class_id) and not pawn.off_hand_blocked():
 		pawn.off_hand = ItemLibrary.get_equipment(STARTING_OFF_HAND[class_id])
 	return pawn
 

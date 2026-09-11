@@ -9,4 +9,4 @@ display_name = "Wrench"
 slot = 0
 description = "A heavy spanner. Its wielder attacks with a Strike."
 granted_actions = Array[StringName]([&"warrior_strike"])
-required_tags = Array[int]([0])
+required_tags = Array[int]([0, 2])

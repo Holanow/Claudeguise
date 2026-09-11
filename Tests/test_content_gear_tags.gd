@@ -1,9 +1,9 @@
 extends "res://Tests/TestCase.gd"
 
 
-## Issue 131: gear is gated on a set of tags drawn from more than one axis, and
-## more specialised gear names more of them. The player's own example is a kite
-## shield at MARTIAL against a tower shield at MARTIAL and TANK.
+## Issue 915: gear gates on Method crossed with Style and on nothing else.
+## Role tags are synergy hooks now, because tag counts are unevenly distributed
+## across classes and gating on them advantages whichever class carries most.
 
 
 ## Every class must be able to arm and dress itself, or a tag has been written
@@ -12,7 +12,10 @@ extends "res://Tests/TestCase.gd"
 func test_every_class_can_equip_something_in_every_slot() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var c := ClassLibrary.get_class_def(class_id)
-		for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
+		## HEAD is absent because no head item ships yet, not because the gate
+		## is allowed to empty it.
+		for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND,
+				EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
 			var offered := _offered(c, slot)
 			assert_false(offered.is_empty(),
 				"%s has no %s it is allowed to equip" % [class_id, _slot_name(slot)])
@@ -25,28 +28,36 @@ func test_the_tags_refuse_the_classes_they_are_meant_to() -> void:
 	_refuses(&"geysermancer", &"sword", "a magical class must not wield a Sword")
 	_refuses(&"warrior", &"orb", "a martial class must not wield an Orb")
 	_refuses(&"abomination", &"plate_mail", "Plate is MARTIAL and the Abomination is not")
-	_refuses(&"siege_master", &"plate_mail", "Plate is TANK and the Siege Master is not")
-	_refuses(&"geysermancer", &"gown", "the Gown is the anti-support's and the Geysermancer is not one")
+	_refuses(&"warrior", &"robes", "Robes are MAGICAL and the Warrior is not")
+	_refuses(&"warrior", &"quiver", "the Quiver is RANGED and the Warrior is MELEE")
+	_refuses(&"siege_master", &"sword", "the Sword is MELEE and the Siege Master is not")
 
 
 ## And permit. Two tags is the specialised case and it has to still fit the one
 ## class that carries both.
 func test_the_tags_permit_the_classes_they_are_meant_to() -> void:
-	_permits(&"warrior", &"plate_mail", "the Warrior is MARTIAL and TANK")
+	_permits(&"warrior", &"plate_mail", "Plate gates on MARTIAL alone since #915")
 	_permits(&"abomination", &"sickle", "the Abomination is MAGICAL and MELEE")
-	_permits(&"geysermancer", &"robes", "the Geysermancer's secondary role is SUPPORT")
-	_permits(&"siege_master", &"gown", "the Siege Master's secondary role is ANTI_SUPPORT")
+	_permits(&"geysermancer", &"robes", "Robes gate on MAGICAL alone since #915")
+	_permits(&"siege_master", &"plate_mail", "a Martial Summoner wears plate, which is the #915 ruling")
+	_permits(&"siege_master", &"bow", "the player's ruling: a Summoner also counts as RANGED")
+	_permits(&"siege_master", &"quiver", "the same ruling, for the off hand #746 built")
 	_permits(&"warrior", &"censer", "issue 489 untagged the Censer when it stopped granting INT")
 
 
-## The whole point of one flat namespace: a requirement can name a Method and a
-## Role at once. If every item's tags came from a single axis the enum would be
-## three enums again.
-func test_at_least_one_item_requires_tags_from_two_different_axes() -> void:
-	var plate := ItemLibrary.get_equipment(&"plate_mail")
-	assert_eq(plate.required_tags, [CG.Tag.MARTIAL, CG.Tag.TANK] as Array[int])
-	var sickle := ItemLibrary.get_equipment(&"sickle")
-	assert_eq(sickle.required_tags, [CG.Tag.MAGICAL, CG.Tag.MELEE] as Array[int])
+## The acceptance criterion of #915, asserted against every shipped item: a
+## gate may name a Method and a Style and nothing else.
+func test_no_item_gates_on_a_tag_outside_method_and_style() -> void:
+	var allowed := EquipmentDef.gate_tags()
+	for id in ItemLibrary.all_ids():
+		for t in ItemLibrary.get_equipment(id).required_tags:
+			assert_true(allowed.has(t),
+				"%s gates on tag %d, which is not a Method or a Style" % [id, t])
+
+## And the gate still refuses, which is the one thing it exists for.
+func test_a_wand_class_item_still_refuses_a_warrior() -> void:
+	var staff := ItemLibrary.get_equipment(&"staff")
+	assert_false(staff.allows_class(ClassLibrary.get_class_def(&"warrior")))
 
 
 ## A class's tags are derived from its own fields, never authored beside them.
@@ -62,14 +73,20 @@ func test_a_class_tag_set_is_derived_from_the_class() -> void:
 	both_roles_the_same.role_secondary = CG.Role.TANK
 	assert_eq(both_roles_the_same.tags().size(), 3, "a class with one role twice should carry three tags")
 
+	## Issue 915, the player's ruling: Summoner carries RANGED as well.
+	var siege := ClassLibrary.get_class_def(&"siege_master").tags()
+	assert_true(siege.has(CG.Tag.SUMMONER) and siege.has(CG.Tag.RANGED),
+		"the Siege Master should count as both: %s" % [siege])
+
 
 ## `missing_tags` is what a screen needs to say *why*, so it must name the tag
 ## that is absent and not merely report a refusal.
 func test_a_refusal_names_the_tag_the_class_lacks() -> void:
 	var plate := ItemLibrary.get_equipment(&"plate_mail")
 	assert_eq(plate.missing_tags(ClassLibrary.get_class_def(&"abomination")), [CG.Tag.MARTIAL] as Array[int])
-	assert_eq(plate.missing_tags(ClassLibrary.get_class_def(&"siege_master")), [CG.Tag.TANK] as Array[int])
 	assert_eq(plate.missing_tags(ClassLibrary.get_class_def(&"warrior")), [] as Array[int])
+	var sword := ItemLibrary.get_equipment(&"sword")
+	assert_eq(sword.missing_tags(ClassLibrary.get_class_def(&"siege_master")), [CG.Tag.MELEE] as Array[int])
 
 
 ## Every pawn starts wearing what `PawnFactory` gives it, so a tag that refuses
@@ -103,18 +120,11 @@ func test_filling_empty_slots_leaves_the_accessory_free_for_loot() -> void:
 	PawnFactory.FILL_EMPTY_SLOTS = true
 	for class_id in ClassLibrary.all_ids():
 		var pawn := PawnFactory.make_starter_pawn(class_id, class_id, "x")
-		assert_true(pawn.off_hand != null, "%s got no off hand" % class_id)
+		## Issue 917: the Priest's staff is two-handed and fills the slot itself.
+		assert_true(pawn.off_hand != null or pawn.off_hand_blocked(),
+			"%s got no off hand" % class_id)
 		assert_eq(pawn.accessory, null, "%s filled its accessory; loot has nowhere to land" % class_id)
 	PawnFactory.FILL_EMPTY_SLOTS = was
-
-
-## Why issue 226 dressed the Abomination in a Gown and not in something chosen:
-## the tags leave it one legal piece, so that entry is forced and moves the day
-## an ANTI_SUPPORT or MAGICAL MELEE armour is added.
-func test_the_abomination_has_exactly_one_armour_it_may_wear() -> void:
-	var offered := _offered(ClassLibrary.get_class_def(&"abomination"), EquipmentDef.Slot.BODY)
-	assert_eq(offered, [&"gown"] as Array[StringName],
-		"the Abomination's armour is no longer forced, so PawnFactory's comment is now false")
 
 
 func _offered(c: ClassDef, slot: int) -> Array[StringName]:

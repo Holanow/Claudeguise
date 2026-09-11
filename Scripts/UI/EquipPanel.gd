@@ -238,6 +238,11 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
 		return out
+	## Issue 917: a two-hander fills the off hand, so nothing is offered there
+	## and nothing is refused there either -- #474 refuses what the class may
+	## not wear, and this is a slot nobody may fill.
+	if slot == EquipmentDef.Slot.OFF_HAND and pawn.off_hand_blocked():
+		return out
 	for id in ItemLibrary.all_ids():
 		var item := ItemLibrary.get_equipment(id)
 		if item == null or not _fits_slot(item, slot):
@@ -254,6 +259,18 @@ func _fits_slot(item: EquipmentDef, slot: int) -> bool:
 	if item.slot == slot:
 		return true
 	return slot == EquipmentDef.Slot.OFF_HAND and item.slot == EquipmentDef.Slot.MAIN_HAND
+
+## Issue 917: the piece filling this slot from another one, or null. Only a
+## two-handed main hand does this today.
+func blocking_item(pawn: PawnData, slot: int) -> EquipmentDef:
+	if slot != EquipmentDef.Slot.OFF_HAND or not pawn.off_hand_blocked():
+		return null
+	return pawn.main_hand
+
+## Why the slot cannot be filled, in the player's words. A slot that reads
+## empty and refuses every choice is the lie #851 cost four surfaces.
+func blocked_text(blocked_by: EquipmentDef) -> String:
+	return "Held by the %s, which is two-handed." % blocked_by.display_name
 
 ## The refusal in the player's words. `EquipmentDef.missing_tags` returns the
 ## tags and deliberately not a sentence, so the sentence is here.
@@ -288,8 +305,12 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	## Issue 591: the icon carries what the item does, off the item's own
 	## fields through `item_effect_text`, so a new piece of gear is described
 	## correctly without anybody remembering to write a second sentence.
-	icon.pin_title = worn.display_name if worn != null else "%s (empty)" % slot_name(slot)
-	icon.tooltip_text = _slot_effect_text(worn)
+	var blocked_by := blocking_item(pawn, slot)
+	if blocked_by != null:
+		icon.pin_title = "%s (held by the %s)" % [slot_name(slot), blocked_by.display_name]
+	else:
+		icon.pin_title = worn.display_name if worn != null else "%s (empty)" % slot_name(slot)
+	icon.tooltip_text = blocked_text(blocked_by) if blocked_by != null else _slot_effect_text(worn)
 	row.add_child(icon)
 
 	var label := Label.new()
@@ -324,7 +345,9 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	for item in refused:
 		picker.add_item(refusal_text(item, pawn.pawn_class))
 		picker.set_item_disabled(picker.item_count - 1, true)
-	if items.is_empty():
+	if blocked_by != null:
+		picker.set_item_text(0, "Held by the %s" % blocked_by.display_name)
+	elif items.is_empty():
 		picker.set_item_text(0, "(nothing this class can use)")
 	# Disabled only when there is nothing to read either way. With refusals in
 	# it the list is worth opening even when none of it can be taken.
@@ -334,8 +357,9 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	row.add_child(picker)
 	out.append(row)
 
-	out.append(_line(_slot_effect_text(worn), Palette.FONT_SIZE_SMALL,
-		Palette.INK if worn != null else Palette.INK_DIM))
+	var text := blocked_text(blocked_by) if blocked_by != null else _slot_effect_text(worn)
+	out.append(_line(text, Palette.FONT_SIZE_SMALL,
+		Palette.INK if worn != null or blocked_by != null else Palette.INK_DIM))
 	return out
 
 ## Deferred, not immediate. The picker emitting `item_selected` is a child of
@@ -380,6 +404,10 @@ static func item_effect_text(item: EquipmentDef) -> String:
 	for r in item.affixes:
 		if r != null and r.affix != null:
 			parts.append(_affix_part(r))
+	## Issue 917: a two-hander fills the off hand as well, which is a cost and
+	## has to be readable before the player equips it.
+	if item.two_handed:
+		parts.append("two-handed")
 	for action_id in item.granted_actions:
 		parts.append("grants %s" % _action_display_name(action_id))
 	if parts.is_empty():

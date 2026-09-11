@@ -67,8 +67,9 @@ func _panel(file: String) -> Node:
 			return n
 	return null
 
-## The picker on the row whose label is "Armor", found by that label rather than
-## by index, because the slot order is EquipPanel's to change.
+## The picker on the row whose label is "Body", found by that label rather than
+## by index, because the slot order is EquipPanel's to change. The label was
+## "Armor" until #745 split five slots out of three.
 func _armor_picker() -> OptionButton:
 	var equip := _panel("EquipPanel.gd")
 	if equip == null:
@@ -76,7 +77,7 @@ func _armor_picker() -> OptionButton:
 		return null
 	var seen := false
 	for n in _walk(equip):
-		if n is Label and n.text == "Armor":
+		if n is Label and n.text == EquipPanel.slot_name(EquipmentDef.Slot.BODY):
 			seen = true
 		elif seen and n is OptionButton:
 			return n
@@ -119,8 +120,8 @@ func _run() -> void:
 	add_child(_main)
 	await _settle()
 
-	# MARTIAL like the Warrior and not a TANK, so Plate Mail is refused for a
-	# reason the method axis alone cannot state.
-	await _capture(&"siege_master", "wren_474_siege_master_armour_popup")
-	# MAGICAL and a HEALER: refused on both axes at once.
-	await _capture(&"priest", "wren_474_priest_armour_popup")
+	# MARTIAL, so #915 offers him both martial bodies and refuses both magical
+	# ones by name. He was refused all four until that issue.
+	await _capture(&"siege_master", "teal8_915_siege_master_body_popup")
+	# MAGICAL, which is the other half of a Method-only body gate.
+	await _capture(&"priest", "teal8_915_priest_body_popup")

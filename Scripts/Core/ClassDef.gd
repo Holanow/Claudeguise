@@ -73,6 +73,10 @@ const ROLE_TAG := {
 
 func tags() -> Array[int]:
 	var out: Array[int] = [METHOD_TAG[method], STYLE_TAG[style], ROLE_TAG[role_primary]]
+	## Issue 915, the player's ruling: a Summoner also counts as Ranged, so the
+	## Siege Master can hold a bow and a quiver instead of nothing at all.
+	if style == CG.Style.SUMMONER:
+		out.append(CG.Tag.RANGED)
 	var secondary: int = ROLE_TAG[role_secondary]
 	if not out.has(secondary):
 		out.append(secondary)

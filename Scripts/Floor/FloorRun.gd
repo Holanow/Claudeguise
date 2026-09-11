@@ -69,6 +69,12 @@ static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef
 			continue
 		if not item.allows_class(p.pawn_class):
 			continue
+		## Issue 917: an off hand is not empty when a two-hander fills it, and a
+		## two-hander cannot land on a pawn already carrying an off hand.
+		if item.slot == EquipmentDef.Slot.OFF_HAND and p.off_hand_blocked():
+			continue
+		if item.two_handed and p.off_hand != null:
+			continue
 		if p.get(SLOT_PROPERTY[item.slot]) == null:
 			return p
 	return null

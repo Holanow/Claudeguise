@@ -9,4 +9,4 @@ display_name = "Plate Mail"
 slot = 3
 description = "Heavy plate. Teaches its wearer to raise a Directional Block."
 granted_actions = Array[StringName]([&"warrior_block"])
-required_tags = Array[int]([0, 8])
+required_tags = Array[int]([0])

@@ -45,12 +45,22 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 ## ActionDef ids this piece grants its wielder.
 @export var granted_actions: Array[StringName] = []
 
-## Every `CG.Tag` a class must carry to wear or wield this, all of them, not
-## any. **Empty means anyone**, and more specialised gear names more tags --
-## the player's own example is a kite shield at MARTIAL against a tower shield
-## at MARTIAL and TANK. Issue 131; replaces `allowed_methods`, which could only
-## express one axis.
+## Issue 917: this main hand fills the off hand as well, so its wielder gives
+## up whatever action an off hand would have granted.
+@export var two_handed: bool = false
+
+## Every tag a class must carry to wear or wield this, all of them, not any.
+## **Empty means anyone**, and only `gate_tags()` may appear here: tag counts
+## are unevenly distributed across classes, so gating on a role permanently
+## advantages whichever class carries the most. Issue 915 reverses #131.
 @export var required_tags: Array[int] = []
+
+## The only tags a piece may gate on: Method crossed with Style. Read off
+## `ClassDef`'s own maps so the two cannot drift apart.
+static func gate_tags() -> Array[int]:
+	var out: Array[int] = []
+	out.assign(ClassDef.METHOD_TAG.values() + ClassDef.STYLE_TAG.values())
+	return out
 
 ## Issue 916: rarity is the affix count, not a second stored field -- README's
 ## own sentence makes them one number.

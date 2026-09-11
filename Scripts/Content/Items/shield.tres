@@ -9,4 +9,4 @@ display_name = "Shield"
 slot = 1
 description = "A round shield. Absorbs a share of every hit it blocks."
 damage_reduction = 0.15
-required_tags = Array[int]([0])
+required_tags = Array[int]([0, 2])

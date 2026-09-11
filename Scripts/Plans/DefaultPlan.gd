@@ -98,7 +98,7 @@ static func weapon_attack(unit: CombatUnit) -> ActionDef:
 ## weapon in the game already requires it, and no shield/focus/quiver does not
 ## also grant an attack, so the two checks together are exactly "a weapon".
 static func dual_wields(pawn: PawnData) -> bool:
-	if pawn == null or pawn.off_hand == null:
+	if pawn == null or pawn.off_hand == null or pawn.off_hand_blocked():
 		return false
 	if not pawn.off_hand.required_tags.has(CG.Tag.MARTIAL):
 		return false

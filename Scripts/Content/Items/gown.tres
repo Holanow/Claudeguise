@@ -9,4 +9,4 @@ display_name = "Gown"
 slot = 3
 description = "Layered and formal. Softens every hit that lands."
 damage_reduction = 0.05
-required_tags = Array[int]([7])
+required_tags = Array[int]([1])
