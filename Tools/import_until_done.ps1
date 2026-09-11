@@ -1,8 +1,8 @@
 # Run Godot's importer until import_check.ps1 agrees, bounded, or say why not.
 #
-# Issue 888: one --import pass is not always enough on a cold worktree, so every
-# fresh worktree failed its first gate run and the engineer had to know to
-# re-run it. Exits 0 when the project is imported, 9 when it is not.
+# Issue 888: a cold import can die with an access violation partway (measured:
+# godot exit 0xC0000005 after 3 of 471 files), which is why a fresh worktree
+# failed its first gate run. Exits 0 when the project is imported, 9 when not.
 param(
     [Parameter(Mandatory = $true)][string] $Repo,
     [Parameter(Mandatory = $true)][string] $Godot,
