@@ -46,10 +46,6 @@ const SLOT_PROPERTY := {
 ## difficulty-2 room on floor 1 would open the verb tier (#916).
 var floor_index: int = 1
 
-## Issue 919: how many chests in a row have put nothing on a pawn. README asks
-## for a pity counter, and this is what it counts.
-var unworn_chests: int = 0
-
 ## What a cleared room's chest holds, rolled the moment the room resolves.
 ## Seeded from the floor and the room rather than from the fight, so the
 ## contents are deterministic and do not perturb a single tick of combat.
@@ -62,28 +58,11 @@ static func roll_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData
 		return [] as Array[EquipmentDef]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([floor_seed, room.content_id, "loot"])
-	var batch := LootTables.roll_batch(living, run.floor_index, rng)
-	if run.unworn_chests >= LootTables.PITY_LIMIT:
-		_apply_pity(run, living, batch, rng)
-	return batch
-
-## Issue 919: after PITY_LIMIT chests that dressed nobody, one piece of the next
-## chest is replaced by something a living pawn has an empty legal slot for.
-static func _apply_pity(run: FloorRun, living: Array[PawnData],
-		batch: Array[EquipmentDef], rng: RandomNumberGenerator) -> void:
-	if batch.is_empty():
-		return
-	var fits := LootTables.wearable_ids(living, func(p: PawnData, item: EquipmentDef) -> bool:
-		return _slot_is_free(p, item))
-	if fits.is_empty():
-		return
-	batch[0] = ItemRoller.roll(
-		ItemLibrary.get_equipment(fits[rng.randi_range(0, fits.size() - 1)]),
-		run.floor_index, rng)
+	return LootTables.roll_batch(living, run.floor_index, rng)
 
 ## The player has opened the chest. Everything in it joins the run's bag, and
 ## whatever fits an empty slot on a living pawn is put on. Returns how many
-## pieces were actually worn, which is what the pity counter reads.
+## pieces were actually worn.
 static func take_chest(run: FloorRun, party: Array[PawnData], batch: Array[EquipmentDef]) -> int:
 	var worn := 0
 	for item in batch:
@@ -100,7 +79,6 @@ static func take_chest(run: FloorRun, party: Array[PawnData], batch: Array[Equip
 		taker.set(SLOT_PROPERTY[item.slot], item)
 		run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
 		worn += 1
-	run.unworn_chests = 0 if worn > 0 else run.unworn_chests + 1
 	return worn
 
 ## Roll and open in one call, for a headless sweep that has no chest to click.

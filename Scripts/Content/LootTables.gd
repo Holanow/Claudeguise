@@ -8,10 +8,6 @@ class_name LootTables
 const MIN_ITEMS := 1
 const MAX_ITEMS := 3
 
-## Issue 919: how many chests may pass without a single piece landing on a pawn
-## before the next one is forced to carry something that fits an empty slot.
-const PITY_LIMIT := 3
-
 ## Issue 919, README: weighting reads pawn scaling, not equipped gear, so a run
 ## does not converge on whatever the player found first. A class's tags are what
 ## it scales on, so a base type is weighted by how many living pawns are allowed
@@ -37,19 +33,6 @@ static func roll_batch(pawns: Array[PawnData], floor_index: int,
 			out[0] = ItemRoller.roll(
 				ItemLibrary.get_equipment(usable[rng.randi_range(0, usable.size() - 1)]),
 				floor_index, rng)
-	return out
-
-## The pity floor: a base type some living pawn has an empty legal slot for.
-## This is the one place equipped gear is read, and it is a floor rather than a
-## weighting -- README forbids the second, not the first.
-static func wearable_ids(pawns: Array[PawnData], has_empty_slot: Callable) -> Array[StringName]:
-	var out: Array[StringName] = []
-	for id in ItemLibrary.all_ids():
-		var item := ItemLibrary.get_equipment(id)
-		for p in pawns:
-			if item.allows_class(p.pawn_class) and bool(has_empty_slot.call(p, item)):
-				out.append(id)
-				break
 	return out
 
 static func _weighted_base(ids: Array[StringName], pawns: Array[PawnData],
