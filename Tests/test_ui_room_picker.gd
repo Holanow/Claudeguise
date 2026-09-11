@@ -155,3 +155,19 @@ func test_the_summary_follows_the_party_not_only_the_picker() -> void:
 	screen.toggle_pawn(screen.available_pawns()[0], true)
 	assert_false(screen._room_summary.text.contains("%d enemies" % authored),
 		"the party changed and the summary still shows the authored count: %s" % screen._room_summary.text)
+
+# ---------------------------------------------------------------------------
+# Issue 300: the terminal boss is reached, not picked
+# ---------------------------------------------------------------------------
+
+## The exclusion's own reason, asserted rather than written down: the boss is
+## off the picker AND the floor still puts him at the end of a walk.
+func test_the_terminal_boss_is_excluded_and_still_reachable_by_progressing() -> void:
+	assert_false(PartySelect.offered_rooms().has(FloorGenerator.BOSS_ID),
+		"the floor's last room is on the picker, so its arrival is spendable off a menu")
+	assert_true(PartySelect.NOT_OFFERED.has(FloorGenerator.BOSS_ID))
+	for floor_seed in [1, 2, 3]:
+		var plan := FloorGenerator.generate(floor_seed)
+		assert_true(plan.reachable_from_entrance().has(plan.boss_id),
+			"seed %d walls the boss off, so excluding him from the picker makes him unreachable" % floor_seed)
+		assert_eq(plan.room(plan.boss_id).content_id, FloorGenerator.BOSS_ID)
