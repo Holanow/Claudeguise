@@ -67,7 +67,8 @@ func _button_event(at: Vector2, pressed: bool) -> InputEventMouseButton:
 
 func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
-		get_viewport().push_input(_button_event(at, pressed))
+		## Issue 910: local coordinates, because the position is already viewport space and the default would transform it again.
+		get_viewport().push_input(_button_event(at, pressed), true)
 		await _settle(2)
 
 func _click_button(prefix: String) -> bool:
@@ -81,7 +82,7 @@ func _click_button(prefix: String) -> bool:
 ## Press, several motions, release -- the events a hand produces. Coalesced
 ## motion is why the release carries the final position too.
 func _drag(from: Vector2, to: Vector2, steps: int = 6) -> void:
-	get_viewport().push_input(_button_event(from, true))
+	get_viewport().push_input(_button_event(from, true), true)
 	await _settle(2)
 	var previous := from
 	for i in range(1, steps + 1):
@@ -92,9 +93,9 @@ func _drag(from: Vector2, to: Vector2, steps: int = 6) -> void:
 		m.global_position = at
 		m.relative = at - previous
 		previous = at
-		get_viewport().push_input(m)
+		get_viewport().push_input(m, true)
 		await _settle(1)
-	get_viewport().push_input(_button_event(to, false))
+	get_viewport().push_input(_button_event(to, false), true)
 	await _settle(2)
 
 func _card_text(battle) -> String:

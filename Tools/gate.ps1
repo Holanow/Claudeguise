@@ -214,13 +214,18 @@ $env:CLAUDEGUISE_GATE = '1'
 $probeLog = Join-Path $env:TEMP ("claudeguise-probe-" + [guid]::NewGuid().ToString('N') + ".txt")
 # Issue 839: `*>`, not `>`, because run.ps1 writes every line with Write-Host,
 # which goes to stream 6 and left this log empty.
-& (Join-Path $PSScriptRoot 'run.ps1') PresetLibraryProbe -TimeoutSeconds 240 *> $probeLog
-$probeCode = $LASTEXITCODE
+# Issue 910: both sizes, because the stretch scale is 1 at 1280x720 and a click
+# pushed in the wrong space still lands on its target there.
+foreach ($probeRes in @('1280x720', '844x390')) {
+    & (Join-Path $PSScriptRoot 'run.ps1') PresetLibraryProbe -TimeoutSeconds 240 -Resolution $probeRes *> $probeLog
+    $probeCode = $LASTEXITCODE
+    if ($probeCode -ne 0) { break }
+}
 Remove-Item Env:\CLAUDEGUISE_GATE -ErrorAction SilentlyContinue
 
 if ($probeCode -ne 0) {
     Write-Host ""
-    Write-Host "  clicks     FAIL   (PresetLibraryProbe exited $probeCode)"
+    Write-Host "  clicks     FAIL   (PresetLibraryProbe exited $probeCode at $probeRes)"
     $probeLines = @(Get-Content $probeLog | Select-String -Pattern 'PresetLibraryProbe:')
     $probeLines | ForEach-Object { Write-Host ("      " + $_.Line.Trim()) }
     Remove-Item $probeLog -ErrorAction SilentlyContinue
@@ -238,7 +243,7 @@ if ($probeCode -ne 0) {
     exit 7
 }
 Remove-Item $probeLog -ErrorAction SilentlyContinue
-Write-Host "  clicks     pass   (the library's Add lands a row through real picking)"
+Write-Host "  clicks     pass   (the library's Add lands a row through real picking, at 1280x720 and 844x390)"
 
 # Issue 529: the byte-identical proof, which was a sentence in an issue that
 # four sessions had to be told individually and two of us got wrong anyway.
