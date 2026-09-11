@@ -136,52 +136,6 @@ func test_the_same_floor_seed_pays_out_the_same_items() -> void:
 			"the chest is a function of the floor seed")
 
 
-## The pity counter. A party with nothing empty wears nothing, and after
-## PITY_LIMIT such chests the next one must carry something that fits.
-## Issue 947: a full slot is no longer a closed slot, so a pity fixture has to
-## out-rank every drop as well as fill every slot. Legendary is the affix cap.
-static func _make_unbeatable(pawn: PawnData) -> void:
-	for slot_property in FloorRun.SLOT_PROPERTY.values():
-		var worn: EquipmentDef = pawn.get(slot_property)
-		if worn == null:
-			continue
-		var capped := worn.duplicate() as EquipmentDef
-		var rolls: Array[AffixRoll] = []
-		for _i in int(EquipmentDef.Rarity.LEGENDARY):
-			rolls.append(AffixRoll.new())
-		capped.affixes = rolls
-		pawn.set(slot_property, capped)
-
-
-func test_the_pity_counter_forces_a_wearable_piece() -> void:
-	var party := _party()
-	var run := FloorRun.new()
-	for p in party:
-		p.head = ItemLibrary.get_equipment(&"great_helm") \
-			if p.pawn_class.method == CG.Method.MARTIAL else ItemLibrary.get_equipment(&"hood")
-		p.accessory = ItemLibrary.get_equipment(&"censer")
-		_make_unbeatable(p)
-	for i in LootTables.PITY_LIMIT:
-		FloorRun.award_room_loot(run, _room(FloorRoom.Type.ENEMY, &"room%d" % i), party, i)
-	assert_eq(run.unworn_chests, LootTables.PITY_LIMIT,
-		"a party with no empty slot should have worn nothing")
-
-	## Now free one slot and the very next chest has to fill it.
-	party[0].accessory = null
-	FloorRun.award_room_loot(run, _room(FloorRoom.Type.ENEMY, &"pity"), party, 99)
-	assert_eq(run.unworn_chests, 0, "the pity chest dressed nobody")
-
-
-## And the counter resets the moment a chest does dress somebody, so an ordinary
-## run never reaches the floor.
-func test_a_chest_that_dresses_somebody_resets_the_counter() -> void:
-	var party := _party()
-	var run := FloorRun.new()
-	run.unworn_chests = 2
-	FloorRun.take_chest(run, party, [ItemLibrary.get_equipment(&"censer")] as Array[EquipmentDef])
-	assert_eq(run.unworn_chests, 0)
-
-
 func test_the_pickup_is_announced_in_the_next_room() -> void:
 	var party := _party()
 	var run := FloorRun.new()

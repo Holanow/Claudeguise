@@ -115,7 +115,7 @@ Two distinct kinds, both at top rarity. An item is never both.
 
 **Drops**
 
-Every fight on floor 1 drops **1 to 3 items**. Every drop batch guarantees at least one item usable by a current pawn; the rest rolls free. Weighting reads **pawn scaling, not equipped gear**, to avoid runs converging on whatever the player found first. A pity counter forces a usable drop after N unusable ones.
+Every fight on floor 1 drops **1 to 3 items**. Every drop batch guarantees at least one item usable by a current pawn; the rest rolls free. Weighting reads **pawn scaling, not equipped gear**, to avoid runs converging on whatever the player found first.
 
 **Floor 1 Base Types**
 
