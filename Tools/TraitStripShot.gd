@@ -26,12 +26,12 @@ func _pawn() -> PawnData:
 		pawn.plans.append(plan)
 	return pawn
 
-## The attack the quiver rides: one its own effects never apply Bleed through,
-## so the Bleed in the log came from the gear and from nothing else.
-func _attack() -> ActionDef:
-	for id in ActionLibrary.all_ids():
+## The attack the quiver rides: one this pawn's own weapon grants, whose own
+## effects never apply Bleed, so the Bleed came from the gear and nothing else.
+func _attack(pawn: PawnData) -> ActionDef:
+	for id in pawn.main_hand.granted_actions:
 		var action := ActionLibrary.get_action(id)
-		if action.damage_type == CG.DamageType.PHYSICAL and not CombatLogView._action_applies(action, CG.Status.BLEED):
+		if action != null and not CombatLogView._action_applies(action, CG.Status.BLEED):
 			return action
 	return null
 
@@ -78,7 +78,7 @@ func _run() -> void:
 	panel.show_pawn(pawn)
 	await _settle()
 
-	var action := _attack()
+	var action := _attack(pawn)
 	var log_view := CombatLogView.new()
 	add_child(log_view)
 	log_view.set_anchors_preset(Control.PRESET_TOP_LEFT)

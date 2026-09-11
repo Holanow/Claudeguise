@@ -132,3 +132,20 @@ func test_the_first_library_row_is_inside_the_fold_unscrolled() -> void:
 		assert_true(rolled <= 0.0,
 			"%s %s: the first library row ends %.0f px below the fold" % [
 				size, screen.focused_pawn().display_name, rolled])
+
+## Issue 920: the trait strip rides the pawn's name rather than taking a row,
+## because a row is 33 px and the margin above is 25. Measured: two chips
+## squeeze "Siege Master" into two lines of 30 px type and cost 49 px, so the
+## name is set to ellipsize instead. Additive to the assertion above -- the
+## fixtures there carry at most one verb, and four of them carry none.
+func test_a_pawn_wearing_two_verbs_does_not_push_the_library_under() -> void:
+	for size in SIZES:
+		var screen := _party_screen(size)
+		for class_id in CLASS_IDS:
+			var pawn := _starter(class_id)
+			pawn.accessory = ItemLibrary.get_equipment(&"censer")
+			assert_false(InspectPanel.trait_lines(pawn).is_empty(),
+				"%s: the fixture has to carry a verb or this proves nothing" % class_id)
+			var below := _below_the_fold(screen, pawn)
+			assert_true(below <= 0.0,
+				"%s %s: the first library row ends %.0f px below the fold" % [size, class_id, below])

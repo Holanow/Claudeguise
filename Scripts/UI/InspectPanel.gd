@@ -356,6 +356,11 @@ func _heading_row(pawn: PawnData) -> Control:
 	var traits := _trait_strip(pawn)
 	if traits == null:
 		return name_label
+	## Measured: two chips squeeze "Siege Master" into two lines of 30 px type,
+	## which is 49 px the library does not have. The name gives up its tail
+	## before the row is allowed to grow.
+	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(Palette.SPACE_M))
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
