@@ -1,11 +1,15 @@
 extends Node
 
-## Issue 729/804's own proof: watch a floor end to end without touching
-## anything. Runs a real BattleView through begin_floor at 24x real time,
-## screenshots the first frame of every room, and logs one pawn's hp across the
-## whole floor so a reviewer can see damage persist without opening the engine.
+## Issue 729/804's own proof: watch a floor end to end. Runs a real BattleView
+## through begin_floor at 24x real time, screenshots the first frame of every
+## room, and logs one pawn's hp across the whole floor so a reviewer can see
+## damage persist without opening the engine.
+##
+## Issue 805: a floor no longer walks itself, so this pushes a real click on a
+## real door -- `Tools/FloorAutoPilot.gd` stands in for the player's choice.
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
+const AUTOPILOT := preload("res://Tools/FloorAutoPilot.gd")
 const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
@@ -37,10 +41,39 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _battle == null or _battle.state == null or _shot_pending:
 		return
+	# The screen is still travelling, so the room is only half on it.
+	if _battle._slide_left >= 0.0:
+		return
 	if _battle._floor_walk.current_id != _room_index:
 		_room_index = _battle._floor_walk.current_id
 		_shot_pending = true
 		_capture()
+		return
+	if _battle.doors_open():
+		_shot_pending = true
+		_take_a_door()
+
+## A real `InputEventMouseButton` pair at the door's own viewport position,
+## pushed through Godot's picking. Issue 904: `in_local_coords` true, because
+## the point is already viewport space.
+func _take_a_door() -> void:
+	var room := AUTOPILOT.next_door(_battle)
+	if room < 0:
+		_log.append("no door out of room %d" % _battle._floor_walk.current_id)
+		_on_floor_ended(false)
+		return
+	var at := AUTOPILOT.door_point(_battle, room)
+	_log.append("  clicked the door to %s at %s" % [
+		_plan.room(room).content_id, at])
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = pressed
+		e.position = at
+		e.global_position = at
+		get_viewport().push_input(e, true)
+		await get_tree().process_frame
+	_shot_pending = false
 
 func _capture() -> void:
 	await RenderingServer.frame_post_draw

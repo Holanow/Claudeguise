@@ -7,6 +7,7 @@ extends Node
 ##   run.ps1 -Scene res://Tools/FloorRecord.tscn -FixedFps 60 -WriteMovie <path.avi>
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
+const AUTOPILOT := preload("res://Tools/FloorAutoPilot.gd")
 const OUT_DIR := "user://probe"
 const FLOOR_SEED := 36
 const PARTY := [&"abomination", &"priest", &"siege_master", &"warrior"]
@@ -34,10 +35,16 @@ func _process(_delta: float) -> void:
 	if _battle == null or _battle.state == null or _shot_pending:
 		return
 	var walk: FloorWalk = _battle._floor_walk
-	if walk != null and walk.current_id != _room_seen:
+	if walk == null or _battle._slide_left >= 0.0:
+		return
+	if walk.current_id != _room_seen:
 		_room_seen = walk.current_id
 		_shot_pending = true
 		_capture(walk)
+		return
+	# Issue 805: the floor waits on a door now, and nobody here is a player.
+	if _battle.doors_open():
+		_battle.take_door(AUTOPILOT.next_door(_battle))
 
 func _capture(walk: FloorWalk) -> void:
 	await RenderingServer.frame_post_draw

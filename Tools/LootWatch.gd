@@ -8,6 +8,7 @@ extends Node
 ## floor transition, which `.claude/ENGINEER.md` names as the one exception.
 
 const BATTLE_SCENE := preload("res://Scenes/Battle.tscn")
+const AUTOPILOT := preload("res://Tools/FloorAutoPilot.gd")
 const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
@@ -42,6 +43,9 @@ func _process(_delta: float) -> void:
 	if _battle.state != _last_state:
 		_last_state = _battle.state
 		_seen = 0
+	# Issue 805: the floor waits on a door now, and nobody here is a player.
+	if _battle.doors_open():
+		_battle.take_door(AUTOPILOT.next_door(_battle))
 	var events: Array = _battle.state.events
 	while _seen < events.size():
 		var e = events[_seen]
