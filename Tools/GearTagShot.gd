@@ -102,18 +102,18 @@ func _run() -> void:
 	add_child(_main)
 	await _settle()
 
-	# MARTIAL, so both martial bodies and neither magical one.
+	# MARTIAL, so the martial body and not the magical one.
 	if not _focus_class(&"warrior"):
 		return
 	await _settle()
-	_report(&"warrior", ["Plate Mail", "Silk Wraps"], ["Robes", "Gown"])
+	_report(&"warrior", ["Plate Mail"], ["Robes"])
 	await _shot("teal8_915_warrior_armour")
 
-	# MAGICAL, so the opposite pair. The method axis is the whole gate here.
+	# MAGICAL, so the opposite. The method axis is the whole gate here.
 	if not _focus_class(&"priest"):
 		return
 	await _settle()
-	_report(&"priest", ["Robes", "Gown"], ["Plate Mail", "Silk Wraps"])
+	_report(&"priest", ["Robes"], ["Plate Mail"])
 	await _shot("teal8_915_priest_armour")
 
 	# The class #915 was blocked on: MARTIAL and SUMMONER, refused all sixteen
@@ -122,5 +122,5 @@ func _run() -> void:
 	if not _focus_class(&"siege_master"):
 		return
 	await _settle()
-	_report(&"siege_master", ["Plate Mail", "Silk Wraps"], ["Robes", "Gown"])
+	_report(&"siege_master", ["Plate Mail"], ["Robes"])
 	await _shot("teal8_915_siege_master_armour")

@@ -274,7 +274,7 @@ func test_an_unarmed_rage_pawn_cannot_act_at_all() -> void:
 ## The whole-fight half, and the one the issue names: "a weapon-granted basic
 ## attack must actually fire in a real fight", not merely exist.
 var _fires_cache := {}
-func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
+func test_a_rage_starved_abomination_reaches_for_the_gauntlets_claw() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"abomination", &"a0", "Abomination")
 	pawn.plans = []
 	var state := CombatState.new(0)
@@ -301,11 +301,11 @@ func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
 
 	var intent := DefaultBehavior.decide(state, unit)
 	assert_eq(intent.kind, CG.IntentKind.USE_ACTION,
-		"an Abomination with a Sickle and no Rage should swing it")
+		"an Abomination with a Rune Gauntlet and no Rage should swing it")
 	assert_eq(intent.action_id, &"abomination_claw",
-		"Hook and Grapple both cost Rage; the Sickle's Claw is the only thing it can pay for")
+		"Hook and Grapple both cost Rage; the Gauntlet's Claw is the only thing it can pay for")
 
-	# And with the Sickle gone, everything it can name costs Rage it does not
+	# And with the Gauntlet gone, everything it can name costs Rage it does not
 	# have. **Asserted on the cost rather than on an IDLE intent, because
 	# `DefaultBehavior` does not check affordability at all** -- it picks the
 	# cheapest attack whether or not the unit can pay, and `CombatSim` is what
@@ -320,7 +320,7 @@ func test_a_rage_starved_abomination_reaches_for_the_sickles_claw() -> void:
 	var unarmed := DefaultBehavior.decide(state, unit)
 	if unarmed.kind == CG.IntentKind.USE_ACTION:
 		assert_true(ActionLibrary.get_action(unarmed.action_id).resource_cost > 0,
-			"with the Sickle gone it found something free to swing after all")
+			"with the Gauntlet gone it found something free to swing after all")
 func _block_of(op: StringName, args: Dictionary = {}) -> PlanBlock:
 	return PlanFixtures.block(op, args)
 

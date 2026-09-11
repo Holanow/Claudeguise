@@ -99,7 +99,7 @@ func _run() -> void:
 	## second item created for it. `Tests/test_ui_equip_panel.gd` covers the
 	## picker's contents directly; this proves the whole screen actually
 	## lets it be picked.
-	if not _equip("Off Hand", "Wrench"):
+	if not _equip("Off Hand", "Mace"):
 		return
 	await _settle()
 	await _shot("heron_747_warrior_sword_mace")
