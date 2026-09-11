@@ -118,6 +118,7 @@ func _check_hover(node: Control, what: String) -> void:
 	if box.size.x <= 0.0 or box.size.y <= 0.0:
 		_check(false, "%s: laid out at zero size, so nothing can point at it" % what)
 		return
+	box = await _scrolled_into_view(node, what)
 	var hovered := await _hovered_at(box.get_center())
 	_check(hovered == node, "%s: the pointer over it reaches %s" % [
 		what, "it" if hovered == node else ("%s (%s)" % [hovered.name, hovered.get_class()]) if hovered != null else "nothing"])
@@ -127,6 +128,21 @@ func _check_hover(node: Control, what: String) -> void:
 			"%s: builds the game's own hover box rather than the engine's grey one" % what)
 	else:
 		_check(false, "%s: is not a glossary host" % what)
+
+## Issue 885: a ScrollContainer clips picking as well as pixels, so a control
+## below the fold reads as unreachable until the player scrolls to it.
+func _scrolled_into_view(node: Control, what: String) -> Rect2:
+	var box := node.get_global_rect()
+	var n: Node = node.get_parent()
+	while n != null:
+		if n is ScrollContainer and not n.get_global_rect().has_point(box.get_center()):
+			print("EndRoomPickProbe: %s is below the fold of %s (%s vs %s), scrolling to it" % [
+				what, n.name, box, n.get_global_rect()])
+			n.ensure_control_visible(node)
+			await _settle(3)
+			box = node.get_global_rect()
+		n = n.get_parent()
+	return box
 
 func _wheel(at: Vector2, up: bool, times: int = 4) -> void:
 	var point := get_viewport().get_screen_transform() * at

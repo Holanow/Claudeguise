@@ -581,3 +581,73 @@ func test_an_ordinary_status_still_counts_down_on_the_card() -> void:
 	var text := "\n".join(UnitCard.status_lines(state, u))
 	assert_true(text.contains("3.0s left"), text)
 	assert_false(text.contains(Glossary.NO_CLOCK_TEXT), text)
+
+## ---------------------------------------------------------------------------
+## Issue 883: the card read the same capped list as the row, so the panel a
+## player clicks for more showed exactly what the row already showed.
+
+func _priest_unit() -> CombatUnit:
+	var def = ClassLibrary.get_class_def(&"priest")
+	var u := CombatUnit.new()
+	u.id = 0
+	u.team = CG.Team.PLAYER
+	u.display_name = def.display_name
+	u.pawn = PawnFactory.make_preset_pawn(&"priest", &"priest", def.display_name)
+	u.hp_max = 100
+	u.hp = 100
+	u.actions = def.starting_action_ids()
+	return u
+
+func _gated_actions(u: CombatUnit) -> Array:
+	var out: Array = []
+	for action_id in u.actions:
+		var a = ActionLibrary.get_action(action_id)
+		if a != null and a.cooldown_ticks > 0:
+			out.append(action_id)
+	return out
+
+## The cross-surface property: what the row had to hide is what the card has to
+## print, read from the row's own remainder rather than from a count typed here.
+func test_the_card_prints_the_cooldown_the_row_had_no_room_for() -> void:
+	var state := CombatState.new(1)
+	var priest := _priest_unit()
+	state.units.append(priest)
+	state.tick = 0
+	var gated := _gated_actions(priest)
+	assert_true(gated.size() >= 3, "got %d gated actions, this test needs three" % gated.size())
+	for i in gated.size():
+		priest.cooldowns[gated[i]] = 900 - i * 100
+
+	var hidden := TeamStatusView.hidden_cooldowns(state, priest)
+	assert_true(hidden.size() > 0, "sanity: this fixture is the truncating case")
+	var lines := UnitCard.cooldown_lines(state, priest)
+	assert_eq(lines.size(), gated.size(),
+		"the card dropped a running cooldown the player clicked the pawn to see: %s" % [lines])
+	for entry in hidden:
+		assert_true("\n".join(lines).findn(String(entry["display_name"])) >= 0,
+			"the row hid %s and the card does not name it either: %s" % [entry["display_name"], lines])
+
+## The negative half. A card showing everything that is running adds nothing,
+## or the extra line is furniture the player learns to ignore.
+func test_the_card_adds_nothing_when_every_cooldown_fits_the_row() -> void:
+	var state := CombatState.new(1)
+	var priest := _priest_unit()
+	state.units.append(priest)
+	state.tick = 0
+	var gated := _gated_actions(priest)
+	for i in TeamStatusView.MAX_COOLDOWN_CHIPS:
+		priest.cooldowns[gated[i]] = 900 - i * 100
+	assert_eq(TeamStatusView.hidden_cooldown_count(state, priest), 0, "sanity: nothing is hidden here")
+	assert_eq(UnitCard.cooldown_lines(state, priest).size(), TeamStatusView.MAX_COOLDOWN_CHIPS)
+
+## Issue 442's rule reaches the card too: a resolved fight has no next move, so
+## a card naming no cooldown must not start naming three.
+func test_a_resolved_fight_leaves_the_card_no_cooldown_lines() -> void:
+	var state := CombatState.new(1)
+	var priest := _priest_unit()
+	state.units.append(priest)
+	state.tick = 0
+	for action_id in _gated_actions(priest):
+		priest.cooldowns[action_id] = 900
+	state.outcome = CombatState.Outcome.PLAYER_WIN
+	assert_eq(UnitCard.cooldown_lines(state, priest).size(), 0)
