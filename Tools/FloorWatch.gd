@@ -30,10 +30,13 @@ var _battle: Node = null
 var _plan: FloorPlan = null
 var _room_index := -1
 var _shot_pending := false
+var _shot_due := ""
 var _log := PackedStringArray()
 var _skip := false
 var _offer_room := -1
 var _chests_opened := 0
+var _chest_room := -1
+var _chest_before := 0
 ## Issue 955: counted, never `loot - bag`. A #947 upgrade bags the piece it
 ## displaces, so the subtraction reads a real upgrade as nothing worn.
 var _worn := 0
@@ -75,15 +78,22 @@ func _absorb_pickups() -> void:
 
 func _process(_delta: float) -> void:
 	_absorb_pickups()
-	if _battle == null or _battle.state == null or _shot_pending:
+	if _battle == null or _battle.state == null:
 		return
 	# The screen is still travelling, so the room is only half on it.
 	if _battle._slide_left >= 0.0:
 		return
+	## Issue 961: above the `_shot_pending` gate, because that gate is held open
+	## by the door click's own awaits for a wall-clock number of frames, and the
+	## fight steps under it. Arrival is read on the frame the slide ends.
 	if _battle._floor_walk.current_id != _room_index:
 		_room_index = _battle._floor_walk.current_id
-		_shot_pending = true
 		_capture()
+	if _shot_pending:
+		return
+	if _shot_due != "":
+		_shot_pending = true
+		_save_shot()
 		return
 	_note_offer()
 	## Issue 944: a player standing in a cleared room with both open takes the
@@ -134,18 +144,29 @@ func _take_the_chest() -> void:
 			"wren7_935_boss_chest" if held else "heron7_944_chest_before_the_door"]
 		get_viewport().get_texture().get_image().save_png(path)
 		_log.append("  chest standing, doors_open=%s -- %s" % [not held, path])
-	var before: int = _battle._floor_run.loot.size()
 	## Issue 959: the boss chest ends the floor from inside its own click, so a
 	## count after the await never runs for the tenth chest.
 	_chests_opened += 1
+	_chest_room = _battle._floor_walk.current_id
+	_chest_before = _battle._floor_run.loot.size()
 	await _click(AUTOPILOT.chest_point(_battle))
-	var run: FloorRun = _battle._floor_run
 	_absorb_pickups()
-	_log.append("  opened %s's chest: %d item(s), run total %d dropped / %d worn / %d bagged" % [
-		_plan.room(_battle._floor_walk.current_id).content_id,
-		run.loot.size() - before, run.loot.size(),
-		_worn, run.bag.size()])
+	_log_chest()
 	_shot_pending = false
+
+## Issue 961: the itemisation the #959 counter fix could not hoist, because it
+## reads what the click put in the run. Called from both sides of that click's
+## two endings -- here when the floor carries on, and from `_on_floor_ended`
+## when the boss chest ends it and this function never resumes.
+func _log_chest() -> void:
+	if _chest_room < 0:
+		return
+	var run: FloorRun = _battle._floor_run
+	_log.append("  opened %s's chest: %d item(s), run total %d dropped / %d worn / %d bagged" % [
+		_plan.room(_chest_room).content_id,
+		run.loot.size() - _chest_before, run.loot.size(),
+		_worn, run.bag.size()])
+	_chest_room = -1
 
 ## Every slot that has something in it, in party order, by display name so the
 ## rarity is on the line: the player's question was about affixes.
@@ -179,20 +200,30 @@ func _click(at: Vector2) -> void:
 		get_viewport().push_input(e, true)
 		await get_tree().process_frame
 
+## Issue 961: no await, so every number is the simulation as the room opens --
+## built, carried into, and not yet stepped. `tick=` on the line says which
+## moment that is. Sampled after a rendered frame instead, it was wall-clock
+## dependent and moved between runs of one seed.
 func _capture() -> void:
-	await RenderingServer.frame_post_draw
 	var room_id: StringName = _plan.room(_battle._floor_walk.current_id).content_id
-	var path := "%s/wren_804_floor_room%02d_%s.png" % [OUT_DIR, _battle._floor_walk.cleared_count() + 1, room_id]
-	get_viewport().get_texture().get_image().save_png(path)
+	_shot_due = "%s/wren_804_floor_room%02d_%s.png" % [OUT_DIR, _battle._floor_walk.cleared_count() + 1, room_id]
 	var w0: CombatUnit = _battle.state.unit(0)
-	_log.append("room %d/%d (%s at %s): unit0 hp %d/%d, alive=%s -- %s" % [
+	_log.append("room %d/%d (%s at %s): tick=%d, unit0 hp %d/%d, alive=%s -- %s" % [
 		_battle._floor_walk.cleared_count() + 1, _plan.rooms.size(), room_id,
-		_plan.room(_battle._floor_walk.current_id).cell, w0.hp, w0.hp_max, w0.alive, path])
+		_plan.room(_battle._floor_walk.current_id).cell, _battle.state.tick,
+		w0.hp, w0.hp_max, w0.alive, _shot_due])
 	_log.append("  wearing: %s" % _gear_text())
 	_log.append("  resource: %s" % _resource_text())
 	if _plan.room(_battle._floor_walk.current_id).type == FloorRoom.Type.BOSS:
 		_boss_gear = _gear_text()
 		_boss_resource = _resource_text()
+
+## The picture, which is the one thing here that does need a drawn frame.
+func _save_shot() -> void:
+	var path := _shot_due
+	_shot_due = ""
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
 	_shot_pending = false
 
 func _on_floor_ended(victory: bool) -> void:
@@ -201,6 +232,7 @@ func _on_floor_ended(victory: bool) -> void:
 	## The boss chest ends the floor from inside its own click, so this runs
 	## before `_take_the_chest` resumes and has to count that chest here.
 	_absorb_pickups()
+	_log_chest()
 	_log.append("SUMMARY seed=%d arm=%s rooms_cleared=%d boss_reached=%s boss_won=%s chests=%d dropped=%d worn=%d bagged=%d" % [
 		_seed(), "skip-chests" if _skip else "loot",
 		_battle._floor_walk.cleared_count(), _boss_gear != "never reached the boss",
