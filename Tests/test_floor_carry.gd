@@ -34,7 +34,12 @@ func test_carry_into_full_hp_pawn_heals_nothing() -> void:
 	var events_before := state.events.size()
 	FloorRun.carry_into(run, state, party)
 	assert_eq(state.unit(0).hp, hp_max)
-	assert_eq(state.events.size(), events_before, "no event for no change")
+	## A Warrior is RAGE, and issue 948 empties that on arrival. The heal says
+	## nothing because nothing healed; the rage drop is the only event here.
+	assert_eq(state.unit(0).resource, 0, "banked rage does not cross a door")
+	assert_eq(state.events.size(), events_before + 1, "no heal event, one rage event")
+	var last: CombatEvent = state.events[state.events.size() - 1]
+	assert_eq(last.kind, CG.EventKind.RESOURCE_SPENT, "the player sees the rage go")
 
 ## Issue 868: `Balance.between_room_resource_recover` was authored at 0.50 and
 ## never called by anything, which is why nothing was red. These four go through
@@ -54,17 +59,17 @@ func _resource_events(state: CombatState) -> Array[CombatEvent]:
 			out.append(e)
 	return out
 
-func test_carry_into_recovers_half_the_missing_resource() -> void:
+## Issue 948 replaced #868's half-the-missing recovery with a full reset to
+## whatever the kind starts a fight on. A Priest is MANA, so that is full.
+func test_carry_into_resets_a_mana_pawn_to_full() -> void:
 	var state := _arrive_with(0)
 	var unit := state.unit(0)
 	assert_true(unit.resource_max > 0, "a Priest has a pool to recover into")
-	var expected := int(round(float(unit.resource_max) * FloorRun.BETWEEN_ROOM_RESOURCE_MISSING_FRACTION))
-	assert_eq(unit.resource, expected, "half the missing resource, as authored in #868")
-	assert_true(unit.resource < unit.resource_max, "a missing-fraction recovery never reaches full")
+	assert_eq(unit.resource, unit.resource_max, "a room is a fight, and mana starts a fight full")
 	var said := _resource_events(state)
 	assert_eq(said.size(), 1, "the player is told, in the log, that it came back")
 	assert_eq(said[0].source_id, -1, "nobody cast it, the same mark the arrival heal carries")
-	assert_eq(said[0].amount, expected)
+	assert_eq(said[0].amount, unit.resource_max)
 
 func test_carry_into_full_resource_pawn_recovers_nothing() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p", "P")]

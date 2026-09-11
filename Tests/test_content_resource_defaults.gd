@@ -18,13 +18,13 @@ func _pawn_unit(state: CombatState):
 # the numbers themselves
 # ---------------------------------------------------------------------------
 
-func test_mana_starts_full_and_rage_and_energy_start_empty() -> void:
+func test_mana_and_energy_start_full_and_rage_starts_empty() -> void:
 	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.MANA, 100), 100,
 		"a caster that cannot cast on tick one is not playing the first half of the fight")
+	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.ENERGY, 100), 100,
+		"Energy starts full -- issue 948 reverses the earlier ruling this test held")
 	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.RAGE, 100), 0,
-		"Rage is earned inside a fight -- the player's own ruling")
-	assert_eq(SimDeps._default_starting_resource(CG.ResourceKind.ENERGY, 100), 0,
-		"Energy is earned inside a fight -- the player's own ruling")
+		"Rage is earned inside a fight -- the player's own ruling, unchanged")
 
 ## The pool size is not this function's business, and a version that returned a
 ## constant would pass the test above.

@@ -90,8 +90,13 @@ static func take_chest(run: FloorRun, party: Array[PawnData], batch: Array[Equip
 		run.add_loot(item)
 		var taker := _taker_for(run, party, item)
 		if taker == null:
+			taker = _upgrade_taker_for(run, party, item)
+		if taker == null:
 			run.bag.append(item)
 			continue
+		var displaced: EquipmentDef = taker.get(SLOT_PROPERTY[item.slot])
+		if displaced != null:
+			run.bag.append(displaced)
 		taker.set(SLOT_PROPERTY[item.slot], item)
 		run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
 		worn += 1
@@ -115,8 +120,7 @@ static func _living(run: FloorRun, party: Array[PawnData]) -> Array[PawnData]:
 	return out
 
 ## Party order, living pawns, first empty slot this class is allowed to fill.
-## **Empty slots only, never an upgrade** -- deciding one item is better than
-## the one already worn is a balance judgement and this is not the place for it.
+## Empty slots first; `_upgrade_taker_for` handles the case where there are none.
 static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef) -> PawnData:
 	for p in party:
 		if not run.is_alive(p.id):
@@ -126,6 +130,31 @@ static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef
 		if _slot_is_free(p, item):
 			return p
 	return null
+
+## Issue 947: nobody had a free slot, so beat someone's worn item instead.
+## Best means rarity, which `EquipmentDef.rarity()` defines as the affix
+## count -- affixes are all upside, so more of them is more item. A tie
+## leaves the incumbent alone rather than churning the RNG for nothing.
+static func _upgrade_taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef) -> PawnData:
+	if item.two_handed:
+		return null
+	var best: PawnData = null
+	var best_gain := 0
+	for p in party:
+		if not run.is_alive(p.id):
+			continue
+		if not item.allows_class(p.pawn_class):
+			continue
+		if item.slot == EquipmentDef.Slot.OFF_HAND and p.off_hand_blocked():
+			continue
+		var worn_item: EquipmentDef = p.get(SLOT_PROPERTY[item.slot])
+		if worn_item == null:
+			continue
+		var gain := int(item.rarity()) - int(worn_item.rarity())
+		if gain > best_gain:
+			best_gain = gain
+			best = p
+	return best
 
 ## Whether this piece has a free slot on this pawn, gates aside. The two-hand
 ## rules are the whole of it: an off hand is not free when a two-hander fills
@@ -178,7 +207,6 @@ const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 ## Issue 868: the same share of MISSING RESOURCE, restored on arrival beside the
 ## heal -- the 0.50 `Balance.between_room_resource_recover` was authored with and
 ## which nothing ever called.
-const BETWEEN_ROOM_RESOURCE_MISSING_FRACTION := 0.5
 
 ## Issue 802: what share of max hp a revived pawn comes back at. `static var`
 ## rather than `const` so one build can sweep several settings from the command
@@ -302,16 +330,18 @@ static func _revive(state: CombatState, run: FloorRun, unit: CombatUnit, pawn_id
 ## Issue 868: the heal's twin for the resource pool, and it takes the same
 ## `heal` gate above -- #805's pacing exploit refills a caster for free
 ## otherwise, exactly as it healed one for free.
+## Issue 948: a room is a fight, so arriving in one starts the pool where a
+## fight starts it -- mana and energy full, rage empty. Rage can fall here.
 static func _apply_arrival_recovery(state: CombatState, unit: CombatUnit) -> void:
-	var amount := int(round(float(unit.resource_max - unit.resource) * BETWEEN_ROOM_RESOURCE_MISSING_FRACTION))
 	var before := unit.resource
-	unit.resource = mini(unit.resource_max, unit.resource + amount)
+	unit.resource = SimDeps._default_starting_resource(unit.resource_kind, unit.resource_max)
 	var applied := unit.resource - before
-	if applied <= 0:
+	if applied == 0:
 		return
-	var e := CombatEvent.make(CG.EventKind.RESOURCE_GAINED, state.tick)
+	var kind := CG.EventKind.RESOURCE_GAINED if applied > 0 else CG.EventKind.RESOURCE_SPENT
+	var e := CombatEvent.make(kind, state.tick)
 	e.target_id = unit.id
-	e.amount = applied
+	e.amount = absi(applied)
 	state.emit(e)
 
 ## Living pawn only, no revive: `carry_into` already set dead units aside
