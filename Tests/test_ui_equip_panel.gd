@@ -629,3 +629,63 @@ func test_a_blocked_off_hand_offers_nothing_and_refuses_nothing() -> void:
 	var ids := _ids(panel.offered_items(pawn, EquipmentDef.Slot.OFF_HAND))
 	assert_true(ids.has(&"focus"), "with a one-handed main hand the Focus must be offered again: %s" % [ids])
 	panel.free()
+
+
+# ---------------------------------------------------------------------------
+# Issue 916: a rolled item can be a picker row.
+# ---------------------------------------------------------------------------
+
+func _rolled_plate() -> EquipmentDef:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 916
+	for i in 40:
+		var rolled := ItemRoller.roll(ItemLibrary.get_equipment(&"plate_mail"), 1, rng)
+		if not rolled.affixes.is_empty():
+			return rolled
+	return null
+
+## The defect: the picker listed the library and matched by id, so a Warrior
+## wearing a Rare Plate Mail read "Plate Mail" and taking it off lost it.
+func test_a_rolled_piece_is_offered_as_its_own_row() -> void:
+	var rolled := _rolled_plate()
+	assert_not_null(rolled, "no roll in 40 carried an affix; this test cannot mean anything")
+	var pawn := _make_pawn(CG.Method.MARTIAL)
+	pawn.body = rolled
+	var panel := _panel()
+	var offered := panel.offered_items(pawn, EquipmentDef.Slot.BODY)
+	assert_true(offered.has(rolled), "the rolled piece the pawn is wearing is not a row")
+	assert_ne(rolled.display_name, ItemLibrary.get_equipment(&"plate_mail").display_name,
+		"the roll must be named differently or this test proves nothing")
+	panel.free()
+
+## And the negative half: an unrolled pawn gets the library and nothing extra.
+func test_a_pawn_wearing_a_library_piece_gets_no_extra_row() -> void:
+	var pawn := _make_pawn(CG.Method.MARTIAL)
+	var panel := _panel()
+	var bare := panel.offered_items(pawn, EquipmentDef.Slot.BODY).size()
+	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	assert_eq(panel.offered_items(pawn, EquipmentDef.Slot.BODY).size(), bare,
+		"wearing a registry piece must not duplicate its own row")
+	panel.free()
+
+## The row has to be the SELECTED one, or the screen still reads as the base
+## item even with the roll in the list.
+func test_the_rolled_row_is_the_one_the_picker_shows() -> void:
+	var rolled := _rolled_plate()
+	var pawn := _make_pawn(CG.Method.MARTIAL)
+	pawn.body = rolled
+	var panel := _panel()
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.BODY)
+	var picker := _first_picker(controls[0])
+	assert_not_null(picker, "the body row has no picker")
+	assert_eq(picker.get_item_text(picker.selected), rolled.display_name,
+		"the picker names the base item while the pawn wears a roll")
+	for c in controls:
+		c.free()
+	panel.free()
+
+func _first_picker(node: Node) -> OptionButton:
+	for child in node.get_children():
+		if child is OptionButton:
+			return child
+	return null

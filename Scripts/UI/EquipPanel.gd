@@ -238,6 +238,12 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
 		return out
+	## Issue 916: a rolled piece keeps its base id, so a picker built from the
+	## library alone reads "Plate Mail" while the pawn is wearing "Rare Plate
+	## Mail" -- and taking it off could never put it back.
+	var worn := equipped(pawn, slot)
+	if allowed and is_rolled(worn):
+		out.append(worn)
 	## Issue 917: a two-hander fills the off hand, so nothing is offered there
 	## and nothing is refused there either -- #474 refuses what the class may
 	## not wear, and this is a slot nobody may fill.
@@ -251,6 +257,12 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 			continue
 		out.append(item)
 	return out
+
+## Issue 916: a piece that came out of `ItemRoller` rather than out of the
+## registry. The registry hands out one shared instance per id, so anything
+## else carrying that id is a roll.
+static func is_rolled(item: EquipmentDef) -> bool:
+	return item != null and ItemLibrary.get_equipment(item.id) != item
 
 ## Issue 747: `OFF_HAND` also offers every `MAIN_HAND` weapon -- a second
 ## weapon is how dual-wielding gets equipped, and no new weapon is needed for
@@ -336,7 +348,9 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var current := 0
 	for i in items.size():
 		picker.add_item(items[i].display_name)
-		if worn != null and items[i].id == worn.id:
+		## Issue 916: the instance, not the id. A rolled Plate Mail and the base
+		## Plate Mail share an id and are different pieces of gear.
+		if worn != null and items[i] == worn:
 			current = i + 1
 	picker.selected = current
 	# Issue 474: refused pieces go in as disabled rows *after* the offered ones,
