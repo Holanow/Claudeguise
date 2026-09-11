@@ -50,8 +50,18 @@ func _walk_to_the_boss(plan: FloorPlan) -> void:
 	print("BossChestProbe: arrived in %s" % plan.room(plan.boss_id).content_id)
 
 ## The fight is won by decree, through the same entry point `_process` uses when
-## the simulation resolves one.
+## the simulation resolves one. The enemy is put down first so the picture shows
+## a cleared room rather than a boss standing beside its own chest.
 func _win() -> void:
+	for unit in _battle.state.units:
+		if unit.team == CG.Team.ENEMY and unit.alive:
+			unit.hp = 0
+			unit.alive = false
+	_battle._curr_drawn = _battle._drawn_snapshot()
+	for id in _battle._unit_views:
+		_battle._unit_views[id].sync(_battle.state, _battle._curr_drawn.get(id, UnitView.RECOMPUTE_AT))
+	if _battle._team_status != null:
+		_battle._team_status.sync(_battle.state)
 	_battle.state.outcome = CombatState.Outcome.PLAYER_WIN
 	_battle._handle_fight_end()
 
