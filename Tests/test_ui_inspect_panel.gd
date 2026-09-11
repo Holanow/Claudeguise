@@ -1684,3 +1684,91 @@ func test_a_share_spinner_is_exactly_the_percent_control_it_was() -> void:
 			spin.free()
 	assert_true(checked >= 3, "only %d share operands were checked" % checked)
 	panel.free()
+
+# ---------------------------------------------------------------------------
+# Issue 920: the trait strip. A verb affix changes what a pawn does, so a
+# player authoring a plan against it must be able to read it here.
+
+func _walk_nodes(node: Node, out: Array = []) -> Array:
+	out.append(node)
+	for child in node.get_children():
+		_walk_nodes(child, out)
+	return out
+
+func _panel_showing(pawn: PawnData) -> InspectPanel:
+	var panel := InspectPanel.create()
+	panel._ready()
+	panel.open([pawn])
+	return panel
+
+## The Siege Master's starter quiver is the verb that ships: a chance of Bleed
+## on a landed hit, which is arithmetic no plan row mentions.
+func test_a_gear_verb_reaches_the_pawn_card() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"s0", "Siege Master")
+	var quiver := pawn.off_hand
+	assert_eq(quiver.modifiers.size(), 1, "the fixture is the starter quiver")
+	var panel := _panel_showing(pawn)
+	assert_true(_all_label_text(panel._detail_box).contains(quiver.modifiers[0].display_name),
+		_all_label_text(panel._detail_box))
+	panel.free()
+
+## The reuse the issue asks for: one routine describes an affix, and the strip
+## reads it rather than writing a second sentence about the same modifier.
+func test_the_strip_says_what_the_equip_screen_says() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"s0", "Siege Master")
+	var sentence := ", ".join(EquipPanel.modifier_parts(pawn.off_hand.modifiers[0]))
+	assert_true(sentence.contains("Bleed"), sentence)
+	var panel := _panel_showing(pawn)
+	var found := false
+	for node in _walk_nodes(panel._detail_box):
+		if node is Label and node.tooltip_text.contains(sentence):
+			found = true
+			assert_eq(node.mouse_filter, Control.MOUSE_FILTER_STOP,
+				"a Label defaults to MOUSE_FILTER_IGNORE and would never receive hover")
+	assert_true(found, "no chip carried the equip screen's own sentence")
+	panel.free()
+
+## Read-only, and never a block to place: the strip holds Labels and nothing a
+## player can press.
+func test_the_strip_is_read_only() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"siege_master", &"s0", "Siege Master")
+	var panel := _panel_showing(pawn)
+	var strip := panel._trait_strip(pawn)
+	for node in _walk_nodes(strip):
+		assert_false(node is Button or node is OptionButton,
+			"%s is pressable, and a verb is not a block" % node)
+	strip.free()
+	panel.free()
+
+## A pawn whose gear carries no verb gets no strip at all. `#892` left the
+## library's first row 25 px clear of the fold, which is less than one row.
+func test_a_pawn_with_no_verb_gets_no_strip() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w0", "Warrior")
+	for item in pawn.equipment():
+		assert_true(item.modifiers.is_empty(), "the fixture wears no verb")
+	var panel := InspectPanel.new()
+	assert_eq(panel._trait_strip(pawn), null, "an empty strip must not spend a row")
+	panel.free()
+
+## A NUMBER affix is invisible arithmetic the attributes row already carries;
+## only a VERB belongs here.
+func test_only_a_verb_affix_reaches_the_strip() -> void:
+	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w0", "Warrior")
+	var body: EquipmentDef = pawn.body.duplicate(true)
+	body.affixes = [_affix_roll(AffixDef.Kind.NUMBER, "Vital")] as Array[AffixRoll]
+	pawn.body = body
+	assert_eq(InspectPanel.trait_lines(pawn).size(), 0, "a number is not a verb")
+	body.affixes = [_affix_roll(AffixDef.Kind.VERB, "Leeching")] as Array[AffixRoll]
+	var lines := InspectPanel.trait_lines(pawn)
+	assert_eq(lines.size(), 1, "a verb is")
+	assert_eq(String(lines[0]["name"]), "Leeching")
+
+func _affix_roll(kind: AffixDef.Kind, display_name: String) -> AffixRoll:
+	var def := AffixDef.new()
+	def.kind = kind
+	def.display_name = display_name
+	def.effect = AffixDef.Effect.MAX_HP_FLAT
+	var roll := AffixRoll.new()
+	roll.affix = def
+	roll.value = 10.0
+	return roll

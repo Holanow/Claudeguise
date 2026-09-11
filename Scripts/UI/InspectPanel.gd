@@ -213,7 +213,7 @@ func _build_detail(pawn: PawnData) -> void:
 		return
 
 	var cls := pawn.pawn_class
-	_detail_box.add_child(_line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.INK))
+	_detail_box.add_child(_heading_row(pawn))
 	# Hover-info-box system, phase 1: the same trio PartyCard already makes
 	# hoverable, read through the one shared Glossary function so the two
 	# screens' copy cannot drift apart.
@@ -311,6 +311,85 @@ func _actions_used_in_plans(pawn: PawnData) -> Array:
 				if used != null:
 					out.append(used.id)
 	return out
+
+const TRAITS_LABEL := "Traits:"
+const TRAIT_TOOLTIP := "%s. From your %s, and read-only: it is not a block you place, it is arithmetic your plans are already scripting against."
+
+## Issue 920: the passive verbs a pawn's gear carries, said in `EquipPanel`'s
+## own words rather than in a second vocabulary.
+static func trait_lines(pawn: PawnData) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if pawn == null:
+		return out
+	for item in pawn.equipment():
+		for m in item.modifiers:
+			if m == null:
+				continue
+			var parts := EquipPanel.modifier_parts(m)
+			if parts.is_empty():
+				continue
+			out.append({
+				"name": m.display_name if m.display_name != "" else item.display_name,
+				"text": ", ".join(parts),
+				"item": item.display_name,
+			})
+		## README splits an affix in two and only the VERB half changes what a
+		## pawn does; a NUMBER is arithmetic the attributes row already carries.
+		for r in item.affixes:
+			if r != null and r.affix != null and r.affix.kind == AffixDef.Kind.VERB:
+				out.append({
+					"name": r.affix.display_name,
+					"text": EquipPanel.affix_value_text(r),
+					"item": item.display_name,
+				})
+	return out
+
+## Issue 920: read-only, beside the plan and never in the palette -- a verb in
+## the palette would read as a block to place, which it is not. Null when the
+## pawn carries none.
+## Issue 920: the strip rides the name rather than taking a row of its own.
+## The heading is 30 px of type and the chips are 16, so an `HBoxContainer` of
+## the two is exactly as tall as the heading alone -- and the 25 px the library
+## has left over is less than one row.
+func _heading_row(pawn: PawnData) -> Control:
+	var name_label := _line(pawn.display_name, Palette.FONT_SIZE_HEADING, Palette.INK)
+	var traits := _trait_strip(pawn)
+	if traits == null:
+		return name_label
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_label)
+	traits.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(traits)
+	return row
+
+func _trait_strip(pawn: PawnData) -> Control:
+	var traits := trait_lines(pawn)
+	if traits.is_empty():
+		return null
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(Palette.SPACE_M))
+	row.add_child(_fixed_label(TRAITS_LABEL, Palette.INK_DIM))
+	for t in traits:
+		row.add_child(_trait_chip(t))
+	return row
+
+## Same hoverable-Label construction as `_action_chip` below, `mouse_filter`
+## line included: the name is short enough to sit in one row, and the sentence
+## that would not is what hover is for.
+func _trait_chip(t: Dictionary) -> Control:
+	var chip := _fixed_label(String(t["name"]), Palette.INK)
+	chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	chip.tooltip_text = TRAIT_TOOLTIP % [_cap_first(String(t["text"])), String(t["item"])]
+	return chip
+
+func _fixed_label(text: String, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", Palette.FONT_SIZE_SMALL)
+	label.add_theme_color_override("font_color", color)
+	return label
 
 ## Not `_line()`: its word-autowrap makes a Label report a near-zero minimum
 ## width, so seven of them in one HBoxContainer render on top of each other
