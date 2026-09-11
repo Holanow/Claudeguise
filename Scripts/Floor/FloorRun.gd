@@ -77,6 +77,11 @@ static func take_chest(run: FloorRun, party: Array[PawnData], batch: Array[Equip
 		if displaced != null:
 			run.bag.append(displaced)
 		taker.set(SLOT_PROPERTY[item.slot], item)
+		## Issue 950: a two-hander fills the off hand as well, so whatever was
+		## in it is displaced by the same pickup.
+		if item.two_handed and taker.off_hand != null:
+			run.bag.append(taker.off_hand)
+			taker.off_hand = null
 		run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
 		worn += 1
 	return worn
@@ -110,14 +115,15 @@ static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef
 	return null
 
 ## Issue 947: nobody had a free slot, so beat someone's worn item instead.
-## Best means rarity, which `EquipmentDef.rarity()` defines as the affix
-## count -- affixes are all upside, so more of them is more item. A tie
-## leaves the incumbent alone rather than churning the RNG for nothing.
+## Rarity decides first -- `EquipmentDef.rarity()` is the affix count and
+## affixes are all upside. Issue 950: a tie on rarity is broken by
+## `stat_score`, and a tie after that leaves the incumbent alone rather than
+## churning the RNG for nothing. A two-handed piece is compared against the
+## main hand it replaces; `take_chest` bags the off hand it also costs.
 static func _upgrade_taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef) -> PawnData:
-	if item.two_handed:
-		return null
 	var best: PawnData = null
 	var best_gain := 0
+	var best_score := 0.0
 	for p in party:
 		if not run.is_alive(p.id):
 			continue
@@ -129,10 +135,32 @@ static func _upgrade_taker_for(run: FloorRun, party: Array[PawnData], item: Equi
 		if worn_item == null:
 			continue
 		var gain := int(item.rarity()) - int(worn_item.rarity())
-		if gain > best_gain:
+		var score := stat_score(item) - stat_score(worn_item)
+		if gain < 0 or (gain == 0 and score <= 0.0):
+			continue
+		if gain > best_gain or (gain == best_gain and score > best_score):
 			best_gain = gain
+			best_score = score
 			best = p
 	return best
+
+## Issue 950: how many attribute points one piece is worth, so a flat roll and a
+## percentage roll can be compared on one scale. Derivation and the measured
+## floor 1 table are in the pull request.
+const HP_PER_POINT := 16.0
+const PERCENT_PER_POINT := 0.104
+
+static func stat_score(item: EquipmentDef) -> float:
+	if item == null:
+		return 0.0
+	var score := 0.0
+	for a in CG.Attribute.values():
+		score += item.total_attribute_flat(a)
+		score += float(item.attribute_percent.get(a, 0.0)) / PERCENT_PER_POINT
+	score += item.affix_max_hp_flat() / HP_PER_POINT
+	score += (item.affix_power_multiplier() - 1.0) / PERCENT_PER_POINT
+	score += item.total_damage_reduction() / PERCENT_PER_POINT
+	return score
 
 ## Whether this piece has a free slot on this pawn, gates aside. The two-hand
 ## rules are the whole of it: an off hand is not free when a two-hander fills
