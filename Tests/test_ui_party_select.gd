@@ -449,3 +449,54 @@ func test_select_room_picks_the_room_by_id() -> void:
 	screen.select_room(&"no_such_room")
 	assert_eq(screen.selected_room(), other, "an unknown id must not clear the picker")
 	screen.free()
+
+# ---------------------------------------------------------------------------
+# Issue 899: a roster change repoints the middle column
+# ---------------------------------------------------------------------------
+
+## The class, not the instance: every path that swaps the roster is driven here
+## and each must leave the panel editing a pawn the roster still holds.
+func test_no_roster_change_leaves_the_middle_column_editing_a_ghost() -> void:
+	for change in ["opened", "rerolled", "restored"]:
+		var screen := PartySelect.create()
+		screen._ready()
+		match change:
+			"rerolled":
+				screen.reroll_from_seed("0000002A")
+			"restored":
+				screen.restore_roster(_rolled_roster(0x2A), 0x2A)
+		assert_false(screen._inspect_panel._pawns.is_empty(),
+			"%s: the middle column is about no pawn at all" % change)
+		var shown: PawnData = screen._inspect_panel._pawns[0]
+		assert_true(screen.available_pawns().has(shown),
+			"%s: the middle column is editing a pawn outside the roster" % change)
+		## The row itself, through the library's Add: a panel pointed at a ghost
+		## writes it onto a pawn nothing will ever read again.
+		var before := _rows_on_the_roster(screen)
+		_press_library_add(screen)
+		assert_eq(_rows_on_the_roster(screen), before + 1,
+			"%s: the row written in the middle column landed outside the roster" % change)
+		screen.free()
+
+func _rolled_roster(seed: int) -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for class_id in ClassLibrary.all_ids():
+		var cls: ClassDef = ClassLibrary.get_class_def(class_id)
+		if cls == null:
+			continue
+		out.append(PawnFactory.make_rolled_pawn(class_id, class_id, cls.display_name, seed))
+	return out
+
+func _rows_on_the_roster(screen: PartySelect) -> int:
+	var rows := 0
+	for pawn in screen.available_pawns():
+		rows += pawn.plans.size()
+	return rows
+
+## The control the player writes a row with, rather than the method under it.
+func _press_library_add(screen: PartySelect) -> void:
+	for n in _all_nodes(screen._inspect_panel):
+		if n is Button and n.text == InspectPanel.LIBRARY_ADD and not n.disabled:
+			n.pressed.emit()
+			return
+	fail("no enabled library Add in the middle column")
