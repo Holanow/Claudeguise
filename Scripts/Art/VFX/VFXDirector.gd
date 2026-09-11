@@ -267,7 +267,9 @@ func free_after(rect: ColorRect, seconds: float) -> void:
 ## Issue 956: the timer outlives this node -- `BattleView._rebuild_units` frees
 ## the director on every room -- and everything `what` captures is a child of
 ## it, so firing then only printed "Lambda capture was freed" at a guard that
-## was going to do nothing anyway. Sixty of those ended every `FloorRecord` run.
+## was going to do nothing anyway. 86 of them in one recorded floor, one room
+## behind the party -- they only look like teardown because stderr is collected
+## apart from stdout, and the last room's director is never freed at all.
 func after(seconds: float, what: Callable) -> void:
 	var alive: WeakRef = weakref(self)
 	get_tree().create_timer(seconds, true, false, true).timeout.connect(func() -> void:
