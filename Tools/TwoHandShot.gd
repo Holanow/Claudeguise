@@ -114,5 +114,9 @@ func _run() -> void:
 		if not popup.is_item_disabled(i):
 			offered.append(popup.get_item_text(i))
 	print("TwoHandShot: the off hand still offers %s" % [offered])
+	var sentence := EquipPanel.item_effect_text(priest.main_hand)
+	print("TwoHandShot: the Staff reads '%s'" % sentence)
+	if not sentence.contains("two-handed"):
+		_fail("the equip screen does not say the Staff is two-handed")
 	await _shot("teal8_917_priest_two_handed")
 	popup.hide()
