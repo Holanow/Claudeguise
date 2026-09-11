@@ -251,10 +251,13 @@ func _build_detail(pawn: PawnData) -> void:
 				actions_row.add_child(_action_chip(action_id))
 			_detail_box.add_child(actions_row)
 
-	for control in _globals_section(pawn):
+	## Issue 892: plans first. The library auto-opens as a new pawn's teaching
+	## state, and behind the standing preferences its first row sat 152 px below
+	## the fold -- on a screen whose own heading is "Edit your pawns' plans".
+	for control in _plans_section(pawn):
 		_detail_box.add_child(control)
 
-	for control in _plans_section(pawn):
+	for control in _globals_section(pawn):
 		_detail_box.add_child(control)
 
 	var plan_action_ids := _actions_used_in_plans(pawn)
@@ -919,11 +922,16 @@ func _toggle_library(pawn: PawnData) -> void:
 
 func _library_section(pawn: PawnData) -> Array[Control]:
 	var out: Array[Control] = []
-	if _edit_plans(pawn).is_empty():
+	var teaching := _edit_plans(pawn).is_empty()
+	if teaching:
 		out.append(_line(LIBRARY_EMPTY_STATE, Palette.FONT_SIZE_SMALL, Palette.INK))
 	if not _library_open:
 		return out
-	out.append(_section_header(LIBRARY_HEADING))
+	## Issue 892: the empty state says "take a ready-made row from the library
+	## below" already, so the heading under it is a second heading saying the
+	## same thing, between the player and the row it points at.
+	if not teaching:
+		out.append(_section_header(LIBRARY_HEADING))
 	var rows := _library_rows(pawn)
 	if rows.is_empty():
 		out.append(_line(_library_empty_reason(pawn), Palette.FONT_SIZE_SMALL, Palette.INK_DIM))
