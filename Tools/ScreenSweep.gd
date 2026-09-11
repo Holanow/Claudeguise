@@ -72,7 +72,7 @@ func _ready() -> void:
 	get_tree().quit(0 if ok else 3)
 
 ## Every shot repeats at a fixed seed, the live-VFX ones included since #907
-## seeded `VFXDirector.burst`: two runs on this tree agreed on 14 of 14.
+## seeded `VFXDirector.burst`.
 func _report_repeatability() -> void:
 	print("ScreenSweep: all %d shots repeat at seed %s, so a difference between two runs is a change." % [
 		_taken.size(), _seed_text()])
