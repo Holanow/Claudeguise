@@ -34,6 +34,10 @@ var _log := PackedStringArray()
 var _skip := false
 var _offer_room := -1
 var _chests_opened := 0
+## Issue 955: counted, never `loot - bag`. A #947 upgrade bags the piece it
+## displaces, so the subtraction reads a real upgrade as nothing worn.
+var _worn := 0
+var _pickups_counted := 0
 var _boss_gear := "never reached the boss"
 var _boss_resource := "never reached the boss"
 
@@ -58,7 +62,19 @@ func _ready() -> void:
 	_battle.floor_ended.connect(_on_floor_ended)
 	_battle.begin_floor(cfg, _plan)
 
+## One entry per piece `take_chest` puts on a pawn. The list only grows until
+## the next room's `carry_into` drains it, so a shrink means a fresh room.
+func _absorb_pickups() -> void:
+	if _battle == null or _battle._floor_run == null:
+		return
+	var n: int = _battle._floor_run.pending_pickups.size()
+	if n < _pickups_counted:
+		_pickups_counted = 0
+	_worn += n - _pickups_counted
+	_pickups_counted = n
+
 func _process(_delta: float) -> void:
+	_absorb_pickups()
 	if _battle == null or _battle.state == null or _shot_pending:
 		return
 	# The screen is still travelling, so the room is only half on it.
@@ -122,10 +138,11 @@ func _take_the_chest() -> void:
 	await _click(AUTOPILOT.chest_point(_battle))
 	_chests_opened += 1
 	var run: FloorRun = _battle._floor_run
+	_absorb_pickups()
 	_log.append("  opened %s's chest: %d item(s), run total %d dropped / %d worn / %d bagged" % [
 		_plan.room(_battle._floor_walk.current_id).content_id,
 		run.loot.size() - before, run.loot.size(),
-		run.loot.size() - run.bag.size(), run.bag.size()])
+		_worn, run.bag.size()])
 	_shot_pending = false
 
 ## Every slot that has something in it, in party order, by display name so the
@@ -179,11 +196,14 @@ func _capture() -> void:
 func _on_floor_ended(victory: bool) -> void:
 	_log.append("floor ended, victory=%s" % victory)
 	var run: FloorRun = _battle._floor_run
+	## The boss chest ends the floor from inside its own click, so this runs
+	## before `_take_the_chest` resumes and has to count that chest here.
+	_absorb_pickups()
 	_log.append("SUMMARY seed=%d arm=%s rooms_cleared=%d boss_reached=%s boss_won=%s chests=%d dropped=%d worn=%d bagged=%d" % [
 		_seed(), "skip-chests" if _skip else "loot",
 		_battle._floor_walk.cleared_count(), _boss_gear != "never reached the boss",
 		victory, _chests_opened, run.loot.size(),
-		run.loot.size() - run.bag.size(), run.bag.size()])
+		_worn, run.bag.size()])
 	_log.append("SUMMARY gear on arrival in the boss room: %s" % _boss_gear)
 	_log.append("SUMMARY resource on arrival in the boss room: %s" % _boss_resource)
 	for line in _log:
