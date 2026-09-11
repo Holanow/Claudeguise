@@ -58,8 +58,8 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	## other two are on the PR and both favour the camp.
 	var camp_unfound := 0
 	var drops := 0
-	## Issue 822: the count alone cannot tell a working loot loop from four
-	## no-op censers, which is what filling `off_hand` leaves droppable.
+	## Issue 822: which items dropped, not only how many. The censer procs
+	## SLOWED since #793, so a drop line is read by what it contains.
 	var dropped := {}
 	## Issue 814: survivor count is the only narrowness axis a clear has, so a
 	## clear that has to be read as "by the skin of their teeth" is reported by
@@ -137,7 +137,7 @@ func _fight(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
 	var encounter := RoomScale.scaled(RoomLibrary.get_room(room_id), party.size())
 	var state := CombatSim.build(party, encounter, fight_seed)
 	FloorRun.carry_into(run, state, party, room_index, walk if _camp else null, true,
-		ReviveArgs.ONCE_ON_TWO_DOWN)
+		ReviveArgs.ONCE_ON_TWO_DOWN, ReviveArgs.EVERY_N_ROOMS)
 	CombatSim.run(state)
 	return state
 
@@ -215,9 +215,8 @@ func _report(label: String, r: Dictionary) -> void:
 				print(line)
 	print("")
 
-## Issue 822: which items the drops actually were. A loot line near baseline
-## made of one no-op accessory is not a working loot loop, and the count alone
-## reads the same in both cases.
+## Issue 822: which items the drops actually were, because a count alone cannot
+## say what the loot loop handed the party.
 func _dropped_line(dropped: Dictionary) -> String:
 	if dropped.is_empty():
 		return "nothing"

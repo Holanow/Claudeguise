@@ -14,22 +14,24 @@ class_name ReviveArgs
 ## revive the camp is measured against.
 static var ONCE_ON_TWO_DOWN := true
 
+## Issue 924: the second such arm, #802's fixed cadence. 0 is never.
+static var EVERY_N_ROOMS := 0
+
 static func apply() -> String:
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		if args[i] == "--revive-every" and i + 1 < args.size():
-			FloorRun.REVIVE_EVERY_N_ROOMS = int(args[i + 1])
+			EVERY_N_ROOMS = int(args[i + 1])
 		elif args[i] == "--revive-hp" and i + 1 < args.size():
 			FloorRun.REVIVE_AT_HP_FRACTION = float(args[i + 1])
 		elif args[i] == "--revive-once-on-two-down":
 			ONCE_ON_TWO_DOWN = true
 		elif args[i] == "--no-revive":
 			ONCE_ON_TWO_DOWN = false
-			FloorRun.REVIVE_EVERY_N_ROOMS = 0
+			EVERY_N_ROOMS = 0
 	var hp := int(round(100.0 * FloorRun.REVIVE_AT_HP_FRACTION))
 	if ONCE_ON_TWO_DOWN:
 		return "revive: ONCE per floor (camp), held until two are down, returning at %d%% of max hp" % hp
-	if FloorRun.REVIVE_EVERY_N_ROOMS <= 0:
+	if EVERY_N_ROOMS <= 0:
 		return "revive: never"
-	return "revive: every %d room(s), returning at %d%% of max hp" % [
-		FloorRun.REVIVE_EVERY_N_ROOMS, hp]
+	return "revive: every %d room(s), returning at %d%% of max hp" % [EVERY_N_ROOMS, hp]
