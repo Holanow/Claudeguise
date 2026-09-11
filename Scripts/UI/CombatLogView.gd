@@ -261,6 +261,14 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 				_affix_tag(source, AffixDef.Effect.LIFE_LEECH)
 			]
 		CG.EventKind.RESOURCE_GAINED:
+			## Issue 868: the between-room arrival recovery has no caster, so it
+			## carries the same `source_id == -1` "nobody did this" mark the
+			## arrival heal above reads.
+			if e.source_id == -1:
+				return "%s recovers %d %s on arrival" % [
+					target_name, e.amount,
+					UnitCard.resource_name(target.resource_kind) if target != null else "resource"
+				]
 			return "%s gains %d %s from the kill%s" % [
 				source_name, e.amount,
 				UnitCard.resource_name(source.resource_kind) if source != null else "resource",

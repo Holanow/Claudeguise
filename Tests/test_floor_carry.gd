@@ -21,19 +21,82 @@ func test_carry_into_carries_damage_then_heals_half_the_missing() -> void:
 	assert_eq(state.unit(0).hp, expected, "carried hp plus half the missing hp")
 	assert_true(state.unit(0).hp < hp_max, "a missing-fraction heal never reaches full")
 
-## Issue 796: the negative half. A pawn that arrives at full hp is missing
-## nothing, so it heals nothing and emits no event.
+## Issue 796: the negative half. A pawn that arrives full is missing nothing, so
+## it heals nothing and emits no event. Issue 868: full RESOURCE too, or the
+## arrival recovery has something to give and this counts its event.
 func test_carry_into_full_hp_pawn_heals_nothing() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
 	var encounter := RoomLibrary.get_room(&"floor1_room1")
 	var state := CombatSim.build(party, encounter, 1)
 	var hp_max := state.unit(0).hp_max
 	var run := FloorRun.new()
-	run.record_result(&"w", hp_max, 0, true)
+	run.record_result(&"w", hp_max, state.unit(0).resource_max, true)
 	var events_before := state.events.size()
 	FloorRun.carry_into(run, state, party)
 	assert_eq(state.unit(0).hp, hp_max)
 	assert_eq(state.events.size(), events_before, "no event for no change")
+
+## Issue 868: `Balance.between_room_resource_recover` was authored at 0.50 and
+## never called by anything, which is why nothing was red. These four go through
+## `carry_into`, so they fail if the recovery is written and never wired.
+func _arrive_with(resource: int, heal: bool = true) -> CombatState:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p", "P")]
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
+	var run := FloorRun.new()
+	run.record_result(&"p", state.unit(0).hp_max, resource, true)
+	FloorRun.carry_into(run, state, party, 0, null, heal)
+	return state
+
+func _resource_events(state: CombatState) -> Array[CombatEvent]:
+	var out: Array[CombatEvent] = []
+	for e in state.events:
+		if e.kind == CG.EventKind.RESOURCE_GAINED:
+			out.append(e)
+	return out
+
+func test_carry_into_recovers_half_the_missing_resource() -> void:
+	var state := _arrive_with(0)
+	var unit := state.unit(0)
+	assert_true(unit.resource_max > 0, "a Priest has a pool to recover into")
+	var expected := int(round(float(unit.resource_max) * FloorRun.BETWEEN_ROOM_RESOURCE_MISSING_FRACTION))
+	assert_eq(unit.resource, expected, "half the missing resource, as authored in #868")
+	assert_true(unit.resource < unit.resource_max, "a missing-fraction recovery never reaches full")
+	var said := _resource_events(state)
+	assert_eq(said.size(), 1, "the player is told, in the log, that it came back")
+	assert_eq(said[0].source_id, -1, "nobody cast it, the same mark the arrival heal carries")
+	assert_eq(said[0].amount, expected)
+
+func test_carry_into_full_resource_pawn_recovers_nothing() -> void:
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"priest", &"p", "P")]
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
+	var full := state.unit(0).resource_max
+	var run := FloorRun.new()
+	run.record_result(&"p", state.unit(0).hp_max, full, true)
+	FloorRun.carry_into(run, state, party)
+	assert_eq(state.unit(0).resource, full, "never above its own pool")
+	assert_eq(_resource_events(state).size(), 0, "no event for no change")
+
+## Issue 805's pacing exploit, which resource has exactly as much of as hp did:
+## without this, walking between two cleared rooms refills a caster for free.
+func test_walking_back_into_a_cleared_room_does_not_recover_resource() -> void:
+	var state := _arrive_with(3, false)
+	assert_eq(state.unit(0).resource, 3, "the carried resource, and nothing on top of it")
+	assert_eq(_resource_events(state).size(), 0)
+
+## Issue 802: a revived pawn comes back with no resource and does not also take
+## the arrival recovery in the same room, the same rule its hp already follows.
+func test_a_revived_pawn_takes_no_arrival_recovery() -> void:
+	var was := _set_revive(0, 0.5, true)
+	var party := _pair()
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	run.record_result(&"p", 0, 0, false)
+	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
+	FloorRun.carry_into(run, state, party, 1, null, true, _proxy_revive, _revive_every)
+	assert_true(state.unit(1).alive, "the camp brought it back")
+	assert_eq(state.unit(1).resource, 0, "and it comes back with an empty pool")
+	assert_eq(_resource_events(state).size(), 0)
+	_restore_revive(was)
 
 func test_carry_into_keeps_dead_pawns_dead() -> void:
 	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
