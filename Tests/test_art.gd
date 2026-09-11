@@ -1166,8 +1166,11 @@ func test_action_art_name_is_the_action_id() -> void:
 # EquipmentIcons: one icon per item, for issue 100's equip screen.
 
 
+## Issue 886: all five, not the three that had plates. Two of the five had no
+## file at all, so the walk sampled nothing and the comparison passed on it.
 const _EVERY_SLOT := [
-	EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY,
+	EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND, EquipmentDef.Slot.HEAD,
+	EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY,
 ]
 
 
@@ -1244,7 +1247,13 @@ func _mask_difference(a: PackedByteArray, b: PackedByteArray) -> float:
 	return float(differing) / float(a.size())
 
 
-func test_the_three_slots_are_told_apart_by_shape_and_by_colour() -> void:
+func test_every_slot_plate_exists() -> void:
+	for slot in _EVERY_SLOT:
+		assert_true(UIArt.has_art(EquipmentIcons.empty_art_name(slot)),
+			"slot %d has no empty plate, so its row draws a black square" % slot)
+
+
+func test_the_five_slots_are_told_apart_by_shape_and_by_colour() -> void:
 	# Two redundant channels, and this test exists because losing one of them is
 	# silent: a player who cannot separate the rim colours still has the plate,
 	# and a greyscale screenshot still shows three different outlines.

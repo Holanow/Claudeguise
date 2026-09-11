@@ -459,6 +459,9 @@ static func modifier_parts(m: AbilityModifier) -> Array[String]:
 			% [int(round((m.power_multiplier - 1.0) * 100.0)), scope])
 	if m.target_count_bonus != 0:
 		out.append("throws %+d projectile per cast" % m.target_count_bonus)
+	if m.action_ticks_multiplier != 1.0:
+		out.append("%+d%% longer to swing"
+			% int(round((m.action_ticks_multiplier - 1.0) * 100.0)))
 	return out
 
 static func _slot_effect_text(item: EquipmentDef) -> String:

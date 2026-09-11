@@ -64,7 +64,7 @@ func test_single_weapon_pawn_never_sets_last_attack_hand() -> void:
 
 func test_dual_wielder_alternates_starting_with_main_hand() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
-	pawn.off_hand = ItemLibrary.get_equipment(&"wrench")
+	pawn.off_hand = ItemLibrary.get_equipment(&"mace")
 	assert_true(DefaultPlan.dual_wields(pawn))
 	var caster := _caster(pawn, &"warrior_strike")
 	var target := _target()
@@ -77,17 +77,17 @@ func test_dual_wielder_alternates_starting_with_main_hand() -> void:
 
 func test_shield_in_off_hand_never_alternates() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
-	pawn.off_hand = ItemLibrary.get_equipment(&"shield")
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	var caster := _caster(pawn, &"warrior_strike")
 	var target := _target()
 	_run_forcing_attacks(caster, target, &"warrior_strike", 200)
-	assert_eq(caster.last_attack_hand, -1, "a shield must not alternate anything")
+	assert_eq(caster.last_attack_hand, -1, "a tower shield must not alternate anything")
 
 func test_two_runs_of_one_seed_alternate_identically() -> void:
 	var results: Array[Array] = []
 	for _run in 2:
 		var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
-		pawn.off_hand = ItemLibrary.get_equipment(&"wrench")
+		pawn.off_hand = ItemLibrary.get_equipment(&"mace")
 		var caster := _caster(pawn, &"warrior_strike")
 		var target := _target()
 		var hands: Array = _run_forcing_attacks(caster, target, &"warrior_strike", 400)["hands"]

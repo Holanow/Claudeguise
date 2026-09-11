@@ -31,13 +31,21 @@ func _preset_party() -> Array[PawnData]:
 # the grant itself
 # ---------------------------------------------------------------------------
 
-func test_plate_mail_grants_directional_block() -> void:
-	var plate := ItemLibrary.get_equipment(&"plate_mail")
-	assert_not_null(plate, "plate_mail is not registered")
-	assert_true(plate.granted_actions.has(&"warrior_block"),
-		"README's armor table says Plate Mail | Tank | Block")
+## Issue 918: the Block moved off the body and onto the off hand, because
+## README's own table grants Directional Block from the Tower Shield and calls
+## body armour an affix stick. That is what makes a two-hander cost something.
+func test_the_tower_shield_grants_directional_block() -> void:
+	var shield := ItemLibrary.get_equipment(&"tower_shield")
+	assert_not_null(shield, "tower_shield is not registered")
+	assert_true(shield.granted_actions.has(&"warrior_block"),
+		"README's off hand table says Tower Shield | Melee | Directional Block")
 	assert_not_null(ActionLibrary.get_action(&"warrior_block"),
-		"plate_mail grants an action that does not exist")
+		"tower_shield grants an action that does not exist")
+
+func test_body_armour_grants_no_action_at_all() -> void:
+	for id in [&"plate_mail", &"robes"]:
+		assert_eq(ItemLibrary.get_equipment(id).granted_actions, [] as Array[StringName],
+			"%s is an affix stick and must teach nothing" % id)
 
 ## The negative half, and the one that would have caught the original defect:
 func test_at_least_one_registered_item_grants_an_action() -> void:
@@ -60,36 +68,36 @@ func test_every_granted_action_resolves() -> void:
 
 ## `ActionLibrary.actions_for_pawn` is what the plan editor and the fight must both
 ## read, so that what a player can plan and what a pawn can do cannot diverge.
-func test_equipping_plate_adds_block_to_what_the_pawn_can_do() -> void:
+func test_equipping_the_shield_adds_block_to_what_the_pawn_can_do() -> void:
 	var pawn := _warrior()
-	pawn.body = null
+	pawn.off_hand = null
 	assert_false(ActionLibrary.actions_for_pawn(pawn).has(&"warrior_block"),
 		"a bare Warrior should not have Block -- issue 99 took it off the class")
-	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	assert_true(ActionLibrary.actions_for_pawn(pawn).has(&"warrior_block"),
-		"wearing plate should grant Block")
+		"carrying a tower shield should grant Block")
 
 func test_the_union_keeps_every_class_action_too() -> void:
 	var pawn := _warrior()
-	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	var available := ActionLibrary.actions_for_pawn(pawn)
 	for action_id in pawn.pawn_class.starting_action_ids():
 		assert_true(available.has(action_id),
 			"equipping something dropped class action %s" % action_id)
 
 ## An equipped item must reach the *fight*, not only a content helper.
-func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
+func test_a_summoned_fight_gives_the_shield_bearer_block() -> void:
 	var party := _party()
 	for p in party:
 		if p.pawn_class.id == &"warrior":
-			p.body = ItemLibrary.get_equipment(&"plate_mail")
+			p.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 0)
 	var found := false
 	for u in state.units:
 		if u.pawn != null and u.pawn.pawn_class.id == &"warrior":
 			found = true
 			assert_true(u.actions.has(&"warrior_block"),
-				"the Warrior is wearing plate but the fight did not give it Block")
+				"the Warrior carries a tower shield but the fight did not give it Block")
 	assert_true(found, "no Warrior was built into the fight")
 
 # ---------------------------------------------------------------------------
@@ -97,18 +105,18 @@ func test_a_summoned_fight_gives_the_plate_wearer_block() -> void:
 # ---------------------------------------------------------------------------
 
 ## Fires a Block plan at a Warrior that does not own Block. It must decline.
-func test_a_warrior_without_plate_cannot_block() -> void:
+func test_a_warrior_without_a_shield_cannot_block() -> void:
 	var bare := _warrior()
-	bare.body = null
+	bare.off_hand = null
 	var intent := _decide_with_block_plan(bare)
 	assert_true(intent == null,
 		"a Warrior owning no Block still fired one, so equipping plate means nothing")
 
-func test_a_warrior_wearing_plate_can_block() -> void:
+func test_a_warrior_carrying_a_shield_can_block() -> void:
 	var pawn := _warrior()
-	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	var intent := _decide_with_block_plan(pawn)
-	assert_not_null(intent, "a Warrior wearing plate should be able to Block")
+	assert_not_null(intent, "a Warrior carrying a tower shield should be able to Block")
 	if intent != null:
 		assert_eq(intent.action_id, &"warrior_block", "fired the wrong action")
 
@@ -335,8 +343,8 @@ const MIN_BLOCK_CASTS := 10
 ## drifts with how many enemies the room holds. The property that is still about
 ## the mechanic is SHOTS STOPPED PER RAISE.
 const MIN_BLOCKS_PER_RAISE := 1.0
-func test_the_warrior_starts_wearing_the_plate_that_teaches_the_block() -> void:
+func test_the_warrior_starts_carrying_the_shield_that_teaches_the_block() -> void:
 	var w := _warrior()
-	assert_not_null(w.body, "a starter Warrior wears no armour, so nothing can grant it Block")
-	assert_eq(w.body.id, &"plate_mail")
-	assert_true(w.body.granted_actions.has(&"warrior_block"))
+	assert_not_null(w.off_hand, "a starter Warrior carries nothing, so nothing can grant it Block")
+	assert_eq(w.off_hand.id, &"tower_shield")
+	assert_true(w.off_hand.granted_actions.has(&"warrior_block"))

@@ -256,16 +256,18 @@ func test_the_warriors_mitigation_is_all_toughness_now() -> void:
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
 	pawn.off_hand = null
 	assert_not_null(pawn.body, "the warrior must still start in armour")
-	assert_eq(pawn.body.damage_reduction, 0.0,
-		"issue 489: plate grants Directional Block and absorbs nothing")
+	## Issue 918: plate absorbs again, because README makes body armour an affix
+	## stick and the Block it used to teach moved to the Tower Shield.
+	assert_true(pawn.body.damage_reduction > 0.0, "plate should soften a hit")
 	var u := CombatUnit.new()
 	u.pawn = pawn
 	var with_plate: float = SimDeps._default_damage_reduction(u)
 	pawn.body = null
 	var without: float = SimDeps._default_damage_reduction(u)
-	assert_almost_eq(with_plate, without, 0.0001,
-		"plate is still moving the number, so something numeric survived the ruling")
-	assert_true(with_plate > 0.0, "a Warrior with 14 CON must still mitigate something")
+	assert_true(with_plate > without, "plate stopped moving the number")
+	assert_true(without > 0.0, "a Warrior with 14 CON must still mitigate something")
+	## And toughness is still the LARGER half for this pawn, which is what the
+	## log names: 14 CON beats a plate.
 	u.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "w")
 	u.pawn.off_hand = null
 	assert_eq(SimDeps._default_damage_reduction_cause(u), CG.MitigationCause.TOUGHNESS)

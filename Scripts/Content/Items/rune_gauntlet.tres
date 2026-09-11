@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_rg1"]
+
+[resource]
+script = ExtResource("1_rg1")
+id = &"rune_gauntlet"
+display_name = "Rune Gauntlet"
+slot = 0
+description = "A cut and burning glove. Its wearer attacks with a poisoning Claw."
+granted_actions = Array[StringName]([&"abomination_claw"])
+required_tags = Array[int]([1, 2])
+part = &"rune_gauntlet"

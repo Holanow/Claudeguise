@@ -9,14 +9,14 @@ func _staff() -> EquipmentDef:
 	return ItemLibrary.get_equipment(&"staff")
 
 
-## The shipped two-hander. Only the Staff carries the flag today, because the
-## Reaper the README pairs it with does not exist yet.
-func test_the_staff_is_the_two_handed_weapon_that_ships() -> void:
+## The shipped two-handers. Issue 918 authored the Reaper README pairs with the
+## Staff, so there are two now and nobody starts holding the Reaper.
+func test_the_staff_and_the_reaper_are_the_two_handers_that_ship() -> void:
 	var two_handed: Array[StringName] = []
 	for id in ItemLibrary.all_ids():
 		if ItemLibrary.get_equipment(id).two_handed:
 			two_handed.append(id)
-	assert_eq(two_handed, [&"staff"] as Array[StringName])
+	assert_eq(two_handed, [&"reaper", &"staff"] as Array[StringName])
 
 
 ## The occupancy itself, read through the one call every caller uses.
@@ -78,7 +78,7 @@ func test_a_drop_never_lands_an_off_hand_on_a_two_hander() -> void:
 	assert_eq(FloorRun._taker_for(run, [priest] as Array[PawnData], ItemLibrary.get_equipment(&"focus")), null,
 		"the Priest holds a staff and must not be given a Focus")
 
-	priest.main_hand = ItemLibrary.get_equipment(&"orb")
+	priest.main_hand = ItemLibrary.get_equipment(&"wand")
 	assert_eq(FloorRun._taker_for(run, [priest] as Array[PawnData], ItemLibrary.get_equipment(&"focus")), priest,
 		"with a one-handed main hand the same Focus must land")
 

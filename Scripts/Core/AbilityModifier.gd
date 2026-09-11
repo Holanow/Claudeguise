@@ -26,6 +26,9 @@ class_name AbilityModifier
 @export var target_count_bonus: int = 0
 ## Multiplies the caster's attack power for matching actions.
 @export var power_multiplier: float = 1.0
+## Issue 918: multiplies the wind-up and recovery of matching actions, which is
+## how a heavy weapon is slow. Above 1.0 is slower.
+@export var action_ticks_multiplier: float = 1.0
 ## Applied on a landed hit, in addition to whatever the action already applies.
 @export var adds_status: CG.Status = CG.Status.SHIELD
 @export var adds_status_enabled: bool = false

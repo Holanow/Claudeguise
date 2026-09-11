@@ -62,18 +62,16 @@ func _panel() -> EquipPanel:
 # The point of the feature: a granted action reaches the plan editor.
 # ---------------------------------------------------------------------------
 
-## The one that matters. `plate_mail` is the only item in the game carrying
-## `granted_actions`, and until issue 100 the fight honoured it while
-## `InspectPanel._available_actions` returned `starting_actions` alone -- so the
-## ability fired and could never be planned.
-func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
-	var plate := ItemLibrary.get_equipment(&"plate_mail")
-	assert_not_null(plate, "plate_mail must be registered for this test to mean anything")
-	assert_false(plate.granted_actions.is_empty(), "plate_mail must grant an action")
-	var granted: StringName = plate.granted_actions[0]
+## The one that matters: until issue 100 the fight honoured `granted_actions`
+## while `InspectPanel._available_actions` returned `starting_actions` alone --
+## so the ability fired and could never be planned. Issue 918 moved the Block
+## from the body to the Tower Shield, which is where README puts it.
+func test_equipping_the_tower_shield_puts_its_block_in_the_plan_editor() -> void:
+	var shield := ItemLibrary.get_equipment(&"tower_shield")
+	assert_not_null(shield, "tower_shield must be registered for this test to mean anything")
+	assert_false(shield.granted_actions.is_empty(), "tower_shield must grant an action")
+	var granted: StringName = shield.granted_actions[0]
 
-	## Plate gates on MARTIAL alone since #915; the tank fixture is kept so
-	## this reads the same as the offered-items tests beside it.
 	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
 	var editor := InspectPanel.create()
 	editor._ready()
@@ -82,16 +80,16 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 
 	var panel := _panel()
 	panel.open([pawn])
-	var armors := panel.offered_items(pawn, EquipmentDef.Slot.BODY)
+	var off_hands := panel.offered_items(pawn, EquipmentDef.Slot.OFF_HAND)
 	var index := -1
-	for i in armors.size():
-		if armors[i].id == &"plate_mail":
+	for i in off_hands.size():
+		if off_hands[i].id == &"tower_shield":
 			index = i
-	assert_true(index >= 0, "the equip screen must offer plate_mail to a martial class")
+	assert_true(index >= 0, "the equip screen must offer the Tower Shield to a melee class")
 	# +1 because entry 0 of the picker is "(nothing)".
-	panel._on_slot_selected(pawn, EquipmentDef.Slot.BODY, armors, index + 1)
+	panel._on_slot_selected(pawn, EquipmentDef.Slot.OFF_HAND, off_hands, index + 1)
 
-	assert_eq(pawn.body, plate, "picking an item must write it onto the pawn")
+	assert_eq(pawn.off_hand, shield, "picking an item must write it onto the pawn")
 	assert_true(editor._available_actions(pawn).has(granted),
 		"after equipping, the plan editor must offer the item's action as a block")
 	panel.free()
@@ -113,8 +111,8 @@ func test_an_unequipped_pawn_is_offered_exactly_its_class_actions() -> void:
 ## dropdown offering two is worse than either alone.
 func test_the_actions_row_shows_a_granted_action() -> void:
 	var pawn := _make_pawn()
-	pawn.body = ItemLibrary.get_equipment(&"plate_mail")
-	var granted: StringName = pawn.body.granted_actions[0]
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
+	var granted: StringName = pawn.off_hand.granted_actions[0]
 	var editor := InspectPanel.create()
 	editor._ready()
 	editor.open([pawn])
@@ -253,8 +251,8 @@ func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	var magical_ids := _ids(panel.offered_items(
 		_make_pawn(CG.Method.MAGICAL, CG.Role.DPS, CG.Style.RANGED), EquipmentDef.Slot.MAIN_HAND))
 	assert_true(martial_ids.has(&"sword"), "a martial class must be offered the Sword")
-	assert_false(martial_ids.has(&"orb"), "a martial class must not be offered the Orb")
-	assert_true(magical_ids.has(&"orb"), "a magical class must be offered the Orb")
+	assert_false(martial_ids.has(&"wand"), "a martial class must not be offered the Wand")
+	assert_true(magical_ids.has(&"wand"), "a magical class must be offered the Wand")
 	assert_false(magical_ids.has(&"sword"), "a magical class must not be offered the Sword")
 	panel.free()
 
@@ -627,7 +625,7 @@ func test_a_blocked_off_hand_offers_nothing_and_refuses_nothing() -> void:
 		"#474 refuses what a class may not wear; this slot is one nobody may fill")
 
 	## The negative half: put a one-handed weapon in and the Focus comes back.
-	pawn.main_hand = ItemLibrary.get_equipment(&"orb")
+	pawn.main_hand = ItemLibrary.get_equipment(&"wand")
 	var ids := _ids(panel.offered_items(pawn, EquipmentDef.Slot.OFF_HAND))
 	assert_true(ids.has(&"focus"), "with a one-handed main hand the Focus must be offered again: %s" % [ids])
 	panel.free()

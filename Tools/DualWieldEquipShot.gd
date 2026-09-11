@@ -102,7 +102,7 @@ func _run() -> void:
 	if not _equip("Off Hand", "Wrench"):
 		return
 	await _settle()
-	await _shot("heron_747_warrior_sword_wrench")
+	await _shot("heron_747_warrior_sword_mace")
 
 	_main.queue_free()
 	await _settle()

@@ -70,7 +70,7 @@ is coming rather than only that something is.
 `action/priest_haste.png`, `action/priest_ward.png`,
 `action/geyser_blast.png`, `action/geyser_scald.png`,
 `action/geyser_spout.png`, `action/geyser_cleanse.png`,
-`action/channel_mana.png`,
+`action/channel_mana.png`, `action/rallying_cry.png`,
 `action/siege_master_shot.png`, `action/siege_engine_bolt.png`,
 `action/build_siege_engine.png`, `action/abomination_claw.png`,
 `action/abomination_hook.png`, `action/abomination_grapple.png`,
@@ -124,31 +124,37 @@ authoring shapes in `Scripts/Art/AttackFX.gd`.
 
 One per item, shown on the pre-fight equip screen at about 32 pixels.
 
-`item/sword.png`, `item/wrench.png`, `item/sickle.png`, `item/orb.png`,
-`item/bow.png`, `item/staff.png`,
-`item/shield.png`, `item/focus.png`, `item/quiver.png`,
-`item/plate_mail.png`, `item/silk_wraps.png`, `item/robes.png`, `item/gown.png`,
+`item/sword.png`, `item/mace.png`, `item/rune_gauntlet.png`,
+`item/reaper.png`, `item/wand.png`, `item/staff.png`, `item/bow.png`,
+`item/tower_shield.png`, `item/standard.png`, `item/orb.png`, `item/book.png`,
+`item/focus.png`, `item/quiver.png`,
+`item/plate_mail.png`, `item/robes.png`,
+`item/great_helm.png`, `item/hood.png`,
 `item/censer.png`
 
 The filename is the item's id, and **this list is checked by a test** the same
 way the ability icons are: an item added to the game without an icon fails the
 build rather than shipping as a blank square.
 
-Three more are the empty plate on its own, one per slot, so an empty weapon slot
+Five more are the empty plate on its own, one per slot, so an empty weapon slot
 still reads as a weapon slot rather than as a hole in the layout:
-`item/empty_weapon.png`, `item/empty_armor.png`, `item/empty_accessory.png`.
+`item/empty_main_hand.png`, `item/empty_off_hand.png`, `item/empty_head.png`,
+`item/empty_body.png`, `item/empty_accessory.png`. Issue 886: there were three,
+two of them named for a four-slot enum, and the two slots with no file drew a
+black square while `test_art` sampled nothing and passed.
 
 **The icons follow two rules, and a replacement is worth keeping them for.**
 
-**The plate says which slot it is**, before you read anything inside it. A weapon
-sits on a **diamond**, armor on a **broad flat slab**, an accessory on a
-**circle**. The rim colour says the same thing a second time — warm, cool and
-neutral — so the shape still carries it if the colours are hard to separate. An
+**The plate says which slot it is**, before you read anything inside it. A main
+hand sits on a **diamond**, an off hand on a **disc**, a head on an **arch**, a
+body on an **octagon** and an accessory on a **ring**. The rim colour says the
+same thing a second time, one colour per slot, so the shape still carries it if
+the colours are hard to separate. An
 empty slot draws the plate on its own, so a weapon slot with nothing in it still
 looks like a weapon slot.
 
-**An item that teaches an action shows which one.** Plate Mail teaches its wearer
-to raise a Directional Block, and it carries a small badge in its corner holding
+**An item that teaches an action shows which one.** The Tower Shield teaches its
+bearer to raise a Directional Block, and it carries a small badge in its corner holding
 that ability's own icon — the same picture you will see on the wind-up bar when
 the block is being raised, and again on the status badge once it is up. An item
 that only changes numbers has no badge.

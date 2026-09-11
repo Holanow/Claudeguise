@@ -63,9 +63,9 @@ func test_one_part_entry_covers_many_creatures() -> void:
 	assert_true(bodies.size() >= 15,
 		"two part entries should cover most of the roster, got %d" % bodies.size())
 	# 584's four hand parts (`hand`, `hand_off`, `hand_wide`, `hand_wide_off`)
-	# plus one entry per starting weapon that shares its wielding hand's own
+	# plus one entry per drawn weapon that shares its wielding hand's own
 	# throw factor -- see the comment on `PARTS` itself.
-	assert_eq(PartAnimation.PARTS.size(), 9, "four hand parts and five weapons are authored")
+	assert_eq(PartAnimation.PARTS.size(), 11, "four hand parts and seven weapons are authored")
 
 ## Every action derives one of the three shared motions from fields `ActionDef`
 ## already carries, so an action written tomorrow animates without authoring.

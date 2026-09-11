@@ -40,6 +40,15 @@ static func power_multiplier(unit: CombatUnit, action: ActionDef) -> float:
 			f *= item.affix_power_multiplier()
 	return f
 
+## Issue 918: what the wielder's gear does to this action's wind-up and
+## recovery. The Mace is slow, and that is the cost of its weight.
+static func action_ticks_multiplier(unit: CombatUnit, action: ActionDef) -> float:
+	var f := 1.0
+	for m in of(unit):
+		if m.matches(action):
+			f *= m.action_ticks_multiplier
+	return f
+
 ## Statuses an item adds to a landed hit that the action itself never applies.
 ## `chance` is drawn by the caller, from `state.rng`, in this list's order --
 ## never here, so a query never perturbs the fight it is asked about.

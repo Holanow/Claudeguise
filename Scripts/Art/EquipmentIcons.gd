@@ -7,13 +7,17 @@ class_name EquipmentIcons
 
 ## One icon per item, for issue #100's equip screen.
 
-## Rim colours per slot. Deliberately not `HP_LOW` / `HP_FULL`, which
+## Rim colours per slot, one each. Deliberately not `HP_LOW` / `HP_FULL`, which
 ## `StatusIcons` has already spent on harmful-versus-beneficial.
 static func slot_color(slot: EquipmentDef.Slot) -> Color:
 	match slot:
-		EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND:
+		EquipmentDef.Slot.MAIN_HAND:
 			return Palette.RESOURCE_RAGE
-		EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY:
+		EquipmentDef.Slot.OFF_HAND:
+			return Palette.RESOURCE_ENERGY
+		EquipmentDef.Slot.HEAD:
+			return Palette.RESOURCE_MANA
+		EquipmentDef.Slot.BODY:
 			return Palette.TEAM_PLAYER
 		_:
 			return Palette.TEXT_DIM

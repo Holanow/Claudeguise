@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Issue 746: the shield, focus and quiver item icons, baked once to 128x128
+## Issue 746: the focus and quiver item icons, baked once to 128x128
 ## PNGs the way `Tools/BakeSellswordIcons.gd` baked its three. `EquipmentIcons.
 ## has_glyph` is a file check, so an item without one draws a black square and
 ## fails `test_art`.
@@ -14,7 +14,6 @@ const INK := Color(0.90, 0.91, 0.95, 1.0)
 const DIM := Color(0.55, 0.60, 0.72, 1.0)
 
 func _initialize() -> void:
-	_save(_shield(), "shield")
 	_save(_focus(), "focus")
 	_save(_quiver(), "quiver")
 	quit(0)
@@ -50,23 +49,6 @@ func _ring(img: Image, centre: Vector2, r: float, width: float, c: Color, a0: fl
 		var a := lerpf(a0, a1, float(i) / float(steps))
 		_dot(img, centre + Vector2(cos(a), sin(a)) * r, width, c)
 
-## A kite outline with a spine down the middle -- the shape the equip screen's
-## own doc comment (`EquipmentDef.gd`) uses as the shield example.
-func _shield() -> Image:
-	var img := _blank()
-	var top := Vector2(64, 22)
-	var l := Vector2(28, 44)
-	var r := Vector2(100, 44)
-	var tip := Vector2(64, 108)
-	_line(img, top, l, 6.0, INK)
-	_line(img, top, r, 6.0, INK)
-	_line(img, l, tip, 6.0, INK)
-	_line(img, r, tip, 6.0, INK)
-	_line(img, top, tip, 4.0, DIM)
-	return img
-
-## A ringed lens: a focus is read at a glance, so a caster's talisman gets a
-## simple concentric shape rather than anything narrative.
 func _focus() -> Image:
 	var img := _blank()
 	var centre := Vector2(64, 64)
