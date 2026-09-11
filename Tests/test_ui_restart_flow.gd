@@ -102,3 +102,36 @@ func _all_buttons(root: Node) -> Array[Button]:
 	for child in root.get_children():
 		out.append_array(_all_buttons(child))
 	return out
+
+## Issue 884. The acceptance order is seed -> row -> fight -> Restart: only then
+## does the field carry a seed the on-screen roster was not rolled from.
+func _restarted_after_a_fight_on(seed_text: String) -> Node:
+	var main = in_tree(MainScene.instantiate())
+	var screen = main._current
+	screen.reroll_from_seed(seed_text)
+	var pawn: PawnData = screen.available_pawns()[0]
+	var plan := Plan.new()
+	plan.id = &"wren5_884_marker"
+	pawn.plans = [plan]
+	screen.toggle_pawn(pawn, true)
+	main.start_battle(screen.current_config())
+	main.rerun()
+	return main
+
+func test_typing_the_seed_the_roster_came_from_keeps_the_roster() -> void:
+	var main := _restarted_after_a_fight_on("0000002A")
+	var screen = main._current
+	screen.reroll_from_seed("0000002A")
+	var back: PawnData = screen.available_pawns()[0]
+	assert_eq(back.plans.size(), 1, "typing the watched seed back rerolled and ate the row")
+	assert_eq(back.plans[0].id if not back.plans.is_empty() else &"", &"wren5_884_marker")
+	assert_eq(screen.selected_pawns().size(), 1, "the party came back empty")
+
+## Issue 131's behaviour, and it is not a bug: a genuinely different seed rerolls.
+func test_typing_a_different_seed_still_rerolls() -> void:
+	var main := _restarted_after_a_fight_on("0000002A")
+	var screen = main._current
+	var before: PawnData = screen.available_pawns()[0]
+	screen.reroll_from_seed("0000BEEF")
+	assert_true(screen.available_pawns()[0] != before, "a different seed did not reroll")
+	assert_eq(screen.selected_pawns().size(), 0, "a reroll leaves nothing selected")

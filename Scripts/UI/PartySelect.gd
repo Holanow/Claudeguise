@@ -255,16 +255,21 @@ func selected_pawns() -> Array[PawnData]:
 func available_pawns() -> Array[PawnData]:
 	return _available.duplicate()
 
-## Seed round-trips through Main: called with the last run's seed when the
-## player comes back from a fight, so "run the same fight again" survives a
-## trip through party select rather than rerolling on every visit.
+## Seed round-trips through Main: called with the seed of the fight about to
+## start, so "run the same fight again" survives a trip through party select
+## rather than rerolling on every visit.
+##
+## Issue 884: the field only. Since #840 rolled a fresh seed on Restart this is
+## no longer the seed the on-screen roster came from, and claiming it was made
+## the player's own seed look like a reroll.
 func prefill_seed(seed_text: String) -> void:
 	if _seed_edit != null:
 		_seed_edit.text = seed_text
-	## Issue 131: adopt the seed without rebuilding. `restore_roster` has
-	## already handed back the pawns this seed rolled, and rebuilding them
-	## would throw away the plans and gear #380 exists to keep.
-	_roster_seed = RunConfig.parse_seed(seed_text) & 0x7FFFFFFF
+
+## The seed the pawns on screen were rolled from, so `Main` can hand it back
+## beside them.
+func roster_seed() -> int:
+	return _roster_seed
 
 ## Issue 131: build the roster again from a seed the player typed. Never called
 ## by `restore_roster`, whose whole job (#380) is to hand the same pawn objects
@@ -288,9 +293,13 @@ func reroll_from_seed(seed_text: String) -> void:
 ## every pawn, so the plans, gear and party the player just wrote were thrown
 ## away. `Main` keeps the roster and hands the same objects back, which is what
 ## the seed has always done.
-func restore_roster(pawns: Array[PawnData]) -> void:
+## Issue 884: `seed` is the seed these pawns were rolled from, -1 when the
+## caller does not know; the roster and the seed that made it travel together.
+func restore_roster(pawns: Array[PawnData], seed: int = -1) -> void:
 	if pawns.is_empty():
 		return
+	if seed >= 0:
+		_roster_seed = seed & 0x7FFFFFFF
 	_available = pawns.duplicate()
 	_selected.clear()
 	_cards.clear()
