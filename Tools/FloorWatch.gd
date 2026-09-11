@@ -111,11 +111,12 @@ func _take_a_door() -> void:
 ## the one room where the chest is the exit rather than a choice beside a door.
 func _take_the_chest() -> void:
 	var held: bool = not _battle.doors_open()
-	if held:
+	if held or _chests_opened == 0:
 		await RenderingServer.frame_post_draw
-		var path := "%s/wren7_935_boss_chest.png" % OUT_DIR
+		var path := "%s/%s.png" % [OUT_DIR,
+			"wren7_935_boss_chest" if held else "heron7_944_chest_before_the_door"]
 		get_viewport().get_texture().get_image().save_png(path)
-		_log.append("  boss chest holding the floor open -- %s" % path)
+		_log.append("  chest standing, doors_open=%s -- %s" % [not held, path])
 	var before: int = _battle._floor_run.loot.size()
 	await _click(AUTOPILOT.chest_point(_battle))
 	_chests_opened += 1
