@@ -19,6 +19,7 @@ const ORDINARY := Color(0.42, 0.46, 0.55)
 const ENTRANCE := Color(0.35, 0.72, 0.45)
 const MINIBOSS := Color(0.85, 0.65, 0.25)
 const BOSS := Color(0.80, 0.28, 0.28)
+const CAMP := Color(0.35, 0.55, 0.80)
 const DOOR := Color(0.70, 0.72, 0.78)
 
 func _init() -> void:
@@ -84,4 +85,6 @@ func _colour(plan: FloorPlan, room: FloorRoom) -> Color:
 		return MINIBOSS
 	if room.id == plan.entrance_id:
 		return ENTRANCE
+	if room.id == plan.camp_id:
+		return CAMP
 	return ORDINARY

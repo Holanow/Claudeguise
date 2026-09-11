@@ -53,8 +53,9 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var died_at := {}
 	var depths: Array[int] = []
 	var camp_unused := 0
-	## Issue 803: runs that needed the camp before they had found it. This is
-	## the whole difference between the camp and #802's arrival proxy.
+	## Issue 803: runs that needed the camp before they had found it, which is
+	## one of the three ways the camp differs from #802's arrival proxy; the
+	## other two are on the PR and both favour the camp.
 	var camp_unfound := 0
 	var drops := 0
 	## Issue 822: the count alone cannot tell a working loot loop from four
