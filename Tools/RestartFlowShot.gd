@@ -198,9 +198,8 @@ func _run() -> void:
 	if again == null:
 		_check(false, "the second Restart did not reach the party screen")
 		return
-	## `prefill_seed`, not `_seed_edit.text = `: it fills the field and adopts
-	## the roster seed without rebuilding, which is issue 538's requirement and
-	## the only way the party from fight 1 survives to be fought again.
+	## `prefill_seed` only fills the seed field: the pawns fought again are the
+	## ones `Main` handed back through `restore_roster`.
 	again.prefill_seed(first_seed)
 	await _settle()
 	_check(again._seed_edit.text == first_seed,

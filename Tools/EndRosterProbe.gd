@@ -167,6 +167,8 @@ func _to_battle() -> Node:
 		if by_id.has(id):
 			by_id[id].toggled.emit(true)
 	await _settle()
+	## Emits `pressed` rather than clicking, so a green run says nothing about
+	## whether a player can reach this button (#913).
 	var start := _button("start fight")
 	if start == null:
 		return null

@@ -1,12 +1,11 @@
 extends Node
 
-## Issue 11: drives the real game in-process, through the real controls, and
-## answers observation-based questions. Built on the approach LaunchProbe
-## pioneered (real Main scene, real Button/CheckBox nodes, no desktop
-## takeover, no fixtures) and extended for a full session: edge-case
-## interactions on party select, a full fight watched through several
-## screenshots, the in-fight controls, and a same-seed multi-party
-## comparison.
+## Issue 11: drives the real game in-process on the real Main scene and answers
+## observation-based questions -- edge cases on party select, a full fight
+## watched through several screenshots, the in-fight controls, and a same-seed
+## multi-party comparison. Buttons are pressed by signal rather than clicked,
+## so nothing here is evidence that a control can be reached (#913); keys go in
+## as real events.
 
 
 const OUT_DIR := "res://Tools/preview"
@@ -138,6 +137,8 @@ func _key(keycode: Key) -> void:
 
 ## Issue 850: resolved under a named node when one is given, never by
 ## first-match across the whole screen.
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press_named(prefix: String, root: Node = null) -> bool:
 	for b in _buttons(root):
 		if b.text.to_lower().begins_with(prefix.to_lower()):
@@ -159,6 +160,7 @@ func _phase_party_select_edges() -> void:
 
 	var fight_btn := _start_button() # a player will just try it
 	if fight_btn != null and not fight_btn.disabled:
+		## Emitted, not clicked: staging, not a reachability claim (#913).
 		fight_btn.pressed.emit()
 	await _settle()
 	_log("pressing '%s' with 0 selected did anything visible: %s" % [

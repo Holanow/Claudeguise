@@ -39,6 +39,8 @@ func _walk(n: Node) -> Array[Node]:
 		out.append_array(_walk(c))
 	return out
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press(prefix: String) -> bool:
 	for n in _walk(_main):
 		if n is Button and n.is_visible_in_tree() and n.text.to_lower().begins_with(prefix.to_lower()):
@@ -143,6 +145,7 @@ func _run() -> bool:
 		return false
 	for n in _walk(panel):
 		if n is Button and n.text == found.display_name:
+			## Emitted, not clicked: staging, not a reachability claim (#913).
 			n.emit_signal("pressed")
 			break
 	await _settle()

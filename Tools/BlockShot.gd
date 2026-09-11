@@ -126,6 +126,8 @@ func _party_cards() -> Array:
 			out.append(n)
 	return out
 
+## Emits `pressed` rather than clicking, so a green run says nothing about
+## whether a player can reach this button (#913).
 func _press_named(prefix: String) -> bool:
 	for n in _walk(_main):
 		if n is Button and (n as Button).text.to_lower().begins_with(prefix.to_lower()) \
