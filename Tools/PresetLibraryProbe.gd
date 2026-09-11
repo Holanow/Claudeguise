@@ -76,7 +76,10 @@ func _click(at: Vector2) -> void:
 		e.pressed = pressed
 		e.position = at
 		e.global_position = at
-		get_viewport().push_input(e)
+		## Issue 904: in local coordinates, because `at` is already viewport
+		## space -- the default applies the stretch transform a second time and
+		## every click lands off the screen at any window size but 1280x720.
+		get_viewport().push_input(e, true)
 		await _settle(2)
 
 ## Issue 520: a ScrollContainer clips input as well as pixels, so a control
@@ -138,6 +141,8 @@ func _run() -> void:
 	var pawn = panel._pawns[0]
 	print("PresetLibraryProbe: editing %s (%s)" % [pawn.display_name, pawn.pawn_class.id])
 
+	_check_add_plan_clear_of_the_scrollbar(panel)
+
 	## The state the ruling left behind: no rows at all.
 	_check(pawn.plans.is_empty(), "a starting pawn carries no plan rows")
 	_check(panel._library_open, "the library opens on a pawn with no rows")
@@ -183,6 +188,18 @@ func _run() -> void:
 	await _shot("wren_412_row_taken")
 
 	await _fight(select, pawn, added)
+
+## Issue 904: the column's own scrollbar drew over the last 6 px of
+## "+ Add a plan", which the fold check above cannot see because it is vertical.
+func _check_add_plan_clear_of_the_scrollbar(panel) -> void:
+	var add := _buttons(panel, "+ Add a plan")
+	_check(add.size() == 1, "one + Add a plan button, found %d" % add.size())
+	if add.is_empty():
+		return
+	var bar: VScrollBar = panel._detail_scroll.get_v_scroll_bar()
+	var edge: float = bar.get_global_rect().position.x if bar.visible else panel._detail_scroll.get_global_rect().end.x
+	var right: float = (add[0] as Control).get_global_rect().end.x
+	_check(right <= edge, "+ Add a plan ends at %.0f, clear of the scrollbar at %.0f" % [right, edge])
 
 ## And it reaches the simulation. A row accepted, echoed back and absent from
 ## the event stream is not an edit -- issue 376's own finding.
