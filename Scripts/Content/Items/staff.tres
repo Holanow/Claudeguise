@@ -10,4 +10,5 @@ slot = 0
 description = "A long carved stave. Its wielder attacks with a Bolt at range."
 granted_actions = Array[StringName]([&"priest_bolt"])
 required_tags = Array[int]([1, 3])
+two_handed = true
 part = &"staff"
