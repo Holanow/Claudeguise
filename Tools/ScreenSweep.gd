@@ -11,9 +11,24 @@ extends Node
 
 const OUT_DIR := "user://probe"
 
+## Issue 897: `PartySelect` rolls its roster from `randi()`, so before this
+## seed two runs of one unchanged tree differed on 12 of the 14 shots -- same
+## bounding boxes and magnitudes a real change produces.
+const DEFAULT_SEED := 0x5EED0897
+
+## Frames the end banner waits for the arena to settle, so the picture is of a
+## banner rather than of the debris from the hit that raised it.
+const SETTLE_FRAMES := 48
+
+## Shots taken while a fight is running, which carry live debris and are the
+## only ones this tool cannot promise repeat -- see `_report_repeatability`.
+const LIVE_VFX_SHOTS := ["sweep_battle_mid", "sweep_battle_end_banner"]
+
 var _main: Node
+var _seed := DEFAULT_SEED
 var _res_tag: String = ""
 var _classes_shot: Dictionary = {}
+var _taken: Array[String] = []
 var _failures: Array[String] = []
 
 ## A capture tool that returns early on a failed step reports an absence as a
@@ -38,7 +53,18 @@ func _ready() -> void:
 	# window). The filenames need to say what was actually launched.
 	var size := DisplayServer.window_get_size()
 	_res_tag = "%dx%d" % [int(size.x), int(size.y)]
+	if not await _frame_delta_is_fixed():
+		printerr("ScreenSweep: ticks and tweens are spent from wall-clock delta, so")
+		printerr("  without --fixed-fps two runs land on different frames and the shots")
+		printerr("  differ for reasons that have nothing to do with the code. Launch it:")
+		printerr("    powershell -ExecutionPolicy Bypass -File Tools/run.ps1 ScreenSweep -FixedFps 60")
+		get_tree().quit(6)
+		return
+	_seed = seed_of(OS.get_cmdline_user_args())
+	print("ScreenSweep: seed %s, fixed frame delta, %s -- every shot is named by that seed" % [
+		_seed_text(), _res_tag])
 	await _run()
+	_report_repeatability()
 	var ok := _coverage_ok()
 	if not _failures.is_empty():
 		printerr("ScreenSweep: %d STEP(S) FAILED at %s:" % [_failures.size(), _res_tag])
@@ -48,6 +74,24 @@ func _ready() -> void:
 		printerr("  pictures on disk may be cited as coverage of them.")
 		ok = false
 	get_tree().quit(0 if ok else 3)
+
+## Issue 897: `VFXDirector.burst` builds a `CPUParticles2D` with no fixed seed,
+## the defect #675 fixed for `ImpactBurst`, so its debris lands somewhere else
+## in every run and a shot carrying it is not a controlled comparison.
+func _report_repeatability() -> void:
+	var loose: Array[String] = []
+	for name in _taken:
+		for prefix in LIVE_VFX_SHOTS:
+			if name.begins_with(prefix):
+				loose.append(name)
+				break
+	print("ScreenSweep: %d of %d shots repeat byte for byte at seed %s." % [
+		_taken.size() - loose.size(), _taken.size(), _seed_text()])
+	if loose.is_empty():
+		return
+	printerr("ScreenSweep: DO NOT DIFF %s --" % ", ".join(loose))
+	printerr("  unseeded CPUParticles2D debris in VFXDirector.burst lands elsewhere")
+	printerr("  every run, so a difference there is not evidence of a change.")
 
 ## Fails the run when a class was never photographed, so the blind spot in
 ## issue 327 cannot come back silently.
@@ -65,6 +109,38 @@ func _coverage_ok() -> bool:
 	printerr("  those classes and its screenshots must not be cited as coverage.")
 	return false
 
+## The seed every screen in this run is rolled from, overridden with `--seed=`.
+static func seed_of(user_args: PackedStringArray) -> int:
+	for a in user_args:
+		if a.begins_with("--seed="):
+			return RunConfig.parse_seed(a.substr(7)) & 0x7FFFFFFF
+	return DEFAULT_SEED
+
+## Measured rather than read off the command line: Godot consumes `--fixed-fps`
+## before `OS.get_cmdline_args()` can see it, and a constant delta is the
+## property that actually makes the shots repeatable.
+func _frame_delta_is_fixed() -> bool:
+	var deltas: Array[float] = []
+	for i in 12:
+		await get_tree().process_frame
+		deltas.append(get_process_delta_time())
+	for d in deltas:
+		if d != deltas[0]:
+			return false
+	return true
+
+func _seed_text() -> String:
+	return "%08X" % _seed
+
+## The roster and the fight both come from the seed field, so both are set.
+func _apply_seed() -> void:
+	for n in _walk(_main):
+		if n is PartySelect:
+			(n as PartySelect).reroll_from_seed(_seed_text())
+			(n as PartySelect).prefill_seed(_seed_text())
+			return
+	_fail("no PartySelect to seed, so this run is not reproducible")
+
 func _settle(frames: int = 4) -> void:
 	for i in frames:
 		await get_tree().process_frame
@@ -73,8 +149,9 @@ func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
-	var path := "%s/%s_%s.png" % [OUT_DIR, name, _res_tag]
+	var path := "%s/%s_%s_%s.png" % [OUT_DIR, name, _res_tag, _seed_text()]
 	image.save_png(path)
+	_taken.append(name)
 	print("ScreenSweep: %s" % path)
 
 func _walk(node: Node) -> Array[Node]:
@@ -188,6 +265,8 @@ func _fresh_main() -> void:
 	_main = packed.instantiate()
 	add_child(_main)
 	await _settle()
+	_apply_seed()
+	await _settle()
 
 # ---------------------------------------------------------------------------
 
@@ -270,6 +349,8 @@ func _party_select_full_and_start_fight(party: Array, tag: String) -> void:
 			max_wait_frames, battle.state.tick, _res_tag])
 		printerr("  NOT shooting an end banner. There is no banner on screen to shoot.")
 		return
+	for i in SETTLE_FRAMES:
+		await get_tree().process_frame
 	await _shot("sweep_battle_end_banner_%s" % tag)
 	print("ScreenSweep: fight ended outcome=%s tick=%d at %s" % [
 		CombatState.Outcome.keys()[battle.state.outcome], battle.state.tick, _res_tag
