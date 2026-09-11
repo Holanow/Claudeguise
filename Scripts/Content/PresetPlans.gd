@@ -166,7 +166,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"siege_master":
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
-					_enemy_in_range(CASTER_REACH),
+					_unmarked_enemy_in_range(CASTER_REACH),
 					[TargetFarthestEnemyBlock.new(), _use(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
 					_resource_at_least(BUILD_WHEN_READY),
@@ -236,6 +236,14 @@ static func _resource_below(amount: int) -> SelfResourceBelowBlock:
 static func _enemy_has(status: CG.Status) -> EnemyHasStatusBlock:
 	var b := EnemyHasStatusBlock.new()
 	b.status = status
+	return b
+
+## Issue 764: the Mark row waits for something close AND refuses to pay 15
+## again for a mark already standing, which is one condition doing both.
+static func _unmarked_enemy_in_range(range_units: float) -> EnemyInRangeWithoutStatusBlock:
+	var b := EnemyInRangeWithoutStatusBlock.new()
+	b.range_units = range_units
+	b.status = CG.Status.MARKED
 	return b
 
 static func _enemy_lacks(status: CG.Status) -> EnemyLacksStatusBlock:
