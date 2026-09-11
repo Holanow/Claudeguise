@@ -1,9 +1,8 @@
 extends Node
 
-## Issue 131: gear gates on a tag set, so what a class is offered depends on
-## its roles and not only on its method. Read off the real armour picker in the
-## real party-select middle column, one class at a time, the way a player meets
-## it.
+## Issue 915: gear gates on Method crossed with Style and on no role, so body
+## armour gates on Method alone. Read off the real armour picker in the real
+## party-select middle column, one class at a time, the way a player meets it.
 
 const OUT_DIR := "user://probe"
 
@@ -76,12 +75,15 @@ func _armor_entries() -> Array[String]:
 	for n in _walk(equip):
 		if n is OptionButton:
 			pickers.append(n)
-	if pickers.size() < 2:
+	## Index 3 is BODY: the panel builds one picker per slot in
+	## `EquipmentDef.Slot` order, and it has done since #745 split five slots
+	## out of three.
+	if pickers.size() < 5:
 		_fail("expected a picker per slot, found %d" % pickers.size())
 		return []
 	var out: Array[String] = []
-	for i in pickers[1].item_count:
-		out.append(pickers[1].get_item_text(i))
+	for i in pickers[3].item_count:
+		out.append(pickers[3].get_item_text(i))
 	return out
 
 func _report(class_id: StringName, must_offer: Array[String], must_refuse: Array[String]) -> void:
@@ -100,24 +102,25 @@ func _run() -> void:
 	add_child(_main)
 	await _settle()
 
-	# The Warrior is the only class carrying both of Plate's tags.
+	# MARTIAL, so both martial bodies and neither magical one.
 	if not _focus_class(&"warrior"):
 		return
 	await _settle()
-	_report(&"warrior", ["Plate Mail", "Silk Wraps"], ["Scrubs", "Gown"])
-	await _shot("finch_131_warrior_armour")
+	_report(&"warrior", ["Plate Mail", "Silk Wraps"], ["Robes", "Gown"])
+	await _shot("teal8_915_warrior_armour")
 
-	# MAGICAL, and a HEALER rather than a TANK, so the list is a different one.
+	# MAGICAL, so the opposite pair. The method axis is the whole gate here.
 	if not _focus_class(&"priest"):
 		return
 	await _settle()
-	_report(&"priest", ["Robes", "Scrubs"], ["Plate Mail", "Silk Wraps"])
-	await _shot("finch_131_priest_armour")
+	_report(&"priest", ["Robes", "Gown"], ["Plate Mail", "Silk Wraps"])
+	await _shot("teal8_915_priest_armour")
 
-	# MARTIAL like the Warrior and not a TANK, which is the pair that shows the
-	# gate is reading more than the method axis.
+	# The class #915 was blocked on: MARTIAL and SUMMONER, refused all sixteen
+	# base types under a Method-and-Style body gate and offered Plate under this
+	# one.
 	if not _focus_class(&"siege_master"):
 		return
 	await _settle()
-	_report(&"siege_master", ["Silk Wraps", "Gown"], ["Plate Mail", "Scrubs"])
-	await _shot("finch_131_siege_master_armour")
+	_report(&"siege_master", ["Plate Mail", "Silk Wraps"], ["Robes", "Gown"])
+	await _shot("teal8_915_siege_master_armour")
