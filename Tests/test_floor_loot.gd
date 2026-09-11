@@ -186,3 +186,93 @@ func test_a_hard_room_on_floor_one_still_rolls_no_verb() -> void:
 func test_an_easy_room_on_the_unlock_floor_can_roll_a_verb() -> void:
 	assert_true(_verbs_in_chests(ItemRoller.VERB_UNLOCK_FLOOR, 1) > 0,
 		"the run's own floor number never reached the roller")
+
+
+## Issue 950: rarity still decides first, and a tie on rarity is broken by
+## weighted total stats rather than left alone.
+func test_a_rarity_tie_is_broken_by_total_stats() -> void:
+	var party := _party()
+	var run := FloorRun.new()
+	var wearer := party[0]
+	var incumbent: EquipmentDef = wearer.body
+
+	var richer := incumbent.duplicate() as EquipmentDef
+	richer.id = &"test_richer"
+	richer.attribute_flat = {CG.Attribute.STR: 3}
+	assert_eq(int(richer.rarity()), int(incumbent.rarity()), "the fixture must tie on rarity")
+	assert_true(FloorRun.stat_score(richer) > FloorRun.stat_score(incumbent))
+	FloorRun.take_chest(run, party, [richer] as Array[EquipmentDef])
+	assert_eq(wearer.body, richer, "the richer of two equally rare pieces takes the slot")
+	assert_true(run.bag.has(incumbent), "and what it displaced goes to the bag")
+
+
+## The negative: equal rarity and equal stats still leaves the incumbent alone.
+func test_an_equal_piece_still_does_not_churn_the_slot() -> void:
+	var party := _party()
+	var run := FloorRun.new()
+	var wearer := party[0]
+	var incumbent: EquipmentDef = wearer.body
+
+	var equal := incumbent.duplicate() as EquipmentDef
+	equal.id = &"test_equal"
+	assert_eq(FloorRun.stat_score(equal), FloorRun.stat_score(incumbent))
+	FloorRun.take_chest(run, party, [equal] as Array[EquipmentDef])
+	assert_eq(wearer.body, incumbent, "an equal piece does not churn the slot")
+	assert_true(run.bag.has(equal), "and it goes to the bag instead")
+
+
+## A poorer piece of the same rarity is refused, which is what stops the
+## tiebreaker from becoming a coin flip.
+func test_a_poorer_piece_of_the_same_rarity_is_refused() -> void:
+	var party := _party()
+	var run := FloorRun.new()
+	var wearer := party[0]
+	var incumbent: EquipmentDef = wearer.body
+
+	var poorer := incumbent.duplicate() as EquipmentDef
+	poorer.id = &"test_poorer"
+	poorer.damage_reduction = incumbent.damage_reduction * 0.5
+	assert_true(FloorRun.stat_score(poorer) < FloorRun.stat_score(incumbent))
+	FloorRun.take_chest(run, party, [poorer] as Array[EquipmentDef])
+	assert_eq(wearer.body, incumbent, "a poorer piece of the same rarity is refused")
+
+
+## Issue 950: two-handers join the upgrade path. One displaces both hands and
+## both displaced pieces go to the bag.
+func test_a_two_hander_displaces_both_hands_into_the_bag() -> void:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "geysermancer")]
+	var run := FloorRun.new()
+	var wearer := party[0]
+	var main: EquipmentDef = wearer.main_hand
+	var off: EquipmentDef = wearer.off_hand
+	assert_ne(main, null, "the fixture needs a filled main hand")
+	assert_ne(off, null, "the fixture needs a filled off hand")
+
+	var staff := ItemLibrary.get_equipment(&"staff").duplicate() as EquipmentDef
+	staff.affixes = [AffixRoll.new()] as Array[AffixRoll]
+	assert_true(staff.two_handed, "the fixture must be two-handed")
+	FloorRun.take_chest(run, party, [staff] as Array[EquipmentDef])
+	assert_eq(wearer.main_hand, staff, "a rarer two-hander takes the main hand")
+	assert_eq(wearer.off_hand, null, "and it occupies the off hand, so nothing is worn there")
+	assert_true(run.bag.has(main), "the displaced main hand goes to the bag")
+	assert_true(run.bag.has(off), "and so does the off hand it cost")
+
+
+## The two-hander is scored against the main hand alone, not against the pair:
+## a main hand it cannot beat refuses it however poor the off hand is.
+func test_a_two_hander_is_compared_against_the_main_hand_only() -> void:
+	var party: Array[PawnData] = [
+		PawnFactory.make_starter_pawn(&"geysermancer", &"geysermancer", "geysermancer")]
+	var run := FloorRun.new()
+	var wearer := party[0]
+	var main: EquipmentDef = wearer.main_hand
+	var off: EquipmentDef = wearer.off_hand
+	wearer.main_hand = main.duplicate() as EquipmentDef
+	wearer.main_hand.affixes = [AffixRoll.new(), AffixRoll.new()] as Array[AffixRoll]
+
+	var staff := ItemLibrary.get_equipment(&"staff").duplicate() as EquipmentDef
+	staff.affixes = [AffixRoll.new()] as Array[AffixRoll]
+	FloorRun.take_chest(run, party, [staff] as Array[EquipmentDef])
+	assert_true(run.bag.has(staff), "a two-hander that loses to the main hand is bagged")
+	assert_eq(wearer.off_hand, off, "and the off hand it never took is untouched")
