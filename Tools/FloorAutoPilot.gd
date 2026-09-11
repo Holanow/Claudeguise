@@ -25,3 +25,8 @@ static func door_point(battle, room_id: int) -> Vector2:
 		if int(e["room_id"]) == room_id:
 			return battle._arena.get_global_transform() * FloorDoors.rect_for(e["dir"]).get_center()
 	return Vector2.ZERO
+
+## Issue 935: the boss room's chest holds the floor open, so an unattended tool
+## has to click that too.
+static func chest_point(battle) -> Vector2:
+	return battle._arena.get_global_transform() * FloorChest.rect().get_center()

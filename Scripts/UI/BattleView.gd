@@ -1126,6 +1126,16 @@ func _handle_fight_end() -> void:
 		if not _floor_finished():
 			_open_doors()
 			return
+		## Issue 935: the boss room has no door to walk out of, so the floor
+		## waits on its chest rather than ending over the top of it.
+		if not _chest_loot.is_empty():
+			_show_chest()
+			return
+	_end_the_screen()
+
+## The floor is over, or this was never a floor: say so, show the outcome and
+## stop stepping.
+func _end_the_screen() -> void:
 	if _floor_active():
 		floor_ended.emit(state.outcome == CombatState.Outcome.PLAYER_WIN)
 	_show_outcome()
@@ -1175,10 +1185,16 @@ func open_chest() -> Array[EquipmentDef]:
 	_chest_loot = [] as Array[EquipmentDef]
 	FloorRun.take_chest(_floor_run, _floor_party, taken)
 	_close_chest()
+	## Issue 935: on the boss room this click is the floor's last act, and the
+	## transition it held is released here.
+	if _floor_active() and _floor_finished():
+		_end_the_screen()
 	return taken
 
+## The chest itself, not the doors: the boss room shows one with no door beside
+## it.
 func chest_open() -> bool:
-	return _floor_doors_open and not _chest_loot.is_empty()
+	return _chest != null and is_instance_valid(_chest) and _chest.open_for_business 		and not _chest_loot.is_empty()
 
 ## The chest a click at `at` (arena coordinates) opens.
 func chest_at(at: Vector2) -> bool:
@@ -1593,7 +1609,7 @@ func _process(delta: float) -> void:
 		_advance_slide(delta)
 		_render(0.0, false, delta)
 		return
-	if _floor_doors_open:
+	if _floor_doors_open or chest_open():
 		_render(0.0, false, delta)
 		return
 	if state.outcome != CombatState.Outcome.UNRESOLVED:

@@ -109,3 +109,49 @@ func test_what_nobody_can_wear_reaches_the_equip_screen() -> void:
 			count += 1
 	assert_eq(count, 1, "the bag's sword is not a row on the equip screen")
 	panel.free()
+
+## Issue 935: the boss room has no door to walk out of, so the floor waits on
+## its chest instead of ending over the top of it. `boss_id` is moved onto the
+## room being fought, as a fixture.
+func _boss_here(battle: Node) -> void:
+	battle._floor_walk.plan.boss_id = battle._floor_walk.current_id
+
+func test_the_cleared_boss_room_offers_its_chest_before_the_floor_ends() -> void:
+	var battle := _floor()
+	var ended := [0]
+	battle.floor_ended.connect(func(_victory: bool): ended[0] += 1)
+	_boss_here(battle)
+	_resolve(battle)
+	assert_true(battle.chest_open(), "the cleared boss room drew no chest")
+	assert_true(battle.chest_at(Vector2.ZERO), "no click lands on the boss chest")
+	assert_false(battle.doors_open(), "the boss room must not open a door back out")
+	assert_eq(ended[0], 0, "the floor ended over the top of the chest")
+	assert_false(battle._end_banner.visible, "the end card stands on the held chest")
+
+## The held room is re-entered every frame, the same way #805's open doors are.
+func test_the_held_boss_room_pays_out_once_however_long_it_is_held() -> void:
+	var battle := _floor()
+	var ended := [0]
+	battle.floor_ended.connect(func(_victory: bool): ended[0] += 1)
+	_boss_here(battle)
+	_resolve(battle)
+	for i in 5:
+		battle._handle_fight_end()
+	assert_eq(battle._floor_run.loot.size(), 0, "the held chest paid out by itself")
+	assert_eq(ended[0], 0, "holding the floor ended it")
+	assert_true(battle.chest_open(), "the held chest closed on its own")
+
+func test_clicking_the_boss_chest_hands_over_the_loot_and_ends_the_floor() -> void:
+	var battle := _floor()
+	var ended := [0]
+	battle.floor_ended.connect(func(_victory: bool): ended[0] += 1)
+	_boss_here(battle)
+	_resolve(battle)
+	var run: FloorRun = battle._floor_run
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	battle._on_arena_button(press, Vector2.ZERO)
+	assert_true(run.loot.size() >= 1, "clicking the boss chest handed over nothing")
+	assert_eq(ended[0], 1, "the floor did not end when the chest was clicked")
+	assert_false(battle.chest_open(), "the boss chest is clickable once")

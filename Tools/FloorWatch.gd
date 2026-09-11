@@ -14,6 +14,13 @@ const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
 
+## Issue 935: `--seed N`, because the boss is the room this now has to reach and
+## seed 3's party loses to the Warden.
+static func _seed() -> int:
+	var args := OS.get_cmdline_user_args()
+	var at := args.find("--seed")
+	return int(args[at + 1]) if at >= 0 and at + 1 < args.size() else FLOOR_SEED
+
 var _battle: Node = null
 var _plan: FloorPlan = null
 var _room_index := -1
@@ -24,13 +31,14 @@ func _ready() -> void:
 	Offscreen.hide_window(self)
 	Engine.time_scale = TIME_SCALE
 	var cfg := RunConfig.new()
-	cfg.seed = FLOOR_SEED
+	var seed := _seed()
+	cfg.seed = seed
 	var party: Array[PawnData] = []
 	for cid in ClassLibrary.all_ids():
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
 	cfg.party = party
-	_plan = FloorGenerator.generate(FLOOR_SEED)
-	_log.append("floor seed %d, order: %s" % [FLOOR_SEED, str(FloorWalk.default_order(_plan))])
+	_plan = FloorGenerator.generate(seed)
+	_log.append("floor seed %d, order: %s" % [seed, str(FloorWalk.default_order(_plan))])
 	for r in _plan.rooms:
 		_log.append("  %s at %s, doors: %s" % [r.content_id, r.cell, _door_text(r)])
 	_battle = BATTLE_SCENE.instantiate()
@@ -52,6 +60,12 @@ func _process(_delta: float) -> void:
 	if _battle.doors_open():
 		_shot_pending = true
 		_take_a_door()
+		return
+	## Issue 935: the boss room holds the floor open on its chest, and a click
+	## on it is the only way past.
+	if _battle.chest_open():
+		_shot_pending = true
+		_take_the_chest()
 
 ## A real `InputEventMouseButton` pair at the door's own viewport position,
 ## pushed through Godot's picking. Issue 904: `in_local_coords` true, because
@@ -65,6 +79,22 @@ func _take_a_door() -> void:
 	var at := AUTOPILOT.door_point(_battle, room)
 	_log.append("  clicked the door to %s at %s" % [
 		_plan.room(room).content_id, at])
+	await _click(at)
+	_shot_pending = false
+
+## The picture of the cleared boss room with its chest still standing, then the
+## click that opens it.
+func _take_the_chest() -> void:
+	await RenderingServer.frame_post_draw
+	var path := "%s/wren7_935_boss_chest.png" % OUT_DIR
+	get_viewport().get_texture().get_image().save_png(path)
+	var at := AUTOPILOT.chest_point(_battle)
+	_log.append("  boss chest holding the floor open, clicked at %s -- %s" % [at, path])
+	await _click(at)
+	_log.append("  the chest held %d item(s)" % _battle._floor_run.loot.size())
+	_shot_pending = false
+
+func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
 		var e := InputEventMouseButton.new()
 		e.button_index = MOUSE_BUTTON_LEFT
@@ -73,7 +103,6 @@ func _take_a_door() -> void:
 		e.global_position = at
 		get_viewport().push_input(e, true)
 		await get_tree().process_frame
-	_shot_pending = false
 
 func _capture() -> void:
 	await RenderingServer.frame_post_draw
