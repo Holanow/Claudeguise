@@ -1,9 +1,8 @@
 extends Node
 
-## Issue 917: the Priest's Staff is two-handed, so he starts with no off hand.
-## Read off the real equip screen, and it also records what the screen still
-## gets wrong -- the off-hand row reads empty rather than occupied, which is
-## `EquipPanel`'s half and is not in this branch.
+## Issue 917: the Priest's Staff is two-handed, so his off-hand row names the
+## Staff rather than reading empty, and offers nothing rather than offering a
+## piece `PawnData.equipment()` would drop. Read off the real equip screen.
 
 const OUT_DIR := "user://probe"
 
@@ -76,6 +75,27 @@ func _pickers() -> Array[OptionButton]:
 			out.append(n)
 	return out
 
+func _panel(file: String) -> Node:
+	for n in _walk(_main):
+		if n.get_script() != null and n.get_script().resource_path.ends_with(file):
+			return n
+	return null
+
+## The nearest scrolling ancestor, wound to the bottom.
+func _scroll_to_the_equipment(node: Node) -> void:
+	var at: Node = node
+	while at != null and not (at is ScrollContainer):
+		at = at.get_parent()
+	if at == null:
+		_fail("no ScrollContainer over the equipment rows, so the shot would miss them")
+		return
+	var sc := at as ScrollContainer
+	## The row itself, not the bottom of the column: winding to the end scrolls
+	## past the slots and photographs the stats under them.
+	sc.ensure_control_visible(node as Control)
+	## Plus the sentence under the row, which sits below it.
+	sc.scroll_vertical += 60
+
 func _selected(picker: OptionButton) -> String:
 	return picker.get_item_text(maxi(picker.selected, 0))
 
@@ -100,23 +120,24 @@ func _run() -> void:
 		_fail("the Priest's main hand is not two-handed, so this shot proves nothing")
 	if priest.off_hand != null:
 		_fail("the Priest starts with an off hand as well as a two-hander")
-	if _selected(pickers[1]) != EquipPanel.EMPTY_CHOICE:
-		_fail("the off-hand picker does not read empty: '%s'" % _selected(pickers[1]))
+	## The row names what holds it rather than reading empty, and the picker
+	## offers nothing rather than offering a Focus the simulation would drop.
+	if _selected(pickers[1]) != "Held by the Staff":
+		_fail("the off-hand row does not name what holds it: '%s'" % _selected(pickers[1]))
+	if pickers[1].item_count != 1:
+		_fail("the off-hand picker carries %d rows, not just the one that explains itself"
+			% pickers[1].item_count)
+	var panel := _panel("EquipPanel.gd")
+	if panel != null and not panel.offered_items(priest, EquipmentDef.Slot.OFF_HAND).is_empty():
+		_fail("a slot the Staff fills still offers something")
 
-	## The popup is open on purpose: it is what the screen still gets wrong.
-	## The slot reads "(nothing)" rather than "occupied by the Staff", and it
-	## still offers a Focus that `PawnData.equipment()` would drop.
-	pickers[1].show_popup()
+	## The Equipment section is the last thing on a scrolling column, so a shot
+	## taken where the screen opens photographs the paper doll and not the rows.
+	_scroll_to_the_equipment(pickers[1])
 	await _settle()
-	var offered: Array[String] = []
-	var popup := pickers[1].get_popup()
-	for i in popup.item_count:
-		if not popup.is_item_disabled(i):
-			offered.append(popup.get_item_text(i))
-	print("TwoHandShot: the off hand still offers %s" % [offered])
+
 	var sentence := EquipPanel.item_effect_text(priest.main_hand)
 	print("TwoHandShot: the Staff reads '%s'" % sentence)
 	if not sentence.contains("two-handed"):
 		_fail("the equip screen does not say the Staff is two-handed")
 	await _shot("teal8_917_priest_two_handed")
-	popup.hide()

@@ -590,3 +590,44 @@ func test_party_select_can_reach_the_equip_screen_and_edits_reach_the_fight() ->
 	assert_eq(screen.current_config().party[0].body, armors[0],
 		"the pawn handed to the fight must be the pawn that was equipped")
 	screen.free()
+
+
+# ---------------------------------------------------------------------------
+# Issue 917: a slot a two-hander fills
+# ---------------------------------------------------------------------------
+
+## The lie #851 cost four surfaces: a slot that reads empty and refuses every
+## choice a player makes in it. The row has to name what is holding it.
+func test_a_blocked_off_hand_names_the_weapon_holding_it() -> void:
+	var panel := _panel()
+	var pawn := PawnFactory.make_starter_pawn(&"priest", &"p", "p")
+	assert_true(pawn.off_hand_blocked(), "the Priest's Staff is not two-handed, so this proves nothing")
+	var controls := panel._slot_controls(pawn, EquipmentDef.Slot.OFF_HAND)
+	var text := _text_of(controls[0]) + _text_of(controls[1])
+	assert_true(text.contains("Held by the Staff"), "the off-hand row does not say what holds it: %s" % text)
+	assert_false(text.contains(EquipPanel.EMPTY_CHOICE),
+		"the off-hand row still reads as an empty slot: %s" % text)
+	var icon := _icons(controls[0])[0]
+	assert_eq(icon.pin_title, "Off Hand (held by the Staff)")
+	assert_eq(icon.tooltip_text, "Held by the Staff, which is two-handed.")
+	for c in controls:
+		c.free()
+	panel.free()
+
+
+## #899's lesson was that a player action silently discarded is worse than a
+## visible refusal, so the Focus is not offered at all rather than offered and
+## dropped by `PawnData.equipment()`.
+func test_a_blocked_off_hand_offers_nothing_and_refuses_nothing() -> void:
+	var panel := _panel()
+	var pawn := PawnFactory.make_starter_pawn(&"priest", &"p", "p")
+	assert_eq(panel.offered_items(pawn, EquipmentDef.Slot.OFF_HAND), [] as Array[EquipmentDef],
+		"a slot the Staff fills must offer nothing")
+	assert_eq(panel.refused_items(pawn, EquipmentDef.Slot.OFF_HAND), [] as Array[EquipmentDef],
+		"#474 refuses what a class may not wear; this slot is one nobody may fill")
+
+	## The negative half: put a one-handed weapon in and the Focus comes back.
+	pawn.main_hand = ItemLibrary.get_equipment(&"orb")
+	var ids := _ids(panel.offered_items(pawn, EquipmentDef.Slot.OFF_HAND))
+	assert_true(ids.has(&"focus"), "with a one-handed main hand the Focus must be offered again: %s" % [ids])
+	panel.free()
