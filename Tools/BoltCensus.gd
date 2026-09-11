@@ -23,7 +23,8 @@ func _init() -> void:
 		"in_flight_at_end": 0, "flight_ticks": 0, "flight_units": 0.0,
 		"lead_error": 0.0,
 		"engines_built": 0, "engine_alive_ticks": 0, "marked_ticks": 0,
-		"engine_and_marked_ticks": 0,
+		"engine_and_marked_ticks": 0, "raw": 0, "mitigated": 0, "fire_misses": 0,
+		"master_could_mark": 0,
 	}
 	var ledgers: Array = []
 	for s in SEEDS:
@@ -76,6 +77,8 @@ func _run_and_count(state: CombatState, tally: Dictionary) -> void:
 			tally.marked_ticks += 1
 		if engines > 0 and marked > 0:
 			tally.engine_and_marked_ticks += 1
+		if engines > 0 and _master_could_mark(state):
+			tally.master_could_mark += 1
 		if (engines > 0) != had_engine:
 			had_engine = engines > 0
 			marks.append("engine%s@%d" % ["+" if had_engine else "-", state.tick])
@@ -95,9 +98,12 @@ func _run_and_count(state: CombatState, tally: Dictionary) -> void:
 				CG.EventKind.ACTION_FIRE: tally.fires += 1
 				CG.EventKind.ACTION_START: tally.starts += 1
 				CG.EventKind.BLOCKED: tally.blocked += 1
+				CG.EventKind.MISS: tally.fire_misses += 1
 				CG.EventKind.DAMAGE:
 					tally.damage_events += 1
 					tally.damage_total += e.amount
+					tally.raw += e.amount_before_mitigation
+					tally.mitigated += e.amount_after_mitigation
 		seen_events = state.events.size()
 		for p in state.projectiles:
 			if p.action_id != BOLT or classified.has(p.id):
@@ -113,6 +119,22 @@ func _run_and_count(state: CombatState, tally: Dictionary) -> void:
 				tally.in_flight_at_end += 1
 	if marks.size() > 0:
 		print("  %s" % " ".join(marks))
+
+## Whether the Siege Master is free, can pay for `spotter_mark` and has an
+## enemy inside the reach its plan row is gated on. Asked without calling
+## `decide`, the way `Tools/EngineProbe.gd` asks it.
+func _master_could_mark(state: CombatState) -> bool:
+	for u in state.units:
+		if not u.alive or u.pawn == null or u.pawn.pawn_class == null:
+			continue
+		if u.pawn.pawn_class.id != &"siege_master":
+			continue
+		if u.is_busy() or u.resource < 15:
+			continue
+		for o in state.units:
+			if o.alive and o.team != u.team and o.position.distance_to(u.position) <= 350.0:
+				return true
+	return false
 
 ## Why one resolved bolt ended: a hit, a shield, or a miss with a reason.
 func _classify(state: CombatState, p: Projectile, tally: Dictionary) -> void:
@@ -161,7 +183,10 @@ func _print(l: DamageLedger.Ledger, t: Dictionary) -> void:
 	print("  projectiles resolved          %d" % t.resolved)
 	print("  still in flight at fight end  %d" % t.in_flight_at_end)
 	print("  damage events                 %d  (%d damage)" % [t.damage_events, t.damage_total])
+	print("  raw before mitigation         %d  (%d after)" % [t.raw, t.mitigated])
+	print("  fires that found no target    %d" % t.fire_misses)
 	print("  blocked by a shield           %d" % t.blocked)
+	print("  engine alive, master could mark %d ticks" % t.master_could_mark)
 	print("  missed, target died in flight %d" % t.miss_target_dead)
 	print("  missed, target had moved      %d" % t.miss_lead)
 	print("  missed, sight blocked         %d" % t.miss_sight)
