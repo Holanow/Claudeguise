@@ -42,12 +42,13 @@ func _process(_delta: float) -> void:
 		_shot_pending = true
 		_capture(walk)
 		return
-	# Issue 805: the floor waits on a door now, and nobody here is a player.
-	if _battle.doors_open():
-		_battle.take_door(AUTOPILOT.next_door(_battle))
-	## Issue 935: nothing else gets past the boss room's held chest.
-	elif _battle.chest_open():
+	## Issue 944: the chest before the door, because a player standing in a
+	## cleared room with both open takes the chest first.
+	if _battle.chest_open():
 		_battle.open_chest()
+	# Issue 805: the floor waits on a door now, and nobody here is a player.
+	elif _battle.doors_open():
+		_battle.take_door(AUTOPILOT.next_door(_battle))
 
 func _capture(walk: FloorWalk) -> void:
 	await RenderingServer.frame_post_draw

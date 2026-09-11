@@ -21,15 +21,25 @@ static func _seed() -> int:
 	var at := args.find("--seed")
 	return int(args[at + 1]) if at >= 0 and at + 1 < args.size() else FLOOR_SEED
 
+## Issue 944: `--skip-chests` walks a cleared room's chest past, which is what
+## every walker did before this issue, so the two arms are one tool.
+static func _skip_chests() -> bool:
+	return OS.get_cmdline_user_args().has("--skip-chests")
+
 var _battle: Node = null
 var _plan: FloorPlan = null
 var _room_index := -1
 var _shot_pending := false
 var _log := PackedStringArray()
+var _skip := false
+var _offer_room := -1
+var _chests_opened := 0
+var _boss_gear := "never reached the boss"
 
 func _ready() -> void:
 	Offscreen.hide_window(self)
 	Engine.time_scale = TIME_SCALE
+	_skip = _skip_chests()
 	var cfg := RunConfig.new()
 	var seed := _seed()
 	cfg.seed = seed
@@ -38,7 +48,8 @@ func _ready() -> void:
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
 	cfg.party = party
 	_plan = FloorGenerator.generate(seed)
-	_log.append("floor seed %d, order: %s" % [seed, str(FloorWalk.default_order(_plan))])
+	_log.append("floor seed %d, arm %s, order: %s" % [
+		seed, "skip-chests" if _skip else "loot", str(FloorWalk.default_order(_plan))])
 	for r in _plan.rooms:
 		_log.append("  %s at %s, doors: %s" % [r.content_id, r.cell, _door_text(r)])
 	_battle = BATTLE_SCENE.instantiate()
@@ -57,15 +68,29 @@ func _process(_delta: float) -> void:
 		_shot_pending = true
 		_capture()
 		return
+	_note_offer()
+	## Issue 944: a player standing in a cleared room with both open takes the
+	## chest first, so the walker does too. The skip arm still has to click the
+	## boss chest: with the doors shut it is the only exit (#935).
+	if _battle.chest_open() and not (_skip and _battle.doors_open()):
+		_shot_pending = true
+		_take_the_chest()
+		return
 	if _battle.doors_open():
 		_shot_pending = true
 		_take_a_door()
+
+## What this room's chest is holding, read once per room in both arms, so the
+## report can say whether skipping changes what a later room offers.
+func _note_offer() -> void:
+	if not _battle.chest_open() or _offer_room == _battle._floor_walk.current_id:
 		return
-	## Issue 935: the boss room holds the floor open on its chest, and a click
-	## on it is the only way past.
-	if _battle.chest_open():
-		_shot_pending = true
-		_take_the_chest()
+	_offer_room = _battle._floor_walk.current_id
+	var ids: Array[String] = []
+	for item in _battle._chest_loot:
+		ids.append(String(item.id))
+	_log.append("  %s chest offers [%s]" % [
+		_plan.room(_offer_room).content_id, ", ".join(ids)])
 
 ## A real `InputEventMouseButton` pair at the door's own viewport position,
 ## pushed through Godot's picking. Issue 904: `in_local_coords` true, because
@@ -82,17 +107,37 @@ func _take_a_door() -> void:
 	await _click(at)
 	_shot_pending = false
 
-## The picture of the cleared boss room with its chest still standing, then the
-## click that opens it.
+## A real click on the chest. The picture is the held boss chest only, which is
+## the one room where the chest is the exit rather than a choice beside a door.
 func _take_the_chest() -> void:
-	await RenderingServer.frame_post_draw
-	var path := "%s/wren7_935_boss_chest.png" % OUT_DIR
-	get_viewport().get_texture().get_image().save_png(path)
-	var at := AUTOPILOT.chest_point(_battle)
-	_log.append("  boss chest holding the floor open, clicked at %s -- %s" % [at, path])
-	await _click(at)
-	_log.append("  the chest held %d item(s)" % _battle._floor_run.loot.size())
+	var held: bool = not _battle.doors_open()
+	if held:
+		await RenderingServer.frame_post_draw
+		var path := "%s/wren7_935_boss_chest.png" % OUT_DIR
+		get_viewport().get_texture().get_image().save_png(path)
+		_log.append("  boss chest holding the floor open -- %s" % path)
+	var before: int = _battle._floor_run.loot.size()
+	await _click(AUTOPILOT.chest_point(_battle))
+	_chests_opened += 1
+	var run: FloorRun = _battle._floor_run
+	_log.append("  opened %s's chest: %d item(s), run total %d dropped / %d worn / %d bagged" % [
+		_plan.room(_battle._floor_walk.current_id).content_id,
+		run.loot.size() - before, run.loot.size(),
+		run.loot.size() - run.bag.size(), run.bag.size()])
 	_shot_pending = false
+
+## Every slot that has something in it, in party order. Issue 944's equip rule
+## is `FloorRun.take_chest`'s own and this tool adds none of its own.
+func _gear_text() -> String:
+	var parts: Array[String] = []
+	for p in _battle._floor_party:
+		var worn: Array[String] = []
+		for slot in FloorRun.SLOT_PROPERTY.values():
+			var item = p.get(slot)
+			if item != null:
+				worn.append("%s=%s" % [slot, item.id])
+		parts.append("%s[%s]" % [p.id, ", ".join(worn)])
+	return " ".join(parts)
 
 func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
@@ -113,10 +158,20 @@ func _capture() -> void:
 	_log.append("room %d/%d (%s at %s): unit0 hp %d/%d, alive=%s -- %s" % [
 		_battle._floor_walk.cleared_count() + 1, _plan.rooms.size(), room_id,
 		_plan.room(_battle._floor_walk.current_id).cell, w0.hp, w0.hp_max, w0.alive, path])
+	_log.append("  wearing: %s" % _gear_text())
+	if _plan.room(_battle._floor_walk.current_id).type == FloorRoom.Type.BOSS:
+		_boss_gear = _gear_text()
 	_shot_pending = false
 
 func _on_floor_ended(victory: bool) -> void:
 	_log.append("floor ended, victory=%s" % victory)
+	var run: FloorRun = _battle._floor_run
+	_log.append("SUMMARY seed=%d arm=%s rooms_cleared=%d boss_reached=%s boss_won=%s chests=%d dropped=%d worn=%d bagged=%d" % [
+		_seed(), "skip-chests" if _skip else "loot",
+		_battle._floor_walk.cleared_count(), _boss_gear != "never reached the boss",
+		victory, _chests_opened, run.loot.size(),
+		run.loot.size() - run.bag.size(), run.bag.size()])
+	_log.append("SUMMARY gear on arrival in the boss room: %s" % _boss_gear)
 	for line in _log:
 		print(line)
 	get_tree().quit(0)
