@@ -380,6 +380,10 @@ static func item_effect_text(item: EquipmentDef) -> String:
 	for r in item.affixes:
 		if r != null and r.affix != null:
 			parts.append(_affix_part(r))
+	## Issue 917: a two-hander fills the off hand as well, which is a cost and
+	## has to be readable before the player equips it.
+	if item.two_handed:
+		parts.append("two-handed")
 	for action_id in item.granted_actions:
 		parts.append("grants %s" % _action_display_name(action_id))
 	if parts.is_empty():
