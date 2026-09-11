@@ -3,7 +3,7 @@ extends "res://Tests/TestCase.gd"
 ## Issue 378's second regime, which three-tick sampling never reached: the row
 ## search runs against every ALIVE unit, but only a fraction of those names are
 ## drawn. `Tools/PlateDensity.gd` measured 1594 plate-ticks on the last row over
-## 3469 ticks of the six pickable rooms.
+## 3469 ticks of the six rooms the picker offered at the time.
 
 func _small(id: int, pos: Vector2, name: String = "Goblin Archer") -> CombatUnit:
 	var u := CombatUnit.new()

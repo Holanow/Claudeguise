@@ -131,11 +131,14 @@ func _run() -> void:
 		for u in battle.state.units:
 			if u.team == CG.Team.ENEMY:
 				enemies += 1
+		# Issue 942: against the count RoomScale gives this party (#822), never
+		# the authored one -- `Main.start_battle_at` scales before it builds.
+		var wanted := RoomScale.count_for(room, _main.run_config.party.size())
 		var same_terrain: bool = battle.state.grid.count() == room.cells.size()
-		var same_enemies: bool = enemies == room.enemy_spawns.size()
+		var same_enemies: bool = enemies == wanted
 		_check(same_terrain and same_enemies,
 			"%s REACHES A REAL FIGHT (terrain %d/%d, enemies %d/%d)" % [
-				room_id, battle.state.grid.count(), room.cells.size(), enemies, room.enemy_spawns.size()])
+				room_id, battle.state.grid.count(), room.cells.size(), enemies, wanted])
 		reached[room_id] = true
 		await _settle()
 		await _shot("wren_room_%s" % String(room_id).replace("floor1_", ""))

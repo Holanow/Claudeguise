@@ -19,7 +19,7 @@ const MECHANIC := {
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := RoomLibrary.pickable_ids()
+	var encounter_ids := RoomLibrary.fight_ids()
 
 	_roster_census(encounter_ids)
 
@@ -95,10 +95,10 @@ func _pearson(xs: Array, ys: Array) -> float:
 	return num / maxf(sqrt(dx * dy), 0.000001)
 
 
-## How many DISTINCT threats the pickable rooms field, counted over spawns
+## How many DISTINCT threats the rooms with a fight field, counted over spawns
 ## rather than over the bestiary.
 func _roster_census(encounter_ids: Array) -> void:
-	print("======== WHAT THE PICKABLE ROOMS ACTUALLY FIELD ========")
+	print("======== WHAT THE ROOMS WITH A FIGHT ACTUALLY FIELD ========")
 	var totals := {}
 	var signatures := {}
 	for encounter_id in encounter_ids:

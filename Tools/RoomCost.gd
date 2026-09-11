@@ -8,9 +8,9 @@ const SEEDS := 40
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := RoomLibrary.pickable_ids()
+	var encounter_ids := RoomLibrary.fight_ids()
 	print("classes: ", class_ids)
-	print("pickable encounters: ", encounter_ids)
+	print("rooms with a fight: ", encounter_ids)
 
 	var rows := []
 	for encounter_id in encounter_ids:
@@ -50,7 +50,7 @@ func _init() -> void:
 		])
 
 	print("")
-	print("======== EVERY PARTY x EVERY PICKABLE ROOM ========")
+	print("======== EVERY PARTY x EVERY ROOM WITH A FIGHT ========")
 	var total_fights := rows.size() * SEEDS
 	var total_losses := 0
 	var total_draws := 0

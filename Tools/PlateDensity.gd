@@ -1,8 +1,8 @@
 extends Node
 
 ## The worst tick, not an average one. ArenaSpill samples three ticks of two
-## rooms; this samples EVERY tick of every pickable room and reports the tick
-## where the most text overprinted, which is the regime a watching player
+## rooms; this samples EVERY tick of every room with a fight in it and reports
+## the tick where the most text overprinted, which is the regime a watching player
 ## complains about.
 ##
 ## SAMPLING MOMENT: the top of each frame, before BattleView's own `_process`
@@ -42,7 +42,7 @@ func _ready() -> void:
 	DisplayOptions.set_enabled(&"damage_numbers", true)
 	Engine.time_scale = TIME_SCALE
 	var class_ids := ClassLibrary.all_ids()
-	var encounters := RoomLibrary.pickable_ids()
+	var encounters := RoomLibrary.fight_ids()
 	if class_ids.is_empty() or encounters.is_empty():
 		printerr("PlateDensity: no content registered")
 		get_tree().quit(1)
@@ -50,7 +50,7 @@ func _ready() -> void:
 	for enc in encounters:
 		for party_ids in ScreenSweepScript.sweep_parties(class_ids):
 			_runs.append({"encounter": enc, "party": party_ids})
-	print("PlateDensity: %d runs over %d pickable rooms, every tick sampled"
+	print("PlateDensity: %d runs over %d rooms with a fight, every tick sampled"
 		% [_runs.size(), encounters.size()])
 	print("arena %.0f x %.0f world units, DISPLAY_SCALE %.2f, %d plate rows"
 		% [CG.ARENA_HALF_WIDTH * 2.0, CG.ARENA_HALF_HEIGHT * 2.0,

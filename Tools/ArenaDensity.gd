@@ -30,7 +30,7 @@ func _init() -> void:
 	print("plans: %s" % ("preset" if USE_PRESET_PLANS else "starter (what the build ships)"))
 	print("")
 
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var a := _fresh()
 		for left_out in CLASSES:
 			for s in range(SEEDS):
@@ -54,7 +54,7 @@ func _init() -> void:
 func _verify() -> void:
 	var perturbed := 0
 	var checked := 0
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		for left_out in CLASSES:
 			for s in range(SEEDS):
 				var probed := _fingerprint(_party_without(left_out), RoomLibrary.get_room(enc_id), s, true)
@@ -87,7 +87,7 @@ func _fingerprint(ids: Array, enc: RoomData, s: int, probe: bool) -> String:
 func _roster_table() -> void:
 	print("ROSTER: an attack of more than %.0f units is ranged (DefaultBehavior)" % DefaultBehavior.MELEE_RANGE_THRESHOLD)
 	print("%-18s %7s %7s %7s  %s" % ["encounter", "enemies", "melee", "ranged", "enemy spawn spread"])
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var enc := RoomLibrary.get_room(enc_id)
 		var melee := 0
 		var lo := Vector2(1e9, 1e9)
@@ -111,7 +111,7 @@ func _occupancy_table() -> void:
 	print("")
 	print("%-18s %4s %7s %7s %7s %7s %9s %7s %7s" % ["encounter", "n", "core10", "core50", "core90", "all50", "core p50 px", "win50", "win90"])
 	print("%-18s %4s %7s %7s %7s %7s %9s %7s %7s" % ["---------", "----", "-------", "-------", "-------", "-------", "---------", "-------", "-------"])
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var a: Dictionary = _per_enc[enc_id]
 		var enc := RoomLibrary.get_room(enc_id)
 		print("%-18s %4d %6.1f%% %6.1f%% %6.1f%% %6.1f%% %4.0fx%-4.0f %7.1f %7.1f"
@@ -128,7 +128,7 @@ func _occupancy_table() -> void:
 func _worst_table() -> void:
 	print("WORST TICK PER FIGHT. Each fight contributes one number: its densest tick.")
 	print("%-18s %7s %7s %7s %7s %9s %9s" % ["encounter", "fights", "win p50", "win p90", "win max", "tightest core p50", "ticks >=6 in win"])
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var a: Dictionary = _per_enc[enc_id]
 		var w: Array[float] = a["window"]
 		var over6 := 0
@@ -150,7 +150,7 @@ func _worst_table() -> void:
 ## taken of that exact moment.
 func _densest_moments() -> void:
 	print("DENSEST MOMENT PER ROOM: reproduce with this party, seed and tick.")
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var best := {"win": -1}
 		for left_out in CLASSES:
 			for s in range(SEEDS):
@@ -186,7 +186,7 @@ func _peak(ids: Array, enc: RoomData, s: int) -> Dictionary:
 func _standoff_table() -> void:
 	print("STANDOFF: distance from a unit to its nearest opponent, every tick.")
 	print("%-18s %10s %10s %10s %10s %10s %10s" % ["encounter", "melee p10", "melee p50", "melee p90", "rng p10", "rng p50", "rng p90"])
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var a: Dictionary = _per_enc[enc_id]
 		print("%-18s %10.0f %10.0f %10.0f %10.0f %10.0f %10.0f"
 			% [enc_id, _at(a["melee_d"], 0.10), _at(a["melee_d"], 0.50), _at(a["melee_d"], 0.90),
@@ -218,7 +218,7 @@ func _roster_size_counterfactual() -> void:
 	print("LEVER 1 -- FEWER ENEMIES. The same room, spawn list truncated. PREDICTION.")
 	print("%-18s %6s %7s %7s %9s %7s %7s" % ["encounter", "enemies", "core10", "core50", "core p50 px", "win50", "win90"])
 	print("%-18s %6s %7s %7s %9s %7s %7s" % ["---------", "------", "-------", "-------", "---------", "-------", "-------"])
-	for enc_id in RoomLibrary.pickable_ids():
+	for enc_id in RoomLibrary.fight_ids():
 		var base := RoomLibrary.get_room(enc_id)
 		if base.enemy_spawns.size() < 10:
 			continue

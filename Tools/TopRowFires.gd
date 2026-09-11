@@ -8,7 +8,7 @@ const SEEDS := 20
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := RoomLibrary.pickable_ids()
+	var encounter_ids := RoomLibrary.fight_ids()
 	for cid in class_ids:
 		_sample(cid, encounter_ids)
 	quit(0)
