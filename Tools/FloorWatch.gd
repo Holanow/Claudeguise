@@ -126,8 +126,8 @@ func _take_the_chest() -> void:
 		run.loot.size() - run.bag.size(), run.bag.size()])
 	_shot_pending = false
 
-## Every slot that has something in it, in party order. Issue 944's equip rule
-## is `FloorRun.take_chest`'s own and this tool adds none of its own.
+## Every slot that has something in it, in party order, by display name so the
+## rarity is on the line: the player's question was about affixes.
 func _gear_text() -> String:
 	var parts: Array[String] = []
 	for p in _battle._floor_party:
@@ -135,7 +135,7 @@ func _gear_text() -> String:
 		for slot in FloorRun.SLOT_PROPERTY.values():
 			var item = p.get(slot)
 			if item != null:
-				worn.append("%s=%s" % [slot, item.id])
+				worn.append("%s=%s" % [slot, item.display_name])
 		parts.append("%s[%s]" % [p.id, ", ".join(worn)])
 	return " ".join(parts)
 
