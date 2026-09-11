@@ -176,3 +176,27 @@ func test_the_pickup_is_announced_in_the_next_room() -> void:
 func test_a_run_carries_a_floor_number_of_its_own() -> void:
 	var run := FloorRun.new()
 	assert_eq(run.floor_index, 1, "a run starts on floor 1")
+
+
+## Issue 938: and the roll reads that number, not the room's. The gate opening
+## on a difficulty-2 room on floor 1 is the exact failure #916 named.
+func _verbs_in_chests(floor_index: int, difficulty: int) -> int:
+	var room := _room(FloorRoom.Type.ENEMY, &"floor1_room1")
+	room.difficulty = difficulty
+	var verbs := 0
+	for s in 60:
+		var run := FloorRun.new()
+		run.floor_index = floor_index
+		for item in FloorRun.roll_room_loot(run, room, _party(), s):
+			for r in item.affixes:
+				if r != null and r.affix != null and r.affix.kind == AffixDef.Kind.VERB:
+					verbs += 1
+	return verbs
+
+func test_a_hard_room_on_floor_one_still_rolls_no_verb() -> void:
+	assert_eq(_verbs_in_chests(1, 9), 0,
+		"room difficulty opened the verb tier, which is what #916 forbade")
+
+func test_an_easy_room_on_the_unlock_floor_can_roll_a_verb() -> void:
+	assert_true(_verbs_in_chests(ItemRoller.VERB_UNLOCK_FLOOR, 1) > 0,
+		"the run's own floor number never reached the roller")
