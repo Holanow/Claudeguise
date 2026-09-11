@@ -475,7 +475,10 @@ static func affix_value_text(r: AffixRoll) -> String:
 		## Issue 931: README's four verbs. Each says what the pawn now DOES,
 		## because a verb the player reads as arithmetic is the defect #931 is.
 		AffixDef.Effect.LIFE_LEECH:
-			return "returns %d%% of the damage it deals as health" % percent
+			## "of every hit it lands" rather than "of the damage it deals":
+			## `_leech_from_hit` hangs off `_apply_damage`, which a bleed tick
+			## and burning ground never reach.
+			return "returns %d%% of every hit it lands as health" % percent
 		AffixDef.Effect.COOLDOWN_RECOVERY:
 			return "cuts every cooldown by %d%%" % percent
 		AffixDef.Effect.RESOURCE_ON_KILL:
