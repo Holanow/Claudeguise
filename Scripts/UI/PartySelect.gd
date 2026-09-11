@@ -74,6 +74,7 @@ const NOT_OFFERED := {
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
 	&"floor1_camp": "issue 803: a place, not a fight -- the floor's one camp holds no enemies",
+	&"floor1_warden": "issue 300: the floor's last room -- you arrive at the Warden by walking floor 1 and clicking his door (issue 805), and picking him off a menu spends that arrival",
 }
 
 const TERRAIN_WORDS := {
