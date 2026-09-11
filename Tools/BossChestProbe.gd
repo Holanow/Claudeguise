@@ -14,6 +14,7 @@ var _battle: Node = null
 var _ended := 0
 
 func _ready() -> void:
+	Offscreen.hide_window(self)
 	var cfg := RunConfig.new()
 	cfg.seed = FLOOR_SEED
 	var party: Array[PawnData] = []
