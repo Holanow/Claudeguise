@@ -136,7 +136,8 @@ func _fight(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
 		room_id: StringName, fight_seed: int, room_index: int) -> CombatState:
 	var encounter := RoomScale.scaled(RoomLibrary.get_room(room_id), party.size())
 	var state := CombatSim.build(party, encounter, fight_seed)
-	FloorRun.carry_into(run, state, party, room_index, walk if _camp else null)
+	FloorRun.carry_into(run, state, party, room_index, walk if _camp else null, true,
+		ReviveArgs.ONCE_ON_TWO_DOWN)
 	CombatSim.run(state)
 	return state
 
@@ -191,7 +192,7 @@ func _report(label: String, r: Dictionary) -> void:
 		for room_id in ids:
 			var n: int = died_at[room_id]
 			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
-	if _camp or FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
+	if _camp or ReviveArgs.ONCE_ON_TWO_DOWN:
 		print("  the camp's one revive went unused in %d of %d runs (never two down)" % [
 			r.camp_unused, SEEDS])
 	if _camp:

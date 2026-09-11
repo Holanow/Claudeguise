@@ -8,8 +8,8 @@ class_name ActionBeat
 ## Ticks after the action fires. 0 is the instant it lands.
 @export var delay_ticks: int = 0
 
-## Null falls back to the action's own targeting, so a beat only states what
-## differs from it.
+## Null falls back to the action's own targeting; any other value REPLACES it
+## whole, so a beat stating an arc must restate range and line of sight too.
 @export var targeting: ActionTargeting = null
 @export var effects: Array[AbilityEffect] = []
 @export var vfx: AbilityVFX = null

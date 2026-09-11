@@ -126,13 +126,6 @@ const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 static var REVIVE_EVERY_N_ROOMS := 0
 static var REVIVE_AT_HP_FRACTION := 0.5
 
-## Issue 802's proxy for the camp. The live floor passes a walk since #803, so
-## this is now read only by sweeps measuring the camp against it:
-## one revive per floor, fired on the first arrival with two or more of the
-## party down. #797 put the cliff at the second death. Set true and the cadence
-## above is ignored. This is roughly optimal play, not the camp itself.
-static var REVIVE_ONCE_ON_TWO_DOWN := true
-
 ## Set when the camp's one revive is spent. Still false at the end of a floor
 ## means the run never got two pawns down and never used it.
 var revive_used: bool = false
@@ -145,12 +138,14 @@ static func revives_on_arrival(room_index: int) -> bool:
 	return room_index > 0 and room_index % REVIVE_EVERY_N_ROOMS == 0
 
 ## The whole decision for one arrival: the camp when the caller says where the
-## party is standing, otherwise #802's cadence or its two-down proxy.
+## party is standing, otherwise #802's cadence or its two-down proxy. Only the
+## camp branch is the shipped floor; `walk == null` is a measurement path, and
+## `proxy_revive` is the arm `Tools/ReviveArgs.gd` swings (issue 908).
 static func should_revive(run: FloorRun, party: Array[PawnData], room_index: int,
-		walk: FloorWalk = null) -> bool:
+		walk: FloorWalk = null, proxy_revive: bool = true) -> bool:
 	if walk != null:
 		return camp_revives(run, party, walk)
-	if not REVIVE_ONCE_ON_TWO_DOWN:
+	if not proxy_revive:
 		return revives_on_arrival(room_index)
 	if run.revive_used or room_index < 1:
 		return false
@@ -181,8 +176,9 @@ func down_count(party: Array[PawnData]) -> int:
 ## already cleared. Without it, pacing between two cleared rooms pays the
 ## arrival heal every time and the floor has free healing in it.
 static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData],
-		room_index: int = 0, walk: FloorWalk = null, heal: bool = true) -> void:
-	var revive := should_revive(run, party, room_index, walk)
+		room_index: int = 0, walk: FloorWalk = null, heal: bool = true,
+		proxy_revive: bool = true) -> void:
+	var revive := should_revive(run, party, room_index, walk, proxy_revive)
 	if revive:
 		run.revive_used = true
 	for i in party.size():
