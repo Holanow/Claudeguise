@@ -196,9 +196,10 @@ func line_for_event(state: CombatState, e: CombatEvent) -> String:
 			## victim -- a taunt's only line in the log, and the compelled walk
 			## under it emits nothing (issue 308).
 			var by := "" if source == null or e.source_id == e.target_id else " by %s" % source_name
+			var proc := _proc_tag(source, e)
 			if CG.is_harmful(e.status):
-				return "%s is afflicted with %s%s%s" % [target_name, _status_name(e.status), strength, by]
-			return "%s gains %s%s%s" % [target_name, _status_name(e.status), strength, by]
+				return "%s is afflicted with %s%s%s%s" % [target_name, _status_name(e.status), strength, by, proc]
+			return "%s gains %s%s%s%s" % [target_name, _status_name(e.status), strength, by, proc]
 		CG.EventKind.STATUS_EXPIRED:
 			if e.source_id != -1:
 				var action := ActionLibrary.get_action(e.action_id)
@@ -283,6 +284,44 @@ const SILENT_KINDS := [
 func _magnitude_text(e: CombatEvent) -> String:
 	var text := Glossary.status_magnitude_text(e.status, e.amount)
 	return "" if text == "" else " (%s)" % text
+
+## Issue 920. A passive proc reaches the log through the same STATUS_APPLIED an
+## action's own status does, carrying the attack's id, so "afflicted with Bleed
+## by Siege Master" reads as something the shot did. The gear that actually
+## fired is derivable here without the simulation carrying a second field:
+## nothing else on the event needs to change.
+func _proc_tag(source, e: CombatEvent) -> String:
+	var gear := proc_source_text(source, e)
+	if gear == "":
+		return ""
+	return " [color=%s][%s][/color]" % [Palette.INK_DIM.to_html(), gear]
+
+## Which equipped piece added this status, or "" when the action applies it
+## itself and the two cannot be told apart. Public because the test suite
+## asserts it against the same modifier the plan editor's trait strip names.
+static func proc_source_text(source, e: CombatEvent) -> String:
+	if source == null or source.pawn == null or e.source_id == e.target_id:
+		return ""
+	var action := ActionLibrary.get_action(e.action_id)
+	if action == null or _action_applies(action, e.status):
+		return ""
+	for item in source.pawn.equipment():
+		for m in item.modifiers:
+			if m == null or not m.adds_status_enabled or m.adds_status != e.status:
+				continue
+			if not m.matches(action):
+				continue
+			return item.display_name if m.display_name == "" else "%s: %s" % [
+				item.display_name, m.display_name]
+	return ""
+
+## Read off the action's own effects, so an action that already applies the
+## status is never credited to a piece of gear that happens to add the same one.
+static func _action_applies(action: ActionDef, status: CG.Status) -> bool:
+	for fx in action.all_effects():
+		if fx is StatusEffect and (fx as StatusEffect).status == status:
+			return true
+	return false
 
 ## Which plan row chose the action -- the "and why" half of the log.
 func _plan_tag(source, e: CombatEvent) -> String:
