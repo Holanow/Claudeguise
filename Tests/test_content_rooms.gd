@@ -1,7 +1,7 @@
 extends "res://Tests/TestCase.gd"
 
 ## Issue 942: `pickable_ids()` was doing two jobs, and the day #941 cleared
-## `pickable` on the Warden fifteen instruments stopped measuring him in silence.
+## `pickable` on the Warden thirteen instruments stopped measuring him in silence.
 
 func test_fight_ids_is_every_room_that_holds_a_fight() -> void:
 	var fights := RoomLibrary.fight_ids()
