@@ -498,3 +498,73 @@ func test_the_end_card_summary_says_nothing_rather_than_inventing_lines() -> voi
 		"Dealt most: nothing.",
 		"Hurt you most: nothing.",
 	], "an empty fight produced a summary it has no numbers for")
+
+
+# ---------------------------------------------------------------------------
+# Issue 927: the column named casts counted damage events.
+
+func _beat_fire(tick: int, source: int, action: StringName, beat: int) -> CombatEvent:
+	var e := _fire(tick, source, action)
+	e.beat_index = beat
+	return e
+
+## Three casts, one of which landed: the gap is the misses, and it is the
+## number #764 read backwards off a column that could not show it.
+func test_casts_counts_casts_and_hits_counts_damage_events() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_fire(1, 0, &"test_jab"))
+	s.events.append(_fire(2, 0, &"test_jab"))
+	s.events.append(_fire(3, 0, &"test_jab"))
+	s.events.append(_hit(3, 0, 1, &"test_jab", 9))
+
+	var l := DamageLedger.build(s)
+	assert_eq(int(l.by_ability[CG.Team.PLAYER][&"test_jab"].hits), 1,
+		"hits must count DAMAGE events, and only one landed")
+	assert_eq(DamageLedger.cast_count(l, CG.Team.PLAYER, &"test_jab"), 3,
+		"casts must count ACTION_FIRE events, and it fired three times")
+
+## A beat action emits one ACTION_FIRE per beat, so counting every fire would
+## read one cast of a three-beat action as three.
+func test_a_multi_beat_action_is_one_cast_not_one_per_beat() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_beat_fire(1, 0, &"test_combo", 0))
+	s.events.append(_beat_fire(2, 0, &"test_combo", 1))
+	s.events.append(_beat_fire(3, 0, &"test_combo", 2))
+
+	assert_eq(DamageLedger.cast_count(DamageLedger.build(s), CG.Team.PLAYER, &"test_combo"), 1,
+		"three beats of one cast were counted as three casts")
+
+## And the player sees it: the end card puts hits against casts on the line it
+## already had, so the gap is on the screen and not only in the headless sweep.
+func test_the_end_card_shows_hits_against_casts() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	for tick in [1, 2, 3, 4, 5]:
+		s.events.append(_fire(tick, 0, &"test_jab"))
+	s.events.append(_hit(1, 0, 1, &"test_jab", 20))
+	s.events.append(_hit(2, 0, 1, &"test_jab", 10))
+
+	assert_eq(EndScreenScript.ledger_lines(s)[1], "Dealt most: test_jab (30, 2/5 hit).",
+		"the end card hid the gap between what an ability fired and what it landed")
+
+## A raised block's soak is inside `before - after`, so crediting the reduction
+## cause with the whole gap counts it twice.
+func test_a_blocks_soak_is_not_credited_to_the_damage_reduction_cause() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	var taken := _hit(1, 1, 0, &"test_claw", 4)
+	taken.amount_before_mitigation = 20
+	taken.amount_after_mitigation = 4
+	taken.amount_absorbed = 10
+	taken.mitigation_cause = CG.MitigationCause.ARMOR
+	s.events.append(taken)
+
+	var m := DamageLedger.mitigation_summary(DamageLedger.build(s), CG.Team.PLAYER)
+	assert_eq(int(m.cause[CG.MitigationCause.ARMOR]), 6,
+		"the block soak was credited to armour as if armour had reduced it")
