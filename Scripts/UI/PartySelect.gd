@@ -73,6 +73,7 @@ func _build_roster() -> void:
 const NOT_OFFERED := {
 	&"floor1_horde": "a tuning fixture, not one of issue 94's four comparable rooms",
 	&"floor1_ghoul_den": "a tuning fixture, and the room issue 32's bug used to fight by accident",
+	&"floor1_camp": "issue 803: a place, not a fight -- the floor's one camp holds no enemies",
 }
 
 const TERRAIN_WORDS := {

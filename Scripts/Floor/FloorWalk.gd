@@ -70,6 +70,12 @@ func camp_found() -> bool:
 			return true
 	return false
 
+## When the party turns round and walks back: the second pawn is down, #797's
+## cliff, and the camp has been found and not yet spent. One implementation,
+## read by the live floor and by `Tools/FloorRuns.gd`'s sweep.
+func wants_camp(run: FloorRun, party: Array[PawnData]) -> bool:
+	return not run.revive_used and run.down_count(party) >= 2 and camp_found()
+
 ## The walk back to the camp, same shape as `route_to_next_fight`. Empty when
 ## the floor has no camp or the party is standing in it.
 func route_to_camp() -> Array[int]:

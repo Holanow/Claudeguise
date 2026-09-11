@@ -126,7 +126,8 @@ const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 static var REVIVE_EVERY_N_ROOMS := 0
 static var REVIVE_AT_HP_FRACTION := 0.5
 
-## Issue 802's proxy for the camp, used only when no `FloorWalk` is given:
+## Issue 802's proxy for the camp. The live floor passes a walk since #803, so
+## this is now read only by sweeps measuring the camp against it:
 ## one revive per floor, fired on the first arrival with two or more of the
 ## party down. #797 put the cliff at the second death. Set true and the cadence
 ## above is ignored. This is roughly optimal play, not the camp itself.

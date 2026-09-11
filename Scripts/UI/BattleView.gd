@@ -1053,7 +1053,7 @@ func _start_floor_room() -> void:
 ## from the last room, via FloorRun.carry_into -- the same call
 ## Tools/FloorRuns.gd's headless sweep makes.
 func _carry_floor_condition() -> void:
-	FloorRun.carry_into(_floor_run, state, _floor_party, _floor_walk.cleared_count())
+	FloorRun.carry_into(_floor_run, state, _floor_party, _floor_walk.cleared_count(), _floor_walk)
 	# The units just built and drawn above assumed full health; refresh so a
 	# pawn carried in dead reads as dead on the very first frame of the room.
 	_curr_drawn = _drawn_snapshot()
@@ -1092,10 +1092,19 @@ func _handle_fight_end() -> void:
 
 ## Walks the whole route to the next uncleared room, so the cleared rooms in
 ## between are passed through rather than fought again, then starts that fight.
+## Issue 803: unless the party turns round for the camp first.
 func _advance_floor_room() -> void:
-	for id in _floor_walk.route_to_next_fight():
+	for id in _next_floor_route():
 		_floor_walk.enter(id)
 	_start_floor_room()
+
+## The camp comes first when the second pawn is down and the party has already
+## found it. There is no door to click yet, so this is the route the party
+## would take; `FloorWalk.wants_camp` is the same rule the headless sweep reads.
+func _next_floor_route() -> Array[int]:
+	if _floor_walk.wants_camp(_floor_run, _floor_party):
+		return _floor_walk.route_to_camp()
+	return _floor_walk.route_to_next_fight()
 
 ## Rebuilt through the same `begin_with_encounter` every other caller uses, so
 ## the fight that runs is built by one path rather than by whatever the setup

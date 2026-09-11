@@ -96,8 +96,8 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			FloorRun.award_room_loot(run, room, party, s)
 			walk.mark_cleared(walk.current_id)
 			i += 1
-			if _camp_wanted(run, party):
-				if walk.camp_found():
+			if _camp_needed(run, party):
+				if walk.wants_camp(run, party):
 					_visit_camp(party, run, walk, hash([s, FloorGenerator.CAMP_ID, i]), i)
 				else:
 					needed_unfound = true
@@ -140,10 +140,9 @@ func _fight(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
 	CombatSim.run(state)
 	return state
 
-## Roughly optimal play and therefore an upper bound: the moment the second
-## pawn is down the party walks back, which costs them nothing here because
-## every room on the way is already cleared.
-func _camp_wanted(run: FloorRun, party: Array[PawnData]) -> bool:
+## `FloorWalk.wants_camp` without its `camp_found` half, so a run that needed
+## the camp before it had found it can be counted rather than silently missed.
+func _camp_needed(run: FloorRun, party: Array[PawnData]) -> bool:
 	return _camp and not run.revive_used and run.down_count(party) >= 2
 
 func _visit_camp(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
