@@ -175,6 +175,11 @@ func is_alive(pawn_id: StringName) -> bool:
 ## living pawns only, no revive. Never reaches full, so no room is free.
 const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 
+## Issue 868: the same share of MISSING RESOURCE, restored on arrival beside the
+## heal -- the 0.50 `Balance.between_room_resource_recover` was authored with and
+## which nothing ever called.
+const BETWEEN_ROOM_RESOURCE_MISSING_FRACTION := 0.5
+
 ## Issue 802: what share of max hp a revived pawn comes back at. `static var`
 ## rather than `const` so one build can sweep several settings from the command
 ## line; nothing but Tools/ ever assigns it.
@@ -251,6 +256,7 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
 		if heal:
 			_apply_arrival_heal(state, unit)
+			_apply_arrival_recovery(state, unit)
 	_announce_pickups(state, run, party)
 
 ## Issue 811: the drop the last room paid out, said out loud in the room it is
@@ -291,6 +297,21 @@ static func _revive(state: CombatState, run: FloorRun, unit: CombatUnit, pawn_id
 	var e := CombatEvent.make(CG.EventKind.HEAL, state.tick)
 	e.target_id = unit.id
 	e.amount = unit.hp
+	state.emit(e)
+
+## Issue 868: the heal's twin for the resource pool, and it takes the same
+## `heal` gate above -- #805's pacing exploit refills a caster for free
+## otherwise, exactly as it healed one for free.
+static func _apply_arrival_recovery(state: CombatState, unit: CombatUnit) -> void:
+	var amount := int(round(float(unit.resource_max - unit.resource) * BETWEEN_ROOM_RESOURCE_MISSING_FRACTION))
+	var before := unit.resource
+	unit.resource = mini(unit.resource_max, unit.resource + amount)
+	var applied := unit.resource - before
+	if applied <= 0:
+		return
+	var e := CombatEvent.make(CG.EventKind.RESOURCE_GAINED, state.tick)
+	e.target_id = unit.id
+	e.amount = applied
 	state.emit(e)
 
 ## Living pawn only, no revive: `carry_into` already set dead units aside
