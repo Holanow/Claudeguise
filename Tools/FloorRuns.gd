@@ -5,6 +5,9 @@ extends SceneTree
 ## lose. Arm B -- the same classes carrying their preset plans -- should win
 ## sometimes. Same seeds, both arms, side by side, and where each run ends.
 ##
+## The route is an autopilot's, not a player's: this walks the floor itself, and
+## the shipped floor is walked by clicking a door.
+##
 ## Issue 734: depth reached, because clear rate cannot separate two arms at 0/40.
 ## Issue 808: the party is four. Every composition, unless --party names one.
 ## Issue 817: `--final-state` prints the per-pawn end state of the runs that
