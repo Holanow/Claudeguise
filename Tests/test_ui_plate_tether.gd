@@ -1,8 +1,8 @@
 extends "res://Tests/TestCase.gd"
 
 ## Issue 440: a relocated plate names the pawn it is standing over, not its own.
-## Measured over 24,735 drawn plate-ticks of the six pickable rooms, a plate
-## reads as the wrong pawn 45.7% of the time and as nobody 10.5%.
+## Measured over 24,735 drawn plate-ticks of the six rooms the picker offered at
+## the time, a plate reads as the wrong pawn 45.7% of the time and as nobody 10.5%.
 
 ## Far enough past LABEL_HOLD_TICKS that no earlier test's hold is still up.
 const LATE := 200000

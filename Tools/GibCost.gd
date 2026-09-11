@@ -55,7 +55,7 @@ func _demand() -> Dictionary:
 	var most_in_a_tick := 0
 	var deaths_per_fight: Array[int] = []
 	var samples: Array[int] = []
-	for encounter_id in RoomLibrary.pickable_ids():
+	for encounter_id in RoomLibrary.fight_ids():
 		var encounter = RoomLibrary.get_room(encounter_id)
 		for party_ids in ScreenSweepScript.sweep_parties(ClassLibrary.all_ids()):
 			var state := CombatSim.build(_party(party_ids), encounter, SEED)
@@ -100,7 +100,7 @@ func _demand() -> Dictionary:
 		mean_deaths += float(d)
 	mean_deaths = 0.0 if deaths_per_fight.is_empty() else mean_deaths / float(deaths_per_fight.size())
 	print("GibCost demand: %d fights over %d rooms, %d ticks sampled, window %d ticks (%.2fs)" % [
-		deaths_per_fight.size(), RoomLibrary.pickable_ids().size(),
+		deaths_per_fight.size(), RoomLibrary.fight_ids().size(),
 		samples.size(), window, DeathExplosionScript.LIFETIME])
 	print("  explosions alive at once: worst %d (%s), 99th %d, mean deaths a fight %.1f" % [
 		worst, worst_where, p99, mean_deaths])

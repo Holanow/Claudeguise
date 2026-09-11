@@ -54,6 +54,16 @@ static func all_ids() -> Array[StringName]:
 		return String(a) < String(b))
 	return ids
 
+## Every room that holds a fight, in ROOMS order. Issue #942: this is the set a
+## sweep means, and `pickable_ids()` is the smaller set the menu offers.
+static func fight_ids() -> Array[StringName]:
+	_load()
+	var ids: Array[StringName] = []
+	for id in _order:
+		if not _rooms[id].enemy_spawns.is_empty():
+			ids.append(id)
+	return ids
+
 ## The rooms the picker offers, in ROOMS order. Issue #180, and that order is
 ## player-visible (#32) -- never sort this one.
 static func pickable_ids() -> Array[StringName]:

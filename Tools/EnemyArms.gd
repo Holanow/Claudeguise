@@ -3,8 +3,8 @@ extends SceneTree
 ## Issue 491: what recovers #489's fifteen points, measured one arm at a time.
 ##
 ## Every arm is one derived multiplier, applied without editing source, over the
-## same 6 pickable rooms x 5 buildable parties x 40 seeds. The base arm runs
-## first as a go/no-go against #490's published 72.0 / warden 42.0, and again
+## same rooms with a fight in them x 5 buildable parties x 40 seeds. The base arm
+## runs first as a go/no-go against #490's published 72.0 / warden 42.0, and again
 ## last to prove the registry mutation each enemy arm makes leaks nothing.
 
 const SEEDS := 40
@@ -32,13 +32,13 @@ func _init() -> void:
 		_run_arm(arm)
 	quit(0)
 
-## Every enemy that can appear on the ENEMY side of a pickable room, including
-## the ones summoned mid-fight. Derived rather than listed: the content also
+## Every enemy that can appear on the ENEMY side of a room with a fight in it,
+## including the ones summoned mid-fight. Derived rather than listed: the content also
 ## defines a Siege Engine, which fights on the PLAYER team, and scaling
 ## "all enemies" would nerf the player.
 func _hostile_ids() -> Array:
 	var ids := {}
-	for eid in RoomLibrary.pickable_ids():
+	for eid in RoomLibrary.fight_ids():
 		for spawn in RoomLibrary.get_room(eid).enemy_spawns:
 			ids[spawn.get("enemy_id", &"")] = true
 	for id in ids.keys().duplicate():
@@ -74,7 +74,7 @@ func _run_arm(arm: Dictionary) -> void:
 	var wins := 0
 	var fights := 0
 	var per_room := {}
-	for eid in RoomLibrary.pickable_ids():
+	for eid in RoomLibrary.fight_ids():
 		var encounter := RoomLibrary.get_room(eid)
 		var rw := 0
 		var rf := 0

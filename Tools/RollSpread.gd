@@ -14,7 +14,7 @@ func _init() -> void:
 	var parties := _parties(class_ids)
 	var totals := {&"fixed": _Acc.new(), &"rolled": _Acc.new()}
 
-	for encounter_id in RoomLibrary.pickable_ids():
+	for encounter_id in RoomLibrary.fight_ids():
 		var encounter := RoomLibrary.get_room(encounter_id)
 		print("")
 		print("======== ", encounter_id, " ========")
@@ -36,7 +36,7 @@ func _init() -> void:
 			print("  %-8s %s" % [arm, acc.line()])
 
 	print("")
-	print("======== ALL PICKABLE ROOMS, ALL BUILDABLE PARTIES ========")
+	print("======== EVERY ROOM WITH A FIGHT, ALL BUILDABLE PARTIES ========")
 	for arm in [&"fixed", &"rolled"]:
 		print("  %-8s %s" % [arm, totals[arm].line()])
 

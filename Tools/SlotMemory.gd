@@ -1,7 +1,7 @@
 extends Node
 
 ## Resident texture memory after every party has been watched fighting in every
-## pickable room, to the end.
+## room with a fight in it, to the end.
 ##
 ## Asking what one body costs answers the wrong question: what matters is what a
 ## whole session of fights leaves resident, because a wind-up and a death each
@@ -20,12 +20,12 @@ func _ready() -> void:
 	var parties: Array = ScreenSweepScript.sweep_parties(ClassLibrary.all_ids())
 	var deaths := 0
 	for party_ids in parties:
-		for encounter_id in RoomLibrary.pickable_ids():
+		for encounter_id in RoomLibrary.fight_ids():
 			deaths += await _watch(party_ids, encounter_id)
 	await RenderingServer.frame_post_draw
 	var after := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)
 	print("SlotMemory: %d fights watched, %d deaths drawn" % [
-		parties.size() * RoomLibrary.pickable_ids().size(), deaths])
+		parties.size() * RoomLibrary.fight_ids().size(), deaths])
 	print("SlotMemory: texture memory before %d, after %d, unit art %d bytes" % [
 		before, after, after - before])
 	get_tree().quit(0)

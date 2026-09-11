@@ -20,7 +20,7 @@ func _init() -> void:
 	var enemy_shots := 0
 	var wins := 0
 	var fights := 0
-	for encounter_id in RoomLibrary.pickable_ids():
+	for encounter_id in RoomLibrary.fight_ids():
 		var encounter := RoomLibrary.get_room(encounter_id)
 		for s in SEEDS:
 			var party: Array[PawnData] = []

@@ -14,9 +14,9 @@ const ARM_LIBRARY := &"library"
 
 func _init() -> void:
 	var class_ids := ClassLibrary.all_ids()
-	var encounter_ids := RoomLibrary.pickable_ids()
+	var encounter_ids := RoomLibrary.fight_ids()
 	print("classes: ", class_ids)
-	print("pickable encounters: ", encounter_ids)
+	print("rooms with a fight: ", encounter_ids)
 
 	_print_budgets(class_ids)
 
@@ -47,7 +47,7 @@ func _init() -> void:
 			print("  %-22s %s" % [arm, acc.line()])
 
 	print("")
-	print("======== ALL PICKABLE ROOMS, ALL BUILDABLE PARTIES ========")
+	print("======== EVERY ROOM WITH A FIGHT, ALL BUILDABLE PARTIES ========")
 	print("  %-22s %-14s %-22s %s" % ["arm", "player wins", "party hp at end", "ticks"])
 	for arm in arms:
 		print("  %-22s %s" % [arm, totals[arm].line()])
