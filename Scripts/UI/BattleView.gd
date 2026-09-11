@@ -1231,10 +1231,18 @@ func _take_ghost() -> void:
 ## The log and the team panel are down for the travel: the picture above
 ## already carries a copy of them, and two of each on one screen reads as a
 ## fault rather than as a move.
+## The log, the team panel and the hint, one by one rather than the whole `Hud`
+## layer: the pause menu lives on it too, and a menu opened during the travel
+## would be a screen the player cannot see.
 func _show_hud(shown: bool) -> void:
-	var hud := get_node_or_null("Hud")
-	if hud != null:
-		hud.visible = shown
+	for node in [_combat_log, _team_status]:
+		if node != null and is_instance_valid(node):
+			node.visible = shown
+	if _click_hint != null and is_instance_valid(_click_hint):
+		if shown:
+			_sync_click_hint()
+		else:
+			_click_hint.visible = false
 
 func _drop_ghost() -> void:
 	if _slide_ghost != null and is_instance_valid(_slide_ghost):
