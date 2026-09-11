@@ -327,18 +327,20 @@ static func proc_source_text(source, e: CombatEvent) -> String:
 			return String(extra["source"])
 	return ""
 
-## Issue 931: the gear behind a verb that fires on an event rather than on a
-## hit. Named off the affix's own effect, so the log and the trait strip credit
-## the same piece.
+## Issue 938: EVERY piece carrying the verb, because `gear_life_leech` and
+## `gear_resource_on_kill` both sum across pieces -- naming only the first
+## credited one contributor for an amount two of them produced.
 static func _affix_tag(source, effect: AffixDef.Effect) -> String:
 	if source == null or source.pawn == null:
 		return ""
+	var parts: Array[String] = []
 	for item in source.pawn.equipment():
 		for r in item.affixes:
 			if r != null and r.affix != null and r.affix.effect == effect:
-				return " [color=%s][%s: %s][/color]" % [
-					Palette.INK_DIM.to_html(), item.display_name, r.affix.display_name]
-	return ""
+				parts.append("%s: %s" % [item.display_name, r.affix.display_name])
+	if parts.is_empty():
+		return ""
+	return " [color=%s][%s][/color]" % [Palette.INK_DIM.to_html(), ", ".join(parts)]
 
 ## Read off the action's own effects, so an action that already applies the
 ## status is never credited to a piece of gear that happens to add the same one.

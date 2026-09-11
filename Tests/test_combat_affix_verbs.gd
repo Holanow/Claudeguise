@@ -257,3 +257,51 @@ func test_a_rolled_chance_lands_at_the_rate_it_says() -> void:
 		if target.has_status(CG.Status.BLEED):
 			landed += 1
 	assert_almost_eq(float(landed) / 2000.0, 0.20, 0.03, "a fifth of landed hits bleed")
+
+# ---------------------------------------------------------------------------
+# Issue 938: two pieces leech, and the log used to name one of them.
+
+func _named_item(item_id: StringName, display: String, roll: AffixRoll) -> EquipmentDef:
+	var e := EquipmentDef.new()
+	e.id = item_id
+	e.display_name = display
+	e.affixes = [roll] as Array[AffixRoll]
+	return e
+
+## `gear_life_leech` sums across pieces, so the amount is jointly produced and
+## the tag names every contributor rather than whichever slot came first.
+func test_two_leeching_pieces_are_both_named() -> void:
+	var attacker := _unit(0, CG.Team.PLAYER, 100, _affix(AffixDef.Effect.LIFE_LEECH, 0.25))
+	attacker.pawn.main_hand = _named_item(&"probe_blade", "Probe Blade",
+		_affix(AffixDef.Effect.LIFE_LEECH, 0.25))
+	attacker.pawn.off_hand = _named_item(&"probe_ring", "Probe Ring",
+		_affix(AffixDef.Effect.LIFE_LEECH, 0.25))
+	attacker.hp = 50
+	var target := _unit(1, CG.Team.ENEMY, 100, null)
+	var state := _state(attacker, target, 938)
+	CombatSim._apply_damage(state, attacker, target, _action(), 0.0, _deps(20.0))
+
+	var leeched := _events(state, CG.EventKind.LEECHED)
+	assert_eq(leeched.size(), 1)
+	assert_eq(attacker.hp, 60, "the two 25% pieces sum to half of a 20 damage hit")
+	var view := CombatLogView.new()
+	var line := view.line_for_event(state, leeched[0])
+	assert_true(line.contains("Probe Blade: Probe, Probe Ring: Probe"),
+		"only one of the two contributing pieces was named: %s" % line)
+	view.free()
+
+## The negative half: a pawn wearing nothing that leeches gets no tag at all,
+## so the brackets never appear empty.
+func test_a_pawn_with_no_leeching_gear_gets_no_tag() -> void:
+	var attacker := _unit(0, CG.Team.PLAYER, 100, _affix(AffixDef.Effect.LIFE_LEECH, 0.5))
+	attacker.hp = 50
+	var target := _unit(1, CG.Team.ENEMY, 100, null)
+	var state := _state(attacker, target, 938)
+	CombatSim._apply_damage(state, attacker, target, _action(), 0.0, _deps(20.0))
+	var leeched := _events(state, CG.EventKind.LEECHED)
+	attacker.pawn.main_hand = null
+	var view := CombatLogView.new()
+	var line := view.line_for_event(state, leeched[0])
+	assert_false(line.contains("Probe Blade"),
+		"a pawn wearing no leeching piece was still tagged: %s" % line)
+	view.free()

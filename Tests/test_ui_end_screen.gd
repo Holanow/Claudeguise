@@ -581,3 +581,56 @@ func test_the_end_card_line_survives_more_hits_than_casts() -> void:
 
 	assert_eq(EndScreenScript.ledger_lines(s)[1], "Dealt most: test_cleave (12, 1 cast, 2 hit).",
 		"a cast that landed twice printed as a ratio the wrong way round")
+
+# ---------------------------------------------------------------------------
+# Issue 938: leech is health the bar moved and it was on no screen.
+
+func _leech(tick: int, unit: int, amount: int) -> CombatEvent:
+	var e := CombatEvent.make(CG.EventKind.LEECHED, tick)
+	e.source_id = unit
+	e.target_id = unit
+	e.amount = amount
+	return e
+
+func test_a_leech_credits_the_pawn_that_leeched_it() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_pawn_unit(1, &"priest"))
+	s.events.append(_leech(1, 0, 7))
+	s.events.append(_heal(2, 1, 0, 4))
+
+	var rows := EndScreenScript.tally(s)
+	assert_eq(int(rows[0]["healed"]), 7, "the leecher's own Healed column did not move")
+	assert_eq(int(rows[1]["healed"]), 4, "a leech was credited to somebody who cast a heal")
+
+func test_a_zero_leech_credits_nobody() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.events.append(_leech(1, 0, 0))
+	assert_eq(int(EndScreenScript.tally(s)[0]["healed"]), 0)
+
+## Named separately as well as summed, because "leech is worth a slot" and
+## "the Priest is healing enough" are two different questions off one column.
+func test_the_end_card_names_what_the_gear_leeched() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_fire(1, 0, &"test_jab"))
+	s.events.append(_hit(1, 0, 1, &"test_jab", 20))
+	s.events.append(_leech(1, 0, 6))
+	s.events.append(_leech(3, 0, 5))
+
+	assert_eq(EndScreenScript.leeched_total(s), 11, "the two leeches are not totalled")
+	assert_true(EndScreenScript.ledger_lines(s).has("Leeched by your gear: 11."),
+		"the end card says nothing about leech: %s" % str(EndScreenScript.ledger_lines(s)))
+
+## The negative half: a card with no leeching gear on it must not grow a line
+## reading zero, the same rule the arrival heal follows.
+func test_a_fight_with_no_leech_grows_no_leech_line() -> void:
+	var s := _state()
+	s.units.append(_pawn_unit(0, &"warrior"))
+	s.units.append(_enemy_unit(1))
+	s.events.append(_fire(1, 0, &"test_jab"))
+	s.events.append(_hit(1, 0, 1, &"test_jab", 20))
+	for line in EndScreenScript.ledger_lines(s):
+		assert_false(line.begins_with("Leeched"), "a fight with no leech printed %s" % line)
