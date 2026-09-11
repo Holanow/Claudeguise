@@ -1160,6 +1160,10 @@ func _show_chest() -> void:
 	if _chest == null or not is_instance_valid(_chest):
 		_chest = FloorChest.new()
 		_arena.add_child(_chest)
+		# Under the bodies, the same as a door: a pawn standing in the middle of
+		# a cleared room must not disappear behind the reward.
+		if _unit_layer != null and is_instance_valid(_unit_layer):
+			_arena.move_child(_chest, _unit_layer.get_index())
 	_chest.show_chest()
 
 ## The click: everything in the chest joins the run, whatever fits an empty
