@@ -3,10 +3,9 @@ extends SceneTree
 ## Issue 166. What the Channel does to a real fight, measured against the same
 ## fight without it. Nothing here decides a number; it reports one.
 ##
-## Both arms run the same encounters and the same seeds. Arm B rebuilds the
-## pre-166 starter pawn out of the shipped one -- the Channel row removed and
-## the Robes taken back off -- so the arms differ by the ability AND by the
-## Robes' 0.05 damage reduction, which confounds every number below.
+## Issue 922: the arms differ by the Channel plan row and by nothing else --
+## same pawns, same gear, same encounters, same seeds -- so movement between
+## them is the row's.
 ##
 ## Nothing is sampled mid-tick: every count below comes from `state.events`
 ## after the fight, so no probe reads a unit between decide and recover.
@@ -14,7 +13,6 @@ extends SceneTree
 const SEEDS := 20
 const CLASSES := ["warrior", "priest", "abomination", "geysermancer", "siege_master"]
 const CHANNEL := &"channel_mana"
-const CASTERS := [&"priest", &"geysermancer"]
 
 func _init() -> void:
 	print("seeds per party per encounter: ", SEEDS)
@@ -22,7 +20,8 @@ func _init() -> void:
 	for with_channel in [false, true]:
 		print("")
 		print("========================================================")
-		print("ARM: ", "WITH the Channel (shipped)" if with_channel else "WITHOUT (pre-166 pawns)")
+		print("ARM: ", "WITH the Channel (shipped)" if with_channel \
+			else "WITHOUT (the shipped pawn minus its Channel row)")
 		print("========================================================")
 		var wins := 0
 		var losses := 0
@@ -71,20 +70,21 @@ func _run(ids: Array, enc_id: StringName, s: int, with_channel: bool) -> Array:
 	var party: Array[PawnData] = []
 	for cid in ids:
 		var c := StringName(cid)
-		## `make_preset_pawn`: since #399 a starter pawn has no plan rows, so the
-		## Channel row this probe removes was never there and both arms were the
-		## same party (#472).
+		## `make_preset_pawn` and not `make_starter_pawn`: a starter pawn has no
+		## plan rows since #399, so the row this probe removes has to be there
+		## first or both arms are the same party (#472).
 		var pawn := PawnFactory.make_preset_pawn(
 			c, StringName("%s_%d" % [cid, party.size()]), ClassLibrary.get_class_def(c).display_name)
 		if not with_channel:
-			_strip_channel(pawn, c)
+			_strip_channel(pawn)
 		party.append(pawn)
 	var state := CombatSim.build(party, RoomLibrary.get_room(enc_id), s)
 	var outcome := CombatSim.run(state)
 	return [state, outcome]
 
-## The pre-166 pawn: no Channel row, and no armour on the two casters.
-func _strip_channel(pawn: PawnData, class_id: StringName) -> void:
+## The shipped pawn minus its Channel row; gear is left alone, because the row
+## cap has been flat since #790 and nothing a pawn wears pays for a row.
+func _strip_channel(pawn: PawnData) -> void:
 	var kept: Array[Plan] = []
 	for p in pawn.plans:
 		var uses_channel := false
@@ -95,5 +95,3 @@ func _strip_channel(pawn: PawnData, class_id: StringName) -> void:
 		if not uses_channel:
 			kept.append(p)
 	pawn.plans = kept
-	if CASTERS.has(class_id):
-		pawn.body = null
