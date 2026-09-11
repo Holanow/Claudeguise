@@ -31,10 +31,15 @@ const SECOND_WIND_ABOVE_FALLBACK := 0.7
 ## that reaches nobody.
 const TAUNT_AT_RADIUS := 350.0
 
-## Issue 592: how far the Geysermancer's Scald row and the Siege Master's Mark
-## row look for a target. It matches the reach below, so neither row can
-## gate a cast at 200 while the spell it orders reaches 350.
+## Issue 592: how far the Geysermancer's Scald row looks for a target. It is
+## `geyser_scald`'s own reach, so the row cannot gate a cast at 200 while the
+## spell it orders reaches 350.
 const CASTER_REACH := 350.0
+
+## Issue 764: how far the Siege Master's Mark row looks. It is `spotter_mark`'s
+## own `range_units`, so the row cannot refuse a cast the ability permits; a
+## number of its own because `CASTER_REACH` belongs to another class.
+const MARK_REACH := 1200.0
 
 ## What a library row needs before it can do anything, and which rows in the
 ## same library supply it. Issue 434: the content already knows "Blast the
@@ -166,7 +171,7 @@ static func for_class(class_id: StringName) -> Array[Plan]:
 		&"siege_master":
 			return [
 				_plan(&"siege_master_mark_default", "Mark the target",
-					_enemy_in_range(CASTER_REACH),
+					_enemy_in_range(MARK_REACH),
 					[TargetFarthestEnemyBlock.new(), _use(&"spotter_mark")]),
 				_plan(&"siege_master_build_when_ready", "Build the engine",
 					_resource_at_least(BUILD_WHEN_READY),

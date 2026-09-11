@@ -167,11 +167,11 @@ func _print(l: DamageLedger.Ledger, t: Dictionary) -> void:
 	var abilities: Dictionary = l.by_ability.get(CG.Team.PLAYER, {})
 	var fired: Dictionary = l.fires.get(CG.Team.PLAYER, {})
 	for id in [SHOT, BOLT]:
-		var row: Dictionary = abilities.get(id, {"total": 0, "casts": 0})
-		## The ledger's "casts" column counts DAMAGE events, not casts, so both
-		## numbers are printed here beside each other.
+		var row: Dictionary = abilities.get(id, {"total": 0, "hits": 0})
+		## Issue 927 renamed this column: `hits` counts DAMAGE events and
+		## `fires` counts casts, and reading `casts` here crashed the tool.
 		print("  %-20s damage %6d over %3d damage events, from %3d casts" % [
-			String(id), row.total, row.casts, int(fired.get(id, {}).get("count", 0))])
+			String(id), row.total, row.hits, int(fired.get(id, {}).get("count", 0))])
 	print("")
 	print("  engines built                 %d" % t.engines_built)
 	print("  ticks an engine was alive     %d" % t.engine_alive_ticks)

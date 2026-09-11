@@ -113,6 +113,13 @@ static func tally(state: CombatState) -> Array[Dictionary]:
 			if index.has(e.target_id):
 				rows[index[e.target_id]]["died_tick"] = e.tick
 			continue
+		## Issue 938: a leech is health the bar moved, credited to the leecher.
+		## `_leech_from_hit` heals its own caster, so there is no summon to
+		## resolve and `source_id` is already the pawn.
+		if e.kind == CG.EventKind.LEECHED:
+			if e.amount > 0 and index.has(e.source_id):
+				rows[index[e.source_id]]["healed"] += e.amount
+			continue
 		if e.kind == CG.EventKind.HEAL:
 			if e.amount > 0:
 				var healer := e.source_id
@@ -306,6 +313,16 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 ## arrival heal and #802's camp revive both, which are the two HEALs
 ## `FloorRun.carry_into` emits with no caster (#799). `tally` above can credit
 ## a caster-less heal to no pawn, so this screen names the arrival instead.
+## Issue 938: what the party's gear leeched back, separately from what it cast.
+## The `Healed` column sums the two, and leech is the half a buff or a nerf
+## would hang on, so it is named rather than only added.
+static func leeched_total(state: CombatState) -> int:
+	var total := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.LEECHED and e.amount > 0:
+			total += e.amount
+	return total
+
 static func arrival_healed(state: CombatState) -> int:
 	var total := 0
 	for e in state.events:
@@ -343,6 +360,10 @@ static func ledger_lines(state: CombatState) -> Array[String]:
 	var arrival := arrival_healed(state)
 	if arrival > 0:
 		lines.append("Recovered on arrival: %d." % arrival)
+	## Left off entirely when nobody wears a leeching piece.
+	var leeched := leeched_total(state)
+	if leeched > 0:
+		lines.append("Leeched by your gear: %d." % leeched)
 	return lines
 
 # ---------------------------------------------------------------------------
