@@ -85,7 +85,7 @@ func _report_repeatability() -> void:
 			if name.begins_with(prefix):
 				loose.append(name)
 				break
-	print("ScreenSweep: %d of %d shots repeat byte for byte at seed %s." % [
+	print("ScreenSweep: %d of %d shots carry no live VFX at seed %s; compare those." % [
 		_taken.size() - loose.size(), _taken.size(), _seed_text()])
 	if loose.is_empty():
 		return
@@ -152,7 +152,9 @@ func _shot(name: String) -> void:
 	var path := "%s/%s_%s_%s.png" % [OUT_DIR, name, _res_tag, _seed_text()]
 	image.save_png(path)
 	_taken.append(name)
-	print("ScreenSweep: %s" % path)
+	## The hash, so two run logs settle "did this shot move" without the files.
+	print("ScreenSweep: %s %s" % [
+		FileAccess.get_sha256(ProjectSettings.globalize_path(path)).substr(0, 16), path])
 
 func _walk(node: Node) -> Array[Node]:
 	var out: Array[Node] = [node]
