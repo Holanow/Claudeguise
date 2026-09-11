@@ -197,8 +197,8 @@ func test_the_camp_drops_no_loot() -> void:
 	var plan := FloorGenerator.generate(3)
 	var party := _pair()
 	var run := FloorRun.new()
-	assert_true(FloorRun.award_room_loot(run, plan.room(plan.camp_id), party, 3) == null,
-		"the camp rolls no drop")
+	assert_eq(FloorRun.award_room_loot(run, plan.room(plan.camp_id), party, 3),
+		[] as Array[EquipmentDef], "the camp fills no chest")
 	assert_eq(run.loot.size(), 0)
 
 ## The detour rule, which the live floor and the headless sweep both read.

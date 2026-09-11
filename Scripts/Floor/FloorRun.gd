@@ -18,6 +18,11 @@ var carry: Dictionary = {}
 ## What the party has picked up this run, in the order rooms dropped it.
 var loot: Array[EquipmentDef] = []
 
+## Issue 919: the picked-up pieces nobody is wearing. The equip screen offers
+## these beside the registry, so a chest that pays out into full slots is still
+## something the player can use rather than a line in a log.
+var bag: Array[EquipmentDef] = []
+
 ## Called when a room resolves and something drops. Records it; does not
 ## touch any pawn, same as record_result does not touch CombatSim.
 func add_loot(item: EquipmentDef) -> void:
@@ -37,28 +42,77 @@ const SLOT_PROPERTY := {
 	EquipmentDef.Slot.ACCESSORY: &"accessory",
 }
 
-## The whole award for one resolved room: roll that room's own drop table and
-## put what falls out on the first party member who can wear it. Returns the
-## item or null, and is the only caller of `LootTables.roll_drop` in the game.
-##
-## Seeded from the floor and the room rather than from the fight, so the drop
-## is deterministic and does not perturb a single tick of combat.
-static func award_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData], floor_seed: int) -> EquipmentDef:
+## Issue 919: the 1-based floor this run is on. Never `room.difficulty` -- a
+## difficulty-2 room on floor 1 would open the verb tier (#916).
+var floor_index: int = 1
+
+## Issue 919: how many chests in a row have put nothing on a pawn. README asks
+## for a pity counter, and this is what it counts.
+var unworn_chests: int = 0
+
+## What a cleared room's chest holds, rolled the moment the room resolves.
+## Seeded from the floor and the room rather than from the fight, so the
+## contents are deterministic and do not perturb a single tick of combat.
+static func roll_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData],
+		floor_seed: int) -> Array[EquipmentDef]:
 	if room.type == FloorRoom.Type.CAMP:
-		return null
-	var wearable := _wearable_ids(run, party)
-	if wearable.is_empty():
-		return null
+		return [] as Array[EquipmentDef]
+	var living := _living(run, party)
+	if living.is_empty():
+		return [] as Array[EquipmentDef]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([floor_seed, room.content_id, "loot"])
-	var item := LootTables.roll_drop(room.type, room.difficulty, rng, wearable)
-	if item == null:
-		return null
-	run.add_loot(item)
-	var taker := _taker_for(run, party, item)
-	taker.set(SLOT_PROPERTY[item.slot], item)
-	run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
-	return item
+	var batch := LootTables.roll_batch(living, run.floor_index, rng)
+	if run.unworn_chests >= LootTables.PITY_LIMIT:
+		_apply_pity(run, living, batch, rng)
+	return batch
+
+## Issue 919: after PITY_LIMIT chests that dressed nobody, one piece of the next
+## chest is replaced by something a living pawn has an empty legal slot for.
+static func _apply_pity(run: FloorRun, living: Array[PawnData],
+		batch: Array[EquipmentDef], rng: RandomNumberGenerator) -> void:
+	if batch.is_empty():
+		return
+	var fits := LootTables.wearable_ids(living, func(p: PawnData, item: EquipmentDef) -> bool:
+		return _slot_is_free(p, item))
+	if fits.is_empty():
+		return
+	batch[0] = ItemRoller.roll(
+		ItemLibrary.get_equipment(fits[rng.randi_range(0, fits.size() - 1)]),
+		run.floor_index, rng)
+
+## The player has opened the chest. Everything in it joins the run's bag, and
+## whatever fits an empty slot on a living pawn is put on. Returns how many
+## pieces were actually worn, which is what the pity counter reads.
+static func take_chest(run: FloorRun, party: Array[PawnData], batch: Array[EquipmentDef]) -> int:
+	var worn := 0
+	for item in batch:
+		run.add_loot(item)
+		var taker := _taker_for(run, party, item)
+		if taker == null:
+			run.bag.append(item)
+			continue
+		taker.set(SLOT_PROPERTY[item.slot], item)
+		run.pending_pickups.append({"pawn_id": taker.id, "item_id": item.id})
+		worn += 1
+	run.unworn_chests = 0 if worn > 0 else run.unworn_chests + 1
+	return worn
+
+## Roll and open in one call, for a headless sweep that has no chest to click.
+## The live floor splits the two: the chest is filled when the room resolves
+## and emptied when the player clicks it.
+static func award_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData],
+		floor_seed: int) -> Array[EquipmentDef]:
+	var batch := roll_room_loot(run, room, party, floor_seed)
+	take_chest(run, party, batch)
+	return batch
+
+static func _living(run: FloorRun, party: Array[PawnData]) -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for p in party:
+		if run.is_alive(p.id):
+			out.append(p)
+	return out
 
 ## Party order, living pawns, first empty slot this class is allowed to fill.
 ## **Empty slots only, never an upgrade** -- deciding one item is better than
@@ -69,25 +123,19 @@ static func _taker_for(run: FloorRun, party: Array[PawnData], item: EquipmentDef
 			continue
 		if not item.allows_class(p.pawn_class):
 			continue
-		## Issue 917: an off hand is not empty when a two-hander fills it, and a
-		## two-hander cannot land on a pawn already carrying an off hand.
-		if item.slot == EquipmentDef.Slot.OFF_HAND and p.off_hand_blocked():
-			continue
-		if item.two_handed and p.off_hand != null:
-			continue
-		if p.get(SLOT_PROPERTY[item.slot]) == null:
+		if _slot_is_free(p, item):
 			return p
 	return null
 
-## What this party could actually put on right now. Without it the roll is
-## uniform over the whole library and most of it lands on a slot `PawnFactory`
-## already filled, which is a list nobody wears rather than loot.
-static func _wearable_ids(run: FloorRun, party: Array[PawnData]) -> Array[StringName]:
-	var out: Array[StringName] = []
-	for id in ItemLibrary.all_ids():
-		if _taker_for(run, party, ItemLibrary.get_equipment(id)) != null:
-			out.append(id)
-	return out
+## Whether this piece has a free slot on this pawn, gates aside. The two-hand
+## rules are the whole of it: an off hand is not free when a two-hander fills
+## it, and a two-hander cannot land on a pawn already carrying an off hand.
+static func _slot_is_free(pawn: PawnData, item: EquipmentDef) -> bool:
+	if item.slot == EquipmentDef.Slot.OFF_HAND and pawn.off_hand_blocked():
+		return false
+	if item.two_handed and pawn.off_hand != null:
+		return false
+	return pawn.get(SLOT_PROPERTY[item.slot]) == null
 
 ## `floor_plan` is optional: issue 729's linear floor sequence has no graph,
 ## only order, and needs the `carry` bookkeeping below without one.

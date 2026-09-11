@@ -1,47 +1,99 @@
 extends "res://Tests/TestCase.gd"
 
 
-## Issue 42: items are loot per issue 41's own outcome. What drops, and how
-## often, against the real Registry content.
+## Issue 919: what a cleared room's chest holds. The per-room-type drop chance
+## this file used to check is gone -- the player's rate is "every fight on floor
+## 1 drops 1 to 3 items", so there is no room type that pays nothing.
 
-func test_ordinary_rooms_never_drop() -> void:
+func _party() -> Array[PawnData]:
+	var out: Array[PawnData] = []
+	for id in [&"warrior", &"priest", &"geysermancer", &"siege_master"]:
+		out.append(PawnFactory.make_starter_pawn(id, id, String(id)))
+	return out
+
+
+func test_every_chest_holds_between_one_and_three_pieces() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 1
-	for t in [FloorRoom.Type.ENEMY, FloorRoom.Type.TRAP, FloorRoom.Type.LIBRARY, FloorRoom.Type.CELL]:
-		for i in 20:
-			assert_eq(LootTables.roll_drop(t, 1, rng), null, "%s should never drop" % FloorRoom.type_name(t))
+	rng.seed = 919
+	var sizes := {}
+	for i in 200:
+		var batch := LootTables.roll_batch(_party(), 1, rng)
+		assert_true(batch.size() >= LootTables.MIN_ITEMS and batch.size() <= LootTables.MAX_ITEMS,
+			"a chest held %d pieces" % batch.size())
+		sizes[batch.size()] = true
+	assert_eq(sizes.size(), 3, "200 chests produced only %d distinct sizes" % sizes.size())
 
 
-func test_treasure_and_boss_rooms_always_drop() -> void:
+## README: every drop batch guarantees at least one item usable by a current
+## pawn. "Usable" is the class gate, not an empty slot -- the empty slot is the
+## pity counter's business.
+func test_every_chest_holds_something_a_living_pawn_is_allowed() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 2
-	for t in [FloorRoom.Type.TREASURE, FloorRoom.Type.BOSS]:
-		for i in 20:
-			var item := LootTables.roll_drop(t, 1, rng)
-			assert_not_null(item, "%s should always drop something" % FloorRoom.type_name(t))
+	rng.seed = 5
+	var party := _party()
+	for i in 120:
+		var batch := LootTables.roll_batch(party, 1, rng)
+		var usable := false
+		for item in batch:
+			for p in party:
+				if item.allows_class(p.pawn_class):
+					usable = true
+		assert_true(usable, "a chest held nothing this party is allowed")
 
 
-func test_miniboss_and_big_enemy_rooms_sometimes_drop() -> void:
+## And with a party of one class, the guarantee still holds against a library
+## most of which that class is refused.
+func test_the_guarantee_holds_for_a_single_class_party() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 3
-	var got_something := false
-	var got_nothing := false
+	rng.seed = 6
+	var party: Array[PawnData] = [PawnFactory.make_starter_pawn(&"warrior", &"w", "W")]
+	for i in 120:
+		var usable := false
+		for item in LootTables.roll_batch(party, 1, rng):
+			if item.allows_class(party[0].pawn_class):
+				usable = true
+		assert_true(usable, "a Warrior-only party was handed a chest it could use none of")
+
+
+## The weighting reads the party's classes and never what they are wearing, so
+## stripping every slot must not change the distribution at all.
+func test_the_weighting_does_not_read_equipped_gear() -> void:
+	var dressed := _party()
+	var stripped := _party()
+	for p in stripped:
+		p.main_hand = null
+		p.off_hand = null
+		p.body = null
+	var a := RandomNumberGenerator.new()
+	a.seed = 33
+	var b := RandomNumberGenerator.new()
+	b.seed = 33
 	for i in 40:
-		var item := LootTables.roll_drop(FloorRoom.Type.MINIBOSS, 1, rng)
-		if item != null:
-			got_something = true
-		else:
-			got_nothing = true
-	assert_true(got_something, "MINIBOSS should drop sometimes")
-	assert_true(got_nothing, "MINIBOSS should not drop every time")
+		var one := LootTables.roll_batch(dressed, 1, a)
+		var two := LootTables.roll_batch(stripped, 1, b)
+		assert_eq(one.size(), two.size())
+		for j in one.size():
+			assert_eq(one[j].id, two[j].id, "what the party is wearing moved the roll")
 
 
-func test_a_dropped_item_is_a_real_registered_item() -> void:
+func test_a_dropped_piece_is_a_roll_of_a_real_registered_base() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4
-	var item := LootTables.roll_drop(FloorRoom.Type.TREASURE, 1, rng)
-	assert_not_null(item)
-	assert_eq(ItemLibrary.get_equipment(item.id), item)
+	for item in LootTables.roll_batch(_party(), 1, rng):
+		assert_not_null(ItemLibrary.get_equipment(item.id),
+			"%s is not a registered base type" % item.id)
+
+
+## Floor 1 rolls numbers only. #931 records that `AffixDef.Kind.VERB` is a stub,
+## so this is asserted through `ItemRoller.unlocked` rather than through content.
+func test_a_floor_one_chest_rolls_no_verb() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 8
+	for i in 60:
+		for item in LootTables.roll_batch(_party(), 1, rng):
+			for roll in item.affixes:
+				assert_ne(int(roll.affix.kind), int(AffixDef.Kind.VERB),
+					"%s rolled a verb on floor 1" % item.id)
 
 
 func test_same_seed_replays_bit_identical() -> void:
@@ -50,8 +102,8 @@ func test_same_seed_replays_bit_identical() -> void:
 	var rng_b := RandomNumberGenerator.new()
 	rng_b.seed = 777
 	for i in 10:
-		var item_a := LootTables.roll_drop(FloorRoom.Type.MINIBOSS, 2, rng_a)
-		var item_b := LootTables.roll_drop(FloorRoom.Type.MINIBOSS, 2, rng_b)
-		var id_a: StringName = item_a.id if item_a != null else &""
-		var id_b: StringName = item_b.id if item_b != null else &""
-		assert_eq(id_a, id_b, "same seed should produce the same drop sequence")
+		var a := LootTables.roll_batch(_party(), 1, rng_a)
+		var b := LootTables.roll_batch(_party(), 1, rng_b)
+		assert_eq(a.size(), b.size(), "same seed should produce the same chest")
+		for j in a.size():
+			assert_eq(a[j].display_name, b[j].display_name)

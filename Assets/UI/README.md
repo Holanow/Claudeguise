@@ -256,6 +256,7 @@ clicking one walks the party into that room.
 | `door/east.png` | The doorway in the right wall |
 | `door/south.png` | The doorway in the bottom wall |
 | `door/west.png` | The doorway in the left wall |
+| `room/chest.png` | The chest a cleared room leaves behind, clicked for its loot (#919) |
 
 **Each one is drawn facing into the room it is on the edge of.** The shipped
 four are one shape rotated, baked by `Tools/BakeDoors.gd`; a replacement set

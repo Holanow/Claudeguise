@@ -3,7 +3,7 @@ class_name ItemRoller
 
 ## Issue 916: turns an authored base item into a generated one. Every draw
 ## comes from the `RandomNumberGenerator` the caller passes, the same way
-## `LootTables.roll_drop` takes one -- never from `randomize`, `shuffle` or
+## `LootTables.roll_batch` takes one -- never from `randomize`, `shuffle` or
 ## `pick_random`, each of which reads the global stream and would make a run
 ## unreproducible.
 

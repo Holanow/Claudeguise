@@ -40,6 +40,12 @@ var _floor_seed: int = 0
 var _floor_doors_open: bool = false
 var _doors: FloorDoors = null
 
+## Issue 919: what the cleared room's chest holds, rolled when the room
+## resolved and emptied by the click. Clickable once, and lost when the party
+## leaves -- a chest that follows them is a bag, and there is no inventory.
+var _chest_loot: Array[EquipmentDef] = []
+var _chest: FloorChest = null
+
 ## How long the screen takes to travel one room's width. >= 0.0 while it is
 ## travelling; the new room is started at the halfway point.
 const FLOOR_SLIDE_SECONDS := 0.55
@@ -631,6 +637,8 @@ func _open_plans(focus: PawnData) -> void:
 	if _unit_card != null:
 		_unit_card.dismiss()
 	if _inspect_panel != null and config != null:
+		if _floor_run != null:
+			_inspect_panel.bag = _floor_run.bag
 		_inspect_panel.open(config.party, state, focus)
 	_sync_click_hint()
 
@@ -1108,12 +1116,12 @@ func _handle_fight_end() -> void:
 		var first_time := not _floor_walk.is_cleared(_floor_walk.current_id)
 		_record_floor_result()
 		if first_time:
-			## Issue 811: the room is over, so its drop table pays out. After
-			## `_record_floor_result`, which is what tells the award who is
-			## still alive to carry it, and before the branch below so the boss
-			## room drops too even though its item can change nothing here.
-			FloorRun.award_room_loot(_floor_run, _floor_walk.plan.room(_floor_walk.current_id),
-				_floor_party, _floor_seed)
+			## Issue 919: the room is over, so its chest is filled. After
+			## `_record_floor_result`, which is what tells the roll who is still
+			## alive to use it. A re-entered room fills no chest, which is the
+			## same guard #805 put on the arrival heal.
+			_chest_loot = FloorRun.roll_room_loot(_floor_run,
+				_floor_walk.plan.room(_floor_walk.current_id), _floor_party, _floor_seed)
 			_floor_walk.mark_cleared(_floor_walk.current_id)
 		if not _floor_finished():
 			_open_doors()
@@ -1142,9 +1150,45 @@ func _open_doors() -> void:
 			_arena.move_child(_doors, _unit_layer.get_index())
 	_doors.show_exits(_floor_walk.exits())
 	_floor_doors_open = true
+	_show_chest()
+
+## Issue 919: the chest stands in the middle of the cleared room, beside the
+## doors, and only when this room's own chest still has something in it.
+func _show_chest() -> void:
+	if _chest_loot.is_empty():
+		return
+	if _chest == null or not is_instance_valid(_chest):
+		_chest = FloorChest.new()
+		_arena.add_child(_chest)
+	_chest.show_chest()
+
+## The click: everything in the chest joins the run, whatever fits an empty
+## slot goes on, and the chest is done. Returns what came out of it.
+func open_chest() -> Array[EquipmentDef]:
+	if not chest_open():
+		return [] as Array[EquipmentDef]
+	var taken := _chest_loot
+	_chest_loot = [] as Array[EquipmentDef]
+	FloorRun.take_chest(_floor_run, _floor_party, taken)
+	_close_chest()
+	return taken
+
+func chest_open() -> bool:
+	return _floor_doors_open and not _chest_loot.is_empty()
+
+## The chest a click at `at` (arena coordinates) opens.
+func chest_at(at: Vector2) -> bool:
+	if not chest_open() or _chest == null or not is_instance_valid(_chest):
+		return false
+	return _chest.has_point(at)
+
+func _close_chest() -> void:
+	if _chest != null and is_instance_valid(_chest):
+		_chest.clear_chest()
 
 func _close_doors() -> void:
 	_floor_doors_open = false
+	_close_chest()
 	if _doors != null and is_instance_valid(_doors):
 		_doors.clear_exits()
 
@@ -1173,6 +1217,9 @@ func take_door(room_id: int) -> void:
 	for e in _floor_walk.exits():
 		if int(e["room_id"]) == room_id:
 			_slide_dir = e["dir"]
+	## Issue 919, the manager's ruling: unclicked loot is lost when the party
+	## leaves. A chest that follows them is a bag, and bags are inventory.
+	_chest_loot = [] as Array[EquipmentDef]
 	# The picture first, while it is still the room being left.
 	_take_ghost()
 	_close_doors()
@@ -1394,7 +1441,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		## The other half of issue 397's discoverability: the pointer changes over
 		## anything you can open, which is the affordance every other program uses.
-		_set_hand_cursor(door_room_at(at) >= 0 or unit_at(state, at, _pick_radius()) >= 0)
+		_set_hand_cursor(door_room_at(at) >= 0 or chest_at(at)
+			or unit_at(state, at, _pick_radius()) >= 0)
 
 ## Outside setup this is what it always was -- the card opens on the press. In
 ## setup a press on your own pawn grabs it instead, and the card opens on the
@@ -1402,6 +1450,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_arena_button(event: InputEventMouseButton, at: Vector2) -> void:
 	if not setup:
 		if not event.pressed:
+			return
+		if chest_at(at):
+			open_chest()
 			return
 		var room := door_room_at(at)
 		if room >= 0:
@@ -1444,6 +1495,7 @@ func _rebuild_units() -> void:
 	# explicitly -- same trap #705 hit with a delayed VFXLayer's own timer.
 	_vfx = null
 	_doors = null
+	_chest = null
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it

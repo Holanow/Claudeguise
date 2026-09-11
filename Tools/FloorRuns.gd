@@ -40,7 +40,6 @@ func _init() -> void:
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
 	print(arm)
 	print(ReviveArgs.apply())
-	print(LootArgs.apply())
 	print("final state per run: %s\n" % (
 		"ON, cleared runs and near misses" if _detail else "off (--final-state)"))
 	for ids in comps:

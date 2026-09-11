@@ -44,6 +44,11 @@ var _selected_index: int = 0
 var _locked := false
 var _lock_reason := ""
 
+## Issue 919: pieces the run has picked up that nobody is wearing. A chest can
+## pay out something every slot is already full of, and without this the player
+## would never see it again. Empty for every caller but the in-run popout.
+var bag: Array[EquipmentDef] = []
+
 func set_locked(locked: bool, reason: String = "") -> void:
 	_locked = locked
 	_lock_reason = reason
@@ -256,6 +261,12 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 		if item.allows_class(pawn.pawn_class) != allowed:
 			continue
 		out.append(item)
+	## Issue 919: the run's unworn pickups, after the registry so a piece that
+	## is both stays one row.
+	if allowed:
+		for item in bag:
+			if _fits_slot(item, slot) and item.allows_class(pawn.pawn_class) and not out.has(item):
+				out.append(item)
 	return out
 
 ## Issue 916: a piece that came out of `ItemRoller` rather than out of the
@@ -382,9 +393,23 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 ## about loudly. The plan editor hit this on real button presses and fixed it
 ## the same way: defer the rebuild, not the free.
 func _on_slot_selected(pawn: PawnData, slot: int, items: Array[EquipmentDef], index: int) -> void:
-	_set_equipped(pawn, slot, null if index == 0 else items[index - 1])
+	var chosen: EquipmentDef = null if index == 0 else items[index - 1]
+	var displaced := equipped(pawn, slot)
+	_set_equipped(pawn, slot, chosen)
+	_move_between_bag_and_pawn(chosen, displaced)
 	call_deferred("_refresh", pawn)
 	equipment_changed.emit(pawn)
+
+## Issue 919: a piece taken out of the bag leaves it, and a piece it displaced
+## goes in only when it is a roll -- a registry item is always re-selectable
+## from the list below it, so putting one in the bag would only duplicate it.
+func _move_between_bag_and_pawn(chosen: EquipmentDef, displaced: EquipmentDef) -> void:
+	if chosen == displaced:
+		return
+	if chosen != null:
+		bag.erase(chosen)
+	if is_rolled(displaced) and not bag.has(displaced):
+		bag.append(displaced)
 
 func _refresh(pawn: PawnData) -> void:
 	_rebuild_list()
