@@ -25,8 +25,7 @@ func test_every_chest_holds_between_one_and_three_pieces() -> void:
 
 
 ## README: every drop batch guarantees at least one item usable by a current
-## pawn. "Usable" is the class gate, not an empty slot -- the empty slot is the
-## pity counter's business.
+## pawn. "Usable" is the class gate, not an empty slot.
 func test_every_chest_holds_something_a_living_pawn_is_allowed() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5

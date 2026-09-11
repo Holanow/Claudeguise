@@ -113,9 +113,8 @@ func test_the_off_hands_fill_empty_slots_would_give_are_legal_for_every_class() 
 		assert_true(piece != null and piece.allows_class(c),
 			"%s would start with %s and could not equip it" % [class_id, table.get(class_id)])
 
-## Issue 822: `accessory` must stay empty, because `FloorRun._wearable_ids`
-## filters every drop to a slot a living pawn can still fill and the censer is
-## the only accessory in the game. A pawn with nothing empty receives no loot.
+## Issue 822: `accessory` must stay empty, because the censer is the only
+## accessory in the game and a filled slot leaves the drop nothing to land on.
 func test_filling_empty_slots_leaves_the_accessory_free_for_loot() -> void:
 	var was := PawnFactory.FILL_EMPTY_SLOTS
 	PawnFactory.FILL_EMPTY_SLOTS = true
