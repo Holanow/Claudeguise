@@ -62,7 +62,8 @@ func _click(at: Vector2) -> void:
 		e.pressed = pressed
 		e.position = at
 		e.global_position = at
-		get_viewport().push_input(e)
+		## Issue 910: local coordinates, because the position is already viewport space and the default would transform it again.
+		get_viewport().push_input(e, true)
 		await _settle(2)
 
 ## What the card is showing, or "" when nothing is. Read off the panel rather

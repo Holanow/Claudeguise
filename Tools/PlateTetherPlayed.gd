@@ -57,7 +57,8 @@ func _click(c: Control) -> void:
 		e.pressed = pressed
 		e.position = at
 		e.global_position = at
-		get_viewport().push_input(e)
+		## Issue 910: local coordinates, because the position is already viewport space and the default would transform it again.
+		get_viewport().push_input(e, true)
 		await _settle(2)
 
 func _check(ok: bool, message: String) -> void:
