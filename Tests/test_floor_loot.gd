@@ -78,20 +78,36 @@ func test_opening_the_chest_records_everything_and_wears_what_fits() -> void:
 	var batch := FloorRun.roll_room_loot(run, _room(FloorRoom.Type.BOSS, &"floor1_warden"), party, 3)
 	var worn := FloorRun.take_chest(run, party, batch)
 	assert_eq(run.loot.size(), batch.size(), "every piece is recorded, worn or not")
-	assert_eq(run.bag.size(), batch.size() - worn, "what nobody could wear is in the bag")
+	for item in batch:
+		var equipped := false
+		for p in party:
+			if p.get(FloorRun.SLOT_PROPERTY[item.slot]) == item:
+				equipped = true
+		assert_true(equipped or run.bag.has(item), "every piece is worn or bagged, never lost")
 
 
-func test_nothing_ever_drops_into_a_slot_that_is_already_full() -> void:
+## Issue 947 reverses the old rule that a full slot was never touched. What
+## replaces it: strictly rarer wins, equal or worse leaves the incumbent alone.
+func test_only_a_rarer_piece_displaces_what_is_already_worn() -> void:
 	var party := _party()
 	var run := FloorRun.new()
-	var before := {}
-	for p in party:
-		before[p.id] = [p.main_hand, p.body]
-	for i in 20:
-		FloorRun.award_room_loot(run, _room(FloorRoom.Type.BOSS, &"room%d" % i), party, i)
-	for p in party:
-		assert_eq(p.main_hand, before[p.id][0], "a starting weapon is never replaced")
-		assert_eq(p.body, before[p.id][1], "starting armour is never replaced")
+	var wearer := party[0]
+	var incumbent: EquipmentDef = wearer.body
+	assert_ne(incumbent, null, "the fixture needs a pawn who starts with a body piece")
+
+	var sidegrade := incumbent.duplicate() as EquipmentDef
+	sidegrade.id = &"test_sidegrade"
+	FloorRun.take_chest(run, party, [sidegrade] as Array[EquipmentDef])
+	assert_eq(wearer.body, incumbent, "an equal-rarity piece does not churn the slot")
+	assert_true(run.bag.has(sidegrade), "and it goes to the bag instead")
+
+	var upgrade := incumbent.duplicate() as EquipmentDef
+	upgrade.id = &"test_upgrade"
+	upgrade.affixes = [AffixRoll.new()] as Array[AffixRoll]
+	assert_true(int(upgrade.rarity()) > int(incumbent.rarity()), "the fixture must be rarer")
+	FloorRun.take_chest(run, party, [upgrade] as Array[EquipmentDef])
+	assert_eq(wearer.body, upgrade, "a rarer piece takes the slot")
+	assert_true(run.bag.has(incumbent), "and what it displaced goes to the bag")
 
 
 func test_a_dead_pawn_picks_nothing_up() -> void:
@@ -122,6 +138,21 @@ func test_the_same_floor_seed_pays_out_the_same_items() -> void:
 
 ## The pity counter. A party with nothing empty wears nothing, and after
 ## PITY_LIMIT such chests the next one must carry something that fits.
+## Issue 947: a full slot is no longer a closed slot, so a pity fixture has to
+## out-rank every drop as well as fill every slot. Legendary is the affix cap.
+static func _make_unbeatable(pawn: PawnData) -> void:
+	for slot_property in FloorRun.SLOT_PROPERTY.values():
+		var worn: EquipmentDef = pawn.get(slot_property)
+		if worn == null:
+			continue
+		var capped := worn.duplicate() as EquipmentDef
+		var rolls: Array[AffixRoll] = []
+		for _i in int(EquipmentDef.Rarity.LEGENDARY):
+			rolls.append(AffixRoll.new())
+		capped.affixes = rolls
+		pawn.set(slot_property, capped)
+
+
 func test_the_pity_counter_forces_a_wearable_piece() -> void:
 	var party := _party()
 	var run := FloorRun.new()
@@ -129,6 +160,7 @@ func test_the_pity_counter_forces_a_wearable_piece() -> void:
 		p.head = ItemLibrary.get_equipment(&"great_helm") \
 			if p.pawn_class.method == CG.Method.MARTIAL else ItemLibrary.get_equipment(&"hood")
 		p.accessory = ItemLibrary.get_equipment(&"censer")
+		_make_unbeatable(p)
 	for i in LootTables.PITY_LIMIT:
 		FloorRun.award_room_loot(run, _room(FloorRoom.Type.ENEMY, &"room%d" % i), party, i)
 	assert_eq(run.unworn_chests, LootTables.PITY_LIMIT,
