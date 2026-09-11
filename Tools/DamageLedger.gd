@@ -147,8 +147,8 @@ static func prevented_summary(l: Ledger, team: int) -> Array[Dictionary]:
 	out.sort_custom(func(a, b): return a.prevented > b.prevented)
 	return out
 
-## An ability that fired and can deal damage (a non-healing `HitEffect` in its
-## own `effects`) but landed zero total across the whole run -- the
+## An ability that fired and can deal damage (a non-healing `HitEffect` among
+## its `all_effects()`) but landed zero total across the whole run -- the
 ## unreachable-ability shape #737 asks this ledger to surface.
 static func zero_damage_fires(l: Ledger, team: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -169,7 +169,7 @@ static func zero_damage_fires(l: Ledger, team: int) -> Array[Dictionary]:
 static func _can_deal_damage(action: ActionDef) -> bool:
 	if action.covers_target:
 		return false
-	for fx in action.effects:
+	for fx in action.all_effects():
 		if fx is HitEffect and not fx.heals and fx.power_scale > 0.0:
 			return true
 	return false

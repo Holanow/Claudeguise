@@ -219,3 +219,57 @@ func test_the_backstep_does_not_change_facing_so_later_beats_still_sweep_at_the_
 	assert_eq(caster.facing, facing_before, "a step must never change facing")
 	assert_eq(_damage_events(state, target.id).size(), 2,
 		"beat 2 must still sweep at what he is fighting, not at where he jumped from")
+
+# ---------------------------------------------------------------------------
+# issue 880 part 2: a beat's own targeting carries through whole
+# ---------------------------------------------------------------------------
+
+## `arc_degrees` and `covers_target` both live on `ActionTargeting`, which
+## `_resolve_beat` hands to the per-beat view entire, so this pins both.
+func test_a_beats_own_arc_excludes_a_target_the_beat_before_it_reached() -> void:
+	var beats: Array[ActionBeat] = [
+		_beat(0, _targeting(999.0, 200.0, 0.0), [_hit(1.0)] as Array[AbilityEffect]),
+		_beat(9, _targeting(999.0, 200.0, 30.0), [_hit(1.0)] as Array[AbilityEffect]),
+	]
+	var combo := _combo(&"arc_combo", beats)
+	var deps := _deps_with_action(combo, 10.0)
+
+	var state := CombatState.new(880)
+	var caster := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO, [combo.id])
+	var infront := _unit(1, CG.Team.ENEMY, 9999, Vector2(40, 0), [])
+	var behind := _unit(2, CG.Team.ENEMY, 9999, Vector2(-40, 0), [])
+	state.units.append(caster)
+	state.units.append(infront)
+	state.units.append(behind)
+	caster.intent = Intent.use_action(combo.id, infront.id)
+
+	for _i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(_damage_events(state, infront.id).size(), 2, "both beats reach what the caster faces")
+	assert_eq(_damage_events(state, behind.id).size(), 1,
+		"beat 0's arc 0.0 splashes onto the unit behind; beat 1's arc 30 must not")
+
+# ---------------------------------------------------------------------------
+# issue 880 part 1: a beat action authors no top-level effects, and still
+# classifies as an attack
+# ---------------------------------------------------------------------------
+
+func test_no_beat_action_carries_a_top_level_effects_array() -> void:
+	var checked := 0
+	for path in ActionLibrary.PATHS:
+		var action: ActionDef = load(path)
+		if action.beats.is_empty():
+			continue
+		checked += 1
+		assert_true(action.effects.is_empty(),
+			"%s carries beats, so its own effects array would never be read for damage" % action.id)
+	assert_true(checked >= 2, "sanity: the shipped beat actions were actually reached")
+
+func test_a_beat_action_still_reads_as_an_attack() -> void:
+	for id in [&"warden_axe", &"sellsword_crescent"] as Array[StringName]:
+		var action := ActionLibrary.get_action(id)
+		assert_true(action != null, "%s must load" % id)
+		assert_true(action.power_scale > 0.0, "%s's damage must be visible through its beats" % id)
+		assert_eq(PlanInterpreter.attacks([action] as Array[ActionDef]).size(), 1,
+			"%s must still classify as an attack, or nobody ever swings it" % id)
