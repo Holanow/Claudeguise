@@ -97,7 +97,8 @@ func enter(room_id: int) -> void:
 		visited.append(room_id)
 
 ## Called once a room's fight is over, to carry a pawn's state into the next
-## room. `alive == false` sticks until a revive room; see REVIVE_EVERY_N_ROOMS.
+## room. `alive == false` sticks until a revive, which on the live floor is the
+## camp.
 func record_result(pawn_id: StringName, hp: int, resource: int, alive: bool) -> void:
 	carry[pawn_id] = {"hp": hp, "resource": resource, "alive": alive}
 
@@ -120,33 +121,33 @@ func is_alive(pawn_id: StringName) -> bool:
 ## living pawns only, no revive. Never reaches full, so no room is free.
 const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 
-## Issue 802: how often a fallen pawn comes back, and at what share of max hp.
-## `static var` rather than `const` so one build can sweep several settings
-## from the command line; nothing but Tools/ ever assigns them.
-static var REVIVE_EVERY_N_ROOMS := 0
+## Issue 802: what share of max hp a revived pawn comes back at. `static var`
+## rather than `const` so one build can sweep several settings from the command
+## line; nothing but Tools/ ever assigns it.
 static var REVIVE_AT_HP_FRACTION := 0.5
 
 ## Set when the camp's one revive is spent. Still false at the end of a floor
 ## means the run never got two pawns down and never used it.
 var revive_used: bool = false
 
-## True on arrival at 0-based `room_index` under the cadence. Room 0 is never
-## a revive room: nobody has died yet.
-static func revives_on_arrival(room_index: int) -> bool:
-	if REVIVE_EVERY_N_ROOMS <= 0:
+## True on arrival at 0-based `room_index` under a cadence of `every` rooms.
+## Room 0 is never a revive room: nobody has died yet.
+static func revives_on_arrival(room_index: int, every: int = 0) -> bool:
+	if every <= 0:
 		return false
-	return room_index > 0 and room_index % REVIVE_EVERY_N_ROOMS == 0
+	return room_index > 0 and room_index % every == 0
 
 ## The whole decision for one arrival: the camp when the caller says where the
 ## party is standing, otherwise #802's cadence or its two-down proxy. Only the
 ## camp branch is the shipped floor; `walk == null` is a measurement path, and
-## `proxy_revive` is the arm `Tools/ReviveArgs.gd` swings (issue 908).
+## `proxy_revive` and `revive_every` are the arms `Tools/ReviveArgs.gd` swings
+## (issues 908 and 924).
 static func should_revive(run: FloorRun, party: Array[PawnData], room_index: int,
-		walk: FloorWalk = null, proxy_revive: bool = true) -> bool:
+		walk: FloorWalk = null, proxy_revive: bool = true, revive_every: int = 0) -> bool:
 	if walk != null:
 		return camp_revives(run, party, walk)
 	if not proxy_revive:
-		return revives_on_arrival(room_index)
+		return revives_on_arrival(room_index, revive_every)
 	if run.revive_used or room_index < 1:
 		return false
 	return run.down_count(party) >= 2
@@ -177,8 +178,8 @@ func down_count(party: Array[PawnData]) -> int:
 ## arrival heal every time and the floor has free healing in it.
 static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData],
 		room_index: int = 0, walk: FloorWalk = null, heal: bool = true,
-		proxy_revive: bool = true) -> void:
-	var revive := should_revive(run, party, room_index, walk, proxy_revive)
+		proxy_revive: bool = true, revive_every: int = 0) -> void:
+	var revive := should_revive(run, party, room_index, walk, proxy_revive, revive_every)
 	if revive:
 		run.revive_used = true
 	for i in party.size():

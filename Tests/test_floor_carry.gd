@@ -53,32 +53,34 @@ func _arrive_dead(room_index: int) -> CombatState:
 	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
 	var run := FloorRun.new()
 	run.record_result(&"w", 0, 0, false)
-	FloorRun.carry_into(run, state, party, room_index, null, true, _proxy_revive)
+	FloorRun.carry_into(run, state, party, room_index, null, true, _proxy_revive, _revive_every)
 	return state
 
-## Issue 908: the two-down proxy is an arm passed per call now, not a constant
-## on FloorRun, so this fixture carries it and hands it to the call under test.
+## Issues 908 and 924: the two-down proxy and the fixed cadence are arms passed
+## per call now, not constants on FloorRun, so this fixture carries them and
+## hands them to the call under test.
 var _proxy_revive: bool = true
+var _revive_every: int = 0
 
 func _set_revive(every: int, fraction: float, camp: bool = false) -> Array:
-	var was := [FloorRun.REVIVE_EVERY_N_ROOMS, FloorRun.REVIVE_AT_HP_FRACTION, _proxy_revive]
-	FloorRun.REVIVE_EVERY_N_ROOMS = every
+	var was := [_revive_every, FloorRun.REVIVE_AT_HP_FRACTION, _proxy_revive]
+	_revive_every = every
 	FloorRun.REVIVE_AT_HP_FRACTION = fraction
 	_proxy_revive = camp
 	return was
 
 func _restore_revive(was: Array) -> void:
-	FloorRun.REVIVE_EVERY_N_ROOMS = was[0]
+	_revive_every = was[0]
 	FloorRun.REVIVE_AT_HP_FRACTION = was[1]
 	_proxy_revive = was[2]
 
-## Issue 803 moved the live floor onto the camp room, so the first two are what
-## the game ships and the third is the arm a sweep compares them against, which
-## issue 908 moved to `Tools/ReviveArgs.gd` to say so.
+## Issue 803 moved the live floor onto the camp room, so the fraction is what
+## the game ships and the other two are the arms a sweep compares it against,
+## which issues 908 and 924 moved to `Tools/ReviveArgs.gd` to say so.
 func test_shipped_revive_settings() -> void:
 	assert_eq(FloorRun.REVIVE_AT_HP_FRACTION, 0.5)
-	assert_eq(FloorRun.REVIVE_EVERY_N_ROOMS, 0)
 	assert_true(ReviveArgs.ONCE_ON_TWO_DOWN, "the comparison arm ships on")
+	assert_eq(ReviveArgs.EVERY_N_ROOMS, 0, "the cadence arm ships off")
 
 ## Two dead, not one: #797 put the cliff at the second death, so that is the
 ## moment a saved camp is worth spending.
@@ -94,16 +96,16 @@ func test_camp_waits_for_the_second_death_then_spends_itself() -> void:
 	var run := FloorRun.new()
 	run.record_result(&"w", 0, 0, false)
 	assert_eq(run.down_count(party), 1)
-	assert_false(FloorRun.should_revive(run, party, 3, null, _proxy_revive),
+	assert_false(FloorRun.should_revive(run, party, 3, null, _proxy_revive, _revive_every),
 		"one down is not the cliff, and the cadence must not fire either")
 	run.record_result(&"p", 0, 0, false)
-	assert_true(FloorRun.should_revive(run, party, 1, null, _proxy_revive), "two down spends the camp")
+	assert_true(FloorRun.should_revive(run, party, 1, null, _proxy_revive, _revive_every), "two down spends the camp")
 	var state := CombatSim.build(party, RoomLibrary.get_room(&"floor1_room1"), 1)
-	FloorRun.carry_into(run, state, party, 1, null, true, _proxy_revive)
+	FloorRun.carry_into(run, state, party, 1, null, true, _proxy_revive, _revive_every)
 	assert_true(run.revive_used)
 	assert_true(state.unit(0).alive, "both come back")
 	assert_true(state.unit(1).alive)
-	assert_false(FloorRun.should_revive(run, party, 4, null, _proxy_revive),
+	assert_false(FloorRun.should_revive(run, party, 4, null, _proxy_revive, _revive_every),
 		"one camp per floor, and it is spent")
 	_restore_revive(was)
 
@@ -113,19 +115,19 @@ func test_camp_never_fires_in_the_first_room() -> void:
 	var run := FloorRun.new()
 	run.record_result(&"w", 0, 0, false)
 	run.record_result(&"p", 0, 0, false)
-	assert_false(FloorRun.should_revive(run, party, 0, null, _proxy_revive))
+	assert_false(FloorRun.should_revive(run, party, 0, null, _proxy_revive, _revive_every))
 	_restore_revive(was)
 
 func test_revive_cadence_zero_never_revives() -> void:
 	var was := _set_revive(0, 0.25)
-	assert_false(FloorRun.revives_on_arrival(1))
-	assert_false(FloorRun.revives_on_arrival(9))
+	assert_false(FloorRun.revives_on_arrival(1, _revive_every))
+	assert_false(FloorRun.revives_on_arrival(9, _revive_every))
 	assert_false(_arrive_dead(9).unit(0).alive, "cadence 0 is pre-802 behaviour: dead stays dead")
 	_restore_revive(was)
 
 func test_revive_never_fires_in_the_first_room() -> void:
 	var was := _set_revive(1, 0.25)
-	assert_false(FloorRun.revives_on_arrival(0), "nobody has died before room 0")
+	assert_false(FloorRun.revives_on_arrival(0, _revive_every), "nobody has died before room 0")
 	assert_false(_arrive_dead(0).unit(0).alive)
 	_restore_revive(was)
 
@@ -141,10 +143,10 @@ func test_revive_returns_a_pawn_at_its_fraction_and_no_arrival_heal() -> void:
 
 func test_revive_every_third_room_skips_the_rooms_between() -> void:
 	var was := _set_revive(3, 0.25)
-	assert_false(FloorRun.revives_on_arrival(1))
-	assert_false(FloorRun.revives_on_arrival(2))
-	assert_true(FloorRun.revives_on_arrival(3))
-	assert_true(FloorRun.revives_on_arrival(6))
+	assert_false(FloorRun.revives_on_arrival(1, _revive_every))
+	assert_false(FloorRun.revives_on_arrival(2, _revive_every))
+	assert_true(FloorRun.revives_on_arrival(3, _revive_every))
+	assert_true(FloorRun.revives_on_arrival(6, _revive_every))
 	assert_false(_arrive_dead(2).unit(0).alive, "room 2 is not a checkpoint")
 	assert_true(_arrive_dead(3).unit(0).alive, "room 3 is")
 	_restore_revive(was)

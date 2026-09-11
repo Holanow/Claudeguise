@@ -241,10 +241,23 @@ func _check_beat_effects(effects: Array[AbilityEffect], state: CombatState, cast
 			problems.append_array(_check_hit_at_tick(fx, state, caster, hit_target_id, fire_tick))
 		elif fx is StatusEffect:
 			problems.append_array(_check_status(fx, state, status_target_id))
+		elif fx is SummonEffect:
+			## Issue 924: per BEAT tick, for the reason the hit arm above is --
+			## a later beat's summon must not cover for an earlier beat's.
+			if not _summoned_at_tick(state, caster.id, fire_tick):
+				problems.append("SummonEffect declared '%s' but no SUMMONED event fired on this beat's own tick" % fx.unit_id)
 		elif fx is PullEffect:
 			if target.position.distance_to(pull_start) < 0.01:
 				problems.append("PullEffect declared distance %.1f but the target never moved" % fx.distance)
 	return problems
+
+## Whether `caster_id` built anything on `tick`, which is the tick
+## `CombatSim._fire_beat` spawns a beat's own summon on.
+func _summoned_at_tick(state: CombatState, caster_id: int, tick: int) -> bool:
+	for e in state.events:
+		if e.kind == CG.EventKind.SUMMONED and e.source_id == caster_id and e.tick == tick:
+			return true
+	return false
 
 ## Same shape as `_check_hit`, but a DAMAGE/HEAL from a LATER beat on the same
 ## caster and target must not stand in for an earlier beat's own miss, so this
