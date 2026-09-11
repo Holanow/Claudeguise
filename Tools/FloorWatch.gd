@@ -14,6 +14,13 @@ const OUT_DIR := "user://probe"
 const FLOOR_SEED := 3
 const TIME_SCALE := 24.0
 
+## Issue 935: `--seed N`, because the boss is the room this now has to reach and
+## seed 3's party loses to the Warden.
+static func _seed() -> int:
+	var args := OS.get_cmdline_user_args()
+	var at := args.find("--seed")
+	return int(args[at + 1]) if at >= 0 and at + 1 < args.size() else FLOOR_SEED
+
 var _battle: Node = null
 var _plan: FloorPlan = null
 var _room_index := -1
@@ -24,13 +31,14 @@ func _ready() -> void:
 	Offscreen.hide_window(self)
 	Engine.time_scale = TIME_SCALE
 	var cfg := RunConfig.new()
-	cfg.seed = FLOOR_SEED
+	var seed := _seed()
+	cfg.seed = seed
 	var party: Array[PawnData] = []
 	for cid in ClassLibrary.all_ids():
 		party.append(PawnFactory.make_preset_pawn(cid, cid, String(cid)))
 	cfg.party = party
-	_plan = FloorGenerator.generate(FLOOR_SEED)
-	_log.append("floor seed %d, order: %s" % [FLOOR_SEED, str(FloorWalk.default_order(_plan))])
+	_plan = FloorGenerator.generate(seed)
+	_log.append("floor seed %d, order: %s" % [seed, str(FloorWalk.default_order(_plan))])
 	for r in _plan.rooms:
 		_log.append("  %s at %s, doors: %s" % [r.content_id, r.cell, _door_text(r)])
 	_battle = BATTLE_SCENE.instantiate()
