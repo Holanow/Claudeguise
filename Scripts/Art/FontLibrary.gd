@@ -29,24 +29,32 @@ static func entry() -> Font:
 static func entry_bold() -> Font:
 	return _face(ENTRY_BOLD_PATH)
 
+## The imported face at `path`, or null when there is no import to load: an
+## export ships the imported resource and not the `.ttf`, so reading the file is
+## the fallback for a font dropped in while the game runs, never the first try.
+static func _imported(path: String) -> FontFile:
+	if not ResourceLoader.exists(path, "FontFile"):
+		return null
+	return ResourceLoader.load(path, "FontFile") as FontFile
+
 ## Null when the file is missing, which is the one case worth saying out loud:
 ## Godot silently falls back to its own default face and the screen looks
 ## merely wrong rather than broken.
 static func _face(path: String) -> FontFile:
 	if _cache.has(path):
 		return _cache[path]
-	var font: FontFile = null
-	if FileAccess.file_exists(path):
+	var font := _imported(path)
+	if font == null and FileAccess.file_exists(path):
 		font = FontFile.new()
 		if font.load_dynamic_font(path) != OK:
 			push_error("FontLibrary: %s exists but could not be read as a font" % path)
 			font = null
-		else:
-			font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-			font.hinting = TextServer.HINTING_LIGHT
-			font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
-	else:
+	if font == null:
 		push_error("FontLibrary: no font at %s" % path)
+	else:
+		font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+		font.hinting = TextServer.HINTING_LIGHT
+		font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
 	_cache[path] = font
 	return font
 
