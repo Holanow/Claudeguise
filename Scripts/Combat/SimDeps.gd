@@ -182,9 +182,9 @@ const RAGE_GAIN_PERCENT_PER_HIT := 18.0
 ## What a pawn's resource pool holds at the moment a fight starts.
 static func _default_starting_resource(kind: CG.ResourceKind, max_resource: int) -> int:
 	match kind:
-		CG.ResourceKind.MANA:
+		CG.ResourceKind.MANA, CG.ResourceKind.ENERGY:
 			return max_resource
-		CG.ResourceKind.ENERGY, CG.ResourceKind.RAGE:
+		CG.ResourceKind.RAGE:
 			return 0
 	return max_resource
 
