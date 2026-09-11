@@ -269,7 +269,7 @@ func free_after(rect: ColorRect, seconds: float) -> void:
 ## it, so firing then only printed "Lambda capture was freed" at a guard that
 ## was going to do nothing anyway. Sixty of those ended every `FloorRecord` run.
 func after(seconds: float, what: Callable) -> void:
-	var alive := weakref(self)
+	var alive: WeakRef = weakref(self)
 	get_tree().create_timer(seconds, true, false, true).timeout.connect(func() -> void:
 		if alive.get_ref() != null:
 			what.call())
