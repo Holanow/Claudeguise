@@ -17,7 +17,7 @@ Pawns will have a health that determines how much damage they can take and a sec
 **Rage** \- Small pool that fills as the pawn attacks; spent on finisher abilities  
 **Energy \-** Small pool that recharges quickly; Spent on most abilities
 
-Pawns will also come with a set of base stats that determine the effectiveness of skills they use, their baseline durability, and how complex their plans of action can be.
+Pawns will also come with a set of base stats that determine the effectiveness of skills they use and their baseline durability.
 
 **Strength (STR) \-** Determines the baseline damage of most melee attacks; slightly increases health  
 **Dexterity (DEX)** \- Determines the baseline damage of most ranged attacks; slightly increases movement speed  
@@ -25,13 +25,12 @@ Pawns will also come with a set of base stats that determine the effectiveness o
 **Constitution (CON)** \- Determines pawn health  
 **Intelligence (INT)** \- Determines the baseline damage of most magical attacks; slightly increases maximum resource  
 **Attunement (ATN)** \- Determines pawn maximum resource  
-**Wisdom (WIS)** \- Determines the maximum lengths of a Pawn's plans of action
 
 The player will start with one pawn. Pawns will be found as rewards within the dungeon and in shops between stores. Sometimes unique classes will appear on lower-floor pawns.
 
-Pawns will have room to equip 3 types of equipment, armor, weapons, and accessories. This equipment will be found throughout the dungeon as rewards and in the shops between floors. The type of equipment a pawn can use will be governed by their class.
+Pawns will have room to equip 5 items: a main hand, an off hand, a head, a body, and an accessory. This equipment will be found throughout the dungeon as rewards and in the shops between floors. The type of equipment a pawn can use will be governed by their class.
 
-The actions each pawn takes will be decided by their Plans of Action. Plans of action are scripts run under specific circumstances. The scripts will be built out of different “Blocks” and the number of blocks in each script are determined by a pawn’s WIS. Plans of action are prioritized for execution based on their ordering. Each pawn will have a base set of default behaviors for when no plan of action is active. 
+The actions each pawn takes will be decided by their Plans of Action. Plans of action are scripts run under specific circumstances. The scripts will be built out of different “Blocks”, with no cap on the number of blocks in a script. Plans of action are prioritized for execution based on their ordering. Each pawn will have a base set of default behaviors for when no plan of action is active. 
 
 **Classes**  
 Classes are fundamentally just a collection of tags, a base attribute distribution, and a set of starting skills. Tags determine the skills and equipment a pawn with a certain class has access to. Classes also determine the resource that a pawn has access to. A pawn can only have one class and the class of a pawn cannot change once it is generated. 
@@ -64,59 +63,92 @@ Damage types will have a positive and negative secondary effect associated with 
 
 | Classes |  |  |  |  |  |  |  |  |
 | :---: | ----- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Name | Tags | Str | Dex | Agi | Int | Att | Wis | Resource |
-| Warrior | Martial, Melee, Physical, Earth, Tank, DPS |  |  |  |  |  |  | Rage |
-| Priest | Magical, Ranged, Divine, Air, Support, Healer  |  |  |  |  |  |  | Mana |
-| Geysermancer | Magical, Ranged, Water, Fire, DPS, Support | | | | | | | Mana |
-| Siege Master | Martial, Summoner, Physical, Raw, DPS, Anti-Support | | | | | | | Energy |
-| Abomination | Magical, Melee, Profane, Fire, Anti-Support, Tank | | | | | | | Rage |
+| Name | Tags | Str | Dex | Agi | Int | Att | Resource |
+| Warrior | Martial, Melee, Physical, Earth, Tank, DPS |  |  |  |  |  | Rage |
+| Priest | Magical, Ranged, Divine, Air, Support, Healer  |  |  |  |  |  | Mana |
+| Geysermancer | Magical, Ranged, Water, Fire, DPS, Support | | | | | | Mana |
+| Siege Master | Martial, Summoner, Physical, Raw, DPS, Anti-Support | | | | | | Energy |
+| Abomination | Magical, Melee, Profane, Fire, Anti-Support, Tank | | | | | | Rage |
 
 
 **Equipment**  
-Pawns can equip 3 types of equipment, weapons, armor, and accessories. The type of equipment they can wear is determined by the tags on their class. Generally equipment that requires more tags should be stronger than equipment that requires fewer. There are equipment base types, and better base types appear as the player descends. Each base type will have a range of stats that the equipment can have when it is generated.
+Pawns equip 5 items: **main hand, off hand, head, body, accessory**. Every slot is open from the moment a pawn is acquired. Early floors present few decisions because the player has found few items, not because slots are shut.
 
-Weapons directly increase a pawn's Str, Int, and/or Dex by a percentage. They affect the range at which certain actions can be taken, and occasionally they provide new actions to add to their wielder’s plans of action. 
+Equipment gates on **coarse tags only**: Method (Martial / Magical) crossed with Style (Melee / Ranged / Summoner). This exists solely to stop a Warrior equipping a wand.
 
-Armor will increase a pawn’s stats by a flat amount and occasionally their CON by a percentage. It also affects the amount of damage that a pawn will take when they are hit by an attack. Occasionally armor will provide a passive buff that affects the wielder. 
+Fine-grained tags — Fire, Divine, Physical, Profane, Raw and the rest — are **not** equipment gates. They are synergy hooks that affixes, uniques and skills reference. A "+20% Fire damage" affix finds the Geysermancer and the Abomination without either being locked out of a base type.
 
-Accessories can increase AGI, ATT, or INT by a percentage. They can provide passive buffs and new actions to add to the wielder’s plans of action
+Equipment requiring more tags is *not* inherently stronger. Tag counts are unevenly distributed across classes, so that rule would permanently advantage whichever class happens to carry the most tags.
 
-| Base Weapon Types | | |
+All equipment is visible on the pawn, aside from the helmet. Classes will be differentiated visually by some cosmetic headwear.
+
+**Weapons**
+
+Martial weapons determine the base damage and attack speed for martial skills.
+Magical Weapons provide more bonuses and special affects for the pawn's skills.
+
+Some weapons are **two-handed**: they occupy the off hand slot as well, have higher base values, and in exchange roll higher affix ranges than one-handed options.
+
+Weapons all grant an action that serves as the pawn's "basic attack". Any properties of that weapon's attack are really just properties of the action that weapon grants. 
+
+**Affixes**
+
+Four rarities determine affix count (1–4). Affix pools are **scoped by slot** — a helm rolls from its own list, not a global one — and ranges scale by slot, so a body always beats a ring at +HP.
+
+Affixes split into two kinds:
+
+| Kind | Examples | Behavior |
 | ----- | ----- | ----- |
-| Name | Required Tags | Provided Actions | 
-| Stick | Melee | Attack |
-| Rock | Ranged | Throw |
-| Whip | Summoner | Tag |
-| Sword | Melee, Martial | Attack |
-| Bow | Ranged, Martial | Ranged Attack |
-| Sickle | Melee, Magical | Magical Attack |
-| Orb | Ranged, Magical | Ranged Magical Attack |
-| Wrench | Melee, Summoner | Tag, Overcharge |
+| Numbers | +HP, +damage, +crit, resists | Invisible, auto-equippable. Exist to make loot feel good. |
+| Verbs | Leech, cooldown recovery, resource-on-kill, on-hit triggers | Change what a pawn *does*. Unlock at deeper floors. |
 
-| Base Armor Types | | |
-| ----- | ----- | ----- |
-| Name | Required Tags | Provided Actions | 
-| Plate Mail | Tank | Block |
-| Silk Wraps | DPS | |
-| Robes | Support | |
-| Gown | Anti-Support | |
-| Scrubs | Healer | |
+Floor 1 rolls numbers only.
 
-| Base Acessory Types | | |
-| ----- | ----- | ----- |
-| Name | Required Tags | Provided Actions | 
-| Whetstone | Physical | |
-| Brown Ring | Earth | |
-| Red Ring | Fire | | 
-| Blue Ring | Water | |
-| Yellow Ring | Air | |
-| Censer | Divine | |
-| Fetish | Profane | |
-| Piece of Nothing | Raw | 
+Passive verbs never appear in the block palette. They appear as a read-only **trait strip** on the pawn card in the Plan editor, so the player can see what changes their scripting math without cluttering the palette. Passive procs must be visible in the combat log during the watch phase.
 
+**Uniques**
+
+Two distinct kinds, both at top rarity. An item is never both.
+
+- **Build-arounds** — break exactly one rule, average or below-average raw stats. The cost must be felt. Build-arounds require their enabler to be present in the run's drop pool, or they are lottery tickets that lose.
+- **Chase items** — large numbers, no special rule, no rider.
+
+**Drops**
+
+Every fight on floor 1 drops **1 to 3 items**. Every drop batch guarantees at least one item usable by a current pawn; the rest rolls free. Weighting reads **pawn scaling, not equipped gear**, to avoid runs converging on whatever the player found first. A pity counter forces a usable drop after N unusable ones.
+
+**Floor 1 Base Types**
+
+Accessory slot deliberately empty pending accessory design. Head and body have no inherent qualities — they are affix sticks.
+
+| Main Hand | Requires | Hands | Character |
+| ----- | ----- | ----- | ----- |
+| Sword | Martial, Melee | One | Light. Fast, lower damage per hit, higher raw DPS. |
+| Mace | Martial, Melee | One | Heavy. Slow, higher damage per hit, armor break on hit. |
+| Rune Gauntlet | Magical, Melee | One | Light. Magical counterpart to the Sword. |
+| Reaper | Magical, Melee | Two | Scythe. Chance to bleed on hit. |
+| Wand | Magical, Ranged | One | Basic attack grants resource on hit. |
+| Staff | Magical, Ranged | Two | Basic attack, +30% magical damage. |
+
+| Off Hand | Requires | Grants | Character |
+| ----- | ----- | ----- | ----- |
+| Tower Shield | Melee | Directional Block | Flat damage reduction. |
+| Standard | Melee | Rallying Cry | Places a banner; AoE ally buff in radius. |
+| Orb | Magical, Ranged | Channel Mana | Also raises maximum mana. |
+| Book | Magical, Ranged | — | Reduces ability cooldown time. |
+
+| Body | Requires |
+| ----- | ----- |
+| Plate Mail | Melee |
+| Robes | Magical, Ranged |
+
+| Head | Requires |
+| ----- | ----- |
+| Great Helm | Melee |
+| Hood | Magical, Ranged |
 
 **Plans of Action**  
-Plans of action are short scripts that dictate what a pawn will do in a given situation. The plans are set up by the players using “Blocks” and will be prioritized in some way. Each plan of action starts with a conditional of some kind (i.e. when you see an enemy). By default, there are then 3 “Blocks” to work with. A block can be either a “Targeting”, an “Action” block, or a “Duration” block. Targeting blocks execute instantly under most circumstances and set a pawn’s focus to a certain position (i.e the nearest enemy), Action blocks make the pawn actually do something(i.e. Move, fireball, attack, block) and they tend to have an activation time. Duration blocks affect how long an action is taken for (i.e forever, until you are no longer in range of an area attack)
+Plans of action are short scripts that dictate what a pawn will do in a given situation. The plans are set up by the players using “Blocks” and will be prioritized in some way. Each plan of action starts with a conditional of some kind (i.e. when you see an enemy). There is currently no cap on the number of blocks in a plan. A block can be either a “Targeting”, an “Action” block, or a “Duration” block. Targeting blocks execute instantly under most circumstances and set a pawn’s focus to a certain position (i.e the nearest enemy), Action blocks make the pawn actually do something(i.e. Move, fireball, attack, block) and they tend to have an activation time. Duration blocks affect how long an action is taken for (i.e forever, until you are no longer in range of an area attack)
 
 A pawn can have any number of plans of action set up at any given time. However, conditions and blocks must be found as loot within the dungeon or shops and cannot be shared between pawns once acquired. In addition to their default behaviors, pawns will come with a number of Plans of Action already set up when they are acquired. 
 
@@ -131,7 +163,6 @@ Each floor will also have a miniboss that will offer disproportionate rewards if
 
 **Enemy Room \-** A room containing an assortment of enemies  
 **Big Enemy Room \-** A large room containing an assortment of enemies  
-**Trap Room \-** A room containing a trap that must be either endured or disarmed to proceed  
 **Treasure Room \-** A room containing new equipment for pawns and currency  
 **Library** \- A room containing new Plans of Action conditions  
 **Cell \-** A room containing a selection of new pawns (pick one)  
