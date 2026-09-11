@@ -15,6 +15,7 @@ const ROOMS: Array[PackedScene] = [
 	preload("res://Scripts/Content/Rooms/floor1_narrows_elite.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_rat_king.tscn"),
 	preload("res://Scripts/Content/Rooms/floor1_warden.tscn"),
+	preload("res://Scripts/Content/Rooms/floor1_camp.tscn"),
 ]
 
 static var _rooms: Dictionary = {}

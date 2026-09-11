@@ -18,6 +18,9 @@ var entrance_id: int = -1
 var miniboss_id: int = -1
 var boss_id: int = -1
 
+## Issue 803: the one camp, or -1 on a plan that has none.
+var camp_id: int = -1
+
 ## cell -> room id. Rebuilt by `index_cells` whenever `rooms` changes; every
 ## adjacency query below reads it rather than scanning `rooms`.
 var _by_cell: Dictionary = {}
