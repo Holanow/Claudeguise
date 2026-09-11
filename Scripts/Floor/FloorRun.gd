@@ -302,7 +302,10 @@ static func _revive(state: CombatState, run: FloorRun, unit: CombatUnit, pawn_id
 ## Issue 868: the heal's twin for the resource pool, and it takes the same
 ## `heal` gate above -- #805's pacing exploit refills a caster for free
 ## otherwise, exactly as it healed one for free.
+## Rage is exempt: it is earned by swinging, never handed over. Issue 948.
 static func _apply_arrival_recovery(state: CombatState, unit: CombatUnit) -> void:
+	if unit.resource_kind == CG.ResourceKind.RAGE:
+		return
 	var amount := int(round(float(unit.resource_max - unit.resource) * BETWEEN_ROOM_RESOURCE_MISSING_FRACTION))
 	var before := unit.resource
 	unit.resource = mini(unit.resource_max, unit.resource + amount)
