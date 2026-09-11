@@ -167,6 +167,12 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 		&"resource_regen_percent_bonus":
 			out.append("%d%%" % int(round(item.resource_regen_percent_bonus)))
 			out.append("second")
+		&"resource_max_percent_bonus":
+			out.append("%d%%" % int(round(item.resource_max_percent_bonus)))
+			out.append("pool")
+		&"cooldown_reduction_percent":
+			out.append("%d%%" % int(round(item.cooldown_reduction_percent)))
+			out.append("cooldown")
 		&"affixes":
 			for r in item.affixes:
 				if r == null or r.affix == null:

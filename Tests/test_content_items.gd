@@ -40,6 +40,8 @@ func test_every_item_changes_something() -> void:
 			or not item.attribute_flat.is_empty()
 			or item.damage_reduction > 0.0
 			or item.resource_regen_percent_bonus > 0.0
+			or item.resource_max_percent_bonus > 0.0
+			or item.cooldown_reduction_percent > 0.0
 			or not item.granted_actions.is_empty()
 			or not item.modifiers.is_empty()
 		)
@@ -73,6 +75,8 @@ func test_no_registered_piece_is_inert() -> void:
 			not item.granted_actions.is_empty()
 			or item.damage_reduction > 0.0
 			or item.resource_regen_percent_bonus > 0.0
+			or item.resource_max_percent_bonus > 0.0
+			or item.cooldown_reduction_percent > 0.0
 			or not item.modifiers.is_empty()
 		)
 		if not grants_something:

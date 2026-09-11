@@ -398,6 +398,10 @@ static func item_effect_text(item: EquipmentDef) -> String:
 	if item.resource_regen_percent_bonus != 0.0:
 		parts.append("regenerates %d%% more of its pool each second"
 			% int(round(item.resource_regen_percent_bonus)))
+	if item.resource_max_percent_bonus != 0.0:
+		parts.append("raises its pool by %d%%" % int(round(item.resource_max_percent_bonus)))
+	if item.cooldown_reduction_percent != 0.0:
+		parts.append("cuts every cooldown by %d%%" % int(round(item.cooldown_reduction_percent)))
 	for m in item.modifiers:
 		if m != null:
 			parts.append_array(modifier_parts(m))

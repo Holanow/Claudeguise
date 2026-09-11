@@ -760,7 +760,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		recover += action.beats[-1].delay_ticks
 	unit.recover_ticks_left = recover
 	if action.cooldown_ticks > 0:
-		unit.cooldowns[action.id] = state.tick + _cooldown_hold_ticks(action) + action.cooldown_ticks
+		unit.cooldowns[action.id] = state.tick + _cooldown_hold_ticks(action) 			+ _geared_cooldown_ticks(unit, action.cooldown_ticks)
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
 
@@ -1285,6 +1285,16 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	se.status = status
 	se.amount = int(target.status_magnitude.get(status, 0.0))
 	state.emit(se)
+
+## Issue 918: what the Book takes off this cast's cooldown. A pawn only: an
+## enemy carries no gear, and a cooldown never reaches zero.
+static func _geared_cooldown_ticks(unit: CombatUnit, ticks: int) -> int:
+	if unit.pawn == null:
+		return ticks
+	var cut := unit.pawn.gear_cooldown_reduction()
+	if cut <= 0.0:
+		return ticks
+	return maxi(1, int(round(float(ticks) * (1.0 - cut))))
 
 ## Issue 831: how long a cast books its own cooldown for on top of
 ## `cooldown_ticks`, so an action whose status holds the cooldown is unavailable

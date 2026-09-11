@@ -113,6 +113,9 @@ const ATTACK_VARIANCE_SPREAD := 0.55
 const DAMAGE_REDUCTION_PER_CON := 0.01
 const NATURAL_DAMAGE_REDUCTION_CAP := 0.9
 
+## Issue 918: a cooldown may never be free, however many Books a pawn wears.
+const MAX_GEAR_COOLDOWN_REDUCTION := 0.75
+
 ## Fraction shaved off an action's ticks per point of AGI. Issue 592 raised the
 ## cap to 0.9; `scale_action_ticks` floors the resolved count at one tick, so
 ## nothing here can take an action to zero.
@@ -141,7 +144,8 @@ func max_hp() -> int:
 
 func max_resource() -> int:
 	var int_bonus := effective_attribute(CG.Attribute.INT)
-	return int(round(BASE_RESOURCE + effective_attribute(CG.Attribute.ATN) * RESOURCE_PER_ATN + int_bonus * RESOURCE_PER_INT_BONUS))
+	var pool := BASE_RESOURCE + effective_attribute(CG.Attribute.ATN) * RESOURCE_PER_ATN + int_bonus * RESOURCE_PER_INT_BONUS
+	return int(round(pool * (1.0 + gear_resource_max_percent() / 100.0)))
 
 ## World units per tick.
 func move_speed() -> float:
@@ -181,6 +185,21 @@ func gear_damage_reduction() -> float:
 	for e in equipment():
 		best = maxf(best, e.total_damage_reduction())
 	return best
+
+## Issue 918: the share of every cooldown gear takes off, summed across pieces
+## and capped, which is the Book's whole effect.
+func gear_cooldown_reduction() -> float:
+	var out := 0.0
+	for e in equipment():
+		out += e.cooldown_reduction_percent
+	return clampf(out / 100.0, 0.0, MAX_GEAR_COOLDOWN_REDUCTION)
+
+## Issue 918: percentage points of extra resource pool, summed across pieces.
+func gear_resource_max_percent() -> float:
+	var out := 0.0
+	for e in equipment():
+		out += e.resource_max_percent_bonus
+	return out
 
 ## Fraction of incoming damage this pawn's own toughness removes, before gear
 ## and before any status.
