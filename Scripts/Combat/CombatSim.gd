@@ -760,7 +760,7 @@ static func _fire_action(state: CombatState, unit: CombatUnit, action: ActionDef
 		recover += action.beats[-1].delay_ticks
 	unit.recover_ticks_left = recover
 	if action.cooldown_ticks > 0:
-		unit.cooldowns[action.id] = state.tick + _cooldown_hold_ticks(action) 			+ _geared_cooldown_ticks(unit, action.cooldown_ticks)
+		unit.cooldowns[action.id] = state.tick + _cooldown_hold_ticks(action) 			+ geared_cooldown_ticks(unit, action.cooldown_ticks)
 	if unit.recover_ticks_left <= 0:
 		unit.current_action = &""
 
@@ -1207,7 +1207,30 @@ static func _apply_damage(state: CombatState, unit: CombatUnit, target: CombatUn
 	e.damage_type = action.damage_type
 	state.emit(e)
 	_on_damage_taken(state, target, applied, deps)
+	_leech_from_hit(state, unit, target, action, applied)
 	return mitigated
+
+## Issue 931: the leech verb. Taken off `applied` rather than `mitigated`, so
+## overkill on a dying target leeches nothing -- the health the attack actually
+## removed is the health it can return.
+static func _leech_from_hit(state: CombatState, unit: CombatUnit, target: CombatUnit, action: ActionDef, applied: int) -> void:
+	if applied <= 0 or unit == null or unit.id == target.id or not unit.alive or unit.pawn == null:
+		return
+	var rate := unit.pawn.gear_life_leech()
+	if rate <= 0.0:
+		return
+	## `_stochastic_round` rather than `round`: a few percent of a small hit is
+	## well under one point of health and `round` would silently discard it.
+	var healed := _stochastic_round(state, float(applied) * rate)
+	if healed <= 0:
+		return
+	var before := unit.hp
+	unit.hp = mini(unit.hp_max, unit.hp + healed)
+	if unit.hp == before:
+		return
+	var e := _event(CG.EventKind.LEECHED, state.tick, unit.id, unit.id, action.id)
+	e.amount = unit.hp - before
+	state.emit(e)
 
 ## The one shape a unit dies in, shared by the three things that can kill one:
 static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, action_id: StringName) -> bool:
@@ -1215,11 +1238,36 @@ static func _kill_if_dead(state: CombatState, unit: CombatUnit, source_id: int, 
 		return false
 	unit.alive = false
 	state.emit(_event(CG.EventKind.DEATH, state.tick, source_id, unit.id, action_id))
+	_resource_on_kill(state, unit, source_id, action_id)
 	## Issue 759: a rat leaves blood behind, the same as a bleeding hit does.
 	if unit.enemy_id == &"rat":
 		_leave_blood(state, source_id, [TerrainGrid.cell_of(unit.position)])
 	_kill_summons_of(state, unit)
 	return true
+
+## Issue 931: the resource-on-kill verb. A share of the KILLER's own pool, so
+## the same affix is worth the same to a Warrior and a Priest. Refused on its
+## own team, which is how `_kill_summons_of` crediting a summoner with its own
+## summons' deaths stays out of it.
+static func _resource_on_kill(state: CombatState, dead: CombatUnit, source_id: int, action_id: StringName) -> void:
+	if source_id < 0 or source_id == dead.id:
+		return
+	var killer := state.unit(source_id)
+	if killer == null or not killer.alive or killer.pawn == null or killer.team == dead.team:
+		return
+	var share := killer.pawn.gear_resource_on_kill()
+	if share <= 0.0:
+		return
+	var gained := _stochastic_round(state, float(killer.resource_max) * share)
+	if gained <= 0:
+		return
+	var before := killer.resource
+	killer.resource = clampi(killer.resource + gained, 0, killer.resource_max)
+	if killer.resource == before:
+		return
+	var e := _event(CG.EventKind.RESOURCE_GAINED, state.tick, killer.id, dead.id, action_id)
+	e.amount = killer.resource - before
+	state.emit(e)
 
 ## Issue 445: a summon dies with its summoner, on either team.
 static func _kill_summons_of(state: CombatState, summoner: CombatUnit) -> void:
@@ -1287,8 +1335,9 @@ static func _apply_status(state: CombatState, caster: CombatUnit, target: Combat
 	state.emit(se)
 
 ## Issue 918: what the Book takes off this cast's cooldown. A pawn only: an
-## enemy carries no gear, and a cooldown never reaches zero.
-static func _geared_cooldown_ticks(unit: CombatUnit, ticks: int) -> int:
+## enemy carries no gear, and a cooldown never reaches zero. Public since #931,
+## because the cooldown chip has to divide by the number the pawn actually waits.
+static func geared_cooldown_ticks(unit: CombatUnit, ticks: int) -> int:
 	if unit.pawn == null:
 		return ticks
 	var cut := unit.pawn.gear_cooldown_reduction()

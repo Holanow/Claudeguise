@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AffixDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AffixDef.gd" id="1_affix"]
+
+[resource]
+script = ExtResource("1_affix")
+id = &"thirsting"
+display_name = "Thirsting"
+kind = 1
+effect = 4
+attribute = 0
+status = 1
+status_ticks = 0
+base_min = 0.03
+base_max = 0.06

@@ -105,6 +105,31 @@ func affix_max_hp_flat() -> float:
 func affix_power_multiplier() -> float:
 	return 1.0 + _affix_total(AffixDef.Effect.DAMAGE_PERCENT, -1)
 
+## Issue 931: the share of a landed hit this piece returns to its wielder.
+func affix_life_leech() -> float:
+	return _affix_total(AffixDef.Effect.LIFE_LEECH, -1)
+
+## Issue 931: the share of the killer's own pool this piece grants on a kill.
+func affix_resource_on_kill() -> float:
+	return _affix_total(AffixDef.Effect.RESOURCE_ON_KILL, -1)
+
+## Issue 931: the Book's percentage points and a rolled fraction are the same
+## effect in two units, so they are summed here in the fraction both callers
+## want and `cooldown_reduction_percent` is never read alone.
+func total_cooldown_reduction() -> float:
+	return cooldown_reduction_percent / 100.0 + _affix_total(AffixDef.Effect.COOLDOWN_RECOVERY, -1)
+
+## Issue 931: the same shape `AbilityModifiers.added_statuses` returns for a
+## modifier, so one landed hit applies both through one list.
+func affix_added_statuses() -> Array:
+	var out: Array = []
+	for r in affixes:
+		if r == null or r.affix == null or r.affix.effect != AffixDef.Effect.ON_HIT_STATUS:
+			continue
+		out.append({"status": r.affix.status, "ticks": r.affix.status_ticks,
+			"chance": r.value, "source": "%s: %s" % [display_name, r.affix.display_name]})
+	return out
+
 func _affix_total(effect: AffixDef.Effect, a: int) -> float:
 	var out := 0.0
 	for r in affixes:

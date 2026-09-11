@@ -56,6 +56,19 @@ func test_every_rolled_item_is_fully_described() -> void:
 			complaints.append_array(_complaints(id, rolled, EquipPanel.item_effect_text(rolled)))
 	assert_eq(complaints, [], "the equip screen is silent about affixes these rolls carry")
 
+## Issue 931: the walk above rolls floor 1, which is numbers only by design, so
+## the verb tier is walked separately or no verb is ever described.
+func test_every_rolled_verb_is_fully_described() -> void:
+	var complaints: Array[String] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 931
+	for id in ItemLibrary.all_ids():
+		var base := ItemLibrary.get_equipment(id)
+		for i in 40:
+			var rolled := ItemRoller.roll(base, ItemRoller.VERB_UNLOCK_FLOOR, rng)
+			complaints.append_array(_complaints(id, rolled, EquipPanel.item_effect_text(rolled)))
+	assert_eq(complaints, [], "the equip screen is silent about verbs these rolls carry")
+
 ## A field nobody has taught the renderer about must fail rather than pass
 ## quietly, so this is asserted at the class level too: it goes red the moment
 ## the export is added, before any item sets it.
@@ -192,13 +205,21 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 ## Derived from `AffixDef`'s own fields rather than from the panel's routine,
 ## so a renderer that stops saying the number still fails here.
 func _affix_value_tokens(r: AffixRoll) -> Array[String]:
+	var percent := "%d%%" % int(round(r.value * 100.0))
 	match r.affix.effect:
 		AffixDef.Effect.MAX_HP_FLAT:
 			return ["%+d" % int(round(r.value))]
 		AffixDef.Effect.DAMAGE_REDUCTION:
-			return ["%d%%" % int(round(r.value * 100.0))]
+			return [percent]
 		AffixDef.Effect.DAMAGE_PERCENT:
 			return ["%+d%%" % int(round(r.value * 100.0))]
+		## Issue 931: a verb still has a number, and the screen still has to
+		## say it -- "Thirsting" alone is the stub this issue is about.
+		AffixDef.Effect.LIFE_LEECH, AffixDef.Effect.COOLDOWN_RECOVERY, AffixDef.Effect.RESOURCE_ON_KILL:
+			return [percent]
+		AffixDef.Effect.ON_HIT_STATUS:
+			return [percent, Glossary.status_name(r.affix.status),
+				"%.1fs" % (float(r.affix.status_ticks) / float(CG.TICKS_PER_SECOND))]
 	return ["%s %+d" % [CG.attribute_name(r.affix.attribute), int(round(r.value))]]
 
 ## The gates here are the simulation's, read off `AbilityModifiers` and

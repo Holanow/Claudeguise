@@ -15,6 +15,10 @@ const PATHS: Array[String] = [
 	"res://Scripts/Content/Affixes/vital.tres",
 	"res://Scripts/Content/Affixes/padded.tres",
 	"res://Scripts/Content/Affixes/keen.tres",
+	"res://Scripts/Content/Affixes/thirsting.tres",
+	"res://Scripts/Content/Affixes/flowing.tres",
+	"res://Scripts/Content/Affixes/ravenous.tres",
+	"res://Scripts/Content/Affixes/serrated.tres",
 ]
 
 static var _by_id: Dictionary = {}

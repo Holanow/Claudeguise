@@ -52,9 +52,24 @@ static func action_ticks_multiplier(unit: CombatUnit, action: ActionDef) -> floa
 ## Statuses an item adds to a landed hit that the action itself never applies.
 ## `chance` is drawn by the caller, from `state.rng`, in this list's order --
 ## never here, so a query never perturbs the fight it is asked about.
+##
+## Issue 931: `source` names the piece that added it, so the combat log's proc
+## tag reads this list rather than walking the gear a second time.
 static func added_statuses(unit: CombatUnit, action: ActionDef) -> Array:
 	var out: Array = []
-	for m in of(unit):
-		if m.adds_status_enabled and m.matches(action):
-			out.append({"status": m.adds_status, "ticks": m.adds_status_ticks, "chance": m.adds_status_chance})
+	if unit == null or unit.pawn == null:
+		return out
+	for item in unit.pawn.equipment():
+		for m in item.modifiers:
+			if m == null or not m.adds_status_enabled or not m.matches(action):
+				continue
+			out.append({"status": m.adds_status, "ticks": m.adds_status_ticks,
+				"chance": m.adds_status_chance, "source": _modifier_source(item, m)})
+		out.append_array(item.affix_added_statuses())
 	return out
+
+## An affix names itself the same way, so the two entries read alike.
+static func _modifier_source(item: EquipmentDef, m: AbilityModifier) -> String:
+	if m.display_name == "":
+		return item.display_name
+	return "%s: %s" % [item.display_name, m.display_name]
