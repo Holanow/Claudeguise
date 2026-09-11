@@ -123,6 +123,10 @@ func _tab_button(text: String, index: int) -> Button:
 
 ## `party`: every pawn this popout may switch between. `state`: the fight it
 ## was opened over, or null with no fight running. `focus`: who to land on.
+## Issue 919: `bag` is the run's unworn loot, handed in rather than reached
+## for, so this screen still opens outside a run with nothing in it.
+var bag: Array[EquipmentDef] = []
+
 func open(party: Array[PawnData], state, focus: PawnData) -> void:
 	_ensure_panels()
 	_party = party
@@ -131,6 +135,7 @@ func open(party: Array[PawnData], state, focus: PawnData) -> void:
 	visible = true
 	var running: bool = state != null and state.outcome == CombatState.Outcome.UNRESOLVED
 	_equip.set_locked(running, EQUIP_LOCKED_NOTE)
+	_equip.bag = bag
 	_rebuild_pawn_row()
 	_show_pawn(_focused)
 	_show_tab(TAB_PLANS)

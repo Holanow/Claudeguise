@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="EquipmentDef" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_reap1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityModifier.gd" id="2_reap2"]
+
+[sub_resource type="Resource" id="Resource_reapedge"]
+script = ExtResource("2_reap2")
+display_name = "Reaping edge"
+power_multiplier = 1.25
+adds_status = 1
+adds_status_enabled = true
+adds_status_ticks = 45
+adds_status_chance = 0.25
+
+[resource]
+script = ExtResource("1_reap1")
+id = &"reaper"
+display_name = "Reaper"
+slot = 0
+description = "A scythe taken in both hands. It swings heavier than a one-hander and a landed cut may draw Bleed."
+granted_actions = Array[StringName]([&"abomination_claw"])
+modifiers = Array[ExtResource("2_reap2")]([SubResource("Resource_reapedge")])
+required_tags = Array[int]([1, 2])
+two_handed = true
+part = &"reaper"

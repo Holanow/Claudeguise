@@ -10,9 +10,9 @@ class_name PawnFactory
 const STARTING_WEAPON := {
 	&"warrior": &"sword",
 	&"priest": &"staff",
-	&"geysermancer": &"orb",
+	&"geysermancer": &"wand",
 	&"siege_master": &"bow",
-	&"abomination": &"sickle",
+	&"abomination": &"rune_gauntlet",
 }
 
 ## The armour a class starts wearing, one entry per class on the player's
@@ -23,12 +23,12 @@ const STARTING_ARMOR := {
 	&"warrior": &"plate_mail",
 	&"priest": &"robes",
 	&"geysermancer": &"robes",
-	&"siege_master": &"silk_wraps",
-	&"abomination": &"gown",
+	&"siege_master": &"plate_mail",
+	&"abomination": &"robes",
 }
 
-## Issue 822: whether a pawn starts with its `off_hand` filled. `accessory`
-## stays empty on purpose -- it is the only slot a drop can still land in.
+## Issue 822: whether a pawn starts with its `off_hand` filled. `accessory` and
+## `head` stay empty on purpose -- they are the slots a drop can land in.
 static var FILL_EMPTY_SLOTS := true
 
 ## The off-hand each class starts with, one named choice per class: #915
@@ -36,9 +36,9 @@ static var FILL_EMPTY_SLOTS := true
 ## Warrior's shield or the Siege Master's quiver from.
 ## A class holding a two-handed weapon never reaches its entry (#917).
 const STARTING_OFF_HAND := {
-	&"warrior": &"shield",
+	&"warrior": &"tower_shield",
 	&"priest": &"focus",
-	&"geysermancer": &"focus",
+	&"geysermancer": &"book",
 	&"siege_master": &"quiver",
 	&"abomination": &"focus",
 }

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_std1"]
+
+[resource]
+script = ExtResource("1_std1")
+id = &"standard"
+display_name = "Standard"
+slot = 1
+description = "A banner on a short pole. Its bearer can plant it and raise a Rallying Cry over everyone nearby."
+granted_actions = Array[StringName]([&"rallying_cry"])
+required_tags = Array[int]([2])

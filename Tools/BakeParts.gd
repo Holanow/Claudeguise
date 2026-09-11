@@ -317,9 +317,20 @@ func _parts() -> Dictionary:
 	_ellipse(staff, 27.0, 3.0, 1.6, 1.6)
 	out["staff"] = staff
 
-	var orb := _blank()
-	_ellipse(orb, 27.0, 17.0, 3.0, 3.0)
-	out["orb"] = orb
+	var wand := _blank()
+	_limb(wand, Vector2(27.5, 21.0), Vector2(29.5, 11.0), 0.8)
+	_ellipse(wand, 29.5, 10.5, 1.8, 1.8)
+	out["wand"] = wand
+
+	var mace := _blank()
+	_limb(mace, Vector2(28.0, 21.0), Vector2(29.0, 11.0), 1.0)
+	_ellipse(mace, 29.0, 8.5, 3.2, 3.2)
+	out["mace"] = mace
+
+	var rune_gauntlet := _blank()
+	_rect(rune_gauntlet, 25, 17, 31, 23)
+	_ellipse(rune_gauntlet, 28.0, 20.0, 1.4, 1.4)
+	out["rune_gauntlet"] = rune_gauntlet
 
 	var bow := _blank()
 	_tri(bow, Vector2(28.0, 19.0), Vector2(33.0, 10.0), Vector2(30.0, 9.0))
@@ -327,10 +338,10 @@ func _parts() -> Dictionary:
 	_limb(bow, Vector2(30.0, 9.0), Vector2(30.0, 29.0), 0.4)
 	out["bow"] = bow
 
-	var sickle := _blank()
-	_limb(sickle, Vector2(28.0, 19.0), Vector2(31.0, 12.0), 1.0)
-	_tri(sickle, Vector2(31.0, 12.0), Vector2(34.0, 9.0), Vector2(30.0, 9.0))
-	out["sickle"] = sickle
+	var reaper := _blank()
+	_limb(reaper, Vector2(27.0, 27.0), Vector2(30.0, 6.0), 1.0)
+	_tri(reaper, Vector2(30.0, 6.0), Vector2(23.0, 4.0), Vector2(29.0, 10.0))
+	out["reaper"] = reaper
 
 	return out
 

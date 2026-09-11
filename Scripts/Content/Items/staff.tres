@@ -1,14 +1,21 @@
-[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+[gd_resource type="Resource" script_class="EquipmentDef" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_jg5sc"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityModifier.gd" id="2_staff2"]
+
+[sub_resource type="Resource" id="Resource_staffpower"]
+script = ExtResource("2_staff2")
+display_name = "Carved channel"
+power_multiplier = 1.3
 
 [resource]
 script = ExtResource("1_jg5sc")
 id = &"staff"
 display_name = "Staff"
 slot = 0
-description = "A long carved stave. Its wielder attacks with a Bolt at range."
+description = "A long carved stave taken in both hands. Its wielder attacks with a Bolt at range, and everything they cast hits harder."
 granted_actions = Array[StringName]([&"priest_bolt"])
+modifiers = Array[ExtResource("2_staff2")]([SubResource("Resource_staffpower")])
 required_tags = Array[int]([1, 3])
 two_handed = true
 part = &"staff"

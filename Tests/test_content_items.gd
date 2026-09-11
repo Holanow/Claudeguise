@@ -40,6 +40,8 @@ func test_every_item_changes_something() -> void:
 			or not item.attribute_flat.is_empty()
 			or item.damage_reduction > 0.0
 			or item.resource_regen_percent_bonus > 0.0
+			or item.resource_max_percent_bonus > 0.0
+			or item.cooldown_reduction_percent > 0.0
 			or not item.granted_actions.is_empty()
 			or not item.modifiers.is_empty()
 		)
@@ -73,6 +75,8 @@ func test_no_registered_piece_is_inert() -> void:
 			not item.granted_actions.is_empty()
 			or item.damage_reduction > 0.0
 			or item.resource_regen_percent_bonus > 0.0
+			or item.resource_max_percent_bonus > 0.0
+			or item.cooldown_reduction_percent > 0.0
 			or not item.modifiers.is_empty()
 		)
 		if not grants_something:
@@ -124,8 +128,7 @@ func test_every_class_can_equip_at_least_one_weapon() -> void:
 ## call the simulation itself makes, not by reading the field back.
 const CLOTH_ARMOR := {
 	&"priest": &"robes",
-	&"siege_master": &"silk_wraps",
-	&"abomination": &"gown",
+	&"abomination": &"robes",
 }
 
 func test_cloth_armor_reduces_damage_for_the_pawn_that_starts_in_it() -> void:
@@ -184,3 +187,54 @@ func test_a_pawn_without_a_censer_adds_nothing() -> void:
 	u.pawn.accessory = null
 	assert_eq(AbilityModifiers.added_statuses(u, _plain_action()), [],
 		"an empty accessory slot must add no status")
+
+
+# ---------------------------------------------------------------------------
+# Issue 918: the three capabilities the README's new base types needed, each
+# proved through the call the simulation itself makes.
+# ---------------------------------------------------------------------------
+
+func _caster_holding(item_id: StringName) -> CombatUnit:
+	var u := CombatUnit.new()
+	u.id = 0
+	u.team = CG.Team.PLAYER
+	u.pawn = PawnFactory.make_starter_pawn(&"priest", &"p", "P")
+	u.pawn.main_hand = null
+	u.pawn.off_hand = null if item_id == &"" else ItemLibrary.get_equipment(item_id)
+	return u
+
+## The Book is the only piece with no granted action at all, so this is the
+## only thing between it and being a picker row that does nothing.
+func test_the_book_shortens_a_cooldown_the_simulation_books() -> void:
+	var bare := _caster_holding(&"")
+	var reading := _caster_holding(&"book")
+	var full := CombatSim._geared_cooldown_ticks(bare, 200)
+	var cut := CombatSim._geared_cooldown_ticks(reading, 200)
+	assert_eq(full, 200, "a pawn carrying no Book must book the authored cooldown")
+	assert_true(cut < full, "the Book shortened nothing: %d against %d" % [cut, full])
+
+func test_the_orb_deepens_the_pool_its_holder_draws_from() -> void:
+	var bare := PawnFactory.make_starter_pawn(&"geysermancer", &"g", "G")
+	bare.off_hand = null
+	var with_orb := PawnFactory.make_starter_pawn(&"geysermancer", &"g", "G")
+	with_orb.off_hand = ItemLibrary.get_equipment(&"orb")
+	assert_true(with_orb.max_resource() > bare.max_resource(),
+		"the Orb raised no pool: %d against %d" % [with_orb.max_resource(), bare.max_resource()])
+
+## The Mace's cost. Without it the heavier swing is a straight upgrade on the
+## Sword and the choice README describes does not exist.
+func test_the_mace_swings_slower_than_the_sword() -> void:
+	var swing := ActionLibrary.get_action(&"warrior_strike")
+	var with_sword := CombatUnit.new()
+	with_sword.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "W")
+	var with_mace := CombatUnit.new()
+	with_mace.pawn = PawnFactory.make_starter_pawn(&"warrior", &"w", "W")
+	with_mace.pawn.main_hand = ItemLibrary.get_equipment(&"mace")
+	assert_true(
+		SimDeps._default_wind_up_ticks(with_mace, swing)
+			> SimDeps._default_wind_up_ticks(with_sword, swing),
+		"the Mace winds up no slower than the Sword")
+	assert_true(
+		AbilityModifiers.power_multiplier(with_mace, swing)
+			> AbilityModifiers.power_multiplier(with_sword, swing),
+		"the Mace hits no harder than the Sword")

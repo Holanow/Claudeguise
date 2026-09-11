@@ -84,7 +84,7 @@ func _run() -> void:
 	_rebuild_scene()
 
 	var pawn := PawnFactory.make_starter_pawn(&"warrior", &"w", "Warrior")
-	pawn.off_hand = ItemLibrary.get_equipment(&"wrench")
+	pawn.off_hand = ItemLibrary.get_equipment(&"mace")
 
 	_caster = CombatUnit.new()
 	_caster.id = 0

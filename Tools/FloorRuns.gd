@@ -40,7 +40,6 @@ func _init() -> void:
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
 	print(arm)
 	print(ReviveArgs.apply())
-	print(LootArgs.apply())
 	print("final state per run: %s\n" % (
 		"ON, cleared runs and near misses" if _detail else "off (--final-state)"))
 	for ids in comps:
@@ -61,6 +60,9 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	## other two are on the PR and both favour the camp.
 	var camp_unfound := 0
 	var drops := 0
+	## Issue 919: a chest can pay out into full slots, so what was picked up and
+	## what is actually being worn are two numbers now.
+	var worn := 0
 	## Issue 822: which items dropped, not only how many. The censer procs
 	## SLOWED since #793, so a drop line is read by what it contains.
 	var dropped := {}
@@ -121,6 +123,7 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			_final_state_lines(detail, s, party, last_state,
 				depths[depths.size() - 1], walk.size(), wiped)
 		drops += run.loot.size()
+		worn += run.loot.size() - run.bag.size()
 		for item in run.loot:
 			dropped[item.id] = int(dropped.get(item.id, 0)) + 1
 		if not run.revive_used:
@@ -129,7 +132,7 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			camp_unfound += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths,
 		"camp_unused": camp_unused, "camp_unfound": camp_unfound,
-		"drops": drops, "dropped": dropped, "party": ids.size(),
+		"drops": drops, "worn": worn, "dropped": dropped, "party": ids.size(),
 		"clear_survivors": clear_survivors, "detail": detail}
 
 ## One room, built and run exactly as `BattleView` builds and runs it. The
@@ -201,10 +204,10 @@ func _report(label: String, r: Dictionary) -> void:
 	if _camp:
 		print("  the camp was needed before it had been found in %d of %d runs" % [
 			r.camp_unfound, SEEDS])
-	## Issue 811: every drop is filtered to something a living pawn can put on,
-	## so items found and items worn are the same number by construction.
-	print("  loot: %d items found and worn across %d runs (%.2f a run)" % [
-		r.drops, SEEDS, float(r.drops) / SEEDS])
+	## Issue 919: chests are no longer filtered to a slot somebody has free, so
+	## found and worn are different numbers and both are printed.
+	print("  loot: %d items found, %d of them worn, across %d runs (%.2f found a run)" % [
+		r.drops, r.worn, SEEDS, float(r.drops) / SEEDS])
 	print("    what dropped: %s" % _dropped_line(r.dropped))
 	_report_depth(r.depths, r.cleared)
 	_report_survivors(r.clear_survivors, int(r.party))

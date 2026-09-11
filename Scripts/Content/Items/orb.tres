@@ -6,8 +6,8 @@
 script = ExtResource("1_rypbl")
 id = &"orb"
 display_name = "Orb"
-slot = 0
-description = "A sphere of trapped water. Its wielder attacks with a Spout."
-granted_actions = Array[StringName]([&"geyser_spout"])
+slot = 1
+description = "A sphere of trapped water, held in the off hand. It teaches its holder to Channel and deepens the pool it draws from."
+granted_actions = Array[StringName]([&"channel_mana"])
+resource_max_percent_bonus = 20.0
 required_tags = Array[int]([1, 3])
-part = &"orb"

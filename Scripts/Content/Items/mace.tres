@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="EquipmentDef" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_mace1"]
+[ext_resource type="Script" path="res://Scripts/Core/AbilityModifier.gd" id="2_mace2"]
+
+[sub_resource type="Resource" id="Resource_maceheft"]
+script = ExtResource("2_mace2")
+display_name = "Dead weight"
+power_multiplier = 1.35
+action_ticks_multiplier = 1.5
+adds_status = 7
+adds_status_enabled = true
+adds_status_ticks = 90
+
+[resource]
+script = ExtResource("1_mace1")
+id = &"mace"
+display_name = "Mace"
+slot = 0
+description = "A weighted head on a short haft. It hits harder and slower than a blade, and what it lands on stays Marked."
+granted_actions = Array[StringName]([&"warrior_strike"])
+modifiers = Array[ExtResource("2_mace2")]([SubResource("Resource_maceheft")])
+required_tags = Array[int]([0, 2])
+part = &"mace"

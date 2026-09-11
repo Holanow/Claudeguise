@@ -138,12 +138,12 @@ func test_the_fallback_reaches_and_attacks_from_inside_hazardous_ground() -> voi
 func test_dual_wields_true_for_two_martial_weapons() -> void:
 	var pawn := _pawn(&"warrior")
 	pawn.main_hand = ItemLibrary.get_equipment(&"sword")
-	pawn.off_hand = ItemLibrary.get_equipment(&"wrench")
+	pawn.off_hand = ItemLibrary.get_equipment(&"mace")
 	assert_true(DefaultPlan.dual_wields(pawn))
 
 func test_dual_wields_false_for_a_shield() -> void:
 	var pawn := _pawn(&"warrior")
-	pawn.off_hand = ItemLibrary.get_equipment(&"shield")
+	pawn.off_hand = ItemLibrary.get_equipment(&"tower_shield")
 	assert_false(DefaultPlan.dual_wields(pawn), "a shield grants no attack")
 
 func test_dual_wields_false_for_a_quiver() -> void:

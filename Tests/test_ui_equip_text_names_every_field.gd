@@ -167,6 +167,12 @@ func _tokens_for(item: EquipmentDef, field: StringName) -> Variant:
 		&"resource_regen_percent_bonus":
 			out.append("%d%%" % int(round(item.resource_regen_percent_bonus)))
 			out.append("second")
+		&"resource_max_percent_bonus":
+			out.append("%d%%" % int(round(item.resource_max_percent_bonus)))
+			out.append("pool")
+		&"cooldown_reduction_percent":
+			out.append("%d%%" % int(round(item.cooldown_reduction_percent)))
+			out.append("cooldown")
 		&"affixes":
 			for r in item.affixes:
 				if r == null or r.affix == null:
@@ -212,6 +218,8 @@ func _modifier_tokens(m: AbilityModifier, field: StringName) -> Variant:
 				out.append(CG.damage_type_name(m.only_damage_type).to_lower())
 		&"target_count_bonus":
 			out.append("%+d" % m.target_count_bonus)
+		&"action_ticks_multiplier":
+			out.append("%+d%%" % int(round((m.action_ticks_multiplier - 1.0) * 100.0)))
 		&"power_multiplier":
 			out.append("%+d%%" % int(round((m.power_multiplier - 1.0) * 100.0)))
 		&"adds_status_enabled":

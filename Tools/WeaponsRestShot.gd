@@ -1,7 +1,7 @@
 extends Node
 
 ## Issue 685. The party in deploy setup, one class per weapon `part`
-## (sword/bow/staff/orb/sickle), before the fight starts -- proof a weapon
+## (sword/bow/staff/wand/rune_gauntlet), before the fight starts -- proof a weapon
 ## shows in a hand at rest, not only mid-swing.
 
 const OUT := "user://probe/sable_685_weapons_rest.png"

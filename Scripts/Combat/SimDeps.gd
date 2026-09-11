@@ -148,13 +148,21 @@ static func _default_damage_reduction_cause(unit: CombatUnit) -> CG.MitigationCa
 
 static func _default_wind_up_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
-		return unit.pawn.scale_action_ticks(action.wind_up_ticks)
+		return _geared(unit, action, unit.pawn.scale_action_ticks(action.wind_up_ticks))
 	return MonsterProfile.scale_action_ticks(action.wind_up_ticks, _enemy_action_speed(unit))
 
 static func _default_recover_ticks(unit: CombatUnit, action: ActionDef) -> int:
 	if unit.pawn != null:
-		return unit.pawn.scale_action_ticks(action.recover_ticks)
+		return _geared(unit, action, unit.pawn.scale_action_ticks(action.recover_ticks))
 	return MonsterProfile.scale_action_ticks(action.recover_ticks, _enemy_action_speed(unit))
+
+## Issue 918: a heavy weapon slows every swing it is used for, which is the
+## Mace's cost. At least one tick, the same floor `scale_action_ticks` holds.
+static func _geared(unit: CombatUnit, action: ActionDef, ticks: int) -> int:
+	if ticks <= 0:
+		return ticks
+	var f := AbilityModifiers.action_ticks_multiplier(unit, action)
+	return maxi(1, int(round(float(ticks) * f)))
 
 ## Issue 542. Same `EnemyLibrary.get_enemy` the attack-power and hide branches above
 ## already do per call; an unknown enemy acts at its authored speed.

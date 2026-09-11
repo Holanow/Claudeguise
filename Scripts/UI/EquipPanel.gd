@@ -44,6 +44,11 @@ var _selected_index: int = 0
 var _locked := false
 var _lock_reason := ""
 
+## Issue 919: pieces the run has picked up that nobody is wearing. A chest can
+## pay out something every slot is already full of, and without this the player
+## would never see it again. Empty for every caller but the in-run popout.
+var bag: Array[EquipmentDef] = []
+
 func set_locked(locked: bool, reason: String = "") -> void:
 	_locked = locked
 	_lock_reason = reason
@@ -238,6 +243,12 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 	var out: Array[EquipmentDef] = []
 	if pawn.pawn_class == null:
 		return out
+	## Issue 916: a rolled piece keeps its base id, so a picker built from the
+	## library alone reads "Plate Mail" while the pawn is wearing "Rare Plate
+	## Mail" -- and taking it off could never put it back.
+	var worn := equipped(pawn, slot)
+	if allowed and is_rolled(worn):
+		out.append(worn)
 	## Issue 917: a two-hander fills the off hand, so nothing is offered there
 	## and nothing is refused there either -- #474 refuses what the class may
 	## not wear, and this is a slot nobody may fill.
@@ -250,7 +261,19 @@ func _slot_items(pawn: PawnData, slot: int, allowed: bool) -> Array[EquipmentDef
 		if item.allows_class(pawn.pawn_class) != allowed:
 			continue
 		out.append(item)
+	## Issue 919: the run's unworn pickups, after the registry so a piece that
+	## is both stays one row.
+	if allowed:
+		for item in bag:
+			if _fits_slot(item, slot) and item.allows_class(pawn.pawn_class) and not out.has(item):
+				out.append(item)
 	return out
+
+## Issue 916: a piece that came out of `ItemRoller` rather than out of the
+## registry. The registry hands out one shared instance per id, so anything
+## else carrying that id is a roll.
+static func is_rolled(item: EquipmentDef) -> bool:
+	return item != null and ItemLibrary.get_equipment(item.id) != item
 
 ## Issue 747: `OFF_HAND` also offers every `MAIN_HAND` weapon -- a second
 ## weapon is how dual-wielding gets equipped, and no new weapon is needed for
@@ -336,7 +359,9 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 	var current := 0
 	for i in items.size():
 		picker.add_item(items[i].display_name)
-		if worn != null and items[i].id == worn.id:
+		## Issue 916: the instance, not the id. A rolled Plate Mail and the base
+		## Plate Mail share an id and are different pieces of gear.
+		if worn != null and items[i] == worn:
 			current = i + 1
 	picker.selected = current
 	# Issue 474: refused pieces go in as disabled rows *after* the offered ones,
@@ -368,9 +393,23 @@ func _slot_controls(pawn: PawnData, slot: int) -> Array[Control]:
 ## about loudly. The plan editor hit this on real button presses and fixed it
 ## the same way: defer the rebuild, not the free.
 func _on_slot_selected(pawn: PawnData, slot: int, items: Array[EquipmentDef], index: int) -> void:
-	_set_equipped(pawn, slot, null if index == 0 else items[index - 1])
+	var chosen: EquipmentDef = null if index == 0 else items[index - 1]
+	var displaced := equipped(pawn, slot)
+	_set_equipped(pawn, slot, chosen)
+	_move_between_bag_and_pawn(chosen, displaced)
 	call_deferred("_refresh", pawn)
 	equipment_changed.emit(pawn)
+
+## Issue 919: a piece taken out of the bag leaves it, and a piece it displaced
+## goes in only when it is a roll -- a registry item is always re-selectable
+## from the list below it, so putting one in the bag would only duplicate it.
+func _move_between_bag_and_pawn(chosen: EquipmentDef, displaced: EquipmentDef) -> void:
+	if chosen == displaced:
+		return
+	if chosen != null:
+		bag.erase(chosen)
+	if is_rolled(displaced) and not bag.has(displaced):
+		bag.append(displaced)
 
 func _refresh(pawn: PawnData) -> void:
 	_rebuild_list()
@@ -398,6 +437,10 @@ static func item_effect_text(item: EquipmentDef) -> String:
 	if item.resource_regen_percent_bonus != 0.0:
 		parts.append("regenerates %d%% more of its pool each second"
 			% int(round(item.resource_regen_percent_bonus)))
+	if item.resource_max_percent_bonus != 0.0:
+		parts.append("raises its pool by %d%%" % int(round(item.resource_max_percent_bonus)))
+	if item.cooldown_reduction_percent != 0.0:
+		parts.append("cuts every cooldown by %d%%" % int(round(item.cooldown_reduction_percent)))
 	for m in item.modifiers:
 		if m != null:
 			parts.append_array(modifier_parts(m))
@@ -455,6 +498,9 @@ static func modifier_parts(m: AbilityModifier) -> Array[String]:
 			% [int(round((m.power_multiplier - 1.0) * 100.0)), scope])
 	if m.target_count_bonus != 0:
 		out.append("throws %+d projectile per cast" % m.target_count_bonus)
+	if m.action_ticks_multiplier != 1.0:
+		out.append("%+d%% longer to swing"
+			% int(round((m.action_ticks_multiplier - 1.0) * 100.0)))
 	return out
 
 static func _slot_effect_text(item: EquipmentDef) -> String:

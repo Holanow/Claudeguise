@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EquipmentDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EquipmentDef.gd" id="1_tsh1"]
+
+[resource]
+script = ExtResource("1_tsh1")
+id = &"tower_shield"
+display_name = "Tower Shield"
+slot = 1
+description = "A slab of banded wood. It absorbs a share of every hit and teaches its bearer to raise a Directional Block."
+granted_actions = Array[StringName]([&"warrior_block"])
+damage_reduction = 0.15
+required_tags = Array[int]([2])

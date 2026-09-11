@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ActionDef" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/AbilityEffect.gd" id="1_rally0"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/HitEffect.gd" id="2_rally1"]
+[ext_resource type="Script" path="res://Scripts/Core/Effects/StatusEffect.gd" id="3_rally2"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionDef.gd" id="4_rally3"]
+[ext_resource type="Script" path="res://Scripts/Core/ActionTargeting.gd" id="5_rally4"]
+
+[sub_resource type="Resource" id="Resource_rallyhit"]
+script = ExtResource("2_rally1")
+power_scale = 0.0
+
+[sub_resource type="Resource" id="Resource_rallystatus"]
+script = ExtResource("3_rally2")
+status = 4
+duration_ticks = 150
+
+[sub_resource type="Resource" id="Resource_rallyaim"]
+script = ExtResource("5_rally4")
+targets_self = true
+splash_radius = 220.0
+
+[resource]
+script = ExtResource("4_rally3")
+id = &"rallying_cry"
+display_name = "Rallying Cry"
+description = "Raises the standard where its bearer stands, hastening every ally within 220 units for 10 seconds. It cannot be raised again for another 16 seconds."
+wind_up_ticks = 12
+recover_ticks = 10
+cooldown_ticks = 240
+targeting = SubResource("Resource_rallyaim")
+effects = Array[ExtResource("1_rally0")]([SubResource("Resource_rallyhit"), SubResource("Resource_rallystatus")])

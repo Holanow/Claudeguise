@@ -2,62 +2,87 @@ extends RefCounted
 class_name LootTables
 
 
-## What drops, and how often. Issue 41's own outcome: items are loot, earned
-## mid-run, not starting gear -- starting gear flattened all five real
-## parties to 18-20/20 and erased the coin flips issue 37 spent the night
-## building. wren's floor curve already degrades party entry health 98.7% ->
-## 93.7% -> 73.8% across rooms; this is the content that answers that curve.
+## What a cleared room's chest holds. Issue 919 replaced the per-room-type drop
+## chance with the player's own rate: every fight on floor 1 drops 1 to 3 items.
 
-## A room of one of these types may drop something. Every other type (TRAP,
-## LIBRARY, CELL, ordinary ENEMY) drops nothing -- README's own text names
-## Treasure Rooms as where equipment is found, and BIG_ENEMY/MINIBOSS/BOSS
-## are the rooms with something worth rewarding for. A plain ENEMY room is
-## the floor's bread and butter and should not out-drop the room built to
-## contain drops.
-const DROP_CHANCE: Dictionary = {
-	FloorRoom.Type.TREASURE: 1.0,
-	FloorRoom.Type.BOSS: 1.0,
-	FloorRoom.Type.MINIBOSS: 0.75,
-	FloorRoom.Type.BIG_ENEMY: 0.35,
-}
+const MIN_ITEMS := 1
+const MAX_ITEMS := 3
 
-## Issue 811: a multiplier on every chance above, so the drop rate can be swept
-## from the command line without editing the table. 1.0 is the shipped table and
-## nothing but Tools/LootArgs.gd ever assigns this.
-static var CHANCE_SCALE := 1.0
+## Issue 919: how many chests may pass without a single piece landing on a pawn
+## before the next one is forced to carry something that fits an empty slot.
+const PITY_LIMIT := 3
 
-## Issue 811: what a plain ENEMY room would drop, if it dropped. Not in the
-## table above and deliberately not added to it -- the floor has no treasure
-## room, so this is the only way to sweep "what if the bread-and-butter rooms
-## paid out" without authoring a number the player did not ask for. Ships at
-## 0.0, which is the table exactly as it is.
-static var ENEMY_CHANCE := 0.0
+## Issue 919, README: weighting reads pawn scaling, not equipped gear, so a run
+## does not converge on whatever the player found first. A class's tags are what
+## it scales on, so a base type is weighted by how many living pawns are allowed
+## it -- and this is a reading of that sentence rather than a quotation of it.
+const BASELINE_WEIGHT := 1
+const PER_PAWN_WEIGHT := 2
 
-## Returns null on "nothing dropped", never an empty-but-real EquipmentDef --
-## a caller that wants "did anything drop" gets to ask that directly rather
-## than checking a sentinel id. `candidate_ids` narrows what may be picked;
-## empty is the whole library.
-static func roll_drop(room_type: FloorRoom.Type, difficulty: int, rng: RandomNumberGenerator,
-		candidate_ids: Array[StringName] = [] as Array[StringName]) -> EquipmentDef:
-	var base: float = ENEMY_CHANCE if room_type == FloorRoom.Type.ENEMY \
-		else float(DROP_CHANCE.get(room_type, 0.0))
-	var chance: float = base * CHANCE_SCALE
-	if chance <= 0.0:
-		return null
-	if rng.randf() >= chance:
-		return null
-	return _pick_item(difficulty, rng, candidate_ids)
-
-## No rarity tier exists on EquipmentDef yet -- every registered item is
-## equally likely regardless of `difficulty`. `difficulty` is threaded
-## through now (rather than added when a tier field exists) so the call
-## site and the roll's own determinism don't need to change shape later;
-## only this function's body would.
-static func _pick_item(difficulty: int, rng: RandomNumberGenerator,
-		candidate_ids: Array[StringName]) -> EquipmentDef:
-	var _unused := difficulty
-	var ids := candidate_ids if not candidate_ids.is_empty() else ItemLibrary.all_ids()
+## One chest: 1 to 3 rolled pieces, at least one of them legal for a living
+## pawn's class. `floor_index` is the 1-based floor and never a room difficulty
+## (#916) -- passing difficulty through would open the verb tier on any
+## difficulty-2 room of floor 1.
+static func roll_batch(pawns: Array[PawnData], floor_index: int,
+		rng: RandomNumberGenerator) -> Array[EquipmentDef]:
+	var ids := ItemLibrary.all_ids()
 	if ids.is_empty():
-		return null
-	var index := rng.randi_range(0, ids.size() - 1)
-	return ItemLibrary.get_equipment(ids[index])
+		return [] as Array[EquipmentDef]
+	var out: Array[EquipmentDef] = []
+	for i in rng.randi_range(MIN_ITEMS, MAX_ITEMS):
+		out.append(ItemRoller.roll(_weighted_base(ids, pawns, rng), floor_index, rng))
+	if not _any_usable(out, pawns):
+		var usable := _usable_ids(ids, pawns)
+		if not usable.is_empty():
+			out[0] = ItemRoller.roll(
+				ItemLibrary.get_equipment(usable[rng.randi_range(0, usable.size() - 1)]),
+				floor_index, rng)
+	return out
+
+## The pity floor: a base type some living pawn has an empty legal slot for.
+## This is the one place equipped gear is read, and it is a floor rather than a
+## weighting -- README forbids the second, not the first.
+static func wearable_ids(pawns: Array[PawnData], has_empty_slot: Callable) -> Array[StringName]:
+	var out: Array[StringName] = []
+	for id in ItemLibrary.all_ids():
+		var item := ItemLibrary.get_equipment(id)
+		for p in pawns:
+			if item.allows_class(p.pawn_class) and bool(has_empty_slot.call(p, item)):
+				out.append(id)
+				break
+	return out
+
+static func _weighted_base(ids: Array[StringName], pawns: Array[PawnData],
+		rng: RandomNumberGenerator) -> EquipmentDef:
+	var total := 0
+	for id in ids:
+		total += _weight(ItemLibrary.get_equipment(id), pawns)
+	var roll := rng.randi_range(0, total - 1)
+	for id in ids:
+		roll -= _weight(ItemLibrary.get_equipment(id), pawns)
+		if roll < 0:
+			return ItemLibrary.get_equipment(id)
+	return ItemLibrary.get_equipment(ids[ids.size() - 1])
+
+static func _weight(item: EquipmentDef, pawns: Array[PawnData]) -> int:
+	var n := 0
+	for p in pawns:
+		if item.allows_class(p.pawn_class):
+			n += 1
+	return BASELINE_WEIGHT + PER_PAWN_WEIGHT * n
+
+static func _usable_ids(ids: Array[StringName], pawns: Array[PawnData]) -> Array[StringName]:
+	var out: Array[StringName] = []
+	for id in ids:
+		for p in pawns:
+			if ItemLibrary.get_equipment(id).allows_class(p.pawn_class):
+				out.append(id)
+				break
+	return out
+
+static func _any_usable(items: Array[EquipmentDef], pawns: Array[PawnData]) -> bool:
+	for item in items:
+		for p in pawns:
+			if item.allows_class(p.pawn_class):
+				return true
+	return false

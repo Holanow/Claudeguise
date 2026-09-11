@@ -232,8 +232,9 @@ const SLOT_OF := {
 	&"nose_triangle": &"Face", &"mandibles": &"Face", &"tusks": &"Face",
 	&"hand": &"HandMain", &"hand_wide": &"HandMain",
 	&"hand_off": &"HandOff", &"hand_wide_off": &"HandOff",
-	&"sword": &"Weapon", &"staff": &"Weapon", &"orb": &"Weapon",
-	&"bow": &"Weapon", &"sickle": &"Weapon",
+	&"sword": &"Weapon", &"staff": &"Weapon", &"wand": &"Weapon",
+	&"bow": &"Weapon", &"reaper": &"Weapon",
+	&"mace": &"Weapon", &"rune_gauntlet": &"Weapon",
 }
 
 static func slot_of(part: StringName) -> StringName:
@@ -315,8 +316,9 @@ static func layer_color(layer: Dictionary, team: CG.Team) -> Color:
 ## weapon has none -- it is added at draw time from the wielder's equipment,
 ## not authored into any recipe. A part named nowhere here draws steel grey.
 const WEAPON_COLOR := {
-	&"sword": "c8ccd4", &"staff": "8a6a42", &"orb": "7fd0e0",
-	&"bow": "9a7a48", &"sickle": "9aa0a8",
+	&"sword": "c8ccd4", &"staff": "8a6a42", &"wand": "7fd0e0",
+	&"bow": "9a7a48", &"reaper": "9aa0a8",
+	&"mace": "b0b4bc", &"rune_gauntlet": "c0a060",
 }
 
 static func weapon_color(part: StringName) -> Color:

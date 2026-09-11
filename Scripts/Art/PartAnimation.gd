@@ -23,8 +23,9 @@ enum Kind { IDLE, MELEE, RANGED, CAST }
 const PARTS := {
 	&"hand": 1.0, &"hand_off": 1.0,
 	&"hand_wide": 1.15, &"hand_wide_off": 1.15,
-	&"sword": 1.15, &"bow": 1.15, &"sickle": 1.15,
-	&"staff": 1.0, &"orb": 1.0,
+	&"sword": 1.15, &"bow": 1.15, &"reaper": 1.15,
+	&"mace": 1.15, &"rune_gauntlet": 1.15,
+	&"staff": 1.0, &"wand": 1.0,
 }
 
 static func animates(part: StringName) -> bool:

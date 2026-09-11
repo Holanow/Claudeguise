@@ -35,7 +35,7 @@ func _ready() -> void:
 ## immediate-mode draw it replaces, which is the whole point of using one.
 ##
 ## `weapon_part` is in the rebuild guard: without it, re-equipping from a sword
-## to a wrench would keep drawing the sword (#604's lesson, the same trap).
+## to a mace would keep drawing the sword (#604's lesson, the same trap).
 func build(shape_id: StringName, team: CG.Team, radius: float, weapon_part: StringName = &"") -> void:
 	if _shape == shape_id and _team == int(team) and is_equal_approx(_radius, radius) \
 			and _weapon_part == weapon_part:

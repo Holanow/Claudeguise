@@ -38,6 +38,14 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 ## Additive across equipment; 0.0 does nothing, which is every item but the focus.
 @export var resource_regen_percent_bonus: float = 0.0
 
+## Issue 918: percentage points taken off every action's cooldown, summed
+## across equipment. 0.0 does nothing, which is every item but the Book.
+@export var cooldown_reduction_percent: float = 0.0
+
+## Issue 918: percentage added to its wearer's maximum resource pool. Additive
+## across equipment; 0.0 does nothing, which is every item but the Orb.
+@export var resource_max_percent_bonus: float = 0.0
+
 ## Issue 916: what this piece rolled when it was generated. Empty on every
 ## hand-authored item, which is all fourteen that ship.
 @export var affixes: Array[AffixRoll] = []

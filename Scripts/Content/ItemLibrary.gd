@@ -6,23 +6,27 @@ class_name ItemLibrary
 ## give -- a `DirAccess` walk is ordered by the filesystem, and the registry may
 ## not be.
 ##
-## Weapons, then the off-hand items, then armor, then the accessory: the order
-## the equip screen offers them in.
+## Main hands, then off hands, then body, then head, then the accessory: the
+## order the equip screen offers them in, and README's own floor 1 tables.
 
 const PATHS: Array[String] = [
 	"res://Scripts/Content/Items/sword.tres",
-	"res://Scripts/Content/Items/wrench.tres",
-	"res://Scripts/Content/Items/sickle.tres",
-	"res://Scripts/Content/Items/orb.tres",
-	"res://Scripts/Content/Items/bow.tres",
+	"res://Scripts/Content/Items/mace.tres",
+	"res://Scripts/Content/Items/rune_gauntlet.tres",
+	"res://Scripts/Content/Items/reaper.tres",
+	"res://Scripts/Content/Items/wand.tres",
 	"res://Scripts/Content/Items/staff.tres",
-	"res://Scripts/Content/Items/shield.tres",
+	"res://Scripts/Content/Items/bow.tres",
+	"res://Scripts/Content/Items/tower_shield.tres",
+	"res://Scripts/Content/Items/standard.tres",
+	"res://Scripts/Content/Items/orb.tres",
+	"res://Scripts/Content/Items/book.tres",
 	"res://Scripts/Content/Items/focus.tres",
 	"res://Scripts/Content/Items/quiver.tres",
 	"res://Scripts/Content/Items/plate_mail.tres",
-	"res://Scripts/Content/Items/silk_wraps.tres",
 	"res://Scripts/Content/Items/robes.tres",
-	"res://Scripts/Content/Items/gown.tres",
+	"res://Scripts/Content/Items/great_helm.tres",
+	"res://Scripts/Content/Items/hood.tres",
 	"res://Scripts/Content/Items/censer.tres",
 ]
 

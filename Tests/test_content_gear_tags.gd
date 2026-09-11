@@ -12,10 +12,11 @@ extends "res://Tests/TestCase.gd"
 func test_every_class_can_equip_something_in_every_slot() -> void:
 	for class_id in ClassLibrary.all_ids():
 		var c := ClassLibrary.get_class_def(class_id)
-		## HEAD is absent because no head item ships yet, not because the gate
-		## is allowed to empty it.
+		## Issue 918: HEAD is in the list now that the Great Helm and the Hood
+		## ship; it was excluded only because no head item existed.
 		for slot in [EquipmentDef.Slot.MAIN_HAND, EquipmentDef.Slot.OFF_HAND,
-				EquipmentDef.Slot.BODY, EquipmentDef.Slot.ACCESSORY]:
+				EquipmentDef.Slot.HEAD, EquipmentDef.Slot.BODY,
+				EquipmentDef.Slot.ACCESSORY]:
 			var offered := _offered(c, slot)
 			assert_false(offered.is_empty(),
 				"%s has no %s it is allowed to equip" % [class_id, _slot_name(slot)])
@@ -24,9 +25,9 @@ func test_every_class_can_equip_something_in_every_slot() -> void:
 ## The gate has to refuse as well as permit, or it is a function that returns
 ## true. Every one of these is a real class against a real item.
 func test_the_tags_refuse_the_classes_they_are_meant_to() -> void:
-	_refuses(&"priest", &"sickle", "a ranged caster must not take a melee Claw as its basic attack")
+	_refuses(&"priest", &"rune_gauntlet", "a ranged caster must not take a melee Claw as its basic attack")
 	_refuses(&"geysermancer", &"sword", "a magical class must not wield a Sword")
-	_refuses(&"warrior", &"orb", "a martial class must not wield an Orb")
+	_refuses(&"warrior", &"orb", "a martial class must not carry an Orb")
 	_refuses(&"abomination", &"plate_mail", "Plate is MARTIAL and the Abomination is not")
 	_refuses(&"warrior", &"robes", "Robes are MAGICAL and the Warrior is not")
 	_refuses(&"warrior", &"quiver", "the Quiver is RANGED and the Warrior is MELEE")
@@ -37,7 +38,7 @@ func test_the_tags_refuse_the_classes_they_are_meant_to() -> void:
 ## class that carries both.
 func test_the_tags_permit_the_classes_they_are_meant_to() -> void:
 	_permits(&"warrior", &"plate_mail", "Plate gates on MARTIAL alone since #915")
-	_permits(&"abomination", &"sickle", "the Abomination is MAGICAL and MELEE")
+	_permits(&"abomination", &"rune_gauntlet", "the Abomination is MAGICAL and MELEE")
 	_permits(&"geysermancer", &"robes", "Robes gate on MAGICAL alone since #915")
 	_permits(&"siege_master", &"plate_mail", "a Martial Summoner wears plate, which is the #915 ruling")
 	_permits(&"siege_master", &"bow", "the player's ruling: a Summoner also counts as RANGED")
