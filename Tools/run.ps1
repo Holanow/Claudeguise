@@ -1,7 +1,7 @@
 # Launch one instrument, the way that instrument has to be launched.
 #
-#   powershell -ExecutionPolicy Bypass -File Tools\run.ps1 ScreenSweep
-#   ... ScreenSweep -Resolution 844x390
+#   powershell -ExecutionPolicy Bypass -File Tools\run.ps1 ScreenSweep -FixedFps 60
+#   ... ScreenSweep -FixedFps 60 -Resolution 844x390
 #   ... SampleFights -TimeoutSeconds 900
 #
 # Issue 472: on Godot 4.7.1, `--script res://Tools/X.gd` where X extends Node
@@ -35,7 +35,8 @@ param(
     [string[]] $ToolArgs = @(),
     # `--fixed-fps N` makes the engine report a delta of exactly 1/N every frame,
     # including to the particle system, which nothing inside a tool can reach.
-    # A frame recorder needs it; everything else should leave it at 0.
+    # A frame recorder needs it, and so does any tool whose shots are compared
+    # between runs -- ScreenSweep refuses to run without it (issue 897).
     [int] $FixedFps = 0,
     # `--write-movie <path.avi>` records the audio bus per rendered frame rather
     # than in real time, which is the only way a capture running at a tenth of
