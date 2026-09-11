@@ -19,15 +19,16 @@ const ItemIconViewScript := preload("res://Scripts/UI/ItemIconView.gd")
 
 ## Issue 100: the pre-fight equip screen.
 
-## Issue 131 added the role argument: gear gates on a tag set, so a fixture
-## class that names no role cannot be offered anything a role gates.
-func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS) -> ClassDef:
+## Issue 915 added the style argument: a main hand gates on Method crossed
+## with Style, so a fixture that names only a method is offered no weapon.
+func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS,
+		style: CG.Style = CG.Style.MELEE) -> ClassDef:
 	var cls := ClassDef.new()
 	cls.id = &"test_class"
 	cls.display_name = "Test Class"
 	cls.role_primary = role
 	cls.role_secondary = role
-	cls.style = CG.Style.MELEE
+	cls.style = style
 	cls.method = method
 	cls.starting_actions = [_fixture_action(&"test_swing")]
 	cls.base_attributes = {
@@ -35,11 +36,12 @@ func _make_class(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.
 	}
 	return cls
 
-func _make_pawn(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS) -> PawnData:
+func _make_pawn(method: CG.Method = CG.Method.MARTIAL, role: CG.Role = CG.Role.DPS,
+		style: CG.Style = CG.Style.MELEE) -> PawnData:
 	var pawn := PawnData.new()
 	pawn.id = &"test_pawn"
 	pawn.display_name = "Test Pawn"
-	pawn.pawn_class = _make_class(method, role)
+	pawn.pawn_class = _make_class(method, role, style)
 	return pawn
 
 func _make_item(id: String, slot: int, methods: Array[CG.Method] = []) -> EquipmentDef:
@@ -70,7 +72,8 @@ func test_equipping_plate_puts_its_block_in_the_plan_editor() -> void:
 	assert_false(plate.granted_actions.is_empty(), "plate_mail must grant an action")
 	var granted: StringName = plate.granted_actions[0]
 
-	## Issue 131: plate is MARTIAL and TANK, so the fixture has to be a tank.
+	## Plate gates on MARTIAL alone since #915; the tank fixture is kept so
+	## this reads the same as the offered-items tests beside it.
 	var pawn := _make_pawn(CG.Method.MARTIAL, CG.Role.TANK)
 	var editor := InspectPanel.create()
 	editor._ready()
@@ -243,8 +246,12 @@ func _text_of(node: Node) -> String:
 ## in the picker as disabled rows rather than dropping them.
 func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 	var panel := _panel()
-	var martial_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.MAIN_HAND))
-	var magical_ids := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL), EquipmentDef.Slot.MAIN_HAND))
+	## Ranged on the magical side since #915: the Orb gates on MAGICAL and
+	## RANGED, so a magical melee fixture would fail on the style instead.
+	var martial_ids := _ids(panel.offered_items(
+		_make_pawn(CG.Method.MARTIAL), EquipmentDef.Slot.MAIN_HAND))
+	var magical_ids := _ids(panel.offered_items(
+		_make_pawn(CG.Method.MAGICAL, CG.Role.DPS, CG.Style.RANGED), EquipmentDef.Slot.MAIN_HAND))
 	assert_true(martial_ids.has(&"sword"), "a martial class must be offered the Sword")
 	assert_false(martial_ids.has(&"orb"), "a martial class must not be offered the Orb")
 	assert_true(magical_ids.has(&"orb"), "a magical class must be offered the Orb")
@@ -260,8 +267,8 @@ func test_a_class_is_not_offered_an_item_it_cannot_use() -> void:
 func test_an_untagged_piece_reaches_both_methods_and_a_tagged_one_does_not() -> void:
 	var panel := _panel()
 	for slot in [EquipmentDef.Slot.ACCESSORY, EquipmentDef.Slot.BODY]:
-		## TANK on both sides: Plate is MARTIAL *and* TANK, so a DPS fixture
-		## would fail for the wrong reason and prove nothing about the method.
+		## TANK on both sides for the same fixture on each, so the only thing
+		## separating the two lists is the method.
 		var martial := _ids(panel.offered_items(_make_pawn(CG.Method.MARTIAL, CG.Role.TANK), slot))
 		var magical := _ids(panel.offered_items(_make_pawn(CG.Method.MAGICAL, CG.Role.TANK), slot))
 		if slot == EquipmentDef.Slot.ACCESSORY:
