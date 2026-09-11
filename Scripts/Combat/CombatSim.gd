@@ -816,6 +816,13 @@ static func _resolve_beat(state: CombatState, caster: CombatUnit, action: Action
 	fire.beat_index = beat_index
 	state.emit(fire)
 
+	## Issue 900: a beat's own summon spawns here, at the caster and before the
+	## target gate, the same caster-resolved way `_fire_action` spawns an
+	## action's own -- so a beat that reaches nobody still builds what it built.
+	for fx in beat.effects:
+		if fx is SummonEffect:
+			_spawn_summon(state, caster, action, fx, deps)
+
 	var targets := _resolve_targets(state, caster, view)
 	if targets.is_empty():
 		var miss := _event(CG.EventKind.MISS, state.tick, caster.id, caster.focus_id, action.id)

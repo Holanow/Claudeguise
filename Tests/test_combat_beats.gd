@@ -273,3 +273,110 @@ func test_a_beat_action_still_reads_as_an_attack() -> void:
 		assert_true(action.power_scale > 0.0, "%s's damage must be visible through its beats" % id)
 		assert_eq(PlanInterpreter.attacks([action] as Array[ActionDef]).size(), 1,
 			"%s must still classify as an attack, or nobody ever swings it" % id)
+
+# ---------------------------------------------------------------------------
+# issue 900 part 1: a beat's own SummonEffect spawns
+# ---------------------------------------------------------------------------
+
+## `_fire_action`'s outer scan reads `action.effects`, which a beat action
+## leaves empty (#880), so before #900 a beat's summon was accepted and
+## silently did nothing.
+func test_a_beats_summon_effect_spawns_a_unit_on_the_casters_team() -> void:
+	var call_up := SummonEffect.new()
+	call_up.unit_id = &"engine"
+	var beats: Array[ActionBeat] = [
+		_beat(0, _targeting(999.0, 0.0, 0.0), [_hit(1.0)] as Array[AbilityEffect]),
+		_beat(9, _targeting(999.0, 0.0, 0.0), [call_up] as Array[AbilityEffect]),
+	]
+	var combo := _combo(&"summon_combo", beats)
+	combo.effects = [] as Array[AbilityEffect]
+	var engine_def := EnemyDef.new()
+	engine_def.id = &"engine"
+	engine_def.display_name = "Siege Engine"
+	engine_def.hp_max = 5
+	engine_def.move_speed = 0.0
+	var deps := _deps_with_action(combo, 10.0)
+	deps.enemy_lookup = func(_id: StringName): return engine_def
+
+	var state := CombatState.new(900)
+	var caster := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO, [combo.id])
+	var target := _unit(1, CG.Team.ENEMY, 9999, Vector2(10, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+	caster.intent = Intent.use_action(combo.id, target.id)
+
+	CombatSim.step(state, deps)
+	assert_eq(state.units.size(), 2, "sanity: beat 0 carries no summon and spawns nothing")
+
+	for _i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(state.units.size(), 3, "beat 1's SummonEffect must append exactly one unit")
+	var summoned := state.unit(2)
+	assert_eq(summoned.team, caster.team, "a summon joins the caster's team")
+	var summon_events := 0
+	for e in state.events:
+		if e.kind == CG.EventKind.SUMMONED:
+			summon_events += 1
+			assert_eq(e.source_id, caster.id, "the caster summoned it")
+	assert_eq(summon_events, 1, "exactly one SUMMONED event, from the beat that carries the effect")
+
+## The negative half: a beat with no summon must stay quiet, or the check above
+## would pass on a sim that summoned from every beat.
+func test_a_beat_action_with_no_summon_effect_spawns_nothing() -> void:
+	var beats: Array[ActionBeat] = [
+		_beat(0, _targeting(999.0, 0.0, 0.0), [_hit(1.0)] as Array[AbilityEffect]),
+		_beat(9, _targeting(999.0, 0.0, 0.0), [_hit(1.0)] as Array[AbilityEffect]),
+	]
+	var combo := _combo(&"quiet_combo", beats)
+	combo.effects = [] as Array[AbilityEffect]
+	var deps := _deps_with_action(combo, 10.0)
+
+	var state := CombatState.new(901)
+	var caster := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO, [combo.id])
+	var target := _unit(1, CG.Team.ENEMY, 9999, Vector2(10, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+	caster.intent = Intent.use_action(combo.id, target.id)
+
+	for _i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(state.units.size(), 2, "no summon authored, so no unit may appear")
+	for e in state.events:
+		assert_true(e.kind != CG.EventKind.SUMMONED, "no SUMMONED event may fire")
+
+# ---------------------------------------------------------------------------
+# issue 900 part 2: a beat's targeting REPLACES the action's, whole
+# ---------------------------------------------------------------------------
+
+## The trap `ActionBeat`'s old comment set: a beat stating only an arc loses the
+## action's range. Deliberate, and pinned here so nobody "fixes" it by accident.
+func test_a_beat_that_states_only_an_arc_loses_the_actions_range() -> void:
+	var arc_only := ActionTargeting.new()
+	arc_only.arc_degrees = 45.0
+	var beats: Array[ActionBeat] = [
+		_beat(0, null, [_hit(1.0)] as Array[AbilityEffect]),
+		_beat(9, arc_only, [_hit(1.0)] as Array[AbilityEffect]),
+	]
+	var combo := _combo(&"arc_only_combo", beats)
+	combo.effects = [] as Array[AbilityEffect]
+	var deps := _deps_with_action(combo, 10.0)
+
+	var state := CombatState.new(902)
+	var caster := _unit(0, CG.Team.PLAYER, 200, Vector2.ZERO, [combo.id])
+	## Further than `ActionTargeting`'s own default range and well inside the
+	## action's 999, so the two semantics give different answers here.
+	var target := _unit(1, CG.Team.ENEMY, 9999, Vector2(500, 0), [])
+	state.units.append(caster)
+	state.units.append(target)
+	caster.intent = Intent.use_action(combo.id, target.id)
+
+	assert_true(ActionTargeting.new().range_units < 500.0,
+		"sanity: the default range really is shorter than the gap")
+
+	for _i in 20:
+		CombatSim.step(state, deps)
+
+	assert_eq(_damage_events(state, target.id).size(), 1,
+		"beat 0 inherits the action's 999 range and lands; beat 1 replaces it and misses")
