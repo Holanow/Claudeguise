@@ -3,21 +3,23 @@ class_name DamageLedger
 
 ## Issue 737. One summary, read from `state.events`, called from both the
 ## in-game end screen (`Scripts/UI/EndScreen.gd`) and the headless sweep
-## (`Tools/DamageLedgerReport.gd`) -- the player's own ruling: a balance
-## number nobody but a designer can see is the same defect the pawn-behaviour
-## principle already forbids, aimed at numbers instead of decisions.
+## (`Tools/DamageLedgerReport.gd`), so the two can never disagree.
 ##
 ## Two damage paths: a direct hit carries `action_id` and lands in
 ## `by_ability`; status damage (burn, poison) carries `status` instead and
 ## lands in `by_dot`, attributed to whoever applied it via `source_id`.
+## Issue 927: `by_ability.hits` counts DAMAGE events, `fires` counts casts.
 ## Read-only: never touches `CombatSim` or writes back onto a `CombatState`.
 
 class Ledger:
-	var by_ability: Dictionary = {}   # team -> {action_id -> {total, casts}}
+	var by_ability: Dictionary = {}   # team -> {action_id -> {total, hits}}
 	var by_dot: Dictionary = {}       # team -> {status -> {total, ticks}}
 	var by_type: Dictionary = {}      # team -> {damage_type -> {dealt, taken}}
+	## Issue 927. One entry per cast, not per beat: a multi-beat action emits
+	## ACTION_FIRE once per beat, so only the first (`beat_index <= 0`) counts.
 	var fires: Dictionary = {}        # team -> {action_id -> {count}}
 	## Keyed by the TARGET's team: whether armour on that side did anything.
+	## `absorbed` is inside `before - after`, and `cause` excludes it (#927).
 	var mitigation: Dictionary = {}   # team -> {before, after, absorbed, dealt, cause: {}}
 	## Issue 766. Prevented damage attributed to the cast that raised the
 	## status doing the preventing (Guard, Ward), keyed by the CASTER's team,
@@ -43,7 +45,7 @@ static func build(state: CombatState) -> Ledger:
 	for e in state.events:
 		if e.kind == CG.EventKind.ACTION_FIRE:
 			var caster := state.unit(e.source_id)
-			if caster != null:
+			if caster != null and e.beat_index <= 0:
 				l._row(l.fires, caster.team, e.action_id, {"count": 0}).count += 1
 			continue
 		if e.kind != CG.EventKind.DAMAGE:
@@ -52,9 +54,9 @@ static func build(state: CombatState) -> Ledger:
 		var target := state.unit(e.target_id)
 		if e.action_id != &"":
 			if source != null:
-				var ab := l._row(l.by_ability, source.team, e.action_id, {"total": 0, "casts": 0})
+				var ab := l._row(l.by_ability, source.team, e.action_id, {"total": 0, "hits": 0})
 				ab.total += e.amount
-				ab.casts += 1
+				ab.hits += 1
 			if target != null:
 				var m := l._mit(target.team)
 				m.before += e.amount_before_mitigation
@@ -63,7 +65,7 @@ static func build(state: CombatState) -> Ledger:
 				m.dealt += e.amount
 				if e.mitigation_cause != CG.MitigationCause.NONE:
 					m.cause[e.mitigation_cause] = int(m.cause.get(e.mitigation_cause, 0)) + \
-						(e.amount_before_mitigation - e.amount_after_mitigation)
+						(e.amount_before_mitigation - e.amount_after_mitigation - e.amount_absorbed)
 				if e.mitigation_source_action != &"":
 					var pv := l._row(l.prevented, target.team, e.mitigation_source_action, {"total": 0})
 					pv.total += e.amount_before_mitigation - e.amount_after_mitigation
@@ -81,7 +83,7 @@ static func build(state: CombatState) -> Ledger:
 static func merge(ledgers: Array) -> Ledger:
 	var out := Ledger.new()
 	for l in ledgers:
-		_merge_counts(out.by_ability, l.by_ability, ["total", "casts"])
+		_merge_counts(out.by_ability, l.by_ability, ["total", "hits"])
 		_merge_counts(out.by_dot, l.by_dot, ["total", "ticks"])
 		_merge_counts(out.by_type, l.by_type, ["dealt", "taken"])
 		_merge_counts(out.fires, l.fires, ["count"])
@@ -108,17 +110,19 @@ static func _merge_counts(dst: Dictionary, src: Dictionary, fields: Array) -> vo
 			for f in fields:
 				dst[team][key][f] += src[team][key][f]
 
-## Ability casts and DoT ticks together, highest total first, so a screen with
+## Ability hits and DoT ticks together, highest total first, so a screen with
 ## room for a handful of lines can show "what did the most" without caring
 ## which of the two damage paths it came from.
 static func top_sources(l: Ledger, team: int, limit: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for id in l.by_ability.get(team, {}):
 		var row: Dictionary = l.by_ability[team][id]
-		out.append({"name": ability_name(id), "total": row.total, "count": row.casts, "unit": "casts"})
+		out.append({"name": ability_name(id), "total": row.total, "count": row.hits,
+			"unit": "hits", "casts": cast_count(l, team, id)})
 	for status in l.by_dot.get(team, {}):
 		var row: Dictionary = l.by_dot[team][status]
-		out.append({"name": String(CG.Status.keys()[status]), "total": row.total, "count": row.ticks, "unit": "ticks"})
+		out.append({"name": String(CG.Status.keys()[status]), "total": row.total,
+			"count": row.ticks, "unit": "ticks", "casts": 0})
 	out.sort_custom(func(a, b): return a.total > b.total)
 	if out.size() > limit:
 		out.resize(limit)
@@ -128,8 +132,8 @@ static func top_sources(l: Ledger, team: int, limit: int) -> Array[Dictionary]:
 static func mitigation_summary(l: Ledger, team: int) -> Dictionary:
 	return l.mitigation.get(team, {}).get("totals", {})
 
-## Issue 766. Guard and Ward read 0 damage, N casts in `by_ability` -- correct
-## and useless. This is the table that answers "was casting it worth it":
+## Issue 766. Guard and Ward read 0 damage and no hits in `by_ability` --
+## correct and useless. This is the table that answers "was casting it worth it":
 ## dealt (from `by_ability`, 0 for a pure-defensive cast), prevented and casts
 ## (from `fires`, since a cast that never mitigated still happened) for every
 ## action that has ever prevented damage on `team`, highest prevented first.
@@ -137,7 +141,7 @@ static func prevented_summary(l: Ledger, team: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for id in l.prevented.get(team, {}):
 		var dealt := int(l.by_ability.get(team, {}).get(id, {}).get("total", 0))
-		var casts := int(l.fires.get(team, {}).get(id, {}).get("count", 0))
+		var casts := cast_count(l, team, id)
 		out.append({
 			"name": ability_name(id),
 			"dealt": dealt,
@@ -173,6 +177,11 @@ static func _can_deal_damage(action: ActionDef) -> bool:
 		if fx is HitEffect and not fx.heals and fx.power_scale > 0.0:
 			return true
 	return false
+
+## Issue 927. How many times `team` fired `id`, from ACTION_FIRE; zero when the
+## action never fired, which is what a hand-built fixture of DAMAGE events reads.
+static func cast_count(l: Ledger, team: int, id: StringName) -> int:
+	return int(l.fires.get(team, {}).get(id, {}).get("count", 0))
 
 static func ability_name(id: StringName) -> String:
 	var a := ActionLibrary.get_action(id)

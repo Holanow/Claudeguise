@@ -296,7 +296,10 @@ static func _top_two(l: DamageLedger.Ledger, team: int) -> String:
 		return "nothing"
 	var parts: Array[String] = []
 	for row in rows:
-		parts.append("%s (%d)" % [row.name, row.total])
+		if int(row.casts) > 0:
+			parts.append("%s (%d, %d cast, %d hit)" % [row.name, row.total, row.casts, row.count])
+		else:
+			parts.append("%s (%d)" % [row.name, row.total])
 	return ", ".join(parts)
 
 ## Issue 801: what the party got back on walking into this room, the #796
@@ -316,9 +319,9 @@ static func arrival_healed(state: CombatState) -> int:
 ## Mitigation goes FIRST: `amount_before_mitigation` against
 ## `amount_after_mitigation` was read by nothing before this issue, and it is
 ## the number a player has no other way to learn. `top_sources` mixes ability
-## casts and DoT ticks, highest total first, so the busiest cause wins
-## regardless of which of the two damage paths it travelled. Issue 766 appends
-## a last line for the best defensive cast, if any prevented damage this fight.
+## hits and DoT ticks, highest total first, so the busiest cause wins regardless
+## of which of the two damage paths it travelled; issue 927 puts hits against
+## casts, because the gap is the misses. Issue 766 appends a defensive line.
 static func ledger_lines(state: CombatState) -> Array[String]:
 	var l := DamageLedger.build(state)
 	var m := DamageLedger.mitigation_summary(l, CG.Team.PLAYER)

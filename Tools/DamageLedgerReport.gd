@@ -61,10 +61,12 @@ func _print_abilities(l: DamageLedger.Ledger, team: int, total_dealt: int) -> vo
 	ids.sort_custom(func(a, b): return l.by_ability[team][a].total > l.by_ability[team][b].total)
 	for id in ids:
 		var row: Dictionary = l.by_ability[team][id]
-		var per_cast: float = float(row.total) / row.casts if row.casts > 0 else 0.0
+		var casts := DamageLedger.cast_count(l, team, id)
+		var per_cast: float = float(row.total) / casts if casts > 0 else 0.0
+		var per_hit: float = float(row.total) / row.hits if row.hits > 0 else 0.0
 		var share: float = 100.0 * row.total / total_dealt if total_dealt > 0 else 0.0
-		print("    %-28s total %6d  casts %3d  dmg/cast %6.1f  share %5.1f%%" % \
-			[DamageLedger.ability_name(id), row.total, row.casts, per_cast, share])
+		print("    %-28s total %6d  casts %3d  hits %3d  dmg/cast %6.1f  dmg/hit %6.1f  share %5.1f%%" % \
+			[DamageLedger.ability_name(id), row.total, casts, row.hits, per_cast, per_hit, share])
 	for zero in DamageLedger.zero_damage_fires(l, team):
 		print("    STARTLING: %-24s fired %d times, 0 damage" % [zero.name, zero.fires])
 
@@ -95,15 +97,15 @@ func _print_mitigation(l: DamageLedger.Ledger, team: int, label: String) -> void
 	print("  before mitigation: %d" % m.before)
 	print("  after mitigation:  %d (removed %d, %.1f%%)" % \
 		[m.after, m.before - m.after, 100.0 * (m.before - m.after) / m.before])
-	print("  absorbed by raised block: %d" % m.absorbed)
+	print("  of which a raised block soaked: %d" % m.absorbed)
 	print("  applied to health (after overkill clamp): %d" % m.dealt)
 	if not m.cause.is_empty():
-		print("  reduction by cause:")
+		print("  damage reduction by cause (soak excluded):")
 		for c in m.cause:
 			print("    %-14s %d" % [CG.MitigationCause.keys()[c], m.cause[c]])
 
-## Issue 766. Guard and Ward read 0 damage, N casts everywhere above -- this is
-## where that stops being useless: dealt against prevented, per cast.
+## Issue 766. Guard and Ward read 0 damage and 0 hits everywhere above -- this
+## is where that stops being useless: dealt against prevented, per cast.
 func _print_prevented(l: DamageLedger.Ledger, team: int, label: String) -> void:
 	var rows := DamageLedger.prevented_summary(l, team)
 	if rows.is_empty():
