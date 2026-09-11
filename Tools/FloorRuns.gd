@@ -17,6 +17,11 @@ const SEEDS := 40
 ## rule is `ClearedFinalState`'s, kept so its reports stay comparable.
 var _detail: bool = false
 
+## Issue 803: --camp walks the real graph and detours back to the camp room
+## when two are down and the camp has been found. Without it the revive is
+## still #802's proxy, which fires on arrival anywhere.
+var _camp: bool = false
+
 func _init() -> void:
 	var comps := PartySpec.compositions()
 	if comps.is_empty():
@@ -28,6 +33,7 @@ func _init() -> void:
 		quit(1)
 		return
 	_detail = OS.get_cmdline_user_args().has("--final-state")
+	_camp = OS.get_cmdline_user_args().has("--camp")
 	print("Floor runs, issue 730/734/808: arm A (default) vs arm B (planned), %d seeds." % SEEDS)
 	print(arm)
 	print(ReviveArgs.apply())
@@ -47,6 +53,10 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var died_at := {}
 	var depths: Array[int] = []
 	var camp_unused := 0
+	## Issue 803: runs that needed the camp before they had found it, which is
+	## one of the three ways the camp differs from #802's arrival proxy; the
+	## other two are on the PR and both favour the camp.
+	var camp_unfound := 0
 	var drops := 0
 	## Issue 822: the count alone cannot tell a working loot loop from four
 	## no-op censers, which is what filling `off_hand` leaves droppable.
@@ -58,19 +68,19 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 	var detail: Array[String] = []
 	for s in range(SEEDS):
 		var plan := FloorGenerator.generate(s)
-		var walk := FloorWalk.default_room_order(plan)
+		var walk := FloorWalk.new(plan)
+		var fights := FloorGenerator.FLOOR_1_ROOM_COUNT
 		var party := PartySpec.make(ids, planned)
 		var run := FloorRun.new()
 		var wiped := false
+		var needed_unfound := false
 		var last_state: CombatState = null
-		for i in walk.size():
-			var room := plan.room(walk[i])
+		var i := 0
+		while true:
+			var room := plan.room(walk.current_id)
 			var room_id: StringName = room.content_id
-			var encounter := RoomScale.scaled(RoomLibrary.get_room(room_id), party.size())
-			var state := CombatSim.build(party, encounter, hash([s, room_id, i]))
+			var state := _fight(party, run, walk, room_id, hash([s, room_id, i]), i)
 			last_state = state
-			FloorRun.carry_into(run, state, party, i)
-			CombatSim.run(state)
 			for j in party.size():
 				var unit := state.unit(j)
 				run.record_result(party[j].id, unit.hp, unit.resource, unit.alive)
@@ -84,9 +94,21 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			## Issue 811: the room resolved, so it pays out -- the same call
 			## BattleView._handle_fight_end makes on the live floor.
 			FloorRun.award_room_loot(run, room, party, s)
+			walk.mark_cleared(walk.current_id)
+			i += 1
+			if _camp_needed(run, party):
+				if walk.wants_camp(run, party):
+					_visit_camp(party, run, walk, hash([s, FloorGenerator.CAMP_ID, i]), i)
+				else:
+					needed_unfound = true
+			var route := walk.route_to_next_fight()
+			if route.is_empty():
+				break
+			for id in route:
+				walk.enter(id)
 		if not wiped:
 			cleared += 1
-			depths.append(walk.size())
+			depths.append(fights)
 			var standing := 0
 			for j in party.size():
 				if last_state.unit(j).alive:
@@ -100,9 +122,37 @@ func _run_arm(ids: Array, planned: bool) -> Dictionary:
 			dropped[item.id] = int(dropped.get(item.id, 0)) + 1
 		if not run.revive_used:
 			camp_unused += 1
+		if needed_unfound:
+			camp_unfound += 1
 	return {"cleared": cleared, "died_at": died_at, "depths": depths,
-		"camp_unused": camp_unused, "drops": drops, "dropped": dropped, "party": ids.size(),
+		"camp_unused": camp_unused, "camp_unfound": camp_unfound,
+		"drops": drops, "dropped": dropped, "party": ids.size(),
 		"clear_survivors": clear_survivors, "detail": detail}
+
+## One room, built and run exactly as `BattleView` builds and runs it. The
+## camp arrives here too: no enemies means `_check_outcome` calls it a win on
+## the first tick, which is what "no fight in it" is.
+func _fight(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
+		room_id: StringName, fight_seed: int, room_index: int) -> CombatState:
+	var encounter := RoomScale.scaled(RoomLibrary.get_room(room_id), party.size())
+	var state := CombatSim.build(party, encounter, fight_seed)
+	FloorRun.carry_into(run, state, party, room_index, walk if _camp else null)
+	CombatSim.run(state)
+	return state
+
+## `FloorWalk.wants_camp` without its `camp_found` half, so a run that needed
+## the camp before it had found it can be counted rather than silently missed.
+func _camp_needed(run: FloorRun, party: Array[PawnData]) -> bool:
+	return _camp and not run.revive_used and run.down_count(party) >= 2
+
+func _visit_camp(party: Array[PawnData], run: FloorRun, walk: FloorWalk,
+		camp_seed: int, room_index: int) -> void:
+	for id in walk.route_to_camp():
+		walk.enter(id)
+	var state := _fight(party, run, walk, FloorGenerator.CAMP_ID, camp_seed, room_index)
+	for j in party.size():
+		var unit := state.unit(j)
+		run.record_result(party[j].id, unit.hp, unit.resource, unit.alive)
 
 ## Issue 817, and this is the whole of what `ClearedFinalState.gd` did. It reads
 ## off the loop above rather than off a second copy of it, so it sees the loot
@@ -141,9 +191,12 @@ func _report(label: String, r: Dictionary) -> void:
 		for room_id in ids:
 			var n: int = died_at[room_id]
 			print("    %-24s %d (%d%%)" % [String(room_id), n, int(round(100.0 * n / SEEDS))])
-	if FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
+	if _camp or FloorRun.REVIVE_ONCE_ON_TWO_DOWN:
 		print("  the camp's one revive went unused in %d of %d runs (never two down)" % [
 			r.camp_unused, SEEDS])
+	if _camp:
+		print("  the camp was needed before it had been found in %d of %d runs" % [
+			r.camp_unfound, SEEDS])
 	## Issue 811: every drop is filtered to something a living pawn can put on,
 	## so items found and items worn are the same number by construction.
 	print("  loot: %d items found and worn across %d runs (%.2f a run)" % [

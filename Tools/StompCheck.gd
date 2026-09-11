@@ -32,6 +32,10 @@ func _init() -> void:
 	var total := 0
 	for encounter_id in encounter_ids:
 		var encounter := RoomLibrary.get_room(encounter_id)
+		## Issue 803: a room with nobody in it is a place, not a fight, and a
+		## stomp check on an empty room reports a stomp every time.
+		if encounter.enemy_spawns.is_empty():
+			continue
 		for party_ids in _parties(class_ids):
 			total += 1
 			if _check(encounter_id, encounter, party_ids):

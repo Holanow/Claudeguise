@@ -44,6 +44,8 @@ const SLOT_PROPERTY := {
 ## Seeded from the floor and the room rather than from the fight, so the drop
 ## is deterministic and does not perturb a single tick of combat.
 static func award_room_loot(run: FloorRun, room: FloorRoom, party: Array[PawnData], floor_seed: int) -> EquipmentDef:
+	if room.type == FloorRoom.Type.CAMP:
+		return null
 	var wearable := _wearable_ids(run, party)
 	if wearable.is_empty():
 		return null
@@ -124,9 +126,10 @@ const BETWEEN_ROOM_HEAL_MISSING_FRACTION := 0.5
 static var REVIVE_EVERY_N_ROOMS := 0
 static var REVIVE_AT_HP_FRACTION := 0.5
 
-## The camp room: one revive per floor, found somewhere and kept until it is
-## needed, so it fires on the first arrival with two or more of the party
-## down. #797 put the cliff at the second death. Set true and the cadence
+## Issue 802's proxy for the camp. The live floor passes a walk since #803, so
+## this is now read only by sweeps measuring the camp against it:
+## one revive per floor, fired on the first arrival with two or more of the
+## party down. #797 put the cliff at the second death. Set true and the cadence
 ## above is ignored. This is roughly optimal play, not the camp itself.
 static var REVIVE_ONCE_ON_TWO_DOWN := true
 
@@ -141,13 +144,25 @@ static func revives_on_arrival(room_index: int) -> bool:
 		return false
 	return room_index > 0 and room_index % REVIVE_EVERY_N_ROOMS == 0
 
-## The whole decision for one arrival, cadence or camp.
-static func should_revive(run: FloorRun, party: Array[PawnData], room_index: int) -> bool:
+## The whole decision for one arrival: the camp when the caller says where the
+## party is standing, otherwise #802's cadence or its two-down proxy.
+static func should_revive(run: FloorRun, party: Array[PawnData], room_index: int,
+		walk: FloorWalk = null) -> bool:
+	if walk != null:
+		return camp_revives(run, party, walk)
 	if not REVIVE_ONCE_ON_TWO_DOWN:
 		return revives_on_arrival(room_index)
 	if run.revive_used or room_index < 1:
 		return false
 	return run.down_count(party) >= 2
+
+## Issue 803: the camp is spent by standing in it with anybody down, whether
+## one pawn or four come back. Deciding when to walk there is the player's,
+## and headless it is `Tools/FloorRuns.gd`'s routing policy.
+static func camp_revives(run: FloorRun, party: Array[PawnData], walk: FloorWalk) -> bool:
+	if run.revive_used or walk.plan.camp_id < 0:
+		return false
+	return walk.current_id == walk.plan.camp_id and run.down_count(party) > 0
 
 func down_count(party: Array[PawnData]) -> int:
 	var n := 0
@@ -161,8 +176,9 @@ func down_count(party: Array[PawnData]) -> int:
 ## the last room, then applies the arrival heal above. Shared by BattleView's
 ## live floor and Tools/FloorRuns.gd's headless sweep so the carry rule and
 ## the heal have exactly one implementation.
-static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData], room_index: int = 0) -> void:
-	var revive := should_revive(run, party, room_index)
+static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData],
+		room_index: int = 0, walk: FloorWalk = null) -> void:
+	var revive := should_revive(run, party, room_index, walk)
 	if revive:
 		run.revive_used = true
 	for i in party.size():

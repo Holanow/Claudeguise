@@ -48,7 +48,40 @@ func is_cleared(room_id: int) -> bool:
 	return _cleared.has(room_id)
 
 func is_floor_cleared() -> bool:
-	return _cleared.size() >= plan.rooms.size()
+	for r in plan.rooms:
+		if is_fight(r.id) and not is_cleared(r.id):
+			return false
+	return true
+
+## Issue 803: the camp is a place, not a fight, so the route never offers it
+## and clearing the floor never waits on it.
+func is_fight(room_id: int) -> bool:
+	var r := plan.room(room_id)
+	return r != null and r.type != FloorRoom.Type.CAMP
+
+## The camp is found when the party has stood in a room with a door onto it.
+## That is the whole of the run-to-run variance: found early it is available
+## across most of the floor, found late it is worth nothing.
+func camp_found() -> bool:
+	if plan.camp_id < 0:
+		return false
+	for id in visited:
+		if id == plan.camp_id or plan.neighbours_of(id).has(plan.camp_id):
+			return true
+	return false
+
+## When the party turns round and walks back: the second pawn is down, #797's
+## cliff, and the camp has been found and not yet spent. One implementation,
+## read by the live floor and by `Tools/FloorRuns.gd`'s sweep.
+func wants_camp(run: FloorRun, party: Array[PawnData]) -> bool:
+	return not run.revive_used and run.down_count(party) >= 2 and camp_found()
+
+## The walk back to the camp, same shape as `route_to_next_fight`. Empty when
+## the floor has no camp or the party is standing in it.
+func route_to_camp() -> Array[int]:
+	if plan.camp_id < 0:
+		return [] as Array[int]
+	return _shortest_path(func(id: int) -> bool: return id == plan.camp_id)
 
 ## The default route with nobody to click a door: the shortest path from the
 ## current room to the nearest uncleared one, excluding the current room and
@@ -58,11 +91,11 @@ func is_floor_cleared() -> bool:
 func route_to_next_fight() -> Array[int]:
 	var boss_only := true
 	for r in plan.rooms:
-		if r.id != plan.boss_id and not is_cleared(r.id):
+		if r.id != plan.boss_id and is_fight(r.id) and not is_cleared(r.id):
 			boss_only = false
 			break
 	return _shortest_path(func(id: int) -> bool:
-		if is_cleared(id):
+		if is_cleared(id) or not is_fight(id):
 			return false
 		return boss_only or id != plan.boss_id)
 

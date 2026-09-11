@@ -18,6 +18,10 @@ const ORDINARY_IDS: Array[StringName] = [
 const MINIBOSS_ID: StringName = &"floor1_rat_king"
 const BOSS_ID: StringName = &"floor1_warden"
 
+## Issue 803: the one camp, which is a place rather than a fight.
+const CAMP_ID: StringName = &"floor1_camp"
+
+## The fights. The camp is an eleventh room and is not one of them.
 const FLOOR_1_ROOM_COUNT := 10
 
 static func generate(floor_seed: int) -> FloorPlan:
@@ -44,10 +48,35 @@ static func generate(floor_seed: int) -> FloorPlan:
 	plan.rooms.append(_make_room(order.size() + 1, BOSS_ID, FloorRoom.Type.BOSS, gate[1], 10))
 	plan.index_cells()
 
+	## Issue 803: the camp is drawn last, so rooms 0-9 keep the layout every
+	## seed already had and the camp is the only thing this issue moves.
+	var camp_cell := _pick_camp_cell(rng, cells, gate)
+	plan.rooms.append(_make_room(order.size() + 2, CAMP_ID, FloorRoom.Type.CAMP, camp_cell, 0))
+	plan.index_cells()
+
 	plan.entrance_id = 0
 	plan.miniboss_id = order.size()
 	plan.boss_id = order.size() + 1
+	plan.camp_id = order.size() + 2
 	return plan
+
+## A free cell hanging off exactly one ordinary room, so the camp is a leaf
+## nobody passes through and never grows a second door onto the boss gate.
+static func _pick_camp_cell(rng: RandomNumberGenerator, ordinary: Array[Vector2i],
+		gate: Array[Vector2i]) -> Vector2i:
+	var taken := {}
+	for cell in ordinary:
+		taken[cell] = true
+	for cell in gate:
+		taken[cell] = true
+	var leaves: Array[Vector2i] = []
+	var beside: Array[Vector2i] = []
+	for c in _free_neighbours(ordinary, taken):
+		beside.append(c)
+		if _placed_neighbour_count(c, taken) == 1:
+			leaves.append(c)
+	var options := leaves if not leaves.is_empty() else beside
+	return options[rng.randi_range(0, options.size() - 1)]
 
 ## Issue 811: what makes an ordinary room a BIG_ENEMY is what is standing in
 ## it -- a room holding an enemy the bestiary tags "Elite". Read off the room's
