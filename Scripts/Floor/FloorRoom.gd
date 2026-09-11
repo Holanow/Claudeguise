@@ -14,6 +14,7 @@ enum Type {
 	CELL,
 	MINIBOSS,
 	BOSS,
+	CAMP,
 }
 
 ## Stable within one generated floor. Index into FloorPlan.rooms.
@@ -41,4 +42,5 @@ static func type_name(t: Type) -> String:
 		Type.CELL: return "Cell"
 		Type.MINIBOSS: return "Miniboss"
 		Type.BOSS: return "Boss"
+		Type.CAMP: return "Camp"
 	return "?"

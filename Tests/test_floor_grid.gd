@@ -62,12 +62,13 @@ func test_the_boss_is_not_adjacent_to_the_entrance() -> void:
 ## `expected` comes from `RoomLibrary`, not from `FloorGenerator`'s own
 ## constants: comparing the generator against its own list would agree with
 ## itself no matter what either side said.
-func test_ten_authored_rooms_each_placed_once() -> void:
+func test_every_authored_room_is_placed_once() -> void:
 	var expected := RoomLibrary.all_ids()
 	expected.sort()
 	for seed in range(SEEDS):
 		var plan := FloorGenerator.generate(seed)
-		assert_eq(plan.rooms.size(), FloorGenerator.FLOOR_1_ROOM_COUNT, "seed %d: room count" % seed)
+		assert_eq(plan.rooms.size(), FloorGenerator.FLOOR_1_ROOM_COUNT + 1,
+			"seed %d: ten fights and one camp" % seed)
 		var got: Array[StringName] = []
 		for r in plan.rooms:
 			got.append(r.content_id)
@@ -186,3 +187,65 @@ func test_walking_back_through_a_cleared_room_does_not_reopen_it() -> void:
 		walk.enter(id)
 	assert_true(walk.is_cleared(here), "a room stays cleared once left")
 	assert_false(walk.is_cleared(walk.current_id), "the room walked to is a fresh fight")
+
+# ---------------------------------------------------------------------------
+# the camp, issue 803
+
+func test_the_camp_is_placed_on_every_floor() -> void:
+	for seed in range(SEEDS):
+		var plan := FloorGenerator.generate(seed)
+		var camp := plan.room(plan.camp_id)
+		assert_not_null(camp, "seed %d: no camp" % seed)
+		assert_eq(camp.content_id, FloorGenerator.CAMP_ID, "seed %d: camp id" % seed)
+		assert_eq(camp.type, FloorRoom.Type.CAMP, "seed %d: camp type" % seed)
+
+## A leaf off an ordinary room: nothing is ever routed through it, and it can
+## never grow a second door onto the boss gate.
+func test_the_camp_hangs_off_exactly_one_ordinary_room() -> void:
+	for seed in range(SEEDS):
+		var plan := FloorGenerator.generate(seed)
+		var doors := plan.neighbours_of(plan.camp_id)
+		assert_eq(doors.size(), 1, "seed %d: the camp has %d doors" % [seed, doors.size()])
+		var host := plan.room(doors[0])
+		assert_true(host.type != FloorRoom.Type.BOSS and host.type != FloorRoom.Type.MINIBOSS,
+			"seed %d: the camp hangs off %s" % [seed, host.content_id])
+
+func test_the_camp_is_never_a_fight() -> void:
+	for seed in range(SEEDS):
+		var plan := FloorGenerator.generate(seed)
+		var order := FloorWalk.default_order(plan)
+		assert_eq(order.size(), FloorGenerator.FLOOR_1_ROOM_COUNT, "seed %d: fight count" % seed)
+		assert_false(order.has(FloorGenerator.CAMP_ID), "seed %d: the camp was fought" % seed)
+		assert_false(FloorWalk.new(plan).is_fight(plan.camp_id), "seed %d" % seed)
+
+## The camp does not hold the floor open: a party that has cleared the ten
+## fights has cleared the floor whether or not it ever walked to the camp.
+func test_the_floor_clears_without_ever_entering_the_camp() -> void:
+	for seed in range(20):
+		var plan := FloorGenerator.generate(seed)
+		var walk := FloorWalk.new(plan)
+		walk.mark_cleared(walk.current_id)
+		while true:
+			var route := walk.route_to_next_fight()
+			if route.is_empty():
+				break
+			for id in route:
+				walk.enter(id)
+			walk.mark_cleared(walk.current_id)
+		assert_true(walk.is_floor_cleared(), "seed %d: the walk did not clear the floor" % seed)
+		assert_false(walk.is_cleared(plan.camp_id), "seed %d: the camp was entered" % seed)
+
+## The variance the design is made of: the camp is not usable before the party
+## has stood next to it.
+func test_the_camp_is_found_by_standing_beside_it() -> void:
+	var plan := FloorGenerator.generate(3)
+	var walk := FloorWalk.new(plan)
+	var host: int = plan.neighbours_of(plan.camp_id)[0]
+	assert_eq(walk.camp_found(), plan.entrance_id == host or
+		plan.neighbours_of(plan.entrance_id).has(plan.camp_id),
+		"at the entrance the camp is found only if its door is visible from there")
+	for id in walk._shortest_path(func(id: int) -> bool: return id == host):
+		walk.enter(id)
+	assert_true(walk.camp_found(), "standing in the camp's only neighbour finds it")
+	assert_eq(walk.route_to_camp(), [plan.camp_id] as Array[int],
+		"the walk back from the camp's neighbour is one step")

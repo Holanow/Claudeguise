@@ -143,3 +143,53 @@ func test_revive_every_third_room_skips_the_rooms_between() -> void:
 	assert_false(_arrive_dead(2).unit(0).alive, "room 2 is not a checkpoint")
 	assert_true(_arrive_dead(3).unit(0).alive, "room 3 is")
 	_restore_revive(was)
+
+# ---------------------------------------------------------------------------
+# the camp room, issue 803. Passing a FloorWalk replaces #802's arrival proxy
+# with the real rule: the revive happens where the camp is and nowhere else.
+
+func _walk_at(plan: FloorPlan, room_id: int) -> FloorWalk:
+	var walk := FloorWalk.new(plan)
+	walk.current_id = room_id
+	return walk
+
+func test_the_camp_revives_only_where_the_camp_is() -> void:
+	var plan := FloorGenerator.generate(3)
+	var party := _pair()
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	assert_false(FloorRun.should_revive(run, party, 5, _walk_at(plan, plan.entrance_id)),
+		"one down anywhere else is not a camp")
+	assert_true(FloorRun.should_revive(run, party, 5, _walk_at(plan, plan.camp_id)),
+		"standing in the camp with anybody down spends it")
+
+## The player: spent whether one pawn or four came back.
+func test_the_camp_is_spent_on_use_and_survives_the_room_transition() -> void:
+	var plan := FloorGenerator.generate(3)
+	var party := _pair()
+	var run := FloorRun.new()
+	run.record_result(&"w", 0, 0, false)
+	var walk := _walk_at(plan, plan.camp_id)
+	var state := CombatSim.build(party, RoomLibrary.get_room(FloorGenerator.CAMP_ID), 1)
+	FloorRun.carry_into(run, state, party, 5, walk)
+	assert_true(state.unit(0).alive, "the one that was down comes back")
+	assert_true(run.revive_used, "and the camp is spent")
+	run.record_result(&"p", 0, 0, false)
+	assert_false(FloorRun.should_revive(run, party, 6, _walk_at(plan, plan.camp_id)),
+		"a spent camp is spent for the rest of the floor")
+
+func test_an_intact_party_standing_in_the_camp_does_not_spend_it() -> void:
+	var plan := FloorGenerator.generate(3)
+	var party := _pair()
+	var run := FloorRun.new()
+	assert_false(FloorRun.should_revive(run, party, 5, _walk_at(plan, plan.camp_id)),
+		"nobody is down, so there is nothing to spend it on")
+
+## The camp is a place, not a chest.
+func test_the_camp_drops_no_loot() -> void:
+	var plan := FloorGenerator.generate(3)
+	var party := _pair()
+	var run := FloorRun.new()
+	assert_true(FloorRun.award_room_loot(run, plan.room(plan.camp_id), party, 3) == null,
+		"the camp rolls no drop")
+	assert_eq(run.loot.size(), 0)
