@@ -135,8 +135,10 @@ func _take_the_chest() -> void:
 		get_viewport().get_texture().get_image().save_png(path)
 		_log.append("  chest standing, doors_open=%s -- %s" % [not held, path])
 	var before: int = _battle._floor_run.loot.size()
-	await _click(AUTOPILOT.chest_point(_battle))
+	## Issue 959: the boss chest ends the floor from inside its own click, so a
+	## count after the await never runs for the tenth chest.
 	_chests_opened += 1
+	await _click(AUTOPILOT.chest_point(_battle))
 	var run: FloorRun = _battle._floor_run
 	_absorb_pickups()
 	_log.append("  opened %s's chest: %d item(s), run total %d dropped / %d worn / %d bagged" % [
