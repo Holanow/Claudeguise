@@ -46,6 +46,9 @@ func _process(_delta: float) -> void:
 	# Issue 805: the floor waits on a door now, and nobody here is a player.
 	if _battle.doors_open():
 		_battle.take_door(AUTOPILOT.next_door(_battle))
+	## Issue 935: nothing else gets past the boss room's held chest.
+	elif _battle.chest_open():
+		_battle.open_chest()
 	var events: Array = _battle.state.events
 	while _seen < events.size():
 		var e = events[_seen]

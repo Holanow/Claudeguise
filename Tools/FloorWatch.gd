@@ -52,6 +52,12 @@ func _process(_delta: float) -> void:
 	if _battle.doors_open():
 		_shot_pending = true
 		_take_a_door()
+		return
+	## Issue 935: the boss room holds the floor open on its chest, and a click
+	## on it is the only way past.
+	if _battle.chest_open():
+		_shot_pending = true
+		_take_the_chest()
 
 ## A real `InputEventMouseButton` pair at the door's own viewport position,
 ## pushed through Godot's picking. Issue 904: `in_local_coords` true, because
@@ -65,6 +71,22 @@ func _take_a_door() -> void:
 	var at := AUTOPILOT.door_point(_battle, room)
 	_log.append("  clicked the door to %s at %s" % [
 		_plan.room(room).content_id, at])
+	await _click(at)
+	_shot_pending = false
+
+## The picture of the cleared boss room with its chest still standing, then the
+## click that opens it.
+func _take_the_chest() -> void:
+	await RenderingServer.frame_post_draw
+	var path := "%s/wren7_935_boss_chest.png" % OUT_DIR
+	get_viewport().get_texture().get_image().save_png(path)
+	var at := AUTOPILOT.chest_point(_battle)
+	_log.append("  boss chest holding the floor open, clicked at %s -- %s" % [at, path])
+	await _click(at)
+	_log.append("  the chest held %d item(s)" % _battle._floor_run.loot.size())
+	_shot_pending = false
+
+func _click(at: Vector2) -> void:
 	for pressed in [true, false]:
 		var e := InputEventMouseButton.new()
 		e.button_index = MOUSE_BUTTON_LEFT
@@ -73,7 +95,6 @@ func _take_a_door() -> void:
 		e.global_position = at
 		get_viewport().push_input(e, true)
 		await get_tree().process_frame
-	_shot_pending = false
 
 func _capture() -> void:
 	await RenderingServer.frame_post_draw
