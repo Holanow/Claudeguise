@@ -238,6 +238,29 @@ replace information.** It is worth knowing because the alternative would look
 completely fine in a screenshot and would have quietly removed something you
 need to see.
 
+## Doors
+
+Four files, one per arena edge. They are the floor's picker: when a room is
+resolved, a door is drawn on each edge the party can leave through, and
+clicking one walks the party into that room.
+
+| File | What it draws |
+| --- | --- |
+| `door/north.png` | The doorway in the top wall |
+| `door/east.png` | The doorway in the right wall |
+| `door/south.png` | The doorway in the bottom wall |
+| `door/west.png` | The doorway in the left wall |
+
+**Each one is drawn facing into the room it is on the edge of.** The shipped
+four are one shape rotated, baked by `Tools/BakeDoors.gd`; a replacement set
+does not have to be, but a north door drawn as though it were on the left wall
+reads as a bug.
+
+They ship at 128x128 and are drawn at 110 arena units square, which is about
+the same on screen. Delete one and that door is a black square, the same rule
+as everything above -- and it is still clickable, because the click target is
+the box, not the picture.
+
 ## Impact debris
 
 One file, and it is the only picture in this folder that is drawn many times at

@@ -35,10 +35,21 @@ var _floor_walk: FloorWalk = null
 var _floor_run: FloorRun = null
 var _floor_party: Array[PawnData] = []
 var _floor_seed: int = 0
-## >= 0.0 while holding the beat between a cleared room and the next one
-## arriving; -1.0 means "not transitioning".
-var _floor_transition_left: float = -1.0
-const _FLOOR_TRANSITION_BEAT := 1.0
+## Issue 805: true once the room is resolved and its doors are up, waiting for
+## the player to pick one. The fight-end bookkeeping runs on the way into it.
+var _floor_doors_open: bool = false
+var _doors: FloorDoors = null
+
+## How long the screen takes to travel one room's width. >= 0.0 while it is
+## travelling; the new room is started at the halfway point.
+const FLOOR_SLIDE_SECONDS := 0.55
+var _slide_left: float = -1.0
+var _slide_dir: Vector2i = Vector2i.ZERO
+## The room being left, drawn as the picture it last drew while it travels.
+var _slide_ghost: Sprite2D = null
+var _ghost_home: Vector2 = Vector2.ZERO
+## Written on top of `_arena_base` like the shake, and for the same reason.
+var _slide_offset: Vector2 = Vector2.ZERO
 
 func _floor_active() -> bool:
 	return _floor_walk != null
@@ -855,7 +866,7 @@ func _layout_arena() -> void:
 		return
 	var layout := compute_layout(size)
 	_arena_base = layout.position
-	_arena.position = _arena_base + shake_offset(_shake_age, _shake_amplitude)
+	_place_arena()
 	_arena.scale = layout.scale
 	if _combat_log != null:
 		_combat_log.set_landscape(size.x >= size.y)
@@ -1028,7 +1039,11 @@ func begin_floor(cfg: RunConfig, plan: FloorPlan) -> void:
 	_floor_party = cfg.party
 	_floor_seed = cfg.seed
 	_floor_run = FloorRun.new()
-	_floor_transition_left = -1.0
+	_close_doors()
+	_drop_ghost()
+	_show_hud(true)
+	_slide_left = -1.0
+	_slide_offset = Vector2.ZERO
 	_start_floor_room()
 
 ## Keyed on the room's own identity, never on how many rooms have been walked
@@ -1039,21 +1054,37 @@ func _floor_room_seed(room_id: StringName) -> int:
 
 func _start_floor_room() -> void:
 	var room_id: StringName = _floor_walk.plan.room(_floor_walk.current_id).content_id
+	var fresh := not _floor_walk.is_cleared(_floor_walk.current_id)
 	var cfg := RunConfig.new()
 	cfg.party = _floor_party
 	cfg.encounter_id = room_id
 	cfg.seed = _floor_room_seed(room_id)
-	begin_with_encounter(cfg, RoomScale.scaled(
-		RoomLibrary.get_room(room_id), _floor_party.size()))
-	_carry_floor_condition()
+	var room := RoomScale.scaled(RoomLibrary.get_room(room_id), _floor_party.size())
+	begin_with_encounter(cfg, room if fresh else _emptied(room))
+	_carry_floor_condition(fresh)
 	setup = false
 	set_paused(false)
+
+## Issue 805: a door back to a cleared room is the point of the doors, and a
+## cleared room does not fight again -- so it is entered with its enemy list
+## emptied, which resolves on the first tick and opens its doors again.
+static func _emptied(room: RoomData) -> RoomData:
+	if room == null or room.enemy_spawns.is_empty():
+		return room
+	var out := RoomData.new()
+	out.id = room.id
+	out.display_name = room.display_name
+	out.pickable = room.pickable
+	out.cells = room.cells
+	out.party_spawns = room.party_spawns
+	return out
 
 ## Overwrites the freshly built state's party units with what carried over
 ## from the last room, via FloorRun.carry_into -- the same call
 ## Tools/FloorRuns.gd's headless sweep makes.
-func _carry_floor_condition() -> void:
-	FloorRun.carry_into(_floor_run, state, _floor_party, _floor_walk.cleared_count(), _floor_walk)
+func _carry_floor_condition(heal: bool = true) -> void:
+	FloorRun.carry_into(_floor_run, state, _floor_party, _floor_walk.cleared_count(),
+		_floor_walk, heal)
 	# The units just built and drawn above assumed full health; refresh so a
 	# pawn carried in dead reads as dead on the very first frame of the room.
 	_curr_drawn = _drawn_snapshot()
@@ -1074,37 +1105,155 @@ func _record_floor_result() -> void:
 ## notices `state.outcome` resolved.
 func _handle_fight_end() -> void:
 	if _floor_active() and state.outcome == CombatState.Outcome.PLAYER_WIN:
-		_floor_walk.mark_cleared(_floor_walk.current_id)
-		## Issue 811: the room is over, so its drop table pays out. After
-		## `_record_floor_result`, which is what tells the award who is still
-		## alive to carry it, and before the branch below so the boss room
-		## drops too even though its item can change nothing on this floor.
+		var first_time := not _floor_walk.is_cleared(_floor_walk.current_id)
 		_record_floor_result()
-		FloorRun.award_room_loot(_floor_run, _floor_walk.plan.room(_floor_walk.current_id),
-			_floor_party, _floor_seed)
-		if not _floor_walk.route_to_next_fight().is_empty():
-			_floor_transition_left = _FLOOR_TRANSITION_BEAT
+		if first_time:
+			## Issue 811: the room is over, so its drop table pays out. After
+			## `_record_floor_result`, which is what tells the award who is
+			## still alive to carry it, and before the branch below so the boss
+			## room drops too even though its item can change nothing here.
+			FloorRun.award_room_loot(_floor_run, _floor_walk.plan.room(_floor_walk.current_id),
+				_floor_party, _floor_seed)
+			_floor_walk.mark_cleared(_floor_walk.current_id)
+		if not _floor_finished():
+			_open_doors()
 			return
 	if _floor_active():
 		floor_ended.emit(state.outcome == CombatState.Outcome.PLAYER_WIN)
 	_show_outcome()
 	set_process(false)
 
-## Walks the whole route to the next uncleared room, so the cleared rooms in
-## between are passed through rather than fought again, then starts that fight.
-## Issue 803: unless the party turns round for the camp first.
-func _advance_floor_room() -> void:
-	for id in _next_floor_route():
-		_floor_walk.enter(id)
-	_start_floor_room()
+## The floor is over when the boss room is cleared. A plan with no boss -- a
+## test fixture -- falls back to every fight on it.
+func _floor_finished() -> bool:
+	if _floor_walk.plan.boss_id < 0:
+		return _floor_walk.is_floor_cleared()
+	return _floor_walk.is_cleared(_floor_walk.plan.boss_id)
 
-## The camp comes first when the second pawn is down and the party has already
-## found it. There is no door to click yet, so this is the route the party
-## would take; `FloorWalk.wants_camp` is the same rule the headless sweep reads.
-func _next_floor_route() -> Array[int]:
-	if _floor_walk.wants_camp(_floor_run, _floor_party):
-		return _floor_walk.route_to_camp()
-	return _floor_walk.route_to_next_fight()
+## Issue 805: the room is resolved, so its doors open. Rebuilt each time --
+## `_rebuild_units` frees every child of the arena at the start of a room.
+func _open_doors() -> void:
+	if _doors == null or not is_instance_valid(_doors):
+		_doors = FloorDoors.new()
+		_arena.add_child(_doors)
+		# Under the bodies: a door is part of the room, not something a pawn
+		# standing in front of it disappears behind.
+		if _unit_layer != null and is_instance_valid(_unit_layer):
+			_arena.move_child(_doors, _unit_layer.get_index())
+	_doors.show_exits(_floor_walk.exits())
+	_floor_doors_open = true
+
+func _close_doors() -> void:
+	_floor_doors_open = false
+	if _doors != null and is_instance_valid(_doors):
+		_doors.clear_exits()
+
+## The room a click at `at` (arena coordinates) walks into, or -1.
+func door_room_at(at: Vector2) -> int:
+	if not _floor_doors_open or _doors == null or not is_instance_valid(_doors):
+		return -1
+	return _doors.room_at(at)
+
+func doors_open() -> bool:
+	return _floor_doors_open
+
+## The doors a player can see, `{"room_id", "dir"}` each. Empty while a fight
+## is running, which is the whole of "an open door mid-fight is a lie".
+func open_exits() -> Array[Dictionary]:
+	return _floor_walk.exits() if _floor_doors_open else ([] as Array[Dictionary])
+
+## The one way a floor advances: the player clicks a door, the screen travels
+## in that door's direction, and the room on the other side arrives halfway
+## through. Tools drive a floor through this rather than through a route.
+func take_door(room_id: int) -> void:
+	if not _floor_active() or not _floor_doors_open:
+		return
+	if not _floor_walk.can_enter(room_id):
+		return
+	for e in _floor_walk.exits():
+		if int(e["room_id"]) == room_id:
+			_slide_dir = e["dir"]
+	# The picture first, while it is still the room being left.
+	_take_ghost()
+	_close_doors()
+	_floor_walk.enter(room_id)
+	_start_floor_room()
+	_slide_left = FLOOR_SLIDE_SECONDS
+	_slide_offset = Vector2(_slide_dir) * _slide_span()
+	_show_hud(false)
+	_place_arena()
+
+## Both rooms travel together: the one being left as the picture it last drew,
+## the one arriving as the live arena, entering from the door's own direction.
+func _advance_slide(delta: float) -> void:
+	_slide_left -= delta
+	var reach := _slide_span()
+	var travelled := clampf(1.0 - _slide_left / FLOOR_SLIDE_SECONDS, 0.0, 1.0)
+	_slide_offset = Vector2(_slide_dir) * reach * (1.0 - travelled)
+	if _slide_ghost != null and is_instance_valid(_slide_ghost):
+		_slide_ghost.position = _ghost_home - Vector2(_slide_dir) * reach * travelled
+	if _slide_left <= 0.0:
+		_slide_left = -1.0
+		_slide_offset = Vector2.ZERO
+		_drop_ghost()
+		_show_hud(true)
+	_place_arena()
+
+## One screen along the axis the door sits on, so the room being left is gone
+## by the time the next one has fully arrived.
+func _slide_span() -> float:
+	var size := get_viewport_rect().size
+	return size.x if _slide_dir.x != 0 else size.y
+
+## The room being left, kept as the last frame it drew so that both rooms can
+## be on the screen at once. Cropped to the arena, because the log and the team
+## panel are overlays that stay where they are. Nothing is captured where there
+## is no renderer -- a headless test slides the live arena alone.
+func _take_ghost() -> void:
+	_drop_ghost()
+	if not is_inside_tree() or _arena == null or DisplayServer.get_name() == "headless":
+		return
+	var frame := get_viewport().get_texture().get_image()
+	if frame == null:
+		return
+	var half := Vector2(CG.ARENA_HALF_WIDTH, CG.ARENA_HALF_HEIGHT) * _arena.scale
+	var box := Rect2i(Rect2(_arena_base - half, half * 2.0))
+	var region := box.intersection(Rect2i(Vector2i.ZERO, frame.get_size()))
+	if region.size.x <= 0 or region.size.y <= 0:
+		return
+	_slide_ghost = Sprite2D.new()
+	_slide_ghost.centered = false
+	_slide_ghost.texture = ImageTexture.create_from_image(frame.get_region(region))
+	_ghost_home = Vector2(region.position)
+	_slide_ghost.position = _ghost_home
+	add_child(_slide_ghost)
+
+## The log and the team panel are down for the travel: the picture above
+## already carries a copy of them, and two of each on one screen reads as a
+## fault rather than as a move.
+## The log, the team panel and the hint, one by one rather than the whole `Hud`
+## layer: the pause menu lives on it too, and a menu opened during the travel
+## would be a screen the player cannot see.
+func _show_hud(shown: bool) -> void:
+	for node in [_combat_log, _team_status]:
+		if node != null and is_instance_valid(node):
+			node.visible = shown
+	if _click_hint != null and is_instance_valid(_click_hint):
+		if shown:
+			_sync_click_hint()
+		else:
+			_click_hint.visible = false
+
+func _drop_ghost() -> void:
+	if _slide_ghost != null and is_instance_valid(_slide_ghost):
+		_slide_ghost.queue_free()
+	_slide_ghost = null
+
+## Where the arena is drawn: the layout, plus the shake, plus the slide. All
+## three write the same property, so they are added in one place.
+func _place_arena() -> void:
+	if _arena != null:
+		_arena.position = _arena_base + shake_offset(_shake_age, _shake_amplitude) + _slide_offset
 
 ## Rebuilt through the same `begin_with_encounter` every other caller uses, so
 ## the fight that runs is built by one path rather than by whatever the setup
@@ -1245,15 +1394,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		## The other half of issue 397's discoverability: the pointer changes over
 		## anything you can open, which is the affordance every other program uses.
-		_set_hand_cursor(unit_at(state, at, _pick_radius()) >= 0)
+		_set_hand_cursor(door_room_at(at) >= 0 or unit_at(state, at, _pick_radius()) >= 0)
 
 ## Outside setup this is what it always was -- the card opens on the press. In
 ## setup a press on your own pawn grabs it instead, and the card opens on the
 ## release only if the pointer never travelled.
 func _on_arena_button(event: InputEventMouseButton, at: Vector2) -> void:
 	if not setup:
-		if event.pressed:
-			select_unit_at(at)
+		if not event.pressed:
+			return
+		var room := door_room_at(at)
+		if room >= 0:
+			take_door(room)
+			return
+		select_unit_at(at)
 		return
 	if event.pressed:
 		_press_world = at
@@ -1289,6 +1443,7 @@ func _rebuild_units() -> void:
 	# end of the frame, so `_vfx` reads as still-valid here unless it is nulled
 	# explicitly -- same trap #705 hit with a delayed VFXLayer's own timer.
 	_vfx = null
+	_doors = null
 	_ensure_unit_views()
 
 ## Issue 75. `_rebuild_units` has exactly one call site, at fight start, so it
@@ -1375,13 +1530,15 @@ func _process(delta: float) -> void:
 		ViewClock.frozen = false
 		# The frames this freeze covered are gone, not owed. See _freeze_left.
 		delta = 0.0
-	# Issue 729: the beat between a cleared room and the next arriving. The
-	# picture holds still -- no fade, no screen -- until it elapses.
-	if _floor_transition_left >= 0.0:
-		_floor_transition_left -= delta
-		if _floor_transition_left <= 0.0:
-			_floor_transition_left = -1.0
-			_advance_floor_room()
+	# Issue 805: the screen is travelling to the room the player picked, or it
+	# is standing in a resolved room with its doors open waiting for them to
+	# pick one. Neither steps the fight; both keep drawing.
+	if _slide_left >= 0.0:
+		_advance_slide(delta)
+		_render(0.0, false, delta)
+		return
+	if _floor_doors_open:
+		_render(0.0, false, delta)
 		return
 	if state.outcome != CombatState.Outcome.UNRESOLVED:
 		_handle_fight_end()
@@ -1654,8 +1811,7 @@ func _advance_shake(delta: float) -> void:
 	if _shake_age >= SHAKE_SECONDS:
 		_shake_age = INF
 		_shake_amplitude = 0.0
-	if _arena != null:
-		_arena.position = _arena_base + shake_offset(_shake_age, _shake_amplitude)
+	_place_arena()
 
 ## Issue 518. Scaled to the body that died -- a rat is not the Warden -- and set
 ## rather than added, so a tick that kills three shakes once, at the size of the

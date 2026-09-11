@@ -176,8 +176,12 @@ func down_count(party: Array[PawnData]) -> int:
 ## the last room, then applies the arrival heal above. Shared by BattleView's
 ## live floor and Tools/FloorRuns.gd's headless sweep so the carry rule and
 ## the heal have exactly one implementation.
+##
+## Issue 805: `heal` is false when the party walks back into a room they have
+## already cleared. Without it, pacing between two cleared rooms pays the
+## arrival heal every time and the floor has free healing in it.
 static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData],
-		room_index: int = 0, walk: FloorWalk = null) -> void:
+		room_index: int = 0, walk: FloorWalk = null, heal: bool = true) -> void:
 	var revive := should_revive(run, party, room_index, walk)
 	if revive:
 		run.revive_used = true
@@ -194,7 +198,8 @@ static func carry_into(run: FloorRun, state: CombatState, party: Array[PawnData]
 			continue
 		unit.hp = clampi(run.hp_for(pawn_id, unit.hp_max), 0, unit.hp_max)
 		unit.resource = clampi(run.resource_for(pawn_id, unit.resource_max), 0, unit.resource_max)
-		_apply_arrival_heal(state, unit)
+		if heal:
+			_apply_arrival_heal(state, unit)
 	_announce_pickups(state, run, party)
 
 ## Issue 811: the drop the last room paid out, said out loud in the room it is
