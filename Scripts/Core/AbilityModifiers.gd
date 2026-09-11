@@ -28,11 +28,16 @@ static func extra_targets(unit: CombatUnit, action: ActionDef) -> int:
 			n += m.target_count_bonus
 	return n
 
+## Issue 916: a rolled "% increased damage" affix multiplies here rather than
+## through an `AbilityModifier`, so the equip screen names it once.
 static func power_multiplier(unit: CombatUnit, action: ActionDef) -> float:
 	var f := 1.0
 	for m in of(unit):
 		if m.matches(action):
 			f *= m.power_multiplier
+	if unit != null and unit.pawn != null:
+		for item in unit.pawn.equipment():
+			f *= item.affix_power_multiplier()
 	return f
 
 ## Statuses an item adds to a landed hit that the action itself never applies.

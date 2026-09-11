@@ -377,11 +377,30 @@ static func item_effect_text(item: EquipmentDef) -> String:
 	for m in item.modifiers:
 		if m != null:
 			parts.append_array(_modifier_parts(m))
+	for r in item.affixes:
+		if r != null and r.affix != null:
+			parts.append(_affix_part(r))
 	for action_id in item.granted_actions:
 		parts.append("grants %s" % _action_display_name(action_id))
 	if parts.is_empty():
 		return "No effect."
 	return ", ".join(parts) + "."
+
+## Issue 916: what one rolled affix did, off its own fields. Named rather than
+## folded into the numbers above, so a player can see which part of a piece was
+## rolled and which part is the base item.
+static func _affix_part(r: AffixRoll) -> String:
+	return "%s (%s)" % [r.affix.display_name, affix_value_text(r)]
+
+static func affix_value_text(r: AffixRoll) -> String:
+	match r.affix.effect:
+		AffixDef.Effect.MAX_HP_FLAT:
+			return "%+d max health" % int(round(r.value))
+		AffixDef.Effect.DAMAGE_REDUCTION:
+			return "absorbs %d%% of every hit" % int(round(r.value * 100.0))
+		AffixDef.Effect.DAMAGE_PERCENT:
+			return "%+d%% damage" % int(round(r.value * 100.0))
+	return "%s %+d" % [CG.attribute_name(r.affix.attribute), int(round(r.value))]
 
 ## Issue 847: what an `AbilityModifier` does, off its own fields, so a modifier
 ## authored next week is described here without anybody writing a sentence for

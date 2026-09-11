@@ -126,13 +126,13 @@ func effective_attribute(a: CG.Attribute) -> float:
 	var flat := 0.0
 	var percent := 0.0
 	for e in equipment():
-		flat += float(e.attribute_flat.get(a, 0))
+		flat += e.total_attribute_flat(a)
 		percent += float(e.attribute_percent.get(a, 0.0))
 	return (value + flat) * (1.0 + percent)
 
 func max_hp() -> int:
 	var str_bonus := effective_attribute(CG.Attribute.STR)
-	return int(round(BASE_HP + effective_attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS))
+	return int(round(BASE_HP + effective_attribute(CG.Attribute.CON) * HP_PER_CON + str_bonus * HP_PER_STR_BONUS + gear_max_hp_flat()))
 
 func max_resource() -> int:
 	var int_bonus := effective_attribute(CG.Attribute.INT)
@@ -160,6 +160,13 @@ func attack_power(d: CG.DamageType, rng: RandomNumberGenerator = null) -> float:
 		return base
 	return base * rng.randf_range(1.0 - ATTACK_VARIANCE_SPREAD, 1.0 + ATTACK_VARIANCE_SPREAD)
 
+## Issue 916: flat maximum health rolled onto gear, summed across every piece.
+func gear_max_hp_flat() -> float:
+	var out := 0.0
+	for e in equipment():
+		out += e.affix_max_hp_flat()
+	return out
+
 ## Issue 746: the best `damage_reduction` across every equipped item, not just
 ## `body`. A shield in `off_hand` carries the same field body armor always has,
 ## so a single-slot read stops seeing it. Best rather than summed: two items
@@ -167,7 +174,7 @@ func attack_power(d: CG.DamageType, rng: RandomNumberGenerator = null) -> float:
 func gear_damage_reduction() -> float:
 	var best := 0.0
 	for e in equipment():
-		best = maxf(best, e.damage_reduction)
+		best = maxf(best, e.total_damage_reduction())
 	return best
 
 ## Fraction of incoming damage this pawn's own toughness removes, before gear

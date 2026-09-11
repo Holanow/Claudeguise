@@ -38,6 +38,10 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 ## Additive across equipment; 0.0 does nothing, which is every item but the focus.
 @export var resource_regen_percent_bonus: float = 0.0
 
+## Issue 916: what this piece rolled when it was generated. Empty on every
+## hand-authored item, which is all fourteen that ship.
+@export var affixes: Array[AffixRoll] = []
+
 ## ActionDef ids this piece grants its wielder.
 @export var granted_actions: Array[StringName] = []
 
@@ -47,6 +51,51 @@ enum Slot { MAIN_HAND, OFF_HAND, HEAD, BODY, ACCESSORY }
 ## at MARTIAL and TANK. Issue 131; replaces `allowed_methods`, which could only
 ## express one axis.
 @export var required_tags: Array[int] = []
+
+## Issue 916: rarity is the affix count, not a second stored field -- README's
+## own sentence makes them one number.
+enum Rarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY }
+
+func rarity() -> Rarity:
+	return clampi(affixes.size(), 0, int(Rarity.LEGENDARY)) as Rarity
+
+static func rarity_name(r: Rarity) -> String:
+	match r:
+		Rarity.UNCOMMON: return "Uncommon"
+		Rarity.RARE: return "Rare"
+		Rarity.EPIC: return "Epic"
+		Rarity.LEGENDARY: return "Legendary"
+	return "Common"
+
+## This piece's own `attribute_flat` plus every affix that rolled onto it. One
+## place, so the simulation and the equip screen cannot disagree.
+func total_attribute_flat(a: int) -> float:
+	return float(attribute_flat.get(a, 0)) + _affix_total(AffixDef.Effect.ATTRIBUTE_FLAT, a)
+
+## Summed within one piece, because base and affix are the same piece of gear;
+## `PawnData.gear_damage_reduction` still takes the best ACROSS pieces.
+func total_damage_reduction() -> float:
+	return damage_reduction + _affix_total(AffixDef.Effect.DAMAGE_REDUCTION, -1)
+
+## Flat maximum health. Only an affix can carry this -- authored gear is a
+## capability layer and `test_content_items` forbids it raw numbers.
+func affix_max_hp_flat() -> float:
+	return _affix_total(AffixDef.Effect.MAX_HP_FLAT, -1)
+
+## Multiplies its wearer's attack power for every action, read by
+## `AbilityModifiers.power_multiplier`.
+func affix_power_multiplier() -> float:
+	return 1.0 + _affix_total(AffixDef.Effect.DAMAGE_PERCENT, -1)
+
+func _affix_total(effect: AffixDef.Effect, a: int) -> float:
+	var out := 0.0
+	for r in affixes:
+		if r == null or r.affix == null or r.affix.effect != effect:
+			continue
+		if effect == AffixDef.Effect.ATTRIBUTE_FLAT and int(r.affix.attribute) != a:
+			continue
+		out += r.value
+	return out
 
 ## Here rather than in the equip screen or the registry, so every caller answers
 ## the question the same way.
